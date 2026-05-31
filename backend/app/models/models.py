@@ -56,9 +56,7 @@ class Branch(Base):
     name       = Column(String(200), nullable=False)
     address    = Column(Text)
     city       = Column(String(100))
-    state      = Column(String(100))
     phone      = Column(String(20))
-    email      = Column(String(150), nullable=True)
     is_active  = Column(Boolean, default=True)
     created_at = Column(DateTime, server_default=func.now())
 
