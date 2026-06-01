@@ -8,7 +8,8 @@ from app.schemas.schemas import StaffLoginRequest, TokenResponse, ChangePassword
 from app.core.security import (
     verify_password, hash_password,
     create_access_token, create_refresh_token,
-    get_current_staff, get_current_patient_user
+    get_current_staff, get_current_patient_user,
+    get_current_platform_admin
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -149,6 +150,11 @@ def patient_register(payload: PatientRegisterRequest, db: Session = Depends(get_
         user_id=user.id,
         full_name=user.full_name,
     )
+
+
+@router.get("/platform/me")
+def platform_admin_me(admin=Depends(get_current_platform_admin)):
+    return {"id": admin.id, "full_name": admin.full_name, "email": admin.email, "user_type": "platform_admin"}
 
 
 @router.post("/staff/change-password")

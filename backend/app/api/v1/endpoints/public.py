@@ -358,13 +358,17 @@ def get_active_cities(db: Session = Depends(get_db)):
 @router.get("/stats")
 def platform_stats(db: Session = Depends(get_db)):
     """Public stats for homepage."""
-    clinics = db.query(func.count(Clinic.id)).filter(Clinic.is_active == True).scalar()
-    doctors = db.query(func.count(DoctorProfile.id)).scalar()
+    clinics  = db.query(func.count(Clinic.id)).filter(Clinic.is_active == True, Clinic.is_verified == True).scalar()
+    doctors  = db.query(func.count(DoctorProfile.id)).scalar()
     bookings = db.query(func.count(OnlineBooking.id)).scalar()
+    cities   = db.query(func.count(func.distinct(Clinic.city))).filter(
+        Clinic.is_active == True, Clinic.is_verified == True, Clinic.city != None
+    ).scalar()
     return {
-        "total_clinics": clinics,
-        "total_doctors": doctors,
-        "total_bookings": bookings,
+        "clinics":  clinics  or 0,
+        "doctors":  doctors  or 0,
+        "bookings": bookings or 0,
+        "cities":   cities   or 0,
     }
 
 

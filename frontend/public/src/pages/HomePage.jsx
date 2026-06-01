@@ -75,7 +75,7 @@ function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
           <div>
             <div className="mb-4">
-              <BrandLogo size="md" />
+              <BrandLogo size="md" light />
             </div>
             <p className="text-xs text-blue-300 mt-2 mb-1 font-medium tracking-wider uppercase">India's Digital Health Network</p>
             <p className="text-sm leading-relaxed text-blue-200 mt-3">
@@ -158,13 +158,11 @@ export default function HomePage() {
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [city, setCity] = useState('')
-  const [stats, setStats] = useState({ clinics: '500+', doctors: '2,000+', bookings: '50,000+', cities: '100+' })
+  const [stats, setStats] = useState(null)
   const [cities, setCities] = useState([])
 
   useEffect(() => {
-    publicApi.getStats().then(setStats).catch(() => {
-      setStats({ clinics: '500+', doctors: '2,000+', bookings: '50,000+', cities: '100+' })
-    })
+    publicApi.getStats().then(setStats).catch(() => setStats(null))
     publicApi.getCities().then(data => {
       setCities(Array.isArray(data) ? data : data.cities || [])
     }).catch(() => {
@@ -207,7 +205,7 @@ export default function HomePage() {
           <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium mb-8"
             style={{ background: 'rgba(245,130,30,0.2)', color: '#F5821E', border: '1px solid rgba(245,130,30,0.3)' }}>
             <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-            Trusted by 500+ clinics across India
+            Trusted by {stats ? `${stats.clinics.toLocaleString('en-IN')}+` : '—'} clinics across India
           </div>
 
           <h1 className="text-4xl md:text-6xl font-extrabold leading-tight mb-6" style={{ letterSpacing: '-0.02em' }}>
@@ -277,17 +275,23 @@ export default function HomePage() {
         <div className="max-w-5xl mx-auto px-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
             {[
-              { label: 'Registered Clinics', value: stats.clinics, icon: Building2, color: '#CC1414' },
-              { label: 'Verified Doctors', value: stats.doctors, icon: Users, color: '#0F2557' },
-              { label: 'Appointments Booked', value: stats.bookings, icon: Calendar, color: '#F5821E' },
-              { label: 'Cities Covered', value: stats.cities || '100+', icon: MapPin, color: '#138808' },
+              { label: 'Registered Clinics', value: stats ? stats.clinics : null, icon: Building2, color: '#CC1414' },
+              { label: 'Verified Doctors', value: stats ? stats.doctors : null, icon: Users, color: '#0F2557' },
+              { label: 'Appointments Booked', value: stats ? stats.bookings : null, icon: Calendar, color: '#F5821E' },
+              { label: 'Cities Covered', value: stats ? stats.cities : null, icon: MapPin, color: '#138808' },
             ].map(({ label, value, icon: Icon, color }) => (
               <div key={label} className="flex flex-col items-center gap-2">
                 <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-1"
                   style={{ background: color + '15' }}>
                   <Icon className="w-6 h-6" style={{ color }} />
                 </div>
-                <div className="text-3xl font-extrabold" style={{ color }}>{value}</div>
+                <div className="text-3xl font-extrabold" style={{ color }}>
+                  {value === null
+                    ? <span className="text-gray-300 text-xl">—</span>
+                    : value === 0
+                      ? '0'
+                      : value.toLocaleString('en-IN')}
+                </div>
                 <div className="text-gray-500 text-sm font-medium">{label}</div>
               </div>
             ))}

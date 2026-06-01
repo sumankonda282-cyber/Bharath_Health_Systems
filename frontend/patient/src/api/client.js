@@ -11,7 +11,7 @@ api.interceptors.request.use((config) => {
 })
 
 api.interceptors.response.use(
-  (res) => res,
+  (res) => res.data,
   (err) => {
     if (err.response?.status === 401) { localStorage.clear(); window.location.href = '/login' }
     const message =
