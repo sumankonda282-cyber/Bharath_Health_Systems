@@ -19,6 +19,12 @@ export default {
           800: '#1e40af',
           900: '#1e3a8a',
         },
+        brand: {
+          red: '#CC1414',
+          navy: '#0F2557',
+          saffron: '#F5821E',
+          gold: '#D4AF37',
+        },
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],

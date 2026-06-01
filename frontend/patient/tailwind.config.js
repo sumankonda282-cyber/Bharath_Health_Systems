@@ -4,7 +4,12 @@ export default {
   theme: {
     extend: {
       colors: {
-        brand: { DEFAULT: '#0d9488', dark: '#0f766e', light: '#14b8a6' },
+        brand: {
+          red: '#CC1414',
+          navy: '#0F2557',
+          saffron: '#F5821E',
+          gold: '#D4AF37',
+        },
       },
       fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
     },

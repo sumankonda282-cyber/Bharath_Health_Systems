@@ -17,9 +17,10 @@ export default {
           900: '#1e3a8a',
         },
         brand: {
-          DEFAULT: '#1a56db',
-          dark:    '#1341b0',
-          light:   '#3b7af5',
+          red: '#CC1414',
+          navy: '#0F2557',
+          saffron: '#F5821E',
+          gold: '#D4AF37',
         },
       },
       fontFamily: {
