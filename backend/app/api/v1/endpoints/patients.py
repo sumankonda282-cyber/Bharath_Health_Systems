@@ -2,7 +2,7 @@ from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import Optional
-from datetime import date
+from datetime import date, datetime
 
 from app.db.session import get_db
 from app.core.security import get_current_staff, verify_password
@@ -162,10 +162,20 @@ def bhid_lookup(
 
     portal_user = patient.portal_user
     if not portal_user or not portal_user.disclosure_pin:
-        raise HTTPException(status_code=400, detail="No disclosure PIN set for this patient")
+        raise HTTPException(status_code=400, detail="Patient has not generated a disclosure PIN")
+
+    # Check expiry
+    if not portal_user.disclosure_pin_expiry or portal_user.disclosure_pin_expiry < datetime.utcnow():
+        raise HTTPException(status_code=401, detail="PIN has expired. Ask the patient to generate a new one.")
 
     if not verify_password(payload.pin, portal_user.disclosure_pin):
         raise HTTPException(status_code=401, detail="Invalid PIN")
+
+    # Burn PIN after successful use — one-time only
+    portal_user.disclosure_pin        = None
+    portal_user.disclosure_pin_plain  = None
+    portal_user.disclosure_pin_expiry = None
+    db.commit()
 
     patient_out = {
         "id":            patient.id,

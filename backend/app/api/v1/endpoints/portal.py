@@ -204,35 +204,49 @@ def update_profile(
     return {"message": "Profile updated successfully"}
 
 import random
+from datetime import timedelta
 from app.core.security import hash_password, verify_password
+
+PIN_TTL_MINUTES = 60
 
 def _generate_pin():
     return str(random.randint(100000, 999999))
 
+def _fresh_expiry():
+    from datetime import datetime
+    return datetime.utcnow() + timedelta(minutes=PIN_TTL_MINUTES)
+
 @router.get("/pin")
 def get_pin(current: PatientUser = Depends(get_current_patient), db: Session = Depends(get_db)):
-    if not current.disclosure_pin:
+    """
+    Returns the current active PIN and its expiry time.
+    If no PIN exists or it has expired, auto-generates a new one.
+    """
+    from datetime import datetime
+    now = datetime.utcnow()
+    if not current.disclosure_pin or not current.disclosure_pin_expiry or current.disclosure_pin_expiry < now:
         raw = _generate_pin()
-        current.disclosure_pin = hash_password(raw)
+        current.disclosure_pin       = hash_password(raw)
         current.disclosure_pin_plain = raw
+        current.disclosure_pin_expiry = _fresh_expiry()
         db.commit()
-    return {"pin": current.disclosure_pin_plain or "------", "has_pin": bool(current.disclosure_pin)}
+    expires_in = max(0, int((current.disclosure_pin_expiry - now).total_seconds())) if current.disclosure_pin_expiry else 0
+    return {
+        "pin":        current.disclosure_pin_plain,
+        "expires_at": current.disclosure_pin_expiry.isoformat() if current.disclosure_pin_expiry else None,
+        "expires_in_seconds": expires_in,
+    }
 
 @router.post("/pin/generate")
 def generate_new_pin(current: PatientUser = Depends(get_current_patient), db: Session = Depends(get_db)):
+    """Generate a fresh one-time PIN valid for 60 minutes."""
     raw = _generate_pin()
-    current.disclosure_pin = hash_password(raw)
-    current.disclosure_pin_plain = raw
+    current.disclosure_pin        = hash_password(raw)
+    current.disclosure_pin_plain  = raw
+    current.disclosure_pin_expiry = _fresh_expiry()
     db.commit()
-    return {"pin": raw}
-
-@router.post("/pin/set")
-def set_custom_pin(body: dict, current: PatientUser = Depends(get_current_patient), db: Session = Depends(get_db)):
-    from fastapi import HTTPException
-    pin = str(body.get("pin", "")).strip()
-    if not pin.isdigit() or len(pin) != 6:
-        raise HTTPException(status_code=400, detail="PIN must be exactly 6 digits")
-    current.disclosure_pin = hash_password(pin)
-    current.disclosure_pin_plain = pin
-    db.commit()
-    return {"message": "PIN updated successfully"}
+    return {
+        "pin":        raw,
+        "expires_at": current.disclosure_pin_expiry.isoformat(),
+        "expires_in_seconds": PIN_TTL_MINUTES * 60,
+    }
