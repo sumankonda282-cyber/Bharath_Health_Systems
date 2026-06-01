@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { clinicApi } from '../../api'
 import { PageLoader } from '../../components/ui/Spinner'
 import Modal from '../../components/ui/Modal'
-import { Settings, Users, UserPlus, Building2, Calendar, Plus, Edit2, ToggleLeft, ToggleRight, Clock, CheckCircle } from 'lucide-react'
+import { Settings, Users, UserPlus, Building2, Calendar, Plus, Edit2, ToggleLeft, ToggleRight, Clock, CheckCircle, Video } from 'lucide-react'
 
 const ROLES = ['doctor', 'receptionist', 'pharmacist', 'lab_technician', 'clinic_admin']
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
@@ -18,6 +18,38 @@ const DEFAULT_DAY = { enabled: false, start_time: '09:00', end_time: '17:00', sl
 
 function initWeek() {
   return Object.fromEntries(DAYS.map(d => [d, { ...DEFAULT_DAY }]))
+}
+
+function TelehealthFeeInput({ doc, saving, onSave }) {
+  const [editing, setEditing] = useState(false)
+  const [val, setVal] = useState(doc.telehealth_fee ?? '')
+
+  if (!editing) {
+    return (
+      <button
+        onClick={() => { setVal(doc.telehealth_fee ?? ''); setEditing(true) }}
+        className="text-sm px-3 py-1.5 rounded-lg border border-gray-200 bg-white hover:border-gray-400 text-gray-700 min-w-[80px] text-left"
+        disabled={!doc.profile_id}
+      >
+        {doc.telehealth_fee ? `₹${doc.telehealth_fee}` : <span className="text-gray-400">Same as consult</span>}
+      </button>
+    )
+  }
+  return (
+    <div className="flex items-center gap-1">
+      <input
+        autoFocus
+        type="number"
+        className="input py-1.5 text-sm w-24"
+        placeholder="e.g. 500"
+        value={val}
+        onChange={e => setVal(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter') { onSave(doc, val); setEditing(false) } if (e.key === 'Escape') setEditing(false) }}
+      />
+      <button onClick={() => { onSave(doc, val); setEditing(false) }} className="btn-primary py-1.5 text-xs px-2">{saving ? '…' : 'OK'}</button>
+      <button onClick={() => setEditing(false)} className="btn-secondary py-1.5 text-xs px-2">✕</button>
+    </div>
+  )
 }
 
 export default function ClinicAdmin() {
@@ -40,6 +72,9 @@ export default function ClinicAdmin() {
   const [weekSchedule, setWeekSchedule] = useState(initWeek())
   const [scheduleBranchId, setScheduleBranchId] = useState('')
   const [scheduleLoading, setScheduleLoading] = useState(false)
+
+  // Telehealth doctor state
+  const [telehealthSaving, setTelehealthSaving] = useState({})
 
   // Profile edit
   const [editProfile, setEditProfile] = useState(false)
@@ -158,6 +193,24 @@ export default function ClinicAdmin() {
     setWeekSchedule(prev => ({ ...prev, [day]: { ...prev[day], [field]: value } }))
   }
 
+  const handleTelehealthToggle = async (doc) => {
+    if (!doc.profile_id) return
+    setTelehealthSaving(s => ({ ...s, [doc.id]: true }))
+    try {
+      await clinicApi.updateTelehealth(doc.profile_id, { telehealth_enabled: !doc.telehealth_enabled })
+      load()
+    } finally { setTelehealthSaving(s => ({ ...s, [doc.id]: false })) }
+  }
+
+  const handleTelehealthFee = async (doc, fee) => {
+    if (!doc.profile_id) return
+    setTelehealthSaving(s => ({ ...s, [`fee_${doc.id}`]: true }))
+    try {
+      await clinicApi.updateTelehealth(doc.profile_id, { telehealth_fee: fee ? Number(fee) : null })
+      load()
+    } finally { setTelehealthSaving(s => ({ ...s, [`fee_${doc.id}`]: false })) }
+  }
+
   const handleSaveProfile = async () => {
     setSaving(true)
     try {
@@ -204,9 +257,10 @@ export default function ClinicAdmin() {
       {/* Tabs */}
       <div className="flex gap-1 bg-gray-100 p-1 rounded-lg mb-5 w-fit">
         {[
-          { key: 'staff',    label: 'Staff',         icon: Users },
-          { key: 'schedule', label: 'Schedules',     icon: Calendar },
-          { key: 'profile',  label: 'Clinic Profile', icon: Building2 },
+          { key: 'staff',      label: 'Staff',         icon: Users },
+          { key: 'schedule',   label: 'Schedules',     icon: Calendar },
+          { key: 'telehealth', label: 'Telehealth',    icon: Video },
+          { key: 'profile',    label: 'Clinic Profile', icon: Building2 },
         ].map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
             className={`flex items-center gap-1.5 px-4 py-1.5 rounded-md text-sm font-medium transition-all ${tab === t.key ? 'bg-white shadow text-gray-900' : 'text-gray-500'}`}>
@@ -276,6 +330,56 @@ export default function ClinicAdmin() {
                   className="btn-secondary text-sm disabled:opacity-40"
                 >
                   <Clock size={14} />Set Weekly Schedule
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Telehealth Tab */}
+      {tab === 'telehealth' && (
+        <div className="space-y-4">
+          <div className="card p-4 mb-2 flex items-start gap-3" style={{ background: '#0F255708', border: '1px solid #0F255720' }}>
+            <Video size={18} style={{ color: '#0F2557', flexShrink: 0, marginTop: 2 }} />
+            <div className="text-sm text-gray-600">
+              Enable telehealth for doctors to allow patients to book virtual consultations. Set a telehealth fee (defaults to consultation fee if blank).
+            </div>
+          </div>
+          {doctors.length === 0 ? (
+            <div className="card p-8 text-center text-gray-400">
+              <Video size={32} className="mx-auto mb-2 opacity-30" />
+              <p>No doctors found. Add doctors from the Staff tab first.</p>
+            </div>
+          ) : doctors.map(doc => (
+            <div key={doc.id} className="card p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+              <div className="flex-1">
+                <div className="font-semibold">{doc.full_name}</div>
+                <div className="text-sm text-gray-400">{doc.specialty || 'General'}</div>
+                {!doc.profile_id && <div className="text-xs text-orange-500 mt-0.5">No doctor profile — cannot enable telehealth</div>}
+              </div>
+              <div className="flex items-center gap-4 flex-wrap">
+                {/* Fee input */}
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-gray-500 font-medium whitespace-nowrap">Telehealth Fee (₹)</label>
+                  <TelehealthFeeInput
+                    doc={doc}
+                    saving={telehealthSaving[`fee_${doc.id}`]}
+                    onSave={handleTelehealthFee}
+                  />
+                </div>
+                {/* Toggle */}
+                <button
+                  onClick={() => handleTelehealthToggle(doc)}
+                  disabled={!doc.profile_id || telehealthSaving[doc.id]}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-all disabled:opacity-40"
+                  style={doc.telehealth_enabled
+                    ? { borderColor: '#0F2557', background: '#0F2557', color: 'white' }
+                    : { borderColor: '#D1D5DB', color: '#6B7280' }
+                  }
+                >
+                  {doc.telehealth_enabled ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
+                  {telehealthSaving[doc.id] ? 'Saving…' : (doc.telehealth_enabled ? 'Enabled' : 'Disabled')}
                 </button>
               </div>
             </div>

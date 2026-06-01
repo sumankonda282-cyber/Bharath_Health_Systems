@@ -241,14 +241,37 @@ def list_doctors(db: Session = Depends(get_db), current=Depends(get_current_staf
         Staff.is_active == True,
     ).all()
     return [{
-        "id":           d.id,
-        "full_name":    d.full_name,
-        "email":        d.email,
-        "mobile":       d.mobile,
-        "specialty":    d.doctor_profile.specialty if d.doctor_profile else None,
-        "profile_id":   d.doctor_profile.id if d.doctor_profile else None,
-        "consultation_fee": float(d.doctor_profile.consultation_fee) if d.doctor_profile and d.doctor_profile.consultation_fee else 0,
+        "id":                 d.id,
+        "full_name":          d.full_name,
+        "email":              d.email,
+        "mobile":             d.mobile,
+        "specialty":          d.doctor_profile.specialty if d.doctor_profile else None,
+        "profile_id":         d.doctor_profile.id if d.doctor_profile else None,
+        "consultation_fee":   float(d.doctor_profile.consultation_fee) if d.doctor_profile and d.doctor_profile.consultation_fee else 0,
+        "telehealth_enabled": d.doctor_profile.telehealth_enabled if d.doctor_profile else False,
+        "telehealth_fee":     float(d.doctor_profile.telehealth_fee) if d.doctor_profile and d.doctor_profile.telehealth_fee else None,
     } for d in doctors]
+
+
+@router.put("/doctors/{doctor_profile_id}/telehealth")
+def update_doctor_telehealth(
+    doctor_profile_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current=Depends(require_clinic_admin),
+):
+    profile = db.query(DoctorProfile).filter(
+        DoctorProfile.id == doctor_profile_id,
+        DoctorProfile.clinic_id == current.clinic_id,
+    ).first()
+    if not profile:
+        raise HTTPException(404, "Doctor profile not found")
+    if "telehealth_enabled" in body:
+        profile.telehealth_enabled = bool(body["telehealth_enabled"])
+    if "telehealth_fee" in body:
+        profile.telehealth_fee = body["telehealth_fee"] if body["telehealth_fee"] else None
+    db.commit()
+    return {"message": "Telehealth settings updated"}
 
 
 @router.post("/staff/{staff_id}/doctor-profile", response_model=DoctorProfileOut)
