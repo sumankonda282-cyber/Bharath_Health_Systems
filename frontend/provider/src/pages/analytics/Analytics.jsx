@@ -14,8 +14,8 @@ export default function Analytics() {
     setLoading(true)
     setError('')
     clinicApi.getRevenue(month)
-      .then(r => setData(r.data))
-      .catch(err => setError(err.response?.data?.detail || 'Failed to load'))
+      .then(r => setData(r))
+      .catch(err => setError(err.message || 'Failed to load'))
       .finally(() => setLoading(false))
   }
 

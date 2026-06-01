@@ -22,8 +22,8 @@ export default function Pharmacy() {
       pharmacyApi.getMedicines({ search, limit: 100 }),
       pharmacyApi.getPending(),
     ]).then(([m, p]) => {
-      setMedicines(m.data || [])
-      setPending(p.data || [])
+      setMedicines(Array.isArray(m) ? m : [])
+      setPending(Array.isArray(p) ? p : [])
     }).finally(() => setLoading(false))
   }
 

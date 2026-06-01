@@ -261,12 +261,14 @@ class AppointmentOut(BaseModel):
     doctor_id: int
     appointment_date: date
     appointment_time: str
-    token_number: Optional[int]
+    token_number: Optional[int] = None
     status: str
     mode: str
-    reason: Optional[str]
-    notes: Optional[str]
+    reason: Optional[str] = None
+    notes: Optional[str] = None
     created_at: datetime
+    patient_name: Optional[str] = None
+    doctor_name: Optional[str] = None
 
     class Config:
         from_attributes = True

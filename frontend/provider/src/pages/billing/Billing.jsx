@@ -25,7 +25,7 @@ export default function Billing() {
   const load = () => {
     setLoading(true)
     billingApi.getInvoices({ status: filter, limit: 50 })
-      .then(r => setInvoices(r.data || []))
+      .then(r => setInvoices(Array.isArray(r) ? r : []))
       .finally(() => setLoading(false))
   }
 
@@ -33,7 +33,7 @@ export default function Billing() {
 
   useEffect(() => {
     if (ptSearch.length < 2) return
-    const t = setTimeout(() => patientsApi.list({ search: ptSearch, limit: 10 }).then(r => setPatients(r.data || [])), 300)
+    const t = setTimeout(() => patientsApi.list({ search: ptSearch, limit: 10 }).then(r => setPatients(Array.isArray(r) ? r : [])), 300)
     return () => clearTimeout(t)
   }, [ptSearch])
 

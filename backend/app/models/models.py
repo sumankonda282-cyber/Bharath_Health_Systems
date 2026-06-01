@@ -186,6 +186,7 @@ class Appointment(Base):
     staff_id          = Column(Integer, ForeignKey("staff.id"), nullable=True)
     appointment_date  = Column(Date, nullable=False)
     appointment_time  = Column(String(8), nullable=False)  # "HH:MM"
+    token_number      = Column(Integer, nullable=True)
     status            = Column(String(50), default="pending")
     mode              = Column(String(50), default="offline")
     reason            = Column(Text, nullable=True)

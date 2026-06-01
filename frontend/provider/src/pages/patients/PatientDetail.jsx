@@ -22,9 +22,9 @@ export default function PatientDetail() {
       patientsApi.get(id),
       appointmentsApi.list({ patient_id: id, limit: 20 }),
     ]).then(([p, a]) => {
-      setPatient(p.data)
-      setForm(p.data)
-      setAppointments(a.data || [])
+      setPatient(p)
+      setForm(p)
+      setAppointments(Array.isArray(a) ? a : [])
     }).finally(() => setLoading(false))
   }, [id])
 
@@ -32,7 +32,7 @@ export default function PatientDetail() {
     setSaving(true)
     try {
       const res = await patientsApi.update(id, form)
-      setPatient(res.data)
+      setPatient(res)
       setEditing(false)
     } finally {
       setSaving(false)

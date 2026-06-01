@@ -41,11 +41,11 @@ export default function ClinicAdmin() {
       clinicApi.getProfile(),
       clinicApi.getSubscription(),
     ]).then(([s, b, p, sub]) => {
-      setStaff(s.data || [])
-      setBranches(b.data || [])
-      setProfile(p.data)
-      setProfileForm(p.data)
-      setSubscription(sub.data)
+      setStaff(Array.isArray(s) ? s : [])
+      setBranches(Array.isArray(b) ? b : [])
+      setProfile(p)
+      setProfileForm(p)
+      setSubscription(sub)
     }).finally(() => setLoading(false))
   }
 

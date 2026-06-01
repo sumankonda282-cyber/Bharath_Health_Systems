@@ -19,7 +19,7 @@ export default function DoctorDesk() {
   useEffect(() => {
     setLoading(true)
     doctorApi.getQueue({ date })
-      .then(r => setQueue(r.data || []))
+      .then(r => setQueue(Array.isArray(r) ? r : []))
       .finally(() => setLoading(false))
   }, [date])
 
