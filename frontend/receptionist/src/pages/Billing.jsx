@@ -29,7 +29,7 @@ export default function Billing() {
   return (
     <div>
       <div className="page-header"><h1 className="page-title">Billing</h1></div>
-      <div className="grid grid-cols-2 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
         <div className="card p-4"><div className="text-xs text-gray-500 mb-1">Pending Payments</div><div className="text-2xl font-bold" style={{ color: '#CC1414' }}>{unpaid.length}</div></div>
         <div className="card p-4"><div className="text-xs text-gray-500 mb-1">Collected Today</div><div className="text-2xl font-bold" style={{ color: '#16A34A' }}>{paid.length}</div></div>
       </div>

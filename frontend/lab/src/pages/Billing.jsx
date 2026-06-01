@@ -139,7 +139,7 @@ export default function Billing() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <div className="card p-5 flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: '#0F255718' }}>
             <CreditCard size={22} style={{ color: '#0F2557' }} />

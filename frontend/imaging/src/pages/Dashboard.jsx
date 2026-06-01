@@ -12,7 +12,7 @@ export default function Dashboard() {
   return (
     <div>
       <div className="page-header"><h1 className="page-title">Imaging Dashboard</h1></div>
-      <div className="grid grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         <div className="card p-5 flex items-center gap-4"><div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{background:'#F5821E18'}}><Clock size={22} style={{color:'#F5821E'}}/></div><div><div className="text-2xl font-bold" style={{color:'#0F2557'}}>{pending.length}</div><div className="text-xs text-gray-500">Pending</div></div></div>
         <div className="card p-5 flex items-center gap-4"><div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{background:'#0F255718'}}><ScanLine size={22} style={{color:'#0F2557'}}/></div><div><div className="text-2xl font-bold" style={{color:'#0F2557'}}>{inProcess.length}</div><div className="text-xs text-gray-500">In Progress</div></div></div>
         <div className="card p-5 flex items-center gap-4"><div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{background:'#16A34A18'}}><CheckCircle size={22} style={{color:'#16A34A'}}/></div><div><div className="text-2xl font-bold" style={{color:'#0F2557'}}>{completed.length}</div><div className="text-xs text-gray-500">Completed</div></div></div>

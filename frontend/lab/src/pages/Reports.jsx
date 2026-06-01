@@ -88,7 +88,7 @@ function DailyWorkload({ allOrders }) {
         <span className="text-sm text-gray-500">{dayOrders.length} order{dayOrders.length !== 1 ? 's' : ''} on this date</span>
       </div>
 
-      <div className="grid grid-cols-5 gap-3 mb-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
         {[
           { label: 'Total Orders', value: stats.total, color: '#0F2557' },
           { label: 'Samples Collected', value: stats.collected, color: '#2563EB' },
@@ -168,7 +168,7 @@ function TATReport({ completedOrders }) {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-3 gap-4 mb-5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
             {[
               { label: 'Average TAT', value: formatMinutes(avg), color: '#0F2557' },
               { label: 'Fastest', value: formatMinutes(min), color: '#16A34A' },

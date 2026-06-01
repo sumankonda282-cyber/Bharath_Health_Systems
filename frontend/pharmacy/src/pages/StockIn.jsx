@@ -107,7 +107,7 @@ export default function StockIn() {
         <h1 className="page-title">Receive / Adjust Stock</h1>
       </div>
 
-      <div className="grid grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
         {/* Form */}
         <div className="col-span-3">
           <div className="card p-6">
@@ -151,7 +151,7 @@ export default function StockIn() {
               {/* Transaction type */}
               <div>
                 <label className="label">Transaction Type *</label>
-                <div className="grid grid-cols-3 gap-2 mt-1">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-1">
                   {TYPES.map(t => (
                     <label
                       key={t.value}

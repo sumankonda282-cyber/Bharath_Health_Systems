@@ -31,7 +31,7 @@ export default function Queue() {
       </div>
       {loading ? <div className="flex justify-center py-20"><Loader2 size={28} className="animate-spin text-gray-400" /></div> : (
         <>
-          <div className="grid grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
             <div className="card p-4 text-center border-l-4" style={{ borderColor: '#F5821E' }}><div className="text-3xl font-bold" style={{ color: '#F5821E' }}>{appts.filter(a => a.status === 'waiting').length}</div><div className="text-xs text-gray-500 mt-1">Waiting</div></div>
             <div className="card p-4 text-center border-l-4" style={{ borderColor: '#7C3AED' }}><div className="text-3xl font-bold" style={{ color: '#7C3AED' }}>{appts.filter(a => a.status === 'in_progress').length}</div><div className="text-xs text-gray-500 mt-1">In Consultation</div></div>
             <div className="card p-4 text-center border-l-4" style={{ borderColor: '#16A34A' }}><div className="text-3xl font-bold" style={{ color: '#16A34A' }}>{appts.filter(a => a.status === 'completed').length}</div><div className="text-xs text-gray-500 mt-1">Completed</div></div>

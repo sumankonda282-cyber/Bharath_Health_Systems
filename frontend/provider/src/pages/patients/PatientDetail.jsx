@@ -69,7 +69,7 @@ export default function PatientDetail() {
       </div>
 
       {/* Summary Bar */}
-      <div className="grid grid-cols-4 gap-3 mb-5">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
         {[
           { label: 'Age',          value: age },
           { label: 'Gender',       value: patient.gender || '—' },

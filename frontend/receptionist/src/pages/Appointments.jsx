@@ -43,9 +43,9 @@ export default function Appointments() {
 
   return (
     <div>
-      <div className="page-header">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
         <h1 className="page-title">Appointments</h1>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           <input type="date" value={date} onChange={e => setDate(e.target.value)} className="input w-auto" />
           <button onClick={load} className="btn-secondary"><RefreshCw size={15} /></button>
           <button onClick={() => setShowNew(true)} className="btn-primary"><Plus size={16} />Book Appointment</button>

@@ -79,7 +79,7 @@ function DailyDispensing() {
           <input type="date" className="input" value={date} onChange={e => setDate(e.target.value)} />
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-3 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
         <div className="bg-blue-50 rounded-xl p-4 text-center">
           <div className="text-2xl font-bold" style={{ color: '#0F2557' }}>{dayRx.length}</div>
           <div className="text-xs text-gray-500 mt-1">Rx Dispensed</div>
@@ -203,7 +203,7 @@ function InventorySummary() {
 
   return (
     <div>
-      <div className="grid grid-cols-3 gap-3 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
         <div className="bg-blue-50 rounded-xl p-4 text-center">
           <div className="text-2xl font-bold" style={{ color: '#0F2557' }}>{medicines.length}</div>
           <div className="text-xs text-gray-500 mt-1">Total Medicines</div>
