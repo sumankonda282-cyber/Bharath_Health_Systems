@@ -171,7 +171,8 @@ def create_staff(
         mobile          = mobile,
         hashed_password = hash_password(body.get("password", "BharatCliniq@123")),
         role            = body.get("role", "receptionist"),
-        is_active       = True,
+        # Pharmacy/lab/imaging staff need SaaS provider license verification before login
+        is_active       = body.get("role") not in ['pharmacist', 'lab_technician', 'imaging_tech'],
     )
     db.add(new_staff)
     db.flush()

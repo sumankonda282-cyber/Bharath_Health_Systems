@@ -100,6 +100,9 @@ export const platformApi = {
   toggle:       (id) => api.put(`/platform/clinics/${id}/toggle`),
   setSubscription: (id, plan, status) =>
     api.put(`/platform/clinics/${id}/subscription`, null, { params: { plan, status } }),
+  getPendingStaff: () => api.get('/platform/staff/pending'),
+  verifyStaff:     (id) => api.put(`/platform/staff/${id}/verify`),
+  rejectStaff:     (id) => api.put(`/platform/staff/${id}/reject`),
 }
 
 // ── PDF ───────────────────────────────────────────────────────────

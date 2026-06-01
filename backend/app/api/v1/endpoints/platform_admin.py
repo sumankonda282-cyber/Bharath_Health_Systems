@@ -116,7 +116,12 @@ def verify_clinic(
         raise HTTPException(status_code=404, detail="Clinic not found")
     clinic.is_verified = True
     clinic.is_active = True
-    db.query(Staff).filter(Staff.clinic_id == clinic_id).update({"is_active": True})
+    # Only activate clinical staff — pharmacist/lab/imaging need separate license verification
+    roles_auto_activate = ['clinic_admin', 'doctor', 'receptionist']
+    db.query(Staff).filter(
+        Staff.clinic_id == clinic_id,
+        Staff.role.in_(roles_auto_activate)
+    ).update({"is_active": True})
     db.commit()
     return {"message": f"{clinic.name} approved and is now live"}
 
@@ -192,3 +197,78 @@ def create_platform_admin(
     db.commit()
     db.refresh(admin)
     return {"id": admin.id, "email": admin.email, "message": "Platform admin created"}
+
+
+# ─── Staff License Verification ────────────────────────────────────────────────
+
+ROLES_NEEDING_VERIFICATION = ['pharmacist', 'lab_technician', 'imaging_tech', 'nurse']
+
+@router.get("/staff/pending")
+def pending_staff(
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    """Staff added by clinic admins who need license verification."""
+    staff_list = (
+        db.query(Staff)
+        .filter(Staff.role.in_(ROLES_NEEDING_VERIFICATION), Staff.is_active == False)
+        .order_by(Staff.created_at.desc())
+        .all()
+    )
+    result = []
+    for s in staff_list:
+        clinic = db.query(Clinic).filter(Clinic.id == s.clinic_id).first()
+        result.append({
+            "id":         s.id,
+            "full_name":  s.full_name,
+            "email":      s.email,
+            "mobile":     s.mobile,
+            "role":       s.role,
+            "clinic_id":  s.clinic_id,
+            "clinic_name": clinic.name if clinic else "—",
+            "created_at": str(s.created_at),
+        })
+    return result
+
+
+@router.put("/staff/{staff_id}/verify")
+def verify_staff(
+    staff_id: int,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    staff = db.query(Staff).filter(Staff.id == staff_id).first()
+    if not staff:
+        raise HTTPException(404, "Staff not found")
+    staff.is_active = True
+    db.commit()
+    return {"message": f"{staff.full_name} ({staff.role}) verified and can now login"}
+
+
+@router.put("/staff/{staff_id}/reject")
+def reject_staff(
+    staff_id: int,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    staff = db.query(Staff).filter(Staff.id == staff_id).first()
+    if not staff:
+        raise HTTPException(404, "Staff not found")
+    staff.is_active = False
+    db.commit()
+    return {"message": f"{staff.full_name} rejected"}
+
+
+@router.get("/stats")
+def platform_stats(
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    pending_staff_count = (
+        db.query(func.count(Staff.id))
+        .filter(Staff.role.in_(ROLES_NEEDING_VERIFICATION), Staff.is_active == False)
+        .scalar()
+    )
+    return {
+        "pending_staff": pending_staff_count,
+    }

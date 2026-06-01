@@ -2,15 +2,17 @@ import { useState, useEffect } from 'react'
 import { platformApi } from '../../api'
 import { PageLoader } from '../../components/ui/Spinner'
 import Modal from '../../components/ui/Modal'
-import { ShieldCheck, Building2, CheckCircle, XCircle, Search, ToggleLeft, ToggleRight, CreditCard } from 'lucide-react'
+import { ShieldCheck, Building2, CheckCircle, XCircle, Search, ToggleLeft, ToggleRight, CreditCard, Users } from 'lucide-react'
 import StatCard from '../../components/ui/StatCard'
 
 const PLANS = ['free', 'basic', 'pro', 'enterprise']
 const PLAN_COLORS = { free: 'badge-gray', basic: 'badge-blue', pro: 'badge-purple', enterprise: 'badge-yellow' }
+const ROLE_LABELS = { pharmacist: 'Pharmacist', lab_technician: 'Lab Technician', imaging_tech: 'Imaging Tech', nurse: 'Nurse' }
 
 export default function PlatformAdmin() {
   const [tab, setTab] = useState('pending')
   const [pending, setPending] = useState([])
+  const [pendingStaff, setPendingStaff] = useState([])
   const [allClinics, setAllClinics] = useState([])
   const [dashboard, setDashboard] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -25,10 +27,12 @@ export default function PlatformAdmin() {
       platformApi.getDashboard(),
       platformApi.getPending(),
       platformApi.getClinics({ limit: 100 }),
-    ]).then(([d, p, a]) => {
+      platformApi.getPendingStaff(),
+    ]).then(([d, p, a, ps]) => {
       setDashboard(d)
       setPending(Array.isArray(p) ? p : [])
       setAllClinics(Array.isArray(a) ? a : [])
+      setPendingStaff(Array.isArray(ps) ? ps : [])
     }).finally(() => setLoading(false))
   }
 
@@ -42,6 +46,16 @@ export default function PlatformAdmin() {
   const handleReject = async (id) => {
     setSaving(true)
     try { await platformApi.reject(id); load() } finally { setSaving(false) }
+  }
+
+  const handleVerifyStaff = async (id) => {
+    setSaving(true)
+    try { await platformApi.verifyStaff(id); load() } finally { setSaving(false) }
+  }
+
+  const handleRejectStaff = async (id) => {
+    setSaving(true)
+    try { await platformApi.rejectStaff(id); load() } finally { setSaving(false) }
   }
 
   const handleToggle = async (id) => {
@@ -72,19 +86,24 @@ export default function PlatformAdmin() {
 
       {/* Stats */}
       {dashboard && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <StatCard label="Total Clinics"   value={dashboard.total_clinics}      icon={Building2} color="blue" />
-          <StatCard label="Active Clinics"  value={dashboard.active_clinics}     icon={CheckCircle} color="green" />
-          <StatCard label="Pending Approval" value={dashboard.pending_clinics}   icon={ShieldCheck} color="orange" />
-          <StatCard label="Total Patients"  value={dashboard.total_patients}     icon={Building2} color="purple" />
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+          <StatCard label="Total Clinics"      value={dashboard.total_clinics}    icon={Building2}   color="blue" />
+          <StatCard label="Active Clinics"     value={dashboard.active_clinics}   icon={CheckCircle} color="green" />
+          <StatCard label="Pending Clinics"    value={dashboard.pending_clinics}  icon={ShieldCheck} color="orange" />
+          <StatCard label="Pending Staff"      value={pendingStaff.length}        icon={Users}       color="red" />
+          <StatCard label="Total Patients"     value={dashboard.total_patients}   icon={Building2}   color="purple" />
         </div>
       )}
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-lg mb-4 w-fit">
+      <div className="flex gap-1 bg-gray-100 p-1 rounded-lg mb-4 w-fit flex-wrap">
         <button onClick={() => setTab('pending')}
           className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${tab === 'pending' ? 'bg-white shadow text-gray-900' : 'text-gray-500'}`}>
-          Pending ({pending.length})
+          Pending Clinics ({pending.length})
+        </button>
+        <button onClick={() => setTab('staff')}
+          className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${tab === 'staff' ? 'bg-white shadow text-gray-900' : 'text-gray-500'}`}>
+          Staff Verification ({pendingStaff.length})
         </button>
         <button onClick={() => setTab('all')}
           className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${tab === 'all' ? 'bg-white shadow text-gray-900' : 'text-gray-500'}`}>
@@ -127,6 +146,53 @@ export default function PlatformAdmin() {
                             <CheckCircle size={12} />Approve
                           </button>
                           <button onClick={() => handleReject(c.id)} disabled={saving} className="btn-danger text-xs py-1">
+                            <XCircle size={12} />Reject
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Staff Verification */}
+      {tab === 'staff' && (
+        <div className="card">
+          {pendingStaff.length === 0 ? (
+            <div className="p-10 text-center text-gray-400">
+              <CheckCircle size={36} className="mx-auto mb-2 opacity-30" />
+              <p>No pending staff verifications</p>
+            </div>
+          ) : (
+            <div className="table-wrapper rounded-xl border-0">
+              <table className="table">
+                <thead><tr>
+                  <th className="th">Name</th><th className="th">Role</th><th className="th">Clinic</th>
+                  <th className="th">Contact</th><th className="th">Applied</th><th className="th">Actions</th>
+                </tr></thead>
+                <tbody className="divide-y divide-gray-100">
+                  {pendingStaff.map(s => (
+                    <tr key={s.id} className="tr-hover">
+                      <td className="td font-medium">{s.full_name}</td>
+                      <td className="td">
+                        <span className="badge badge-blue">{ROLE_LABELS[s.role] || s.role}</span>
+                      </td>
+                      <td className="td text-sm text-gray-600">{s.clinic_name}</td>
+                      <td className="td">
+                        <div className="text-sm">{s.email}</div>
+                        <div className="text-xs text-gray-400">{s.mobile}</div>
+                      </td>
+                      <td className="td text-xs text-gray-400">{new Date(s.created_at).toLocaleDateString('en-IN')}</td>
+                      <td className="td">
+                        <div className="flex gap-2">
+                          <button onClick={() => handleVerifyStaff(s.id)} disabled={saving} className="btn-success text-xs py-1">
+                            <CheckCircle size={12} />Approve
+                          </button>
+                          <button onClick={() => handleRejectStaff(s.id)} disabled={saving} className="btn-danger text-xs py-1">
                             <XCircle size={12} />Reject
                           </button>
                         </div>

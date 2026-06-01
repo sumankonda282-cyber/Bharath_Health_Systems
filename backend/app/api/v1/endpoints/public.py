@@ -415,8 +415,8 @@ def register_clinic(body: dict, db: Session = Depends(get_db)):
         city                = clinic_data.get("city"),
         state               = clinic_data.get("state"),
         pincode             = clinic_data.get("pincode"),
-        is_active           = False,  # Inactive until platform admin verifies
-        is_verified         = False,
+        is_active           = True,   # Clinic is active so admin can login
+        is_verified         = False,  # Not verified = not visible publicly yet
         subscription_plan   = 'free',
         subscription_status = 'active',
     )
@@ -443,7 +443,7 @@ def register_clinic(body: dict, db: Session = Depends(get_db)):
         email           = admin_email,
         hashed_password = hash_password(admin_password),
         role            = 'clinic_admin',
-        is_active       = False,  # Activated when clinic approved
+        is_active       = True,   # Clinic admin can login immediately
     )
     db.add(staff)
     db.flush()
