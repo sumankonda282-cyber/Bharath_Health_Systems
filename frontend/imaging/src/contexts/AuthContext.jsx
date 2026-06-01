@@ -11,7 +11,8 @@ export function AuthProvider({ children }) {
   }, [])
   const login = async (identifier, password) => {
     const r = await api.post('/auth/staff/login', { identifier, password })
-    if (!['radiologist','imaging_technician','clinic_admin'].includes(r.role)) throw new Error('Access denied. This portal is for imaging/radiology staff only.')
+    const blocked = ['platform_admin']
+    if (blocked.includes(r.role)) throw new Error('Access denied. This portal is for clinic staff only.')
     localStorage.setItem('staff_token', r.access_token)
     if (r.clinic_id) localStorage.setItem('clinic_id', r.clinic_id)
     if (r.branch_id) localStorage.setItem('branch_id', r.branch_id)

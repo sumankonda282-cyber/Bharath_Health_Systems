@@ -99,7 +99,7 @@ export default function PatientHistory() {
                         <div>
                           <div className="flex items-center gap-2 mb-0.5">
                             <span className="font-mono text-xs font-semibold text-gray-500">IMG-{o.id}</span>
-                            <span className="font-medium text-sm">{o.imaging_type || o.scan_type || 'Imaging Study'}</span>
+                            <span className="font-medium text-sm">{o.modality || o.body_part || 'Imaging Study'}</span>
                             <span className={`badge ${o.status === 'completed' ? 'badge-green' : o.status === 'in_progress' ? 'badge-purple' : 'badge-yellow'}`}>{o.status?.replace('_', ' ')}</span>
                           </div>
                           <div className="text-xs text-gray-500">

@@ -111,7 +111,7 @@ function DailyProductivity({ allOrders }) {
                 <tr key={o.id} className="tr-hover">
                   <td className="td font-mono text-xs">IMG-{o.id}</td>
                   <td className="td font-medium">{o.patient?.full_name || '—'}</td>
-                  <td className="td">{o.imaging_type || o.scan_type || '—'}</td>
+                  <td className="td">{o.modality || o.body_part || '—'}</td>
                   <td className="td">
                     <span className={`badge ${o.status === 'completed' ? 'badge-green' : o.status === 'in_progress' ? 'badge-purple' : 'badge-yellow'}`}>
                       {o.status?.replace('_', ' ')}
@@ -139,7 +139,7 @@ function PendingReportsSummary({ allOrders }) {
   // Group by scan type
   const groups = {}
   pending.forEach(o => {
-    const type = o.imaging_type || o.scan_type || 'Unknown'
+    const type = o.modality || o.body_part || 'Unknown'
     if (!groups[type]) groups[type] = []
     groups[type].push(o)
   })
@@ -197,7 +197,7 @@ function PendingReportsSummary({ allOrders }) {
 function ScanDistribution({ allOrders }) {
   const counts = {}
   allOrders.forEach(o => {
-    const type = o.imaging_type || o.scan_type || 'Unknown'
+    const type = o.modality || o.body_part || 'Unknown'
     counts[type] = (counts[type] || 0) + 1
   })
   const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1])

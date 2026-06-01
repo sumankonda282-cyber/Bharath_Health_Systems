@@ -242,7 +242,7 @@ export default function Billing() {
                       {isInsurance(inv) && <span className="badge badge-blue ml-2">Insurance</span>}
                     </td>
                     <td className="td font-medium">{inv.patient?.full_name || '—'}</td>
-                    <td className="td text-gray-500">{inv.imaging_type || inv.scan_type || inv.service_name || '—'}</td>
+                    <td className="td text-gray-500">{inv.service_name || '—'}</td>
                     <td className="td font-semibold">{fmt(inv.total_amount)}</td>
                     <td className="td text-gray-500">
                       {inv.created_at ? new Date(inv.created_at).toLocaleDateString('en-IN') : '—'}

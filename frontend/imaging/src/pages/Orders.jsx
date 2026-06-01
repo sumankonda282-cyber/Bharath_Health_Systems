@@ -205,7 +205,7 @@ export default function Orders() {
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2 text-sm text-gray-600">
                   <ScanLine size={14} className="text-gray-400 flex-shrink-0" />
-                  <span className="font-medium">{order.imaging_type || order.scan_type || 'Unknown type'}</span>
+                  <span className="font-medium">{order.modality || order.body_part || 'Unknown type'}</span>
                 </div>
                 {(order.ordered_by_name || order.doctor?.full_name) && (
                   <div className="text-xs text-gray-500">

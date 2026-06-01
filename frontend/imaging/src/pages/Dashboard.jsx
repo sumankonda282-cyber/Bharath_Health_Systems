@@ -23,7 +23,7 @@ export default function Dashboard() {
         <tbody className="divide-y divide-gray-100">{orders.slice(0,10).map(o=><tr key={o.id} className="tr-hover">
           <td className="td font-mono text-xs">IMG-{o.id}</td>
           <td className="td font-medium">{o.patient?.full_name||'—'}</td>
-          <td className="td">{o.imaging_type||o.scan_type||'—'}</td>
+          <td className="td">{o.modality||o.body_part||'—'}</td>
           <td className="td"><span className={`badge ${o.status==='completed'?'badge-green':o.status==='in_progress'?'badge-blue':'badge-yellow'}`}>{o.status?.replace('_',' ')}</span></td>
           <td className="td text-gray-500">{o.created_at?new Date(o.created_at).toLocaleDateString('en-IN'):'—'}</td>
         </tr>)}</tbody></table></div>

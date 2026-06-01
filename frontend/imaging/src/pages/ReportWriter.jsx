@@ -170,7 +170,7 @@ export default function ReportWriter() {
                 <div className="font-semibold text-sm mb-0.5" style={{ color: '#0F2557' }}>
                   {order.patient?.full_name || '—'}
                 </div>
-                <div className="text-xs text-gray-500 mb-1">{order.imaging_type || order.scan_type || '—'}</div>
+                <div className="text-xs text-gray-500 mb-1">{order.modality || order.body_part || '—'}</div>
                 {(order.ordered_by_name || order.doctor?.full_name) && (
                   <div className="text-xs text-gray-400">
                     Dr. {order.ordered_by_name || order.doctor?.full_name}
@@ -208,7 +208,7 @@ export default function ReportWriter() {
                     {selected.patient?.full_name || '—'}
                   </div>
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500 mt-1">
-                    <span>{selected.imaging_type || selected.scan_type || '—'}</span>
+                    <span>{selected.modality || selected.body_part || '—'}</span>
                     {(selected.ordered_by_name || selected.doctor?.full_name) && (
                       <span>Ordered by: Dr. {selected.ordered_by_name || selected.doctor?.full_name}</span>
                     )}

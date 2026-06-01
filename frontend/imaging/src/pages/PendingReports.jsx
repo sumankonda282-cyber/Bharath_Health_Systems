@@ -60,7 +60,7 @@ function OrderCard({ order, onWrite }) {
         <div className="font-semibold text-sm truncate" style={{ color: '#0F2557' }}>
           {order.patient?.full_name || '—'}
         </div>
-        <div className="text-xs text-gray-500 mt-0.5">{order.imaging_type || order.scan_type || '—'}</div>
+        <div className="text-xs text-gray-500 mt-0.5">{order.modality || order.body_part || '—'}</div>
         {(order.ordered_by_name || order.doctor?.full_name) && (
           <div className="text-xs text-gray-400 mt-0.5">
             Dr. {order.ordered_by_name || order.doctor?.full_name}
