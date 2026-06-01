@@ -1,0 +1,38 @@
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { useAuth } from './contexts/AuthContext'
+import Layout from './components/Layout'
+import Login from './pages/Login'
+import Dashboard from './pages/Dashboard'
+import PendingClinics from './pages/PendingClinics'
+import AllClinics from './pages/AllClinics'
+import ClinicDetail from './pages/ClinicDetail'
+import StaffVerification from './pages/StaffVerification'
+import AuditLog from './pages/AuditLog'
+import Reports from './pages/Reports'
+
+function PrivateRoute({ children }) {
+  const { admin, loading } = useAuth()
+  if (loading) return <div className="flex items-center justify-center min-h-screen"><div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" /></div>
+  return admin ? children : <Navigate to="/login" replace />
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
+          <Route index element={<Navigate to="/dashboard" replace />} />
+          <Route path="dashboard"  element={<Dashboard />} />
+          <Route path="pending"    element={<PendingClinics />} />
+          <Route path="clinics"    element={<AllClinics />} />
+          <Route path="clinics/:id" element={<ClinicDetail />} />
+          <Route path="staff"      element={<StaffVerification />} />
+          <Route path="audit"      element={<AuditLog />} />
+          <Route path="reports"    element={<Reports />} />
+        </Route>
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      </Routes>
+    </BrowserRouter>
+  )
+}
