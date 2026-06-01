@@ -5,6 +5,11 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Orders from './pages/Orders'
 import Tests from './pages/Tests'
+import SampleCollection from './pages/SampleCollection'
+import ResultEntry from './pages/ResultEntry'
+import Billing from './pages/Billing'
+import Reports from './pages/Reports'
+import PatientHistory from './pages/PatientHistory'
 import { Loader2 } from 'lucide-react'
 function Guard({ children }) {
   const { user, loading } = useAuth()
@@ -19,8 +24,13 @@ export default function App() {
           <Route path="/login" element={<Login/>}/>
           <Route element={<Guard><Layout/></Guard>}>
             <Route index element={<Dashboard/>}/>
-            <Route path="orders" element={<Orders/>}/>
-            <Route path="tests" element={<Tests/>}/>
+            <Route path="sample"   element={<SampleCollection/>}/>
+            <Route path="results"  element={<ResultEntry/>}/>
+            <Route path="orders"   element={<Orders/>}/>
+            <Route path="tests"    element={<Tests/>}/>
+            <Route path="billing"  element={<Billing/>}/>
+            <Route path="reports"  element={<Reports/>}/>
+            <Route path="patients" element={<PatientHistory/>}/>
           </Route>
           <Route path="*" element={<Navigate to="/" replace/>}/>
         </Routes>

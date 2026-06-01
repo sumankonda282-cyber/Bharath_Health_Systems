@@ -1,10 +1,14 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { LayoutDashboard, Pill, Package, LogOut } from 'lucide-react'
+import { LayoutDashboard, Pill, Package, LogOut, History, PackagePlus, CreditCard, BarChart2 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 const NAV = [
-  { to: '/',          icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/pending',   icon: Pill,            label: 'Pending Rx' },
-  { to: '/inventory', icon: Package,         label: 'Inventory' },
+  { to: '/',           icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/pending',    icon: Pill,            label: 'Pending Rx' },
+  { to: '/history',    icon: History,         label: 'Rx History' },
+  { to: '/inventory',  icon: Package,         label: 'Inventory' },
+  { to: '/stock-in',   icon: PackagePlus,     label: 'Receive Stock' },
+  { to: '/billing',    icon: CreditCard,      label: 'Billing' },
+  { to: '/reports',    icon: BarChart2,       label: 'Reports' },
 ]
 export default function Layout() {
   const { user, logout } = useAuth()
