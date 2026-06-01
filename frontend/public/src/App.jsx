@@ -5,6 +5,7 @@ import ClinicDetail from './pages/ClinicDetail'
 import BookAppointment from './pages/BookAppointment'
 import BookingStatus from './pages/BookingStatus'
 import RegisterClinic from './pages/RegisterClinic'
+import TelehealthPage from './pages/Telehealth'
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
         <Route path="/book" element={<BookAppointment />} />
         <Route path="/booking/:code" element={<BookingStatus />} />
         <Route path="/register" element={<RegisterClinic />} />
+        <Route path="/telehealth" element={<TelehealthPage />} />
       </Routes>
     </BrowserRouter>
   )

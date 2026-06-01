@@ -196,11 +196,12 @@ class Appointment(Base):
     appointment_time  = Column(String(8), nullable=False)  # "HH:MM"
     token_number      = Column(Integer, nullable=True)
     status            = Column(String(50), default="pending")
-    mode              = Column(String(50), default="offline")
+    mode              = Column(String(50), default="offline")  # offline|online|telehealth
     reason            = Column(Text, nullable=True)
     notes             = Column(Text, nullable=True)
     fee               = Column(Numeric(10, 2), nullable=True)
     online_booking_id = Column(Integer, ForeignKey("online_bookings.id"), nullable=True)
+    telehealth_joined_at = Column(DateTime, nullable=True)  # compliance: when session was joined
     created_at        = Column(DateTime, server_default=func.now())
     updated_at        = Column(DateTime, server_default=func.now(), onupdate=func.now())
 

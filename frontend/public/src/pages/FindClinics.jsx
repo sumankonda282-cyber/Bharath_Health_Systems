@@ -23,7 +23,7 @@ function Navbar() {
           </div>
           <div className="hidden md:flex items-center gap-3">
             <a href={PROVIDER_URL} className="px-4 py-2 rounded-xl border-2 font-semibold text-sm transition-all" style={{ borderColor: '#0F2557', color: '#0F2557' }}>Provider Login</a>
-            <a href={PATIENT_URL} className="px-4 py-2 rounded-xl font-semibold text-sm text-white transition-all" style={{ background: '#CC1414' }}>Patient Login</a>
+            <a href={PATIENT_URL} className="px-4 py-2 rounded-xl font-semibold text-sm text-white transition-all" style={{ background: '#CC1414' }}>My Health Portal</a>
           </div>
         </div>
       </div>

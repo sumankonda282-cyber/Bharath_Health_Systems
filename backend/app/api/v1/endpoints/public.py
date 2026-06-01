@@ -372,6 +372,49 @@ def platform_stats(db: Session = Depends(get_db)):
     }
 
 
+@router.get("/telehealth-doctors")
+def get_telehealth_doctors(
+    city: Optional[str] = None,
+    specialty: Optional[str] = None,
+    limit: int = 20,
+    db: Session = Depends(get_db),
+):
+    """Returns doctors with telehealth enabled — powers the public Telehealth section."""
+    q = (
+        db.query(DoctorProfile, Staff, Clinic)
+        .join(Staff, DoctorProfile.staff_id == Staff.id)
+        .join(Clinic, DoctorProfile.clinic_id == Clinic.id)
+        .filter(
+            DoctorProfile.telehealth_enabled == True,
+            DoctorProfile.is_active == True,
+            Staff.is_active == True,
+            Clinic.is_active == True,
+            Clinic.is_verified == True,
+        )
+    )
+    if city:
+        q = q.filter(Clinic.city.ilike(f"%{city}%"))
+    if specialty:
+        q = q.filter(DoctorProfile.specialty.ilike(f"%{specialty}%"))
+    rows = q.limit(limit).all()
+    return [
+        {
+            "doctor_profile_id": dp.id,
+            "name":              s.full_name,
+            "specialty":         dp.specialty,
+            "qualification":     dp.qualification,
+            "experience_years":  dp.experience_years,
+            "telehealth_fee":    float(dp.telehealth_fee) if dp.telehealth_fee else float(dp.consultation_fee or 0),
+            "clinic_name":       c.name,
+            "clinic_slug":       c.slug,
+            "city":              c.city,
+            "state":             c.state,
+            "logo_url":          c.logo_url,
+        }
+        for dp, s, c in rows
+    ]
+
+
 @router.post("/register-clinic")
 def register_clinic(body: dict, db: Session = Depends(get_db)):
     """

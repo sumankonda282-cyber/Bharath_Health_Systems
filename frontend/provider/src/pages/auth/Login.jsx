@@ -179,7 +179,11 @@ export default function Login() {
 
             <p className="text-center text-xs text-gray-400 mt-6">
               Clinic not yet registered?{' '}
-              <a href="/" className="hover:underline" style={{ color: '#0F2557' }}>
+              <a
+                href={`${import.meta.env.VITE_PUBLIC_URL || 'https://bharatcliniq.com'}/register`}
+                className="hover:underline font-medium"
+                style={{ color: '#0F2557' }}
+              >
                 Register your clinic
               </a>
             </p>

@@ -51,6 +51,7 @@ export const doctorApi = {
   getQueue:           (params) => api.get('/doctor/queue', { params }),
   getEncounter:       (id) => api.get(`/doctor/encounter/${id}`),
   completeEncounter:  (id, data) => api.post(`/doctor/encounter/${id}/complete`, data),
+  joinTelehealth:     (id) => api.post(`/doctor/encounter/${id}/join-telehealth`),
 }
 
 // ── Pharmacy ──────────────────────────────────────────────────────

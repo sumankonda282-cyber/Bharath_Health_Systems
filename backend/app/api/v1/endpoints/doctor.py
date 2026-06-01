@@ -303,3 +303,29 @@ def update_my_doctor_profile(body: dict, db: Session = Depends(get_db), current:
             setattr(profile, field, body[field])
     db.commit()
     return {"message": "Profile updated"}
+
+
+@router.post("/encounter/{appointment_id}/join-telehealth")
+def log_telehealth_join(
+    appointment_id: int,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(require_doctor),
+):
+    """Log when a doctor joins a telehealth session — compliance requirement (Telemedicine Guidelines 2020)."""
+    from datetime import datetime as _dt
+    appt = db.query(Appointment).filter(
+        Appointment.id == appointment_id,
+        Appointment.clinic_id == current.clinic_id,
+    ).first()
+    if not appt:
+        raise HTTPException(404, "Appointment not found")
+    if appt.mode != "telehealth":
+        raise HTTPException(400, "This is not a telehealth appointment")
+    appt.telehealth_joined_at = _dt.utcnow()
+    appt.status = "in_progress"
+    db.commit()
+    return {
+        "room": f"bharatcliniq-appt-{appointment_id}",
+        "url":  f"https://meet.jit.si/bharatcliniq-appt-{appointment_id}",
+        "joined_at": appt.telehealth_joined_at.isoformat(),
+    }

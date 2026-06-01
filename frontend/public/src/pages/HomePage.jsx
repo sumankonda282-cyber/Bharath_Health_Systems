@@ -4,7 +4,7 @@ import {
   Search, Calendar, FileText, Pill, FlaskConical,
   ReceiptText, BarChart3, ChevronRight, Star,
   Users, Building2, ArrowRight, Menu, X,
-  MapPin, Shield, Clock, CheckCircle
+  MapPin, Shield, Clock, CheckCircle, Video
 } from 'lucide-react'
 import { publicApi } from '../api/client'
 import BrandLogo from '../components/BrandLogo'
@@ -22,6 +22,9 @@ function Navbar() {
 
           <div className="hidden md:flex items-center gap-8">
             <Link to="/clinics" className="text-gray-600 hover:text-[#0F2557] font-medium transition-colors text-sm">Find Clinics</Link>
+            <Link to="/telehealth" className="text-gray-600 hover:text-[#0F2557] font-medium transition-colors text-sm flex items-center gap-1">
+              <Video className="w-3.5 h-3.5" style={{ color: '#F5821E' }} />Telehealth
+            </Link>
             <Link to="/booking/check" className="text-gray-600 hover:text-[#0F2557] font-medium transition-colors text-sm">My Booking</Link>
             <Link to="/register" className="text-gray-600 hover:text-[#0F2557] font-medium transition-colors text-sm">Register Clinic</Link>
           </div>
@@ -43,7 +46,7 @@ function Navbar() {
               onMouseEnter={e => { e.currentTarget.style.background = '#b01010' }}
               onMouseLeave={e => { e.currentTarget.style.background = '#CC1414' }}
             >
-              Patient Login
+              My Health Portal
             </a>
           </div>
 
@@ -59,7 +62,7 @@ function Navbar() {
             <Link to="/register" className="text-gray-600 font-medium px-2 py-2 text-sm" onClick={() => setOpen(false)}>Register Clinic</Link>
             <div className="flex gap-2 mt-1">
               <a href={PROVIDER_URL} className="flex-1 text-center py-2 rounded-xl border-2 font-semibold text-sm" style={{ borderColor: '#0F2557', color: '#0F2557' }}>Provider Login</a>
-              <a href={PATIENT_URL} className="flex-1 text-center py-2 rounded-xl font-semibold text-sm text-white" style={{ background: '#CC1414' }}>Patient Login</a>
+              <a href={PATIENT_URL} className="flex-1 text-center py-2 rounded-xl font-semibold text-sm text-white" style={{ background: '#CC1414' }}>My Health Portal</a>
             </div>
           </div>
         )}
@@ -264,7 +267,7 @@ export default function HomePage() {
               className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm transition-all"
               style={{ background: '#F5821E', color: 'white' }}
             >
-              Patient Portal <ArrowRight className="w-4 h-4" />
+              My Health Portal <ArrowRight className="w-4 h-4" />
             </a>
           </div>
         </div>
@@ -420,6 +423,61 @@ export default function HomePage() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Telehealth Promo */}
+      <section className="py-20 px-4 bg-white">
+        <div className="max-w-7xl mx-auto">
+          <div className="rounded-3xl overflow-hidden" style={{ background: 'linear-gradient(135deg, #0F2557 0%, #1a3a7a 100%)' }}>
+            <div className="flex flex-col lg:flex-row items-center gap-10 p-10 lg:p-14">
+              <div className="flex-1 text-white">
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium mb-6"
+                  style={{ background: 'rgba(245,130,30,0.2)', color: '#F5821E', border: '1px solid rgba(245,130,30,0.3)' }}>
+                  <Video className="w-4 h-4" /> Telehealth — Now Available
+                </div>
+                <h2 className="text-3xl md:text-4xl font-extrabold mb-4 leading-tight">
+                  See a Doctor<br /><span style={{ color: '#F5821E' }}>From Home</span>
+                </h2>
+                <p className="text-blue-200 text-lg mb-8 leading-relaxed max-w-lg">
+                  Book a video consultation with verified doctors. Secure call, digital prescription, and complete records — all in one place.
+                </p>
+                <div className="flex flex-wrap gap-4 mb-8">
+                  {[
+                    { icon: CheckCircle, text: 'Verified Doctors' },
+                    { icon: Shield, text: 'Secure & Private' },
+                    { icon: Clock, text: 'No Waiting Room' },
+                  ].map(({ icon: Icon, text }) => (
+                    <div key={text} className="flex items-center gap-2 text-sm text-blue-200">
+                      <Icon className="w-4 h-4" style={{ color: '#F5821E' }} />{text}
+                    </div>
+                  ))}
+                </div>
+                <Link to="/telehealth"
+                  className="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl font-semibold text-sm text-white"
+                  style={{ background: '#F5821E' }}>
+                  <Video className="w-4 h-4" /> Browse Telehealth Doctors
+                </Link>
+              </div>
+              <div className="flex-shrink-0 grid grid-cols-1 gap-4 w-full lg:w-72">
+                {[
+                  { step: '1', title: 'Choose a Doctor', desc: 'Browse by specialty' },
+                  { step: '2', title: 'Book a Slot', desc: 'Pick your preferred time' },
+                  { step: '3', title: 'Join the Call', desc: 'From My Health Portal' },
+                  { step: '4', title: 'Get Prescription', desc: 'Digital, straight to you' },
+                ].map(item => (
+                  <div key={item.step} className="flex items-center gap-4 p-4 rounded-2xl" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                    <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
+                      style={{ background: '#F5821E' }}>{item.step}</div>
+                    <div>
+                      <div className="text-white font-semibold text-sm">{item.title}</div>
+                      <div className="text-blue-200 text-xs">{item.desc}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </section>
