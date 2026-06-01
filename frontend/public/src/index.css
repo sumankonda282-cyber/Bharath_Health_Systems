@@ -15,57 +15,37 @@
   * { box-sizing: border-box; }
   body {
     font-family: 'Inter', system-ui, sans-serif;
-    background-color: #F0F4F8;
+    background-color: #ffffff;
     color: #1a1a2e;
     -webkit-font-smoothing: antialiased;
   }
 }
 
 @layer components {
-  .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 px-6 py-3 font-semibold rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
-    background-color: var(--red);
-    color: white;
+  .btn {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-sm transition-all duration-150 cursor-pointer disabled:opacity-50;
   }
-  .btn-primary:hover {
-    background-color: #b01010;
-  }
-  .btn-primary:focus {
-    --tw-ring-color: var(--red);
-  }
-  .btn-outline {
-    @apply inline-flex items-center justify-center gap-2 px-6 py-3 border-2 font-semibold rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2;
-    border-color: var(--navy);
-    color: var(--navy);
-    background: transparent;
-  }
-  .btn-outline:hover {
-    background-color: var(--navy);
-    color: white;
-  }
-  .btn-white {
-    @apply inline-flex items-center justify-center gap-2 px-6 py-3 bg-white font-semibold rounded-xl transition-all duration-200 focus:outline-none hover:bg-gray-50;
-    color: var(--navy);
-  }
-  .btn-navy {
-    @apply inline-flex items-center justify-center gap-2 px-6 py-3 font-semibold rounded-xl transition-all duration-200 text-white;
-    background-color: var(--navy);
-  }
+  .btn-primary { @apply btn text-white; background-color: var(--red); }
+  .btn-primary:hover { background-color: #b01010; }
+  .btn-navy { @apply btn text-white; background-color: var(--navy); }
   .btn-navy:hover { background-color: #0a1a3e; }
-
-  .card {
-    @apply bg-white rounded-2xl shadow-md border border-gray-100 p-6;
+  .btn-outline {
+    @apply btn bg-transparent border-2 font-semibold;
+    border-color: var(--navy); color: var(--navy);
   }
+  .btn-outline:hover { background-color: var(--navy); color: white; }
+  .btn-white { @apply btn bg-white font-semibold; color: var(--navy); }
+  .btn-white:hover { background-color: #f8fafc; }
+  .btn-secondary { @apply btn bg-white text-gray-700 border border-gray-300 hover:bg-gray-50; }
+
+  .card { @apply bg-white rounded-2xl border border-gray-100 shadow-md p-6; }
   .input {
     @apply w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-transparent transition-all;
     --tw-ring-color: var(--navy);
   }
-  .label {
-    @apply block text-sm font-medium text-gray-700 mb-1.5;
-  }
-  .badge {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
-  }
+  .label { @apply block text-sm font-semibold text-gray-700 mb-1.5; }
+
+  .badge { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold; }
   .badge-blue   { @apply badge bg-blue-100 text-blue-800; }
   .badge-green  { @apply badge bg-green-100 text-green-800; }
   .badge-yellow { @apply badge bg-yellow-100 text-yellow-800; }
@@ -73,12 +53,11 @@
   .badge-gray   { @apply badge bg-gray-100 text-gray-700; }
 
   .section-title {
-    @apply text-3xl md:text-4xl font-bold;
+    @apply text-3xl md:text-4xl font-extrabold;
     color: var(--navy);
+    letter-spacing: -0.02em;
   }
-  .section-subtitle {
-    @apply text-lg text-gray-500 mt-3;
-  }
+  .section-subtitle { @apply text-lg text-gray-500 mt-3 max-w-2xl mx-auto; }
 }
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }

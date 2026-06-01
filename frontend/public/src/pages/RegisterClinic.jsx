@@ -1,21 +1,18 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  Activity, Building2, User, Lock, CheckCircle, ArrowLeft,
-  ChevronRight, Check, Eye, EyeOff
+  Building2, ChevronRight, Check, Eye, EyeOff, CheckCircle, ArrowLeft
 } from 'lucide-react'
 import { publicApi } from '../api/client'
+import BrandLogo from '../components/BrandLogo'
 
 function Navbar() {
   return (
-    <nav className="bg-white shadow-sm sticky top-0 z-50">
+    <nav className="bg-white shadow-sm sticky top-0 z-50 border-b border-gray-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          <Link to="/" className="flex items-center gap-2">
-            <Activity className="w-7 h-7 text-primary-600" />
-            <span className="text-xl font-bold text-gray-900">BharatCliniq</span>
-          </Link>
-          <Link to="/clinics" className="text-gray-600 hover:text-primary-600 font-medium text-sm hidden md:block">Find Clinics</Link>
+          <Link to="/"><BrandLogo size="md" /></Link>
+          <Link to="/clinics" className="text-gray-600 hover:text-gray-900 font-medium text-sm hidden md:block transition-colors">Find Clinics</Link>
         </div>
       </div>
     </nav>
@@ -48,10 +45,12 @@ function StepIndicator({ current }) {
         <div key={step} className="flex items-center flex-shrink-0">
           <div className="flex flex-col items-center">
             <div className={`w-9 h-9 rounded-full flex items-center justify-center font-semibold text-sm transition-colors ${
-              i < current ? 'bg-green-500 text-white'
-              : i === current ? 'bg-primary-600 text-white'
-              : 'bg-gray-200 text-gray-500'
-            }`}>
+              i < current
+                ? 'bg-green-500 text-white'
+                : i === current
+                ? 'text-white'
+                : 'bg-gray-200 text-gray-500'
+            }`} style={i === current ? { background: '#0F2557' } : {}}>
               {i < current ? <Check className="w-4 h-4" /> : i + 1}
             </div>
             <span className={`text-xs mt-1.5 font-medium whitespace-nowrap ${i <= current ? 'text-gray-700' : 'text-gray-400'}`}>
@@ -70,14 +69,17 @@ function StepIndicator({ current }) {
 function Field({ label, required, error, children }) {
   return (
     <div>
-      <label className="label">
-        {label} {required && <span className="text-red-500">*</span>}
+      <label className="block text-sm font-medium text-gray-700 mb-1.5">
+        {label} {required && <span style={{ color: '#CC1414' }}>*</span>}
       </label>
       {children}
       {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
     </div>
   )
 }
+
+const inputCls = (err) =>
+  `w-full px-4 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-transparent transition-all ${err ? 'border-red-400' : 'border-gray-300'}`
 
 // Step 1: Clinic Details
 function Step1({ data, onChange, onNext }) {
@@ -99,13 +101,13 @@ function Step1({ data, onChange, onNext }) {
   const inp = (k, extra = {}) => ({
     value: data[k] || '',
     onChange: e => onChange(k, e.target.value),
-    className: `input ${errors[k] ? 'border-red-400' : ''}`,
+    className: inputCls(errors[k]),
     ...extra,
   })
 
   return (
     <div>
-      <h2 className="text-xl font-bold text-gray-900 mb-1">Clinic Details</h2>
+      <h2 className="text-xl font-bold mb-1" style={{ color: '#0F2557' }}>Clinic Details</h2>
       <p className="text-gray-500 text-sm mb-6">Tell us about your clinic</p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Field label="Clinic Name" required error={errors.clinic_name}>
@@ -139,7 +141,7 @@ function Step1({ data, onChange, onNext }) {
               onChange={e => onChange('address', e.target.value)}
               rows={2}
               placeholder="Street address, landmark..."
-              className={`input resize-none ${errors.address ? 'border-red-400' : ''}`}
+              className={`${inputCls(errors.address)} resize-none`}
             />
           </Field>
         </div>
@@ -147,8 +149,14 @@ function Step1({ data, onChange, onNext }) {
           <input type="text" {...inp('pincode')} maxLength={6} placeholder="6-digit pincode" />
         </Field>
       </div>
-      <button onClick={() => { if (validate()) onNext() }} className="btn-primary mt-8 w-full">
-        Continue <ChevronRight className="w-4 h-4 inline" />
+      <button
+        onClick={() => { if (validate()) onNext() }}
+        className="mt-8 w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm text-white transition-colors"
+        style={{ background: '#CC1414' }}
+        onMouseEnter={e => e.currentTarget.style.background = '#b01010'}
+        onMouseLeave={e => e.currentTarget.style.background = '#CC1414'}
+      >
+        Continue <ChevronRight className="w-4 h-4" />
       </button>
     </div>
   )
@@ -171,12 +179,12 @@ function Step2({ data, onChange, onNext, onBack }) {
   const inp = (k) => ({
     value: data[k] || '',
     onChange: e => onChange(k, e.target.value),
-    className: `input ${errors[k] ? 'border-red-400' : ''}`,
+    className: inputCls(errors[k]),
   })
 
   return (
     <div>
-      <h2 className="text-xl font-bold text-gray-900 mb-1">Primary Doctor Details</h2>
+      <h2 className="text-xl font-bold mb-1" style={{ color: '#0F2557' }}>Primary Doctor Details</h2>
       <p className="text-gray-500 text-sm mb-6">Details of the main consulting doctor</p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Field label="Doctor's Full Name" required error={errors.doctor_name}>
@@ -205,9 +213,17 @@ function Step2({ data, onChange, onNext, onBack }) {
         </Field>
       </div>
       <div className="flex gap-3 mt-8">
-        <button onClick={onBack} className="btn-outline flex-1">Back</button>
-        <button onClick={() => { if (validate()) onNext() }} className="btn-primary flex-1">
-          Continue <ChevronRight className="w-4 h-4 inline" />
+        <button onClick={onBack} className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 border-2 rounded-xl font-semibold text-sm transition-all" style={{ borderColor: '#0F2557', color: '#0F2557' }}>
+          Back
+        </button>
+        <button
+          onClick={() => { if (validate()) onNext() }}
+          className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm text-white"
+          style={{ background: '#CC1414' }}
+          onMouseEnter={e => e.currentTarget.style.background = '#b01010'}
+          onMouseLeave={e => e.currentTarget.style.background = '#CC1414'}
+        >
+          Continue <ChevronRight className="w-4 h-4" />
         </button>
       </div>
     </div>
@@ -230,7 +246,7 @@ function Step3({ data, onChange, onNext, onBack }) {
 
   return (
     <div>
-      <h2 className="text-xl font-bold text-gray-900 mb-1">Admin Account</h2>
+      <h2 className="text-xl font-bold mb-1" style={{ color: '#0F2557' }}>Admin Account</h2>
       <p className="text-gray-500 text-sm mb-6">These credentials will log you into the clinic dashboard</p>
       <div className="space-y-4 max-w-md">
         <Field label="Admin Email" required error={errors.admin_email}>
@@ -239,7 +255,7 @@ function Step3({ data, onChange, onNext, onBack }) {
             value={data.admin_email || ''}
             onChange={e => onChange('admin_email', e.target.value)}
             placeholder="admin@yourclinic.com"
-            className={`input ${errors.admin_email ? 'border-red-400' : ''}`}
+            className={inputCls(errors.admin_email)}
           />
         </Field>
         <Field label="Password" required error={errors.admin_password}>
@@ -249,7 +265,7 @@ function Step3({ data, onChange, onNext, onBack }) {
               value={data.admin_password || ''}
               onChange={e => onChange('admin_password', e.target.value)}
               placeholder="Minimum 8 characters"
-              className={`input pr-10 ${errors.admin_password ? 'border-red-400' : ''}`}
+              className={`${inputCls(errors.admin_password)} pr-10`}
             />
             <button
               type="button"
@@ -266,18 +282,26 @@ function Step3({ data, onChange, onNext, onBack }) {
             value={data.confirm_password || ''}
             onChange={e => onChange('confirm_password', e.target.value)}
             placeholder="Re-enter password"
-            className={`input ${errors.confirm_password ? 'border-red-400' : ''}`}
+            className={inputCls(errors.confirm_password)}
           />
         </Field>
       </div>
-      <div className="mt-6 bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-700 max-w-md">
-        <p className="font-medium mb-1">Security Note</p>
-        <p>Use a strong password. This account will have full access to your clinic's patient data.</p>
+      <div className="mt-6 rounded-xl p-4 text-sm max-w-md" style={{ background: '#0F255710', border: '1px solid #0F255730' }}>
+        <p className="font-semibold mb-1" style={{ color: '#0F2557' }}>Security Note</p>
+        <p className="text-gray-600">Use a strong password. This account will have full access to your clinic's patient data.</p>
       </div>
       <div className="flex gap-3 mt-8">
-        <button onClick={onBack} className="btn-outline flex-1">Back</button>
-        <button onClick={() => { if (validate()) onNext() }} className="btn-primary flex-1">
-          Review &amp; Submit <ChevronRight className="w-4 h-4 inline" />
+        <button onClick={onBack} className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 border-2 rounded-xl font-semibold text-sm" style={{ borderColor: '#0F2557', color: '#0F2557' }}>
+          Back
+        </button>
+        <button
+          onClick={() => { if (validate()) onNext() }}
+          className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm text-white"
+          style={{ background: '#CC1414' }}
+          onMouseEnter={e => e.currentTarget.style.background = '#b01010'}
+          onMouseLeave={e => e.currentTarget.style.background = '#CC1414'}
+        >
+          Review &amp; Submit <ChevronRight className="w-4 h-4" />
         </button>
       </div>
     </div>
@@ -305,7 +329,7 @@ function Step4({ data, onBack, onSubmit, submitting, error }) {
 
   return (
     <div>
-      <h2 className="text-xl font-bold text-gray-900 mb-1">Review Your Details</h2>
+      <h2 className="text-xl font-bold mb-1" style={{ color: '#0F2557' }}>Review Your Details</h2>
       <p className="text-gray-500 text-sm mb-6">Please review before submitting. You can go back to make changes.</p>
       <div className="border border-gray-200 rounded-xl overflow-hidden mb-6">
         {rows.map((row, i) => (
@@ -314,29 +338,34 @@ function Step4({ data, onBack, onSubmit, submitting, error }) {
             className={`flex justify-between items-center px-4 py-3 text-sm ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
           >
             <span className="text-gray-500 font-medium flex-shrink-0 mr-4">{row.label}</span>
-            <span className="text-gray-900 font-semibold text-right">{row.value}</span>
+            <span className="font-semibold text-right" style={{ color: '#0F2557' }}>{row.value}</span>
           </div>
         ))}
       </div>
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-red-600 text-sm mb-6">
-          {error}
-        </div>
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-red-600 text-sm mb-6">{error}</div>
       )}
       <p className="text-xs text-gray-400 mb-6 leading-relaxed">
-        By submitting, you agree to BharatCliniq's Terms of Service and Privacy Policy. Your registration will be reviewed within 24 hours.
+        By submitting, you agree to BHaratCliniq's Terms of Service and Privacy Policy. Your registration will be reviewed within 24 hours.
       </p>
       <div className="flex gap-3">
-        <button onClick={onBack} disabled={submitting} className="btn-outline flex-1">Back</button>
-        <button onClick={onSubmit} disabled={submitting} className="btn-primary flex-1">
+        <button onClick={onBack} disabled={submitting} className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 border-2 rounded-xl font-semibold text-sm" style={{ borderColor: '#0F2557', color: '#0F2557' }}>
+          Back
+        </button>
+        <button
+          onClick={onSubmit}
+          disabled={submitting}
+          className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm text-white disabled:opacity-50"
+          style={{ background: '#CC1414' }}
+          onMouseEnter={e => !submitting && (e.currentTarget.style.background = '#b01010')}
+          onMouseLeave={e => e.currentTarget.style.background = '#CC1414'}
+        >
           {submitting ? (
-            <span className="flex items-center justify-center gap-2">
+            <>
               <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
               Submitting...
-            </span>
-          ) : (
-            'Submit Registration'
-          )}
+            </>
+          ) : 'Submit Registration'}
         </button>
       </div>
     </div>
@@ -349,23 +378,24 @@ function SuccessScreen() {
       <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
         <CheckCircle className="w-12 h-12 text-green-500" />
       </div>
-      <h2 className="text-2xl font-bold text-gray-900 mb-3">Registration Submitted!</h2>
+      <h2 className="text-2xl font-bold mb-3" style={{ color: '#0F2557' }}>Registration Submitted!</h2>
       <p className="text-gray-500 mb-2 max-w-sm mx-auto">
-        Thank you for registering with BharatCliniq. Your clinic is currently{' '}
+        Thank you for registering with BHaratCliniq. Your clinic is currently{' '}
         <strong className="text-yellow-600">pending approval</strong>.
       </p>
       <p className="text-gray-400 text-sm mb-8 max-w-sm mx-auto">
         Our team will review your details within 24 hours and notify you at your registered email. Once approved, you'll receive login credentials for your clinic dashboard.
       </p>
-      <div className="bg-primary-50 border border-primary-200 rounded-2xl p-6 max-w-sm mx-auto mb-8 text-sm text-left space-y-4">
-        <h3 className="font-semibold text-primary-800">What happens next?</h3>
+      <div className="rounded-2xl p-6 max-w-sm mx-auto mb-8 text-sm text-left space-y-4" style={{ background: '#0F255508', border: '1px solid #0F255520' }}>
+        <h3 className="font-semibold" style={{ color: '#0F2557' }}>What happens next?</h3>
         {[
           'Our team verifies your clinic and doctor credentials',
           'You receive an approval email with dashboard access',
           'Set up your profile, slots, and start accepting bookings',
         ].map((step, i) => (
           <div key={i} className="flex items-start gap-3">
-            <div className="w-5 h-5 bg-primary-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+            <div className="w-5 h-5 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5"
+              style={{ background: '#0F2557' }}>
               {i + 1}
             </div>
             <p className="text-gray-600">{step}</p>
@@ -373,8 +403,12 @@ function SuccessScreen() {
         ))}
       </div>
       <div className="flex flex-col sm:flex-row gap-3 justify-center">
-        <Link to="/" className="btn-outline">Go to Homepage</Link>
-        <Link to="/clinics" className="btn-primary">Browse Clinics</Link>
+        <Link to="/" className="inline-flex items-center justify-center gap-2 px-6 py-3 border-2 rounded-xl font-semibold text-sm" style={{ borderColor: '#0F2557', color: '#0F2557' }}>
+          Go to Homepage
+        </Link>
+        <Link to="/clinics" className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm text-white" style={{ background: '#CC1414' }}>
+          Browse Clinics
+        </Link>
       </div>
     </div>
   )
@@ -427,30 +461,30 @@ export default function RegisterClinic() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen" style={{ background: '#F0F4F8' }}>
       <Navbar />
 
       {!submitted && (
-        <div className="bg-primary-600 text-white py-8 px-4">
+        <div className="text-white py-10 px-4" style={{ background: '#0F2557' }}>
           <div className="max-w-3xl mx-auto">
             <Link to="/" className="inline-flex items-center gap-1 text-blue-200 hover:text-white text-sm mb-3 transition-colors">
               <ArrowLeft className="w-4 h-4" /> Back to Home
             </Link>
-            <h1 className="text-2xl font-bold">Register Your Clinic</h1>
-            <p className="text-blue-100 text-sm mt-1">Join India's fastest-growing digital clinic platform. Free to register.</p>
+            <h1 className="text-2xl font-extrabold">Register Your Clinic</h1>
+            <p className="text-blue-200 text-sm mt-1">Join India's fastest-growing digital clinic platform. Free to register.</p>
           </div>
         </div>
       )}
 
       <div className="max-w-3xl mx-auto px-4 py-10">
         {submitted ? (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+          <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-8">
             <SuccessScreen />
           </div>
         ) : (
           <>
             <StepIndicator current={step} />
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8">
+            <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-6 md:p-8">
               {step === 0 && <Step1 data={formData} onChange={updateField} onNext={() => setStep(1)} />}
               {step === 1 && <Step2 data={formData} onChange={updateField} onNext={() => setStep(2)} onBack={() => setStep(0)} />}
               {step === 2 && <Step3 data={formData} onChange={updateField} onNext={() => setStep(3)} onBack={() => setStep(1)} />}

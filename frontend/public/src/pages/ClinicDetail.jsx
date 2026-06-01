@@ -1,30 +1,12 @@
 import { useState, useEffect } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import {
-  Activity, MapPin, Phone, Mail, Stethoscope, Clock,
-  User, ArrowLeft, Building2, Calendar, ChevronRight,
-  Star, BadgeCheck, IndianRupee, GraduationCap
+  MapPin, Phone, Mail, Stethoscope, Clock,
+  User, ArrowLeft, Building2, Calendar,
+  BadgeCheck, IndianRupee, GraduationCap
 } from 'lucide-react'
 import { publicApi } from '../api/client'
-
-function Navbar() {
-  return (
-    <nav className="bg-white shadow-sm sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          <Link to="/" className="flex items-center gap-2">
-            <Activity className="w-7 h-7 text-primary-600" />
-            <span className="text-xl font-bold text-gray-900">BharatCliniq</span>
-          </Link>
-          <div className="hidden md:flex items-center gap-8">
-            <Link to="/clinics" className="text-gray-600 hover:text-primary-600 font-medium">Find Clinics</Link>
-            <Link to="/register" className="btn-outline text-sm py-2 px-4">Register Clinic</Link>
-          </div>
-        </div>
-      </div>
-    </nav>
-  )
-}
+import Navbar from '../components/Navbar'
 
 function DoctorCard({ doctor, clinic }) {
   const navigate = useNavigate()
@@ -35,18 +17,18 @@ function DoctorCard({ doctor, clinic }) {
   return (
     <div className="card hover:shadow-md transition-shadow">
       <div className="flex items-start gap-4">
-        <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center flex-shrink-0">
+        <div className="w-16 h-16 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: '#EEF2FF' }}>
           {doctor.photo_url ? (
             <img src={doctor.photo_url} alt={doctor.name} className="w-16 h-16 rounded-full object-cover" />
           ) : (
-            <User className="w-8 h-8 text-primary-600" />
+            <User className="w-8 h-8" style={{ color: '#0F2557' }} />
           )}
         </div>
         <div className="flex-1">
           <div className="flex items-start justify-between gap-2">
             <div>
-              <h3 className="font-semibold text-gray-900 text-lg">{doctor.name}</h3>
-              <p className="text-primary-600 text-sm font-medium">{doctor.specialty}</p>
+              <h3 className="font-bold text-gray-900 text-lg">{doctor.name}</h3>
+              <p className="text-sm font-semibold" style={{ color: '#CC1414' }}>{doctor.specialty}</p>
             </div>
             {doctor.is_verified && (
               <BadgeCheck className="w-5 h-5 text-green-500 flex-shrink-0" title="Verified" />
@@ -110,7 +92,7 @@ export default function ClinicDetail() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="w-10 h-10 border-4 border-primary-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="w-10 h-10 border-4 border-t-transparent rounded-full animate-spin mx-auto mb-4" style={{ borderColor: '#0F2557', borderTopColor: 'transparent' }}></div>
           <p className="text-gray-500">Loading clinic profile...</p>
         </div>
       </div>
@@ -140,15 +122,15 @@ export default function ClinicDetail() {
       {/* Clinic Header */}
       <div className="bg-white border-b">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <Link to="/clinics" className="inline-flex items-center gap-1 text-gray-500 hover:text-primary-600 text-sm mb-6 transition-colors">
+          <Link to="/clinics" className="inline-flex items-center gap-1 text-gray-500 hover:text-[#0F2557] text-sm mb-6 transition-colors">
             <ArrowLeft className="w-4 h-4" /> Back to Clinics
           </Link>
           <div className="flex items-start gap-6">
-            <div className="w-20 h-20 bg-primary-100 rounded-2xl flex items-center justify-center flex-shrink-0">
+            <div className="w-20 h-20 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: '#EEF2FF' }}>
               {clinic.logo_url ? (
                 <img src={clinic.logo_url} alt={clinic.name} className="w-20 h-20 rounded-2xl object-cover" />
               ) : (
-                <Building2 className="w-10 h-10 text-primary-600" />
+                <Building2 className="w-10 h-10" style={{ color: '#0F2557' }} />
               )}
             </div>
             <div className="flex-1">
@@ -163,25 +145,25 @@ export default function ClinicDetail() {
               <div className="flex flex-wrap gap-x-6 gap-y-2 mt-3">
                 {clinic.specialty && (
                   <div className="flex items-center gap-1.5 text-gray-600 text-sm">
-                    <Stethoscope className="w-4 h-4 text-primary-500" />
+                    <Stethoscope className="w-4 h-4 text-[#0F2557]" />
                     {clinic.specialty}
                   </div>
                 )}
                 {(clinic.city || clinic.state) && (
                   <div className="flex items-center gap-1.5 text-gray-600 text-sm">
-                    <MapPin className="w-4 h-4 text-primary-500" />
+                    <MapPin className="w-4 h-4 text-[#0F2557]" />
                     {[clinic.city, clinic.state].filter(Boolean).join(', ')}
                   </div>
                 )}
                 {clinic.phone && (
                   <div className="flex items-center gap-1.5 text-gray-600 text-sm">
-                    <Phone className="w-4 h-4 text-primary-500" />
+                    <Phone className="w-4 h-4 text-[#0F2557]" />
                     {clinic.phone}
                   </div>
                 )}
                 {clinic.email && (
                   <div className="flex items-center gap-1.5 text-gray-600 text-sm">
-                    <Mail className="w-4 h-4 text-primary-500" />
+                    <Mail className="w-4 h-4 text-[#0F2557]" />
                     {clinic.email}
                   </div>
                 )}

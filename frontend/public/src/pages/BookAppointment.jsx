@@ -1,27 +1,12 @@
 import { useState, useEffect } from 'react'
 import { Link, useSearchParams, useNavigate } from 'react-router-dom'
 import {
-  Activity, Calendar, Clock, User, ChevronRight, CheckCircle,
+  Calendar, Clock, User, ChevronRight, CheckCircle,
   Phone, Mail, ArrowLeft, Search, Building2, Stethoscope,
   IndianRupee, FileText, Copy, Check
 } from 'lucide-react'
 import { publicApi } from '../api/client'
-
-function Navbar() {
-  return (
-    <nav className="bg-white shadow-sm sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          <Link to="/" className="flex items-center gap-2">
-            <Activity className="w-7 h-7 text-primary-600" />
-            <span className="text-xl font-bold text-gray-900">BharatCliniq</span>
-          </Link>
-          <Link to="/clinics" className="text-gray-600 hover:text-primary-600 font-medium text-sm">Find Clinics</Link>
-        </div>
-      </div>
-    </nav>
-  )
-}
+import Navbar from '../components/Navbar'
 
 const STEPS = ['Select Doctor', 'Choose Slot', 'Patient Details', 'Confirmation']
 
@@ -33,7 +18,7 @@ function StepIndicator({ current }) {
           <div className={`flex flex-col items-center`}>
             <div className={`w-9 h-9 rounded-full flex items-center justify-center font-semibold text-sm transition-colors ${
               i < current ? 'bg-green-500 text-white'
-              : i === current ? 'bg-primary-600 text-white'
+              : i === current ? 'bg-[#0F2557] text-white'
               : 'bg-gray-200 text-gray-500'
             }`}>
               {i < current ? <Check className="w-4 h-4" /> : i + 1}
@@ -141,9 +126,9 @@ function Step1({ onNext }) {
                 <button
                   key={clinic.id}
                   onClick={() => selectClinic(clinic)}
-                  className="w-full flex items-center gap-3 p-4 hover:bg-primary-50 transition-colors border-b last:border-0 text-left"
+                  className="w-full flex items-center gap-3 p-4 hover:bg-[#EEF2FF] transition-colors border-b last:border-0 text-left"
                 >
-                  <Building2 className="w-5 h-5 text-primary-600 flex-shrink-0" />
+                  <Building2 className="w-5 h-5 text-[#0F2557] flex-shrink-0" />
                   <div>
                     <div className="font-medium text-gray-900">{clinic.name}</div>
                     <div className="text-sm text-gray-500">{clinic.specialty} · {clinic.city}</div>
@@ -156,13 +141,13 @@ function Step1({ onNext }) {
           {!loading && clinics.length === 0 && searchText && (
             <p className="text-gray-400 text-sm text-center py-8">No clinics found. Try a different search.</p>
           )}
-          <p className="text-gray-400 text-sm text-center mt-8">or <Link to="/clinics" className="text-primary-600 underline">browse all clinics</Link></p>
+          <p className="text-gray-400 text-sm text-center mt-8">or <Link to="/clinics" className="text-[#0F2557] underline">browse all clinics</Link></p>
         </div>
       ) : (
         <div>
           {/* Selected Clinic */}
-          <div className="bg-primary-50 rounded-xl p-4 flex items-center gap-3 mb-6">
-            <Building2 className="w-6 h-6 text-primary-600" />
+          <div className="bg-[#EEF2FF] rounded-xl p-4 flex items-center gap-3 mb-6">
+            <Building2 className="w-6 h-6 text-[#0F2557]" />
             <div className="flex-1">
               <div className="font-semibold text-gray-900">{selectedClinic.name}</div>
               <div className="text-sm text-gray-500">{selectedClinic.specialty} · {selectedClinic.city}</div>
@@ -182,13 +167,13 @@ function Step1({ onNext }) {
                   onClick={() => setSelectedDoctor(doctor)}
                   className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
                     selectedDoctor?.id === doctor.id
-                      ? 'border-primary-600 bg-primary-50'
+                      ? 'border-[#0F2557] bg-[#EEF2FF]'
                       : 'border-gray-200 hover:border-primary-300 bg-white'
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <User className="w-5 h-5 text-primary-600" />
+                    <div className="w-10 h-10 bg-[#DBEAFE] rounded-full flex items-center justify-center flex-shrink-0">
+                      <User className="w-5 h-5 text-[#0F2557]" />
                     </div>
                     <div className="flex-1">
                       <div className="font-medium text-gray-900">{doctor.name}</div>
@@ -196,14 +181,14 @@ function Step1({ onNext }) {
                     </div>
                     <div className="text-right">
                       {doctor.fee && (
-                        <div className="text-primary-600 font-semibold text-sm">₹{doctor.fee}</div>
+                        <div className="text-[#0F2557] font-semibold text-sm">₹{doctor.fee}</div>
                       )}
                       {doctor.experience_years && (
                         <div className="text-xs text-gray-400">{doctor.experience_years} yrs exp</div>
                       )}
                     </div>
                     {selectedDoctor?.id === doctor.id && (
-                      <CheckCircle className="w-5 h-5 text-primary-600 ml-2" />
+                      <CheckCircle className="w-5 h-5 text-[#0F2557] ml-2" />
                     )}
                   </div>
                 </button>
@@ -264,14 +249,14 @@ function Step2({ data, onNext, onBack }) {
   return (
     <div>
       <h2 className="text-xl font-bold text-gray-900 mb-2">Choose Date & Time</h2>
-      <div className="bg-primary-50 rounded-xl p-4 flex items-center gap-3 mb-6">
-        <User className="w-5 h-5 text-primary-600" />
+      <div className="bg-[#EEF2FF] rounded-xl p-4 flex items-center gap-3 mb-6">
+        <User className="w-5 h-5 text-[#0F2557]" />
         <div>
           <div className="font-medium text-gray-900">{data.doctor.name}</div>
           <div className="text-sm text-gray-500">{data.clinic.name}</div>
         </div>
         {data.doctor.fee && (
-          <div className="ml-auto text-primary-600 font-semibold">₹{data.doctor.fee}</div>
+          <div className="ml-auto text-[#0F2557] font-semibold">₹{data.doctor.fee}</div>
         )}
       </div>
 
@@ -288,7 +273,7 @@ function Step2({ data, onNext, onBack }) {
 
       {loading ? (
         <div className="flex items-center gap-2 text-gray-500 text-sm py-6">
-          <div className="w-5 h-5 border-2 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
+          <div className="w-5 h-5 border-2 border-[#0F2557] border-t-transparent rounded-full animate-spin"></div>
           Loading available slots...
         </div>
       ) : error ? (
@@ -309,8 +294,8 @@ function Step2({ data, onNext, onBack }) {
                   onClick={() => setSelectedSlot(time)}
                   className={`py-2 px-3 rounded-lg text-sm font-medium border-2 transition-all ${
                     !available ? 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed'
-                    : selectedSlot === time ? 'bg-primary-600 text-white border-primary-600'
-                    : 'bg-white text-gray-700 border-gray-200 hover:border-primary-400'
+                    : selectedSlot === time ? 'bg-[#0F2557] text-white border-[#0F2557]'
+                    : 'bg-white text-gray-700 border-gray-200 hover:border-[#0F2557]/40'
                   }`}
                 >
                   {time}
@@ -378,7 +363,7 @@ function Step3({ data, onNext, onBack }) {
   return (
     <div>
       <h2 className="text-xl font-bold text-gray-900 mb-2">Patient Details</h2>
-      <div className="bg-primary-50 rounded-xl p-4 mb-6 text-sm">
+      <div className="bg-[#EEF2FF] rounded-xl p-4 mb-6 text-sm">
         <div className="grid grid-cols-2 gap-2 text-gray-600">
           <div><span className="font-medium">Doctor:</span> {data.doctor.name}</div>
           <div><span className="font-medium">Clinic:</span> {data.clinic.name}</div>
@@ -450,12 +435,12 @@ function Step4({ booking }) {
       <h2 className="text-2xl font-bold text-gray-900 mb-2">Booking Confirmed!</h2>
       <p className="text-gray-500 mb-8">Your appointment has been successfully booked. Save your confirmation code.</p>
 
-      <div className="bg-primary-50 border-2 border-primary-200 rounded-2xl p-6 mb-8 max-w-sm mx-auto">
+      <div className="bg-[#EEF2FF] border-2 border-[#93c5fd] rounded-2xl p-6 mb-8 max-w-sm mx-auto">
         <p className="text-sm text-gray-500 mb-2">Confirmation Code</p>
         <div className="flex items-center justify-center gap-3">
-          <span className="text-3xl font-bold text-primary-700 tracking-widest">{booking.confirmation_code}</span>
-          <button onClick={copyCode} className="p-2 hover:bg-primary-100 rounded-lg transition-colors" title="Copy code">
-            {copied ? <Check className="w-5 h-5 text-green-500" /> : <Copy className="w-5 h-5 text-primary-600" />}
+          <span className="text-3xl font-bold text-[#0F2557] tracking-widest">{booking.confirmation_code}</span>
+          <button onClick={copyCode} className="p-2 hover:bg-[#DBEAFE] rounded-lg transition-colors" title="Copy code">
+            {copied ? <Check className="w-5 h-5 text-green-500" /> : <Copy className="w-5 h-5 text-[#0F2557]" />}
           </button>
         </div>
       </div>
@@ -557,7 +542,7 @@ export default function BookAppointment() {
       <Navbar />
       <div className="max-w-2xl mx-auto px-4 py-10">
         <div className="mb-8">
-          <Link to="/clinics" className="inline-flex items-center gap-1 text-gray-500 hover:text-primary-600 text-sm transition-colors">
+          <Link to="/clinics" className="inline-flex items-center gap-1 text-gray-500 hover:text-[#0F2557] text-sm transition-colors">
             <ArrowLeft className="w-4 h-4" /> Back to Clinics
           </Link>
           <h1 className="text-2xl font-bold text-gray-900 mt-3">Book Appointment</h1>
@@ -568,7 +553,7 @@ export default function BookAppointment() {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8">
           {submitting ? (
             <div className="flex flex-col items-center py-16">
-              <div className="w-12 h-12 border-4 border-primary-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+              <div className="w-12 h-12 border-4 border-[#0F2557] border-t-transparent rounded-full animate-spin mb-4"></div>
               <p className="text-gray-600 font-medium">Confirming your booking...</p>
             </div>
           ) : (

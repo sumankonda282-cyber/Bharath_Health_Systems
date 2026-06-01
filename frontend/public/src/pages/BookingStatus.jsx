@@ -1,29 +1,11 @@
 import { useState, useEffect } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import {
-  Activity, Search, CheckCircle, Clock, XCircle, Calendar,
+  Search, CheckCircle, Clock, XCircle, Calendar,
   User, Building2, ArrowLeft, Phone, AlertCircle
 } from 'lucide-react'
 import { publicApi } from '../api/client'
-
-function Navbar() {
-  return (
-    <nav className="bg-white shadow-sm sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          <Link to="/" className="flex items-center gap-2">
-            <Activity className="w-7 h-7 text-primary-600" />
-            <span className="text-xl font-bold text-gray-900">BharatCliniq</span>
-          </Link>
-          <div className="flex items-center gap-6">
-            <Link to="/clinics" className="text-gray-600 hover:text-primary-600 font-medium text-sm">Find Clinics</Link>
-            <Link to="/book" className="btn-primary text-sm py-2 px-4">Book Appointment</Link>
-          </div>
-        </div>
-      </div>
-    </nav>
-  )
-}
+import Navbar from '../components/Navbar'
 
 const STATUS_CONFIG = {
   confirmed: {
@@ -88,14 +70,14 @@ function BookingCard({ booking }) {
         </div>
         <div className="text-right">
           <p className="text-xs text-gray-400 mb-1">Confirmation Code</p>
-          <p className="text-2xl font-bold text-primary-700 tracking-widest">{booking.confirmation_code || booking.code}</p>
+          <p className="text-2xl font-bold text-[#0F2557] tracking-widest">{booking.confirmation_code || booking.code}</p>
         </div>
       </div>
 
       <div className="bg-white rounded-xl p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
         {booking.patient_name && (
           <div className="flex items-center gap-3">
-            <User className="w-5 h-5 text-primary-400 flex-shrink-0" />
+            <User className="w-5 h-5 text-[#0F2557] flex-shrink-0" />
             <div>
               <p className="text-xs text-gray-400">Patient</p>
               <p className="font-semibold text-gray-900">{booking.patient_name}</p>
@@ -104,7 +86,7 @@ function BookingCard({ booking }) {
         )}
         {booking.doctor_name && (
           <div className="flex items-center gap-3">
-            <User className="w-5 h-5 text-primary-400 flex-shrink-0" />
+            <User className="w-5 h-5 text-[#0F2557] flex-shrink-0" />
             <div>
               <p className="text-xs text-gray-400">Doctor</p>
               <p className="font-semibold text-gray-900">{booking.doctor_name}</p>
@@ -114,7 +96,7 @@ function BookingCard({ booking }) {
         )}
         {booking.clinic_name && (
           <div className="flex items-center gap-3">
-            <Building2 className="w-5 h-5 text-primary-400 flex-shrink-0" />
+            <Building2 className="w-5 h-5 text-[#0F2557] flex-shrink-0" />
             <div>
               <p className="text-xs text-gray-400">Clinic</p>
               <p className="font-semibold text-gray-900">{booking.clinic_name}</p>
@@ -124,7 +106,7 @@ function BookingCard({ booking }) {
         )}
         {booking.date && (
           <div className="flex items-center gap-3">
-            <Calendar className="w-5 h-5 text-primary-400 flex-shrink-0" />
+            <Calendar className="w-5 h-5 text-[#0F2557] flex-shrink-0" />
             <div>
               <p className="text-xs text-gray-400">Date & Time</p>
               <p className="font-semibold text-gray-900">{booking.date}</p>
@@ -134,7 +116,7 @@ function BookingCard({ booking }) {
         )}
         {booking.mobile && (
           <div className="flex items-center gap-3">
-            <Phone className="w-5 h-5 text-primary-400 flex-shrink-0" />
+            <Phone className="w-5 h-5 text-[#0F2557] flex-shrink-0" />
             <div>
               <p className="text-xs text-gray-400">Mobile</p>
               <p className="font-semibold text-gray-900">{booking.mobile}</p>
@@ -143,7 +125,7 @@ function BookingCard({ booking }) {
         )}
         {booking.reason && (
           <div className="sm:col-span-2 flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-primary-400 flex-shrink-0 mt-0.5" />
+            <AlertCircle className="w-5 h-5 text-[#0F2557] flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-xs text-gray-400">Reason</p>
               <p className="text-gray-700 text-sm">{booking.reason}</p>
@@ -210,7 +192,7 @@ export default function BookingStatus() {
       <Navbar />
 
       <div className="max-w-2xl mx-auto px-4 py-10">
-        <Link to="/" className="inline-flex items-center gap-1 text-gray-500 hover:text-primary-600 text-sm mb-6 transition-colors">
+        <Link to="/" className="inline-flex items-center gap-1 text-gray-500 hover:text-[#0F2557] text-sm mb-6 transition-colors">
           <ArrowLeft className="w-4 h-4" /> Back to Home
         </Link>
 
@@ -234,7 +216,7 @@ export default function BookingStatus() {
 
         {loading ? (
           <div className="flex flex-col items-center py-20">
-            <div className="w-10 h-10 border-4 border-primary-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+            <div className="w-10 h-10 border-4 border-t-transparent rounded-full animate-spin mb-4" style={{ borderColor: '#0F2557', borderTopColor: 'transparent' }}></div>
             <p className="text-gray-500">Looking up your booking...</p>
           </div>
         ) : error ? (
