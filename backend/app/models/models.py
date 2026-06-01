@@ -37,6 +37,11 @@ class Clinic(Base):
     logo_url                = Column(String(500), nullable=True)
     is_active               = Column(Boolean, default=True)
     is_verified             = Column(Boolean, default=False)
+    status                  = Column(String(20), default="pending")  # pending|active|suspended|revoked
+    suspension_reason       = Column(String(100), nullable=True)
+    suspension_comment      = Column(Text, nullable=True)
+    rejection_reason        = Column(Text, nullable=True)
+    license_document_url    = Column(String(500), nullable=True)
     subscription_plan       = Column(String(20), default="free")
     subscription_status     = Column(String(20), default="active")
     subscription_expires_at = Column(DateTime, nullable=True)
@@ -75,11 +80,13 @@ class Staff(Base):
     mobile          = Column(String(20), unique=True, nullable=True)
     phone           = Column(String(20), nullable=True)
     hashed_password = Column(String(255), nullable=False)
-    role            = Column(String(30), nullable=False)
-    is_active       = Column(Boolean, default=True)
-    avatar_url      = Column(String(500))
-    created_at      = Column(DateTime, server_default=func.now())
-    updated_at      = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    role                 = Column(String(30), nullable=False)
+    is_active            = Column(Boolean, default=True)
+    license_number       = Column(String(100), nullable=True)
+    license_document_url = Column(String(500), nullable=True)
+    avatar_url           = Column(String(500))
+    created_at           = Column(DateTime, server_default=func.now())
+    updated_at           = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     clinic         = relationship("Clinic", back_populates="staff")
     branch         = relationship("Branch", back_populates="staff")
@@ -463,3 +470,19 @@ class DoctorRating(Base):
     review         = Column(Text, nullable=True)
     is_visible     = Column(Boolean, default=True)
     created_at     = Column(DateTime, server_default=func.now())
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+    id          = Column(Integer, primary_key=True, index=True)
+    action      = Column(String(100), nullable=False)  # approved_clinic|rejected_clinic|suspended_clinic|revoked_clinic|reactivated_clinic|verified_staff|rejected_staff|changed_plan
+    target_type = Column(String(20), nullable=False)   # clinic|staff
+    target_id   = Column(Integer, nullable=False)
+    target_name = Column(String(200), nullable=True)
+    admin_id    = Column(Integer, ForeignKey("platform_admins.id"), nullable=True)
+    admin_name  = Column(String(200), nullable=True)
+    reason      = Column(String(100), nullable=True)
+    comment     = Column(Text, nullable=True)
+    created_at  = Column(DateTime, server_default=func.now())
+
+    admin = relationship("PlatformAdmin")
