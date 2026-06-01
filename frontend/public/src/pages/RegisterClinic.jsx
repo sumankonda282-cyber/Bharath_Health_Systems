@@ -439,18 +439,14 @@ export default function RegisterClinic() {
           pincode: formData.pincode,
         },
         doctor: {
-          name: formData.doctor_name,
-          specialty: formData.doctor_specialty,
+          full_name: formData.doctor_name,
           qualification: formData.qualification,
-          mci_number: formData.mci_number,
+          registration_number: formData.mci_number,
           experience_years: formData.experience_years ? Number(formData.experience_years) : null,
-          fee: formData.fee ? Number(formData.fee) : null,
-          phone: formData.doctor_phone,
+          consultation_fee: formData.fee ? Number(formData.fee) : 500,
         },
-        admin: {
-          email: formData.admin_email,
-          password: formData.admin_password,
-        },
+        admin_email: formData.admin_email,
+        admin_password: formData.admin_password,
       })
       setSubmitted(true)
     } catch (err) {

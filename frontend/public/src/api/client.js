@@ -35,8 +35,8 @@ export const publicApi = {
   getClinicBySlug: (slug) => api.get(`/public/clinics/${slug}`),
 
   // Doctors
-  getDoctorSlots: (doctorId, date) =>
-    api.get(`/public/doctors/${doctorId}/slots`, { params: { date } }),
+  getDoctorSlots: (doctorId, bookingDate, branchId) =>
+    api.get(`/public/doctors/${doctorId}/slots`, { params: { booking_date: bookingDate, branch_id: branchId } }),
 
   // Booking
   bookAppointment: (data) => api.post('/public/book', data),

@@ -49,22 +49,34 @@ function Step1({ onNext }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  const loadClinicDetail = async (slug, preselectedDoctorId) => {
+    setLoading(true)
+    try {
+      const detail = await publicApi.getClinicBySlug(slug)
+      const c = detail.clinic || detail
+      setSelectedClinic(c)
+      setDoctors(c.doctors || [])
+      if (preselectedDoctorId) {
+        const d = (c.doctors || []).find(d => String(d.id) === String(preselectedDoctorId))
+        if (d) setSelectedDoctor(d)
+      }
+    } catch {
+      setError('Could not load clinic details.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   // Auto-load if params provided
   useEffect(() => {
     if (clinicId) {
-      setLoading(true)
       publicApi.getClinics({ id: clinicId }).then(data => {
         const list = Array.isArray(data) ? data : data.clinics || []
         if (list.length > 0) {
-          const c = list[0]
-          setSelectedClinic(c)
-          setDoctors(c.doctors || [])
-          if (doctorId) {
-            const d = (c.doctors || []).find(d => String(d.id) === String(doctorId))
-            if (d) setSelectedDoctor(d)
-          }
+          loadClinicDetail(list[0].slug, doctorId)
+        } else {
+          setLoading(false)
         }
-        setLoading(false)
       }).catch(() => setLoading(false))
     }
   }, []) // eslint-disable-line
@@ -83,12 +95,11 @@ function Step1({ onNext }) {
     }
   }
 
-  const selectClinic = (clinic) => {
-    setSelectedClinic(clinic)
-    setDoctors(clinic.doctors || [])
-    setSelectedDoctor(null)
+  const selectClinic = async (clinic) => {
     setClinics([])
     setSearchText('')
+    setSelectedDoctor(null)
+    await loadClinicDetail(clinic.slug)
   }
 
   const handleNext = () => {
@@ -226,7 +237,7 @@ function Step2({ data, onNext, onBack }) {
     setSlots([])
     setSelectedSlot(null)
     try {
-      const result = await publicApi.getDoctorSlots(data.doctor.id, d)
+      const result = await publicApi.getDoctorSlots(data.doctor.id, d, data.clinic?.default_branch_id)
       setSlots(Array.isArray(result) ? result : result.slots || [])
     } catch (err) {
       setError('Could not load slots. Please try another date.')
@@ -513,10 +524,14 @@ export default function BookAppointment() {
     setSubmitError('')
     const payload = {
       clinic_id: bookingData.clinic?.id,
+      branch_id: bookingData.clinic?.default_branch_id || null,
       doctor_id: bookingData.doctor?.id,
-      date: bookingData.date,
-      slot: bookingData.slot,
-      ...patientData,
+      booking_date: bookingData.date,
+      booking_time: bookingData.slot,
+      patient_name: patientData.patient_name,
+      patient_mobile: patientData.mobile,
+      patient_email: patientData.email || undefined,
+      reason: patientData.reason || undefined,
     }
     try {
       const result = await publicApi.bookAppointment(payload)

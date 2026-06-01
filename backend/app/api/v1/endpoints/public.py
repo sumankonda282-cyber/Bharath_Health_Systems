@@ -83,10 +83,10 @@ def search_clinics(
             "doctors": [{
                 "id":             d.id,
                 "name":           d.staff.full_name if d.staff else "Doctor",
-                "specialization": d.specialty,
+                "specialty":      d.specialty,
                 "qualification":  d.qualification,
                 "experience_years": d.experience_years,
-                "consultation_fee": float(d.consultation_fee) if d.consultation_fee else 0,
+                "fee":            float(d.consultation_fee) if d.consultation_fee else 0,
                 "telehealth_enabled": d.telehealth_enabled or False,
             } for d in doctors[:5]],
         })
@@ -130,22 +130,22 @@ def get_clinic_public(slug: str, db: Session = Depends(get_db)):
         "address": clinic.address,
         "phone": clinic.phone,
         "email": clinic.email,
+        "default_branch_id": branches[0].id if branches else None,
         "branches": [
             {"id": b.id, "name": b.name, "address": b.address, "city": b.city, "phone": b.phone}
             for b in branches
         ],
         "doctors": [
             {
-                "profile_id": dp.id,
-                "staff_id": s.id,
-                "name": s.full_name,
-                "specialization": dp.specialty,
-                "qualification": dp.qualification,
+                "id":             dp.id,
+                "staff_id":       s.id,
+                "name":           s.full_name,
+                "specialty":      dp.specialty,
+                "qualification":  dp.qualification,
                 "experience_years": dp.experience_years,
-                "consultation_fee": float(dp.consultation_fee) if dp.consultation_fee else 0,
-                "bio": dp.bio,
-                "languages": dp.languages,
-
+                "fee":            float(dp.consultation_fee) if dp.consultation_fee else 0,
+                "bio":            dp.bio,
+                "languages":      dp.languages,
             }
             for s, dp in doctors
         ],
@@ -157,8 +157,8 @@ def get_clinic_public(slug: str, db: Session = Depends(get_db)):
 @router.get("/doctors/{doctor_profile_id}/slots")
 def get_available_slots(
     doctor_profile_id: int,
-    branch_id: int,
     booking_date: date = Query(...),
+    branch_id: Optional[int] = None,
     db: Session = Depends(get_db),
 ):
     """
@@ -168,6 +168,14 @@ def get_available_slots(
     doctor = db.query(DoctorProfile).filter(DoctorProfile.id == doctor_profile_id).first()
     if not doctor:
         raise HTTPException(status_code=404, detail="Doctor not found")
+
+    # Auto-resolve branch_id from doctor's clinic if not provided
+    if not branch_id:
+        branch = db.query(Branch).filter(
+            Branch.clinic_id == doctor.clinic_id, Branch.is_active == True
+        ).first()
+        if branch:
+            branch_id = branch.id
 
     # Get schedule for this day
     day_name = booking_date.strftime("%A").lower()
@@ -239,9 +247,18 @@ def book_appointment_online(
     No login required — patient just fills name + mobile.
     Clinic staff will confirm it.
     """
+    # Auto-resolve branch_id if not provided
+    branch_id = payload.branch_id
+    if not branch_id:
+        branch = db.query(Branch).filter(
+            Branch.clinic_id == payload.clinic_id, Branch.is_active == True
+        ).first()
+        if branch:
+            branch_id = branch.id
+
     # Validate slot is still available
     slot_data = get_available_slots(
-        payload.doctor_id, payload.branch_id, payload.booking_date, db
+        payload.doctor_id, payload.booking_date, branch_id, db
     )
     if not slot_data["available"]:
         raise HTTPException(status_code=400, detail="Doctor not available on this day")
@@ -267,7 +284,7 @@ def book_appointment_online(
 
     booking = OnlineBooking(
         clinic_id=payload.clinic_id,
-        branch_id=payload.branch_id,
+        branch_id=branch_id,
         doctor_id=payload.doctor_id,
         patient_name=payload.patient_name,
         patient_mobile=payload.patient_mobile,

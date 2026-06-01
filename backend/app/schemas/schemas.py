@@ -299,7 +299,7 @@ class SoapNoteCreate(BaseModel):
 
 class OnlineBookingCreate(BaseModel):
     clinic_id: int
-    branch_id: int
+    branch_id: Optional[int] = None
     doctor_id: int
     patient_name: str
     patient_mobile: str

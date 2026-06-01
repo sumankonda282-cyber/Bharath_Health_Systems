@@ -12,7 +12,7 @@ export function AuthProvider({ children }) {
     if (!token) { setLoading(false); return }
     try {
       const res = await authApi.me()
-      setUser(res.data)
+      setUser(res)
     } catch {
       localStorage.clear()
     } finally {
@@ -26,7 +26,7 @@ export function AuthProvider({ children }) {
     const res = isPlatform
       ? await authApi.platformLogin(identifier, password)
       : await authApi.login(identifier, password)
-    const { access_token, refresh_token, ...userData } = res.data
+    const { access_token, refresh_token, ...userData } = res
     localStorage.setItem('access_token', access_token)
     localStorage.setItem('refresh_token', refresh_token)
     setUser(userData)

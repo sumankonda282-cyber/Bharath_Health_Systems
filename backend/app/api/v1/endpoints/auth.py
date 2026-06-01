@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from pydantic import BaseModel
+from typing import Optional
 from app.db.session import get_db
 from app.models.models import Staff, PatientUser, PlatformAdmin, Clinic
 from app.schemas.schemas import StaffLoginRequest, TokenResponse, ChangePasswordRequest
@@ -109,6 +111,44 @@ def patient_me(current=Depends(get_current_patient_user)):
         "mobile": current.mobile,
         "preferred_language": current.preferred_language,
     }
+
+
+class PatientRegisterRequest(BaseModel):
+    full_name: str
+    mobile: str
+    password: str
+    email: Optional[str] = None
+
+
+@router.post("/patient/register", response_model=TokenResponse)
+def patient_register(payload: PatientRegisterRequest, db: Session = Depends(get_db)):
+    """Self-service patient registration for the patient portal."""
+    if db.query(PatientUser).filter(PatientUser.mobile == payload.mobile).first():
+        raise HTTPException(status_code=400, detail="An account with this mobile already exists. Please login.")
+    if payload.email and db.query(PatientUser).filter(PatientUser.email == payload.email).first():
+        raise HTTPException(status_code=400, detail="An account with this email already exists.")
+    if len(payload.password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters.")
+
+    user = PatientUser(
+        full_name=payload.full_name,
+        mobile=payload.mobile,
+        email=payload.email or None,
+        hashed_password=hash_password(payload.password),
+        is_active=True,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    token_data = {"sub": str(user.id), "user_type": "patient"}
+    return TokenResponse(
+        access_token=create_access_token(token_data),
+        refresh_token=create_refresh_token(token_data),
+        user_type="patient",
+        user_id=user.id,
+        full_name=user.full_name,
+    )
 
 
 @router.post("/staff/change-password")
