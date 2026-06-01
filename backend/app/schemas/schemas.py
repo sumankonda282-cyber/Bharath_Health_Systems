@@ -174,8 +174,9 @@ class DoctorScheduleCreate(BaseModel):
     day_of_week: str
     start_time: str
     end_time: str
-    slot_minutes: int = 15
+    slot_minutes: int = 30
     max_patients: int = 20
+    is_active: bool = True
 
 
 # ── Patient ───────────────────────────────────────────────────────────────────
