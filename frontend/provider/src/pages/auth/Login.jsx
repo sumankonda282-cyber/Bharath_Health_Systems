@@ -1,13 +1,19 @@
 import { useState } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
-import { Eye, EyeOff, AlertCircle, Shield, Users, Building2 } from 'lucide-react'
+import { Eye, EyeOff, AlertCircle, Stethoscope, Users, ShieldCheck } from 'lucide-react'
 import BrandLogo from '../../components/BrandLogo'
 
+const FEATURES = [
+  { icon: Stethoscope, text: 'Provider desk — queue, encounters & prescriptions' },
+  { icon: Users,       text: 'Role-based access: Provider, Nurse, Receptionist, Admin' },
+  { icon: ShieldCheck, text: 'Secure, audited health records' },
+]
+
 export default function Login() {
-  const [form, setForm] = useState({ identifier: '', password: '' })
+  const [form, setForm]     = useState({ identifier: '', password: '' })
   const [showPw, setShowPw] = useState(false)
   const [isPlatform, setIsPlatform] = useState(false)
-  const [error, setError] = useState('')
+  const [error, setError]   = useState('')
   const [loading, setLoading] = useState(false)
   const { login } = useAuth()
 
@@ -19,54 +25,59 @@ export default function Login() {
     setLoading(true)
     try {
       await login(form.identifier, form.password, isPlatform)
-      // Route redirect is handled by App.jsx: user ? <Navigate to="/dashboard"> : <Login>
+      // App.jsx route guard handles redirect once user state is set
     } catch (err) {
-      setError(err.message || 'Login failed. Check your credentials.')
+      setError(err.message || 'Login failed. Please check your credentials.')
       setLoading(false)
     }
   }
 
   return (
     <div className="min-h-screen flex" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
-      {/* Left hero panel */}
+
+      {/* ── Left hero panel (desktop only) ─────────────────────── */}
       <div
         className="hidden lg:flex lg:w-1/2 flex-col justify-between p-10 text-white relative overflow-hidden"
         style={{ background: '#0F2557' }}
       >
-        {/* Decorative circles */}
+        {/* Decorative blobs */}
         <div style={{
-          position: 'absolute', top: '-80px', right: '-80px', width: '320px', height: '320px',
-          borderRadius: '50%', background: 'rgba(245,130,30,0.1)',
+          position: 'absolute', top: '-80px', right: '-80px',
+          width: '320px', height: '320px', borderRadius: '50%',
+          background: 'rgba(245,130,30,0.12)',
         }} />
         <div style={{
-          position: 'absolute', bottom: '-60px', left: '-60px', width: '260px', height: '260px',
-          borderRadius: '50%', background: 'rgba(204,20,20,0.1)',
+          position: 'absolute', bottom: '-60px', left: '-60px',
+          width: '260px', height: '260px', borderRadius: '50%',
+          background: 'rgba(204,20,20,0.10)',
         }} />
 
+        {/* Logo */}
         <div className="relative">
           <BrandLogo size="md" light />
-          <div className="text-xs font-semibold mt-2 tracking-wider uppercase" style={{ color: '#F5821E' }}>
+          <p className="text-xs font-semibold mt-2 tracking-widest uppercase" style={{ color: '#F5821E' }}>
             Provider Portal
-          </div>
+          </p>
         </div>
 
+        {/* Hero copy */}
         <div className="relative">
           <h2 className="text-4xl font-extrabold leading-tight mb-4" style={{ letterSpacing: '-0.02em' }}>
-            Manage your clinic,<br />
-            <span style={{ color: '#F5821E' }}>digitally.</span>
+            Your clinic,<br />
+            <span style={{ color: '#F5821E' }}>at your fingertips.</span>
           </h2>
-          <p className="text-blue-200 text-lg leading-relaxed mb-8">
-            Access patient records, appointments, billing, and analytics — all from one powerful dashboard.
+          <p className="text-blue-200 text-base leading-relaxed mb-8">
+            One portal for providers, nurses, receptionists and clinic admins —
+            patients, appointments, billing and analytics all in one place.
           </p>
 
           <div className="space-y-4">
-            {[
-              { icon: Building2, text: 'Full clinic management in one place' },
-              { icon: Users, text: 'Role-based access for your entire team' },
-              { icon: Shield, text: 'HIPAA-compliant secure health records' },
-            ].map(({ icon: Icon, text }) => (
+            {FEATURES.map(({ icon: Icon, text }) => (
               <div key={text} className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(245,130,30,0.2)' }}>
+                <div
+                  className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                  style={{ background: 'rgba(245,130,30,0.2)' }}
+                >
                   <Icon size={16} style={{ color: '#F5821E' }} />
                 </div>
                 <span className="text-blue-100 text-sm">{text}</span>
@@ -75,72 +86,96 @@ export default function Login() {
           </div>
         </div>
 
-        <div className="relative text-xs text-blue-400">
+        <p className="relative text-xs text-blue-400">
           BHaratCliniq · India's Digital Health Network
-        </div>
+        </p>
       </div>
 
-      {/* Right login panel */}
+      {/* ── Right login panel ───────────────────────────────────── */}
       <div className="flex-1 flex items-center justify-center p-6 bg-white lg:bg-gray-50">
         <div className="w-full max-w-md">
+
           {/* Mobile logo */}
           <div className="lg:hidden mb-8 text-center">
             <BrandLogo size="lg" />
+            <p className="text-xs font-semibold mt-1 tracking-widest uppercase" style={{ color: '#F5821E' }}>
+              Provider Portal
+            </p>
           </div>
 
           <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-8">
-            <h2 className="text-2xl font-extrabold mb-1" style={{ color: '#0F2557' }}>Welcome Back</h2>
+
+            <h1 className="text-2xl font-extrabold mb-1" style={{ color: '#0F2557' }}>
+              Welcome Back
+            </h1>
             <p className="text-gray-500 text-sm mb-6">
-              {isPlatform ? 'Sign in to Platform Administration' : 'Sign in to your clinic portal'}
+              {isPlatform
+                ? 'Sign in to Platform Administration'
+                : 'Sign in to your provider portal'}
             </p>
 
-            {/* Toggle */}
-            <div className="flex rounded-xl bg-gray-100 p-1 mb-6 text-sm">
-              <button
-                type="button"
-                onClick={() => setIsPlatform(false)}
-                className={`flex-1 py-2 rounded-lg font-semibold transition-all ${!isPlatform ? 'bg-white shadow text-gray-900' : 'text-gray-500'}`}
-                style={!isPlatform ? { color: '#0F2557' } : {}}
-              >
-                Clinic Staff
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsPlatform(true)}
-                className={`flex-1 py-2 rounded-lg font-semibold transition-all ${isPlatform ? 'bg-white shadow text-gray-900' : 'text-gray-500'}`}
-                style={isPlatform ? { color: '#0F2557' } : {}}
-              >
-                Platform Admin
-              </button>
+            {/* Tab toggle */}
+            <div className="flex rounded-xl bg-gray-100 p-1 mb-6 text-sm gap-1">
+              {[
+                { label: 'Provider / Staff', value: false },
+                { label: 'Platform Admin',   value: true  },
+              ].map(({ label, value }) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => { setIsPlatform(value); setError('') }}
+                  className="flex-1 py-2 rounded-lg font-semibold transition-all"
+                  style={isPlatform === value
+                    ? { background: '#fff', color: '#0F2557', boxShadow: '0 1px 3px rgba(0,0,0,0.12)' }
+                    : { color: '#6b7280' }
+                  }
+                >
+                  {label}
+                </button>
+              ))}
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+
+              {/* Identifier */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Email or Mobile</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Email or Mobile
+                </label>
                 <input
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-transparent transition-all"
-                  style={{ '--tw-ring-color': '#0F2557' }}
-                  placeholder="doctor@clinic.com or 9876543210"
+                  type="text"
+                  autoComplete="username"
+                  autoFocus
+                  required
+                  placeholder={isPlatform ? 'admin@bharatcliniq.com' : 'provider@clinic.com or 9876543210'}
                   value={form.identifier}
                   onChange={set('identifier')}
-                  required
-                  autoFocus
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm
+                             focus:outline-none focus:ring-2 focus:ring-blue-900 focus:border-transparent
+                             transition-all"
                 />
               </div>
+
+              {/* Password */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Password</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Password
+                </label>
                 <div className="relative">
                   <input
-                    className="w-full px-4 py-3 pr-10 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-transparent transition-all"
-                    style={{ '--tw-ring-color': '#0F2557' }}
                     type={showPw ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    required
                     placeholder="••••••••"
                     value={form.password}
                     onChange={set('password')}
-                    required
+                    className="w-full px-4 py-3 pr-11 border border-gray-300 rounded-xl text-sm
+                               focus:outline-none focus:ring-2 focus:ring-blue-900 focus:border-transparent
+                               transition-all"
                   />
                   <button
                     type="button"
+                    tabIndex={-1}
                     onClick={() => setShowPw(v => !v)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                   >
@@ -149,6 +184,7 @@ export default function Login() {
                 </div>
               </div>
 
+              {/* Error banner */}
               {error && (
                 <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
                   <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
@@ -156,13 +192,16 @@ export default function Login() {
                 </div>
               )}
 
+              {/* Submit */}
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl
+                           font-semibold text-sm text-white transition-colors
+                           disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ background: '#CC1414' }}
-                onMouseEnter={e => !loading && (e.currentTarget.style.background = '#b01010')}
-                onMouseLeave={e => e.currentTarget.style.background = '#CC1414'}
+                onMouseEnter={e => !loading && (e.currentTarget.style.background = '#a81010')}
+                onMouseLeave={e => (e.currentTarget.style.background = '#CC1414')}
               >
                 {loading ? (
                   <>
@@ -171,18 +210,8 @@ export default function Login() {
                   </>
                 ) : 'Sign In'}
               </button>
-            </form>
 
-            <p className="text-center text-xs text-gray-400 mt-6">
-              Clinic not yet registered?{' '}
-              <a
-                href={`${import.meta.env.VITE_PUBLIC_URL || 'https://bharatcliniq.com'}/register`}
-                className="hover:underline font-medium"
-                style={{ color: '#0F2557' }}
-              >
-                Register your clinic
-              </a>
-            </p>
+            </form>
           </div>
 
           <p className="text-center text-xs text-gray-400 mt-4">
@@ -190,6 +219,7 @@ export default function Login() {
           </p>
         </div>
       </div>
+
     </div>
   )
 }
