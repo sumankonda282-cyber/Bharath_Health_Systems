@@ -11,22 +11,26 @@ export function AuthProvider({ children }) {
     const token = localStorage.getItem('patient_token')
     if (!token) { setLoading(false); return }
     api.get('/portal/me')
-      .then(r => setUser(r.data))
-      .catch(() => localStorage.clear())
+      .then(r => setUser(r.data || r))
+      .catch(() => { localStorage.removeItem('patient_token'); localStorage.removeItem('bh_profile_id') })
       .finally(() => setLoading(false))
   }, [])
 
-  const login = async (identifier, password) => {
-    const res = await api.post('/auth/patient/login', { identifier, password })
-    localStorage.setItem('patient_token', res.data.access_token)
+  const loginWithToken = async (access_token, bh_profile_id) => {
+    localStorage.setItem('patient_token', access_token)
+    if (bh_profile_id) localStorage.setItem('bh_profile_id', String(bh_profile_id))
     const me = await api.get('/portal/me')
-    setUser(me.data)
-    return me.data
+    setUser(me.data || me)
+    return me.data || me
   }
 
-  const logout = () => { localStorage.clear(); setUser(null) }
+  const logout = () => {
+    localStorage.removeItem('patient_token')
+    localStorage.removeItem('bh_profile_id')
+    setUser(null)
+  }
 
-  return <Ctx.Provider value={{ user, loading, login, logout }}>{children}</Ctx.Provider>
+  return <Ctx.Provider value={{ user, loading, loginWithToken, logout }}>{children}</Ctx.Provider>
 }
 
 export const useAuth = () => useContext(Ctx)

@@ -101,6 +101,7 @@ class DoctorProfile(Base):
     specialty          = Column(String(200))
     qualification      = Column(Text)
     mci_number         = Column(String(100))
+    mci_verified       = Column(Boolean, default=False)
     experience_years   = Column(Integer, default=0)
     consultation_fee   = Column(Numeric(10, 2), default=500)
     bio                = Column(Text, nullable=True)
@@ -167,12 +168,17 @@ class Patient(Base):
 
 
 class PatientUser(Base):
+    """One row per mobile number (phone owner). Up to 5 BHProfiles per user."""
     __tablename__ = "patient_users"
     id                   = Column(Integer, primary_key=True, index=True)
-    full_name            = Column(String(200), nullable=False)
-    mobile               = Column(String(20), unique=True, nullable=False)
+    full_name            = Column(String(200), nullable=True)   # kept for legacy; prefer BHProfile names
+    mobile               = Column(String(20), nullable=False, index=True)  # NOT unique — family can share
     email                = Column(String(150), unique=True, nullable=True)
-    hashed_password      = Column(String(255), nullable=False)
+    hashed_password      = Column(String(255), nullable=True)   # legacy password auth (optional)
+    otp_code             = Column(String(10), nullable=True)
+    otp_expiry           = Column(DateTime, nullable=True)
+    otp_verified_token   = Column(String(255), nullable=True)   # short-lived token post-OTP verify
+    otp_token_expiry     = Column(DateTime, nullable=True)
     disclosure_pin         = Column(String(255), nullable=True)
     disclosure_pin_plain   = Column(String(10), nullable=True)
     disclosure_pin_expiry  = Column(DateTime, nullable=True)
@@ -181,7 +187,47 @@ class PatientUser(Base):
     is_verified          = Column(Boolean, default=False)
     created_at           = Column(DateTime, server_default=func.now())
 
-    patients = relationship("Patient", back_populates="portal_user")
+    patients    = relationship("Patient", back_populates="portal_user")
+    bh_profiles = relationship("BHProfile", back_populates="patient_user")
+
+
+class BHStateGroup(Base):
+    """Maps a single digit (0-9) to a group of Indian states. Seeded once, permanent."""
+    __tablename__ = "bh_state_groups"
+    id     = Column(Integer, primary_key=True, index=True)
+    digit  = Column(Integer, unique=True, nullable=False)  # 0-9
+    label  = Column(String(100), nullable=False)           # e.g. "North India"
+    states = Column(JSON, nullable=False)                  # list of state name strings
+
+    sequence = relationship("BHIDSequence", back_populates="state_group", uselist=False)
+
+
+class BHIDSequence(Base):
+    """Atomic counter per state-digit group for generating BH IDs."""
+    __tablename__ = "bh_id_sequences"
+    id       = Column(Integer, primary_key=True, index=True)
+    digit    = Column(Integer, ForeignKey("bh_state_groups.digit"), unique=True, nullable=False)
+    next_seq = Column(Integer, nullable=False, default=1)
+
+    state_group = relationship("BHStateGroup", back_populates="sequence")
+
+
+class BHProfile(Base):
+    """One permanent health identity per person. BH ID is assigned on creation and never changes."""
+    __tablename__ = "bh_profiles"
+    id              = Column(Integer, primary_key=True, index=True)
+    patient_user_id = Column(Integer, ForeignKey("patient_users.id"), nullable=False)
+    bh_id           = Column(String(11), unique=True, nullable=False, index=True)  # BH[digit][8-digits]
+    first_name      = Column(String(100), nullable=False)
+    last_name       = Column(String(100), nullable=False)
+    gender          = Column(String(10), nullable=True)
+    date_of_birth   = Column(Date, nullable=True)
+    state           = Column(String(100), nullable=True)   # state at registration (determines digit)
+    state_digit     = Column(Integer, nullable=False)
+    is_active       = Column(Boolean, default=True)
+    created_at      = Column(DateTime, server_default=func.now())
+
+    patient_user = relationship("PatientUser", back_populates="bh_profiles")
 
 
 class Appointment(Base):

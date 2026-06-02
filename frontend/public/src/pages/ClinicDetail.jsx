@@ -56,8 +56,11 @@ function DoctorCard({ doctor, clinic }) {
             )}
           </div>
 
-          {doctor.mci_number && (
-            <p className="text-xs text-gray-400 mt-2">MCI Reg: {doctor.mci_number}</p>
+          {doctor.mci_verified && (
+            <div className="flex items-center gap-1.5 mt-2">
+              <BadgeCheck className="w-3.5 h-3.5 text-green-500" />
+              <span className="text-xs font-semibold text-green-600">MCI Registered & Verified</span>
+            </div>
           )}
         </div>
       </div>

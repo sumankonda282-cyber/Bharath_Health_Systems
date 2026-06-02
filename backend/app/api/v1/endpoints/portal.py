@@ -1,53 +1,85 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from jose import JWTError, jwt
 from app.db.session import get_db
 from app.core.config import settings
-from app.models.models import PatientUser, Patient
+from app.models.models import PatientUser, Patient, BHProfile
 
 router = APIRouter(prefix="/portal", tags=["patient-portal"])
 security = HTTPBearer()
+
+
+def _decode_patient_token(token: str) -> dict:
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        if payload.get("user_type") != "patient":
+            raise HTTPException(status_code=401, detail="Not a patient token")
+        return payload
+    except JWTError as e:
+        raise HTTPException(status_code=401, detail=f"Token error: {str(e)}")
+
 
 def get_current_patient(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db)
 ):
-    try:
-        payload = jwt.decode(
-            credentials.credentials,
-            settings.SECRET_KEY,
-            algorithms=[settings.ALGORITHM]
-        )
-        if payload.get("user_type") != "patient":
-            raise HTTPException(status_code=401, detail="Not a patient token")
-        user_id = payload.get("sub")
-        if not user_id:
-            raise HTTPException(status_code=401, detail="No user ID in token")
-        user = db.query(PatientUser).filter(
-            PatientUser.id == int(user_id)
+    payload = _decode_patient_token(credentials.credentials)
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="No user ID in token")
+    user = db.query(PatientUser).filter(PatientUser.id == int(user_id)).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+    return user
+
+
+def get_current_patient_with_profile(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+):
+    """Returns (PatientUser, BHProfile|None) tuple."""
+    payload = _decode_patient_token(credentials.credentials)
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="No user ID in token")
+    user = db.query(PatientUser).filter(PatientUser.id == int(user_id)).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+
+    profile = None
+    bh_profile_id = payload.get("bh_profile_id")
+    if bh_profile_id:
+        profile = db.query(BHProfile).filter(
+            BHProfile.id == int(bh_profile_id),
+            BHProfile.patient_user_id == user.id,
         ).first()
-        if not user:
-            raise HTTPException(status_code=401, detail="User not found")
-        return user
-    except JWTError as e:
-        raise HTTPException(status_code=401, detail=f"Token error: {str(e)}")
+    return user, profile
+
 
 @router.get("/me")
 def portal_me(
-    current: PatientUser = Depends(get_current_patient),
+    auth=Depends(get_current_patient_with_profile),
     db: Session = Depends(get_db)
 ):
-    patients = db.query(Patient).filter(
-        Patient.portal_user_id == current.id
-    ).all()
+    current, bh_profile = auth
+    patients = db.query(Patient).filter(Patient.portal_user_id == current.id).all()
+
+    full_name = current.full_name or ""
+    bh_id = None
+    if bh_profile:
+        full_name = f"{bh_profile.first_name} {bh_profile.last_name}"
+        bh_id = bh_profile.bh_id
+    elif patients:
+        bh_id = patients[0].bh_id
+
     return {
         "id": current.id,
-        "full_name": current.full_name,
+        "full_name": full_name,
         "mobile": current.mobile,
         "email": current.email,
         "preferred_language": current.preferred_language,
-        "bh_id": patients[0].uhid if patients else None,
+        "bh_id": bh_id,
         "linked_clinics": len(patients),
     }
 

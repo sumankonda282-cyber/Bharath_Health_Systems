@@ -41,25 +41,27 @@ def search_clinics(
     city: Optional[str] = None,
     specialty: Optional[str] = None,
     search: Optional[str] = None,
+    q: Optional[str] = None,       # alias for search
     skip: int = 0,
     limit: int = 20,
     db: Session = Depends(get_db),
 ):
     """Search verified active clinics - shown on public website."""
-    q = db.query(Clinic).filter(
+    keyword = search or q  # q is URL alias for search
+    stmt = db.query(Clinic).filter(
         Clinic.is_active == True,
         Clinic.is_verified == True,
     )
     if city:
-        q = q.filter(Clinic.city.ilike(f"%{city}%"))
+        stmt = stmt.filter(Clinic.city.ilike(f"%{city}%"))
     if specialty:
-        q = q.filter(Clinic.specialty.ilike(f"%{specialty}%"))
-    if search:
-        q = q.filter(
-            Clinic.name.ilike(f"%{search}%") |
-            Clinic.specialty.ilike(f"%{search}%")
+        stmt = stmt.filter(Clinic.specialty.ilike(f"%{specialty}%"))
+    if keyword:
+        stmt = stmt.filter(
+            Clinic.name.ilike(f"%{keyword}%") |
+            Clinic.specialty.ilike(f"%{keyword}%")
         )
-    clinics = q.offset(skip).limit(limit).all()
+    clinics = stmt.offset(skip).limit(limit).all()
     result = []
     for c in clinics:
         # Get doctors for this clinic
@@ -137,15 +139,18 @@ def get_clinic_public(slug: str, db: Session = Depends(get_db)):
         ],
         "doctors": [
             {
-                "id":             dp.id,
-                "staff_id":       s.id,
-                "name":           s.full_name,
-                "specialty":      dp.specialty,
-                "qualification":  dp.qualification,
+                "id":               dp.id,
+                "staff_id":         s.id,
+                "name":             s.full_name,
+                "specialty":        dp.specialty,
+                "qualification":    dp.qualification,
                 "experience_years": dp.experience_years,
-                "fee":            float(dp.consultation_fee) if dp.consultation_fee else 0,
-                "bio":            dp.bio,
-                "languages":      dp.languages,
+                "fee":              float(dp.consultation_fee) if dp.consultation_fee else 0,
+                "bio":              dp.bio,
+                "languages":        dp.languages,
+                "mci_verified":     dp.mci_verified or False,
+                "telehealth_enabled": dp.telehealth_enabled or False,
+                "telehealth_fee":   float(dp.telehealth_fee) if dp.telehealth_fee else None,
             }
             for s, dp in doctors
         ],
