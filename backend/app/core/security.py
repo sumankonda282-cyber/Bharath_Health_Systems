@@ -1,25 +1,27 @@
 from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
-from passlib.context import CryptContext
+from pwdlib import PasswordHash
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.db.session import get_db
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/staff/login")
-oauth2_scheme_patient = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/patient/login")
+# pwdlib replaces passlib — bcrypt hashes are fully compatible (same $2b$ format)
+_pwd_hasher = PasswordHash.recommended()
 
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    return _pwd_hasher.hash(password)
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+    return _pwd_hasher.verify(plain, hashed)
+
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/staff/login")
+oauth2_scheme_patient = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/patient/login")
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
