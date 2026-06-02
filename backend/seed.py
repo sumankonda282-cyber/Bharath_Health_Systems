@@ -10,7 +10,7 @@ from sqlalchemy import text
 from app.db.session import SessionLocal, engine, Base
 from app.models.models import (
     PlatformAdmin, Clinic, Branch, Staff, DoctorProfile,
-    DoctorSchedule, Patient, Medicine, LabTest, DayOfWeek
+    DoctorSchedule, Patient, Medicine, LabTest
 )
 from app.core.security import hash_password
 from datetime import date, datetime, timedelta
