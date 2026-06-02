@@ -11,9 +11,9 @@ import AuditLog from './pages/AuditLog'
 import Reports from './pages/Reports'
 
 function PrivateRoute({ children }) {
-  const { admin, loading } = useAuth()
+  const { user, loading } = useAuth()
   if (loading) return <div className="flex items-center justify-center min-h-screen"><div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" /></div>
-  return admin ? children : <Navigate to="/login" replace />
+  return user ? children : <Navigate to="/login" replace />
 }
 
 export default function App() {
