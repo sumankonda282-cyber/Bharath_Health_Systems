@@ -20,7 +20,8 @@ export function AuthProvider({ children }) {
   const login = async (identifier, password) => {
     const data = await authApi.login(identifier, password)
     localStorage.setItem('admin_token', data.access_token)
-    setUser(data.user || { email: identifier })
+    const me = await authApi.me()
+    setUser(me)
   }
 
   const logout = () => {
