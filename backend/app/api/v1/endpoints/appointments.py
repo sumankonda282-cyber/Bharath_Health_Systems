@@ -50,11 +50,16 @@ def create_appointment(
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
 
+    doctor_profile = db.query(DoctorProfile).filter(DoctorProfile.id == payload.doctor_id).first()
+    doctor_name = doctor_profile.staff.full_name if doctor_profile and doctor_profile.staff else ""
+
     token = _next_token(db, payload.doctor_id, payload.appointment_date, branch_id)
     appt = Appointment(
         clinic_id=current.clinic_id,
         branch_id=branch_id,
         token_number=token,
+        patient_name=patient.full_name,
+        doctor_name=doctor_name,
         **payload.model_dump(),
     )
     db.add(appt)
@@ -161,6 +166,11 @@ def confirm_online_booking(
     if booking.status != "pending":
         raise HTTPException(status_code=400, detail=f"Booking is already {booking.status}")
 
+    conf_patient = db.query(Patient).filter(Patient.id == patient_id).first()
+    conf_doc_profile = db.query(DoctorProfile).filter(DoctorProfile.id == booking.doctor_id).first()
+    conf_patient_name = conf_patient.full_name if conf_patient else booking.patient_name or ""
+    conf_doctor_name = conf_doc_profile.staff.full_name if conf_doc_profile and conf_doc_profile.staff else ""
+
     token = _next_token(db, booking.doctor_id, booking.booking_date, booking.branch_id)
     appt = Appointment(
         clinic_id=current.clinic_id,
@@ -174,6 +184,8 @@ def confirm_online_booking(
         mode='online',
         reason=booking.reason,
         online_booking_id=booking.id,
+        patient_name=conf_patient_name,
+        doctor_name=conf_doctor_name,
     )
     db.add(appt)
     booking.status = "confirmed"

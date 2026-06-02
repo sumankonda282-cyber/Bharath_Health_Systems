@@ -9,7 +9,8 @@ from app.core.security import get_current_staff, verify_password
 from app.models.models import (
     Patient, Staff, PatientUser,
     Appointment, SoapNote, Prescription, PrescriptionItem,
-    LabOrder, LabOrderItem, DoctorProfile, Clinic
+    LabOrder, LabOrderItem, DoctorProfile, Clinic,
+    BHStateGroup, BHIDSequence
 )
 from app.schemas.schemas import PatientCreate, PatientUpdate, PatientOut
 
@@ -42,12 +43,22 @@ def create_patient(
         if existing:
             raise HTTPException(status_code=400, detail="Patient with this mobile already exists in this clinic")
 
+    from app.api.v1.endpoints.auth import _get_state_digit, _next_bh_seq, _make_bh_id
     import random
+
     uhid = 'BC-' + ''.join([str(random.randint(0, 9)) for _ in range(6)])
+
+    # Generate BH ID based on patient state
+    state = payload.state or ""
+    digit = _get_state_digit(state, db) if state else 9
+    seq = _next_bh_seq(digit, db)
+    bh_id = _make_bh_id(digit, seq)
+
     patient = Patient(
         clinic_id=current.clinic_id,
         branch_id=branch_id or current.branch_id,
         uhid=uhid,
+        bh_id=bh_id,
         **payload.model_dump()
     )
     db.add(patient)
