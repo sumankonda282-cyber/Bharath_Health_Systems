@@ -214,7 +214,17 @@ export default function Login() {
             </form>
           </div>
 
-          <p className="text-center text-xs text-gray-400 mt-4">
+          <p className="text-center mt-4" style={{ fontSize: '11px', color: '#9ca3af' }}>
+            Clinic not yet registered?{' '}
+            <a
+              href={`${import.meta.env.VITE_PUBLIC_URL || 'https://bharatcliniq.com'}/register`}
+              style={{ color: '#0F2557', textDecoration: 'underline' }}
+            >
+              Register your clinic
+            </a>
+          </p>
+
+          <p className="text-center text-xs text-gray-400 mt-2">
             BHaratCliniq · Provider Portal
           </p>
         </div>
