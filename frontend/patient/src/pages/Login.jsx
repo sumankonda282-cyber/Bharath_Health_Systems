@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../api/client'
 import {
@@ -388,7 +387,6 @@ export default function Login() {
   const [error, setError] = useState('')
 
   const { loginWithToken } = useAuth()
-  const navigate = useNavigate()
 
   const handleMobileNext = ({ mobile: m, devOtp: d }) => {
     setMobile(m)
@@ -413,7 +411,7 @@ export default function Login() {
       })
       const data = res.data || res
       await loginWithToken(data.access_token, data.bh_profile_id)
-      navigate('/')
+      // App.jsx route guard handles redirect once user state is set
     } catch (err) {
       setError(err.message || 'Failed to sign in.')
       setFinalizing(false)
@@ -422,7 +420,7 @@ export default function Login() {
 
   const handleCreated = async (data) => {
     await loginWithToken(data.access_token, data.bh_profile_id)
-    navigate('/')
+    // App.jsx route guard handles redirect once user state is set
   }
 
   return (

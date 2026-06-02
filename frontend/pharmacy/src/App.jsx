@@ -15,12 +15,17 @@ function Guard({ children }) {
   if (loading) return <div className="h-screen flex items-center justify-center"><Loader2 size={36} className="animate-spin text-gray-400"/></div>
   return user ? children : <Navigate to="/login" replace/>
 }
+function LoginRoute() {
+  const { user, loading } = useAuth()
+  if (loading) return <div className="h-screen flex items-center justify-center"><Loader2 size={36} className="animate-spin text-gray-400"/></div>
+  return user ? <Navigate to="/" replace/> : <Login/>
+}
 export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/login" element={<Login/>}/>
+          <Route path="/login" element={<LoginRoute/>}/>
           <Route element={<Guard><Layout/></Guard>}>
             <Route index element={<Dashboard/>}/>
             <Route path="pending"   element={<Pending/>}/>

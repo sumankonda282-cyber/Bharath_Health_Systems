@@ -2,7 +2,7 @@ import axios from 'axios'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
-const api = axios.create({ baseURL: `${API_BASE}/api/v1` })
+const api = axios.create({ baseURL: `${API_BASE}/api/v1`, headers: { 'Content-Type': 'application/json' }, timeout: 30000 })
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('patient_token')
