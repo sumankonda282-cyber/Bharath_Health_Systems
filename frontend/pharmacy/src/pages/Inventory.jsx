@@ -42,7 +42,20 @@ export default function Inventory() {
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
             <h3 className="text-lg font-bold mb-4" style={{ color: '#0F2557' }}>Add Medicine</h3>
             <form onSubmit={addMed} className="space-y-3">
-              <div><label className="label">Name *</label><input className="input" value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} required/></div>
+              <div>
+                <label className="label">Name *</label>
+                <input
+                  className="input"
+                  list="med-suggestions"
+                  value={form.name}
+                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                  required
+                  placeholder="Type to search…"
+                />
+                <datalist id="med-suggestions">
+                  {medicines.map(m => <option key={m.id} value={m.name} />)}
+                </datalist>
+              </div>
               <div><label className="label">Generic Name</label><input className="input" value={form.generic_name} onChange={e=>setForm(f=>({...f,generic_name:e.target.value}))}/></div>
               <div className="grid grid-cols-2 gap-3">
                 <div><label className="label">Unit</label><select className="input" value={form.unit} onChange={e=>setForm(f=>({...f,unit:e.target.value}))}><option value="tablet">Tablet</option><option value="capsule">Capsule</option><option value="syrup">Syrup (ml)</option><option value="injection">Injection</option><option value="cream">Cream (g)</option><option value="drops">Drops</option></select></div>

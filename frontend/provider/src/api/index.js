@@ -62,6 +62,7 @@ export const pharmacyApi = {
   addMedicine:       (branchId, data) => api.post('/pharmacy/medicines', data, { params: { branch_id: branchId } }),
   getPending:        () => api.get('/pharmacy/pending'),
   dispense:          (id) => api.post(`/pharmacy/prescriptions/${id}/dispense`),
+  searchMedicines:   (q, branchId) => api.get('/pharmacy/medicines/search', { params: { q, branch_id: branchId } }),
 }
 
 // ── Lab ───────────────────────────────────────────────────────────
@@ -69,6 +70,7 @@ export const labApi = {
   getOrders:   (params) => api.get('/lab/orders', { params }),
   updateStatus:(id, status) => api.put(`/lab/orders/${id}/status`, { status }),
   addResults:  (id, items) => api.post(`/lab/orders/${id}/results`, { items }),
+  searchTests: (q, type, branchId) => api.get('/lab/tests/search', { params: { q, type, branch_id: branchId } }),
 }
 
 // ── Imaging ───────────────────────────────────────────────────────

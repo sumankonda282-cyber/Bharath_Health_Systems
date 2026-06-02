@@ -38,6 +38,36 @@ def add_medicine(
     return med
 
 
+@pharmacy_router.get("/medicines/search")
+def search_medicines(
+    q: str = Query(""),
+    branch_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    effective_branch = branch_id or current.branch_id
+    query = db.query(Medicine).filter(Medicine.is_active == True)
+    if effective_branch:
+        query = query.filter(Medicine.branch_id == effective_branch)
+    if q:
+        query = query.filter(
+            Medicine.name.ilike(f"%{q}%") |
+            Medicine.generic_name.ilike(f"%{q}%")
+        )
+    results = query.order_by(Medicine.name).limit(15).all()
+    return [
+        {
+            "id": m.id,
+            "name": m.name,
+            "generic_name": m.generic_name,
+            "form": m.form,
+            "strength": m.strength,
+            "in_stock": (m.stock_quantity or 0) > 0,
+        }
+        for m in results
+    ]
+
+
 @pharmacy_router.get("/medicines", response_model=List[MedicineOut])
 def list_medicines(
     search: Optional[str] = None,
@@ -129,6 +159,46 @@ def dispense_prescription(pres_id: int, db: Session = Depends(get_db), current: 
 
 # ── Lab ───────────────────────────────────────────────────────────────────────
 lab_router = APIRouter(prefix="/lab", tags=["laboratory"])
+
+
+@lab_router.get("/tests/search")
+def search_lab_tests(
+    q: str = Query(""),
+    type: str = Query("lab"),  # "lab" or "imaging"
+    branch_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    effective_branch = branch_id or current.branch_id
+    query = db.query(LabTest).filter(LabTest.is_active == True)
+    if effective_branch:
+        query = query.filter(LabTest.branch_id == effective_branch)
+    # imaging tests have category containing "imaging", "radiology", "scan", "xray" etc
+    # lab tests are everything else
+    from sqlalchemy import or_, and_
+    imaging_keywords = ['imaging', 'radiology', 'scan', 'x-ray', 'xray', 'mri', 'ct', 'ultrasound']
+    imaging_filter = or_(*[LabTest.category.ilike(f"%{kw}%") for kw in imaging_keywords])
+    if type == "imaging":
+        query = query.filter(imaging_filter)
+    else:
+        query = query.filter(~imaging_filter)
+    if q:
+        query = query.filter(
+            LabTest.name.ilike(f"%{q}%") |
+            LabTest.code.ilike(f"%{q}%")
+        )
+    results = query.order_by(LabTest.name).limit(15).all()
+    return [
+        {
+            "id": t.id,
+            "name": t.name,
+            "code": t.code,
+            "category": t.category,
+            "price": float(t.price) if t.price else None,
+            "available": True,
+        }
+        for t in results
+    ]
 
 
 @lab_router.post("/tests")

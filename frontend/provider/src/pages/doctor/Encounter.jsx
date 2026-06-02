@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { doctorApi, appointmentsApi } from '../../api'
+import { doctorApi, appointmentsApi, pharmacyApi, labApi } from '../../api'
 import { PageLoader } from '../../components/ui/Spinner'
+import SearchDropdown from '../../components/SearchDropdown'
 import {
   ArrowLeft, Activity, FileText, Pill, FlaskConical,
-  Save, CheckCircle, Plus, Trash2
+  Save, CheckCircle, Plus, Trash2, Scan
 } from 'lucide-react'
 
 export default function Encounter() {
@@ -26,12 +27,16 @@ export default function Encounter() {
   })
 
   // Prescription
-  const [rxItems, setRxItems] = useState([{ medicine_name: '', dosage: '', frequency: '', duration: '', instructions: '' }])
+  const [rxItems, setRxItems] = useState([{ medicine_id: null, medicine_name: '', dosage: '', frequency: '', duration: '', instructions: '' }])
   const [rxNotes, setRxNotes] = useState('')
 
   // Lab
-  const [labTests, setLabTests] = useState([{ test_name: '' }])
+  const [labTests, setLabTests] = useState([{ test_id: null, test_name: '' }])
   const [labNotes, setLabNotes] = useState('')
+
+  // Imaging
+  const [imagingTests, setImagingTests] = useState([{ test_id: null, test_name: '' }])
+  const [imagingNotes, setImagingNotes] = useState('')
 
   useEffect(() => {
     doctorApi.getEncounter(id)
@@ -64,6 +69,7 @@ export default function Encounter() {
         soap: { ...soap, appointment_id: parseInt(id) },
         prescription: rxItems.some(i => i.medicine_name) ? { notes: rxNotes, items: rxItems.filter(i => i.medicine_name) } : null,
         lab_order: labTests.some(t => t.test_name) ? { notes: labNotes, tests: labTests.filter(t => t.test_name) } : null,
+        imaging_order: imagingTests.some(t => t.test_name) ? { notes: imagingNotes, tests: imagingTests.filter(t => t.test_name) } : null,
       }
       await doctorApi.completeEncounter(id, payload)
       setSuccess('Encounter completed!')
@@ -75,12 +81,16 @@ export default function Encounter() {
     }
   }
 
-  const addRxItem = () => setRxItems(i => [...i, { medicine_name: '', dosage: '', frequency: '', duration: '', instructions: '' }])
+  const addRxItem = () => setRxItems(i => [...i, { medicine_id: null, medicine_name: '', dosage: '', frequency: '', duration: '', instructions: '' }])
   const removeRxItem = (idx) => setRxItems(i => i.filter((_, j) => j !== idx))
   const setRx = (idx, k, v) => setRxItems(i => i.map((item, j) => j === idx ? { ...item, [k]: v } : item))
 
-  const addLabTest = () => setLabTests(t => [...t, { test_name: '' }])
-  const setLab = (idx, v) => setLabTests(t => t.map((item, j) => j === idx ? { ...item, test_name: v } : item))
+  const addLabTest = () => setLabTests(t => [...t, { test_id: null, test_name: '' }])
+  const setLab = (idx, k, v) => setLabTests(t => t.map((item, j) => j === idx ? { ...item, [k]: v } : item))
+
+  const addImagingTest = () => setImagingTests(t => [...t, { test_id: null, test_name: '' }])
+  const removeImagingTest = (idx) => setImagingTests(t => t.filter((_, j) => j !== idx))
+  const setImaging = (idx, k, v) => setImagingTests(t => t.map((item, j) => j === idx ? { ...item, [k]: v } : item))
 
   if (loading) return <PageLoader />
   if (!data) return <div className="text-gray-500">Encounter not found</div>
@@ -125,6 +135,7 @@ export default function Encounter() {
           { key: 'vitals', label: 'Vitals', icon: Activity },
           { key: 'rx', label: 'Prescription', icon: Pill },
           { key: 'lab', label: 'Lab Orders', icon: FlaskConical },
+          { key: 'imaging', label: 'Imaging', icon: Scan },
         ].map(t => (
           <button
             key={t.key}
@@ -202,7 +213,13 @@ export default function Encounter() {
               <div key={idx} className="grid grid-cols-5 gap-2 items-start p-3 bg-gray-50 rounded-lg">
                 <div className="col-span-2">
                   <label className="label text-xs">Medicine Name</label>
-                  <input className="input text-sm" placeholder="Tab Paracetamol 500mg" value={item.medicine_name} onChange={e => setRx(idx, 'medicine_name', e.target.value)} />
+                  <SearchDropdown
+                    value={item.medicine_name}
+                    onChange={v => setRx(idx, 'medicine_name', v)}
+                    onSelect={s => { setRx(idx, 'medicine_name', s.name + (s.strength ? ' ' + s.strength : '') + (s.form ? ' ' + s.form : '')); setRx(idx, 'medicine_id', s.id) }}
+                    fetchSuggestions={q => pharmacyApi.searchMedicines(q)}
+                    placeholder="Search medicine…"
+                  />
                 </div>
                 <div>
                   <label className="label text-xs">Dosage</label>
@@ -238,7 +255,15 @@ export default function Encounter() {
           <div className="space-y-2 mb-4">
             {labTests.map((t, idx) => (
               <div key={idx} className="flex gap-2">
-                <input className="input" placeholder="e.g. CBC, LFT, Blood Sugar" value={t.test_name} onChange={e => setLab(idx, e.target.value)} />
+                <SearchDropdown
+                  value={t.test_name}
+                  onChange={v => setLab(idx, 'test_name', v)}
+                  onSelect={s => { setLab(idx, 'test_name', s.name); setLab(idx, 'test_id', s.id) }}
+                  fetchSuggestions={q => labApi.searchTests(q, 'lab')}
+                  placeholder="Search lab test…"
+                  className="flex-1"
+                />
+                <button onClick={() => setLabTests(t => t.filter((_, j) => j !== idx))} className="btn-secondary p-2 text-red-500 hover:text-red-700"><Trash2 size={14}/></button>
               </div>
             ))}
           </div>
@@ -246,6 +271,31 @@ export default function Encounter() {
           <div>
             <label className="label">Clinical Notes</label>
             <textarea className="input resize-none" rows={2} value={labNotes} onChange={e => setLabNotes(e.target.value)} placeholder="Reason for tests…" />
+          </div>
+        </div>
+      )}
+      {/* Imaging */}
+      {tab === 'imaging' && (
+        <div className="card p-6">
+          <div className="space-y-2 mb-4">
+            {imagingTests.map((t, idx) => (
+              <div key={idx} className="flex gap-2">
+                <SearchDropdown
+                  value={t.test_name}
+                  onChange={v => setImaging(idx, 'test_name', v)}
+                  onSelect={s => { setImaging(idx, 'test_name', s.name); setImaging(idx, 'test_id', s.id) }}
+                  fetchSuggestions={q => labApi.searchTests(q, 'imaging')}
+                  placeholder="Search imaging study…"
+                  className="flex-1"
+                />
+                <button onClick={() => removeImagingTest(idx)} className="btn-secondary p-2 text-red-500 hover:text-red-700"><Trash2 size={14}/></button>
+              </div>
+            ))}
+          </div>
+          <button onClick={() => setImagingTests(t => [...t, { test_id: null, test_name: '' }])} className="btn-secondary text-sm mb-4"><Plus size={14}/>Add Imaging</button>
+          <div>
+            <label className="label">Clinical Notes</label>
+            <textarea className="input resize-none" rows={2} value={imagingNotes} onChange={e => setImagingNotes(e.target.value)} placeholder="Reason for imaging…"/>
           </div>
         </div>
       )}
