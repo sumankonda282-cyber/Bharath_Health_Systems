@@ -2,14 +2,15 @@ from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
 from pwdlib import PasswordHash
+from pwdlib.hashers.bcrypt import BcryptHasher
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.db.session import get_db
 
-# pwdlib replaces passlib — bcrypt hashes are fully compatible (same $2b$ format)
-_pwd_hasher = PasswordHash.recommended()
+# Explicitly use bcrypt — PasswordHash.recommended() tries argon2 first which may not be installed
+_pwd_hasher = PasswordHash((BcryptHasher(),))
 
 
 def hash_password(password: str) -> str:
