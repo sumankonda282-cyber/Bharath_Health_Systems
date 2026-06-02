@@ -1,21 +1,38 @@
 import axios from 'axios'
 
-const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
-const API  = `${BASE}/api/v1`
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
-const api = axios.create({ baseURL: API, timeout: 30000 })
+const api = axios.create({
+  baseURL: `${API_BASE}/api/v1`,
+  headers: { 'Content-Type': 'application/json' },
+  timeout: 30000,
+})
 
-api.interceptors.request.use(cfg => {
+api.interceptors.request.use((config) => {
   const token = localStorage.getItem('admin_token')
-  if (token) cfg.headers.Authorization = `Bearer ${token}`
-  return cfg
+  if (token) config.headers.Authorization = `Bearer ${token}`
+  return config
 })
 
 api.interceptors.response.use(
-  r => r.data,
-  e => {
-    if (e.response?.status === 401) { localStorage.removeItem('admin_token'); window.location.href = '/login' }
-    return Promise.reject(new Error(e.response?.data?.detail || e.message || 'Request failed'))
+  (res) => res.data,
+  (err) => {
+    // Only redirect to login on 401 for non-auth endpoints
+    // Login endpoint returning 401 means wrong credentials — show error, don't redirect
+    if (err.response?.status === 401) {
+      const url = err.config?.url || ''
+      const isLoginCall = url.includes('/login') || url.includes('/send-otp') || url.includes('/verify-otp')
+      if (!isLoginCall) {
+        localStorage.clear()
+        window.location.href = '/login'
+      }
+    }
+    const message =
+      err.response?.data?.detail ||
+      err.response?.data?.message ||
+      err.message ||
+      'Something went wrong'
+    return Promise.reject(new Error(message))
   }
 )
 

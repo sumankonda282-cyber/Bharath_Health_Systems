@@ -17,9 +17,15 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res.data,
   (err) => {
+    // Only redirect to login on 401 for non-auth endpoints
+    // Login endpoint returning 401 means wrong credentials — show error, don't redirect
     if (err.response?.status === 401) {
-      localStorage.clear()
-      window.location.href = '/login'
+      const url = err.config?.url || ''
+      const isLoginCall = url.includes('/login') || url.includes('/send-otp') || url.includes('/verify-otp')
+      if (!isLoginCall) {
+        localStorage.clear()
+        window.location.href = '/login'
+      }
     }
     const message =
       err.response?.data?.detail ||
