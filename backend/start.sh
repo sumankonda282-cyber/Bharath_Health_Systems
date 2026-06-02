@@ -2,8 +2,6 @@
 set -e
 
 echo "[startup] Syncing database schema..."
-# If tables already exist, stamp current migration state then upgrade
-# This handles the case where DB was created manually without alembic tracking
 python -c "
 from sqlalchemy import text
 from app.db.session import engine
@@ -20,11 +18,11 @@ except Exception:
 alembic upgrade head || {
     echo "[startup] Migration failed (tables may already exist) — stamping head..."
     alembic stamp head
-    alembic upgrade head
+    alembic upgrade head || echo "[startup] Upgrade after stamp also failed — continuing anyway"
 }
 
 echo "[startup] Seeding database..."
-python seed.py
+python seed.py || echo "[startup] Seed failed (non-fatal) — continuing with existing data"
 
 echo "[startup] Starting server..."
 exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8000}" --workers 1
