@@ -46,6 +46,8 @@ class Clinic(Base):
     subscription_status     = Column(String(20), default="active")
     subscription_expires_at = Column(DateTime, nullable=True)
     subscription_expiry     = Column(DateTime, nullable=True)
+    clinic_prefix           = Column(String(10), nullable=True)
+    patient_id_counter      = Column(Integer, default=0)
     created_at              = Column(DateTime, server_default=func.now())
 
     branches        = relationship("Branch", back_populates="clinic", cascade="all, delete-orphan")
@@ -138,8 +140,9 @@ class Patient(Base):
     clinic_id               = Column(Integer, ForeignKey("clinics.id"), nullable=False)
     branch_id               = Column(Integer, ForeignKey("branches.id"), nullable=True)
     portal_user_id          = Column(Integer, ForeignKey("patient_users.id"), nullable=True)
-    uhid                    = Column(String(50), nullable=True)
-    bh_id                   = Column(String(50), nullable=True)
+    clinic_patient_id       = Column(String(20), nullable=True, index=True)  # APL-00001
+    uhid                    = Column(String(50), nullable=True)   # legacy only
+    bh_id                   = Column(String(50), nullable=True)   # backend universal key
     full_name               = Column(String(200), nullable=False)
     date_of_birth           = Column(Date, nullable=True)
     gender                  = Column(String(10), nullable=True)
@@ -165,6 +168,7 @@ class Patient(Base):
     prescriptions = relationship("Prescription", back_populates="patient")
     lab_orders    = relationship("LabOrder", back_populates="patient")
     invoices      = relationship("Invoice", back_populates="patient")
+    patient_tags  = relationship("PatientTag", back_populates="patient", cascade="all, delete-orphan")
 
 
 class PatientUser(Base):
@@ -246,10 +250,12 @@ class Appointment(Base):
     reason            = Column(Text, nullable=True)
     notes             = Column(Text, nullable=True)
     fee               = Column(Numeric(10, 2), nullable=True)
-    online_booking_id = Column(Integer, ForeignKey("online_bookings.id"), nullable=True)
-    telehealth_joined_at = Column(DateTime, nullable=True)  # compliance: when session was joined
-    created_at        = Column(DateTime, server_default=func.now())
-    updated_at        = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    online_booking_id  = Column(Integer, ForeignKey("online_bookings.id"), nullable=True)
+    telehealth_joined_at = Column(DateTime, nullable=True)
+    triage_complaint   = Column(Text, nullable=True)
+    visit_type         = Column(String(20), default="fresh")  # fresh|followup|emergency
+    created_at         = Column(DateTime, server_default=func.now())
+    updated_at         = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     patient       = relationship("Patient", back_populates="appointments")
     doctor        = relationship("DoctorProfile", back_populates="appointments")
@@ -314,7 +320,58 @@ class SoapNote(Base):
     created_at      = Column(DateTime, server_default=func.now())
     updated_at      = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
+    # 7-field clinical encounter format
+    reason_for_visit        = Column(Text, nullable=True)
+    patient_complaints      = Column(Text, nullable=True)
+    past_history            = Column(Text, nullable=True)
+    investigations_findings = Column(Text, nullable=True)
+    medications_prescribed  = Column(Text, nullable=True)
+    discharge_assessment    = Column(Text, nullable=True)
+    cautions_followup       = Column(Text, nullable=True)
+    is_locked               = Column(Boolean, default=False)
+    locked_at               = Column(DateTime, nullable=True)
+    created_by              = Column(Integer, ForeignKey("staff.id"), nullable=True)
+
     appointment = relationship("Appointment", back_populates="soap_note")
+
+
+class ClinicPatientTag(Base):
+    __tablename__ = "clinic_patient_tags"
+    id          = Column(Integer, primary_key=True, index=True)
+    clinic_id   = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    tag_name    = Column(String(100), nullable=False)
+    icd10_code  = Column(String(20), nullable=True)
+    specialty   = Column(String(100), nullable=True)
+    usage_count = Column(Integer, default=0)
+    created_by  = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    created_at  = Column(DateTime, server_default=func.now())
+
+    patient_tags = relationship("PatientTag", back_populates="saved_tag")
+
+
+class PatientTag(Base):
+    __tablename__ = "patient_tags"
+    id           = Column(Integer, primary_key=True, index=True)
+    patient_id   = Column(Integer, ForeignKey("patients.id"), nullable=False)
+    clinic_id    = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    tag_name     = Column(String(100), nullable=False)
+    icd10_code   = Column(String(20), nullable=True)
+    saved_tag_id = Column(Integer, ForeignKey("clinic_patient_tags.id"), nullable=True)
+    assigned_by  = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    assigned_at  = Column(DateTime, server_default=func.now())
+
+    patient   = relationship("Patient", back_populates="patient_tags")
+    saved_tag = relationship("ClinicPatientTag", back_populates="patient_tags")
+
+
+class EncounterAccessLog(Base):
+    __tablename__ = "encounter_access_logs"
+    id                  = Column(Integer, primary_key=True, index=True)
+    patient_id          = Column(Integer, ForeignKey("patients.id"), nullable=False)
+    accessed_by         = Column(Integer, ForeignKey("staff.id"), nullable=False)
+    accessing_clinic_id = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    session_expires_at  = Column(DateTime, nullable=True)
+    accessed_at         = Column(DateTime, server_default=func.now())
 
 
 class Medicine(Base):

@@ -10,8 +10,9 @@ from app.models.models import (
     Patient, Staff, PatientUser,
     Appointment, SoapNote, Prescription, PrescriptionItem,
     LabOrder, LabOrderItem, DoctorProfile, Clinic,
-    BHStateGroup, BHIDSequence
+    BHStateGroup, BHIDSequence,
 )
+from app.api.v1.endpoints.encounters import _assign_clinic_patient_id
 from app.schemas.schemas import PatientCreate, PatientUpdate, PatientOut
 
 router = APIRouter(prefix="/patients", tags=["patients"])
@@ -44,9 +45,6 @@ def create_patient(
             raise HTTPException(status_code=400, detail="Patient with this mobile already exists in this clinic")
 
     from app.api.v1.endpoints.auth import _get_state_digit, _next_bh_seq, _make_bh_id
-    import random
-
-    uhid = 'BC-' + ''.join([str(random.randint(0, 9)) for _ in range(6)])
 
     # Generate BH ID based on patient state
     state = payload.state or ""
@@ -54,11 +52,14 @@ def create_patient(
     seq = _next_bh_seq(digit, db)
     bh_id = _make_bh_id(digit, seq)
 
+    clinic = db.query(Clinic).filter(Clinic.id == current.clinic_id).first()
+    clinic_patient_id = _assign_clinic_patient_id(clinic, db)
+
     patient = Patient(
-        clinic_id=current.clinic_id,
-        branch_id=branch_id or current.branch_id,
-        uhid=uhid,
-        bh_id=bh_id,
+        clinic_id         = current.clinic_id,
+        branch_id         = branch_id or current.branch_id,
+        clinic_patient_id = clinic_patient_id,
+        bh_id             = bh_id,
         **payload.model_dump()
     )
     db.add(patient)
@@ -90,27 +91,27 @@ def list_patients(
         q = q.filter(
             Patient.full_name.ilike(f"%{search}%") |
             Patient.mobile.ilike(f"%{search}%") |
-            Patient.uhid.ilike(f"%{search}%")
+            Patient.clinic_patient_id.ilike(f"%{search}%")
         )
     if gender:
         q = q.filter(Patient.gender == gender)
 
     patients = q.order_by(Patient.created_at.desc()).offset(skip).limit(limit).all()
     return [{
-        "id":            p.id,
-        "uhid":          p.uhid,
-        "bh_id":         p.bh_id,
-        "full_name":     p.full_name,
-        "mobile":        p.mobile,
-        "email":         p.email,
-        "date_of_birth": str(p.date_of_birth) if p.date_of_birth else None,
-        "age":           _age(p),
-        "gender":        p.gender,
-        "blood_group":   p.blood_group,
-        "allergies":     p.allergies,
-        "branch_id":     p.branch_id,
-        "is_active":     p.is_active,
-        "created_at":    str(p.created_at),
+        "id":               p.id,
+        "clinic_patient_id": p.clinic_patient_id or p.uhid or f"#{p.id}",
+        "bh_id":            p.bh_id,
+        "full_name":        p.full_name,
+        "mobile":           p.mobile,
+        "email":            p.email,
+        "date_of_birth":    str(p.date_of_birth) if p.date_of_birth else None,
+        "age":              _age(p),
+        "gender":           p.gender,
+        "blood_group":      p.blood_group,
+        "allergies":        p.allergies,
+        "branch_id":        p.branch_id,
+        "is_active":        p.is_active,
+        "created_at":       str(p.created_at),
     } for p in patients]
 
 
