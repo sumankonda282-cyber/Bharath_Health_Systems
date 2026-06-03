@@ -1,26 +1,31 @@
 import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
-import { CalendarDays, Users, CreditCard, LayoutDashboard, LogOut, ClipboardList, Menu, X } from 'lucide-react'
+import { CalendarDays, Users, CreditCard, LayoutDashboard, LogOut, ClipboardList, Menu, X, Settings } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
-const NAV = [
+const BASE_NAV = [
   { to: '/',             icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/appointments', icon: CalendarDays,    label: 'Appointments' },
   { to: '/patients',     icon: Users,           label: 'Patients' },
   { to: '/billing',      icon: CreditCard,      label: 'Billing' },
   { to: '/queue',        icon: ClipboardList,   label: 'Queue' },
 ]
+const MANAGER_NAV = [
+  { to: '/staff', icon: Settings, label: 'Manage Staff' },
+]
 
 export default function Layout() {
   const { user, logout } = useAuth()
   const [open, setOpen] = useState(false)
+  const isManager = user?.role === 'clinic_manager'
+  const NAV = isManager ? [...BASE_NAV, ...MANAGER_NAV] : BASE_NAV
 
   const sidebar = (
     <aside className="w-56 flex flex-col h-full flex-shrink-0" style={{ background: '#0F2557' }}>
       <div className="px-5 py-5 border-b border-white/10 flex items-center justify-between">
         <div>
           <div className="text-white font-extrabold text-lg tracking-tight">BHaratCliniq</div>
-          <div className="text-xs font-semibold mt-0.5 tracking-wider uppercase" style={{ color: '#F5821E' }}>Reception</div>
+          <div className="text-xs font-semibold mt-0.5 tracking-wider uppercase" style={{ color: '#F5821E' }}>{isManager ? 'Manager' : 'Reception'}</div>
         </div>
         <button onClick={() => setOpen(false)} className="md:hidden text-white/60 hover:text-white">
           <X size={20} />

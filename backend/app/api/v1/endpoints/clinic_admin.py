@@ -19,13 +19,13 @@ from app.schemas.schemas import (
 
 router = APIRouter(prefix="/clinic", tags=["clinic-admin"])
 
-CLINIC_ADMIN_ROLES = ["clinic_admin"]
-ADMIN_OR_RECEPTIONIST = ["clinic_admin", "receptionist"]
+CLINIC_ADMIN_ROLES = ["clinic_admin", "clinic_manager"]
+ADMIN_OR_RECEPTIONIST = ["clinic_admin", "clinic_manager", "receptionist"]
 
 
 def require_clinic_admin(current=Depends(get_current_staff)):
     if current.role not in CLINIC_ADMIN_ROLES:
-        raise HTTPException(status_code=403, detail="Clinic admin access required")
+        raise HTTPException(status_code=403, detail="Clinic manager access required")
     return current
 
 

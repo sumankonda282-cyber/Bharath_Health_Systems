@@ -234,6 +234,51 @@ def get_clinic_detail(
 
 # ── Clinic Actions ────────────────────────────────────────────────────────────
 
+@router.post("/clinics/{clinic_id}/create-manager")
+def create_clinic_manager(
+    clinic_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    """Super admin creates a Clinic Manager account for an approved clinic."""
+    clinic = db.query(Clinic).filter(Clinic.id == clinic_id).first()
+    if not clinic:
+        raise HTTPException(404, "Clinic not found")
+
+    email  = body.get("email")
+    mobile = body.get("mobile")
+    if not body.get("full_name"):
+        raise HTTPException(400, "full_name is required")
+    if not body.get("password"):
+        raise HTTPException(400, "password is required")
+    if email and db.query(Staff).filter(Staff.email == email).first():
+        raise HTTPException(400, "Email already registered")
+    if mobile and db.query(Staff).filter(Staff.mobile == mobile).first():
+        raise HTTPException(400, "Mobile already registered")
+
+    manager = Staff(
+        clinic_id       = clinic_id,
+        full_name       = body["full_name"],
+        email           = email,
+        mobile          = mobile,
+        hashed_password = hash_password(body["password"]),
+        role            = "clinic_manager",
+        is_active       = True,
+    )
+    db.add(manager)
+    _log(db, "created_manager", "staff", clinic_id, body["full_name"], current)
+    db.commit()
+    db.refresh(manager)
+    return {
+        "id":        manager.id,
+        "full_name": manager.full_name,
+        "email":     manager.email,
+        "role":      manager.role,
+        "message":   "Clinic Manager created successfully",
+    }
+
+
 @router.put("/clinics/{clinic_id}/approve")
 def approve_clinic(clinic_id: int, db: Session = Depends(get_db), current=Depends(get_current_platform_admin)):
     clinic = db.query(Clinic).filter(Clinic.id == clinic_id).first()
@@ -241,7 +286,7 @@ def approve_clinic(clinic_id: int, db: Session = Depends(get_db), current=Depend
         raise HTTPException(404, "Clinic not found")
     clinic.status = "active"
     _sync_clinic_status(clinic)
-    roles_auto_activate = ['clinic_admin', 'doctor', 'receptionist']
+    roles_auto_activate = ['clinic_admin', 'clinic_manager', 'doctor', 'receptionist']
     db.query(Staff).filter(
         Staff.clinic_id == clinic_id, Staff.role.in_(roles_auto_activate)
     ).update({"is_active": True})
@@ -323,7 +368,7 @@ def reactivate_clinic(clinic_id: int, db: Session = Depends(get_db), current=Dep
     clinic.suspension_reason = None
     clinic.suspension_comment = None
     _sync_clinic_status(clinic)
-    roles_auto_activate = ['clinic_admin', 'doctor', 'receptionist']
+    roles_auto_activate = ['clinic_admin', 'clinic_manager', 'doctor', 'receptionist']
     db.query(Staff).filter(
         Staff.clinic_id == clinic_id, Staff.role.in_(roles_auto_activate)
     ).update({"is_active": True})

@@ -4,15 +4,14 @@ import { Eye, EyeOff, AlertCircle, Stethoscope, Users, ShieldCheck } from 'lucid
 import BrandLogo from '../../components/BrandLogo'
 
 const FEATURES = [
-  { icon: Stethoscope, text: 'Provider desk — queue, encounters & prescriptions' },
-  { icon: Users,       text: 'Role-based access: Provider, Nurse, Receptionist, Admin' },
+  { icon: Stethoscope, text: 'Clinical desk — queue, encounters & prescriptions' },
+  { icon: Users,       text: 'Role-based access: Doctors & Nurses' },
   { icon: ShieldCheck, text: 'Secure, audited health records' },
 ]
 
 export default function Login() {
   const [form, setForm]     = useState({ identifier: '', password: '' })
   const [showPw, setShowPw] = useState(false)
-  const [isPlatform, setIsPlatform] = useState(false)
   const [error, setError]   = useState('')
   const [loading, setLoading] = useState(false)
   const { login } = useAuth()
@@ -24,8 +23,7 @@ export default function Login() {
     setError('')
     setLoading(true)
     try {
-      await login(form.identifier, form.password, isPlatform)
-      // App.jsx route guard handles redirect once user state is set
+      await login(form.identifier, form.password, false)
     } catch (err) {
       setError(err.message || 'Login failed. Please check your credentials.')
       setLoading(false)
@@ -56,19 +54,19 @@ export default function Login() {
         <div className="relative">
           <BrandLogo size="md" light />
           <p className="text-xs font-semibold mt-2 tracking-widest uppercase" style={{ color: '#F5821E' }}>
-            Provider Portal
+            Doctor Portal
           </p>
         </div>
 
         {/* Hero copy */}
         <div className="relative">
           <h2 className="text-4xl font-extrabold leading-tight mb-4" style={{ letterSpacing: '-0.02em' }}>
-            Your clinic,<br />
+            Your patients,<br />
             <span style={{ color: '#F5821E' }}>at your fingertips.</span>
           </h2>
           <p className="text-blue-200 text-base leading-relaxed mb-8">
-            One portal for providers, nurses, receptionists and clinic admins —
-            patients, appointments, billing and analytics all in one place.
+            Clinical portal for doctors and nurses — patient queue,
+            encounters, prescriptions and health records all in one place.
           </p>
 
           <div className="space-y-4">
@@ -99,7 +97,7 @@ export default function Login() {
           <div className="lg:hidden mb-8 text-center">
             <BrandLogo size="lg" />
             <p className="text-xs font-semibold mt-1 tracking-widest uppercase" style={{ color: '#F5821E' }}>
-              Provider Portal
+              Doctor Portal
             </p>
           </div>
 
@@ -108,32 +106,7 @@ export default function Login() {
             <h1 className="text-2xl font-extrabold mb-1" style={{ color: '#0F2557' }}>
               Welcome Back
             </h1>
-            <p className="text-gray-500 text-sm mb-6">
-              {isPlatform
-                ? 'Sign in to Platform Administration'
-                : 'Sign in to your provider portal'}
-            </p>
-
-            {/* Tab toggle */}
-            <div className="flex rounded-xl bg-gray-100 p-1 mb-6 text-sm gap-1">
-              {[
-                { label: 'Provider / Staff', value: false },
-                { label: 'Platform Admin',   value: true  },
-              ].map(({ label, value }) => (
-                <button
-                  key={label}
-                  type="button"
-                  onClick={() => { setIsPlatform(value); setError('') }}
-                  className="flex-1 py-2 rounded-lg font-semibold transition-all"
-                  style={isPlatform === value
-                    ? { background: '#fff', color: '#0F2557', boxShadow: '0 1px 3px rgba(0,0,0,0.12)' }
-                    : { color: '#6b7280' }
-                  }
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+            <p className="text-gray-500 text-sm mb-6">Sign in to your doctor portal</p>
 
             <form onSubmit={handleSubmit} className="space-y-4" noValidate>
 
@@ -147,7 +120,7 @@ export default function Login() {
                   autoComplete="username"
                   autoFocus
                   required
-                  placeholder={isPlatform ? 'admin@bharatcliniq.com' : 'provider@clinic.com or 9876543210'}
+                  placeholder="doctor@clinic.com or 9876543210"
                   value={form.identifier}
                   onChange={set('identifier')}
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm
@@ -225,7 +198,7 @@ export default function Login() {
           </p>
 
           <p className="text-center text-xs text-gray-400 mt-2">
-            BHaratCliniq · Provider Portal
+            BHaratCliniq · Doctor Portal
           </p>
         </div>
       </div>

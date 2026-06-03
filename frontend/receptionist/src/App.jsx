@@ -7,7 +7,14 @@ import Appointments from './pages/Appointments'
 import Patients from './pages/Patients'
 import Billing from './pages/Billing'
 import Queue from './pages/Queue'
+import StaffManagement from './pages/StaffManagement'
+import { useAuth } from './contexts/AuthContext'
 import { Loader2 } from 'lucide-react'
+
+function ManagerOnly({ children }) {
+  const { user } = useAuth()
+  return user?.role === 'clinic_manager' ? children : <Navigate to="/" replace />
+}
 
 function Guard({ children }) {
   const { user, loading } = useAuth()
@@ -32,6 +39,7 @@ export default function App() {
             <Route path="patients" element={<Patients />} />
             <Route path="billing" element={<Billing />} />
             <Route path="queue" element={<Queue />} />
+            <Route path="staff" element={<ManagerOnly><StaffManagement /></ManagerOnly>} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
