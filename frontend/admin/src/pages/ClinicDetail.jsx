@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { adminApi } from '../api'
-import { ArrowLeft, CheckCircle, XCircle, PauseCircle, RefreshCw, FileText, ExternalLink, IndianRupee } from 'lucide-react'
+import { ArrowLeft, CheckCircle, XCircle, PauseCircle, RefreshCw, FileText, ExternalLink, IndianRupee, KeyRound, Copy } from 'lucide-react'
 import ActionModal from '../components/ActionModal'
 
 const STATUS_BADGE = { active: 'badge-active', pending: 'badge-pending', suspended: 'badge-suspended', revoked: 'badge-revoked' }
@@ -27,12 +27,35 @@ export default function ClinicDetail() {
   const [saving, setSaving]   = useState(false)
   const [planModal, setPlanModal] = useState(false)
   const [selectedPlan, setSelectedPlan] = useState('')
+  const [activeTab, setActiveTab] = useState('info')
+  const [staffList, setStaffList] = useState([])
+  const [staffLoading, setStaffLoading] = useState(false)
+  const [pwdModal, setPwdModal] = useState(null) // { staffName, tempPassword }
+  const [resettingId, setResettingId] = useState(null)
 
   const load = () => {
     setLoading(true)
     adminApi.getClinic(id).then(setClinic).finally(() => setLoading(false))
   }
   useEffect(() => { load() }, [id])
+
+  const loadStaff = () => {
+    setStaffLoading(true)
+    adminApi.getClinicStaff(id).then(setStaffList).finally(() => setStaffLoading(false))
+  }
+  useEffect(() => { if (activeTab === 'staff') loadStaff() }, [activeTab, id])
+
+  const handleResetPassword = async (staffId, staffName) => {
+    setResettingId(staffId)
+    try {
+      const data = await adminApi.resetStaffPassword(staffId)
+      setPwdModal({ staffName, tempPassword: data.temp_password })
+    } catch (ex) {
+      alert(ex.message || 'Failed to reset password')
+    } finally {
+      setResettingId(null)
+    }
+  }
 
   const handleAction = async ({ reason, comment }) => {
     setSaving(true)
@@ -86,7 +109,66 @@ export default function ClinicDetail() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      {/* Tabs */}
+      <div className="flex gap-1 mb-5 border-b border-gray-800">
+        {['info', 'staff'].map(tab => (
+          <button key={tab} onClick={() => setActiveTab(tab)}
+            className={`px-4 py-2 text-sm font-medium capitalize transition-colors border-b-2 -mb-px ${activeTab === tab ? 'border-indigo-500 text-white' : 'border-transparent text-gray-400 hover:text-white'}`}>
+            {tab === 'info' ? 'Overview' : 'Staff Roster'}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'staff' && (
+        <div className="card overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-800 flex items-center justify-between">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Staff Roster</h3>
+            <button onClick={loadStaff} className="text-xs text-gray-400 hover:text-white">Refresh</button>
+          </div>
+          {staffLoading ? (
+            <div className="p-10 flex justify-center"><div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" /></div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs text-gray-500 uppercase tracking-wider border-b border-gray-800">
+                  <th className="px-5 py-3">Name</th>
+                  <th className="px-5 py-3">Role</th>
+                  <th className="px-5 py-3">Email</th>
+                  <th className="px-5 py-3">Mobile</th>
+                  <th className="px-5 py-3">Status</th>
+                  <th className="px-5 py-3"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-800">
+                {staffList.map(s => (
+                  <tr key={s.id}>
+                    <td className="px-5 py-3 text-white font-medium">{s.full_name}</td>
+                    <td className="px-5 py-3 text-gray-400 capitalize">{s.role?.replace('_', ' ')}</td>
+                    <td className="px-5 py-3 text-gray-400">{s.email || '—'}</td>
+                    <td className="px-5 py-3 text-gray-400">{s.mobile || '—'}</td>
+                    <td className="px-5 py-3">
+                      <span className={`badge ${s.is_active ? 'badge-active' : 'badge-revoked'}`}>{s.is_active ? 'Active' : 'Inactive'}</span>
+                    </td>
+                    <td className="px-5 py-3">
+                      <button
+                        onClick={() => handleResetPassword(s.id, s.full_name)}
+                        disabled={resettingId === s.id}
+                        className="inline-flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 disabled:opacity-50">
+                        <KeyRound size={12} />{resettingId === s.id ? 'Resetting…' : 'Reset Password'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {staffList.length === 0 && (
+                  <tr><td colSpan={6} className="px-5 py-8 text-center text-gray-500">No staff found</td></tr>
+                )}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'info' && <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Clinic Info */}
         <div className="lg:col-span-2 space-y-5">
           <div className="card-p">
@@ -164,7 +246,29 @@ export default function ClinicDetail() {
             </div>
           </div>
         </div>
-      </div>
+      </div>}
+
+      {/* Password Reset Modal */}
+      {pwdModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-sm p-6">
+            <h3 className="text-lg font-bold text-white mb-1">Password Reset</h3>
+            <p className="text-sm text-gray-400 mb-4">{pwdModal.staffName}</p>
+            <div className="bg-gray-800 rounded-xl p-4 mb-3 font-mono text-lg text-center text-indigo-300 tracking-widest select-all">
+              {pwdModal.tempPassword}
+            </div>
+            <p className="text-xs text-amber-400 mb-4">Show this once only. It will not be shown again.</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => { navigator.clipboard.writeText(pwdModal.tempPassword) }}
+                className="btn-secondary flex-1 justify-center text-sm">
+                <Copy size={14} />Copy
+              </button>
+              <button onClick={() => setPwdModal(null)} className="btn-primary flex-1 justify-center text-sm">Done</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <ActionModal open={!!modal} onClose={() => setModal(null)} onConfirm={handleAction}
         action={modal?.action} clinicName={clinic.name} loading={saving} />
