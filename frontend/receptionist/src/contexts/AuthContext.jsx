@@ -16,8 +16,8 @@ export function AuthProvider({ children }) {
 
   const login = async (identifier, password) => {
     const r = await api.post('/auth/staff/login', { identifier, password })
-    const allowed = ['receptionist', 'clinic_admin']
-    if (!allowed.includes(r.role)) throw new Error('Access denied. This portal is for reception staff only.')
+    const allowed = ['receptionist', 'clinic_admin', 'clinic_manager']
+    if (!allowed.includes(r.role)) throw new Error('Access denied. This portal is for reception and management staff only.')
     localStorage.setItem('staff_token', r.access_token)
     if (r.clinic_id) localStorage.setItem('clinic_id', r.clinic_id)
     if (r.branch_id) localStorage.setItem('branch_id', r.branch_id)

@@ -37,4 +37,7 @@ export const adminApi = {
 
   // BH ID Lookup
   bhidLookup: (id) => api.get(`/platform/bhid/${id}`),
+
+  // Clinic Manager
+  createManager: (clinicId, body) => api.post(`/platform/clinics/${clinicId}/create-manager`, body),
 }
