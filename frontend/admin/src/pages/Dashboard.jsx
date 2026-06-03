@@ -51,6 +51,33 @@ export default function Dashboard() {
         <p className="text-gray-500 text-sm mt-1">Platform overview — {new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
       </div>
 
+      {/* Platform Pulse */}
+      <div className="mb-6">
+        <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Platform Pulse</div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-gray-800 rounded-2xl p-5 border border-gray-700/50">
+            <div className="text-xs font-semibold text-cyan-400 uppercase tracking-wider mb-1">Total OPD Today</div>
+            <div className="text-3xl font-extrabold text-white">{data.opd_today ?? data.appointments_today ?? '—'}</div>
+            <div className="text-xs text-gray-500 mt-1">Appointments across all clinics</div>
+          </div>
+          <div className="bg-gray-800 rounded-2xl p-5 border border-gray-700/50">
+            <div className="text-xs font-semibold text-emerald-400 uppercase tracking-wider mb-1">Active Clinics</div>
+            <div className="text-3xl font-extrabold text-white">{data.active_clinics ?? '—'}</div>
+            <div className="text-xs text-gray-500 mt-1">With active subscription</div>
+          </div>
+          <div className="bg-gray-800 rounded-2xl p-5 border border-gray-700/50">
+            <div className="text-xs font-semibold text-purple-400 uppercase tracking-wider mb-1">Total Patients</div>
+            <div className="text-3xl font-extrabold text-white">{data.total_patients ?? '—'}</div>
+            <div className="text-xs text-gray-500 mt-1">Registered on platform</div>
+          </div>
+          <div className="bg-gray-800 rounded-2xl p-5 border border-gray-700/50">
+            <div className="text-xs font-semibold text-indigo-400 uppercase tracking-wider mb-1">Revenue This Month</div>
+            <div className="text-3xl font-extrabold text-white">₹{data.mrr?.toLocaleString('en-IN') ?? '—'}</div>
+            <div className="text-xs text-gray-500 mt-1">Platform MRR</div>
+          </div>
+        </div>
+      </div>
+
       {/* MRR Banner */}
       <div className="bg-indigo-600/10 border border-indigo-500/30 rounded-2xl p-5 mb-6 flex items-center justify-between">
         <div>

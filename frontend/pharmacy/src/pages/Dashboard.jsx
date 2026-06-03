@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../api/client'
-import { Pill, Package, CheckCircle, Loader2, TrendingUp, IndianRupee, PackagePlus, BarChart2 } from 'lucide-react'
+import { Pill, Package, CheckCircle, Loader2, TrendingUp, IndianRupee, PackagePlus, BarChart2, AlertTriangle, AlertCircle } from 'lucide-react'
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10)
@@ -32,6 +32,24 @@ export default function Dashboard() {
   const today = todayStr()
 
   const lowStock = medicines.filter(m => (m.stock_quantity || 0) < 10)
+
+  // Expiry and reorder alerts
+  const todayMs = new Date().setHours(0, 0, 0, 0)
+  const day30 = todayMs + 30 * 24 * 60 * 60 * 1000
+  const day60 = todayMs + 60 * 24 * 60 * 60 * 1000
+  const expiringIn30 = medicines.filter(m => {
+    if (!m.expiry_date) return false
+    const exp = new Date(m.expiry_date).getTime()
+    return exp >= todayMs && exp <= day30
+  })
+  const expiringIn60 = medicines.filter(m => {
+    if (!m.expiry_date) return false
+    const exp = new Date(m.expiry_date).getTime()
+    return exp > day30 && exp <= day60
+  })
+  const lowStockAlerts = medicines.filter(m =>
+    m.reorder_level != null && (m.stock_quantity || 0) <= m.reorder_level
+  )
   const dispensedToday = useMemo(() =>
     allRx.filter(rx => rx.status === 'dispensed' && rx.created_at && rx.created_at.slice(0, 10) === today).length,
     [allRx, today]
@@ -79,6 +97,82 @@ export default function Dashboard() {
           <Link to="/reports" className="btn-secondary"><BarChart2 size={15}/>View Reports</Link>
         </div>
       </div>
+
+      {/* Alerts Section */}
+      {(expiringIn30.length > 0 || expiringIn60.length > 0 || lowStockAlerts.length > 0) && (
+        <div className="mb-6 space-y-3">
+          <div className="font-semibold text-gray-700 text-sm uppercase tracking-wider">Alerts</div>
+
+          {expiringIn30.length > 0 && (
+            <div className="rounded-xl border border-red-200 bg-red-50 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertTriangle size={16} className="text-red-600 flex-shrink-0" />
+                <span className="font-semibold text-red-700 text-sm">Expiring Within 30 Days ({expiringIn30.length})</span>
+              </div>
+              <div className="space-y-1">
+                {expiringIn30.map(m => (
+                  <div key={m.id} className="flex items-center justify-between text-xs text-red-700 bg-red-100 rounded-lg px-3 py-2">
+                    <div>
+                      <span className="font-medium">{m.name}</span>
+                      {m.batch_number && <span className="ml-2 text-red-500">Batch: {m.batch_number}</span>}
+                    </div>
+                    <div className="text-right">
+                      <div>Exp: {new Date(m.expiry_date).toLocaleDateString('en-IN')}</div>
+                      <div>Stock: {m.stock_quantity ?? '—'}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {expiringIn60.length > 0 && (
+            <div className="rounded-xl border border-orange-200 bg-orange-50 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertCircle size={16} className="text-orange-600 flex-shrink-0" />
+                <span className="font-semibold text-orange-700 text-sm">Expiring in 31–60 Days ({expiringIn60.length})</span>
+              </div>
+              <div className="space-y-1">
+                {expiringIn60.map(m => (
+                  <div key={m.id} className="flex items-center justify-between text-xs text-orange-700 bg-orange-100 rounded-lg px-3 py-2">
+                    <div>
+                      <span className="font-medium">{m.name}</span>
+                      {m.batch_number && <span className="ml-2 text-orange-500">Batch: {m.batch_number}</span>}
+                    </div>
+                    <div className="text-right">
+                      <div>Exp: {new Date(m.expiry_date).toLocaleDateString('en-IN')}</div>
+                      <div>Stock: {m.stock_quantity ?? '—'}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {lowStockAlerts.length > 0 && (
+            <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertTriangle size={16} className="text-yellow-600 flex-shrink-0" />
+                <span className="font-semibold text-yellow-700 text-sm">Reorder Required ({lowStockAlerts.length})</span>
+              </div>
+              <div className="space-y-1">
+                {lowStockAlerts.map(m => (
+                  <div key={m.id} className="flex items-center justify-between text-xs text-yellow-700 bg-yellow-100 rounded-lg px-3 py-2">
+                    <div>
+                      <span className="font-medium">{m.name}</span>
+                      {m.batch_number && <span className="ml-2 text-yellow-600">Batch: {m.batch_number}</span>}
+                    </div>
+                    <div className="text-right">
+                      <div>Stock: {m.stock_quantity ?? 0}</div>
+                      <div>Reorder at: {m.reorder_level}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {pending.length > 0 && (
         <div className="card overflow-hidden">
