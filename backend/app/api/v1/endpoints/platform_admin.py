@@ -396,6 +396,61 @@ def verify_staff(staff_id: int, db: Session = Depends(get_db), current=Depends(g
     return {"message": f"{staff.full_name} ({staff.role}) verified"}
 
 
+import secrets
+import string as _string
+
+@router.post("/staff/{staff_id}/reset-password")
+def reset_staff_password(
+    staff_id: int,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    """Generate a temporary password for a staff member. Show once, force change on next login."""
+    staff = db.query(Staff).filter(Staff.id == staff_id).first()
+    if not staff:
+        raise HTTPException(status_code=404, detail="Staff not found")
+
+    temp_password = (
+        secrets.choice(_string.ascii_uppercase) +
+        ''.join(secrets.choice(_string.ascii_lowercase) for _ in range(4)) +
+        '-' +
+        ''.join(secrets.choice(_string.digits) for _ in range(4)) +
+        '-' +
+        secrets.choice(_string.ascii_uppercase) +
+        ''.join(secrets.choice(_string.ascii_lowercase) for _ in range(4))
+    )
+
+    staff.hashed_password = hash_password(temp_password)
+    db.commit()
+    _log(db, "reset_password", "staff", staff_id, staff.full_name, current)
+
+    return {
+        "message": f"Password reset for {staff.full_name}",
+        "temp_password": temp_password,
+        "note": "Share this with the user. It will not be shown again."
+    }
+
+
+@router.post("/platform-admin/reset-password")
+def reset_platform_admin_password(
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    """Reset own platform admin password."""
+    temp_password = (
+        secrets.choice(_string.ascii_uppercase) +
+        ''.join(secrets.choice(_string.ascii_lowercase) for _ in range(4)) +
+        '-' +
+        ''.join(secrets.choice(_string.digits) for _ in range(4)) +
+        '-' +
+        secrets.choice(_string.ascii_uppercase) +
+        ''.join(secrets.choice(_string.ascii_lowercase) for _ in range(4))
+    )
+    current.hashed_password = hash_password(temp_password)
+    db.commit()
+    return {"temp_password": temp_password, "note": "Save this immediately."}
+
+
 @router.put("/staff/{staff_id}/reject")
 def reject_staff(
     staff_id: int,
@@ -553,3 +608,70 @@ def create_platform_admin(
     db.commit()
     db.refresh(admin)
     return {"id": admin.id, "email": admin.email, "message": "Platform admin created"}
+
+
+@router.get("/bhid/{bh_id}")
+def platform_bhid_lookup(
+    bh_id: str,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    """Look up a patient by BH ID across all clinics."""
+    from app.models.models import Patient, PatientUser
+
+    patients = db.query(Patient).filter(
+        Patient.bh_id == bh_id.upper()
+    ).all()
+
+    if not patients:
+        patients = db.query(Patient).filter(
+            Patient.uhid == bh_id.upper()
+        ).all()
+
+    if not patients:
+        raise HTTPException(status_code=404, detail="No patient found with this BH ID")
+
+    result = []
+    for p in patients:
+        clinic = db.query(Clinic).filter(Clinic.id == p.clinic_id).first()
+        portal_user = db.query(PatientUser).filter(PatientUser.mobile == p.mobile).first() if p.mobile else None
+        result.append({
+            "patient_id": p.id,
+            "bh_id": p.bh_id,
+            "uhid": p.uhid,
+            "full_name": p.full_name,
+            "mobile": p.mobile,
+            "email": p.email,
+            "gender": p.gender,
+            "date_of_birth": str(p.date_of_birth) if p.date_of_birth else None,
+            "clinic_name": clinic.name if clinic else "Unknown",
+            "clinic_id": p.clinic_id,
+            "has_portal_account": portal_user is not None,
+            "portal_active": portal_user.is_active if portal_user else False,
+            "created_at": str(p.created_at),
+        })
+
+    return {"bh_id": bh_id.upper(), "records": result, "total": len(result)}
+
+
+@router.get("/clinics/{clinic_id}/staff")
+def get_clinic_staff(
+    clinic_id: int,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    """Get all staff members for a clinic."""
+    staff = db.query(Staff).filter(Staff.clinic_id == clinic_id).order_by(Staff.role, Staff.full_name).all()
+    return [
+        {
+            "id": s.id,
+            "full_name": s.full_name,
+            "email": s.email,
+            "mobile": s.mobile,
+            "role": s.role,
+            "is_active": s.is_active,
+            "branch_id": s.branch_id,
+            "created_at": str(s.created_at),
+        }
+        for s in staff
+    ]

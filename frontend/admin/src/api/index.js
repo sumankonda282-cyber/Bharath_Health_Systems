@@ -30,4 +30,11 @@ export const adminApi = {
 
   // Reports
   getReports: (params) => api.get('/platform/reports', { params }),
+
+  // Clinic staff
+  getClinicStaff:     (id) => api.get(`/platform/clinics/${id}/staff`),
+  resetStaffPassword: (id) => api.post(`/platform/staff/${id}/reset-password`),
+
+  // BH ID Lookup
+  bhidLookup: (id) => api.get(`/platform/bhid/${id}`),
 }

@@ -119,6 +119,14 @@ def get_clinic_public(slug: str, db: Session = Depends(get_db)):
         )
         .all()
     )
+    # Fallback: if no doctor profiles, return staff with role=doctor
+    if not doctors:
+        doctor_staff = db.query(Staff).filter(
+            Staff.clinic_id == clinic.id,
+            Staff.role == 'doctor',
+            Staff.is_active == True,
+        ).all()
+        doctors = [(s, None) for s in doctor_staff]
 
     return {
         "id": clinic.id,
@@ -139,18 +147,18 @@ def get_clinic_public(slug: str, db: Session = Depends(get_db)):
         ],
         "doctors": [
             {
-                "id":               dp.id,
+                "id":               dp.id if dp else s.id,
                 "staff_id":         s.id,
                 "name":             s.full_name,
-                "specialty":        dp.specialty,
-                "qualification":    dp.qualification,
-                "experience_years": dp.experience_years,
-                "fee":              float(dp.consultation_fee) if dp.consultation_fee else 0,
-                "bio":              dp.bio,
-                "languages":        dp.languages,
-                "mci_verified":     dp.mci_verified or False,
-                "telehealth_enabled": dp.telehealth_enabled or False,
-                "telehealth_fee":   float(dp.telehealth_fee) if dp.telehealth_fee else None,
+                "specialty":        dp.specialty if dp else "General Medicine",
+                "qualification":    dp.qualification if dp else "",
+                "experience_years": dp.experience_years if dp else 0,
+                "fee":              float(dp.consultation_fee) if dp and dp.consultation_fee else 0,
+                "bio":              dp.bio if dp else "",
+                "languages":        dp.languages if dp else [],
+                "mci_verified":     dp.mci_verified if dp else False,
+                "telehealth_enabled": dp.telehealth_enabled if dp else False,
+                "telehealth_fee":   float(dp.telehealth_fee) if dp and dp.telehealth_fee else None,
             }
             for s, dp in doctors
         ],
