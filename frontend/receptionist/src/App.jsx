@@ -8,7 +8,6 @@ import Patients from './pages/Patients'
 import Billing from './pages/Billing'
 import Queue from './pages/Queue'
 import StaffManagement from './pages/StaffManagement'
-import { useAuth } from './contexts/AuthContext'
 import { Loader2 } from 'lucide-react'
 
 function ManagerOnly({ children }) {
