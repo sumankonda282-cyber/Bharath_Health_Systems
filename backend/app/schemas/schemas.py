@@ -27,6 +27,8 @@ class TokenResponse(BaseModel):
     full_name: str
     clinic_id: Optional[int] = None
     branch_id: Optional[int] = None
+    force_reset: bool = False
+    username: Optional[str] = None
 
 
 class OtpRequest(BaseModel):

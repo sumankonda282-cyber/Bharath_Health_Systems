@@ -61,11 +61,19 @@ def staff_login(payload: StaffLoginRequest, db: Session = Depends(get_db)):
     user = (
         db.query(Staff).filter(Staff.email == ident).first()
         or db.query(Staff).filter(Staff.mobile == ident).first()
+        or db.query(Staff).filter(Staff.username == ident).first()
     )
     if not user or not verify_password(payload.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Your account is pending verification. You will receive an email within 24-48 hours once approved.")
+
+    # Check temp password expiry
+    if user.is_first_login and user.temp_pw_expiry:
+        if datetime.utcnow() > user.temp_pw_expiry:
+            raise HTTPException(status_code=401, detail="Your temporary password has expired. Contact your administrator to issue a new one.")
+
+    force_reset = bool(user.is_first_login)
 
     token_data = {"sub": str(user.id), "role": str(user.role), "user_type": "staff",
                   "clinic_id": user.clinic_id}
@@ -78,7 +86,35 @@ def staff_login(payload: StaffLoginRequest, db: Session = Depends(get_db)):
         full_name=user.full_name,
         clinic_id=user.clinic_id,
         branch_id=user.branch_id,
+        force_reset=force_reset,
+        username=user.username,
     )
+
+
+class SetPasswordRequest(BaseModel):
+    new_password: str
+
+
+@router.post("/staff/set-password")
+def staff_set_password(
+    payload: SetPasswordRequest,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_staff),
+):
+    """First-login mandatory password reset. Clears is_first_login flag."""
+    if len(payload.new_password) < 8:
+        raise HTTPException(400, "Password must be at least 8 characters")
+    has_upper   = any(c.isupper()  for c in payload.new_password)
+    has_digit   = any(c.isdigit()  for c in payload.new_password)
+    has_special = any(c in "!@#$%^&*()_+-=[]{}|;:,.<>?" for c in payload.new_password)
+    if not (has_upper and has_digit and has_special):
+        raise HTTPException(400, "Password must contain at least 1 uppercase letter, 1 number, and 1 special character")
+
+    current.hashed_password = hash_password(payload.new_password)
+    current.is_first_login  = False
+    current.temp_pw_expiry  = None
+    db.commit()
+    return {"message": "Password set successfully. You can now access the system."}
 
 
 @router.post("/patient/login", response_model=TokenResponse)
@@ -129,16 +165,18 @@ def platform_admin_login(payload: StaffLoginRequest, db: Session = Depends(get_d
 def staff_me(current=Depends(get_current_staff), db: Session = Depends(get_db)):
     clinic = db.query(Clinic).filter(Clinic.id == current.clinic_id).first()
     return {
-        "id":          current.id,
-        "full_name":   current.full_name,
-        "email":       current.email,
-        "mobile":      current.mobile,
-        "role":        current.role if isinstance(current.role, str) else str(current.role),
-        "clinic_id":   current.clinic_id,
-        "branch_id":   current.branch_id,
-        "clinic_name": clinic.name if clinic else None,
+        "id":           current.id,
+        "full_name":    current.full_name,
+        "email":        current.email,
+        "mobile":       current.mobile,
+        "username":     current.username,
+        "role":         current.role if isinstance(current.role, str) else str(current.role),
+        "clinic_id":    current.clinic_id,
+        "branch_id":    current.branch_id,
+        "clinic_name":  clinic.name if clinic else None,
         "clinic_verified": clinic.is_verified if clinic else False,
-        "clinic_plan": str(clinic.subscription_plan) if clinic else "free",
+        "clinic_plan":  str(clinic.subscription_plan) if clinic else "free",
+        "force_reset":  bool(current.is_first_login),
     }
 
 
