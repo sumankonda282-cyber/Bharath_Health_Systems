@@ -17,6 +17,9 @@ safe_cols = [
     \"ALTER TABLE patients ADD COLUMN IF NOT EXISTS guardian_name VARCHAR(200)\",
     \"ALTER TABLE patients ADD COLUMN IF NOT EXISTS guardian_mobile VARCHAR(20)\",
     \"ALTER TABLE appointments ADD COLUMN IF NOT EXISTS telehealth_room VARCHAR(100)\",
+    \"ALTER TABLE staff ADD COLUMN IF NOT EXISTS username VARCHAR(30)\",
+    \"ALTER TABLE staff ADD COLUMN IF NOT EXISTS is_first_login BOOLEAN DEFAULT TRUE\",
+    \"ALTER TABLE staff ADD COLUMN IF NOT EXISTS temp_pw_expiry TIMESTAMP WITHOUT TIME ZONE\",
 ]
 try:
     with engine.begin() as conn:

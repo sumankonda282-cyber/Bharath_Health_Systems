@@ -10,6 +10,8 @@ export const authApi = {
   platformMe: () => api.get('/auth/platform/me'),
   changePassword: (current_password, new_password) =>
     api.post('/auth/staff/change-password', { current_password, new_password }),
+  setPassword: (new_password) =>
+    api.post('/auth/staff/set-password', { new_password }),
 }
 
 // ── Clinic Admin ──────────────────────────────────────────────────

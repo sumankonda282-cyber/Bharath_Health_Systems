@@ -8,8 +8,51 @@ from app.core.security import get_current_platform_admin, hash_password
 from app.models.models import Clinic, Branch, Staff, Patient, Appointment, PlatformAdmin, AuditLog, Invoice
 
 import re
+import secrets
+import string as _string
 
 router = APIRouter(prefix="/platform", tags=["platform-admin"])
+
+
+def _generate_temp_password() -> str:
+    """8 chars: 3 upper + 2 lower + 2 digits + 1 special. Always meets complexity."""
+    special = "!@#$%^&*"
+    while True:
+        pwd = (
+            ''.join(secrets.choice(_string.ascii_uppercase) for _ in range(3)) +
+            ''.join(secrets.choice(_string.ascii_lowercase) for _ in range(2)) +
+            ''.join(secrets.choice(_string.digits) for _ in range(2)) +
+            secrets.choice(special)
+        )
+        # Shuffle to avoid predictable pattern
+        chars = list(pwd)
+        secrets.SystemRandom().shuffle(chars)
+        result = ''.join(chars)
+        # Verify it still meets requirements after shuffle
+        if (any(c.isupper() for c in result) and
+            any(c.islower() for c in result) and
+            any(c.isdigit() for c in result) and
+            any(c in special for c in result)):
+            return result
+
+
+def _generate_username(full_name: str, db) -> str:
+    """4 letters of first name + 2 random digits. Retries on collision."""
+    first = ''.join(c for c in full_name.strip().split()[0].lower() if c.isalpha())[:4]
+    first = first.ljust(4, 'x')  # pad if name shorter than 4 chars
+    for _ in range(20):
+        suffix = ''.join(secrets.choice(_string.digits) for _ in range(2))
+        username = first + suffix
+        exists = db.query(Staff).filter(Staff.username == username).first()
+        if not exists:
+            return username
+    # Fallback: 4 digit suffix
+    for _ in range(20):
+        suffix = ''.join(secrets.choice(_string.digits) for _ in range(4))
+        username = first + suffix
+        if not db.query(Staff).filter(Staff.username == username).first():
+            return username
+    raise Exception("Could not generate unique username")
 
 # ── Rate Card ─────────────────────────────────────────────────────────────────
 RATE_CARD = {
@@ -250,32 +293,41 @@ def create_clinic_manager(
     mobile = body.get("mobile")
     if not body.get("full_name"):
         raise HTTPException(400, "full_name is required")
-    if not body.get("password"):
-        raise HTTPException(400, "password is required")
     if email and db.query(Staff).filter(Staff.email == email).first():
         raise HTTPException(400, "Email already registered")
     if mobile and db.query(Staff).filter(Staff.mobile == mobile).first():
         raise HTTPException(400, "Mobile already registered")
+
+    temp_password = _generate_temp_password()
 
     manager = Staff(
         clinic_id       = clinic_id,
         full_name       = body["full_name"],
         email           = email,
         mobile          = mobile,
-        hashed_password = hash_password(body["password"]),
+        hashed_password = hash_password(temp_password),
         role            = "clinic_manager",
         is_active       = True,
+        is_first_login  = True,
+        temp_pw_expiry  = datetime.utcnow() + timedelta(hours=48),
     )
     db.add(manager)
+    db.flush()
+    manager.username = _generate_username(body["full_name"], db)
     _log(db, "created_manager", "staff", clinic_id, body["full_name"], current)
     db.commit()
     db.refresh(manager)
+
+    print(f"[MANAGER CREATED] {manager.full_name} | username: {manager.username} | temp_password: {temp_password} | expires: 48h")
+
     return {
-        "id":        manager.id,
-        "full_name": manager.full_name,
-        "email":     manager.email,
-        "role":      manager.role,
-        "message":   "Clinic Manager created successfully",
+        "id":            manager.id,
+        "full_name":     manager.full_name,
+        "email":         manager.email,
+        "role":          manager.role,
+        "username":      manager.username,
+        "temp_password": temp_password,
+        "message":       "Clinic Manager created. Share credentials immediately — shown only once.",
     }
 
 
@@ -286,13 +338,33 @@ def approve_clinic(clinic_id: int, db: Session = Depends(get_db), current=Depend
         raise HTTPException(404, "Clinic not found")
     clinic.status = "active"
     _sync_clinic_status(clinic)
-    roles_auto_activate = ['clinic_admin', 'clinic_manager', 'doctor', 'receptionist']
-    db.query(Staff).filter(
-        Staff.clinic_id == clinic_id, Staff.role.in_(roles_auto_activate)
-    ).update({"is_active": True})
+
+    # Issue credentials to clinic_admin (first doctor/owner)
+    admin_staff = db.query(Staff).filter(
+        Staff.clinic_id == clinic_id,
+        Staff.role == "clinic_admin",
+    ).first()
+
+    issued = None
+    if admin_staff:
+        if not admin_staff.username:
+            admin_staff.username = _generate_username(admin_staff.full_name, db)
+        temp_password = _generate_temp_password()
+        admin_staff.hashed_password = hash_password(temp_password)
+        admin_staff.is_first_login  = True
+        admin_staff.temp_pw_expiry  = datetime.utcnow() + timedelta(hours=48)
+        admin_staff.is_active       = True
+        issued = {"username": admin_staff.username, "temp_password": temp_password, "staff_name": admin_staff.full_name}
+        print(f"[CLINIC APPROVED] {clinic.name} | admin: {admin_staff.full_name} | username: {admin_staff.username} | temp_password: {temp_password}")
+
     _log(db, "approved_clinic", "clinic", clinic_id, clinic.name, current)
     db.commit()
-    return {"message": f"{clinic.name} approved and is now live"}
+
+    response = {"message": f"{clinic.name} approved and is now live"}
+    if issued:
+        response["credentials"] = issued
+        response["note"] = "Share these credentials with the clinic owner. Temp password expires in 48 hours."
+    return response
 
 
 @router.put("/clinics/{clinic_id}/reject")
@@ -435,14 +507,31 @@ def verify_staff(staff_id: int, db: Session = Depends(get_db), current=Depends(g
     staff = db.query(Staff).filter(Staff.id == staff_id).first()
     if not staff:
         raise HTTPException(404, "Staff not found")
+
+    # Generate username if not already set
+    if not staff.username:
+        staff.username = _generate_username(staff.full_name, db)
+
+    # Issue temporary password
+    temp_password = _generate_temp_password()
+    staff.hashed_password = hash_password(temp_password)
+    staff.is_first_login  = True
+    staff.temp_pw_expiry  = datetime.utcnow() + timedelta(hours=48)
     staff.is_active = True
+
     _log(db, "verified_staff", "staff", staff_id, staff.full_name, current)
     db.commit()
-    return {"message": f"{staff.full_name} ({staff.role}) verified"}
 
+    # Log credentials to console (email/SMS to be wired in Phase 2)
+    print(f"[CREDENTIAL ISSUE] {staff.full_name} | role: {staff.role} | username: {staff.username} | temp_password: {temp_password} | expires: 48h")
 
-import secrets
-import string as _string
+    return {
+        "message":      f"{staff.full_name} ({staff.role}) verified",
+        "username":     staff.username,
+        "temp_password": temp_password,
+        "note":         "Share these credentials with the staff member. Temp password expires in 48 hours.",
+    }
+
 
 @router.post("/staff/{staff_id}/reset-password")
 def reset_staff_password(
@@ -450,29 +539,25 @@ def reset_staff_password(
     db: Session = Depends(get_db),
     current=Depends(get_current_platform_admin),
 ):
-    """Generate a temporary password for a staff member. Show once, force change on next login."""
+    """Reissue temporary password. Forces password reset on next login. Old password immediately invalidated."""
     staff = db.query(Staff).filter(Staff.id == staff_id).first()
     if not staff:
         raise HTTPException(status_code=404, detail="Staff not found")
 
-    temp_password = (
-        secrets.choice(_string.ascii_uppercase) +
-        ''.join(secrets.choice(_string.ascii_lowercase) for _ in range(4)) +
-        '-' +
-        ''.join(secrets.choice(_string.digits) for _ in range(4)) +
-        '-' +
-        secrets.choice(_string.ascii_uppercase) +
-        ''.join(secrets.choice(_string.ascii_lowercase) for _ in range(4))
-    )
-
+    temp_password = _generate_temp_password()
     staff.hashed_password = hash_password(temp_password)
+    staff.is_first_login  = True
+    staff.temp_pw_expiry  = datetime.utcnow() + timedelta(hours=48)
     db.commit()
     _log(db, "reset_password", "staff", staff_id, staff.full_name, current)
 
+    print(f"[PASSWORD REISSUE] {staff.full_name} | username: {staff.username} | temp_password: {temp_password} | expires: 48h")
+
     return {
-        "message": f"Password reset for {staff.full_name}",
+        "message":       f"New temporary password issued for {staff.full_name}",
+        "username":      staff.username,
         "temp_password": temp_password,
-        "note": "Share this with the user. It will not be shown again."
+        "note":          "Share this immediately. It expires in 48 hours and is invalidated after first use.",
     }
 
 

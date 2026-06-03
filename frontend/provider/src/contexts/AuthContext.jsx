@@ -12,7 +12,6 @@ export function AuthProvider({ children }) {
     const userType = localStorage.getItem('user_type')
     if (!token) { setLoading(false); return }
     try {
-      // Call the correct /me endpoint based on stored user_type
       const res = userType === 'platform_admin'
         ? await authApi.platformMe()
         : await authApi.me()
@@ -38,6 +37,12 @@ export function AuthProvider({ children }) {
     return userData
   }
 
+  const refreshUser = async () => {
+    const res = await authApi.me()
+    setUser(res)
+    return res
+  }
+
   const logout = () => {
     localStorage.clear()
     setUser(null)
@@ -47,7 +52,7 @@ export function AuthProvider({ children }) {
   const isPlatformAdmin = user?.user_type === 'platform_admin'
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, hasRole, isPlatformAdmin }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, hasRole, isPlatformAdmin, refreshUser }}>
       {children}
     </AuthContext.Provider>
   )

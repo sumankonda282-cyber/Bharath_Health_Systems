@@ -1,8 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import {
-  Building2, ChevronRight, Check, Eye, EyeOff, CheckCircle, ArrowLeft
-} from 'lucide-react'
+import { Building2, ChevronRight, Check, CheckCircle, ArrowLeft, Mail, Phone } from 'lucide-react'
 import { publicApi } from '../api/client'
 import BrandLogo from '../components/BrandLogo'
 
@@ -12,14 +10,14 @@ function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <Link to="/"><BrandLogo size="md" /></Link>
-          <Link to="/clinics" className="text-gray-600 hover:text-gray-900 font-medium text-sm hidden md:block transition-colors">Find Clinics</Link>
+          <Link to="/clinics" className="text-gray-600 hover:text-gray-900 font-medium text-sm hidden md:block">Find Clinics</Link>
         </div>
       </div>
     </nav>
   )
 }
 
-const STEPS = ['Clinic Details', 'Doctor Details', 'Admin Account', 'Review & Submit']
+const STEPS = ['Clinic Details', 'Doctor Details', 'Review & Submit']
 
 const SPECIALTIES = [
   'General Medicine', 'Cardiology', 'Dermatology', 'Pediatrics',
@@ -45,11 +43,7 @@ function StepIndicator({ current }) {
         <div key={step} className="flex items-center flex-shrink-0">
           <div className="flex flex-col items-center">
             <div className={`w-9 h-9 rounded-full flex items-center justify-center font-semibold text-sm transition-colors ${
-              i < current
-                ? 'bg-green-500 text-white'
-                : i === current
-                ? 'text-white'
-                : 'bg-gray-200 text-gray-500'
+              i < current ? 'bg-green-500 text-white' : i === current ? 'text-white' : 'bg-gray-200 text-gray-500'
             }`} style={i === current ? { background: '#0F2557' } : {}}>
               {i < current ? <Check className="w-4 h-4" /> : i + 1}
             </div>
@@ -81,7 +75,9 @@ function Field({ label, required, error, children }) {
 const inputCls = (err) =>
   `w-full px-4 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-transparent transition-all ${err ? 'border-red-400' : 'border-gray-300'}`
 
-// Step 1: Clinic Details
+const btnPrimary = { background: '#CC1414' }
+
+// ── Step 1: Clinic Details ────────────────────────────────────────────────────
 function Step1({ data, onChange, onNext }) {
   const [errors, setErrors] = useState({})
 
@@ -128,47 +124,41 @@ function Step1({ data, onChange, onNext }) {
             {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </Field>
-        <Field label="Phone Number" required error={errors.phone}>
+        <Field label="Clinic Phone" required error={errors.phone}>
           <input type="tel" {...inp('phone')} maxLength={10} placeholder="10-digit number" />
         </Field>
-        <Field label="Email Address" required error={errors.email}>
+        <Field label="Clinic Email" required error={errors.email}>
           <input type="email" {...inp('email')} placeholder="clinic@example.com" />
         </Field>
         <div className="md:col-span-2">
           <Field label="Full Address" required error={errors.address}>
-            <textarea
-              value={data.address || ''}
-              onChange={e => onChange('address', e.target.value)}
-              rows={2}
-              placeholder="Street address, landmark..."
-              className={`${inputCls(errors.address)} resize-none`}
-            />
+            <textarea value={data.address || ''} onChange={e => onChange('address', e.target.value)}
+              rows={2} placeholder="Street address, landmark..."
+              className={`${inputCls(errors.address)} resize-none`} />
           </Field>
         </div>
         <Field label="Pincode">
           <input type="text" {...inp('pincode')} maxLength={6} placeholder="6-digit pincode" />
         </Field>
       </div>
-      <button
-        onClick={() => { if (validate()) onNext() }}
-        className="mt-8 w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm text-white transition-colors"
-        style={{ background: '#CC1414' }}
-        onMouseEnter={e => e.currentTarget.style.background = '#b01010'}
-        onMouseLeave={e => e.currentTarget.style.background = '#CC1414'}
-      >
+      <button onClick={() => { if (validate()) onNext() }}
+        className="mt-8 w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm text-white"
+        style={btnPrimary}>
         Continue <ChevronRight className="w-4 h-4" />
       </button>
     </div>
   )
 }
 
-// Step 2: Doctor Details
+// ── Step 2: Doctor Details ────────────────────────────────────────────────────
 function Step2({ data, onChange, onNext, onBack }) {
   const [errors, setErrors] = useState({})
 
   const validate = () => {
     const e = {}
     if (!data.doctor_name?.trim()) e.doctor_name = 'Doctor name is required'
+    if (!data.doctor_email?.trim() || !/\S+@\S+\.\S+/.test(data.doctor_email)) e.doctor_email = 'Valid email required — login credentials will be sent here'
+    if (!data.doctor_phone?.trim() || !/^[6-9]\d{9}$/.test(data.doctor_phone)) e.doctor_phone = 'Valid 10-digit phone required — credentials also sent via SMS'
     if (!data.doctor_specialty) e.doctor_specialty = 'Specialty is required'
     if (!data.qualification?.trim()) e.qualification = 'Qualification is required'
     if (!data.mci_number?.trim()) e.mci_number = 'MCI registration number is required'
@@ -185,10 +175,25 @@ function Step2({ data, onChange, onNext, onBack }) {
   return (
     <div>
       <h2 className="text-xl font-bold mb-1" style={{ color: '#0F2557' }}>Primary Doctor Details</h2>
-      <p className="text-gray-500 text-sm mb-6">Details of the main consulting doctor</p>
+      <p className="text-gray-500 text-sm mb-2">Details of the main consulting doctor / clinic owner</p>
+
+      {/* Credentials notice */}
+      <div className="mb-5 rounded-xl p-3 text-xs flex gap-3 items-start" style={{ background: '#0F255510', border: '1px solid #0F255530' }}>
+        <span className="text-lg mt-0.5">🔐</span>
+        <p style={{ color: '#0F2557' }}>
+          No password needed now. Once your clinic is approved, your <strong>username and temporary password</strong> will be sent to the email and phone number you provide below.
+        </p>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Field label="Doctor's Full Name" required error={errors.doctor_name}>
           <input type="text" {...inp('doctor_name')} placeholder="Dr. Firstname Lastname" />
+        </Field>
+        <Field label="Doctor's Email" required error={errors.doctor_email}>
+          <input type="email" {...inp('doctor_email')} placeholder="doctor@example.com" />
+        </Field>
+        <Field label="Doctor's Phone" required error={errors.doctor_phone}>
+          <input type="tel" {...inp('doctor_phone')} maxLength={10} placeholder="10-digit mobile number" />
         </Field>
         <Field label="Specialty" required error={errors.doctor_specialty}>
           <select {...inp('doctor_specialty')}>
@@ -208,99 +213,13 @@ function Step2({ data, onChange, onNext, onBack }) {
         <Field label="Consultation Fee (₹)">
           <input type="number" {...inp('fee')} min="0" placeholder="e.g. 500" />
         </Field>
-        <Field label="Doctor's Phone (optional)">
-          <input type="tel" {...inp('doctor_phone')} maxLength={10} placeholder="10-digit number" />
-        </Field>
       </div>
       <div className="flex gap-3 mt-8">
-        <button onClick={onBack} className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 border-2 rounded-xl font-semibold text-sm transition-all" style={{ borderColor: '#0F2557', color: '#0F2557' }}>
-          Back
-        </button>
-        <button
-          onClick={() => { if (validate()) onNext() }}
+        <button onClick={onBack} className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 border-2 rounded-xl font-semibold text-sm"
+          style={{ borderColor: '#0F2557', color: '#0F2557' }}>Back</button>
+        <button onClick={() => { if (validate()) onNext() }}
           className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm text-white"
-          style={{ background: '#CC1414' }}
-          onMouseEnter={e => e.currentTarget.style.background = '#b01010'}
-          onMouseLeave={e => e.currentTarget.style.background = '#CC1414'}
-        >
-          Continue <ChevronRight className="w-4 h-4" />
-        </button>
-      </div>
-    </div>
-  )
-}
-
-// Step 3: Admin credentials
-function Step3({ data, onChange, onNext, onBack }) {
-  const [errors, setErrors] = useState({})
-  const [showPass, setShowPass] = useState(false)
-
-  const validate = () => {
-    const e = {}
-    if (!data.admin_email?.trim() || !/\S+@\S+\.\S+/.test(data.admin_email)) e.admin_email = 'Valid email required'
-    if (!data.admin_password || data.admin_password.length < 8) e.admin_password = 'Password must be at least 8 characters'
-    if (data.admin_password !== data.confirm_password) e.confirm_password = 'Passwords do not match'
-    setErrors(e)
-    return Object.keys(e).length === 0
-  }
-
-  return (
-    <div>
-      <h2 className="text-xl font-bold mb-1" style={{ color: '#0F2557' }}>Admin Account</h2>
-      <p className="text-gray-500 text-sm mb-6">These credentials will log you into the clinic dashboard</p>
-      <div className="space-y-4 max-w-md">
-        <Field label="Admin Email" required error={errors.admin_email}>
-          <input
-            type="email"
-            value={data.admin_email || ''}
-            onChange={e => onChange('admin_email', e.target.value)}
-            placeholder="admin@yourclinic.com"
-            className={inputCls(errors.admin_email)}
-          />
-        </Field>
-        <Field label="Password" required error={errors.admin_password}>
-          <div className="relative">
-            <input
-              type={showPass ? 'text' : 'password'}
-              value={data.admin_password || ''}
-              onChange={e => onChange('admin_password', e.target.value)}
-              placeholder="Minimum 8 characters"
-              className={`${inputCls(errors.admin_password)} pr-10`}
-            />
-            <button
-              type="button"
-              onClick={() => setShowPass(p => !p)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-            >
-              {showPass ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-            </button>
-          </div>
-        </Field>
-        <Field label="Confirm Password" required error={errors.confirm_password}>
-          <input
-            type="password"
-            value={data.confirm_password || ''}
-            onChange={e => onChange('confirm_password', e.target.value)}
-            placeholder="Re-enter password"
-            className={inputCls(errors.confirm_password)}
-          />
-        </Field>
-      </div>
-      <div className="mt-6 rounded-xl p-4 text-sm max-w-md" style={{ background: '#0F255710', border: '1px solid #0F255730' }}>
-        <p className="font-semibold mb-1" style={{ color: '#0F2557' }}>Security Note</p>
-        <p className="text-gray-600">Use a strong password. This account will have full access to your clinic's patient data.</p>
-      </div>
-      <div className="flex gap-3 mt-8">
-        <button onClick={onBack} className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 border-2 rounded-xl font-semibold text-sm" style={{ borderColor: '#0F2557', color: '#0F2557' }}>
-          Back
-        </button>
-        <button
-          onClick={() => { if (validate()) onNext() }}
-          className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm text-white"
-          style={{ background: '#CC1414' }}
-          onMouseEnter={e => e.currentTarget.style.background = '#b01010'}
-          onMouseLeave={e => e.currentTarget.style.background = '#CC1414'}
-        >
+          style={btnPrimary}>
           Review &amp; Submit <ChevronRight className="w-4 h-4" />
         </button>
       </div>
@@ -308,64 +227,64 @@ function Step3({ data, onChange, onNext, onBack }) {
   )
 }
 
-// Step 4: Review & Submit
-function Step4({ data, onBack, onSubmit, submitting, error }) {
+// ── Step 3: Review & Submit ───────────────────────────────────────────────────
+function Step3({ data, onBack, onSubmit, submitting, error }) {
   const rows = [
-    { label: 'Clinic Name', value: data.clinic_name },
-    { label: 'Specialty', value: data.specialty },
-    { label: 'City', value: data.city },
-    { label: 'State', value: data.state },
-    { label: 'Phone', value: data.phone },
-    { label: 'Email', value: data.email },
-    { label: 'Address', value: data.address },
-    { label: 'Doctor Name', value: data.doctor_name },
+    { label: 'Clinic Name',      value: data.clinic_name },
+    { label: 'Specialty',        value: data.specialty },
+    { label: 'City',             value: data.city },
+    { label: 'State',            value: data.state },
+    { label: 'Clinic Phone',     value: data.phone },
+    { label: 'Clinic Email',     value: data.email },
+    { label: 'Address',          value: data.address },
+    { label: 'Doctor Name',      value: data.doctor_name },
+    { label: 'Doctor Email',     value: data.doctor_email },
+    { label: 'Doctor Phone',     value: data.doctor_phone },
     { label: 'Doctor Specialty', value: data.doctor_specialty },
-    { label: 'Qualification', value: data.qualification },
-    { label: 'MCI Number', value: data.mci_number },
-    { label: 'Experience', value: data.experience_years ? `${data.experience_years} years` : null },
+    { label: 'Qualification',    value: data.qualification },
+    { label: 'MCI Number',       value: data.mci_number },
+    { label: 'Experience',       value: data.experience_years ? `${data.experience_years} years` : null },
     { label: 'Consultation Fee', value: data.fee ? `₹${data.fee}` : null },
-    { label: 'Admin Email', value: data.admin_email },
   ].filter(r => r.value)
 
   return (
     <div>
       <h2 className="text-xl font-bold mb-1" style={{ color: '#0F2557' }}>Review Your Details</h2>
-      <p className="text-gray-500 text-sm mb-6">Please review before submitting. You can go back to make changes.</p>
-      <div className="border border-gray-200 rounded-xl overflow-hidden mb-6">
+      <p className="text-gray-500 text-sm mb-6">Please verify all details before submitting.</p>
+
+      <div className="border border-gray-200 rounded-xl overflow-hidden mb-5">
         {rows.map((row, i) => (
-          <div
-            key={row.label}
-            className={`flex justify-between items-center px-4 py-3 text-sm ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
-          >
+          <div key={row.label} className={`flex justify-between items-center px-4 py-3 text-sm ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
             <span className="text-gray-500 font-medium flex-shrink-0 mr-4">{row.label}</span>
             <span className="font-semibold text-right" style={{ color: '#0F2557' }}>{row.value}</span>
           </div>
         ))}
       </div>
+
+      {/* Credentials delivery notice */}
+      <div className="mb-5 rounded-xl p-4 text-sm" style={{ background: '#0F255510', border: '1px solid #0F255530' }}>
+        <p className="font-semibold mb-2" style={{ color: '#0F2557' }}>After approval, credentials will be sent to:</p>
+        <div className="flex items-center gap-2 text-gray-600 mb-1"><Mail size={14} /> {data.doctor_email}</div>
+        <div className="flex items-center gap-2 text-gray-600"><Phone size={14} /> {data.doctor_phone}</div>
+        <p className="text-gray-400 text-xs mt-2">Your username and a one-time password will be sent to both. You will be asked to set a permanent password on first login.</p>
+      </div>
+
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-red-600 text-sm mb-6">{error}</div>
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-red-600 text-sm mb-5">{error}</div>
       )}
       <p className="text-xs text-gray-400 mb-6 leading-relaxed">
-        By submitting, you agree to BHaratCliniq's Terms of Service and Privacy Policy. Your registration will be reviewed within 24 hours.
+        By submitting, you agree to BHaratCliniq's Terms of Service and Privacy Policy. Registration will be reviewed within 24 hours.
       </p>
       <div className="flex gap-3">
-        <button onClick={onBack} disabled={submitting} className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 border-2 rounded-xl font-semibold text-sm" style={{ borderColor: '#0F2557', color: '#0F2557' }}>
-          Back
-        </button>
-        <button
-          onClick={onSubmit}
-          disabled={submitting}
+        <button onClick={onBack} disabled={submitting}
+          className="flex-1 inline-flex items-center justify-center px-6 py-3 border-2 rounded-xl font-semibold text-sm"
+          style={{ borderColor: '#0F2557', color: '#0F2557' }}>Back</button>
+        <button onClick={onSubmit} disabled={submitting}
           className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm text-white disabled:opacity-50"
-          style={{ background: '#CC1414' }}
-          onMouseEnter={e => !submitting && (e.currentTarget.style.background = '#b01010')}
-          onMouseLeave={e => e.currentTarget.style.background = '#CC1414'}
-        >
-          {submitting ? (
-            <>
-              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              Submitting...
-            </>
-          ) : 'Submit Registration'}
+          style={btnPrimary}>
+          {submitting
+            ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Submitting...</>
+            : 'Submit Registration'}
         </button>
       </div>
     </div>
@@ -380,46 +299,42 @@ function SuccessScreen() {
       </div>
       <h2 className="text-2xl font-bold mb-3" style={{ color: '#0F2557' }}>Registration Submitted!</h2>
       <p className="text-gray-500 mb-2 max-w-sm mx-auto">
-        Thank you for registering with BHaratCliniq. Your clinic is currently{' '}
-        <strong className="text-yellow-600">pending approval</strong>.
+        Thank you for registering with BHaratCliniq. Your clinic is <strong className="text-yellow-600">pending approval</strong>.
       </p>
       <p className="text-gray-400 text-sm mb-8 max-w-sm mx-auto">
-        Our team will review your details within 24 hours and notify you at your registered email. Once approved, you'll receive login credentials for your clinic dashboard.
+        Our team reviews registrations within 24 hours. Once approved, your login credentials will be sent directly to your registered email and phone.
       </p>
-      <div className="rounded-2xl p-6 max-w-sm mx-auto mb-8 text-sm text-left space-y-4" style={{ background: '#0F255508', border: '1px solid #0F255520' }}>
+      <div className="rounded-2xl p-6 max-w-sm mx-auto mb-8 text-sm text-left space-y-4"
+        style={{ background: '#0F255508', border: '1px solid #0F255520' }}>
         <h3 className="font-semibold" style={{ color: '#0F2557' }}>What happens next?</h3>
         {[
           'Our team verifies your clinic and doctor credentials',
-          'You receive an approval email with dashboard access',
-          'Set up your profile, slots, and start accepting bookings',
+          'You receive a username + one-time password via email and SMS',
+          'Log in and set your permanent password to get started',
         ].map((step, i) => (
           <div key={i} className="flex items-start gap-3">
             <div className="w-5 h-5 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5"
-              style={{ background: '#0F2557' }}>
-              {i + 1}
-            </div>
+              style={{ background: '#0F2557' }}>{i + 1}</div>
             <p className="text-gray-600">{step}</p>
           </div>
         ))}
       </div>
       <div className="flex flex-col sm:flex-row gap-3 justify-center">
-        <Link to="/" className="inline-flex items-center justify-center gap-2 px-6 py-3 border-2 rounded-xl font-semibold text-sm" style={{ borderColor: '#0F2557', color: '#0F2557' }}>
-          Go to Homepage
-        </Link>
-        <Link to="/clinics" className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm text-white" style={{ background: '#CC1414' }}>
-          Browse Clinics
-        </Link>
+        <Link to="/" className="inline-flex items-center justify-center gap-2 px-6 py-3 border-2 rounded-xl font-semibold text-sm"
+          style={{ borderColor: '#0F2557', color: '#0F2557' }}>Go to Homepage</Link>
+        <Link to="/clinics" className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm text-white"
+          style={{ background: '#CC1414' }}>Browse Clinics</Link>
       </div>
     </div>
   )
 }
 
 export default function RegisterClinic() {
-  const [step, setStep] = useState(0)
+  const [step, setStep]           = useState(0)
   const [submitted, setSubmitted] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
-  const [formData, setFormData] = useState({})
+  const [formData, setFormData]   = useState({})
 
   const updateField = (key, value) => setFormData(prev => ({ ...prev, [key]: value }))
 
@@ -429,24 +344,26 @@ export default function RegisterClinic() {
     try {
       await publicApi.registerClinic({
         clinic: {
-          name: formData.clinic_name,
+          name:    formData.clinic_name,
           specialty: formData.specialty,
-          city: formData.city,
-          state: formData.state,
-          phone: formData.phone,
-          email: formData.email,
+          city:    formData.city,
+          state:   formData.state,
+          phone:   formData.phone,
+          email:   formData.email,
           address: formData.address,
           pincode: formData.pincode,
         },
         doctor: {
-          full_name: formData.doctor_name,
-          qualification: formData.qualification,
+          full_name:           formData.doctor_name,
+          email:               formData.doctor_email,
+          mobile:              formData.doctor_phone,
+          qualification:       formData.qualification,
           registration_number: formData.mci_number,
-          experience_years: formData.experience_years ? Number(formData.experience_years) : null,
-          consultation_fee: formData.fee ? Number(formData.fee) : 500,
+          experience_years:    formData.experience_years ? Number(formData.experience_years) : null,
+          consultation_fee:    formData.fee ? Number(formData.fee) : 500,
+          specialty:           formData.doctor_specialty,
         },
-        admin_email: formData.admin_email,
-        admin_password: formData.admin_password,
+        admin_email: formData.doctor_email,
       })
       setSubmitted(true)
     } catch (err) {
@@ -459,11 +376,10 @@ export default function RegisterClinic() {
   return (
     <div className="min-h-screen" style={{ background: '#F0F4F8' }}>
       <Navbar />
-
       {!submitted && (
         <div className="text-white py-10 px-4" style={{ background: '#0F2557' }}>
           <div className="max-w-3xl mx-auto">
-            <Link to="/" className="inline-flex items-center gap-1 text-blue-200 hover:text-white text-sm mb-3 transition-colors">
+            <Link to="/" className="inline-flex items-center gap-1 text-blue-200 hover:text-white text-sm mb-3">
               <ArrowLeft className="w-4 h-4" /> Back to Home
             </Link>
             <h1 className="text-2xl font-extrabold">Register Your Clinic</h1>
@@ -471,7 +387,6 @@ export default function RegisterClinic() {
           </div>
         </div>
       )}
-
       <div className="max-w-3xl mx-auto px-4 py-10">
         {submitted ? (
           <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-8">
@@ -483,15 +398,9 @@ export default function RegisterClinic() {
             <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-6 md:p-8">
               {step === 0 && <Step1 data={formData} onChange={updateField} onNext={() => setStep(1)} />}
               {step === 1 && <Step2 data={formData} onChange={updateField} onNext={() => setStep(2)} onBack={() => setStep(0)} />}
-              {step === 2 && <Step3 data={formData} onChange={updateField} onNext={() => setStep(3)} onBack={() => setStep(1)} />}
-              {step === 3 && (
-                <Step4
-                  data={formData}
-                  onBack={() => setStep(2)}
-                  onSubmit={handleSubmit}
-                  submitting={submitting}
-                  error={submitError}
-                />
+              {step === 2 && (
+                <Step3 data={formData} onBack={() => setStep(1)} onSubmit={handleSubmit}
+                  submitting={submitting} error={submitError} />
               )}
             </div>
           </>
