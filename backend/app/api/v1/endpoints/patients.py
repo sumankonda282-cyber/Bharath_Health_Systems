@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from typing import Optional
+from typing import Optional, List
 from datetime import date, datetime
 
 from app.db.session import get_db
@@ -10,7 +10,7 @@ from app.models.models import (
     Patient, Staff, PatientUser,
     Appointment, SoapNote, Prescription, PrescriptionItem,
     LabOrder, LabOrderItem, DoctorProfile, Clinic,
-    BHStateGroup, BHIDSequence
+    BHStateGroup, BHIDSequence, AuditLog
 )
 from app.schemas.schemas import PatientCreate, PatientUpdate, PatientOut
 
@@ -241,3 +241,245 @@ def bhid_lookup(
         })
 
     return {"patient": patient_out, "visits": visits}
+
+
+# ── Tiered editing ────────────────────────────────────────────────────────────
+
+TIER1_FIELDS = {
+    "address", "city", "state", "pincode", "email",
+    "blood_group", "allergies", "emergency_contact_name",
+    "emergency_contact_phone", "guardian_name", "guardian_mobile",
+}
+
+
+class Tier1EditRequest(BaseModel):
+    address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    pincode: Optional[str] = None
+    email: Optional[str] = None
+    blood_group: Optional[str] = None
+    allergies: Optional[str] = None
+    emergency_contact_name: Optional[str] = None
+    emergency_contact_phone: Optional[str] = None
+    guardian_name: Optional[str] = None
+    guardian_mobile: Optional[str] = None
+
+
+class CorrectionRequest(BaseModel):
+    field: str
+    new_value: str
+    reason: str
+
+
+@router.patch("/{patient_id}/edit-tier1")
+def edit_tier1(
+    patient_id: int,
+    payload: Tier1EditRequest,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Free edit of non-identity fields. Any clinic staff. Logs to AuditLog."""
+    if current.role not in ALLOWED:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    patient = db.query(Patient).filter(
+        Patient.id == patient_id,
+        Patient.clinic_id == current.clinic_id,
+    ).first()
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    changes = {}
+    for field, new_val in payload.model_dump(exclude_unset=True).items():
+        if field not in TIER1_FIELDS:
+            continue
+        old_val = getattr(patient, field, None)
+        setattr(patient, field, new_val)
+        changes[field] = {"old": old_val, "new": new_val}
+
+    if not changes:
+        return {"message": "No changes provided"}
+
+    log = AuditLog(
+        action="patient_tier1_edit",
+        target_type="patient",
+        target_id=patient.id,
+        target_name=patient.full_name,
+        admin_name=current.full_name,
+        comment=str(changes),
+    )
+    db.add(log)
+    db.commit()
+    db.refresh(patient)
+
+    return {
+        "message": "Saved",
+        "updated_by": current.full_name,
+        "updated_at": datetime.utcnow().isoformat(),
+        "changes": changes,
+    }
+
+
+@router.patch("/{patient_id}/request-correction")
+def request_correction(
+    patient_id: int,
+    payload: CorrectionRequest,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Submit a Tier-3 correction request for identity fields (full_name, date_of_birth).
+    Stored as AuditLog with action='correction_request'. Returns 202 Accepted."""
+    if current.role not in ALLOWED:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    TIER3_FIELDS = {"full_name", "date_of_birth"}
+    if payload.field not in TIER3_FIELDS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Field '{payload.field}' is not a Tier-3 field. Allowed: {sorted(TIER3_FIELDS)}",
+        )
+
+    patient = db.query(Patient).filter(
+        Patient.id == patient_id,
+        Patient.clinic_id == current.clinic_id,
+    ).first()
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    old_value = str(getattr(patient, payload.field, None) or "")
+
+    log = AuditLog(
+        action="correction_request",
+        target_type="patient",
+        target_id=patient.id,
+        target_name=patient.full_name,
+        admin_name=current.full_name,
+        reason="pending",
+        comment=str({
+            "field": payload.field,
+            "old_value": old_value,
+            "new_value": payload.new_value,
+            "reason": payload.reason,
+            "requested_by_staff_id": current.id,
+            "requested_by": current.full_name,
+            "status": "pending",
+        }),
+    )
+    db.add(log)
+    db.commit()
+    db.refresh(log)
+
+    from fastapi.responses import JSONResponse
+    return JSONResponse(
+        status_code=202,
+        content={
+            "message": "Correction request submitted — pending clinic admin approval",
+            "request_id": log.id,
+        },
+    )
+
+
+@router.get("/{patient_id}/correction-requests")
+def list_correction_requests(
+    patient_id: int,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Clinic admin views all pending correction requests for a patient."""
+    if current.role != "clinic_admin":
+        raise HTTPException(status_code=403, detail="Only clinic admins can view correction requests")
+
+    patient = db.query(Patient).filter(
+        Patient.id == patient_id,
+        Patient.clinic_id == current.clinic_id,
+    ).first()
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    logs = db.query(AuditLog).filter(
+        AuditLog.action == "correction_request",
+        AuditLog.target_type == "patient",
+        AuditLog.target_id == patient_id,
+        AuditLog.reason == "pending",
+    ).order_by(AuditLog.created_at.desc()).all()
+
+    import ast
+    result = []
+    for log in logs:
+        try:
+            details = ast.literal_eval(log.comment or "{}")
+        except Exception:
+            details = {}
+        result.append({
+            "request_id": log.id,
+            "field": details.get("field"),
+            "old_value": details.get("old_value"),
+            "new_value": details.get("new_value"),
+            "reason": details.get("reason"),
+            "requested_by": details.get("requested_by"),
+            "created_at": log.created_at.isoformat() if log.created_at else None,
+            "status": details.get("status", "pending"),
+        })
+
+    return {"correction_requests": result}
+
+
+@router.patch("/{patient_id}/approve-correction/{request_id}")
+def approve_correction(
+    patient_id: int,
+    request_id: int,
+    action: str = Query("approve", description="approve or reject"),
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Clinic admin approves or rejects a correction request."""
+    if current.role != "clinic_admin":
+        raise HTTPException(status_code=403, detail="Only clinic admins can approve corrections")
+
+    patient = db.query(Patient).filter(
+        Patient.id == patient_id,
+        Patient.clinic_id == current.clinic_id,
+    ).first()
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    log = db.query(AuditLog).filter(
+        AuditLog.id == request_id,
+        AuditLog.action == "correction_request",
+        AuditLog.target_id == patient_id,
+    ).first()
+    if not log:
+        raise HTTPException(status_code=404, detail="Correction request not found")
+    if log.reason != "pending":
+        raise HTTPException(status_code=400, detail=f"Request is already {log.reason}")
+
+    import ast
+    try:
+        details = ast.literal_eval(log.comment or "{}")
+    except Exception:
+        details = {}
+
+    if action == "approve":
+        field = details.get("field")
+        new_value = details.get("new_value")
+        if field and new_value:
+            if field == "date_of_birth":
+                try:
+                    from datetime import date as _date
+                    setattr(patient, field, _date.fromisoformat(new_value))
+                except Exception:
+                    pass
+            else:
+                setattr(patient, field, new_value)
+        details["status"] = "approved"
+        log.reason = "approved"
+    else:
+        details["status"] = "rejected"
+        log.reason = "rejected"
+
+    details["reviewed_by"] = current.full_name
+    log.comment = str(details)
+    db.commit()
+
+    return {"message": f"Correction request {log.reason}"}
