@@ -5,8 +5,57 @@ import { PageLoader } from '../../components/ui/Spinner'
 import SearchDropdown from '../../components/SearchDropdown'
 import {
   ArrowLeft, Activity, FileText, Pill, FlaskConical,
-  Save, CheckCircle, Plus, Trash2, Scan
+  Save, CheckCircle, Plus, Trash2, Scan,
+  Star, BookOpen, Calendar as CalendarIcon, Clock
 } from 'lucide-react'
+
+const DOSAGE_PRESETS = ['1-0-0', '0-0-1', '1-0-1', '1-1-1', '1-1-0', 'SOS']
+
+const FREQUENCY_OPTIONS = [
+  'OD (Once Daily)',
+  'BD (Twice Daily)',
+  'TDS (Three times daily)',
+  'QID (Four times daily)',
+  'SOS (As needed)',
+  'HS (Bedtime)',
+  'Weekly',
+  'Monthly',
+]
+
+const DURATION_PRESETS = [3, 5, 7, 10, 14, 30]
+
+const INSTRUCTIONS_OPTIONS = [
+  'After food',
+  'Before food',
+  'With food',
+  'Empty stomach',
+  'With water',
+  'As directed',
+]
+
+const ROUTE_OPTIONS = [
+  'Oral',
+  'Topical',
+  'Injection',
+  'Inhalation',
+  'Sublingual',
+]
+
+const EMPTY_RX_ITEM = () => ({
+  medicine_id: null,
+  medicine_name: '',
+  dosage: '',
+  frequency: '',
+  duration: '',
+  instructions: '',
+  route: '',
+})
+
+function addDays(baseDate, days) {
+  const d = new Date(baseDate)
+  d.setDate(d.getDate() + days)
+  return d.toISOString().slice(0, 10)
+}
 
 export default function Encounter() {
   const { id } = useParams()
@@ -27,8 +76,15 @@ export default function Encounter() {
   })
 
   // Prescription
-  const [rxItems, setRxItems] = useState([{ medicine_id: null, medicine_name: '', dosage: '', frequency: '', duration: '', instructions: '' }])
+  const [rxItems, setRxItems] = useState([EMPTY_RX_ITEM()])
   const [rxNotes, setRxNotes] = useState('')
+
+  // Favourites
+  const [showFavPicker, setShowFavPicker] = useState(false)
+  const [favourites, setFavourites] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('doctor_rx_favourites') || '[]') }
+    catch { return [] }
+  })
 
   // Lab
   const [labTests, setLabTests] = useState([{ test_id: null, test_name: '' }])
@@ -38,12 +94,18 @@ export default function Encounter() {
   const [imagingTests, setImagingTests] = useState([{ test_id: null, test_name: '' }])
   const [imagingNotes, setImagingNotes] = useState('')
 
+  // Follow-up modal
+  const [showFollowUp, setShowFollowUp] = useState(false)
+  const [followUpDate, setFollowUpDate] = useState('')
+  const [followUpTime, setFollowUpTime] = useState('10:00')
+  const [followUpSaving, setFollowUpSaving] = useState(false)
+
   useEffect(() => {
     doctorApi.getEncounter(id)
       .then(r => {
         setData(r)
-        if (r.soap_note) setSoap({ ...soap, ...r.soap_note })
-        if (r.vitals) setVitals({ ...vitals, ...r.vitals })
+        if (r.soap_note) setSoap(s => ({ ...s, ...r.soap_note }))
+        if (r.vitals) setVitals(v => ({ ...v, ...r.vitals }))
       })
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -62,7 +124,14 @@ export default function Encounter() {
     }
   }
 
-  const completeEncounter = async () => {
+  // Opens follow-up modal instead of completing directly
+  const handleCompleteClick = () => {
+    const days = parseInt(soap.follow_up_days) || 7
+    setFollowUpDate(addDays(new Date(), days))
+    setShowFollowUp(true)
+  }
+
+  const doComplete = async () => {
     setSaving(true)
     try {
       const payload = {
@@ -76,18 +145,70 @@ export default function Encounter() {
       setTimeout(() => navigate('/doctor-desk'), 1500)
     } catch (err) {
       setSuccess('Error: ' + (err.message || 'Failed'))
-    } finally {
       setSaving(false)
     }
   }
 
-  const addRxItem = () => setRxItems(i => [...i, { medicine_id: null, medicine_name: '', dosage: '', frequency: '', duration: '', instructions: '' }])
+  const scheduleAndComplete = async () => {
+    setFollowUpSaving(true)
+    try {
+      await appointmentsApi.createAppointment({
+        patient_id: data.patient.id,
+        doctor_profile_id: data.doctor_profile_id || data.doctor_id,
+        appointment_date: followUpDate,
+        appointment_time: followUpTime,
+        reason: 'Follow-up - ' + (soap.assessment || ''),
+      })
+    } catch (_) {
+      // best-effort — proceed to complete even if scheduling fails
+    } finally {
+      setFollowUpSaving(false)
+      setShowFollowUp(false)
+      doComplete()
+    }
+  }
+
+  const skipFollowUp = () => {
+    setShowFollowUp(false)
+    doComplete()
+  }
+
+  // Rx helpers
+  const addRxItem = () => setRxItems(i => [...i, EMPTY_RX_ITEM()])
   const removeRxItem = (idx) => setRxItems(i => i.filter((_, j) => j !== idx))
   const setRx = (idx, k, v) => setRxItems(i => i.map((item, j) => j === idx ? { ...item, [k]: v } : item))
 
+  // Favourites helpers
+  const saveFavourite = () => {
+    const set = {
+      savedAt: new Date().toLocaleString(),
+      items: rxItems.filter(i => i.medicine_name),
+      notes: rxNotes,
+    }
+    const updated = [set, ...favourites].slice(0, 10)
+    setFavourites(updated)
+    localStorage.setItem('doctor_rx_favourites', JSON.stringify(updated))
+    setSuccess('Saved as favourite!')
+    setTimeout(() => setSuccess(''), 2000)
+  }
+
+  const loadFavourite = (fav) => {
+    setRxItems(fav.items.length ? fav.items : [EMPTY_RX_ITEM()])
+    setRxNotes(fav.notes || '')
+    setShowFavPicker(false)
+  }
+
+  const deleteFavourite = (fi) => {
+    const updated = favourites.filter((_, i) => i !== fi)
+    setFavourites(updated)
+    localStorage.setItem('doctor_rx_favourites', JSON.stringify(updated))
+  }
+
+  // Lab helpers
   const addLabTest = () => setLabTests(t => [...t, { test_id: null, test_name: '' }])
   const setLab = (idx, k, v) => setLabTests(t => t.map((item, j) => j === idx ? { ...item, [k]: v } : item))
 
+  // Imaging helpers
   const addImagingTest = () => setImagingTests(t => [...t, { test_id: null, test_name: '' }])
   const removeImagingTest = (idx) => setImagingTests(t => t.filter((_, j) => j !== idx))
   const setImaging = (idx, k, v) => setImagingTests(t => t.map((item, j) => j === idx ? { ...item, [k]: v } : item))
@@ -107,7 +228,7 @@ export default function Encounter() {
             <p className="text-sm text-gray-500">{patient.uhid || `Patient #${patient.id}`} · {data.appointment_date} {data.appointment_time}</p>
           </div>
         </div>
-        <button onClick={completeEncounter} disabled={saving} className="btn-success">
+        <button onClick={handleCompleteClick} disabled={saving} className="btn-success">
           <CheckCircle size={16} />
           {saving ? 'Saving…' : 'Complete Encounter'}
         </button>
@@ -208,39 +329,182 @@ export default function Encounter() {
       {/* Prescription */}
       {tab === 'rx' && (
         <div className="card p-6">
-          <div className="space-y-3 mb-4">
+
+          {/* Toolbar */}
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-gray-700 text-sm">Medicines</h3>
+            <div className="flex gap-2">
+              {/* Load Favourite */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowFavPicker(v => !v)}
+                  className="btn-secondary text-xs flex items-center gap-1.5"
+                >
+                  <BookOpen size={13} />Load Favourite
+                </button>
+                {showFavPicker && (
+                  <div className="absolute right-0 top-9 z-30 bg-white border border-gray-200 rounded-xl shadow-xl w-80 max-h-72 overflow-y-auto">
+                    {favourites.length === 0 ? (
+                      <p className="text-gray-400 text-sm p-4 text-center">No saved favourites yet.</p>
+                    ) : (
+                      favourites.map((fav, fi) => (
+                        <div key={fi} className="flex items-start gap-2 px-3 py-2.5 hover:bg-gray-50 border-b last:border-0">
+                          <button
+                            onClick={() => loadFavourite(fav)}
+                            className="flex-1 text-left min-w-0"
+                          >
+                            <p className="text-xs font-medium text-gray-800 truncate">
+                              {fav.items.map(i => i.medicine_name).join(', ') || 'Empty set'}
+                            </p>
+                            <p className="text-xs text-gray-400 mt-0.5">{fav.savedAt}</p>
+                          </button>
+                          <button
+                            onClick={() => deleteFavourite(fi)}
+                            className="text-red-400 hover:text-red-600 mt-0.5 shrink-0"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+              {/* Save as Favourite */}
+              <button
+                onClick={saveFavourite}
+                className="btn-secondary text-xs flex items-center gap-1.5 text-yellow-600 hover:text-yellow-700"
+              >
+                <Star size={13} />Save as Favourite
+              </button>
+            </div>
+          </div>
+
+          {/* Medicine rows */}
+          <div className="space-y-4 mb-4">
             {rxItems.map((item, idx) => (
-              <div key={idx} className="grid grid-cols-5 gap-2 items-start p-3 bg-gray-50 rounded-lg">
-                <div className="col-span-2">
-                  <label className="label text-xs">Medicine Name</label>
-                  <SearchDropdown
-                    value={item.medicine_name}
-                    onChange={v => setRx(idx, 'medicine_name', v)}
-                    onSelect={s => { setRx(idx, 'medicine_name', s.name + (s.strength ? ' ' + s.strength : '') + (s.form ? ' ' + s.form : '')); setRx(idx, 'medicine_id', s.id) }}
-                    fetchSuggestions={q => pharmacyApi.searchMedicines(q)}
-                    placeholder="Search medicine…"
-                  />
+              <div key={idx} className="p-4 bg-gray-50 rounded-xl border border-gray-100 space-y-3">
+
+                {/* Medicine name + Route + Delete */}
+                <div className="grid grid-cols-12 gap-2 items-end">
+                  <div className="col-span-7">
+                    <label className="label text-xs">Medicine Name</label>
+                    <SearchDropdown
+                      value={item.medicine_name}
+                      onChange={v => setRx(idx, 'medicine_name', v)}
+                      onSelect={s => {
+                        setRx(idx, 'medicine_name', s.name + (s.strength ? ' ' + s.strength : '') + (s.form ? ' ' + s.form : ''))
+                        setRx(idx, 'medicine_id', s.id)
+                      }}
+                      fetchSuggestions={q => pharmacyApi.searchMedicines(q)}
+                      placeholder="Search medicine…"
+                    />
+                  </div>
+                  <div className="col-span-4">
+                    <label className="label text-xs">Route</label>
+                    <select
+                      className="input text-sm"
+                      value={item.route}
+                      onChange={e => setRx(idx, 'route', e.target.value)}
+                    >
+                      <option value="">Select…</option>
+                      {ROUTE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                  </div>
+                  <div className="col-span-1 flex justify-end pb-0.5">
+                    <button
+                      onClick={() => removeRxItem(idx)}
+                      className="btn-secondary p-2 text-red-500 hover:text-red-700"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 </div>
+
+                {/* Dosage smart picker */}
                 <div>
                   <label className="label text-xs">Dosage</label>
-                  <input className="input text-sm" placeholder="1-0-1" value={item.dosage} onChange={e => setRx(idx, 'dosage', e.target.value)} />
+                  <div className="flex flex-wrap gap-1.5 mb-1.5">
+                    {DOSAGE_PRESETS.map(preset => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setRx(idx, 'dosage', preset)}
+                        className={`px-2.5 py-0.5 rounded-full text-xs font-medium border transition-all ${
+                          item.dosage === preset
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400 hover:text-blue-600'
+                        }`}
+                      >
+                        {preset}
+                      </button>
+                    ))}
+                  </div>
+                  <input
+                    className="input text-sm"
+                    placeholder="Or type custom dosage…"
+                    value={item.dosage}
+                    onChange={e => setRx(idx, 'dosage', e.target.value)}
+                  />
                 </div>
+
+                {/* Frequency + Duration */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="label text-xs">Frequency</label>
+                    <select
+                      className="input text-sm"
+                      value={item.frequency}
+                      onChange={e => setRx(idx, 'frequency', e.target.value)}
+                    >
+                      <option value="">Select…</option>
+                      {FREQUENCY_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label text-xs">Duration</label>
+                    <div className="flex flex-wrap gap-1 mb-1.5">
+                      {DURATION_PRESETS.map(d => (
+                        <button
+                          key={d}
+                          type="button"
+                          onClick={() => setRx(idx, 'duration', `${d} days`)}
+                          className={`px-2 py-0.5 rounded-full text-xs font-medium border transition-all ${
+                            item.duration === `${d} days`
+                              ? 'bg-green-600 text-white border-green-600'
+                              : 'bg-white text-gray-600 border-gray-300 hover:border-green-400 hover:text-green-600'
+                          }`}
+                        >
+                          {d}d
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      className="input text-sm"
+                      placeholder="Or type duration…"
+                      value={item.duration}
+                      onChange={e => setRx(idx, 'duration', e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {/* Instructions */}
                 <div>
-                  <label className="label text-xs">Duration</label>
-                  <input className="input text-sm" placeholder="5 days" value={item.duration} onChange={e => setRx(idx, 'duration', e.target.value)} />
-                </div>
-                <div className="flex items-end">
-                  <button onClick={() => removeRxItem(idx)} className="btn-secondary p-2 text-red-500 hover:text-red-700 mt-5">
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-                <div className="col-span-5">
                   <label className="label text-xs">Instructions</label>
-                  <input className="input text-sm" placeholder="After food, with water" value={item.instructions} onChange={e => setRx(idx, 'instructions', e.target.value)} />
+                  <select
+                    className="input text-sm"
+                    value={item.instructions}
+                    onChange={e => setRx(idx, 'instructions', e.target.value)}
+                  >
+                    <option value="">Select…</option>
+                    {INSTRUCTIONS_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
                 </div>
+
               </div>
             ))}
           </div>
+
           <button onClick={addRxItem} className="btn-secondary text-sm mb-4"><Plus size={14} />Add Medicine</button>
           <div>
             <label className="label">Prescription Notes</label>
@@ -274,6 +538,7 @@ export default function Encounter() {
           </div>
         </div>
       )}
+
       {/* Imaging */}
       {tab === 'imaging' && (
         <div className="card p-6">
@@ -299,6 +564,80 @@ export default function Encounter() {
           </div>
         </div>
       )}
+
+      {/* Follow-up scheduling modal */}
+      {showFollowUp && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
+
+            <div className="flex items-center gap-3 mb-4">
+              <div className="bg-blue-100 p-2.5 rounded-xl">
+                <CalendarIcon size={20} className="text-blue-600" />
+              </div>
+              <h2 className="text-lg font-semibold text-gray-900">Schedule Follow-up?</h2>
+            </div>
+
+            {soap.follow_up_days && parseInt(soap.follow_up_days) > 0 && (
+              <div className="mb-4 px-3 py-2 bg-blue-50 rounded-lg text-sm text-blue-700 flex items-center gap-2">
+                <Clock size={14} className="shrink-0" />
+                Doctor recommended {soap.follow_up_days}-day follow-up
+              </div>
+            )}
+
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="label">Follow-up Date</label>
+                <input
+                  type="date"
+                  className="input"
+                  value={followUpDate}
+                  min={new Date().toISOString().slice(0, 10)}
+                  onChange={e => setFollowUpDate(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="label">Preferred Time</label>
+                <input
+                  type="time"
+                  className="input"
+                  value={followUpTime}
+                  onChange={e => setFollowUpTime(e.target.value)}
+                />
+              </div>
+              {soap.assessment && (
+                <div>
+                  <label className="label text-xs">Reason (auto-filled)</label>
+                  <input
+                    className="input text-sm text-gray-500 bg-gray-50"
+                    value={`Follow-up - ${soap.assessment}`}
+                    readOnly
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={scheduleAndComplete}
+                disabled={followUpSaving || !followUpDate}
+                className="btn-primary flex-1"
+              >
+                <CalendarIcon size={15} />
+                {followUpSaving ? 'Scheduling…' : 'Schedule & Complete'}
+              </button>
+              <button
+                onClick={skipFollowUp}
+                disabled={followUpSaving}
+                className="btn-secondary flex-1"
+              >
+                Skip
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }
