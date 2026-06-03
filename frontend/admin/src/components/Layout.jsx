@@ -3,7 +3,7 @@ import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import {
   LayoutDashboard, Clock, Building2, ShieldCheck,
-  ClipboardList, BarChart3, LogOut, Menu, X
+  ClipboardList, BarChart3, LogOut, Menu, X, Search
 } from 'lucide-react'
 
 const NAV = [
@@ -13,6 +13,7 @@ const NAV = [
   { to: '/staff',      icon: ShieldCheck,     label: 'Staff Verification' },
   { to: '/audit',      icon: ClipboardList,   label: 'Audit Log' },
   { to: '/reports',    icon: BarChart3,       label: 'Reports' },
+  { to: '/bhid',       icon: Search,          label: 'BH ID Lookup' },
 ]
 
 function Sidebar({ onClose }) {
