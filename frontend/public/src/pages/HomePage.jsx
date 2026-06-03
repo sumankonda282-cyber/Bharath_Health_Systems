@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import {
   Search, Calendar, FileText, Pill, FlaskConical,
@@ -82,7 +82,7 @@ function Footer() {
             </div>
             <p className="text-xs text-blue-300 mt-2 mb-1 font-medium tracking-wider uppercase">India's Digital Health Network</p>
             <p className="text-sm leading-relaxed text-blue-200 mt-3">
-              Connecting patients with quality healthcare across India. Trusted by 500+ clinics nationwide.
+              Connecting patients with quality healthcare across India. India's trusted digital health network.
             </p>
           </div>
           <div>
@@ -157,6 +157,57 @@ const TESTIMONIALS = [
   },
 ]
 
+function CitySearch({ value, onChange, cities, placeholder = 'Select city' }) {
+  const [input, setInput] = useState(value || '')
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  const filtered = input.trim()
+    ? cities.filter(c => c.toLowerCase().startsWith(input.toLowerCase())).sort()
+    : [...cities].sort()
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const select = (c) => { setInput(c); onChange(c); setOpen(false) }
+  const clear = () => { setInput(''); onChange(''); setOpen(false) }
+
+  return (
+    <div ref={ref} className="relative w-full">
+      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none z-10" />
+      <input
+        type="text"
+        value={input}
+        onChange={e => { setInput(e.target.value); onChange(''); setOpen(true) }}
+        onFocus={() => setOpen(true)}
+        placeholder={placeholder}
+        className="w-full pl-9 pr-8 py-3 rounded-xl text-gray-700 border border-gray-200 focus:outline-none focus:ring-2 text-sm bg-white"
+        style={{ '--tw-ring-color': '#0F2557' }}
+      />
+      {input && (
+        <button type="button" onClick={clear} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+          <X className="w-3.5 h-3.5" />
+        </button>
+      )}
+      {open && filtered.length > 0 && (
+        <ul className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto text-sm">
+          <li
+            className="px-3 py-2 cursor-pointer hover:bg-gray-50 text-gray-400 italic"
+            onMouseDown={() => select('')}
+          >All Cities</li>
+          {filtered.map(c => (
+            <li key={c} className="px-3 py-2 cursor-pointer hover:bg-blue-50 text-gray-700"
+              onMouseDown={() => select(c)}>{c}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 export default function HomePage() {
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
@@ -222,17 +273,8 @@ export default function HomePage() {
 
           {/* Search Bar */}
           <form onSubmit={handleSearch} className="bg-white rounded-2xl p-2 flex flex-col sm:flex-row gap-2 max-w-2xl mx-auto shadow-2xl">
-            <div className="relative flex-none sm:w-48">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <select
-                value={city}
-                onChange={e => setCity(e.target.value)}
-                className="w-full pl-9 pr-3 py-3 rounded-xl text-gray-700 border border-gray-200 focus:outline-none focus:ring-2 text-sm appearance-none bg-white"
-                style={{ '--tw-ring-color': '#0F2557' }}
-              >
-                <option value="">All Cities</option>
-                {cities.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
+            <div className="flex-none sm:w-48">
+              <CitySearch value={city} onChange={setCity} cities={cities} placeholder="Search city..." />
             </div>
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -240,7 +282,7 @@ export default function HomePage() {
                 type="text"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Specialty, clinic name, doctor..."
+                placeholder="Doctor name, specialty, clinic..."
                 className="w-full pl-10 pr-4 py-3 rounded-xl text-gray-700 border border-gray-200 focus:outline-none focus:ring-2 text-sm"
                 style={{ '--tw-ring-color': '#0F2557' }}
               />
@@ -492,7 +534,7 @@ export default function HomePage() {
           </div>
           <h2 className="text-3xl font-extrabold mb-4">Ready to modernize your clinic?</h2>
           <p className="text-blue-200 mb-8 text-lg leading-relaxed">
-            Join 500+ clinics already on BHaratCliniq. Registration is free. Go live in 24 hours.
+            Join clinics already on BHaratCliniq. Registration is free. Go live in 24 hours.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/register"

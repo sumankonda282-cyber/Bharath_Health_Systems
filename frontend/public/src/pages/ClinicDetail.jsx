@@ -201,6 +201,38 @@ export default function ClinicDetail() {
           </div>
         )}
 
+        {/* Location Map */}
+        {(clinic.address || clinic.city) && (
+          <div className="mt-10 bg-white rounded-2xl shadow-md border border-gray-100 p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <MapPin className="w-5 h-5" style={{ color: '#CC1414' }} /> Location
+            </h2>
+            <p className="text-gray-600 text-sm mb-4">
+              {[clinic.address, clinic.city, clinic.state, clinic.pincode].filter(Boolean).join(', ')}
+            </p>
+            <div className="rounded-xl overflow-hidden border border-gray-200" style={{ height: 280 }}>
+              <iframe
+                title="Clinic Location"
+                width="100%"
+                height="100%"
+                loading="lazy"
+                style={{ border: 0 }}
+                src={`https://maps.google.com/maps?q=${encodeURIComponent([clinic.name, clinic.address, clinic.city, clinic.state, 'India'].filter(Boolean).join(', '))}&output=embed`}
+                allowFullScreen
+              />
+            </div>
+            <a
+              href={`https://www.google.com/maps/search/${encodeURIComponent([clinic.name, clinic.address, clinic.city, clinic.state, 'India'].filter(Boolean).join(', '))}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 mt-3 text-sm font-medium"
+              style={{ color: '#0F2557' }}
+            >
+              <MapPin className="w-3.5 h-3.5" /> Open in Google Maps
+            </a>
+          </div>
+        )}
+
         {/* About */}
         {clinic.description && (
           <div className="mt-10 card">

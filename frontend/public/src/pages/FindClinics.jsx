@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   Search, MapPin, Users, ChevronRight, Building2,
@@ -96,6 +96,53 @@ function ClinicCard({ clinic }) {
   )
 }
 
+function CitySearch({ value, onChange, cities }) {
+  const [input, setInput] = useState(value || '')
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  const filtered = input.trim()
+    ? cities.filter(c => c.toLowerCase().startsWith(input.toLowerCase())).sort()
+    : [...cities].sort()
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const select = (c) => { setInput(c); onChange(c); setOpen(false) }
+  const clear = () => { setInput(''); onChange(''); setOpen(false) }
+
+  return (
+    <div ref={ref} className="relative md:w-44">
+      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none z-10" />
+      <input
+        type="text"
+        value={input}
+        onChange={e => { setInput(e.target.value); onChange(''); setOpen(true) }}
+        onFocus={() => setOpen(true)}
+        placeholder="Search city..."
+        className="w-full pl-9 pr-8 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 bg-white"
+        style={{ '--tw-ring-color': '#0F2557' }}
+      />
+      {input && (
+        <button type="button" onClick={clear} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+          <X className="w-3.5 h-3.5" />
+        </button>
+      )}
+      {open && filtered.length > 0 && (
+        <ul className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto text-sm">
+          <li className="px-3 py-2 cursor-pointer hover:bg-gray-50 text-gray-400 italic" onMouseDown={() => select('')}>All Cities</li>
+          {filtered.map(c => (
+            <li key={c} className="px-3 py-2 cursor-pointer hover:bg-blue-50 text-gray-700" onMouseDown={() => select(c)}>{c}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 export default function FindClinics() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [clinics, setClinics] = useState([])
@@ -176,20 +223,16 @@ export default function FindClinics() {
                 type="text"
                 value={filters.q}
                 onChange={e => setFilters(f => ({ ...f, q: e.target.value }))}
-                placeholder="Clinic name, doctor, keyword..."
+                placeholder="Doctor name, specialty, clinic..."
                 className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 transition-all"
                 style={{ '--tw-ring-color': '#0F2557' }}
               />
             </div>
-            <select
+            <CitySearch
               value={filters.city}
-              onChange={e => setFilters(f => ({ ...f, city: e.target.value }))}
-              className="md:w-44 px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 transition-all bg-white"
-              style={{ '--tw-ring-color': '#0F2557' }}
-            >
-              <option value="">All Cities</option>
-              {cities.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
+              onChange={val => setFilters(f => ({ ...f, city: val }))}
+              cities={cities}
+            />
             <select
               value={filters.specialty}
               onChange={e => setFilters(f => ({ ...f, specialty: e.target.value }))}
