@@ -1,8 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import List, Optional
-import os, shutil, calendar
+import os, shutil, calendar, secrets, string
 from datetime import date
+
+def _generate_temp_password() -> str:
+    alphabet = string.ascii_letters + string.digits + "!@#$%"
+    while True:
+        pwd = ''.join(secrets.choice(alphabet) for _ in range(12))
+        if (any(c.isupper() for c in pwd) and any(c.islower() for c in pwd)
+                and any(c.isdigit() for c in pwd) and any(c in "!@#$%" for c in pwd)):
+            return pwd
 
 from app.db.session import get_db
 from app.core.security import get_current_staff, hash_password
@@ -171,7 +179,7 @@ def create_staff(
         full_name       = body.get("full_name"),
         email           = email,
         mobile          = mobile,
-        hashed_password = hash_password(body.get("password", "BharatCliniq@123")),
+        hashed_password = hash_password(body.get("password") or _generate_temp_password()),
         role            = body.get("role", "receptionist"),
         # Pharmacy/lab/imaging staff need SaaS provider license verification before login
         is_active       = body.get("role") not in ['pharmacist', 'lab_technician', 'imaging_tech'],

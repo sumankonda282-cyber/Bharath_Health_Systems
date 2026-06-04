@@ -318,7 +318,7 @@ def create_clinic_manager(
     db.commit()
     db.refresh(manager)
 
-    print(f"[MANAGER CREATED] {manager.full_name} | username: {manager.username} | temp_password: {temp_password} | expires: 48h")
+    # Temp password returned in response only — not logged
 
     return {
         "id":            manager.id,
@@ -355,7 +355,7 @@ def approve_clinic(clinic_id: int, db: Session = Depends(get_db), current=Depend
         admin_staff.temp_pw_expiry  = datetime.utcnow() + timedelta(hours=48)
         admin_staff.is_active       = True
         issued = {"username": admin_staff.username, "temp_password": temp_password, "staff_name": admin_staff.full_name}
-        print(f"[CLINIC APPROVED] {clinic.name} | admin: {admin_staff.full_name} | username: {admin_staff.username} | temp_password: {temp_password}")
+        pass  # temp_password returned in response only — not logged
 
     _log(db, "approved_clinic", "clinic", clinic_id, clinic.name, current)
     db.commit()
@@ -523,7 +523,7 @@ def verify_staff(staff_id: int, db: Session = Depends(get_db), current=Depends(g
     db.commit()
 
     # Log credentials to console (email/SMS to be wired in Phase 2)
-    print(f"[CREDENTIAL ISSUE] {staff.full_name} | role: {staff.role} | username: {staff.username} | temp_password: {temp_password} | expires: 48h")
+    # Temp password returned in response only — not logged
 
     return {
         "message":      f"{staff.full_name} ({staff.role}) verified",
@@ -551,7 +551,7 @@ def reset_staff_password(
     db.commit()
     _log(db, "reset_password", "staff", staff_id, staff.full_name, current)
 
-    print(f"[PASSWORD REISSUE] {staff.full_name} | username: {staff.username} | temp_password: {temp_password} | expires: 48h")
+    # Temp password returned in response only — not logged
 
     return {
         "message":       f"New temporary password issued for {staff.full_name}",

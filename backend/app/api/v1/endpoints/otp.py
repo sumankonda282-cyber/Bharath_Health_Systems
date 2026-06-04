@@ -37,7 +37,10 @@ async def send_otp(body: dict, db: Session = Depends(get_db)):
         except Exception as e:
             print(f"SMS failed: {e}")
 
-    return {"message": "OTP sent", "mobile": mobile, "dev_otp": otp if settings.OTP_MOCK else None}
+    resp = {"message": "OTP sent", "mobile": mobile}
+    if settings.OTP_MOCK:
+        resp["dev_otp"] = otp
+    return resp
 
 @router.post("/verify")
 def verify_otp(body: dict, db: Session = Depends(get_db)):

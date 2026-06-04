@@ -1,11 +1,12 @@
 from pydantic import BaseModel
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from datetime import date, datetime
 
 from app.db.session import get_db
 from app.core.security import get_current_staff, verify_password
+from app.core.limiter import limiter
 from app.models.models import (
     Patient, Staff, PatientUser,
     Appointment, SoapNote, Prescription, PrescriptionItem,
@@ -167,7 +168,9 @@ class BhidLookupRequest(BaseModel):
 
 
 @router.post("/bhid-lookup")
+@limiter.limit("5/minute")
 def bhid_lookup(
+    request: Request,
     payload: BhidLookupRequest,
     db: Session = Depends(get_db),
     current: Staff = Depends(get_current_staff),
@@ -193,7 +196,6 @@ def bhid_lookup(
 
     # Burn PIN after successful use — one-time only
     portal_user.disclosure_pin        = None
-    portal_user.disclosure_pin_plain  = None
     portal_user.disclosure_pin_expiry = None
     db.commit()
 

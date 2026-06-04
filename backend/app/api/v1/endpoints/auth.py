@@ -65,10 +65,29 @@ def staff_login(request: Request, payload: StaffLoginRequest, db: Session = Depe
         or db.query(Staff).filter(Staff.mobile == ident).first()
         or db.query(Staff).filter(Staff.username == ident).first()
     )
-    if not user or not verify_password(payload.password, user.hashed_password):
+    if not user:
         raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    # Account lockout check
+    if user.locked_until and datetime.utcnow() < user.locked_until:
+        remaining = int((user.locked_until - datetime.utcnow()).total_seconds() // 60) + 1
+        raise HTTPException(status_code=429, detail=f"Account locked due to too many failed attempts. Try again in {remaining} minute(s).")
+
+    if not verify_password(payload.password, user.hashed_password):
+        user.failed_login_attempts = (user.failed_login_attempts or 0) + 1
+        if user.failed_login_attempts >= 5:
+            user.locked_until = datetime.utcnow() + timedelta(minutes=30)
+            user.failed_login_attempts = 0
+        db.commit()
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Your account is pending verification. You will receive an email within 24-48 hours once approved.")
+
+    # Reset lockout on successful login
+    user.failed_login_attempts = 0
+    user.locked_until = None
+    db.commit()
 
     # Check temp password expiry
     if user.is_first_login and user.temp_pw_expiry:
@@ -192,7 +211,8 @@ class PatientRegisterRequest(BaseModel):
 
 
 @router.post("/patient/register", response_model=TokenResponse)
-def patient_register(payload: PatientRegisterRequest, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def patient_register(request: Request, payload: PatientRegisterRequest, db: Session = Depends(get_db)):
     """Self-service patient registration for the patient portal."""
     if db.query(PatientUser).filter(PatientUser.mobile == payload.mobile).first():
         raise HTTPException(status_code=400, detail="An account with this mobile already exists. Please login.")
@@ -249,7 +269,8 @@ class ProfileCreateRequest(BaseModel):
 
 
 @router.post("/patient/lookup")
-def patient_lookup(payload: OTPLookupRequest, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def patient_lookup(request: Request, payload: OTPLookupRequest, db: Session = Depends(get_db)):
     """Lookup patient by email or BH ID, send OTP to their registered mobile."""
     identifier = payload.identifier.strip()
     if not identifier:
@@ -279,11 +300,15 @@ def patient_lookup(payload: OTPLookupRequest, db: Session = Depends(get_db)):
 
     m = user.mobile
     masked = f"+91 {m[:2]}***{m[-4:]}" if len(m) == 10 else f"***{m[-4:]}"
-    return {"masked_mobile": masked, "mobile": user.mobile, "dev_otp": otp}
+    resp = {"masked_mobile": masked, "mobile": user.mobile}
+    if settings.OTP_MOCK:
+        resp["dev_otp"] = otp
+    return resp
 
 
 @router.post("/patient/send-otp")
-def patient_send_otp(payload: OTPSendRequest, db: Session = Depends(get_db)):
+@limiter.limit("3/minute")
+def patient_send_otp(request: Request, payload: OTPSendRequest, db: Session = Depends(get_db)):
     """Step 1: Send OTP to mobile. Creates PatientUser row if it doesn't exist."""
     mobile = payload.mobile.strip()
     if not mobile or len(mobile) < 10:
@@ -302,7 +327,10 @@ def patient_send_otp(payload: OTPSendRequest, db: Session = Depends(get_db)):
 
     # In production: integrate SMS gateway (e.g. MSG91, Twilio) here.
     # For development: return OTP in response.
-    return {"message": "OTP sent successfully.", "dev_otp": otp}
+    resp = {"message": "OTP sent successfully."}
+    if settings.OTP_MOCK:
+        resp["dev_otp"] = otp
+    return resp
 
 
 @router.post("/patient/verify-otp")
@@ -460,7 +488,8 @@ def platform_admin_me(admin=Depends(get_current_platform_admin)):
 
 
 @router.get("/bh/{bh_id}")
-def lookup_bh_id(bh_id: str, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def lookup_bh_id(request: Request, bh_id: str, db: Session = Depends(get_db)):
     """Public lookup: given a BH ID, return basic info (name, state digit). Used for patient verification."""
     profile = db.query(BHProfile).filter(
         BHProfile.bh_id == bh_id.upper(), BHProfile.is_active == True

@@ -66,6 +66,10 @@ def get_current_staff(token: str = Depends(oauth2_scheme), db: Session = Depends
     user = db.query(Staff).filter(Staff.id == int(user_id)).first()
     if not user or not user.is_active:
         raise exc
+    # Validate token version — allows forced logout by bumping token_version in DB
+    if payload.get("token_version") and user.token_version:
+        if int(payload["token_version"]) != user.token_version:
+            raise exc
     return user
 
 

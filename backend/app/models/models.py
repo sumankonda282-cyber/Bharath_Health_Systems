@@ -89,6 +89,9 @@ class Staff(Base):
     username             = Column(String(30), unique=True, nullable=True)
     is_first_login       = Column(Boolean, default=True)
     temp_pw_expiry       = Column(DateTime, nullable=True)
+    token_version        = Column(Integer, default=1)
+    failed_login_attempts = Column(Integer, default=0)
+    locked_until         = Column(DateTime, nullable=True)
     license_number       = Column(String(100), nullable=True)
     license_document_url = Column(String(500), nullable=True)
     avatar_url           = Column(String(500))
@@ -191,7 +194,6 @@ class PatientUser(Base):
     otp_verified_token   = Column(String(255), nullable=True)   # short-lived token post-OTP verify
     otp_token_expiry     = Column(DateTime, nullable=True)
     disclosure_pin         = Column(String(255), nullable=True)
-    disclosure_pin_plain   = Column(String(10), nullable=True)
     disclosure_pin_expiry  = Column(DateTime, nullable=True)
     preferred_language   = Column(String(20), default="en")
     is_active            = Column(Boolean, default=True)

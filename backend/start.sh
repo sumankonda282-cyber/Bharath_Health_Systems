@@ -9,7 +9,6 @@ from app.db.session import engine
 safe_cols = [
     \"ALTER TABLE patient_users ADD COLUMN IF NOT EXISTS otp_token_expiry TIMESTAMP WITHOUT TIME ZONE\",
     \"ALTER TABLE patient_users ADD COLUMN IF NOT EXISTS disclosure_pin VARCHAR(255)\",
-    \"ALTER TABLE patient_users ADD COLUMN IF NOT EXISTS disclosure_pin_plain VARCHAR(10)\",
     \"ALTER TABLE patient_users ADD COLUMN IF NOT EXISTS disclosure_pin_expiry TIMESTAMP WITHOUT TIME ZONE\",
     \"ALTER TABLE patient_users ADD COLUMN IF NOT EXISTS preferred_language VARCHAR(20) DEFAULT 'en'\",
     \"ALTER TABLE patient_users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE\",
@@ -20,6 +19,9 @@ safe_cols = [
     \"ALTER TABLE staff ADD COLUMN IF NOT EXISTS username VARCHAR(30)\",
     \"ALTER TABLE staff ADD COLUMN IF NOT EXISTS is_first_login BOOLEAN DEFAULT FALSE\",
     \"ALTER TABLE staff ADD COLUMN IF NOT EXISTS temp_pw_expiry TIMESTAMP WITHOUT TIME ZONE\",
+    \"ALTER TABLE staff ADD COLUMN IF NOT EXISTS token_version INTEGER DEFAULT 1\",
+    \"ALTER TABLE staff ADD COLUMN IF NOT EXISTS failed_login_attempts INTEGER DEFAULT 0\",
+    \"ALTER TABLE staff ADD COLUMN IF NOT EXISTS locked_until TIMESTAMP WITHOUT TIME ZONE\",
     \"UPDATE staff SET is_first_login = FALSE WHERE is_first_login IS NULL\",
     \"ALTER TABLE clinics ADD COLUMN IF NOT EXISTS bridge_api_key VARCHAR(64)\",
     "ALTER TABLE clinics ADD COLUMN IF NOT EXISTS brand_name VARCHAR(200)",

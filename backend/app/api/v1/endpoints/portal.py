@@ -16,8 +16,8 @@ def _decode_patient_token(token: str) -> dict:
         if payload.get("user_type") != "patient":
             raise HTTPException(status_code=401, detail="Not a patient token")
         return payload
-    except JWTError as e:
-        raise HTTPException(status_code=401, detail=f"Token error: {str(e)}")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
 
 
 def get_current_patient(
@@ -328,34 +328,30 @@ def _fresh_expiry():
 @router.get("/pin")
 def get_pin(current: PatientUser = Depends(get_current_patient), db: Session = Depends(get_db)):
     """
-    Returns the current active PIN and its expiry time.
-    If no PIN exists or it has expired, auto-generates a new one.
+    Always generates a fresh PIN (plaintext never stored in DB).
+    Returns PIN in response only — patient must note it down immediately.
     """
+    raw = _generate_pin()
+    current.disclosure_pin        = hash_password(raw)
+    current.disclosure_pin_expiry = _fresh_expiry()
+    db.commit()
     from datetime import datetime
-    now = datetime.utcnow()
-    if not current.disclosure_pin or not current.disclosure_pin_expiry or current.disclosure_pin_expiry < now:
-        raw = _generate_pin()
-        current.disclosure_pin       = hash_password(raw)
-        current.disclosure_pin_plain = raw
-        current.disclosure_pin_expiry = _fresh_expiry()
-        db.commit()
-    expires_in = max(0, int((current.disclosure_pin_expiry - now).total_seconds())) if current.disclosure_pin_expiry else 0
+    expires_in = PIN_TTL_MINUTES * 60
     return {
-        "pin":        current.disclosure_pin_plain,
-        "expires_at": current.disclosure_pin_expiry.isoformat() if current.disclosure_pin_expiry else None,
+        "pin":              raw,
+        "expires_at":       current.disclosure_pin_expiry.isoformat(),
         "expires_in_seconds": expires_in,
     }
 
 @router.post("/pin/generate")
 def generate_new_pin(current: PatientUser = Depends(get_current_patient), db: Session = Depends(get_db)):
-    """Generate a fresh one-time PIN valid for 60 minutes."""
+    """Generate a fresh one-time PIN valid for 60 minutes. Plaintext never stored."""
     raw = _generate_pin()
     current.disclosure_pin        = hash_password(raw)
-    current.disclosure_pin_plain  = raw
     current.disclosure_pin_expiry = _fresh_expiry()
     db.commit()
     return {
-        "pin":        raw,
-        "expires_at": current.disclosure_pin_expiry.isoformat(),
+        "pin":              raw,
+        "expires_at":       current.disclosure_pin_expiry.isoformat(),
         "expires_in_seconds": PIN_TTL_MINUTES * 60,
     }
