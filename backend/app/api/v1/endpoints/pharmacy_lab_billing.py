@@ -5,7 +5,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from app.db.session import get_db
-from app.core.security import get_current_staff
+from app.core.security import get_current_staff, require_billing_waive
 from app.models.models import (
     Medicine, Prescription, PrescriptionItem,
     LabTest, LabOrder, LabOrderItem,
@@ -404,6 +404,83 @@ def record_payment(
         inv.paid_at = datetime.utcnow()
     db.commit()
     return {"status": str(inv.status)}
+
+
+WAIVER_REASONS = {'economic_hardship', 'bpl_card', 'procedure_adjustment', 'staff_family', 'other'}
+
+
+class WaiverRequest(BaseModel):
+    waiver_amount: Decimal
+    reason:        str
+    notes:         Optional[str] = None
+
+
+@billing_router.post("/invoices/{inv_id}/waiver")
+def apply_waiver(
+    inv_id: int,
+    body:   WaiverRequest,
+    db:     Session = Depends(get_db),
+    current: Staff = Depends(require_billing_waive),
+):
+    """Doctor or manager applies a fee waiver with mandatory reason and audit trail."""
+    if body.reason not in WAIVER_REASONS:
+        raise HTTPException(400, f'reason must be one of: {", ".join(WAIVER_REASONS)}')
+
+    inv = db.query(Invoice).filter_by(id=inv_id, clinic_id=current.clinic_id).first()
+    if not inv:
+        raise HTTPException(404, 'Invoice not found')
+    if str(inv.status) in ('paid',):
+        raise HTTPException(400, 'Cannot waive a fully paid invoice')
+
+    waiver = body.waiver_amount
+    if waiver > inv.total:
+        raise HTTPException(400, 'Waiver amount cannot exceed invoice total')
+
+    from app.models.models import BillingWaiverLog
+    inv.discount    = (inv.discount or Decimal('0')) + waiver
+    inv.total       = inv.subtotal - inv.discount + (inv.tax or Decimal('0'))
+    db.add(BillingWaiverLog(
+        invoice_id    = inv.id,
+        clinic_id     = current.clinic_id,
+        waived_by     = current.id,
+        waiver_amount = waiver,
+        reason        = body.reason,
+        notes         = body.notes or '',
+    ))
+    db.commit()
+    return {
+        'status': 'waiver_applied',
+        'new_total': float(inv.total),
+        'total_discount': float(inv.discount),
+    }
+
+
+@billing_router.get("/waivers")
+def list_waivers(
+    db:      Session = Depends(get_db),
+    current: Staff = Depends(require_billing_waive),
+):
+    """Monthly waiver report for manager review."""
+    from app.models.models import BillingWaiverLog, Patient
+    from datetime import date
+    rows = db.query(BillingWaiverLog).filter_by(clinic_id=current.clinic_id)\
+        .order_by(BillingWaiverLog.created_at.desc()).limit(200).all()
+    result = []
+    for r in rows:
+        inv = db.query(Invoice).filter_by(id=r.invoice_id).first()
+        patient = db.query(Patient).filter_by(id=inv.patient_id).first() if inv else None
+        staff = db.query(Staff).filter_by(id=r.waived_by).first()
+        result.append({
+            'id':            r.id,
+            'invoice_id':    r.invoice_id,
+            'patient_name':  patient.full_name if patient else '—',
+            'waived_by':     staff.full_name if staff else '—',
+            'waiver_amount': float(r.waiver_amount),
+            'reason':        r.reason,
+            'notes':         r.notes,
+            'created_at':    r.created_at.isoformat() if r.created_at else None,
+        })
+    return result
 
 
 # ── Lab orders list (missing endpoint) ───────────────────────────

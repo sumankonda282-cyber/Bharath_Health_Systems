@@ -2,12 +2,19 @@ import { useState, useEffect } from 'react'
 import { billingApi, patientsApi } from '../../api'
 import { PageLoader } from '../../components/ui/Spinner'
 import Modal from '../../components/ui/Modal'
-import { Receipt, Plus, IndianRupee, CheckCircle, Trash2 } from 'lucide-react'
+import { Receipt, Plus, IndianRupee, CheckCircle, Trash2, BadgePercent } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 
 const PAYMENT_METHODS = ['Cash', 'UPI', 'Card', 'NEFT', 'Cheque', 'Insurance']
 const ITEM_TYPES = ['consultation', 'medicine', 'lab', 'imaging', 'procedure', 'other']
 const STATUS_COLORS = { pending: 'badge-yellow', paid: 'badge-green', cancelled: 'badge-gray', partial: 'badge-blue' }
+const WAIVER_REASONS = [
+  { value: 'economic_hardship', label: 'Economic Hardship' },
+  { value: 'bpl_card', label: 'BPL Card Holder' },
+  { value: 'procedure_adjustment', label: 'Procedure Adjustment' },
+  { value: 'staff_family', label: 'Staff / Family' },
+  { value: 'other', label: 'Other' },
+]
 
 export default function Billing() {
   const [searchParams] = useSearchParams()
@@ -16,6 +23,8 @@ export default function Billing() {
   const [filter, setFilter] = useState('pending')
   const [showNew, setShowNew] = useState(searchParams.get('new') === '1')
   const [showPay, setShowPay] = useState(null)
+  const [showWaiver, setShowWaiver] = useState(null)
+  const [waiverForm, setWaiverForm] = useState({ waiver_amount: '', reason: 'economic_hardship', notes: '' })
   const [patients, setPatients] = useState([])
   const [ptSearch, setPtSearch] = useState('')
   const [form, setForm] = useState({ patient_id: '', items: [{ description: '', item_type: 'consultation', quantity: 1, unit_price: '' }], discount: 0, tax: 0, notes: '' })
@@ -52,6 +61,23 @@ export default function Billing() {
       setShowNew(false)
       setForm({ patient_id: '', items: [{ description: '', item_type: 'consultation', quantity: 1, unit_price: '' }], discount: 0, tax: 0, notes: '' })
       load()
+    } finally { setSaving(false) }
+  }
+
+  const handleWaiver = async () => {
+    if (!waiverForm.waiver_amount || parseFloat(waiverForm.waiver_amount) <= 0) return
+    setSaving(true)
+    try {
+      await billingApi.applyWaiver(showWaiver.id, {
+        waiver_amount: parseFloat(waiverForm.waiver_amount),
+        reason: waiverForm.reason,
+        notes: waiverForm.notes,
+      })
+      setShowWaiver(null)
+      setWaiverForm({ waiver_amount: '', reason: 'economic_hardship', notes: '' })
+      load()
+    } catch (e) {
+      alert(e.response?.data?.detail || 'Failed to apply waiver')
     } finally { setSaving(false) }
   }
 
@@ -101,9 +127,16 @@ export default function Billing() {
                     <td className="td"><span className={STATUS_COLORS[inv.status] || 'badge-gray'}>{inv.status}</span></td>
                     <td className="td text-xs text-gray-400">{new Date(inv.created_at).toLocaleDateString('en-IN')}</td>
                     <td className="td">
-                      {inv.status === 'pending' && (
-                        <button onClick={() => setShowPay(inv)} className="text-xs text-green-600 hover:underline">Collect Payment</button>
-                      )}
+                      <div className="flex gap-2 items-center">
+                        {inv.status === 'pending' && (
+                          <button onClick={() => setShowPay(inv)} className="text-xs text-green-600 hover:underline">Collect Payment</button>
+                        )}
+                        {inv.status === 'pending' && (
+                          <button onClick={() => setShowWaiver(inv)} title="Apply waiver" className="text-xs text-orange-600 hover:underline flex items-center gap-0.5">
+                            <BadgePercent size={12} /> Waiver
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -203,6 +236,42 @@ export default function Billing() {
             </div>
             <button onClick={handlePay} disabled={saving} className="btn-success w-full justify-center">
               <CheckCircle size={16} />{saving ? 'Processing…' : 'Confirm Payment'}
+            </button>
+          </div>
+        )}
+      </Modal>
+      {/* Waiver Modal */}
+      <Modal open={!!showWaiver} onClose={() => setShowWaiver(null)} title="Apply Fee Waiver">
+        {showWaiver && (
+          <div className="space-y-4">
+            <div className="p-3 bg-orange-50 border border-orange-200 rounded-xl text-sm">
+              <p className="font-semibold text-orange-800">{showWaiver.patient_name}</p>
+              <p className="text-orange-600">Invoice Total: ₹{parseFloat(showWaiver.total).toLocaleString('en-IN')}</p>
+            </div>
+            <div>
+              <label className="label">Waiver Amount (₹) *</label>
+              <input
+                className="input" type="number" min="1" max={showWaiver.total}
+                value={waiverForm.waiver_amount}
+                onChange={e => setWaiverForm(f => ({ ...f, waiver_amount: e.target.value }))}
+                placeholder="Amount to waive"
+              />
+            </div>
+            <div>
+              <label className="label">Reason *</label>
+              <select className="input" value={waiverForm.reason} onChange={e => setWaiverForm(f => ({ ...f, reason: e.target.value }))}>
+                {WAIVER_REASONS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label">Notes</label>
+              <input className="input" value={waiverForm.notes} onChange={e => setWaiverForm(f => ({ ...f, notes: e.target.value }))} placeholder="Optional details…" />
+            </div>
+            <div className="text-xs text-gray-500 bg-gray-50 border rounded-lg p-2">
+              This waiver will be logged with your name, reason, and timestamp for manager review.
+            </div>
+            <button onClick={handleWaiver} disabled={saving || !waiverForm.waiver_amount} className="btn-primary w-full justify-center" style={{ background: '#d97706' }}>
+              <BadgePercent size={15} />{saving ? 'Applying…' : 'Apply Waiver'}
             </button>
           </div>
         )}

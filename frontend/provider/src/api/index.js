@@ -103,6 +103,8 @@ export const billingApi = {
   getInvoices: (params) => api.get('/billing/invoices', { params }),
   create:      (data) => api.post('/billing/invoices', data),
   pay:         (id, data) => api.post(`/billing/invoices/${id}/pay`, data),
+  applyWaiver: (id, data) => api.post(`/billing/invoices/${id}/waiver`, data),
+  getWaivers:  () => api.get('/billing/waivers'),
 }
 
 // ── Referrals ─────────────────────────────────────────────────────

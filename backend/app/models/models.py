@@ -709,3 +709,16 @@ class AuditLog(Base):
     created_at  = Column(DateTime, server_default=func.now())
 
     admin = relationship("PlatformAdmin")
+
+
+class BillingWaiverLog(Base):
+    __tablename__ = "billing_waiver_logs"
+    id            = Column(Integer, primary_key=True, index=True)
+    invoice_id    = Column(Integer, ForeignKey("invoices.id"), nullable=False)
+    clinic_id     = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    waived_by     = Column(Integer, ForeignKey("staff.id"), nullable=False)
+    waiver_amount = Column(Numeric(10, 2), nullable=False)
+    reason        = Column(String(50), nullable=False)
+    notes         = Column(Text, nullable=True)
+    created_at    = Column(DateTime, server_default=func.now())
+
