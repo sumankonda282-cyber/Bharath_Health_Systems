@@ -83,13 +83,14 @@ def _seed_critical(db):
 
     # ── Staff ─────────────────────────────────────────────────────────
     staff_defs = [
-        dict(email="admin@apollodemo.com",    mobile="9000000001", full_name="Clinic Admin",      role="clinic_admin",  password="Admin@123"),
-        dict(email="drpriya@apollodemo.com",  mobile="9000000002", full_name="Dr. Priya Sharma",  role="doctor",        password="Doctor@123"),
-        dict(email="drrajan@apollodemo.com",  mobile="9000000006", full_name="Dr. Rajan Mehta",   role="doctor",        password="Doctor@123"),
-        dict(email="ravi@apollodemo.com",     mobile="9000000003", full_name="Ravi Kumar",        role="receptionist",  password="Reception@123"),
-        dict(email="meera@apollodemo.com",    mobile="9000000004", full_name="Meera Patel",       role="pharmacist",    password="Pharmacy@123"),
-        dict(email="arjun@apollodemo.com",    mobile="9000000005", full_name="Arjun Singh",       role="lab_tech",      password="Lab@123"),
-        dict(email="demo@bharatcliniq.com",   mobile="9000000099", full_name="Dr. Rajesh Kumar",  role="clinic_admin",  password="Demo@1234"),
+        dict(email="admin@apollodemo.com",    mobile="9000000001", full_name="Clinic Admin",      role="clinic_admin",    password="Admin@123",     username="admi01"),
+        dict(email="manager@apollodemo.com",  mobile="9000000007", full_name="Sunita Verma",      role="clinic_manager",  password="Manager@123",   username="suni42"),
+        dict(email="drpriya@apollodemo.com",  mobile="9000000002", full_name="Dr. Priya Sharma",  role="doctor",          password="Doctor@123",    username="priy17"),
+        dict(email="drrajan@apollodemo.com",  mobile="9000000006", full_name="Dr. Rajan Mehta",   role="doctor",          password="Doctor@123",    username="raja83"),
+        dict(email="ravi@apollodemo.com",     mobile="9000000003", full_name="Ravi Kumar",        role="receptionist",    password="Reception@123", username="ravi56"),
+        dict(email="meera@apollodemo.com",    mobile="9000000004", full_name="Meera Patel",       role="pharmacist",      password="Pharmacy@123",  username="meer29"),
+        dict(email="arjun@apollodemo.com",    mobile="9000000005", full_name="Arjun Singh",       role="lab_tech",        password="Lab@123",       username="arju74"),
+        dict(email="demo@bharatcliniq.com",   mobile="9000000099", full_name="Dr. Rajesh Kumar",  role="clinic_admin",    password="Demo@1234",     username="raje61"),
     ]
 
     doctor1 = None
@@ -99,12 +100,16 @@ def _seed_critical(db):
         if existing:
             existing.hashed_password = hash_password(s["password"])
             existing.is_active = True
+            existing.is_first_login = False
+            if s.get("username") and not existing.username:
+                existing.username = s["username"]
         else:
             new_staff = Staff(
                 clinic_id=clinic.id, branch_id=branch_main.id,
                 full_name=s["full_name"], email=s["email"], mobile=s["mobile"],
                 hashed_password=hash_password(s["password"]),
                 role=s["role"], is_active=True,
+                username=s.get("username"), is_first_login=False,
             )
             db.add(new_staff)
             db.flush()

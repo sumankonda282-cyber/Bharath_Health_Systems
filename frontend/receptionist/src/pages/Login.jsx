@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
-import { Eye, EyeOff, AlertCircle, CalendarDays, Users, CreditCard, Settings } from 'lucide-react'
+import BrandLogo from '../components/BrandLogo'
+import { Eye, EyeOff, AlertCircle, CalendarDays, Users, CreditCard, Settings, KeyRound } from 'lucide-react'
 
 const TABS = [
   { label: 'Receptionist', role: 'receptionist' },
@@ -8,10 +9,10 @@ const TABS = [
 ]
 
 export default function Login() {
-  const [tab, setTab]       = useState(0)
-  const [form, setForm]     = useState({ identifier: '', password: '' })
-  const [showPw, setShowPw] = useState(false)
-  const [error, setError]   = useState('')
+  const [tab, setTab]         = useState(0)
+  const [form, setForm]       = useState({ identifier: '', password: '' })
+  const [showPw, setShowPw]   = useState(false)
+  const [error, setError]     = useState('')
   const [loading, setLoading] = useState(false)
   const { login } = useAuth()
 
@@ -24,12 +25,22 @@ export default function Login() {
 
   const switchTab = (i) => { setTab(i); setError(''); setForm({ identifier: '', password: '' }) }
 
+  const handleForgotPassword = () => {
+    alert(
+      'Password Reset\n\n' +
+      'Please contact your clinic administrator or the BHaratCliniq super admin to reset your password.\n\n' +
+      'Your new temporary password will be sent to your registered email and phone number.'
+    )
+  }
+
   return (
     <div className="min-h-screen flex" style={{ fontFamily: 'Inter, sans-serif' }}>
-      <div className="hidden lg:flex lg:w-1/2 flex-col justify-between p-10 text-white" style={{ background: 'linear-gradient(145deg, #0F2557 0%, #1a3a7a 100%)' }}>
+      {/* Left panel */}
+      <div className="hidden lg:flex lg:w-1/2 flex-col justify-between p-10 text-white"
+        style={{ background: 'linear-gradient(145deg, #0F2557 0%, #1a3a7a 100%)' }}>
         <div>
-          <div className="text-2xl font-extrabold">BHaratCliniq</div>
-          <div className="text-xs font-semibold mt-1 tracking-wider uppercase" style={{ color: '#F5821E' }}>
+          <BrandLogo size="md" light />
+          <div className="text-xs font-semibold mt-2 tracking-wider uppercase" style={{ color: '#F5821E' }}>
             {tab === 0 ? 'Staff Portal' : 'Manager Portal'}
           </div>
         </div>
@@ -43,34 +54,40 @@ export default function Login() {
               ? 'Manage walk-ins, schedule appointments, and collect payments — all in one place.'
               : 'Manage your clinic team, create staff accounts, and keep operations running smoothly.'}
           </p>
-          {tab === 0
+          {(tab === 0
             ? [
                 { icon: CalendarDays, text: 'Book & manage daily appointments' },
                 { icon: Users,        text: 'Register & search patients quickly' },
                 { icon: CreditCard,   text: 'Collect payments & generate bills' },
-              ].map(({ icon: Icon, text }) => (
-                <div key={text} className="flex items-center gap-3 mb-3">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(245,130,30,0.2)' }}><Icon size={16} style={{ color: '#F5821E' }} /></div>
-                  <span className="text-blue-100 text-sm">{text}</span>
-                </div>
-              ))
+              ]
             : [
-                { icon: Users,    text: 'Create & manage all staff accounts' },
-                { icon: Settings, text: 'Control access for receptionists, lab & pharmacy' },
+                { icon: Users,      text: 'Create & manage all staff accounts' },
+                { icon: Settings,   text: 'Control access for all roles' },
                 { icon: CreditCard, text: 'Oversee billing and daily operations' },
-              ].map(({ icon: Icon, text }) => (
-                <div key={text} className="flex items-center gap-3 mb-3">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(245,130,30,0.2)' }}><Icon size={16} style={{ color: '#F5821E' }} /></div>
-                  <span className="text-blue-100 text-sm">{text}</span>
-                </div>
-              ))
-          }
+              ]
+          ).map(({ icon: Icon, text }) => (
+            <div key={text} className="flex items-center gap-3 mb-3">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center"
+                style={{ background: 'rgba(245,130,30,0.2)' }}>
+                <Icon size={16} style={{ color: '#F5821E' }} />
+              </div>
+              <span className="text-blue-100 text-sm">{text}</span>
+            </div>
+          ))}
         </div>
-        <div className="text-xs" style={{ color: '#93c5fd' }}>BHaratCliniq · {tab === 0 ? 'Staff Portal' : 'Manager Portal'}</div>
+        <div className="text-xs" style={{ color: '#93c5fd' }}>
+          BHaratCliniq · {tab === 0 ? 'Staff Portal' : 'Manager Portal'}
+        </div>
       </div>
 
+      {/* Right panel */}
       <div className="flex-1 flex items-center justify-center p-6 bg-gray-50">
         <div className="w-full max-w-md">
+          {/* Mobile logo */}
+          <div className="flex justify-center mb-6 lg:hidden">
+            <BrandLogo size="md" />
+          </div>
+
           <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-8">
             <h2 className="text-2xl font-extrabold mb-1" style={{ color: '#0F2557' }}>
               {tab === 0 ? 'Staff Sign In' : 'Manager Sign In'}
@@ -79,15 +96,14 @@ export default function Login() {
               {tab === 0 ? 'Front desk & staff access' : 'Clinic operations & staff management'}
             </p>
 
-            {/* Tab toggle */}
+            {/* Tabs */}
             <div className="flex rounded-xl bg-gray-100 p-1 mb-6 text-sm gap-1">
               {TABS.map(({ label }, i) => (
                 <button key={label} type="button" onClick={() => switchTab(i)}
                   className="flex-1 py-2 rounded-lg font-semibold transition-all"
                   style={tab === i
                     ? { background: '#fff', color: '#0F2557', boxShadow: '0 1px 3px rgba(0,0,0,0.12)' }
-                    : { color: '#6b7280' }
-                  }>
+                    : { color: '#6b7280' }}>
                   {label}
                 </button>
               ))}
@@ -95,27 +111,42 @@ export default function Login() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="label">Mobile or Email</label>
-                <input className="input" placeholder="your@email.com" value={form.identifier}
-                  onChange={e => setForm(f => ({ ...f, identifier: e.target.value }))} required autoFocus />
+                <label className="label">Username, Mobile or Email</label>
+                <input className="input" placeholder="your@email.com or username"
+                  value={form.identifier}
+                  onChange={e => setForm(f => ({ ...f, identifier: e.target.value }))}
+                  required autoFocus />
               </div>
               <div>
-                <label className="label">Password</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="label mb-0">Password</label>
+                  <button type="button" onClick={handleForgotPassword}
+                    className="text-xs flex items-center gap-1 hover:underline"
+                    style={{ color: '#CC1414' }}>
+                    <KeyRound size={11} /> Forgot password?
+                  </button>
+                </div>
                 <div className="relative">
-                  <input className="input pr-10" type={showPw ? 'text' : 'password'} placeholder="••••••••"
-                    value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} required />
+                  <input className="input pr-10" type={showPw ? 'text' : 'password'}
+                    placeholder="••••••••" value={form.password}
+                    onChange={e => setForm(f => ({ ...f, password: e.target.value }))} required />
                   <button type="button" onClick={() => setShowPw(v => !v)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
                     {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
               </div>
+
               {error && (
                 <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
-                  <AlertCircle size={16} className="flex-shrink-0 mt-0.5" /><span>{error}</span>
+                  <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
+                  <span>{error}</span>
                 </div>
               )}
-              <button type="submit" disabled={loading} className="w-full btn-primary justify-center py-3">
+
+              <button type="submit" disabled={loading}
+                className="w-full py-3 rounded-xl font-semibold text-sm text-white transition-colors flex items-center justify-center gap-2"
+                style={{ background: '#CC1414' }}>
                 {loading
                   ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Signing in…</>
                   : `Sign In as ${TABS[tab].label}`}

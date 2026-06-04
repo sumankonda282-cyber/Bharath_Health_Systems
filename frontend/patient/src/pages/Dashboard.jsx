@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext'
 import api from '../api/client'
 import { Calendar, Pill, FlaskConical, Receipt, Heart, User, ArrowRight, MapPin } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import logoImg from '../assets/logo.png'
 
 const STATUS_COLORS = {
   pending: 'badge-yellow', confirmed: 'badge-blue', completed: 'badge-green',
@@ -46,13 +47,8 @@ export default function Dashboard() {
         <div className="relative">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(245,130,30,0.3)' }}>
-                <Heart size={16} style={{ color: '#F5821E' }} />
-              </div>
-              <div>
-                <span className="font-extrabold text-sm tracking-wider" style={{ color: '#CC1414' }}>BH</span>
-                <span className="font-extrabold text-sm tracking-wider text-white">aratCliniq</span>
-              </div>
+              <img src={logoImg} alt="BHaratCliniq" style={{ height: 32, width: 'auto' }} />
+              <span className="font-extrabold text-sm tracking-wider text-white" style={{ letterSpacing: '-0.01em' }}>BHaratCliniq</span>
             </div>
             <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium"
               style={{ background: 'rgba(245,130,30,0.2)', color: '#fbbf24' }}>
