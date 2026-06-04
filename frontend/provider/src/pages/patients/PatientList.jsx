@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { patientsApi, tagsApi, appointmentsApi } from '../../api'
+import { cachedFetch } from '../../utils/cache'
 import { PageLoader } from '../../components/ui/Spinner'
 import { Search, Plus, User, X, Tag, ChevronDown } from 'lucide-react'
 
@@ -196,9 +197,17 @@ export default function PatientList() {
 
   const loadPatients = (q = search) => {
     setLoading(true)
-    patientsApi.list({ search: q, limit: 50 })
-      .then(r => setPatients(Array.isArray(r) ? r : []))
-      .finally(() => setLoading(false))
+    if (!q) {
+      cachedFetch(
+        'patient_list',
+        () => patientsApi.list({ limit: 50 }),
+        r => { setPatients(Array.isArray(r) ? r : []); setLoading(false) }
+      ).catch(() => setLoading(false))
+    } else {
+      patientsApi.list({ search: q, limit: 50 })
+        .then(r => setPatients(Array.isArray(r) ? r : []))
+        .finally(() => setLoading(false))
+    }
   }
 
   // Load today's appointment statuses

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { appointmentsApi, patientsApi, billingApi } from '../../api'
+import { cachedFetch } from '../../utils/cache'
 import StatCard from '../../components/ui/StatCard'
 import { PageLoader } from '../../components/ui/Spinner'
 import { Calendar, Users, Receipt, Clock, CheckCircle, AlertCircle, TrendingUp, Activity } from 'lucide-react'
@@ -23,20 +24,24 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    Promise.all([
-      appointmentsApi.list({ appointment_date: today, limit: 20 }),
-      patientsApi.list({ limit: 1 }),
-      billingApi.getInvoices({ status: 'paid', limit: 1 }),
-    ]).then(([appts, pts, bills]) => {
-      const a = Array.isArray(appts) ? appts : []
-      setQueue(a.slice(0, 10))
-      setStats({
-        todayAppts: a.length,
-        waiting: a.filter(x => x.status === 'pending' || x.status === 'confirmed').length,
-        completed: a.filter(x => x.status === 'completed').length,
-      })
-    }).catch(() => setStats({ todayAppts: 0, waiting: 0, completed: 0 }))
-      .finally(() => setLoading(false))
+    cachedFetch(
+      `dashboard_${today}`,
+      () => Promise.all([
+        appointmentsApi.list({ appointment_date: today, limit: 20 }),
+        patientsApi.list({ limit: 1 }),
+        billingApi.getInvoices({ status: 'paid', limit: 1 }),
+      ]),
+      ([appts]) => {
+        const a = Array.isArray(appts) ? appts : []
+        setQueue(a.slice(0, 10))
+        setStats({
+          todayAppts: a.length,
+          waiting: a.filter(x => x.status === 'pending' || x.status === 'confirmed').length,
+          completed: a.filter(x => x.status === 'completed').length,
+        })
+        setLoading(false)
+      }
+    ).catch(() => { setStats({ todayAppts: 0, waiting: 0, completed: 0 }); setLoading(false) })
   }, [today])
 
   if (loading) return <PageLoader />
