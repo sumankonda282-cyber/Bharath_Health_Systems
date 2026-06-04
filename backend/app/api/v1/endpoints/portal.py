@@ -62,6 +62,7 @@ def portal_me(
     auth=Depends(get_current_patient_with_profile),
     db: Session = Depends(get_db)
 ):
+    from datetime import date
     current, bh_profile = auth
     patients = db.query(Patient).filter(Patient.portal_user_id == current.id).all()
 
@@ -73,6 +74,16 @@ def portal_me(
     elif patients:
         bh_id = patients[0].bh_id
 
+    # Patients for whom this user is registered as guardian
+    guardian_patients = db.query(Patient).filter(
+        Patient.guardian_mobile == current.mobile
+    ).all()
+
+    def _age(p):
+        if p.date_of_birth:
+            return (date.today() - p.date_of_birth).days // 365
+        return None
+
     return {
         "id": current.id,
         "full_name": full_name,
@@ -81,6 +92,16 @@ def portal_me(
         "preferred_language": current.preferred_language,
         "bh_id": bh_id,
         "linked_clinics": len(patients),
+        "guardian_of": [
+            {
+                "id": p.id,
+                "full_name": p.full_name,
+                "bh_id": p.bh_id,
+                "age": _age(p),
+                "gender": p.gender,
+            }
+            for p in guardian_patients
+        ],
     }
 
 @router.get("/appointments")

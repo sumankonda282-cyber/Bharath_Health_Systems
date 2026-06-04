@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../api/client'
-import { Calendar, Pill, FlaskConical, Receipt, Heart, User, ArrowRight, MapPin } from 'lucide-react'
+import { Calendar, Pill, FlaskConical, Receipt, Heart, User, ArrowRight, MapPin, Users } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import logoImg from '../assets/logo.png'
 
@@ -21,15 +21,19 @@ export default function Dashboard() {
   const { user } = useAuth()
   const [appointments, setAppointments] = useState([])
   const [prescriptions, setPrescriptions] = useState([])
+  const [guardianOf, setGuardianOf] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     Promise.all([
       api.get('/portal/appointments'),
       api.get('/portal/prescriptions'),
-    ]).then(([a, p]) => {
+      api.get('/portal/me'),
+    ]).then(([a, p, me]) => {
       setAppointments((a.data?.appointments || a.data || []).slice(0, 5))
       setPrescriptions((p.data?.prescriptions || p.data || []).slice(0, 3))
+      const meData = me.data || me
+      setGuardianOf(Array.isArray(meData?.guardian_of) ? meData.guardian_of : [])
     }).finally(() => setLoading(false))
   }, [])
 
@@ -112,6 +116,44 @@ export default function Dashboard() {
           </Link>
         ))}
       </div>
+
+      {/* Family Members — guardian_of */}
+      {!loading && guardianOf.length > 0 && (
+        <div className="card overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100">
+            <div className="flex items-center gap-2">
+              <Users size={18} style={{ color: '#0F2557' }} />
+              <h2 className="font-bold text-base" style={{ color: '#0F2557' }}>Family Members</h2>
+            </div>
+            <p className="text-xs text-gray-400 mt-0.5">You are registered as guardian for these patients</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4">
+            {guardianOf.map(p => (
+              <div key={p.id} className="rounded-xl border border-blue-100 bg-blue-50/40 p-4 flex items-start justify-between gap-3">
+                <div>
+                  <div className="font-semibold text-sm" style={{ color: '#0F2557' }}>{p.full_name}</div>
+                  {p.bh_id && (
+                    <div className="text-xs font-mono text-gray-400 mt-0.5">{p.bh_id.toUpperCase()}</div>
+                  )}
+                  <div className="text-xs text-gray-500 mt-1">
+                    {p.age !== null && p.age !== undefined ? `${p.age} yrs` : ''}
+                    {p.age !== null && p.age !== undefined && p.gender ? ' · ' : ''}
+                    {p.gender ? p.gender.charAt(0).toUpperCase() + p.gender.slice(1) : ''}
+                  </div>
+                </div>
+                <button
+                  className="text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors whitespace-nowrap"
+                  style={{ borderColor: '#0F2557', color: '#0F2557' }}
+                  onClick={() => {}}
+                  title="View records — coming soon"
+                >
+                  View Records
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Recent appointments */}
       <div className="card overflow-hidden">

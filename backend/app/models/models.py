@@ -163,6 +163,8 @@ class Patient(Base):
     emergency_contact_phone = Column(String(20), nullable=True)
     abha_id                 = Column(String(20), nullable=True)
     abha_linked             = Column(Boolean, default=False)
+    guardian_name           = Column(String(200), nullable=True)
+    guardian_mobile         = Column(String(20),  nullable=True)
     is_active               = Column(Boolean, default=True)
     created_at              = Column(DateTime, server_default=func.now())
     updated_at              = Column(DateTime, server_default=func.now(), onupdate=func.now())

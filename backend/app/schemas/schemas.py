@@ -198,6 +198,8 @@ class PatientCreate(BaseModel):
     emergency_contact_name: Optional[str] = None
     emergency_contact_phone: Optional[str] = None
     abha_id: Optional[str] = None
+    guardian_name: Optional[str] = None
+    guardian_mobile: Optional[str] = None
 
 
 class PatientUpdate(BaseModel):
@@ -215,6 +217,8 @@ class PatientUpdate(BaseModel):
     emergency_contact_name: Optional[str] = None
     emergency_contact_phone: Optional[str] = None
     abha_id: Optional[str] = None
+    guardian_name: Optional[str] = None
+    guardian_mobile: Optional[str] = None
 
 
 class PatientOut(BaseModel):
@@ -231,7 +235,10 @@ class PatientOut(BaseModel):
     address: Optional[str]
     city: Optional[str]
     state: Optional[str]
+    pincode: Optional[str] = None
     abha_id: Optional[str]
+    guardian_name: Optional[str] = None
+    guardian_mobile: Optional[str] = None
     branch_id: Optional[int]
     is_active: bool
     created_at: datetime

@@ -1,6 +1,107 @@
 import { useState, useEffect, useCallback } from 'react'
 import api from '../api/client'
-import { CreditCard, Loader2 } from 'lucide-react'
+import { CreditCard, Loader2, FileText, X, Printer } from 'lucide-react'
+
+function DayReport({ invoices }) {
+  const [open, setOpen] = useState(false)
+
+  const today = new Date().toISOString().slice(0, 10)
+
+  const todayPaid = invoices.filter(
+    i => i.status === 'paid' && i.created_at && i.created_at.slice(0, 10) === today
+  )
+  const todayPending = invoices.filter(
+    i => (i.status === 'pending' || i.status === 'partial') && i.created_at && i.created_at.slice(0, 10) === today
+  )
+
+  const pendingTotal = todayPending.reduce((s, i) => s + (Number(i.total_amount) || 0), 0)
+
+  const methods = ['cash', 'upi', 'card', 'insurance', 'other']
+  const methodLabels = { cash: 'Cash', upi: 'UPI', card: 'Card', insurance: 'Insurance', other: 'Other' }
+
+  const grouped = methods.map(method => {
+    const items = todayPaid.filter(i => {
+      const m = (i.payment_method || 'cash').toLowerCase()
+      if (method === 'other') return !['cash', 'upi', 'card', 'insurance'].includes(m)
+      return m === method
+    })
+    return {
+      method,
+      label: methodLabels[method],
+      count: items.length,
+      total: items.reduce((s, i) => s + (Number(i.total_amount) || 0), 0),
+    }
+  }).filter(g => g.count > 0)
+
+  const grandTotal = todayPaid.reduce((s, i) => s + (Number(i.total_amount) || 0), 0)
+
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="btn-secondary flex items-center gap-2 text-sm"
+      >
+        <FileText size={15} />
+        Day Report
+      </button>
+
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <div>
+                <h2 className="font-bold text-gray-800 text-lg">Day-End Cash Report</h2>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                </p>
+              </div>
+              <button onClick={() => setOpen(false)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="px-5 py-4 space-y-3">
+              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Collections by Payment Method</div>
+              {grouped.length === 0 ? (
+                <div className="text-center py-6 text-gray-400 text-sm">No paid invoices today</div>
+              ) : (
+                <div className="divide-y divide-gray-100 rounded-xl border border-gray-100 overflow-hidden">
+                  {grouped.map(g => (
+                    <div key={g.method} className="flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100">
+                      <div>
+                        <span className="font-medium text-gray-700">{g.label}</span>
+                        <span className="ml-2 text-xs text-gray-400">{g.count} invoice{g.count !== 1 ? 's' : ''}</span>
+                      </div>
+                      <span className="font-semibold text-gray-800">₹{g.total.toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex items-center justify-between px-4 py-3 rounded-xl" style={{ background: '#0F2557' }}>
+                <span className="font-bold text-white">Grand Total</span>
+                <span className="font-extrabold text-white text-lg">₹{grandTotal.toFixed(2)}</span>
+              </div>
+
+              <div className="flex items-center justify-between px-4 py-3 rounded-xl border border-red-100 bg-red-50">
+                <span className="font-medium text-red-700 text-sm">Pending Amount (Today)</span>
+                <span className="font-bold text-red-700">₹{pendingTotal.toFixed(2)}</span>
+              </div>
+            </div>
+
+            <div className="px-5 pb-5 flex justify-end gap-2">
+              <button onClick={() => setOpen(false)} className="btn-secondary text-sm">Close</button>
+              <button onClick={() => window.print()} className="btn-primary flex items-center gap-2 text-sm">
+                <Printer size={14} />
+                Print Report
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
 
 export default function Billing() {
   const [invoices, setInvoices] = useState([])
@@ -28,7 +129,10 @@ export default function Billing() {
 
   return (
     <div>
-      <div className="page-header"><h1 className="page-title">Billing</h1></div>
+      <div className="page-header flex items-center justify-between">
+        <h1 className="page-title">Billing</h1>
+        <DayReport invoices={invoices} />
+      </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
         <div className="card p-4"><div className="text-xs text-gray-500 mb-1">Pending Payments</div><div className="text-2xl font-bold" style={{ color: '#CC1414' }}>{unpaid.length}</div></div>
         <div className="card p-4"><div className="text-xs text-gray-500 mb-1">Collected Today</div><div className="text-2xl font-bold" style={{ color: '#16A34A' }}>{paid.length}</div></div>

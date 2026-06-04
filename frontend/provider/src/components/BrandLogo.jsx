@@ -1,9 +1,9 @@
 import logoImg from '../assets/logo.png'
 
 const SIZES = {
-  sm: { img: 28, fontSize: 'text-base', gap: 'gap-2' },
-  md: { img: 38, fontSize: 'text-xl',  gap: 'gap-2.5' },
-  lg: { img: 56, fontSize: 'text-3xl', gap: 'gap-3' },
+  sm: { img: 28, fontSize: 'text-base', gap: 'gap-1' },
+  md: { img: 38, fontSize: 'text-xl',  gap: 'gap-1.5' },
+  lg: { img: 56, fontSize: 'text-3xl', gap: 'gap-2' },
 }
 
 export default function BrandLogo({ size = 'md', showText = true, light = false }) {

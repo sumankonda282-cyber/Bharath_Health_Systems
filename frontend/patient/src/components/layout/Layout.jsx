@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { NavLink, useNavigate, Outlet } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
-import { LayoutDashboard, Calendar, Pill, FlaskConical, Receipt, LogOut, Menu, X } from 'lucide-react'
+import { LayoutDashboard, Calendar, Pill, FlaskConical, Receipt, LogOut, Menu, X, Clock } from 'lucide-react'
 import BrandLogo from '../BrandLogo'
 
 const NAV = [
@@ -10,6 +10,7 @@ const NAV = [
   { to: '/prescriptions', label: 'Prescriptions',icon: Pill },
   { to: '/lab-results',   label: 'Lab Results',  icon: FlaskConical },
   { to: '/bills',         label: 'Bills',        icon: Receipt },
+  { to: '/timeline',      label: 'Timeline',     icon: Clock },
 ]
 
 export default function Layout() {

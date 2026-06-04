@@ -21,6 +21,7 @@ const Billing        = lazy(() => import('./pages/billing/Billing'))
 const Analytics      = lazy(() => import('./pages/analytics/Analytics'))
 const Referrals      = lazy(() => import('./pages/referrals/Referrals'))
 const ClinicAdmin    = lazy(() => import('./pages/admin/ClinicAdmin'))
+const BranchOverview = lazy(() => import('./pages/admin/BranchOverview'))
 const PlatformAdmin  = lazy(() => import('./pages/platform/PlatformAdmin'))
 
 function AppRoutes() {

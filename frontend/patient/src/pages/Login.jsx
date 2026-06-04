@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext'
 import api from '../api/client'
 import {
   Phone, Mail, Hash, AlertCircle, Heart, Shield, FileText,
-  ArrowLeft, ChevronRight, Plus, CheckCircle, Smartphone
+  ArrowLeft, User, ChevronRight, Plus, CheckCircle, Smartphone
 } from 'lucide-react'
 import BrandLogo from '../components/BrandLogo'
 
@@ -17,6 +17,7 @@ const INDIAN_STATES = [
   'Delhi', 'Jammu and Kashmir', 'Ladakh', 'Lakshadweep', 'Puducherry',
 ]
 
+// ── Hero left panel ────────────────────────────────────────────────────────
 function HeroPanel() {
   const features = [
     { icon: Heart,    text: 'Complete health history in one place' },
@@ -57,7 +58,7 @@ function HeroPanel() {
         </div>
         <div className="mt-8 p-4 rounded-xl" style={{ background: 'rgba(255,255,255,0.08)' }}>
           <p className="text-blue-100 text-sm font-medium">New to BharatCliniq?</p>
-          <p className="text-blue-200 text-xs mt-1">Enter your mobile → verify OTP → create your free health profile and get a permanent BH ID in under a minute.</p>
+          <p className="text-blue-200 text-xs mt-1">Enter your mobile number → verify OTP → create your free health profile and get a permanent BH ID in under a minute.</p>
         </div>
       </div>
       <div className="relative text-xs" style={{ color: '#93c5fd' }}>
@@ -67,12 +68,14 @@ function HeroPanel() {
   )
 }
 
+// ── Login method tabs ──────────────────────────────────────────────────────
 const LOGIN_METHODS = [
-  { key: 'mobile', label: 'Mobile', icon: Smartphone },
-  { key: 'email',  label: 'Email',  icon: Mail },
-  { key: 'bh_id', label: 'BH ID',  icon: Hash },
+  { key: 'mobile',  label: 'Mobile',  icon: Smartphone },
+  { key: 'email',   label: 'Email',   icon: Mail },
+  { key: 'bh_id',  label: 'BH ID',   icon: Hash },
 ]
 
+// ── Step 1: Identifier input (mobile / email / BH ID) ────────────────────
 function StepIdentifier({ onNext }) {
   const [method, setMethod] = useState('mobile')
   const [value, setValue] = useState('')
@@ -109,13 +112,17 @@ function StepIdentifier({ onNext }) {
       <h2 className="text-2xl font-extrabold mb-1" style={{ color: '#0F2557' }}>Sign In / Register</h2>
       <p className="text-gray-500 text-sm mb-5">OTP will be sent to your registered mobile number</p>
 
+      {/* Method tabs */}
       <div className="flex rounded-xl border border-gray-200 p-1 mb-5 gap-1">
         {LOGIN_METHODS.map(({ key, label, icon: Icon }) => (
           <button
-            key={key} type="button"
+            key={key}
+            type="button"
             onClick={() => { setMethod(key); setValue(''); setError('') }}
             className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition-all"
-            style={method === key ? { background: '#0F2557', color: '#fff' } : { color: '#6B7280' }}
+            style={method === key
+              ? { background: '#0F2557', color: '#fff' }
+              : { color: '#6B7280' }}
           >
             <Icon size={14} /> {label}
           </button>
@@ -130,8 +137,12 @@ function StepIdentifier({ onNext }) {
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">+91</span>
               <input
                 className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 transition-all"
-                placeholder={placeholder} type="tel" inputMode="numeric" maxLength={10}
-                value={value} onChange={e => setValue(e.target.value.replace(/\D/g, ''))}
+                placeholder={placeholder}
+                type="tel"
+                inputMode="numeric"
+                maxLength={10}
+                value={value}
+                onChange={e => setValue(e.target.value.replace(/\D/g, ''))}
                 required autoFocus
               />
             </div>
@@ -144,8 +155,10 @@ function StepIdentifier({ onNext }) {
             </label>
             <input
               className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 transition-all"
-              placeholder={placeholder} type={method === 'email' ? 'email' : 'text'}
-              value={value} onChange={e => setValue(e.target.value)}
+              placeholder={placeholder}
+              type={method === 'email' ? 'email' : 'text'}
+              value={value}
+              onChange={e => setValue(e.target.value)}
               required autoFocus
             />
             <p className="text-xs text-gray-400 mt-1.5">
@@ -163,7 +176,9 @@ function StepIdentifier({ onNext }) {
           </div>
         )}
 
-        <button type="submit" disabled={loading}
+        <button
+          type="submit"
+          disabled={loading}
           className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm text-white disabled:opacity-50"
           style={{ background: '#CC1414' }}
         >
@@ -176,6 +191,7 @@ function StepIdentifier({ onNext }) {
   )
 }
 
+// ── Step 2: OTP verification ───────────────────────────────────────────────
 function StepOTP({ mobile, maskedMobile, devOtp, onNext, onBack }) {
   const [otp, setOtp] = useState('')
   const [loading, setLoading] = useState(false)
@@ -199,10 +215,15 @@ function StepOTP({ mobile, maskedMobile, devOtp, onNext, onBack }) {
   }
 
   const handleResend = async () => {
-    setResending(true); setError('')
-    try { await api.post('/auth/patient/send-otp', { mobile }) }
-    catch (err) { setError(err.message || 'Failed to resend.') }
-    finally { setResending(false) }
+    setResending(true)
+    setError('')
+    try {
+      await api.post('/auth/patient/send-otp', { mobile })
+    } catch (err) {
+      setError(err.message || 'Failed to resend.')
+    } finally {
+      setResending(false)
+    }
   }
 
   return (
@@ -222,8 +243,12 @@ function StepOTP({ mobile, maskedMobile, devOtp, onNext, onBack }) {
           <label className="block text-sm font-medium text-gray-700 mb-1.5">6-Digit OTP</label>
           <input
             className="w-full px-4 py-3 border border-gray-300 rounded-xl text-xl tracking-[0.3em] font-bold text-center focus:outline-none focus:ring-2 transition-all"
-            placeholder="------" type="text" inputMode="numeric" maxLength={6}
-            value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, ''))}
+            placeholder="------"
+            type="text"
+            inputMode="numeric"
+            maxLength={6}
+            value={otp}
+            onChange={e => setOtp(e.target.value.replace(/\D/g, ''))}
             required autoFocus
           />
         </div>
@@ -233,14 +258,22 @@ function StepOTP({ mobile, maskedMobile, devOtp, onNext, onBack }) {
             <span>{error}</span>
           </div>
         )}
-        <button type="submit" disabled={loading}
+        <button
+          type="submit"
+          disabled={loading}
           className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm text-white disabled:opacity-50"
           style={{ background: '#CC1414' }}
         >
-          {loading ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Verifying…</> : 'Verify OTP'}
+          {loading
+            ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Verifying…</>
+            : 'Verify OTP'}
         </button>
-        <button type="button" onClick={handleResend} disabled={resending}
-          className="w-full text-sm text-gray-500 hover:text-gray-700 py-2">
+        <button
+          type="button"
+          onClick={handleResend}
+          disabled={resending}
+          className="w-full text-sm text-gray-500 hover:text-gray-700 py-2"
+        >
           {resending ? 'Resending…' : 'Resend OTP'}
         </button>
       </form>
@@ -248,15 +281,19 @@ function StepOTP({ mobile, maskedMobile, devOtp, onNext, onBack }) {
   )
 }
 
-function StepSelectProfile({ profiles, canAddProfile, onSelect, onCreateNew }) {
+// ── Step 3: Profile selection ──────────────────────────────────────────────
+function StepSelectProfile({ verifiedToken, profiles, canAddProfile, onSelect, onCreateNew }) {
   return (
     <>
       <h2 className="text-2xl font-extrabold mb-1" style={{ color: '#0F2557' }}>Who's accessing?</h2>
       <p className="text-gray-500 text-sm mb-6">Select a profile or create a new one</p>
       <div className="space-y-3 mb-4">
         {profiles.map(p => (
-          <button key={p.id} onClick={() => onSelect(p.id)}
-            className="w-full flex items-center gap-3 p-4 rounded-xl border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-all text-left group">
+          <button
+            key={p.id}
+            onClick={() => onSelect(p.id)}
+            className="w-full flex items-center gap-3 p-4 rounded-xl border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-all text-left group"
+          >
             <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-white text-sm"
               style={{ background: '#0F2557' }}>
               {p.full_name.charAt(0).toUpperCase()}
@@ -269,42 +306,57 @@ function StepSelectProfile({ profiles, canAddProfile, onSelect, onCreateNew }) {
           </button>
         ))}
       </div>
-      {canAddProfile
-        ? <button onClick={onCreateNew}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-gray-300 hover:border-blue-400 text-sm font-semibold text-gray-500 hover:text-blue-600 transition-all">
-            <Plus size={16} /> Add New Profile
-          </button>
-        : <p className="text-xs text-gray-400 text-center">Maximum 5 profiles reached for this mobile number.</p>
-      }
+      {canAddProfile && (
+        <button
+          onClick={onCreateNew}
+          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-gray-300 hover:border-blue-400 text-sm font-semibold text-gray-500 hover:text-blue-600 transition-all"
+        >
+          <Plus size={16} /> Add New Profile
+        </button>
+      )}
+      {!canAddProfile && (
+        <p className="text-xs text-gray-400 text-center">Maximum 5 profiles reached for this mobile number.</p>
+      )}
     </>
   )
 }
 
+// ── Step 4: Create new BH profile ─────────────────────────────────────────
 function StepCreateProfile({ verifiedToken, onBack, onCreated }) {
   const [form, setForm] = useState({ first_name: '', last_name: '', gender: '', date_of_birth: '', state: '' })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   const handleSubmit = async (e) => {
-    e.preventDefault(); setError('')
-    if (!form.first_name.trim() || !form.last_name.trim()) { setError('First name and last name are required.'); return }
+    e.preventDefault()
+    setError('')
+    if (!form.first_name.trim() || !form.last_name.trim()) {
+      setError('First name and last name are required.')
+      return
+    }
     setLoading(true)
     try {
       const res = await api.post('/auth/patient/create-profile', {
         verified_token: verifiedToken,
-        first_name: form.first_name.trim(), last_name: form.last_name.trim(),
-        gender: form.gender || null, date_of_birth: form.date_of_birth || null, state: form.state || null,
+        first_name: form.first_name.trim(),
+        last_name: form.last_name.trim(),
+        gender: form.gender || null,
+        date_of_birth: form.date_of_birth || null,
+        state: form.state || null,
       })
-      onCreated(res.data || res)
+      const data = res.data || res
+      onCreated(data)
     } catch (err) {
       setError(err.message || 'Failed to create profile.')
-    } finally { setLoading(false) }
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
     <>
       <button onClick={onBack} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-4">
-        <ArrowLeft size={14} /> Back
+        <ArrowLeft size={14} /> Back to profiles
       </button>
       <h2 className="text-2xl font-extrabold mb-1" style={{ color: '#0F2557' }}>Create Your Health Profile</h2>
       <p className="text-gray-500 text-sm mb-6">A permanent BH ID will be assigned — free for life</p>
@@ -312,27 +364,42 @@ function StepCreateProfile({ verifiedToken, onBack, onCreated }) {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">First Name <span className="text-red-500">*</span></label>
-            <input className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 transition-all"
-              placeholder="First name" value={form.first_name}
-              onChange={e => setForm(f => ({ ...f, first_name: e.target.value }))} required autoFocus />
+            <input
+              className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 transition-all"
+              placeholder="First name"
+              value={form.first_name}
+              onChange={e => setForm(f => ({ ...f, first_name: e.target.value }))}
+              required autoFocus
+            />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Last Name <span className="text-red-500">*</span></label>
-            <input className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 transition-all"
-              placeholder="Last name" value={form.last_name}
-              onChange={e => setForm(f => ({ ...f, last_name: e.target.value }))} required />
+            <input
+              className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 transition-all"
+              placeholder="Last name"
+              value={form.last_name}
+              onChange={e => setForm(f => ({ ...f, last_name: e.target.value }))}
+              required
+            />
           </div>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">Date of Birth</label>
-          <input type="date" className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 transition-all"
-            value={form.date_of_birth} onChange={e => setForm(f => ({ ...f, date_of_birth: e.target.value }))}
-            max={new Date().toISOString().split('T')[0]} />
+          <input
+            type="date"
+            className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 transition-all"
+            value={form.date_of_birth}
+            onChange={e => setForm(f => ({ ...f, date_of_birth: e.target.value }))}
+            max={new Date().toISOString().split('T')[0]}
+          />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">Gender</label>
-          <select className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 transition-all bg-white"
-            value={form.gender} onChange={e => setForm(f => ({ ...f, gender: e.target.value }))}>
+          <select
+            className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 transition-all bg-white"
+            value={form.gender}
+            onChange={e => setForm(f => ({ ...f, gender: e.target.value }))}
+          >
             <option value="">Select gender</option>
             <option value="male">Male</option>
             <option value="female">Female</option>
@@ -341,8 +408,11 @@ function StepCreateProfile({ verifiedToken, onBack, onCreated }) {
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">State</label>
-          <select className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 transition-all bg-white"
-            value={form.state} onChange={e => setForm(f => ({ ...f, state: e.target.value }))}>
+          <select
+            className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 transition-all bg-white"
+            value={form.state}
+            onChange={e => setForm(f => ({ ...f, state: e.target.value }))}
+          >
             <option value="">Select state</option>
             {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
@@ -353,9 +423,12 @@ function StepCreateProfile({ verifiedToken, onBack, onCreated }) {
             <span>{error}</span>
           </div>
         )}
-        <button type="submit" disabled={loading}
+        <button
+          type="submit"
+          disabled={loading}
           className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm text-white disabled:opacity-50"
-          style={{ background: '#CC1414' }}>
+          style={{ background: '#CC1414' }}
+        >
           {loading
             ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Creating profile…</>
             : <><CheckCircle size={16} /> Create Profile & Get BH ID</>}
@@ -365,8 +438,9 @@ function StepCreateProfile({ verifiedToken, onBack, onCreated }) {
   )
 }
 
+// ── Main Login component ───────────────────────────────────────────────────
 export default function Login() {
-  const [step, setStep] = useState('identifier')
+  const [step, setStep] = useState('identifier')   // identifier | otp | select | create
   const [mobile, setMobile] = useState('')
   const [maskedMobile, setMaskedMobile] = useState('')
   const [devOtp, setDevOtp] = useState(null)
@@ -375,27 +449,36 @@ export default function Login() {
   const [canAdd, setCanAdd] = useState(true)
   const [finalizing, setFinalizing] = useState(false)
   const [error, setError] = useState('')
+
   const { loginWithToken } = useAuth()
 
   const handleIdentifierNext = ({ mobile: m, maskedMobile: mm, devOtp: d }) => {
-    setMobile(m); setMaskedMobile(mm); setDevOtp(d); setStep('otp')
+    setMobile(m)
+    setMaskedMobile(mm)
+    setDevOtp(d)
+    setStep('otp')
   }
 
   const handleOtpNext = ({ verifiedToken: t, profiles: p, canAddProfile: c }) => {
-    setVerifiedToken(t); setProfiles(p); setCanAdd(c)
+    setVerifiedToken(t)
+    setProfiles(p)
+    setCanAdd(c)
     setStep(p.length === 0 ? 'create' : 'select')
   }
 
   const handleSelect = async (profileId) => {
-    setFinalizing(true); setError('')
+    setFinalizing(true)
+    setError('')
     try {
       const res = await api.post('/auth/patient/select-profile', {
-        verified_token: verifiedToken, bh_profile_id: profileId,
+        verified_token: verifiedToken,
+        bh_profile_id: profileId,
       })
       const data = res.data || res
       await loginWithToken(data.access_token, data.bh_profile_id)
     } catch (err) {
-      setError(err.message || 'Failed to sign in.'); setFinalizing(false)
+      setError(err.message || 'Failed to sign in.')
+      setFinalizing(false)
     }
   }
 
@@ -408,7 +491,10 @@ export default function Login() {
       <HeroPanel />
       <div className="flex-1 flex items-center justify-center p-6 bg-white lg:bg-gray-50">
         <div className="w-full max-w-md">
-          <div className="lg:hidden mb-8 text-center"><BrandLogo size="lg" /></div>
+          <div className="lg:hidden mb-8 text-center">
+            <BrandLogo size="lg" />
+          </div>
+
           <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-8">
             {finalizing ? (
               <div className="flex flex-col items-center py-8 gap-4">
@@ -418,8 +504,13 @@ export default function Login() {
             ) : step === 'identifier' ? (
               <StepIdentifier onNext={handleIdentifierNext} />
             ) : step === 'otp' ? (
-              <StepOTP mobile={mobile} maskedMobile={maskedMobile} devOtp={devOtp}
-                onNext={handleOtpNext} onBack={() => setStep('identifier')} />
+              <StepOTP
+                mobile={mobile}
+                maskedMobile={maskedMobile}
+                devOtp={devOtp}
+                onNext={handleOtpNext}
+                onBack={() => setStep('identifier')}
+              />
             ) : step === 'select' ? (
               <>
                 {error && (
@@ -428,15 +519,23 @@ export default function Login() {
                     <span>{error}</span>
                   </div>
                 )}
-                <StepSelectProfile profiles={profiles} canAddProfile={canAdd}
-                  onSelect={handleSelect} onCreateNew={() => setStep('create')} />
+                <StepSelectProfile
+                  verifiedToken={verifiedToken}
+                  profiles={profiles}
+                  canAddProfile={canAdd}
+                  onSelect={handleSelect}
+                  onCreateNew={() => setStep('create')}
+                />
               </>
             ) : (
-              <StepCreateProfile verifiedToken={verifiedToken}
+              <StepCreateProfile
+                verifiedToken={verifiedToken}
                 onBack={() => setStep(profiles.length > 0 ? 'select' : 'otp')}
-                onCreated={handleCreated} />
+                onCreated={handleCreated}
+              />
             )}
           </div>
+
           <p className="text-center text-xs text-gray-400 mt-4">
             BharatCliniq · My Health Portal · Your data is private & secure
           </p>

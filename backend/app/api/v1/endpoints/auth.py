@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from pydantic import BaseModel
@@ -14,6 +14,7 @@ from app.core.security import (
     get_current_staff, get_current_patient_user,
     get_current_platform_admin
 )
+from app.core.limiter import limiter
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -55,7 +56,8 @@ def _generate_otp() -> str:
 
 
 @router.post("/staff/login", response_model=TokenResponse)
-def staff_login(payload: StaffLoginRequest, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def staff_login(request: Request, payload: StaffLoginRequest, db: Session = Depends(get_db)):
     """Login for clinic staff - doctors, receptionists, pharmacists etc."""
     ident = payload.identifier.strip().lower()
     user = (
@@ -76,7 +78,7 @@ def staff_login(payload: StaffLoginRequest, db: Session = Depends(get_db)):
     force_reset = user.is_first_login is True
 
     token_data = {"sub": str(user.id), "role": str(user.role), "user_type": "staff",
-                  "clinic_id": user.clinic_id}
+                  "clinic_id": user.clinic_id, "token_version": user.token_version or 1}
     return TokenResponse(
         access_token=create_access_token(token_data),
         refresh_token=create_refresh_token(token_data),
@@ -118,7 +120,8 @@ def staff_set_password(
 
 
 @router.post("/patient/login", response_model=TokenResponse)
-def patient_login(payload: StaffLoginRequest, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def patient_login(request: Request, payload: StaffLoginRequest, db: Session = Depends(get_db)):
     """Login for patients via email or mobile + password."""
     ident = payload.identifier.strip().lower()
     user = (
@@ -132,7 +135,7 @@ def patient_login(payload: StaffLoginRequest, db: Session = Depends(get_db)):
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account is suspended")
 
-    token_data = {"sub": str(user.id), "user_type": "patient"}
+    token_data = {"sub": str(user.id), "user_type": "patient", "token_version": user.token_version or 1}
     return TokenResponse(
         access_token=create_access_token(token_data),
         refresh_token=create_refresh_token(token_data),
@@ -143,7 +146,8 @@ def patient_login(payload: StaffLoginRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/platform/login", response_model=TokenResponse)
-def platform_admin_login(payload: StaffLoginRequest, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def platform_admin_login(request: Request, payload: StaffLoginRequest, db: Session = Depends(get_db)):
     """Login for BharatHealth platform superadmins."""
     admin = db.query(PlatformAdmin).filter(
         PlatformAdmin.email == payload.identifier.lower()
@@ -151,7 +155,7 @@ def platform_admin_login(payload: StaffLoginRequest, db: Session = Depends(get_d
     if not admin or not verify_password(payload.password, admin.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    token_data = {"sub": str(admin.id), "user_type": "platform_admin"}
+    token_data = {"sub": str(admin.id), "user_type": "platform_admin", "token_version": admin.token_version or 1}
     return TokenResponse(
         access_token=create_access_token(token_data),
         refresh_token=create_refresh_token(token_data),

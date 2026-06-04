@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { doctorApi, appointmentsApi, pharmacyApi, labApi, encountersApi } from '../../api'
 import { PageLoader } from '../../components/ui/Spinner'
 import SearchDropdown from '../../components/SearchDropdown'
+import DiagnosisInput from '../../components/DiagnosisInput'
 import {
   ArrowLeft, Activity, FileText, Pill, FlaskConical,
   Save, CheckCircle, Plus, Trash2, Scan, Lock, PenLine,

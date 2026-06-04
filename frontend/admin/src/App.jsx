@@ -10,6 +10,7 @@ import StaffVerification from './pages/StaffVerification'
 import AuditLog from './pages/AuditLog'
 import Reports from './pages/Reports'
 import BhidLookup from './pages/BhidLookup'
+import Subscriptions from './pages/Subscriptions'
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth()
@@ -31,7 +32,8 @@ export default function App() {
           <Route path="staff"      element={<StaffVerification />} />
           <Route path="audit"      element={<AuditLog />} />
           <Route path="reports"    element={<Reports />} />
-          <Route path="bhid"       element={<BhidLookup />} />
+          <Route path="bhid"          element={<BhidLookup />} />
+          <Route path="subscriptions" element={<Subscriptions />} />
         </Route>
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
