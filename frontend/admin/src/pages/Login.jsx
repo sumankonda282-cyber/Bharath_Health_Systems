@@ -32,8 +32,8 @@ export default function Login() {
         </div>
         <form onSubmit={submit} className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-4">
           <div>
-            <label className="text-xs font-semibold text-gray-400 mb-1.5 block">Email</label>
-            <input className="input" type="email" value={identifier} onChange={e => setIdentifier(e.target.value)} required placeholder="admin@bharatcliniq.com" />
+            <label className="text-xs font-semibold text-gray-400 mb-1.5 block">Username or Email</label>
+            <input className="input" type="text" value={identifier} onChange={e => setIdentifier(e.target.value)} required placeholder="username or admin@bharatcliniq.com" />
           </div>
           <div>
             <label className="text-xs font-semibold text-gray-400 mb-1.5 block">Password</label>
