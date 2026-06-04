@@ -53,6 +53,11 @@ class MarkKeyImagesRequest(BaseModel):
     file_paths: List[str]
 
 
+class ResolveUnmatchedImagingRequest(BaseModel):
+    unmatched_id:    int
+    imaging_order_id: int
+
+
 @router.post('')
 def create_imaging_order(
     body:    CreateImagingOrderRequest,
@@ -98,6 +103,53 @@ def list_imaging_orders(
         .filter(Patient.id.in_([o.patient_id for o in orders])).all()
     }
     return [_order_out(o, patients.get(o.patient_id)) for o in orders]
+
+
+@router.get('/unmatched')
+def list_unmatched_imaging(
+    db:      Session = Depends(get_db),
+    current = Depends(require_imaging_access),
+):
+    rows = db.query(UnmatchedResult)\
+        .filter_by(clinic_id=current.clinic_id, resolved=False)\
+        .filter(UnmatchedResult.source.in_(['bridge_dicom', 'pdf_upload']))\
+        .order_by(UnmatchedResult.created_at.desc()).all()
+    return [{'id': r.id, 'source': r.source, 'raw_format': r.raw_format,
+             'patient_hint': r.patient_hint, 'created_at': r.created_at.isoformat() if r.created_at else None,
+             'parsed': r.parsed_data} for r in rows]
+
+
+@router.post('/unmatched/resolve')
+def resolve_unmatched_imaging(
+    body:    ResolveUnmatchedImagingRequest,
+    db:      Session = Depends(get_db),
+    current = Depends(require_imaging_access),
+):
+    row = db.query(UnmatchedResult).filter_by(id=body.unmatched_id, clinic_id=current.clinic_id).first()
+    if not row:
+        raise HTTPException(404, 'Unmatched result not found')
+
+    order = db.query(ImagingOrder).filter_by(id=body.imaging_order_id, clinic_id=current.clinic_id).first()
+    if not order:
+        raise HTTPException(404, 'Imaging order not found')
+
+    parsed = row.parsed_data or {}
+    from app.models.models import ImagingResult
+    result = ImagingResult(
+        order_id        = order.id,
+        dicom_metadata  = parsed.get('dicom_metadata'),
+        source          = row.source,
+        status          = 'pending_review',
+    )
+    db.add(result)
+    order.status = 'pending_review'
+
+    row.resolved                 = True
+    row.resolved_by              = current.id
+    row.resolved_at              = datetime.utcnow()
+    row.linked_imaging_order_id  = order.id
+    db.commit()
+    return {'status': 'resolved'}
 
 
 @router.get('/{order_id}')
