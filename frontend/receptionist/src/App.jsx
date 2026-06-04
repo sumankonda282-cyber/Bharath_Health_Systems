@@ -1,4 +1,3 @@
-import InstallPrompt from './components/InstallPrompt'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import Layout from './components/Layout'
@@ -58,12 +57,9 @@ function AppRoutes() {
 export default function App() {
   return (
     <AuthProvider>
-      <>
-        <InstallPrompt appName="BH Reception" />
-        <BrowserRouter>
-          <AppRoutes />
-        </BrowserRouter>
-      </>
+      <BrowserRouter>
+        <AppRoutes />
+      </BrowserRouter>
     </AuthProvider>
   )
 }
