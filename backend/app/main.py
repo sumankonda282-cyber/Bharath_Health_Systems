@@ -19,6 +19,7 @@ from app.api.v1.endpoints.portal           import router as portal_router
 from app.api.v1.endpoints.pdf_routes       import router as pdf_router
 from app.api.v1.endpoints.referrals        import router as referrals_router
 from app.api.v1.endpoints.encounters       import router as encounters_router
+from app.api.v1.endpoints.bridge           import router as bridge_router
 
 app = FastAPI(
     title="BharatCliniq API v2",
@@ -54,6 +55,7 @@ app.include_router(portal_router,       prefix=PREFIX)
 app.include_router(pdf_router,          prefix=PREFIX)
 app.include_router(referrals_router,    prefix=PREFIX)
 app.include_router(encounters_router,   prefix=PREFIX)
+app.include_router(bridge_router,       prefix=PREFIX)
 
 uploads_dir = settings.UPLOAD_DIR
 os.makedirs(uploads_dir, exist_ok=True)

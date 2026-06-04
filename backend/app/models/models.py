@@ -568,6 +568,121 @@ class PatientReferral(Base):
     to_doctor   = relationship("DoctorProfile", foreign_keys=[to_doctor_id])
 
 
+# ── Lab Orders & Results ───────────────────────────────────────────────────────
+
+class LabOrder(Base):
+    __tablename__ = "lab_orders"
+    id              = Column(Integer, primary_key=True, index=True)
+    order_id        = Column(String(20), unique=True, nullable=False, index=True)  # LAB-00001
+    clinic_id       = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    patient_id      = Column(Integer, ForeignKey("patients.id"), nullable=False)
+    appointment_id  = Column(Integer, ForeignKey("appointments.id"), nullable=True)
+    ordered_by      = Column(Integer, ForeignKey("staff.id"), nullable=False)   # doctor
+    test_names      = Column(JSON, default=list)   # ['CBC', 'LFT', 'RBS']
+    clinical_notes  = Column(Text, nullable=True)
+    priority        = Column(String(20), default='routine')  # routine|urgent|stat
+    specimen_type   = Column(String(100), nullable=True)
+    status          = Column(String(30), default='pending')
+    # pending → collected → processing → pending_review → signed → cancelled
+    collected_at    = Column(DateTime, nullable=True)
+    abha_id         = Column(String(50), nullable=True)
+    created_at      = Column(DateTime, server_default=func.now())
+
+    result          = relationship("LabResult", back_populates="order", uselist=False)
+    patient         = relationship("Patient")
+    ordered_by_staff = relationship("Staff", foreign_keys=[ordered_by])
+
+
+class LabResult(Base):
+    __tablename__ = "lab_results"
+    id              = Column(Integer, primary_key=True, index=True)
+    order_id        = Column(Integer, ForeignKey("lab_orders.id"), unique=True, nullable=False)
+    raw_format      = Column(String(20))           # HL7_ORU | ASTM_LIS02 | PDF | MANUAL
+    observations    = Column(JSON, default=list)   # [{test_name, value, unit, ref_range, flag}]
+    fhir_report     = Column(JSON, nullable=True)  # Full FHIR DiagnosticReport
+    pdf_b64         = Column(Text, nullable=True)  # Base64 PDF if uploaded
+    interpretation  = Column(Text, nullable=True)  # Pathologist's text
+    status          = Column(String(30), default='pending_review')
+    # pending_review → signed | rejected | amended
+    signed_by       = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    signed_at       = Column(DateTime, nullable=True)
+    report_hash     = Column(String(64), nullable=True)   # SHA-256 for tamper detection
+    amended_from    = Column(Integer, ForeignKey("lab_results.id"), nullable=True)
+    source          = Column(String(30), default='bridge')  # bridge | manual | pdf_upload
+    created_at      = Column(DateTime, server_default=func.now())
+
+    order           = relationship("LabOrder", back_populates="result")
+    signed_by_staff = relationship("Staff", foreign_keys=[signed_by])
+
+
+# ── Imaging Orders & Results ───────────────────────────────────────────────────
+
+class ImagingOrder(Base):
+    __tablename__ = "imaging_orders"
+    id              = Column(Integer, primary_key=True, index=True)
+    order_id        = Column(String(20), unique=True, nullable=False, index=True)  # IMG-00001
+    clinic_id       = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    patient_id      = Column(Integer, ForeignKey("patients.id"), nullable=False)
+    appointment_id  = Column(Integer, ForeignKey("appointments.id"), nullable=True)
+    ordered_by      = Column(Integer, ForeignKey("staff.id"), nullable=False)
+    modality        = Column(String(10), nullable=True)  # CT, MR, CR, DX, US...
+    body_part       = Column(String(100), nullable=True)
+    study_description = Column(Text, nullable=True)
+    clinical_notes  = Column(Text, nullable=True)
+    priority        = Column(String(20), default='routine')
+    status          = Column(String(30), default='pending')
+    # pending → scheduled → acquired → pending_review → signed → cancelled
+    abha_id         = Column(String(50), nullable=True)
+    created_at      = Column(DateTime, server_default=func.now())
+
+    result          = relationship("ImagingResult", back_populates="order", uselist=False)
+    patient         = relationship("Patient")
+    ordered_by_staff = relationship("Staff", foreign_keys=[ordered_by])
+
+
+class ImagingResult(Base):
+    __tablename__ = "imaging_results"
+    id              = Column(Integer, primary_key=True, index=True)
+    order_id        = Column(Integer, ForeignKey("imaging_orders.id"), unique=True, nullable=False)
+    modality        = Column(String(10), nullable=True)
+    study_uid       = Column(String(200), nullable=True)
+    series_uid      = Column(String(200), nullable=True)
+    dicom_metadata  = Column(JSON, nullable=True)   # extracted DICOM tags
+    fhir_report     = Column(JSON, nullable=True)   # FHIR ImagingStudy
+    key_image_paths = Column(JSON, default=list)    # local file paths on clinic PC
+    pdf_b64         = Column(Text, nullable=True)   # fallback PDF
+    findings        = Column(Text, nullable=True)   # Radiologist's findings
+    impression      = Column(Text, nullable=True)   # Radiologist's impression/diagnosis
+    status          = Column(String(30), default='pending_review')
+    signed_by       = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    signed_at       = Column(DateTime, nullable=True)
+    report_hash     = Column(String(64), nullable=True)
+    source          = Column(String(30), default='bridge')
+    created_at      = Column(DateTime, server_default=func.now())
+
+    order           = relationship("ImagingOrder", back_populates="result")
+    signed_by_staff = relationship("Staff", foreign_keys=[signed_by])
+
+
+# ── Unmatched Results Queue ────────────────────────────────────────────────────
+
+class UnmatchedResult(Base):
+    __tablename__ = "unmatched_results"
+    id           = Column(Integer, primary_key=True, index=True)
+    clinic_id    = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    source       = Column(String(30))      # bridge_hl7 | bridge_astm | bridge_dicom | pdf_upload
+    raw_format   = Column(String(20))
+    parsed_data  = Column(JSON)            # whatever the parser extracted
+    patient_hint = Column(String(200))     # patient name/id from the message, for manual matching
+    resolved     = Column(Boolean, default=False)
+    resolved_by  = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    resolved_at  = Column(DateTime, nullable=True)
+    linked_lab_order_id     = Column(Integer, ForeignKey("lab_orders.id"), nullable=True)
+    linked_imaging_order_id = Column(Integer, ForeignKey("imaging_orders.id"), nullable=True)
+    created_at   = Column(DateTime, server_default=func.now())
+
+
+
 class DoctorRating(Base):
     __tablename__ = "doctor_ratings"
     id             = Column(Integer, primary_key=True, index=True)
