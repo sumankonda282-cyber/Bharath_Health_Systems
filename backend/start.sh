@@ -70,8 +70,8 @@ except Exception as e:
 echo "[startup] Syncing database schema..."
 # Try upgrade; if it fails due to existing tables, stamp head and retry
 alembic upgrade head || {
-    echo "[startup] Migration failed (tables may already exist) — stamping head..."
-    alembic stamp head
+    echo "[startup] Migration failed (tables may already exist) — stamping heads..."
+    alembic stamp heads
     alembic upgrade head || echo "[startup] Upgrade after stamp also failed — continuing anyway"
 }
 
