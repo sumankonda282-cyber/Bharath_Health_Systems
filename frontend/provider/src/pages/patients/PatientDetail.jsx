@@ -262,6 +262,7 @@ function EditModal({ patient, onSave, onClose }) {
     city:      patient.city      || '',
     state:     patient.state     || '',
     pincode:   patient.pincode   || '',
+    abha_id:   patient.abha_id  || '',
   })
   const [saving, setSaving] = useState(false)
 
@@ -303,6 +304,7 @@ function EditModal({ patient, onSave, onClose }) {
               {BLOOD_GROUPS.map(g => <option key={g}>{g}</option>)}
             </select>
           </div>
+          <div className="col-span-2"><F label="ABHA ID (Ayushman Bharat Health Account)" k="abha_id" /></div>
           <div className="col-span-2"><F label="Allergies" k="allergies" /></div>
           <div className="col-span-2"><F label="Address" k="address" /></div>
           <F label="City"    k="city" />

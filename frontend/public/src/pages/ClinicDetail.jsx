@@ -172,7 +172,25 @@ export default function ClinicDetail() {
                 )}
               </div>
               {clinic.address && (
-                <p className="text-gray-500 text-sm mt-2">{clinic.address}</p>
+                <div className="mt-3 space-y-2">
+                  <p className="text-gray-500 text-sm">{clinic.address}{clinic.city ? `, ${clinic.city}` : ''}{clinic.state ? `, ${clinic.state}` : ''}{clinic.pincode ? ` - ${clinic.pincode}` : ''}</p>
+                  <a
+                    href={`https://www.openstreetmap.org/search?query=${encodeURIComponent([clinic.address, clinic.city, clinic.state, 'India'].filter(Boolean).join(', '))}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg text-white"
+                    style={{ background: '#0F2557' }}
+                  >
+                    <MapPin className="w-3.5 h-3.5" /> View on Map
+                  </a>
+                  {clinic.google_maps_url && (
+                    <a href={clinic.google_maps_url} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg ml-2"
+                      style={{ background: '#f1f5f9', color: '#374151' }}>
+                      Directions
+                    </a>
+                  )}
+                </div>
               )}
             </div>
           </div>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import api from '../api/client'
-import { Calendar, Stethoscope, Clock, Video } from 'lucide-react'
+import { Calendar, Stethoscope, Clock, Video, MapPin } from 'lucide-react'
 
 const STATUS_BADGE = {
   pending: 'badge-yellow', confirmed: 'badge-blue', completed: 'badge-green',
@@ -81,6 +81,15 @@ function ApptCard({ a }) {
           )}
         </div>
         {a.reason && <div className="text-xs text-gray-400 mt-1 italic">"{a.reason}"</div>}
+        {a.clinic_address && !isTelehealth && (
+          <a
+            href={`https://www.openstreetmap.org/search?query=${encodeURIComponent([a.clinic_address, a.clinic_city, 'India'].filter(Boolean).join(', '))}`}
+            target="_blank" rel="noopener noreferrer"
+            className="mt-1 inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+          >
+            <MapPin size={11} /> Get Directions
+          </a>
+        )}
         {canJoin && (
           <button
             onClick={() => setShowModal(true)}

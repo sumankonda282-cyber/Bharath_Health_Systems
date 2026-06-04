@@ -104,6 +104,8 @@ def portal_appointments(current=Depends(get_current_patient), db: Session = Depe
             "status": str(a.status) if a.status else None,
             "doctor_name": doc.staff.full_name if doc and doc.staff else "Unknown",
             "clinic_name": clinic.name if clinic else "Unknown",
+            "clinic_address": clinic.address if clinic else None,
+            "clinic_city": clinic.city if clinic else None,
             "reason": a.reason,
             "token_number": a.token_number,
             "mode": a.mode or "offline",
@@ -282,6 +284,8 @@ def update_profile(
             patient.allergies = body["allergies"]
         if body.get("address"):
             patient.address = body["address"]
+        if body.get("abha_id"):
+            patient.abha_id = body["abha_id"]
         db.commit()
 
     db.refresh(current)
