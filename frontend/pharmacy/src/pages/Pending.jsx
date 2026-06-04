@@ -1,6 +1,27 @@
 import { useState, useEffect, useCallback } from 'react'
 import api from '../api/client'
 import { Pill, CheckCircle, Loader2, ChevronDown, ChevronUp } from 'lucide-react'
+
+function StockBadge({ name }) {
+  const [qty, setQty] = useState(null)
+  useEffect(() => {
+    if (!name) return
+    api.get('/pharmacy/medicines', { params: { search: name, limit: 3 } })
+      .then(r => {
+        const found = (Array.isArray(r) ? r : []).find(m => m.name?.toLowerCase() === name?.toLowerCase())
+        setQty(found ? (found.stock_quantity ?? 0) : null)
+      }).catch(() => {})
+  }, [name])
+  if (qty === null) return null
+  const color = qty <= 0 ? '#991b1b' : qty <= 10 ? '#92400e' : '#166534'
+  const bg    = qty <= 0 ? '#fee2e2' : qty <= 10 ? '#fef3c7' : '#dcfce7'
+  return (
+    <span className="text-xs font-bold px-1.5 py-0.5 rounded ml-2" style={{ background: bg, color }}>
+      {qty <= 0 ? 'Out of Stock' : `Stock: ${qty}`}
+    </span>
+  )
+}
+
 export default function Pending() {
   const [prescriptions, setPrescriptions] = useState([])
   const [loading, setLoading] = useState(true)
@@ -43,7 +64,7 @@ export default function Pending() {
               <div className="space-y-2 mb-4">
                 {(rx.items || []).map((item, i) => (
                   <div key={i} className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-2 text-sm">
-                    <span className="font-medium">{item.medicine_name || item.drug_name}</span>
+                    <span className="font-medium">{item.medicine_name || item.drug_name}<StockBadge name={item.medicine_name || item.drug_name} /></span>
                     <span className="text-gray-500">{item.dosage} · {item.frequency} · {item.duration}</span>
                   </div>
                 ))}
