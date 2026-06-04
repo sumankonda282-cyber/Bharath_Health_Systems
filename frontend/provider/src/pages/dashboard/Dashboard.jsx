@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { appointmentsApi, patientsApi, billingApi } from '../../api'
-import { cachedFetch } from '../../utils/cache'
+import { cachedFetch, TTL } from '../../utils/cache'
 import StatCard from '../../components/ui/StatCard'
 import { PageLoader } from '../../components/ui/Spinner'
 import { Calendar, Users, Receipt, Clock, CheckCircle, AlertCircle, TrendingUp, Activity } from 'lucide-react'
@@ -40,7 +40,8 @@ export default function Dashboard() {
           completed: a.filter(x => x.status === 'completed').length,
         })
         setLoading(false)
-      }
+      },
+      TTL.SHORT
     ).catch(() => { setStats({ todayAppts: 0, waiting: 0, completed: 0 }); setLoading(false) })
   }, [today])
 

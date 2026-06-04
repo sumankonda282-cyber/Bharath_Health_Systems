@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { doctorApi, appointmentsApi, pharmacyApi, labApi, encountersApi } from '../../api'
+import { cachedGet, TTL } from '../../utils/cache'
 import { PageLoader } from '../../components/ui/Spinner'
 import SearchDropdown from '../../components/SearchDropdown'
 import {
@@ -325,7 +326,7 @@ export default function Encounter() {
                     value={item.medicine_name}
                     onChange={v => setRx(idx, 'medicine_name', v)}
                     onSelect={s => { setRx(idx, 'medicine_name', s.name + (s.strength ? ' ' + s.strength : '') + (s.form ? ' ' + s.form : '')); setRx(idx, 'medicine_id', s.id) }}
-                    fetchSuggestions={q => pharmacyApi.searchMedicines(q)}
+                    fetchSuggestions={q => cachedGet(`med_search_${q.toLowerCase()}`, () => pharmacyApi.searchMedicines(q), TTL.LONG)}
                     placeholder="Search medicine…"
                   />
                 </div>
@@ -365,7 +366,7 @@ export default function Encounter() {
                   value={t.test_name}
                   onChange={v => setLab(idx, 'test_name', v)}
                   onSelect={s => { setLab(idx, 'test_name', s.name); setLab(idx, 'test_id', s.id) }}
-                  fetchSuggestions={q => labApi.searchTests(q, 'lab')}
+                  fetchSuggestions={q => cachedGet(`lab_search_${q.toLowerCase()}`, () => labApi.searchTests(q, 'lab'), TTL.LONG)}
                   placeholder="Search lab test…"
                   className="flex-1"
                 />
@@ -394,7 +395,7 @@ export default function Encounter() {
                   value={t.test_name}
                   onChange={v => setImg(idx, 'test_name', v)}
                   onSelect={s => { setImg(idx, 'test_name', s.name); setImg(idx, 'test_id', s.id) }}
-                  fetchSuggestions={q => labApi.searchTests(q, 'imaging')}
+                  fetchSuggestions={q => cachedGet(`img_search_${q.toLowerCase()}`, () => labApi.searchTests(q, 'imaging'), TTL.LONG)}
                   placeholder="Search imaging study…"
                   className="flex-1"
                 />

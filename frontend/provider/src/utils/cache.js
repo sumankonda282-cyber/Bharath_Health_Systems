@@ -1,7 +1,12 @@
 const DB_NAME = 'bh_provider_cache'
 const DB_VERSION = 1
 const STORE = 'cache'
-const TTL_MS = 10 * 60 * 1000
+
+export const TTL = {
+  SHORT:     10 * 60 * 1000,  // 10 min  — patient history, queues
+  MEDIUM:    60 * 60 * 1000,  // 1 hour  — doctor list, tag suggestions
+  LONG:  24 * 60 * 60 * 1000, // 24 hours — reference catalogs (medicines, tests, ICD-10)
+}
 
 function openDB() {
   return new Promise((resolve, reject) => {
@@ -12,7 +17,7 @@ function openDB() {
   })
 }
 
-async function cacheGet(key) {
+async function cacheGet(key, ttl = TTL.SHORT) {
   try {
     const db = await openDB()
     return new Promise((resolve) => {
@@ -20,7 +25,7 @@ async function cacheGet(key) {
       const req = tx.objectStore(STORE).get(key)
       req.onsuccess = () => {
         const row = req.result
-        if (!row || Date.now() - row.ts > TTL_MS) { resolve(null); return }
+        if (!row || Date.now() - row.ts > ttl) { resolve(null); return }
         resolve(row.value)
       }
       req.onerror = () => resolve(null)
@@ -40,8 +45,9 @@ async function cacheSet(key, value) {
   } catch {}
 }
 
-export async function cachedFetch(key, apiFn, onFresh) {
-  const cached = await cacheGet(key)
+// stale-while-revalidate: show cached instantly, refresh silently in background
+export async function cachedFetch(key, apiFn, onFresh, ttl = TTL.SHORT) {
+  const cached = await cacheGet(key, ttl)
   if (cached) {
     onFresh(cached)
     apiFn().then(fresh => { cacheSet(key, fresh); onFresh(fresh) }).catch(() => {})
@@ -50,6 +56,15 @@ export async function cachedFetch(key, apiFn, onFresh) {
   const fresh = await apiFn()
   await cacheSet(key, fresh)
   onFresh(fresh)
+  return fresh
+}
+
+// one-shot: return cached if fresh, else fetch (no background refresh — for search results)
+export async function cachedGet(key, apiFn, ttl = TTL.LONG) {
+  const cached = await cacheGet(key, ttl)
+  if (cached !== null) return cached
+  const fresh = await apiFn()
+  await cacheSet(key, fresh)
   return fresh
 }
 

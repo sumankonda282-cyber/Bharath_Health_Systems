@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { referralsApi, patientsApi } from '../../api'
+import { cachedFetch, cacheInvalidate, TTL } from '../../utils/cache'
 import { PageLoader } from '../../components/ui/Spinner'
 import Modal from '../../components/ui/Modal'
 import { Send, Inbox, Plus } from 'lucide-react'
@@ -18,11 +19,18 @@ export default function Referrals() {
   const [ptSearch, setPtSearch] = useState('')
   const [saving, setSaving] = useState(false)
 
-  const load = () => {
+  const load = (invalidate = false) => {
     setLoading(true)
-    Promise.all([referralsApi.getSent(), referralsApi.getReceived()])
-      .then(([s, r]) => { setSent(Array.isArray(s) ? s : []); setReceived(Array.isArray(r) ? r : []) })
-      .finally(() => setLoading(false))
+    const run = async () => {
+      if (invalidate) {
+        await cacheInvalidate('referrals_sent')
+        await cacheInvalidate('referrals_received')
+      }
+      await cachedFetch('referrals_sent', () => referralsApi.getSent(), s => setSent(Array.isArray(s) ? s : []), TTL.SHORT)
+      await cachedFetch('referrals_received', () => referralsApi.getReceived(), r => setReceived(Array.isArray(r) ? r : []), TTL.SHORT)
+      setLoading(false)
+    }
+    run().catch(() => setLoading(false))
   }
 
   useEffect(() => { load() }, [])
@@ -39,13 +47,13 @@ export default function Referrals() {
     try {
       await referralsApi.create(form)
       setShowNew(false)
-      load()
+      load(true)
     } finally { setSaving(false) }
   }
 
   const handleAccept = async (id) => {
     await referralsApi.accept(id)
-    load()
+    load(true)
   }
 
   const ReferralRow = ({ r, showAccept }) => (

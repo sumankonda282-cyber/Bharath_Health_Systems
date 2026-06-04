@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { patientsApi, tagsApi, appointmentsApi } from '../../api'
-import { cachedFetch } from '../../utils/cache'
+import { cachedFetch, TTL } from '../../utils/cache'
 import { PageLoader } from '../../components/ui/Spinner'
 import { Search, Plus, User, X, Tag, ChevronDown } from 'lucide-react'
 
@@ -38,10 +38,12 @@ function TagInput({ patientId, currentTags, onTagsChange }) {
 
   useEffect(() => {
     if (!open) return
-    tagsApi.getSuggestions().then(r => {
-      setSaved(r.saved || [])
-      setSugs(r.suggestions || [])
-    })
+    cachedFetch(
+      'tag_suggestions',
+      () => tagsApi.getSuggestions(),
+      r => { setSaved(r.saved || []); setSugs(r.suggestions || []) },
+      TTL.MEDIUM
+    ).catch(() => {})
   }, [open])
 
   useEffect(() => {

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { appointmentsApi, patientsApi, clinicApi } from '../../api'
+import { cachedFetch, TTL } from '../../utils/cache'
 import { PageLoader } from '../../components/ui/Spinner'
 import Modal from '../../components/ui/Modal'
 import { Plus, Calendar, Search, RefreshCw, UserPlus } from 'lucide-react'
@@ -37,7 +38,8 @@ export default function Appointments() {
   useEffect(() => { loadAppts() }, [date])
 
   useEffect(() => {
-    clinicApi.getDoctors().then(r => setDoctors(Array.isArray(r) ? r : []))
+    cachedFetch('doctors_list', () => clinicApi.getDoctors(), r => setDoctors(Array.isArray(r) ? r : []), TTL.MEDIUM)
+      .catch(() => {})
   }, [])
 
   useEffect(() => {

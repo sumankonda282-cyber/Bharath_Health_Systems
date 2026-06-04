@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { patientsApi, tagsApi } from '../../api'
+import { cachedFetch, cacheInvalidate, TTL } from '../../utils/cache'
 import { PageLoader } from '../../components/ui/Spinner'
 import {
   ArrowLeft, ChevronDown, ChevronUp, Lock, User,
@@ -20,7 +21,12 @@ function TagInput({ patientId, currentTags, onTagsChange }) {
 
   useEffect(() => {
     if (!open) return
-    tagsApi.getSuggestions().then(r => { setSaved(r.saved || []); setSugs(r.suggestions || []) })
+    cachedFetch(
+      'tag_suggestions',
+      () => tagsApi.getSuggestions(),
+      r => { setSaved(r.saved || []); setSugs(r.suggestions || []) },
+      TTL.MEDIUM
+    ).catch(() => {})
   }, [open])
 
   useEffect(() => {
@@ -328,16 +334,19 @@ export default function PatientDetail() {
 
   const load = () => {
     setLoading(true)
-    patientsApi.getClinical(id)
-      .then(setData)
-      .catch(() => {})
-      .finally(() => setLoading(false))
+    cachedFetch(
+      `patient_clinical_${id}`,
+      () => patientsApi.getClinical(id),
+      d => { setData(d); setLoading(false) },
+      TTL.SHORT
+    ).catch(() => setLoading(false))
   }
 
   useEffect(() => { load() }, [id])
 
   const handleSave = async (form) => {
     await patientsApi.update(id, form)
+    await cacheInvalidate(`patient_clinical_${id}`)
     setEditing(false)
     load()
   }
