@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import api from '../api/client'
+import { cacheClear } from '../utils/cache'
 
 const Ctx = createContext(null)
 
@@ -27,6 +28,7 @@ export function AuthProvider({ children }) {
   const logout = () => {
     sessionStorage.removeItem('patient_token')
     sessionStorage.removeItem('bh_profile_id')
+    cacheClear()
     setUser(null)
   }
 

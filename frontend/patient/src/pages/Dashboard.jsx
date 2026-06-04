@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../api/client'
+import { cachedFetch } from '../utils/cache'
 import { Calendar, Pill, FlaskConical, Receipt, Heart, User, ArrowRight, MapPin, Users } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import logoImg from '../assets/logo.png'
@@ -25,16 +26,21 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    Promise.all([
-      api.get('/portal/appointments'),
-      api.get('/portal/prescriptions'),
-      api.get('/portal/me'),
-    ]).then(([a, p, me]) => {
-      setAppointments((a.data?.appointments || a.data || []).slice(0, 5))
-      setPrescriptions((p.data?.prescriptions || p.data || []).slice(0, 3))
-      const meData = me.data || me
-      setGuardianOf(Array.isArray(meData?.guardian_of) ? meData.guardian_of : [])
-    }).finally(() => setLoading(false))
+    cachedFetch(
+      'dashboard',
+      () => Promise.all([
+        api.get('/portal/appointments'),
+        api.get('/portal/prescriptions'),
+        api.get('/portal/me'),
+      ]),
+      ([a, p, me]) => {
+        setAppointments((a?.data?.appointments || a?.appointments || a?.data || []).slice(0, 5))
+        setPrescriptions((p?.data?.prescriptions || p?.prescriptions || p?.data || []).slice(0, 3))
+        const meData = me?.data || me
+        setGuardianOf(Array.isArray(meData?.guardian_of) ? meData.guardian_of : [])
+        setLoading(false)
+      }
+    ).catch(() => setLoading(false))
   }, [])
 
   const pendingRx = prescriptions.filter(p => p.status === 'pending').length

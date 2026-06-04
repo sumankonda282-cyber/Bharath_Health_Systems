@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import api from '../api/client'
+import { cachedFetch } from '../utils/cache'
 import { FlaskConical, ScanLine, ChevronDown, ChevronUp, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react'
 
 const FLAG_COLOR = {
@@ -164,13 +165,18 @@ export default function LabResults() {
   const [tab, setTab]                   = useState('lab')
 
   useEffect(() => {
-    Promise.all([
-      api.get('/portal/lab-results').catch(() => ({ data: { lab_results: [] } })),
-      api.get('/portal/imaging-results').catch(() => ({ data: { imaging_results: [] } })),
-    ]).then(([labRes, imgRes]) => {
-      setLabOrders(labRes.data?.lab_results || [])
-      setImagingOrders(imgRes.data?.imaging_results || [])
-    }).finally(() => setLoading(false))
+    cachedFetch(
+      'lab_results',
+      () => Promise.all([
+        api.get('/portal/lab-results').catch(() => ({})),
+        api.get('/portal/imaging-results').catch(() => ({})),
+      ]),
+      ([labRes, imgRes]) => {
+        setLabOrders(labRes?.data?.lab_results || labRes?.lab_results || [])
+        setImagingOrders(imgRes?.data?.imaging_results || imgRes?.imaging_results || [])
+        setLoading(false)
+      }
+    ).catch(() => setLoading(false))
   }, [])
 
   const empty = tab === 'lab' ? labOrders.length === 0 : imagingOrders.length === 0

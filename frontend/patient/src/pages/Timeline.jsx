@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import api from '../api/client'
+import { cachedFetch } from '../utils/cache'
 import { Calendar, Pill, FlaskConical, Receipt, Loader2, Clock } from 'lucide-react'
 
 const TYPE_CONFIG = {
@@ -128,36 +129,30 @@ export default function Timeline() {
   const [filter, setFilter] = useState('all')
 
   useEffect(() => {
-    Promise.allSettled([
-      api.get('/portal/appointments'),
-      api.get('/portal/prescriptions'),
-      api.get('/portal/lab-results'),
-      api.get('/portal/bills'),
-    ]).then(results => {
-      const [appts, rxs, labs, bills] = results
-
-      const merged = []
-
-      const apptData = appts.status === 'fulfilled' ? (Array.isArray(appts.value) ? appts.value : []) : []
-      apptData.forEach(a => merged.push({ ...a, _type: 'appointment' }))
-
-      const rxData = rxs.status === 'fulfilled' ? (Array.isArray(rxs.value) ? rxs.value : []) : []
-      rxData.forEach(r => merged.push({ ...r, _type: 'prescription' }))
-
-      const labData = labs.status === 'fulfilled' ? (Array.isArray(labs.value) ? labs.value : []) : []
-      labData.forEach(l => merged.push({ ...l, _type: 'lab' }))
-
-      const billData = bills.status === 'fulfilled' ? (Array.isArray(bills.value) ? bills.value : []) : []
-      billData.forEach(b => merged.push({ ...b, _type: 'bill' }))
-
-      merged.sort((a, b) => {
-        const da = new Date(getDate(a) || 0).getTime()
-        const db = new Date(getDate(b) || 0).getTime()
-        return db - da
-      })
-
-      setEntries(merged)
-    }).finally(() => setLoading(false))
+    cachedFetch(
+      'timeline',
+      () => Promise.allSettled([
+        api.get('/portal/appointments'),
+        api.get('/portal/prescriptions'),
+        api.get('/portal/lab-results'),
+        api.get('/portal/bills'),
+      ]),
+      results => {
+        const [appts, rxs, labs, bills] = results
+        const merged = []
+        const apptData = appts.status === 'fulfilled' ? (Array.isArray(appts.value) ? appts.value : []) : []
+        apptData.forEach(a => merged.push({ ...a, _type: 'appointment' }))
+        const rxData = rxs.status === 'fulfilled' ? (Array.isArray(rxs.value) ? rxs.value : []) : []
+        rxData.forEach(r => merged.push({ ...r, _type: 'prescription' }))
+        const labData = labs.status === 'fulfilled' ? (Array.isArray(labs.value) ? labs.value : []) : []
+        labData.forEach(l => merged.push({ ...l, _type: 'lab' }))
+        const billData = bills.status === 'fulfilled' ? (Array.isArray(bills.value) ? bills.value : []) : []
+        billData.forEach(b => merged.push({ ...b, _type: 'bill' }))
+        merged.sort((a, b) => new Date(getDate(b) || 0) - new Date(getDate(a) || 0))
+        setEntries(merged)
+        setLoading(false)
+      }
+    ).catch(() => setLoading(false))
   }, [])
 
   const filtered = filter === 'all' ? entries : entries.filter(e => e._type === filter)

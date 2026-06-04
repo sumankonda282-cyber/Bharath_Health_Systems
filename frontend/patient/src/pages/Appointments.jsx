@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import api from '../api/client'
+import { cachedFetch } from '../utils/cache'
 import { Calendar, Stethoscope, Clock, Video, MapPin } from 'lucide-react'
 
 const STATUS_BADGE = {
@@ -110,9 +111,11 @@ export default function Appointments() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    api.get('/portal/appointments')
-      .then(r => setAppts(r?.appointments || (Array.isArray(r) ? r : [])))
-      .finally(() => setLoading(false))
+    cachedFetch(
+      'appointments',
+      () => api.get('/portal/appointments'),
+      r => { setAppts(r?.appointments || (Array.isArray(r) ? r : [])); setLoading(false) }
+    ).catch(() => setLoading(false))
   }, [])
 
   const upcoming = appts.filter(a => ['pending','confirmed'].includes(a.status))

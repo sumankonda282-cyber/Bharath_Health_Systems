@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import api from '../api/client'
+import { cachedFetch } from '../utils/cache'
 import { Pill, ChevronDown, ChevronUp } from 'lucide-react'
 
 export default function Prescriptions() {
@@ -8,9 +9,11 @@ export default function Prescriptions() {
   const [expanded, setExpanded] = useState(null)
 
   useEffect(() => {
-    api.get('/portal/prescriptions')
-      .then(r => setPrescriptions(r.data?.prescriptions || r.data || []))
-      .finally(() => setLoading(false))
+    cachedFetch(
+      'prescriptions',
+      () => api.get('/portal/prescriptions'),
+      r => { setPrescriptions(r.data?.prescriptions || r.data || r?.prescriptions || []); setLoading(false) }
+    ).catch(() => setLoading(false))
   }, [])
 
   return (

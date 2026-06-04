@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import api from '../api/client'
+import { cachedFetch } from '../utils/cache'
 import { Receipt, IndianRupee, TrendingUp } from 'lucide-react'
 
 const STATUS_BADGE = { pending: 'badge-yellow', paid: 'badge-green', cancelled: 'badge-gray', partial: 'badge-blue' }
@@ -9,9 +10,11 @@ export default function Bills() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    api.get('/portal/bills')
-      .then(r => setBills(r.data?.bills || r.data || []))
-      .finally(() => setLoading(false))
+    cachedFetch(
+      'bills',
+      () => api.get('/portal/bills'),
+      r => { setBills(r.data?.bills || r.data || r?.bills || []); setLoading(false) }
+    ).catch(() => setLoading(false))
   }, [])
 
   const totalPaid = bills.filter(b => b.status === 'paid').reduce((s, b) => s + parseFloat(b.total || 0), 0)
