@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
-import { Eye, EyeOff, AlertCircle, ScanLine, FileImage, CheckCircle } from 'lucide-react'
+import { Eye, EyeOff, AlertCircle, ScanLine, FileImage, CheckCircle, KeyRound } from 'lucide-react'
 export default function Login() {
   const [form, setForm] = useState({ identifier: '', password: '' })
   const [showPw, setShowPw] = useState(false)
@@ -13,6 +13,7 @@ export default function Login() {
     catch (err) { setError(err.message) }
     finally { setLoading(false) }
   }
+  const forgotPassword = () => alert('Password Reset\n\nPlease contact your clinic administrator or the BHaratCliniq super admin to reset your password.\n\nYour new temporary password will be sent to your registered email and phone number.')
   return (
     <div className="min-h-screen flex">
       <div className="hidden lg:flex lg:w-1/2 flex-col justify-between p-10 text-white" style={{ background: 'linear-gradient(145deg,#0F2557 0%,#1a3a7a 100%)' }}>
@@ -31,8 +32,11 @@ export default function Login() {
           <h2 className="text-2xl font-extrabold mb-1" style={{ color: '#0F2557' }}>Imaging Sign In</h2>
           <p className="text-gray-500 text-sm mb-6">Radiologist / Imaging technician access</p>
           <form onSubmit={submit} className="space-y-4">
-            <div><label className="label">Mobile or Email</label><input className="input" value={form.identifier} onChange={e=>setForm(f=>({...f,identifier:e.target.value}))} required autoFocus/></div>
-            <div><label className="label">Password</label><div className="relative"><input className="input pr-10" type={showPw?'text':'password'} value={form.password} onChange={e=>setForm(f=>({...f,password:e.target.value}))} required/><button type="button" onClick={()=>setShowPw(v=>!v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">{showPw?<EyeOff size={16}/>:<Eye size={16}/>}</button></div></div>
+            <div><label className="label">Username, Mobile or Email</label><input className="input" placeholder="username, mobile or email" value={form.identifier} onChange={e=>setForm(f=>({...f,identifier:e.target.value}))} required autoFocus/></div>
+            <div>
+              <div className="flex items-center justify-between mb-1"><label className="label mb-0">Password</label><button type="button" onClick={forgotPassword} className="text-xs flex items-center gap-1 hover:underline" style={{color:'#CC1414'}}><KeyRound size={11}/> Forgot password?</button></div>
+              <div className="relative"><input className="input pr-10" type={showPw?'text':'password'} placeholder="••••••••" value={form.password} onChange={e=>setForm(f=>({...f,password:e.target.value}))} required/><button type="button" onClick={()=>setShowPw(v=>!v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">{showPw?<EyeOff size={16}/>:<Eye size={16}/>}</button></div>
+            </div>
             {error&&<div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm"><AlertCircle size={16} className="flex-shrink-0 mt-0.5"/><span>{error}</span></div>}
             <button type="submit" disabled={loading} className="w-full btn-primary justify-center py-3">{loading?<><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>Signing in…</>:'Sign In to Imaging'}</button>
           </form>
