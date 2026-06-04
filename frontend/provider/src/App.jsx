@@ -73,8 +73,10 @@ export default function App() {
     <>
       <InstallPrompt appName="BH Provider" />
       <BrowserRouter>
-      <AuthProvider>
-        <AppRoutes />
-      </AuthProvider>
-    </BrowserRouter>
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
+      </BrowserRouter>
     </>
+  )
+}
