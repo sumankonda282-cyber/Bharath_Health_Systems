@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { NavLink, useNavigate, Outlet } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
-import { LayoutDashboard, Calendar, Pill, FlaskConical, Receipt, LogOut, Menu, X, Clock } from 'lucide-react'
+import { LayoutDashboard, Calendar, Pill, FlaskConical, Receipt, LogOut, Menu, Clock, Smartphone } from 'lucide-react'
 import BrandLogo from '../BrandLogo'
-import InstallPrompt from '../InstallPrompt'
+import InstallPrompt, { useInstallState, InstallModal } from '../InstallPrompt'
 
 const NAV = [
   { to: '/',              label: 'Dashboard',    icon: LayoutDashboard, end: true },
@@ -18,6 +18,16 @@ export default function Layout() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [showInstallModal, setShowInstallModal] = useState(false)
+  const [installing, setInstalling] = useState(false)
+  const { canInstall, isIos, installed, install } = useInstallState('BH Health')
+
+  const handleInstall = async () => {
+    setInstalling(true)
+    await install()
+    setInstalling(false)
+    setShowInstallModal(false)
+  }
 
   const handleLogout = () => { logout(); navigate('/login') }
 
@@ -72,6 +82,24 @@ export default function Layout() {
         ))}
       </nav>
 
+      {/* Install App */}
+      {canInstall && !installed && (
+        <div className="px-3 pb-2">
+          <button
+            onClick={() => setShowInstallModal(true)}
+            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all"
+            style={{ background: 'rgba(245,130,30,0.15)', color: '#F5821E', border: '1px solid rgba(245,130,30,0.3)' }}
+            onMouseEnter={e => e.currentTarget.style.background = 'rgba(245,130,30,0.25)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'rgba(245,130,30,0.15)'}
+          >
+            <Smartphone size={15} />
+            <span>{isIos ? 'Add to Home Screen' : 'Install App'}</span>
+            <span className="ml-auto text-xs px-1.5 py-0.5 rounded-full font-bold"
+                  style={{ background: '#F5821E', color: 'white', fontSize: '9px' }}>NEW</span>
+          </button>
+        </div>
+      )}
+
       {/* Logout */}
       <div className="p-4 border-t" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
         <button onClick={handleLogout}
@@ -112,9 +140,20 @@ export default function Layout() {
             <Menu size={20} />
           </button>
           <BrandLogo size="sm" />
-          <div className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm text-white"
-            style={{ background: '#CC1414' }}>
-            {initials}
+          <div className="flex items-center gap-2">
+            {canInstall && !installed && (
+              <button
+                onClick={() => setShowInstallModal(true)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold text-white"
+                style={{ background: '#F5821E' }}>
+                <Smartphone size={13} />
+                {isIos ? 'Add' : 'Install'}
+              </button>
+            )}
+            <div className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm text-white"
+              style={{ background: '#CC1414' }}>
+              {initials}
+            </div>
           </div>
         </div>
 
@@ -123,6 +162,15 @@ export default function Layout() {
         </main>
       </div>
       <InstallPrompt appName="BH Health" />
+      {showInstallModal && (
+        <InstallModal
+          appName="BH Health"
+          isIos={isIos}
+          installing={installing}
+          onInstall={handleInstall}
+          onClose={() => setShowInstallModal(false)}
+        />
+      )}
     </div>
   )
 }
