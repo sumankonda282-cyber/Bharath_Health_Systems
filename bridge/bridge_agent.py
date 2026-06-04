@@ -93,7 +93,27 @@ class APIClient:
         }
         self.session = requests.Session()
         self.session.headers.update(self.headers)
-        self._retry_queue = []
+        self._retry_queue = self._load_queue()  # restore queue from disk on startup
+        if self._retry_queue:
+            log.info(f'Restored {len(self._retry_queue)} items from persistent retry queue')
+
+    def _queue_path(self) -> Path:
+        return log_path.parent / 'retry_queue.json'
+
+    def _load_queue(self) -> list:
+        p = self._queue_path()
+        if p.exists():
+            try:
+                return json.loads(p.read_text())
+            except Exception:
+                pass
+        return []
+
+    def _save_queue(self):
+        try:
+            self._queue_path().write_text(json.dumps(self._retry_queue))
+        except Exception as e:
+            log.warning(f'Could not persist retry queue: {e}')
 
     def post(self, path: str, payload: dict) -> bool:
         url = f'{self.base}{path}'
@@ -107,6 +127,7 @@ class APIClient:
         except requests.exceptions.ConnectionError:
             log.warning(f'API unreachable, queuing {path}')
             self._retry_queue.append((path, payload))
+            self._save_queue()
             return False
         except Exception as e:
             log.error(f'POST {path} error: {e}')
@@ -120,6 +141,7 @@ class APIClient:
             if not self.post(path, payload):
                 remaining.append((path, payload))
         self._retry_queue = remaining
+        self._save_queue()
         if remaining:
             log.info(f'{len(remaining)} items still in retry queue')
 
@@ -442,16 +464,26 @@ def start_retry_loop(api: APIClient, interval: int):
 
 
 # ── Main Entry ─────────────────────────────────────────────────────────────────
-def main():
+def main(tray: bool = False):
     cfg       = load_config()
     api       = APIClient(cfg)
     processor = ResultProcessor(api, cfg)
 
     if not cfg['api_key'] or not cfg['clinic_id']:
         log.warning('Bridge agent not configured. Please run the config UI.')
-        # Still start — will reconfigure when config is saved
     else:
         log.info(f'Starting BHaratCliniq Bridge Agent for clinic {cfg["clinic_id"]}')
+
+    # Start system tray icon (desktop mode only, not service)
+    tray_icon = None
+    if tray:
+        try:
+            from ui.tray_icon import BridgeTrayIcon
+            tray_icon = BridgeTrayIcon()
+            tray_icon.run()
+            tray_icon.set_status('Running')
+        except Exception as e:
+            log.warning(f'Tray icon unavailable: {e}')
 
     # Start all listeners
     start_hl7_tcp_listener(cfg, processor)
@@ -467,6 +499,8 @@ def main():
         asyncio.run(run_websocket(cfg, processor))
     except KeyboardInterrupt:
         log.info('Shutting down bridge agent')
+        if tray_icon:
+            tray_icon.stop()
         for obs in observers:
             obs.stop()
         for obs in observers:

@@ -1,7 +1,7 @@
 """
 BHaratCliniq Bridge Agent — Entry Point
 If not configured, shows the config UI first.
-If configured, runs the bridge agent.
+If configured, runs the bridge agent with system tray icon.
 Can also be installed as a Windows service.
 """
 import sys
@@ -25,9 +25,9 @@ def run_as_service():
         import servicemanager
 
         class BridgeService(win32serviceutil.ServiceFramework):
-            _svc_name_        = 'BHaratCliniqBridge'
+            _svc_name_         = 'BHaratCliniqBridge'
             _svc_display_name_ = 'BHaratCliniq Bridge Agent'
-            _svc_description_  = 'Connects clinic machines to BHaratCliniq cloud platform'
+            _svc_description_  = 'Connects clinic lab/imaging machines to BHaratCliniq cloud'
 
             def __init__(self, args):
                 win32serviceutil.ServiceFramework.__init__(self, args)
@@ -44,7 +44,7 @@ def run_as_service():
                     (self._svc_name_, ''),
                 )
                 from bridge_agent import main
-                main()
+                main(tray=False)
 
         if len(sys.argv) == 1:
             servicemanager.Initialize()
@@ -54,32 +54,31 @@ def run_as_service():
             win32serviceutil.HandleCommandLine(BridgeService)
 
     except ImportError:
-        # Not Windows or pywin32 not available — run directly
         from bridge_agent import main
-        main()
+        main(tray=False)
 
 
 if __name__ == '__main__':
-    # --config flag: show config UI
+    # --config: show config UI regardless of state
     if '--config' in sys.argv:
         from ui.config_ui import BridgeConfigUI
         BridgeConfigUI().run()
         sys.exit(0)
 
-    # --install / --remove: Windows service management
+    # --install / --remove / --start: Windows service management
     if '--install' in sys.argv or '--remove' in sys.argv or '--start' in sys.argv:
         run_as_service()
         sys.exit(0)
 
-    # First run — show config UI if not configured
+    # First run — show config UI if not yet configured
     if not is_configured():
         from ui.config_ui import BridgeConfigUI
         BridgeConfigUI().run()
 
-    # Start bridge agent
+    # Start agent (with tray icon when running as desktop app)
     if is_configured():
         from bridge_agent import main
-        main()
+        main(tray=True)
     else:
         print('Bridge agent not configured. Exiting.')
         sys.exit(1)
