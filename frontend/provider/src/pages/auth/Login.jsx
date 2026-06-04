@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
-import { Eye, EyeOff, AlertCircle, Stethoscope, Users, ShieldCheck } from 'lucide-react'
+import { Eye, EyeOff, AlertCircle, Stethoscope, Users, ShieldCheck, KeyRound } from 'lucide-react'
 import BrandLogo from '../../components/BrandLogo'
 
 const FEATURES = [
@@ -17,6 +17,14 @@ export default function Login() {
   const { login } = useAuth()
 
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }))
+
+  const handleForgotPassword = () => {
+    alert(
+      'Password Reset\n\n' +
+      'Please contact your clinic administrator or the BHaratCliniq super admin to reset your password.\n\n' +
+      'Your new temporary password will be sent to your registered email and phone number.'
+    )
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -113,14 +121,14 @@ export default function Login() {
               {/* Identifier */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Email or Mobile
+                  Username, Email or Mobile
                 </label>
                 <input
                   type="text"
                   autoComplete="username"
                   autoFocus
                   required
-                  placeholder="doctor@clinic.com or 9876543210"
+                  placeholder="username, doctor@clinic.com or mobile"
                   value={form.identifier}
                   onChange={set('identifier')}
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm
@@ -131,9 +139,14 @@ export default function Login() {
 
               {/* Password */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Password
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-sm font-medium text-gray-700">Password</label>
+                  <button type="button" onClick={handleForgotPassword}
+                    className="text-xs flex items-center gap-1 hover:underline"
+                    style={{ color: '#CC1414' }}>
+                    <KeyRound size={11} /> Forgot password?
+                  </button>
+                </div>
                 <div className="relative">
                   <input
                     type={showPw ? 'text' : 'password'}
