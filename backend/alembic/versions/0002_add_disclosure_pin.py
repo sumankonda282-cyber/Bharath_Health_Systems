@@ -14,10 +14,10 @@ depends_on = None
 
 
 def upgrade():
-    op.add_column('patient_users', sa.Column('disclosure_pin', sa.String(255), nullable=True))
-    op.add_column('patient_users', sa.Column('disclosure_pin_plain', sa.String(10), nullable=True))
+    op.execute("ALTER TABLE patient_users ADD COLUMN IF NOT EXISTS disclosure_pin VARCHAR(255)")
+    op.execute("ALTER TABLE patient_users ADD COLUMN IF NOT EXISTS disclosure_pin_plain VARCHAR(10)")
 
 
 def downgrade():
-    op.drop_column('patient_users', 'disclosure_pin_plain')
-    op.drop_column('patient_users', 'disclosure_pin')
+    op.execute("ALTER TABLE patient_users DROP COLUMN IF EXISTS disclosure_pin_plain")
+    op.execute("ALTER TABLE patient_users DROP COLUMN IF EXISTS disclosure_pin")
