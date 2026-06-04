@@ -8,25 +8,25 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const token = localStorage.getItem('patient_token')
+    const token = sessionStorage.getItem('patient_token')
     if (!token) { setLoading(false); return }
     api.get('/portal/me')
       .then(r => setUser(r.data || r))
-      .catch(() => { localStorage.removeItem('patient_token'); localStorage.removeItem('bh_profile_id') })
+      .catch(() => { sessionStorage.removeItem('patient_token'); sessionStorage.removeItem('bh_profile_id') })
       .finally(() => setLoading(false))
   }, [])
 
   const loginWithToken = async (access_token, bh_profile_id) => {
-    localStorage.setItem('patient_token', access_token)
-    if (bh_profile_id) localStorage.setItem('bh_profile_id', String(bh_profile_id))
+    sessionStorage.setItem('patient_token', access_token)
+    if (bh_profile_id) sessionStorage.setItem('bh_profile_id', String(bh_profile_id))
     const me = await api.get('/portal/me')
     setUser(me.data || me)
     return me.data || me
   }
 
   const logout = () => {
-    localStorage.removeItem('patient_token')
-    localStorage.removeItem('bh_profile_id')
+    sessionStorage.removeItem('patient_token')
+    sessionStorage.removeItem('bh_profile_id')
     setUser(null)
   }
 

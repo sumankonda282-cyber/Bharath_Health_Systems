@@ -1,29 +1,38 @@
 import random
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
+from datetime import datetime, timedelta
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.core.config import settings
 from app.core.security import create_access_token
+from app.core.limiter import limiter
 from app.models.models import PatientUser
 
 router = APIRouter(prefix="/otp", tags=["otp"])
 
-_otp_store: dict = {}
+OTP_TTL_MINUTES = 10
+
 
 @router.post("/send")
-async def send_otp(body: dict, db: Session = Depends(get_db)):
+@limiter.limit("3/minute")
+async def send_otp(request: Request, body: dict, db: Session = Depends(get_db)):
     mobile = str(body.get("mobile", "")).strip()
     if not mobile or len(mobile) != 10 or not mobile.isdigit():
         raise HTTPException(400, "Enter a valid 10-digit mobile number")
 
-    if settings.OTP_MOCK:
-        otp = "1234"
-    else:
-        otp = str(random.randint(100000, 999999))
+    otp = "1234" if settings.OTP_MOCK else str(random.randint(100000, 999999))
 
-    _otp_store[mobile] = otp
-    print(f"\n==== OTP for {mobile}: {otp} ====\n")
+    # Persist OTP in DB — survives server restarts
+    user = db.query(PatientUser).filter(PatientUser.mobile == mobile).first()
+    if not user:
+        user = PatientUser(mobile=mobile, is_active=True, full_name="")
+        db.add(user)
+        db.flush()
+
+    user.otp_code   = otp
+    user.otp_expiry = datetime.utcnow() + timedelta(minutes=OTP_TTL_MINUTES)
+    db.commit()
 
     if not settings.OTP_MOCK and settings.FAST2SMS_API_KEY:
         try:
@@ -35,49 +44,52 @@ async def send_otp(body: dict, db: Session = Depends(get_db)):
                     timeout=10.0,
                 )
         except Exception as e:
-            print(f"SMS failed: {e}")
+            # Log failure server-side only — never expose to client
+            import logging
+            logging.getLogger(__name__).error(f"SMS send failed for {mobile[-4:]}: {e}")
 
     resp = {"message": "OTP sent", "mobile": mobile}
     if settings.OTP_MOCK:
         resp["dev_otp"] = otp
     return resp
 
-@router.post("/verify")
-def verify_otp(body: dict, db: Session = Depends(get_db)):
-    mobile = str(body.get("mobile", "")).strip()
-    otp = str(body.get("otp", "")).strip()
 
-    print(f"\n==== Verify: mobile={mobile}, otp={otp} ====\n")
+@router.post("/verify")
+@limiter.limit("5/minute")
+def verify_otp(request: Request, body: dict, db: Session = Depends(get_db)):
+    mobile = str(body.get("mobile", "")).strip()
+    otp    = str(body.get("otp", "")).strip()
+
+    user = db.query(PatientUser).filter(PatientUser.mobile == mobile).first()
+    if not user:
+        raise HTTPException(400, "Mobile not found. Please request an OTP first.")
 
     if settings.OTP_MOCK:
         if otp != "1234":
             raise HTTPException(400, "Invalid OTP. Use 1234 in testing mode.")
     else:
-        stored = _otp_store.get(mobile)
-        if not stored or stored != otp:
-            raise HTTPException(400, "Invalid or expired OTP")
-        del _otp_store[mobile]
+        if not user.otp_code or not user.otp_expiry:
+            raise HTTPException(400, "No OTP pending. Please request a new one.")
+        if datetime.utcnow() > user.otp_expiry:
+            raise HTTPException(400, "OTP expired. Please request a new one.")
+        if otp != user.otp_code:
+            raise HTTPException(400, "Invalid OTP.")
 
-    patient_user = db.query(PatientUser).filter(PatientUser.mobile == mobile).first()
-    if not patient_user:
-        patient_user = PatientUser(
-            full_name=f"Patient ({mobile[-4:]})",
-            mobile=mobile,
-            is_active=True,
-            is_verified=True,
-        )
-        db.add(patient_user)
-        db.commit()
-        db.refresh(patient_user)
+    # Clear OTP after use
+    user.otp_code   = None
+    user.otp_expiry = None
+    if not user.is_active:
+        user.is_active = True
+    db.commit()
 
     token = create_access_token({
-        "sub": str(patient_user.id),
+        "sub":       str(user.id),
         "user_type": "patient",
-        "mobile": mobile,
+        "mobile":    mobile,
     })
 
     return {
         "access_token": token,
-        "token_type": "bearer",
-        "is_new_user": False,
+        "token_type":   "bearer",
+        "is_new_user":  False,
     }

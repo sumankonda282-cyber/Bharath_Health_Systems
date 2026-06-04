@@ -9,7 +9,7 @@ export default function Inventory() {
   const [form, setForm] = useState({ name: '', generic_name: '', category: '', unit: 'tablet', stock_quantity: 0, reorder_level: 10, unit_price: 0 })
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
-  const branchId = localStorage.getItem('branch_id')
+  const branchId = sessionStorage.getItem('branch_id')
   const load = useCallback(() => {
     setLoading(true)
     const params = { limit: 200 }

@@ -8,11 +8,11 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const token = localStorage.getItem('staff_token')
+    const token = sessionStorage.getItem('staff_token')
     if (!token) { setLoading(false); return }
     api.get('/auth/staff/me')
       .then(u => setUser(u))
-      .catch(() => localStorage.clear())
+      .catch(() => sessionStorage.clear())
       .finally(() => setLoading(false))
   }, [])
 
@@ -20,14 +20,14 @@ export function AuthProvider({ children }) {
     const r = await api.post('/auth/staff/login', { identifier, password })
     if (!['lab_tech', 'clinic_admin'].includes(r.role))
       throw new Error('Access denied. This portal is for lab staff only.')
-    localStorage.setItem('staff_token', r.access_token)
-    if (r.clinic_id) localStorage.setItem('clinic_id', String(r.clinic_id))
-    if (r.branch_id) localStorage.setItem('branch_id', String(r.branch_id))
+    sessionStorage.setItem('staff_token', r.access_token)
+    if (r.clinic_id) sessionStorage.setItem('clinic_id', String(r.clinic_id))
+    if (r.branch_id) sessionStorage.setItem('branch_id', String(r.branch_id))
     const me = await api.get('/auth/staff/me')
     setUser(me)
   }
 
-  const logout = () => { localStorage.clear(); setUser(null); window.location.href = '/login' }
+  const logout = () => { sessionStorage.clear(); setUser(null); window.location.href = '/login' }
 
   return <AuthContext.Provider value={{ user, loading, login, logout }}>{children}</AuthContext.Provider>
 }

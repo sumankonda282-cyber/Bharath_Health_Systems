@@ -9,7 +9,7 @@ const api = axios.create({
 })
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('access_token')
+  const token = sessionStorage.getItem('access_token')
   if (token) config.headers.Authorization = `Bearer ${token}`
   return config
 })
@@ -23,7 +23,7 @@ api.interceptors.response.use(
       const url = err.config?.url || ''
       const isLoginCall = url.includes('/login') || url.includes('/send-otp') || url.includes('/verify-otp')
       if (!isLoginCall) {
-        localStorage.clear()
+        sessionStorage.clear()
         window.location.href = '/login'
       }
     }

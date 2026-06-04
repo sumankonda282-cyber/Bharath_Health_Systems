@@ -18,8 +18,8 @@ export function AuthProvider({ children }) {
   }, [])
 
   const loadUser = useCallback(async () => {
-    const token    = localStorage.getItem('access_token')
-    const userType = localStorage.getItem('user_type')
+    const token    = sessionStorage.getItem('access_token')
+    const userType = sessionStorage.getItem('user_type')
     if (!token) { setLoading(false); return }
     try {
       const res = userType === 'platform_admin'
@@ -28,7 +28,7 @@ export function AuthProvider({ children }) {
       setUser(res)
       if (res.clinic_id) loadBranding(res.clinic_id)
     } catch {
-      localStorage.clear()
+      sessionStorage.clear()
     } finally {
       setLoading(false)
     }
@@ -41,9 +41,9 @@ export function AuthProvider({ children }) {
       ? await authApi.platformLogin(identifier, password)
       : await authApi.login(identifier, password)
     const { access_token, refresh_token, ...userData } = res
-    localStorage.setItem('access_token', access_token)
-    localStorage.setItem('refresh_token', refresh_token)
-    localStorage.setItem('user_type', userData.user_type)
+    sessionStorage.setItem('access_token', access_token)
+    sessionStorage.setItem('refresh_token', refresh_token)
+    sessionStorage.setItem('user_type', userData.user_type)
     setUser(userData)
     if (userData.clinic_id) loadBranding(userData.clinic_id)
     return userData
@@ -56,7 +56,7 @@ export function AuthProvider({ children }) {
   }
 
   const logout = () => {
-    localStorage.clear()
+    sessionStorage.clear()
     setUser(null)
   }
 
