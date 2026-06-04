@@ -1,4 +1,3 @@
-import InstallPrompt from './components/InstallPrompt'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { Suspense } from 'react'
@@ -43,11 +42,8 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <>
-      <InstallPrompt appName="BH Health" />
-      <BrowserRouter>
+    <BrowserRouter>
       <AuthProvider>
         <AppRoutes />
       </AuthProvider>
     </BrowserRouter>
-    </>

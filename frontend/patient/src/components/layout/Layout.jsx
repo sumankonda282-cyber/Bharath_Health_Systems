@@ -3,6 +3,7 @@ import { NavLink, useNavigate, Outlet } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { LayoutDashboard, Calendar, Pill, FlaskConical, Receipt, LogOut, Menu, X, Clock } from 'lucide-react'
 import BrandLogo from '../BrandLogo'
+import InstallPrompt from '../InstallPrompt'
 
 const NAV = [
   { to: '/',              label: 'Dashboard',    icon: LayoutDashboard, end: true },
@@ -121,6 +122,7 @@ export default function Layout() {
           <Outlet />
         </main>
       </div>
+      <InstallPrompt appName="BH Health" />
     </div>
   )
 }

@@ -7,6 +7,11 @@ function isIOS() {
 function isInStandaloneMode() {
   return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone
 }
+function wasDismissedRecently(key) {
+  const ts = localStorage.getItem(key)
+  if (!ts) return false
+  return Date.now() - parseInt(ts) < 3 * 24 * 60 * 60 * 1000 // 3 days
+}
 
 export default function InstallPrompt({ appName = 'BharatCliniq' }) {
   const [deferredPrompt, setDeferredPrompt] = useState(null)
@@ -16,18 +21,15 @@ export default function InstallPrompt({ appName = 'BharatCliniq' }) {
   const DISMISS_KEY = `pwa_dismissed_${appName}`
 
   useEffect(() => {
-    // Already installed or dismissed
     if (isInStandaloneMode()) return
-    if (sessionStorage.getItem(DISMISS_KEY)) return
+    if (wasDismissedRecently(DISMISS_KEY)) return
 
     if (isIOS()) {
-      // iOS: show manual instructions after 3s
       setIos(true)
-      const t = setTimeout(() => setShow(true), 3000)
+      const t = setTimeout(() => setShow(true), 5000)
       return () => clearTimeout(t)
     }
 
-    // Android / Chrome / Edge / Desktop
     const handler = (e) => {
       e.preventDefault()
       setDeferredPrompt(e)
@@ -45,12 +47,12 @@ export default function InstallPrompt({ appName = 'BharatCliniq' }) {
     setInstalling(false)
     setDeferredPrompt(null)
     setShow(false)
-    if (outcome === 'accepted') sessionStorage.setItem(DISMISS_KEY, '1')
+    localStorage.setItem(DISMISS_KEY, Date.now().toString())
   }
 
   const handleDismiss = () => {
     setShow(false)
-    sessionStorage.setItem(DISMISS_KEY, '1')
+    localStorage.setItem(DISMISS_KEY, Date.now().toString())
   }
 
   if (!show) return null
