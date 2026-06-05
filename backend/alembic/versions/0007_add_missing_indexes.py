@@ -7,7 +7,7 @@ Create Date: 2026-06-05
 from alembic import op
 
 revision = '0007_add_missing_indexes'
-down_revision = '0006_staff_credentials'
+down_revision = '0003_guardian_fields'
 branch_labels = None
 depends_on = None
 
