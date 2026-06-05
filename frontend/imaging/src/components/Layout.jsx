@@ -4,23 +4,33 @@ import { NavLink, Outlet } from 'react-router-dom'
 import {
   LayoutDashboard, ScanLine, LogOut, AlertCircle, FileEdit,
   CreditCard, BarChart2, Users, Menu, X, Bell, FileText, CheckCircle,
-  Calendar, UserCheck,
+  Calendar, UserCheck, ClipboardList,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../api/client'
 
-const NAV = [
-  { to: '/',                icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/pending',         icon: AlertCircle,     label: 'Pending Reports' },
-  { to: '/report-writer',   icon: FileEdit,        label: 'Write Report' },
-  { to: '/orders',          icon: ScanLine,        label: 'All Orders' },
-  { to: '/schedule',        icon: Calendar,        label: 'Schedule' },
-  { to: '/referring',       icon: UserCheck,       label: 'Referring Doctors' },
-  { to: '/billing',         icon: CreditCard,      label: 'Billing' },
-  { to: '/reports',         icon: BarChart2,       label: 'Analytics' },
-  { to: '/patients',        icon: Users,           label: 'Patient History' },
-  { to: '/templates',       icon: FileText,        label: 'Report Templates' },
+const TECHNICIAN_NAV = [
+  { to: '/',          icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/orders',    icon: ClipboardList,   label: 'Orders (Worklist)' },
+  { to: '/schedule',  icon: Calendar,        label: 'Schedule' },
+  { to: '/referring', icon: UserCheck,       label: 'Referring Doctors' },
+  { to: '/billing',   icon: CreditCard,      label: 'Billing' },
 ]
+
+const RADIOLOGIST_NAV = [
+  { to: '/',               icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/pending-review', icon: ScanLine,        label: 'Pending Review' },
+  { to: '/report-writer',  icon: FileEdit,        label: 'Report Writer' },
+  { to: '/reports',        icon: BarChart2,       label: 'Reports' },
+  { to: '/patients',       icon: Users,           label: 'Patient History' },
+  { to: '/templates',      icon: FileText,        label: 'Templates' },
+  { to: '/referring',      icon: UserCheck,       label: 'Referring Doctors' },
+]
+
+const ROLE_LABELS = {
+  imaging_technician: 'Imaging Technician',
+  radiologist: 'Radiologist',
+}
 
 function getInitials(name) {
   if (!name) return '?'
@@ -165,6 +175,10 @@ export default function Layout() {
   const { user, logout } = useAuth()
   const [open, setOpen] = useState(false)
 
+  const role = user?.role
+  const navItems = role === 'radiologist' ? RADIOLOGIST_NAV : TECHNICIAN_NAV
+  const roleLabel = ROLE_LABELS[role] || (role ? role.replace(/_/g, ' ') : 'Staff')
+
   const sidebar = (
     <aside className="w-60 flex flex-col h-full flex-shrink-0" style={{ background: '#0F2557' }}>
       <div className="px-5 py-5 border-b border-white/10 flex items-center justify-between">
@@ -182,7 +196,7 @@ export default function Layout() {
         </div>
       </div>
       <nav className="flex-1 px-3 py-4 overflow-y-auto">
-        {NAV.map(({ to, icon: Icon, label }) => (
+        {navItems.map(({ to, icon: Icon, label }) => (
           <NavLink key={to} to={to} end={to === '/'}
             onClick={() => setOpen(false)}
             className={({ isActive }) => isActive ? 'sidebar-link-active' : 'sidebar-link'}>
@@ -200,7 +214,12 @@ export default function Layout() {
           </div>
           <div className="min-w-0">
             <div className="text-white text-xs font-semibold truncate">{user?.full_name || user?.email}</div>
-            <div className="text-blue-300 text-xs capitalize">{user?.role?.replace(/_/g, ' ') || 'Staff'}</div>
+            <span
+              className="inline-block text-xs font-semibold px-1.5 py-0.5 rounded-full mt-0.5"
+              style={{ background: 'rgba(245,130,30,0.2)', color: '#F5821E' }}
+            >
+              {roleLabel}
+            </span>
           </div>
         </div>
         <button onClick={logout} className="sidebar-link w-full"><LogOut size={15} />Sign Out</button>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import api from '../api/client'
-import { ScanLine, Clock, CheckCircle, Loader2 } from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
+import { ScanLine, Clock, CheckCircle, Loader2, FileEdit, BarChart2 } from 'lucide-react'
 
 function StatCard({ icon: Icon, label, value, color }) {
   return (
@@ -16,13 +17,31 @@ function StatCard({ icon: Icon, label, value, color }) {
   )
 }
 
+function avgTurnaround(orders) {
+  const signed = orders.filter(o => o.signed_at && o.acquired_at)
+  if (!signed.length) return null
+  const total = signed.reduce((sum, o) => {
+    const diff = new Date(o.signed_at) - new Date(o.acquired_at)
+    return sum + diff
+  }, 0)
+  const avgMins = Math.round(total / signed.length / 60000)
+  if (avgMins < 60) return `${avgMins}m`
+  return `${Math.floor(avgMins / 60)}h ${avgMins % 60}m`
+}
+
 export default function Dashboard() {
-  const [orders, setOrders] = useState([])
+  const { user } = useAuth()
+  const isRadiologist = user?.role === 'radiologist'
+
+  const [orders, setOrders]   = useState([])
   const [loading, setLoading] = useState(true)
 
   const fetchOrders = useCallback(() => {
     api.get('/imaging/orders', { params: { limit: 200 } })
-      .then(r => { setOrders(Array.isArray(r) ? r : []); setLoading(false) })
+      .then(r => {
+        setOrders(Array.isArray(r) ? r : (r?.items || r?.data || []))
+        setLoading(false)
+      })
       .catch(() => setLoading(false))
   }, [])
 
@@ -32,9 +51,22 @@ export default function Dashboard() {
     return () => clearInterval(interval)
   }, [fetchOrders])
 
-  const pending   = orders.filter(o => o.status === 'pending' || o.status === 'scheduled')
-  const inProcess = orders.filter(o => o.status === 'in_progress')
-  const completed = orders.filter(o => o.status === 'completed')
+  // Shared
+  const today = new Date().toDateString()
+
+  // Technician stats
+  const todaysOrders  = orders.filter(o => o.created_at && new Date(o.created_at).toDateString() === today)
+  const acquiredCount = orders.filter(o => o.status === 'acquired').length
+  const pendingCount  = orders.filter(o => o.status === 'pending' || o.status === 'scheduled').length
+
+  // Radiologist stats
+  const pendingReview = orders.filter(o => o.status === 'acquired' && !o.signed_at && !o.report_signed_at).length
+  const signedToday   = orders.filter(o => o.signed_at && new Date(o.signed_at).toDateString() === today).length
+  const avgTA         = avgTurnaround(orders)
+
+  // Fallback shared stats (original)
+  const inProcess  = orders.filter(o => o.status === 'in_progress')
+  const completed  = orders.filter(o => o.status === 'completed')
 
   if (loading) return (
     <div className="flex justify-center py-20">
@@ -51,11 +83,19 @@ export default function Dashboard() {
         </span>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-        <StatCard icon={Clock}       label="Pending"     value={pending.length}   color="#F5821E" />
-        <StatCard icon={ScanLine}    label="In Progress" value={inProcess.length} color="#0F2557" />
-        <StatCard icon={CheckCircle} label="Completed"   value={completed.length} color="#16A34A" />
-      </div>
+      {isRadiologist ? (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+          <StatCard icon={ScanLine}    label="Pending Review"   value={pendingReview}        color="#F5821E" />
+          <StatCard icon={CheckCircle} label="Signed Today"     value={signedToday}          color="#16A34A" />
+          <StatCard icon={BarChart2}   label="Avg Turnaround"   value={avgTA ?? '—'}         color="#0F2557" />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+          <StatCard icon={Clock}       label="Today's Orders"  value={todaysOrders.length}  color="#F5821E" />
+          <StatCard icon={ScanLine}    label="Acquired"        value={acquiredCount}         color="#0F2557" />
+          <StatCard icon={FileEdit}    label="Pending"         value={pendingCount}          color="#EF4444" />
+        </div>
+      )}
 
       <div className="card overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100 font-semibold text-gray-700">Recent Orders</div>
