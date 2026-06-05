@@ -2376,13 +2376,13 @@ def list_imaging_slots(
     current: Staff = Depends(get_current_staff),
 ):
     from app.models.models import ImagingSlot, ImagingBooking
-    slots = db.query(ImagingSlot).filter(
+    slots = db.query(ImagingSlot).options(joinedload(ImagingSlot.bookings)).filter(
         ImagingSlot.clinic_id == current.clinic_id,
         ImagingSlot.date == date,
     ).order_by(ImagingSlot.time).all()
     result = []
     for s in slots:
-        bookings = db.query(ImagingBooking).filter(ImagingBooking.slot_id == s.id).all()
+        bookings = s.bookings
         result.append({
             "id": s.id, "date": str(s.date), "time": s.time,
             "modality": s.modality, "capacity": s.capacity,
@@ -2424,6 +2424,8 @@ def book_imaging_slot(
 ):
     from app.models.models import ImagingSlot, ImagingBooking
     slot_id = body.get("slot_id")
+    if not slot_id:
+        raise HTTPException(400, "slot_id required")
     slot = db.query(ImagingSlot).filter(
         ImagingSlot.id == slot_id,
         ImagingSlot.clinic_id == current.clinic_id,

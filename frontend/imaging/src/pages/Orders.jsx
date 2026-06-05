@@ -349,7 +349,7 @@ function UnmatchedQueue({ onResolved }) {
   const [saving, setSaving] = useState(null)
 
   useEffect(() => {
-    api.get('/imaging-orders/unmatched').then(r => setRows(r.data)).catch(() => {})
+    api.get('/imaging-orders/unmatched').then(r => setRows(Array.isArray(r) ? r : [])).catch(() => {})
   }, [])
 
   if (!rows.length) return null
@@ -419,7 +419,7 @@ function OrderRow({ order, onAction }) {
       setLoading(true)
       try {
         const r = await api.get(`/imaging-orders/${order.order_id}`)
-        setDetail(r.data)
+        setDetail(r)
       } catch {}
       setLoading(false)
     }
@@ -549,7 +549,7 @@ export default function Orders() {
     try {
       const params = tab !== 'all' ? { params: { status: tab } } : {}
       const r = await api.get('/imaging-orders', params)
-      setOrders(r.data)
+      setOrders(Array.isArray(r) ? r : [])
     } catch (e) {
       setError(e.response?.data?.detail || 'Failed to load orders')
     } finally {
