@@ -10,7 +10,7 @@ export default defineConfig({
       includeAssets: ['favicon.ico'],
       manifest: {
         name: 'BHaratCliniq Pharmacy',
-        short_name: 'BC Pharmacy',
+        short_name: 'BH Pharmacy',
         description: 'Pharmacy management portal for BHaratCliniq',
         theme_color: '#0F2557',
         background_color: '#ffffff',

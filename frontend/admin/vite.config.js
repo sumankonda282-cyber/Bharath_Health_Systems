@@ -10,7 +10,7 @@ export default defineConfig({
       includeAssets: ['favicon.ico'],
       manifest: {
         name: 'BHaratCliniq Admin',
-        short_name: 'BC Admin',
+        short_name: 'BH Admin',
         description: 'BHaratCliniq Super Admin Portal',
         theme_color: '#1e1b4b',
         background_color: '#ffffff',

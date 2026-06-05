@@ -10,7 +10,7 @@ export default defineConfig({
       includeAssets: ['favicon.ico'],
       manifest: {
         name: 'BHaratCliniq Lab',
-        short_name: 'BC Lab',
+        short_name: 'BH Lab',
         description: 'Laboratory portal for BHaratCliniq',
         theme_color: '#0F2557',
         background_color: '#ffffff',

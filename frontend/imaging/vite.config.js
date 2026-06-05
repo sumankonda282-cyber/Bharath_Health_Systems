@@ -10,7 +10,7 @@ export default defineConfig({
       includeAssets: ['favicon.ico'],
       manifest: {
         name: 'BHaratCliniq Imaging',
-        short_name: 'BC Imaging',
+        short_name: 'BH Imaging',
         description: 'Radiology and imaging portal for BHaratCliniq',
         theme_color: '#0F2557',
         background_color: '#ffffff',

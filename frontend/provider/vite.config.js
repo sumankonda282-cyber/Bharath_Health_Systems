@@ -10,7 +10,7 @@ export default defineConfig({
       includeAssets: ['favicon.ico'],
       manifest: {
         name: 'BHaratCliniq Provider',
-        short_name: 'BC Provider',
+        short_name: 'BH Provider',
         description: 'Doctor and clinical staff portal',
         theme_color: '#0F2557',
         background_color: '#ffffff',
