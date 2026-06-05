@@ -13,7 +13,7 @@ export function AuthProvider({ children }) {
     if (token) {
       api.get('/auth/staff/me')
         .then(u => setUser(u))
-        .catch(err => { if (err?.response?.status === 401 || err?.status === 401) localStorage.clear() })
+        .catch(err => { if (err?.response?.status === 401 || err?.status === 401) localStorage.removeItem('staff_token') })
         .finally(() => setLoading(false))
     } else {
       setLoading(false)
@@ -42,7 +42,7 @@ export function AuthProvider({ children }) {
     return me
   }
 
-  const logout = () => { localStorage.clear(); cacheClear(); setUser(null); window.location.href = '/login' }
+  const logout = () => { localStorage.removeItem('staff_token'); localStorage.removeItem('clinic_id'); localStorage.removeItem('branch_id'); cacheClear(); setUser(null); window.location.href = '/login' }
 
   return (
     <AuthContext.Provider value={{ user, loading, login, logout, refreshUser }}>

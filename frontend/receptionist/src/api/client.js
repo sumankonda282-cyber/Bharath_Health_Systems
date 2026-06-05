@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const API_BASE = 'https://bharatcliniq-api.onrender.com'
+const API_BASE = import.meta.env.VITE_API_URL || 'https://bharatcliniq-api.onrender.com'
 
 const api = axios.create({
   baseURL: `${API_BASE}/api/v1`,
@@ -21,7 +21,9 @@ api.interceptors.response.use(
       const url = err.config?.url || ''
       const isExempt = url.includes('/login') || url.includes('/send-otp') || url.includes('/verify-otp') || url.includes('/me')
       if (!isExempt) {
-        localStorage.clear()
+        localStorage.removeItem('staff_token')
+        localStorage.removeItem('clinic_id')
+        localStorage.removeItem('branch_id')
         window.location.href = '/login'
       }
     }

@@ -7,7 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['logo.png', 'favicon.ico'],
+      includeAssets: ['favicon.ico'],
       manifest: {
         name: 'BHaratCliniq Admin',
         short_name: 'BC Admin',
@@ -19,9 +19,9 @@ export default defineConfig({
         scope: '/',
         start_url: '/',
         icons: [
-          { src: '/logo.png', sizes: '192x192', type: 'image/png' },
-          { src: '/logo.png', sizes: '512x512', type: 'image/png' },
-          { src: '/logo.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+          { src: '/android-192x192.png', sizes: '192x192', type: 'image/png' },
+          { src: '/android-512x512.png', sizes: '512x512', type: 'image/png' },
+          { src: '/maskable-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
         ],
       },
       workbox: {
