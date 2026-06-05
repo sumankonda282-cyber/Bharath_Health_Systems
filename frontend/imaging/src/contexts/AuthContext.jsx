@@ -7,7 +7,7 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
   useEffect(() => {
     const token = sessionStorage.getItem('staff_token')
-    if (token) { api.get('/auth/staff/me').then(u => setUser(u)).catch(() => sessionStorage.clear()).finally(() => setLoading(false)) }
+    if (token) { api.get('/auth/staff/me').then(u => setUser(u)).catch(err => { if (err?.response?.status === 401 || err?.status === 401) sessionStorage.clear() }).finally(() => setLoading(false)) }
     else setLoading(false)
   }, [])
   const login = async (identifier, password) => {

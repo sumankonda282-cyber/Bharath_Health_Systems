@@ -17,8 +17,8 @@ export function AuthProvider({ children }) {
         ? await authApi.platformMe()
         : await authApi.me()
       setUser(res)
-    } catch {
-      localStorage.clear()
+    } catch (err) {
+      if (err?.response?.status === 401 || err?.status === 401) localStorage.clear()
     } finally {
       setLoading(false)
     }

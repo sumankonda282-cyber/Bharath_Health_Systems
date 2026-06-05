@@ -13,7 +13,7 @@ export function AuthProvider({ children }) {
     if (!token) { setLoading(false); return }
     api.get('/auth/staff/me')
       .then(u => setUser(u))
-      .catch(() => sessionStorage.clear())
+      .catch(err => { if (err?.response?.status === 401 || err?.status === 401) sessionStorage.clear() })
       .finally(() => setLoading(false))
   }, [])
 

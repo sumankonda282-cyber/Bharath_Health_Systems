@@ -13,7 +13,7 @@ export function AuthProvider({ children }) {
     if (!token) { setLoading(false); return }
     api.get('/portal/me')
       .then(r => setUser(r.data || r))
-      .catch(() => { sessionStorage.removeItem('patient_token'); sessionStorage.removeItem('bh_profile_id') })
+      .catch(err => { if (err?.response?.status === 401 || err?.status === 401) { sessionStorage.removeItem('patient_token'); sessionStorage.removeItem('bh_profile_id') } })
       .finally(() => setLoading(false))
   }, [])
 
