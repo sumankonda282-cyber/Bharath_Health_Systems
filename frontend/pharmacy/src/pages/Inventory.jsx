@@ -1,7 +1,80 @@
 import { useState, useEffect, useCallback } from 'react'
 import api from '../api/client'
 import { cachedFetch, cacheInvalidate, TTL } from '../utils/cache'
-import { Plus, Search, Package, Loader2, AlertTriangle, Pencil, X } from 'lucide-react'
+import { Plus, Search, Package, Loader2, AlertTriangle, Pencil, X, Layers } from 'lucide-react'
+
+// ── Batch Panel ──────────────────────────────────────────────────────────────
+
+function BatchPanel({ med, onClose }) {
+  const [batches, setBatches] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    api.get(`/pharmacy/medicines/${med.id}/batches`)
+      .then(r => setBatches(Array.isArray(r) ? r : []))
+      .finally(() => setLoading(false))
+  }, [med.id])
+
+  function batchColor(expiry) {
+    if (!expiry) return ''
+    const days = Math.floor((new Date(expiry) - new Date()) / 86400000)
+    if (days < 0) return 'bg-red-50 border-red-200'
+    if (days <= 30) return 'bg-amber-50 border-amber-200'
+    return 'bg-green-50 border-green-200'
+  }
+
+  function batchBadge(expiry) {
+    if (!expiry) return null
+    const days = Math.floor((new Date(expiry) - new Date()) / 86400000)
+    if (days < 0) return <span className="badge badge-red text-xs">Expired</span>
+    if (days <= 30) return <span className="badge badge-yellow text-xs">Exp. in {days}d</span>
+    return <span className="badge badge-green text-xs">OK</span>
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[80vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-bold text-[#0F2557]">{med.name}</h3>
+            <p className="text-xs text-gray-500">Batch-wise Stock</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center py-8"><Loader2 size={22} className="animate-spin text-gray-400" /></div>
+        ) : batches.length === 0 ? (
+          <div className="text-center py-8 text-gray-400">
+            <Layers size={28} className="mx-auto mb-2 opacity-30" />
+            <p className="text-sm">No batch records found.</p>
+            <p className="text-xs mt-1">Use Purchase Orders to receive stock with batch tracking.</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {batches.map(b => (
+              <div key={b.id} className={`border rounded-xl p-3 ${batchColor(b.expiry_date)}`}>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="font-medium text-sm">{b.batch_number || <span className="text-gray-400">No batch #</span>}</div>
+                    <div className="text-xs text-gray-500 mt-0.5">
+                      Qty: <strong>{b.quantity}</strong>
+                      {b.unit_cost && <span className="ml-2">Cost: ₹{Number(b.unit_cost).toFixed(2)}</span>}
+                    </div>
+                    <div className="text-xs text-gray-400 mt-0.5">
+                      Expiry: {b.expiry_date ? new Date(b.expiry_date).toLocaleDateString('en-IN') : '—'}
+                    </div>
+                  </div>
+                  {batchBadge(b.expiry_date)}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
 
 const SCHEDULE_OPTS = ['', 'OTC', 'H', 'H1', 'X']
 const GST_OPTS = ['', '0', '5', '12']
@@ -31,6 +104,7 @@ export default function Inventory() {
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
+  const [batchTarget, setBatchTarget] = useState(null)
   const branchId = sessionStorage.getItem('branch_id')
 
   const load = useCallback(() => {
@@ -124,6 +198,7 @@ export default function Inventory() {
 
   return (
     <div>
+      {batchTarget && <BatchPanel med={batchTarget} onClose={() => setBatchTarget(null)} />}
       <div className="page-header">
         <h1 className="page-title">Medicine Inventory</h1>
         <button onClick={openAdd} className="btn-primary"><Plus size={16} />Add Medicine</button>
@@ -281,6 +356,13 @@ export default function Inventory() {
                             title="Edit"
                           >
                             <Pencil size={14} />
+                          </button>
+                          <button
+                            onClick={() => setBatchTarget(m)}
+                            className="p-1.5 rounded-lg hover:bg-purple-50 text-purple-600 transition-colors"
+                            title="View Batches"
+                          >
+                            <Layers size={14} />
                           </button>
                           <button
                             onClick={() => toggleActive(m)}

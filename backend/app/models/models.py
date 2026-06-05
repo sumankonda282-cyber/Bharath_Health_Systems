@@ -707,6 +707,121 @@ class BillingWaiverLog(Base):
     created_at    = Column(DateTime, server_default=func.now())
 
 
+# ── Pharmacy Extended Models ───────────────────────────────────────────────────
+
+class Supplier(Base):
+    __tablename__ = "suppliers"
+    id                  = Column(Integer, primary_key=True, index=True)
+    clinic_id           = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    name                = Column(String(200), nullable=False)
+    contact_person      = Column(String(200), nullable=True)
+    mobile              = Column(String(20), nullable=True)
+    email               = Column(String(150), nullable=True)
+    address             = Column(Text, nullable=True)
+    gstin               = Column(String(20), nullable=True)
+    drug_license_number = Column(String(100), nullable=True)
+    payment_terms       = Column(Integer, default=30)
+    notes               = Column(Text, nullable=True)
+    is_active           = Column(Boolean, default=True)
+    created_at          = Column(DateTime, server_default=func.now())
+
+    purchase_orders = relationship("PurchaseOrder", back_populates="supplier")
+
+
+class PurchaseOrder(Base):
+    __tablename__ = "purchase_orders"
+    id             = Column(Integer, primary_key=True, index=True)
+    clinic_id      = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    branch_id      = Column(Integer, ForeignKey("branches.id"), nullable=True)
+    supplier_id    = Column(Integer, ForeignKey("suppliers.id"), nullable=True)
+    po_number      = Column(String(50), nullable=True, index=True)
+    status         = Column(String(20), default="draft")
+    expected_date  = Column(Date, nullable=True)
+    notes          = Column(Text, nullable=True)
+    total_amount   = Column(Numeric(12, 2), default=0)
+    created_by     = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    created_at     = Column(DateTime, server_default=func.now())
+
+    supplier = relationship("Supplier", back_populates="purchase_orders")
+    items    = relationship("PurchaseOrderItem", back_populates="po", cascade="all, delete-orphan")
+
+
+class PurchaseOrderItem(Base):
+    __tablename__ = "purchase_order_items"
+    id                  = Column(Integer, primary_key=True, index=True)
+    po_id               = Column(Integer, ForeignKey("purchase_orders.id"), nullable=False)
+    medicine_id         = Column(Integer, ForeignKey("medicines.id"), nullable=True)
+    medicine_name       = Column(String(200), nullable=True)
+    quantity_ordered    = Column(Integer, default=0)
+    quantity_received   = Column(Integer, default=0)
+    unit_cost           = Column(Numeric(10, 2), nullable=True)
+    total_cost          = Column(Numeric(10, 2), nullable=True)
+    batch_number        = Column(String(50), nullable=True)
+    expiry_date         = Column(Date, nullable=True)
+
+    po = relationship("PurchaseOrder", back_populates="items")
+
+
+class SalesReturn(Base):
+    __tablename__ = "sales_returns"
+    id             = Column(Integer, primary_key=True, index=True)
+    clinic_id      = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    invoice_id     = Column(Integer, ForeignKey("invoices.id"), nullable=True)
+    return_number  = Column(String(50), nullable=True)
+    reason         = Column(String(100), nullable=True)
+    total_refund   = Column(Numeric(10, 2), default=0)
+    refund_method  = Column(String(50), nullable=True)
+    processed_by   = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    created_at     = Column(DateTime, server_default=func.now())
+
+    items = relationship("SalesReturnItem", back_populates="sales_return", cascade="all, delete-orphan")
+
+
+class SalesReturnItem(Base):
+    __tablename__ = "sales_return_items"
+    id            = Column(Integer, primary_key=True, index=True)
+    return_id     = Column(Integer, ForeignKey("sales_returns.id"), nullable=False)
+    medicine_id   = Column(Integer, ForeignKey("medicines.id"), nullable=True)
+    medicine_name = Column(String(200), nullable=True)
+    quantity      = Column(Integer, default=0)
+    unit_price    = Column(Numeric(10, 2), nullable=True)
+    total         = Column(Numeric(10, 2), nullable=True)
+
+    sales_return = relationship("SalesReturn", back_populates="items")
+
+
+class DrugRegister(Base):
+    __tablename__ = "drug_register"
+    id                = Column(Integer, primary_key=True, index=True)
+    clinic_id         = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    invoice_id        = Column(Integer, ForeignKey("invoices.id"), nullable=True)
+    medicine_id       = Column(Integer, ForeignKey("medicines.id"), nullable=True)
+    medicine_name     = Column(String(200), nullable=True)
+    schedule          = Column(String(10), nullable=True)
+    patient_name      = Column(String(200), nullable=True)
+    patient_age       = Column(Integer, nullable=True)
+    patient_address   = Column(Text, nullable=True)
+    doctor_name       = Column(String(200), nullable=True)
+    doctor_reg_number = Column(String(100), nullable=True)
+    quantity          = Column(Integer, default=0)
+    batch_number      = Column(String(50), nullable=True)
+    sold_at           = Column(DateTime, server_default=func.now())
+
+
+class MedicineBatch(Base):
+    __tablename__ = "medicine_batches"
+    id           = Column(Integer, primary_key=True, index=True)
+    medicine_id  = Column(Integer, ForeignKey("medicines.id"), nullable=False)
+    clinic_id    = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    branch_id    = Column(Integer, ForeignKey("branches.id"), nullable=True)
+    batch_number = Column(String(50), nullable=True)
+    expiry_date  = Column(Date, nullable=True)
+    quantity     = Column(Integer, default=0)
+    unit_cost    = Column(Numeric(10, 2), nullable=True)
+    supplier_id  = Column(Integer, ForeignKey("suppliers.id"), nullable=True)
+    received_at  = Column(DateTime, server_default=func.now())
+
+
 class StockTransaction(Base):
     __tablename__ = "stock_transactions"
     id               = Column(Integer, primary_key=True, index=True)

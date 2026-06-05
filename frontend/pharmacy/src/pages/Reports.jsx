@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import api from '../api/client'
-import { BarChart2, ChevronDown, ChevronUp, Loader2, AlertTriangle, Package, Printer, Download } from 'lucide-react'
+import { BarChart2, ChevronDown, ChevronUp, Loader2, AlertTriangle, Package, Printer, Download, TrendingUp, Building2, ListOrdered, FileText } from 'lucide-react'
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10)
@@ -484,6 +484,475 @@ function GSTReport() {
   )
 }
 
+/* ── Drug Register Report ── */
+function DrugRegisterReport() {
+  const [schedule, setSchedule] = useState('')
+  const [fromDate, setFromDate] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10))
+  const [toDate, setToDate] = useState(todayStr())
+  const [entries, setEntries] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [err, setErr] = useState('')
+
+  function load() {
+    setLoading(true); setErr('')
+    const params = { from_date: fromDate, to_date: toDate }
+    if (schedule) params.schedule = schedule
+    api.get('/pharmacy/drug-register', { params })
+      .then(r => setEntries(Array.isArray(r) ? r : []))
+      .catch(ex => setErr(ex.message || 'Failed'))
+      .finally(() => setLoading(false))
+  }
+
+  useEffect(() => { load() }, []) // eslint-disable-line
+
+  function doPrint() {
+    const rows = entries.map(e => `<tr><td>${e.sold_at ? new Date(e.sold_at).toLocaleDateString('en-IN') : '—'}</td><td>${e.medicine_name}</td><td>${e.schedule}</td><td>${e.patient_name || '—'}</td><td>${e.doctor_name || '—'}</td><td>${e.quantity}</td><td>${e.batch_number || '—'}</td></tr>`).join('')
+    printTable(`Drug Register (${schedule || 'All'}) ${fromDate} to ${toDate}`, `<table><thead><tr><th>Date</th><th>Medicine</th><th>Schedule</th><th>Patient</th><th>Doctor</th><th>Qty</th><th>Batch</th></tr></thead><tbody>${rows}</tbody></table>`)
+  }
+
+  return (
+    <div>
+      <div className="flex items-end gap-3 mb-4 flex-wrap">
+        <div>
+          <label className="label">Schedule</label>
+          <select className="input" value={schedule} onChange={e => setSchedule(e.target.value)}>
+            <option value="">All (H/H1/X)</option>
+            <option value="H">Schedule H</option>
+            <option value="H1">Schedule H1</option>
+            <option value="X">Schedule X</option>
+          </select>
+        </div>
+        <div>
+          <label className="label">From</label>
+          <input type="date" className="input" value={fromDate} onChange={e => setFromDate(e.target.value)} />
+        </div>
+        <div>
+          <label className="label">To</label>
+          <input type="date" className="input" value={toDate} onChange={e => setToDate(e.target.value)} />
+        </div>
+        <div className="flex gap-2">
+          <button onClick={load} className="btn-primary text-sm py-1.5 px-4">Fetch</button>
+          <button onClick={doPrint} className="btn-secondary text-sm py-1.5 px-3 flex items-center gap-1"><Printer size={14} />Print</button>
+        </div>
+      </div>
+      {loading ? (
+        <div className="flex justify-center py-8"><Loader2 size={22} className="animate-spin text-gray-400" /></div>
+      ) : err ? (
+        <p className="text-red-500 text-sm">{err}</p>
+      ) : entries.length === 0 ? (
+        <p className="text-gray-400 text-sm text-center py-4">No drug register entries for this period.</p>
+      ) : (
+        <div className="table-wrapper">
+          <table className="table text-sm">
+            <thead>
+              <tr>
+                <th className="th">Date &amp; Time</th>
+                <th className="th">Medicine</th>
+                <th className="th">Schedule</th>
+                <th className="th">Patient</th>
+                <th className="th">Doctor</th>
+                <th className="th">Qty</th>
+                <th className="th">Batch</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {entries.map(e => (
+                <tr key={e.id} className="tr-hover">
+                  <td className="td text-xs text-gray-500 whitespace-nowrap">
+                    {e.sold_at ? new Date(e.sold_at).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' }) : '—'}
+                  </td>
+                  <td className="td font-medium">{e.medicine_name}</td>
+                  <td className="td">
+                    <span className="badge badge-yellow text-xs">{e.schedule}</span>
+                  </td>
+                  <td className="td text-gray-600">{e.patient_name || '—'}</td>
+                  <td className="td text-gray-600">{e.doctor_name || '—'}</td>
+                  <td className="td font-semibold">{e.quantity}</td>
+                  <td className="td text-gray-400 text-xs">{e.batch_number || '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ── Profit & Loss Report ── */
+function ProfitLossReport() {
+  const [fromDate, setFromDate] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10))
+  const [toDate, setToDate] = useState(todayStr())
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [err, setErr] = useState('')
+
+  function load() {
+    setLoading(true); setErr('')
+    api.get('/pharmacy/reports/profit-loss', { params: { from_date: fromDate, to_date: toDate } })
+      .then(r => setData(r))
+      .catch(ex => setErr(ex.message || 'Failed'))
+      .finally(() => setLoading(false))
+  }
+
+  function doCSV() {
+    if (!data) return
+    downloadCSV(
+      data.items.map(i => ({
+        medicine: i.medicine_name, qty_sold: i.qty_sold,
+        revenue: i.revenue.toFixed(2), cogs: i.cogs.toFixed(2),
+        gross_profit: i.gross_profit.toFixed(2), margin_pct: i.margin_pct,
+      })),
+      ['medicine', 'qty_sold', 'revenue', 'cogs', 'gross_profit', 'margin_pct'],
+      `profit-loss-${fromDate}-${toDate}.csv`
+    )
+  }
+
+  return (
+    <div>
+      <div className="flex items-end gap-3 mb-4 flex-wrap">
+        <div><label className="label">From</label><input type="date" className="input" value={fromDate} onChange={e => setFromDate(e.target.value)} /></div>
+        <div><label className="label">To</label><input type="date" className="input" value={toDate} onChange={e => setToDate(e.target.value)} /></div>
+        <div className="flex gap-2">
+          <button onClick={load} className="btn-primary text-sm py-1.5 px-4">Generate</button>
+          {data && <button onClick={doCSV} className="btn-secondary text-sm py-1.5 px-3 flex items-center gap-1"><Download size={14} />CSV</button>}
+        </div>
+      </div>
+      {loading ? (
+        <div className="flex justify-center py-8"><Loader2 size={22} className="animate-spin text-gray-400" /></div>
+      ) : err ? (
+        <p className="text-red-500 text-sm">{err}</p>
+      ) : data ? (
+        <>
+          <div className="grid grid-cols-3 gap-3 mb-5">
+            {[
+              { label: 'Total Revenue', val: `₹${data.summary.total_revenue.toFixed(2)}`, color: '#0F2557' },
+              { label: 'Total COGS', val: `₹${data.summary.total_cogs.toFixed(2)}`, color: '#CC1414' },
+              { label: 'Gross Profit', val: `₹${data.summary.gross_profit.toFixed(2)}`, color: '#16a34a' },
+            ].map(s => (
+              <div key={s.label} className="card p-4 text-center">
+                <div className="text-xl font-bold" style={{ color: s.color }}>{s.val}</div>
+                <div className="text-xs text-gray-500 mt-1">{s.label}</div>
+              </div>
+            ))}
+          </div>
+          <div className="table-wrapper">
+            <table className="table text-sm">
+              <thead>
+                <tr>
+                  <th className="th">Medicine</th>
+                  <th className="th">Qty Sold</th>
+                  <th className="th">Revenue</th>
+                  <th className="th">COGS</th>
+                  <th className="th">Gross Profit</th>
+                  <th className="th">Margin %</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {(data.items || []).map((item, i) => (
+                  <tr key={i} className="tr-hover">
+                    <td className="td font-medium">{item.medicine_name}</td>
+                    <td className="td">{item.qty_sold}</td>
+                    <td className="td">₹{item.revenue.toFixed(2)}</td>
+                    <td className="td text-gray-500">₹{item.cogs.toFixed(2)}</td>
+                    <td className="td font-semibold" style={{ color: item.gross_profit >= 0 ? '#16a34a' : '#CC1414' }}>
+                      ₹{item.gross_profit.toFixed(2)}
+                    </td>
+                    <td className="td">
+                      <span className={`badge ${item.margin_pct >= 20 ? 'badge-green' : item.margin_pct >= 0 ? 'badge-yellow' : 'badge-red'}`}>
+                        {item.margin_pct.toFixed(1)}%
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ) : (
+        <p className="text-gray-400 text-sm text-center py-4">Select a date range and click Generate.</p>
+      )}
+    </div>
+  )
+}
+
+/* ── Supplier Purchase Report ── */
+function SupplierPurchaseReport() {
+  const [fromDate, setFromDate] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10))
+  const [toDate, setToDate] = useState(todayStr())
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [err, setErr] = useState('')
+
+  function load() {
+    setLoading(true); setErr('')
+    api.get('/pharmacy/reports/supplier-purchases', { params: { from_date: fromDate, to_date: toDate } })
+      .then(r => setData(Array.isArray(r) ? r : []))
+      .catch(ex => setErr(ex.message || 'Failed'))
+      .finally(() => setLoading(false))
+  }
+
+  function doCSV() {
+    if (!data) return
+    downloadCSV(
+      data.map(d => ({
+        supplier: d.supplier_name, total_pos: d.total_pos,
+        total_value: d.total_value.toFixed(2), medicines_count: d.medicines_count,
+      })),
+      ['supplier', 'total_pos', 'total_value', 'medicines_count'],
+      `supplier-purchases-${fromDate}-${toDate}.csv`
+    )
+  }
+
+  return (
+    <div>
+      <div className="flex items-end gap-3 mb-4 flex-wrap">
+        <div><label className="label">From</label><input type="date" className="input" value={fromDate} onChange={e => setFromDate(e.target.value)} /></div>
+        <div><label className="label">To</label><input type="date" className="input" value={toDate} onChange={e => setToDate(e.target.value)} /></div>
+        <div className="flex gap-2">
+          <button onClick={load} className="btn-primary text-sm py-1.5 px-4">Generate</button>
+          {data && <button onClick={doCSV} className="btn-secondary text-sm py-1.5 px-3 flex items-center gap-1"><Download size={14} />CSV</button>}
+        </div>
+      </div>
+      {loading ? (
+        <div className="flex justify-center py-8"><Loader2 size={22} className="animate-spin text-gray-400" /></div>
+      ) : err ? (
+        <p className="text-red-500 text-sm">{err}</p>
+      ) : data && data.length > 0 ? (
+        <div className="table-wrapper">
+          <table className="table text-sm">
+            <thead>
+              <tr>
+                <th className="th">Supplier</th>
+                <th className="th">Total POs</th>
+                <th className="th">Total Value</th>
+                <th className="th">Medicines Count</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {data.map((d, i) => (
+                <tr key={i} className="tr-hover">
+                  <td className="td font-medium">{d.supplier_name}</td>
+                  <td className="td text-center">{d.total_pos}</td>
+                  <td className="td font-semibold">₹{Number(d.total_value || 0).toFixed(2)}</td>
+                  <td className="td text-gray-500">{d.medicines_count}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : data ? (
+        <p className="text-gray-400 text-sm text-center py-4">No purchase orders for this period.</p>
+      ) : (
+        <p className="text-gray-400 text-sm text-center py-4">Select date range and click Generate.</p>
+      )}
+    </div>
+  )
+}
+
+/* ── ABC Analysis ── */
+const ABC_COLORS = { A: 'badge-green', B: 'badge-yellow', C: 'badge-gray' }
+const ABC_BG     = { A: 'bg-green-50', B: 'bg-amber-50', C: 'bg-gray-50' }
+
+function ABCAnalysis() {
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [err, setErr] = useState('')
+  const [filter, setFilter] = useState('')
+
+  function load() {
+    setLoading(true); setErr('')
+    api.get('/pharmacy/reports/abc-analysis')
+      .then(r => setData(Array.isArray(r) ? r : []))
+      .catch(ex => setErr(ex.message || 'Failed'))
+      .finally(() => setLoading(false))
+  }
+
+  useEffect(() => { load() }, []) // eslint-disable-line
+
+  const filtered = useMemo(() => {
+    if (!data) return []
+    if (!filter) return data
+    return data.filter(d => d.category === filter)
+  }, [data, filter])
+
+  function doCSV() {
+    if (!data) return
+    downloadCSV(
+      data.map(d => ({ medicine: d.medicine_name, sales_value: d.sales_value.toFixed(2), qty_sold: d.qty_sold, category: d.category })),
+      ['medicine', 'sales_value', 'qty_sold', 'category'],
+      'abc-analysis.csv'
+    )
+  }
+
+  return (
+    <div>
+      <div className="flex gap-2 mb-4 flex-wrap items-center">
+        {['', 'A', 'B', 'C'].map(c => (
+          <button
+            key={c}
+            onClick={() => setFilter(c)}
+            className={`px-4 py-1.5 rounded-xl text-sm font-semibold border transition-all ${filter === c ? 'text-white border-transparent' : 'border-gray-200 text-gray-600'}`}
+            style={filter === c ? { background: '#0F2557' } : {}}
+          >
+            {c ? `Category ${c}` : 'All'}
+          </button>
+        ))}
+        <div className="ml-auto flex gap-2">
+          <button onClick={load} className="btn-secondary text-sm py-1.5 px-3">Refresh</button>
+          {data && <button onClick={doCSV} className="btn-secondary text-sm py-1.5 px-3 flex items-center gap-1"><Download size={14} />CSV</button>}
+        </div>
+      </div>
+      {!data || loading ? (
+        <div className="flex justify-center py-8"><Loader2 size={22} className="animate-spin text-gray-400" /></div>
+      ) : err ? (
+        <p className="text-red-500 text-sm">{err}</p>
+      ) : filtered.length === 0 ? (
+        <p className="text-gray-400 text-sm text-center py-4">No sales data found.</p>
+      ) : (
+        <>
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            {['A', 'B', 'C'].map(cat => {
+              const catItems = (data || []).filter(d => d.category === cat)
+              return (
+                <div key={cat} className={`rounded-xl p-3 text-center ${ABC_BG[cat]}`}>
+                  <div className="text-lg font-bold">{catItems.length}</div>
+                  <div className="text-xs text-gray-500">Category {cat} medicines</div>
+                  <div className="text-xs text-gray-400 mt-1">
+                    {cat === 'A' ? 'Top 80% by value' : cat === 'B' ? 'Next 15%' : 'Bottom 5%'}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          <div className="table-wrapper">
+            <table className="table text-sm">
+              <thead>
+                <tr>
+                  <th className="th">#</th>
+                  <th className="th">Medicine</th>
+                  <th className="th">Sales Value</th>
+                  <th className="th">Qty Sold</th>
+                  <th className="th">Category</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {filtered.map((item, i) => (
+                  <tr key={i} className="tr-hover">
+                    <td className="td text-gray-400">{i + 1}</td>
+                    <td className="td font-medium">{item.medicine_name}</td>
+                    <td className="td font-semibold">₹{Number(item.sales_value || 0).toFixed(2)}</td>
+                    <td className="td">{item.qty_sold}</td>
+                    <td className="td">
+                      <span className={`badge ${ABC_COLORS[item.category]}`}>Cat {item.category}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+/* ── HSN-wise GST Report (GSTR-1) ── */
+function HSNGSTReport() {
+  const [fromDate, setFromDate] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10))
+  const [toDate, setToDate] = useState(todayStr())
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [err, setErr] = useState('')
+
+  function load() {
+    setLoading(true); setErr('')
+    api.get('/pharmacy/reports/hsn-gst', { params: { from_date: fromDate, to_date: toDate } })
+      .then(r => setData(Array.isArray(r) ? r : []))
+      .catch(ex => setErr(ex.message || 'Failed'))
+      .finally(() => setLoading(false))
+  }
+
+  function doPrint() {
+    if (!data) return
+    const rows = data.map(r => `<tr><td>${r.hsn_code}</td><td>${r.gst_rate}%</td><td>₹${r.taxable_value.toFixed(2)}</td><td>₹${r.cgst.toFixed(2)}</td><td>₹${r.sgst.toFixed(2)}</td><td>₹${r.igst.toFixed(2)}</td><td>₹${r.total_gst.toFixed(2)}</td><td>${r.invoice_count}</td></tr>`).join('')
+    printTable(`HSN-wise GST Report (GSTR-1) ${fromDate} to ${toDate}`, `<table><thead><tr><th>HSN</th><th>GST Rate</th><th>Taxable Value</th><th>CGST</th><th>SGST</th><th>IGST</th><th>Total GST</th><th>Invoices</th></tr></thead><tbody>${rows}</tbody></table>`)
+  }
+
+  function doCSV() {
+    if (!data) return
+    downloadCSV(
+      data.map(r => ({
+        hsn_code: r.hsn_code, gst_rate: r.gst_rate,
+        taxable_value: r.taxable_value.toFixed(2),
+        cgst: r.cgst.toFixed(2), sgst: r.sgst.toFixed(2), igst: r.igst.toFixed(2),
+        total_gst: r.total_gst.toFixed(2), invoice_count: r.invoice_count,
+      })),
+      ['hsn_code', 'gst_rate', 'taxable_value', 'cgst', 'sgst', 'igst', 'total_gst', 'invoice_count'],
+      `gstr1-hsn-${fromDate}-${toDate}.csv`
+    )
+  }
+
+  return (
+    <div>
+      <div className="flex items-end gap-3 mb-4 flex-wrap">
+        <div><label className="label">From</label><input type="date" className="input" value={fromDate} onChange={e => setFromDate(e.target.value)} /></div>
+        <div><label className="label">To</label><input type="date" className="input" value={toDate} onChange={e => setToDate(e.target.value)} /></div>
+        <div className="flex gap-2">
+          <button onClick={load} className="btn-primary text-sm py-1.5 px-4">Generate</button>
+          {data && <>
+            <button onClick={doPrint} className="btn-secondary text-sm py-1.5 px-3 flex items-center gap-1"><Printer size={14} />Print</button>
+            <button onClick={doCSV} className="btn-secondary text-sm py-1.5 px-3 flex items-center gap-1"><Download size={14} />CSV</button>
+          </>}
+        </div>
+      </div>
+      <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 mb-4 text-xs text-blue-700">
+        This report groups all invoices by HSN code in GSTR-1 format. CGST and SGST are each 50% of total GST (intrastate). For interstate supply, total flows into IGST.
+      </div>
+      {loading ? (
+        <div className="flex justify-center py-8"><Loader2 size={22} className="animate-spin text-gray-400" /></div>
+      ) : err ? (
+        <p className="text-red-500 text-sm">{err}</p>
+      ) : data && data.length > 0 ? (
+        <div className="table-wrapper">
+          <table className="table text-sm">
+            <thead>
+              <tr>
+                <th className="th">HSN Code</th>
+                <th className="th">GST Rate</th>
+                <th className="th">Taxable Value</th>
+                <th className="th">CGST</th>
+                <th className="th">SGST</th>
+                <th className="th">IGST</th>
+                <th className="th">Total GST</th>
+                <th className="th">Invoices</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {data.map((r, i) => (
+                <tr key={i} className="tr-hover">
+                  <td className="td font-mono font-medium">{r.hsn_code}</td>
+                  <td className="td text-gray-600">{r.gst_rate}%</td>
+                  <td className="td">₹{Number(r.taxable_value || 0).toFixed(2)}</td>
+                  <td className="td">₹{Number(r.cgst || 0).toFixed(2)}</td>
+                  <td className="td">₹{Number(r.sgst || 0).toFixed(2)}</td>
+                  <td className="td text-gray-400">₹{Number(r.igst || 0).toFixed(2)}</td>
+                  <td className="td font-semibold">₹{Number(r.total_gst || 0).toFixed(2)}</td>
+                  <td className="td text-gray-500">{r.invoice_count}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : data ? (
+        <p className="text-gray-400 text-sm text-center py-4">No invoice data for this period.</p>
+      ) : (
+        <p className="text-gray-400 text-sm text-center py-4">Select date range and click Generate.</p>
+      )}
+    </div>
+  )
+}
+
 export default function Reports() {
   return (
     <div>
@@ -505,6 +974,21 @@ export default function Reports() {
         </ReportCard>
         <ReportCard title="GST Report" icon={BarChart2} iconColor="#7c3aed" iconBg="#7c3aed18">
           <GSTReport />
+        </ReportCard>
+        <ReportCard title="Drug Register (Schedule H/H1/X)" icon={FileText} iconColor="#0F2557" iconBg="#0F255718">
+          <DrugRegisterReport />
+        </ReportCard>
+        <ReportCard title="Profit &amp; Loss Report" icon={TrendingUp} iconColor="#16a34a" iconBg="#16a34a18">
+          <ProfitLossReport />
+        </ReportCard>
+        <ReportCard title="Supplier-wise Purchase Report" icon={Building2} iconColor="#F5821E" iconBg="#F5821E18">
+          <SupplierPurchaseReport />
+        </ReportCard>
+        <ReportCard title="ABC Analysis (Fast / Slow Movers)" icon={ListOrdered} iconColor="#7c3aed" iconBg="#7c3aed18">
+          <ABCAnalysis />
+        </ReportCard>
+        <ReportCard title="HSN-wise GST Report (GSTR-1)" icon={FileText} iconColor="#CC1414" iconBg="#CC141418">
+          <HSNGSTReport />
         </ReportCard>
       </div>
     </div>
