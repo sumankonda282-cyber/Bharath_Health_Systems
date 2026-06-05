@@ -11,7 +11,7 @@ from typing import List, Optional
 from datetime import datetime
 
 from app.db.session import get_db
-from app.models.models import Staff, ChatRoom, ChatRoomMember, InternalMessage, MessageRead
+from app.models.models import Staff, Branch, ChatRoom, ChatRoomMember, InternalMessage, MessageRead
 from app.core.security import get_current_staff
 
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -25,6 +25,8 @@ class ContactOut(BaseModel):
     staff_id: int
     full_name: str
     role: str
+    branch_id: Optional[int]
+    branch_name: Optional[str]
     unread: int
 
     class Config:
@@ -127,10 +129,17 @@ def get_contacts(
                 }
                 unread += sum(1 for m in unread_msgs if m.id not in read_ids)
 
+        branch_name = None
+        if c.branch_id:
+            br = db.query(Branch).filter(Branch.id == c.branch_id).first()
+            branch_name = br.name if br else None
+
         result.append(ContactOut(
             staff_id=c.id,
             full_name=c.full_name,
             role=c.role,
+            branch_id=c.branch_id,
+            branch_name=branch_name,
             unread=unread,
         ))
 
