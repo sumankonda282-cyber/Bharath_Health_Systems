@@ -1,5 +1,7 @@
 const DB_NAME = 'bh_lab_cache'
 const DB_VERSION = 1
+// Bump CACHE_VERSION when API response shapes change — old entries are never read
+const CACHE_VERSION = 1
 const STORE = 'cache'
 
 export const TTL = {
@@ -22,7 +24,7 @@ async function cacheGet(key, ttl) {
   try {
     const db = await openDB()
     return new Promise(resolve => {
-      const req = db.transaction(STORE, 'readonly').objectStore(STORE).get(key)
+      const req = db.transaction(STORE, 'readonly').objectStore(STORE).get(`v${CACHE_VERSION}:${key}`)
       req.onsuccess = () => {
         const row = req.result
         if (!row || Date.now() - row.ts > ttl) { resolve(null); return }
@@ -38,7 +40,7 @@ async function cacheSet(key, value) {
     const db = await openDB()
     return new Promise(resolve => {
       const tx = db.transaction(STORE, 'readwrite')
-      tx.objectStore(STORE).put({ key, value, ts: Date.now() })
+      tx.objectStore(STORE).put({ key: `v${CACHE_VERSION}:${key}`, value, ts: Date.now() })
       tx.oncomplete = resolve
       tx.onerror = resolve
     })
@@ -78,6 +80,6 @@ export async function cacheClear() {
 export async function cacheInvalidate(key) {
   try {
     const db = await openDB()
-    db.transaction(STORE, 'readwrite').objectStore(STORE).delete(key)
+    db.transaction(STORE, 'readwrite').objectStore(STORE).delete(\`v\${CACHE_VERSION}:\${key}\`)
   } catch {}
 }

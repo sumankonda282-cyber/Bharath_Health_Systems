@@ -25,6 +25,7 @@ export function AuthProvider({ children }) {
     const blocked = ['platform_admin']
     if (blocked.includes(r.role)) throw new Error('Access denied. This portal is for clinic staff only.')
     localStorage.setItem('staff_token', r.access_token)
+    if (r.refresh_token) localStorage.setItem('staff_refresh_token', r.refresh_token)
     if (r.clinic_id) localStorage.setItem('clinic_id', r.clinic_id)
     if (r.branch_id) localStorage.setItem('branch_id', r.branch_id)
     const me = await api.get('/auth/staff/me')
@@ -33,6 +34,7 @@ export function AuthProvider({ children }) {
 
   const logout = () => {
     localStorage.removeItem('staff_token')
+    localStorage.removeItem('staff_refresh_token')
     localStorage.removeItem('clinic_id')
     localStorage.removeItem('branch_id')
     cacheClear()

@@ -22,6 +22,7 @@ export function AuthProvider({ children }) {
     if (!['lab_tech', 'clinic_admin'].includes(r.role))
       throw new Error('Access denied. This portal is for lab staff only.')
     localStorage.setItem('staff_token', r.access_token)
+    if (r.refresh_token) localStorage.setItem('staff_refresh_token', r.refresh_token)
     if (r.clinic_id) localStorage.setItem('clinic_id', String(r.clinic_id))
     if (r.branch_id) localStorage.setItem('branch_id', String(r.branch_id))
     const me = await api.get('/auth/staff/me')
@@ -30,6 +31,7 @@ export function AuthProvider({ children }) {
 
   const logout = () => {
     localStorage.removeItem('staff_token')
+    localStorage.removeItem('staff_refresh_token')
     localStorage.removeItem('clinic_id')
     localStorage.removeItem('branch_id')
     cacheClear()

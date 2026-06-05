@@ -14,25 +14,55 @@ api.interceptors.request.use((config) => {
   return config
 })
 
+let _refreshing = null  // shared promise so concurrent 401s all wait for the same refresh
+
 api.interceptors.response.use(
   (res) => res.data,
-  (err) => {
-    if (err.response?.status === 401) {
-      const url = err.config?.url || ''
-      // Don't auto-redirect for login calls or the startup /me check — let AuthContext handle it
-      const isExempt = url.includes('/login') || url.includes('/send-otp') || url.includes('/verify-otp') || url.includes('/me')
-      if (!isExempt) {
-        localStorage.clear()
-        window.location.href = '/login'
+  async (err) => {
+    const status = err.response?.status
+    const url = err.config?.url || ''
+    const isExempt = url.includes('/login') || url.includes('/send-otp') || url.includes('/verify-otp') || url.includes('/me') || url.includes('/refresh')
+
+    // Auto-refresh on 401 for non-exempt endpoints
+    if (status === 401 && !isExempt && !err.config._retried) {
+      const refreshToken = localStorage.getItem('refresh_token')
+      if (refreshToken) {
+        try {
+          if (!_refreshing) {
+            _refreshing = axios.post(`${API_BASE}/api/v1/auth/staff/refresh`, { refresh_token: refreshToken })
+              .finally(() => { _refreshing = null })
+          }
+          const { data } = await _refreshing
+          localStorage.setItem('access_token', data.access_token)
+          if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token)
+          err.config._retried = true
+          err.config.headers.Authorization = `Bearer ${data.access_token}`
+          return api.request(err.config)
+        } catch {
+          // Refresh failed — fall through to logout
+        }
       }
+      localStorage.removeItem('access_token')
+      localStorage.removeItem('refresh_token')
+      localStorage.removeItem('user_type')
+      window.location.href = '/login'
+      return Promise.reject(new Error('Session expired. Please log in again.'))
     }
+
+    // Retry once on network failure or 5xx (handles Render cold starts)
+    if (!err.response && !err.config._retried) {
+      err.config._retried = true
+      await new Promise(r => setTimeout(r, 1500))
+      return api.request(err.config)
+    }
+
     const message =
       err.response?.data?.detail ||
       err.response?.data?.message ||
       err.message ||
       'Something went wrong'
     const error = new Error(message)
-    error.status = err.response?.status
+    error.status = status
     return Promise.reject(error)
   }
 )

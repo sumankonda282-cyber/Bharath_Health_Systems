@@ -23,9 +23,10 @@ function openDB() {
 async function cacheGet(key, ttl = TTL.SHORT) {
   try {
     const db = await openDB()
+    const vKey = `v${CACHE_VERSION}:${key}`
     return new Promise((resolve) => {
       const tx = db.transaction(STORE, 'readonly')
-      const req = tx.objectStore(STORE).get(key)
+      const req = tx.objectStore(STORE).get(vKey)
       req.onsuccess = () => {
         const row = req.result
         if (!row || Date.now() - row.ts > ttl) { resolve(null); return }
@@ -39,9 +40,10 @@ async function cacheGet(key, ttl = TTL.SHORT) {
 async function cacheSet(key, value) {
   try {
     const db = await openDB()
+    const vKey = `v${CACHE_VERSION}:${key}`
     return new Promise((resolve) => {
       const tx = db.transaction(STORE, 'readwrite')
-      tx.objectStore(STORE).put({ key, value, ts: Date.now() })
+      tx.objectStore(STORE).put({ key: vKey, value, ts: Date.now() })
       tx.oncomplete = resolve
       tx.onerror = resolve
     })
@@ -83,6 +85,6 @@ export async function cacheInvalidate(key) {
   try {
     const db = await openDB()
     const tx = db.transaction(STORE, 'readwrite')
-    tx.objectStore(STORE).delete(key)
+    tx.objectStore(STORE).delete(`v${CACHE_VERSION}:${key}`)
   } catch {}
 }
