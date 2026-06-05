@@ -114,7 +114,11 @@ export default function SampleCollection() {
     }
   }, [])
 
-  useEffect(() => { fetchOrders() }, [fetchOrders])
+  useEffect(() => {
+    fetchOrders()
+    const interval = setInterval(fetchOrders, 30_000)
+    return () => clearInterval(interval)
+  }, [fetchOrders])
 
   const handleCollected = (id) => {
     setPendingOrders(prev => prev.filter(o => o.id !== id))

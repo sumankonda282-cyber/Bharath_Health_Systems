@@ -434,7 +434,11 @@ export default function Orders() {
     }
   }, [tab])
 
-  useEffect(() => { fetchOrders() }, [fetchOrders])
+  useEffect(() => {
+    fetchOrders()
+    const interval = setInterval(fetchOrders, 30_000)
+    return () => clearInterval(interval)
+  }, [fetchOrders])
 
   const printSheet = async (order) => {
     try {

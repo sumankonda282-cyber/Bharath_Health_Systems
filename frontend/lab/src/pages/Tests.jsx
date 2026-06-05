@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import api from '../api/client'
+import { cachedFetch, cacheInvalidate, TTL } from '../utils/cache'
 import { Loader2, AlertCircle, Plus, X, ClipboardList, CheckCircle } from 'lucide-react'
 
 const EMPTY_FORM = {
@@ -143,12 +144,18 @@ export default function Tests() {
   const [error, setError] = useState('')
   const [showModal, setShowModal] = useState(false)
 
-  const fetchTests = () => {
+  const fetchTests = (invalidate = false) => {
     setLoading(true); setError('')
-    api.get('/lab/tests')
-      .then(r => setTests(Array.isArray(r) ? r : []))
-      .catch(err => setError(err.message))
-      .finally(() => setLoading(false))
+    const run = async () => {
+      if (invalidate) await cacheInvalidate('lab_tests_catalog')
+      await cachedFetch(
+        'lab_tests_catalog',
+        () => api.get('/lab/tests'),
+        r => { setTests(Array.isArray(r) ? r : []); setLoading(false) },
+        TTL.MEDIUM
+      )
+    }
+    run().catch(err => { setError(err.message); setLoading(false) })
   }
 
   useEffect(() => { fetchTests() }, [])
@@ -225,7 +232,7 @@ export default function Tests() {
       {showModal && (
         <AddTestModal
           onClose={() => setShowModal(false)}
-          onSaved={fetchTests}
+          onSaved={() => fetchTests(true)}
         />
       )}
     </div>

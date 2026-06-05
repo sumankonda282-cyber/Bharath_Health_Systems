@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import api from '../api/client'
+import { cachedGet, TTL } from '../utils/cache'
 import { Search, Users, FlaskConical, ChevronDown, ChevronUp, AlertTriangle, Loader2 } from 'lucide-react'
 
 export default function PatientHistory() {
@@ -25,9 +26,12 @@ export default function PatientHistory() {
   const loadHistory = async (patient) => {
     setSelected(patient); setLoadingOrders(true)
     try {
-      const r = await api.get('/lab/orders', { params: { limit: 500 } })
-      const all = Array.isArray(r) ? r : []
-      setOrders(all.filter(o => o.patient_id === patient.id || o.patient?.id === patient.id))
+      const r = await cachedGet(
+        `lab_patient_history_${patient.id}`,
+        () => api.get('/lab/orders', { params: { patient_id: patient.id, limit: 500 } }),
+        TTL.SHORT
+      )
+      setOrders(Array.isArray(r) ? r : [])
     } catch {}
     finally { setLoadingOrders(false) }
   }
