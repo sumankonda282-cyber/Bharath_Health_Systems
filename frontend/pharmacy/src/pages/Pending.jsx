@@ -40,7 +40,11 @@ export default function Pending() {
         }).catch(() => {})
     }).finally(() => setLoading(false))
   }, [])
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    load()
+    const interval = setInterval(load, 30_000)
+    return () => clearInterval(interval)
+  }, [load])
   const dispense = async id => {
     setDispensing(id)
     try { await api.post(`/pharmacy/prescriptions/${id}/dispense`); load() }

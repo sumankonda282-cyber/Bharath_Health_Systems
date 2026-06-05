@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../api/client'
+import { cachedFetch, TTL } from '../utils/cache'
 import { Pill, Package, CheckCircle, Loader2, TrendingUp, IndianRupee, PackagePlus, BarChart2, AlertTriangle, AlertCircle } from 'lucide-react'
 
 function todayStr() {
@@ -15,18 +16,32 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    Promise.all([
-      api.get('/pharmacy/pending'),
-      api.get('/pharmacy/medicines', { params: { limit: 200 } }),
-      api.get('/pharmacy/all'),
-      api.get('/billing/invoices', { params: { limit: 200 } }),
-    ]).then(([p, m, all, inv]) => {
-      setPending(Array.isArray(p) ? p : [])
-      setMedicines(Array.isArray(m) ? m : [])
-      setAllRx(Array.isArray(all) ? all : [])
-      const invData = Array.isArray(inv) ? inv : (Array.isArray(inv?.invoices) ? inv.invoices : [])
-      setInvoices(invData)
-    }).finally(() => setLoading(false))
+    const fetchAll = () =>
+      Promise.all([
+        api.get('/pharmacy/pending'),
+        api.get('/pharmacy/medicines', { params: { limit: 200 } }),
+        api.get('/pharmacy/all'),
+        api.get('/billing/invoices', { params: { limit: 200 } }),
+      ]).then(([p, m, all, inv]) => {
+        setPending(Array.isArray(p) ? p : [])
+        setMedicines(Array.isArray(m) ? m : [])
+        setAllRx(Array.isArray(all) ? all : [])
+        setInvoices(Array.isArray(inv) ? inv : (Array.isArray(inv?.invoices) ? inv.invoices : []))
+      })
+
+    cachedFetch(
+      'pharmacy_dashboard',
+      () => fetchAll().then(() => ({ _loaded: true })),
+      () => {},
+      TTL.MEDIUM
+    ).catch(() => {})
+
+    // Always keep pending Rx live — poll every 30s
+    fetchAll().finally(() => setLoading(false))
+    const interval = setInterval(() => {
+      api.get('/pharmacy/pending').then(p => setPending(Array.isArray(p) ? p : [])).catch(() => {})
+    }, 30_000)
+    return () => clearInterval(interval)
   }, [])
 
   const today = todayStr()

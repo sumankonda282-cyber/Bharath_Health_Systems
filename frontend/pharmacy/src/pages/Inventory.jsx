@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import api from '../api/client'
+import { cachedFetch, cacheInvalidate, TTL } from '../utils/cache'
 import { Plus, Search, Package, Loader2, AlertTriangle, Pencil, X } from 'lucide-react'
 
 const SCHEDULE_OPTS = ['', 'OTC', 'H', 'H1', 'X']
@@ -34,12 +35,20 @@ export default function Inventory() {
 
   const load = useCallback(() => {
     setLoading(true)
-    const params = { limit: 200 }
-    if (branchId) params.branch_id = branchId
-    if (search) params.search = search
-    api.get('/pharmacy/medicines', { params })
-      .then(r => setMedicines(Array.isArray(r) ? r : []))
-      .finally(() => setLoading(false))
+    if (!search) {
+      const params = { limit: 200, ...(branchId ? { branch_id: branchId } : {}) }
+      cachedFetch(
+        'pharmacy_inventory',
+        () => api.get('/pharmacy/medicines', { params }),
+        r => { setMedicines(Array.isArray(r) ? r : []); setLoading(false) },
+        TTL.MEDIUM
+      ).catch(() => setLoading(false))
+    } else {
+      const params = { limit: 200, search, ...(branchId ? { branch_id: branchId } : {}) }
+      api.get('/pharmacy/medicines', { params })
+        .then(r => setMedicines(Array.isArray(r) ? r : []))
+        .finally(() => setLoading(false))
+    }
   }, [search, branchId])
 
   useEffect(() => { const t = setTimeout(load, 300); return () => clearTimeout(t) }, [load])
@@ -92,6 +101,7 @@ export default function Inventory() {
       } else {
         await api.post('/pharmacy/medicines', payload, { params: { branch_id: branchId || 1 } })
       }
+      await cacheInvalidate('pharmacy_inventory')
       setShowAdd(false)
       load()
     } catch (ex) {

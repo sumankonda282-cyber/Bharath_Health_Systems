@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import api from '../api/client'
+import { cachedFetch, cacheInvalidate, TTL } from '../utils/cache'
 import { PackagePlus, Loader2, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react'
 
 const TYPES = [
@@ -44,19 +45,32 @@ export default function StockIn() {
   const [transactions, setTransactions] = useState([])
   const [loadingTxns, setLoadingTxns] = useState(true)
 
-  const loadMedicines = useCallback(() => {
+  const loadMedicines = useCallback((invalidate = false) => {
     setLoadingMeds(true)
-    api.get('/pharmacy/medicines', { params: { limit: 500 } })
-      .then(r => setMedicines(Array.isArray(r) ? r : []))
-      .finally(() => setLoadingMeds(false))
+    const run = async () => {
+      if (invalidate) await cacheInvalidate('pharmacy_inventory')
+      await cachedFetch(
+        'pharmacy_inventory',
+        () => api.get('/pharmacy/medicines', { params: { limit: 500 } }),
+        r => { setMedicines(Array.isArray(r) ? r : []); setLoadingMeds(false) },
+        TTL.MEDIUM
+      )
+    }
+    run().catch(() => setLoadingMeds(false))
   }, [])
 
-  const loadTransactions = useCallback(() => {
+  const loadTransactions = useCallback((invalidate = false) => {
     setLoadingTxns(true)
-    api.get('/pharmacy/stock-transactions', { params: { limit: 50 } })
-      .then(r => setTransactions(Array.isArray(r) ? r : []))
-      .catch(() => setTransactions([]))
-      .finally(() => setLoadingTxns(false))
+    const run = async () => {
+      if (invalidate) await cacheInvalidate('pharmacy_stock_txns')
+      await cachedFetch(
+        'pharmacy_stock_txns',
+        () => api.get('/pharmacy/stock-transactions', { params: { limit: 50 } }),
+        r => { setTransactions(Array.isArray(r) ? r : []); setLoadingTxns(false) },
+        TTL.SHORT
+      )
+    }
+    run().catch(() => { setTransactions([]); setLoadingTxns(false) })
   }, [])
 
   useEffect(() => { loadMedicines(); loadTransactions() }, [loadMedicines, loadTransactions])
@@ -87,8 +101,8 @@ export default function StockIn() {
       const result = await api.put(`/pharmacy/medicines/${form.medicine_id}/stock`, payload)
       setSuccess(`Stock updated. ${selectedMed?.name} now has ${result.quantity_after} units.`)
       setForm(EMPTY_FORM)
-      loadMedicines()
-      loadTransactions()
+      loadMedicines(true)
+      loadTransactions(true)
     } catch (ex) {
       setError(ex.message || 'Failed to update stock')
     } finally {

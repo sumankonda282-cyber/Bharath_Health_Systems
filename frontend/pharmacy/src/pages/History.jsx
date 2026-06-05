@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import api from '../api/client'
+import { cachedFetch, TTL } from '../utils/cache'
 import { History as HistoryIcon, Search, ChevronDown, ChevronUp, Loader2, FileText } from 'lucide-react'
 
 const TABS = ['All', 'Dispensed', 'Pending', 'Cancelled']
@@ -20,12 +21,13 @@ export default function History() {
   const [expanded, setExpanded] = useState(null)
 
   useEffect(() => {
-    setLoading(true)
-    setError('')
-    api.get('/pharmacy/all')
-      .then(r => setPrescriptions(Array.isArray(r) ? r : []))
-      .catch(ex => setError(ex.message || 'Failed to load history'))
-      .finally(() => setLoading(false))
+    setLoading(true); setError('')
+    cachedFetch(
+      'pharmacy_rx_history',
+      () => api.get('/pharmacy/all'),
+      r => { setPrescriptions(Array.isArray(r) ? r : []); setLoading(false) },
+      TTL.MEDIUM
+    ).catch(ex => { setError(ex.message || 'Failed to load history'); setLoading(false) })
   }, [])
 
   useEffect(() => {

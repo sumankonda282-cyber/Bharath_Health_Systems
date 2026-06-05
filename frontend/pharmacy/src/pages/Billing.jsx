@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import api from '../api/client'
+import { cachedGet, cachedFetch, cacheInvalidate, TTL } from '../utils/cache'
 import { CreditCard, Loader2, X, IndianRupee, Plus, Trash2, Search, Eye, Printer } from 'lucide-react'
 
 const MAIN_TABS = ['Billing Counter', 'Invoice History']
@@ -139,8 +140,11 @@ function BillingCounter({ onBillCreated }) {
     clearTimeout(searchDebounce.current)
     searchDebounce.current = setTimeout(() => {
       setSearching(true)
-      api.get('/pharmacy/medicines/search', { params: { q: medSearch } })
-        .then(r => setMedResults(Array.isArray(r) ? r : []))
+      cachedGet(
+        `med_search_${medSearch.trim().toLowerCase()}`,
+        () => api.get('/pharmacy/medicines/search', { params: { q: medSearch } }),
+        TTL.LONG
+      ).then(r => setMedResults(Array.isArray(r) ? r : []))
         .finally(() => setSearching(false))
     }, 300)
   }, [medSearch])
@@ -445,13 +449,18 @@ function InvoiceHistory() {
   const [viewInvoice, setViewInvoice] = useState(null)
   const [loadingDetail, setLoadingDetail] = useState(false)
 
-  const load = useCallback(() => {
-    setLoading(true)
-    setError('')
-    api.get('/billing/invoices', { params: { limit: 200 } })
-      .then(r => setInvoices(Array.isArray(r) ? r : []))
-      .catch(ex => setError(ex.message || 'Failed to load invoices'))
-      .finally(() => setLoading(false))
+  const load = useCallback((invalidate = false) => {
+    setLoading(true); setError('')
+    const run = async () => {
+      if (invalidate) await cacheInvalidate('pharmacy_invoices')
+      await cachedFetch(
+        'pharmacy_invoices',
+        () => api.get('/billing/invoices', { params: { limit: 200 } }),
+        r => { setInvoices(Array.isArray(r) ? r : []); setLoading(false) },
+        TTL.MEDIUM
+      )
+    }
+    run().catch(ex => { setError(ex.message || 'Failed to load invoices'); setLoading(false) })
   }, [])
 
   useEffect(() => { load() }, [load])
@@ -479,7 +488,7 @@ function InvoiceHistory() {
     try {
       await api.post(`/billing/invoices/${payModal.id}/pay`, { payment_method: payMethod })
       setPayModal(null)
-      load()
+      load(true)
     } catch (ex) {
       setPayError(ex.message || 'Payment failed')
     } finally {
