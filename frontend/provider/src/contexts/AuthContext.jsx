@@ -18,7 +18,9 @@ export function AuthProvider({ children }) {
         : await authApi.me()
       setUser(res)
     } catch (err) {
-      if (err?.response?.status === 401 || err?.status === 401) localStorage.clear()
+      const status = err?.status || err?.response?.status
+      if (status === 401 || status === 403) localStorage.clear()
+      // Non-401 errors (503 cold start, network) — keep token, show login, user can retry
     } finally {
       setLoading(false)
     }

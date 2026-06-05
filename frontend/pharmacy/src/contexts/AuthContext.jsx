@@ -13,7 +13,7 @@ export function AuthProvider({ children }) {
     if (token) {
       api.get('/auth/staff/me')
         .then(u => setUser(u))
-        .catch(err => { if (err?.response?.status === 401 || err?.status === 401) localStorage.removeItem('staff_token') })
+        .catch(err => { const s = err?.status || err?.response?.status; if (s === 401 || s === 403) localStorage.removeItem('staff_token') })
         .finally(() => setLoading(false))
     } else {
       setLoading(false)
@@ -27,8 +27,7 @@ export function AuthProvider({ children }) {
     if (r.refresh_token) localStorage.setItem('staff_refresh_token', r.refresh_token)
     if (r.clinic_id) localStorage.setItem('clinic_id', r.clinic_id)
     if (r.branch_id) localStorage.setItem('branch_id', r.branch_id)
-    const me = await api.get('/auth/staff/me')
-    setUser(me)
+    setUser(r)
   }
 
   const logout = () => {
