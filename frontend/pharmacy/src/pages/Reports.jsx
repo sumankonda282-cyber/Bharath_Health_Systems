@@ -316,7 +316,7 @@ function StockExpiry() {
   function doPrint() {
     const rows = withExpiry.map(m => {
       const daysLeft = Math.floor((new Date(m.expiry_date) - new Date()) / 86400000)
-      return `<tr><td>${m.name}</td><td>${m.stock_quantity ?? '—'}</td><td>${m.form || '—'}</td><td>${new Date(m.expiry_date).toLocaleDateString('en-IN')}</td><td>${daysLeft < 0 ? 'Expired' : daysLeft <= 30 ? `Expires in ${daysLeft}d` : 'OK'}</td></tr>`
+      return `<tr><td>${m.name}</td><td>${m.stock_quantity ?? '—'}</td><td>${m.form || '—'}</td><td>${new Date(m.expiry_date).toLocaleDateString('en-IN')}</td><td>${daysLeft < 0 ? 'Expired' : daysLeft <= 30 ? `⚠ ${daysLeft}d left` : daysLeft <= 60 ? `${daysLeft}d left` : 'OK'}</td></tr>`
     }).join('')
     printTable('Stock Expiry Report', `<table><thead><tr><th>Medicine</th><th>Stock</th><th>Unit</th><th>Expiry Date</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`)
   }
@@ -351,18 +351,17 @@ function StockExpiry() {
               const expDate = new Date(m.expiry_date)
               const now = new Date()
               const daysLeft = Math.floor((expDate - now) / 86400000)
-              const isExpired = daysLeft < 0
-              const isSoon = daysLeft >= 0 && daysLeft <= 30
+              const rowBg = daysLeft < 0 ? '#fee2e2' : daysLeft <= 30 ? '#fff3e0' : daysLeft <= 60 ? '#fefce8' : ''
+              const badgeClass = daysLeft < 0 ? 'badge-red' : daysLeft <= 30 ? 'bg-orange-100 text-orange-700' : daysLeft <= 60 ? 'badge-yellow' : 'badge-green'
+              const badgeText = daysLeft < 0 ? 'Expired' : daysLeft <= 30 ? `⚠ ${daysLeft}d left` : daysLeft <= 60 ? `${daysLeft}d left` : 'OK'
               return (
-                <tr key={m.id} className="tr-hover" style={isExpired ? { background: '#fee2e2' } : isSoon ? { background: '#fff7ed' } : {}}>
+                <tr key={m.id} className="tr-hover" style={rowBg ? { background: rowBg } : {}}>
                   <td className="td font-medium">{m.name}</td>
                   <td className="td">{m.stock_quantity ?? '—'}</td>
                   <td className="td capitalize text-gray-500">{m.form || '—'}</td>
                   <td className="td text-gray-600">{new Date(m.expiry_date).toLocaleDateString('en-IN')}</td>
                   <td className="td">
-                    <span className={`badge ${isExpired ? 'badge-red' : isSoon ? 'badge-yellow' : 'badge-green'}`}>
-                      {isExpired ? 'Expired' : isSoon ? `Expires in ${daysLeft}d` : 'OK'}
-                    </span>
+                    <span className={`badge ${badgeClass}`}>{badgeText}</span>
                   </td>
                 </tr>
               )

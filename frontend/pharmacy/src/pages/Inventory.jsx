@@ -15,20 +15,27 @@ function BatchPanel({ med, onClose }) {
       .finally(() => setLoading(false))
   }, [med.id])
 
+  function expiryDays(expiry) {
+    if (!expiry) return null
+    return Math.floor((new Date(expiry) - new Date()) / 86400000)
+  }
+
   function batchColor(expiry) {
-    if (!expiry) return ''
-    const days = Math.floor((new Date(expiry) - new Date()) / 86400000)
-    if (days < 0) return 'bg-red-50 border-red-200'
-    if (days <= 30) return 'bg-amber-50 border-amber-200'
+    const days = expiryDays(expiry)
+    if (days === null) return ''
+    if (days < 0)   return 'bg-red-50 border-red-300'
+    if (days <= 30) return 'bg-orange-50 border-orange-300'
+    if (days <= 60) return 'bg-yellow-50 border-yellow-300'
     return 'bg-green-50 border-green-200'
   }
 
   function batchBadge(expiry) {
-    if (!expiry) return null
-    const days = Math.floor((new Date(expiry) - new Date()) / 86400000)
-    if (days < 0) return <span className="badge badge-red text-xs">Expired</span>
-    if (days <= 30) return <span className="badge badge-yellow text-xs">Exp. in {days}d</span>
-    return <span className="badge badge-green text-xs">OK</span>
+    const days = expiryDays(expiry)
+    if (days === null) return null
+    if (days < 0)   return <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700">Expired</span>
+    if (days <= 30) return <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">⚠ {days}d left</span>
+    if (days <= 60) return <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700">{days}d left</span>
+    return <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700">OK</span>
   }
 
   return (
