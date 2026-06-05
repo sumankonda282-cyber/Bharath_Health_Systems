@@ -18,6 +18,7 @@ from app.models.models import (
     Department, Ward, Bed, Admission, AdmissionTransfer,
     StaffDepartment, AppointmentTokenSequence, InpatientReferral,
     PatientUser, BHProfile,
+    VitalSign, NursingNote, MedicationAdministration, WardRound,
 )
 
 router = APIRouter(prefix="/inpatient", tags=["inpatient"])
@@ -796,3 +797,389 @@ def bhid_assign(
     db.commit()
 
     return {"detail": "BHProfile assigned", "bh_id": profile.bh_id, "patient_id": patient_id}
+
+
+# ── Phase 2: Vital Signs ───────────────────────────────────────────────────────
+
+@router.post("/admissions/{admission_id}/vitals")
+def record_vitals(
+    admission_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    adm = db.query(Admission).filter(
+        Admission.id == admission_id,
+        Admission.clinic_id == current.clinic_id,
+    ).first()
+    if not adm:
+        raise HTTPException(status_code=404, detail="Admission not found")
+
+    v = VitalSign(
+        admission_id=admission_id,
+        clinic_id=current.clinic_id,
+        recorded_by=current.id,
+        temperature=body.get("temperature"),
+        pulse=body.get("pulse"),
+        respiration_rate=body.get("respiration_rate"),
+        bp_systolic=body.get("bp_systolic"),
+        bp_diastolic=body.get("bp_diastolic"),
+        spo2=body.get("spo2"),
+        weight=body.get("weight"),
+        height=body.get("height"),
+        pain_score=body.get("pain_score"),
+        notes=body.get("notes"),
+    )
+    db.add(v)
+    db.commit()
+    db.refresh(v)
+    return _vital_dict(v)
+
+
+@router.get("/admissions/{admission_id}/vitals")
+def list_vitals(
+    admission_id: int,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    adm = db.query(Admission).filter(
+        Admission.id == admission_id,
+        Admission.clinic_id == current.clinic_id,
+    ).first()
+    if not adm:
+        raise HTTPException(status_code=404, detail="Admission not found")
+
+    vitals = db.query(VitalSign).filter(
+        VitalSign.admission_id == admission_id,
+        VitalSign.clinic_id == current.clinic_id,
+    ).order_by(VitalSign.recorded_at.desc()).limit(50).all()
+    return [_vital_dict(v) for v in vitals]
+
+
+def _vital_dict(v: VitalSign) -> dict:
+    return {
+        "id": v.id,
+        "admission_id": v.admission_id,
+        "recorded_by": v.recorded_by,
+        "recorded_at": v.recorded_at,
+        "temperature": float(v.temperature) if v.temperature is not None else None,
+        "pulse": v.pulse,
+        "respiration_rate": v.respiration_rate,
+        "bp_systolic": v.bp_systolic,
+        "bp_diastolic": v.bp_diastolic,
+        "spo2": float(v.spo2) if v.spo2 is not None else None,
+        "weight": float(v.weight) if v.weight is not None else None,
+        "height": float(v.height) if v.height is not None else None,
+        "pain_score": v.pain_score,
+        "notes": v.notes,
+        "created_at": v.created_at,
+    }
+
+
+# ── Phase 2: Nursing Notes ─────────────────────────────────────────────────────
+
+@router.post("/admissions/{admission_id}/notes")
+def create_nursing_note(
+    admission_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    adm = db.query(Admission).filter(
+        Admission.id == admission_id,
+        Admission.clinic_id == current.clinic_id,
+    ).first()
+    if not adm:
+        raise HTTPException(status_code=404, detail="Admission not found")
+    if not body.get("note_text"):
+        raise HTTPException(status_code=400, detail="note_text required")
+
+    note = NursingNote(
+        admission_id=admission_id,
+        clinic_id=current.clinic_id,
+        note_text=body["note_text"],
+        note_type=body.get("note_type", "general"),
+        shift=body.get("shift"),
+        is_handoff=body.get("is_handoff", False),
+        written_by=current.id,
+    )
+    db.add(note)
+    db.commit()
+    db.refresh(note)
+    return _note_dict(note, db)
+
+
+@router.get("/admissions/{admission_id}/notes")
+def list_nursing_notes(
+    admission_id: int,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    adm = db.query(Admission).filter(
+        Admission.id == admission_id,
+        Admission.clinic_id == current.clinic_id,
+    ).first()
+    if not adm:
+        raise HTTPException(status_code=404, detail="Admission not found")
+
+    notes = db.query(NursingNote).filter(
+        NursingNote.admission_id == admission_id,
+        NursingNote.clinic_id == current.clinic_id,
+    ).order_by(NursingNote.written_at.desc()).limit(100).all()
+    return [_note_dict(n, db) for n in notes]
+
+
+def _note_dict(n: NursingNote, db: Session) -> dict:
+    staff = db.query(Staff).filter(Staff.id == n.written_by).first()
+    name = staff.full_name if staff else "Unknown"
+    return {
+        "id": n.id,
+        "admission_id": n.admission_id,
+        "note_type": n.note_type,
+        "note_text": n.note_text,
+        "written_by": n.written_by,
+        "written_by_name": name,
+        "written_at": n.written_at,
+        "shift": n.shift,
+        "is_handoff": n.is_handoff,
+        "created_at": n.created_at,
+    }
+
+
+# ── Phase 2: Medication Administration Record (MAR) ───────────────────────────
+
+@router.get("/admissions/{admission_id}/mar")
+def list_mar(
+    admission_id: int,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    adm = db.query(Admission).filter(
+        Admission.id == admission_id,
+        Admission.clinic_id == current.clinic_id,
+    ).first()
+    if not adm:
+        raise HTTPException(status_code=404, detail="Admission not found")
+
+    entries = db.query(MedicationAdministration).filter(
+        MedicationAdministration.admission_id == admission_id,
+        MedicationAdministration.clinic_id == current.clinic_id,
+    ).order_by(MedicationAdministration.scheduled_time).all()
+    return [_mar_dict(e) for e in entries]
+
+
+@router.post("/admissions/{admission_id}/mar")
+def create_mar(
+    admission_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    adm = db.query(Admission).filter(
+        Admission.id == admission_id,
+        Admission.clinic_id == current.clinic_id,
+    ).first()
+    if not adm:
+        raise HTTPException(status_code=404, detail="Admission not found")
+    if not body.get("medicine_name"):
+        raise HTTPException(status_code=400, detail="medicine_name required")
+
+    entry = MedicationAdministration(
+        admission_id=admission_id,
+        clinic_id=current.clinic_id,
+        medicine_name=body["medicine_name"],
+        dose=body.get("dose"),
+        route=body.get("route"),
+        scheduled_time=body.get("scheduled_time"),
+        status=body.get("status", "scheduled"),
+    )
+    db.add(entry)
+    db.commit()
+    db.refresh(entry)
+    return _mar_dict(entry)
+
+
+@router.patch("/mar/{mar_id}")
+def update_mar(
+    mar_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    entry = db.query(MedicationAdministration).filter(
+        MedicationAdministration.id == mar_id,
+        MedicationAdministration.clinic_id == current.clinic_id,
+    ).first()
+    if not entry:
+        raise HTTPException(status_code=404, detail="MAR entry not found")
+
+    if "administered_at" in body:
+        entry.administered_at = body["administered_at"]
+    if "status" in body:
+        entry.status = body["status"]
+    if "reason_held" in body:
+        entry.reason_held = body["reason_held"]
+    if "notes" in body:
+        entry.notes = body["notes"]
+    if body.get("status") in ("given",) and entry.administered_by is None:
+        entry.administered_by = current.id
+
+    db.commit()
+    db.refresh(entry)
+    return _mar_dict(entry)
+
+
+def _mar_dict(e: MedicationAdministration) -> dict:
+    return {
+        "id": e.id,
+        "admission_id": e.admission_id,
+        "medicine_name": e.medicine_name,
+        "dose": e.dose,
+        "route": e.route,
+        "scheduled_time": e.scheduled_time,
+        "administered_at": e.administered_at,
+        "administered_by": e.administered_by,
+        "status": e.status,
+        "reason_held": e.reason_held,
+        "notes": e.notes,
+        "created_at": e.created_at,
+    }
+
+
+# ── Phase 2: Ward Rounds ───────────────────────────────────────────────────────
+
+@router.post("/admissions/{admission_id}/rounds")
+def create_ward_round(
+    admission_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    adm = db.query(Admission).filter(
+        Admission.id == admission_id,
+        Admission.clinic_id == current.clinic_id,
+    ).first()
+    if not adm:
+        raise HTTPException(status_code=404, detail="Admission not found")
+    if not body.get("round_date"):
+        raise HTTPException(status_code=400, detail="round_date required")
+
+    rnd = WardRound(
+        admission_id=admission_id,
+        clinic_id=current.clinic_id,
+        doctor_id=body.get("doctor_id") or current.id,
+        round_date=body["round_date"],
+        subjective=body.get("subjective"),
+        objective=body.get("objective"),
+        assessment=body.get("assessment"),
+        plan=body.get("plan"),
+    )
+    db.add(rnd)
+    db.commit()
+    db.refresh(rnd)
+    return _round_dict(rnd, db)
+
+
+@router.get("/admissions/{admission_id}/rounds")
+def list_ward_rounds(
+    admission_id: int,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    adm = db.query(Admission).filter(
+        Admission.id == admission_id,
+        Admission.clinic_id == current.clinic_id,
+    ).first()
+    if not adm:
+        raise HTTPException(status_code=404, detail="Admission not found")
+
+    rounds = db.query(WardRound).filter(
+        WardRound.admission_id == admission_id,
+        WardRound.clinic_id == current.clinic_id,
+    ).order_by(WardRound.round_date.desc()).all()
+    return [_round_dict(r, db) for r in rounds]
+
+
+def _round_dict(r: WardRound, db: Session) -> dict:
+    doctor = db.query(Staff).filter(Staff.id == r.doctor_id).first()
+    doctor_name = doctor.full_name if doctor else "Unknown"
+    return {
+        "id": r.id,
+        "admission_id": r.admission_id,
+        "doctor_id": r.doctor_id,
+        "doctor_name": doctor_name,
+        "round_date": r.round_date,
+        "subjective": r.subjective,
+        "objective": r.objective,
+        "assessment": r.assessment,
+        "plan": r.plan,
+        "created_at": r.created_at,
+    }
+
+
+# ── Phase 2: Shift Handoff Summary ────────────────────────────────────────────
+
+@router.get("/wards/{ward_id}/handoff")
+def shift_handoff(
+    ward_id: int,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Shift handoff briefing: active admissions in ward with latest vitals,
+    latest nursing note, and today's MAR summary."""
+    ward = db.query(Ward).filter(
+        Ward.id == ward_id,
+        Ward.clinic_id == current.clinic_id,
+    ).first()
+    if not ward:
+        raise HTTPException(status_code=404, detail="Ward not found")
+
+    admissions = db.query(Admission).filter(
+        Admission.ward_id == ward_id,
+        Admission.clinic_id == current.clinic_id,
+        Admission.status == "active",
+    ).all()
+
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+
+    result = []
+    for adm in admissions:
+        patient = db.query(Patient).filter(Patient.id == adm.patient_id).first()
+
+        # Latest vitals
+        latest_vital = db.query(VitalSign).filter(
+            VitalSign.admission_id == adm.id,
+        ).order_by(VitalSign.recorded_at.desc()).first()
+
+        # Latest nursing note
+        latest_note = db.query(NursingNote).filter(
+            NursingNote.admission_id == adm.id,
+        ).order_by(NursingNote.written_at.desc()).first()
+
+        # Today's MAR summary
+        today_mar = db.query(MedicationAdministration).filter(
+            MedicationAdministration.admission_id == adm.id,
+            MedicationAdministration.scheduled_time >= today_start,
+        ).all()
+        mar_given = sum(1 for m in today_mar if m.status == "given")
+        mar_missed = sum(1 for m in today_mar if m.status == "missed")
+        mar_scheduled = sum(1 for m in today_mar if m.status == "scheduled")
+
+        result.append({
+            "admission_id": adm.id,
+            "admission_number": adm.admission_number,
+            "patient_id": adm.patient_id,
+            "patient_name": patient.full_name if patient else "Unknown",
+            "bed_id": adm.bed_id,
+            "primary_diagnosis": adm.primary_diagnosis,
+            "admitted_at": adm.admitted_at,
+            "latest_vitals": _vital_dict(latest_vital) if latest_vital else None,
+            "latest_note": _note_dict(latest_note, db) if latest_note else None,
+            "mar_today": {
+                "given": mar_given,
+                "missed": mar_missed,
+                "scheduled": mar_scheduled,
+                "total": len(today_mar),
+            },
+        })
+    return result

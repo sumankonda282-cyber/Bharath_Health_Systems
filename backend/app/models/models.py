@@ -1133,3 +1133,72 @@ class InpatientReferral(Base):
     patient          = relationship("Patient", foreign_keys=[patient_id])
     referring_doctor = relationship("Staff", foreign_keys=[referring_doctor_id])
     source_appt      = relationship("Appointment", foreign_keys=[source_appointment_id])
+
+
+# ── Phase 2: Nursing / Ward Models ────────────────────────────────────────────
+
+from datetime import datetime as _datetime
+
+class VitalSign(Base):
+    __tablename__ = "vital_signs"
+    id             = Column(Integer, primary_key=True)
+    admission_id   = Column(Integer, ForeignKey("admissions.id"), nullable=False)
+    clinic_id      = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    recorded_by    = Column(Integer, ForeignKey("staff.id"), nullable=False)
+    recorded_at    = Column(DateTime, default=_datetime.utcnow)
+    temperature    = Column(Numeric(4, 1))        # Celsius
+    pulse          = Column(Integer)              # bpm
+    respiration_rate = Column(Integer)            # breaths/min
+    bp_systolic    = Column(Integer)              # mmHg
+    bp_diastolic   = Column(Integer)              # mmHg
+    spo2           = Column(Numeric(5, 2))        # %
+    weight         = Column(Numeric(5, 2))        # kg
+    height         = Column(Numeric(5, 2))        # cm
+    pain_score     = Column(Integer)              # 0-10
+    notes          = Column(Text)
+    created_at     = Column(DateTime, default=_datetime.utcnow)
+
+
+class NursingNote(Base):
+    __tablename__ = "nursing_notes"
+    id           = Column(Integer, primary_key=True)
+    admission_id = Column(Integer, ForeignKey("admissions.id"), nullable=False)
+    clinic_id    = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    note_type    = Column(String(30), default="general")  # general/shift_handoff/incident/procedure
+    note_text    = Column(Text, nullable=False)
+    written_by   = Column(Integer, ForeignKey("staff.id"), nullable=False)
+    written_at   = Column(DateTime, default=_datetime.utcnow)
+    shift        = Column(String(10))              # morning/afternoon/night
+    is_handoff   = Column(Boolean, default=False)
+    created_at   = Column(DateTime, default=_datetime.utcnow)
+
+
+class MedicationAdministration(Base):
+    __tablename__ = "medication_administrations"
+    id              = Column(Integer, primary_key=True)
+    admission_id    = Column(Integer, ForeignKey("admissions.id"), nullable=False)
+    clinic_id       = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    medicine_name   = Column(String(200), nullable=False)
+    dose            = Column(String(100))
+    route           = Column(String(50))           # oral/iv/im/sc/topical
+    scheduled_time  = Column(DateTime)
+    administered_at = Column(DateTime)
+    administered_by = Column(Integer, ForeignKey("staff.id"))
+    status          = Column(String(20), default="scheduled")  # scheduled/given/missed/held/refused
+    reason_held     = Column(String(200))
+    notes           = Column(Text)
+    created_at      = Column(DateTime, default=_datetime.utcnow)
+
+
+class WardRound(Base):
+    __tablename__ = "ward_rounds"
+    id           = Column(Integer, primary_key=True)
+    admission_id = Column(Integer, ForeignKey("admissions.id"), nullable=False)
+    clinic_id    = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    doctor_id    = Column(Integer, ForeignKey("staff.id"), nullable=False)
+    round_date   = Column(Date, nullable=False)
+    subjective   = Column(Text)
+    objective    = Column(Text)
+    assessment   = Column(Text)
+    plan         = Column(Text)
+    created_at   = Column(DateTime, default=_datetime.utcnow)
