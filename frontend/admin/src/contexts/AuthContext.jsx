@@ -13,7 +13,7 @@ export function AuthProvider({ children }) {
     if (!token) { setLoading(false); return }
     authApi.me()
       .then(u => setUser(u))
-      .catch(() => sessionStorage.removeItem('admin_token'))
+      .catch(err => { if (err?.response?.status === 401 || err?.status === 401) sessionStorage.removeItem('admin_token') })
       .finally(() => setLoading(false))
   }, [])
 
