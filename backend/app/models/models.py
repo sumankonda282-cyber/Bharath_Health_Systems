@@ -1202,3 +1202,52 @@ class WardRound(Base):
     assessment   = Column(Text)
     plan         = Column(Text)
     created_at   = Column(DateTime, default=_datetime.utcnow)
+
+
+# ── Phase 3: Clinical Endpoints ───────────────────────────────────────────────
+
+from datetime import datetime
+
+class DischargeSummary(Base):
+    __tablename__ = "discharge_summaries"
+    id = Column(Integer, primary_key=True)
+    admission_id = Column(Integer, ForeignKey("admissions.id"), unique=True, nullable=False)
+    clinic_id = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    written_by = Column(Integer, ForeignKey("staff.id"), nullable=False)
+    # Clinical content
+    admission_diagnosis = Column(Text)
+    final_diagnosis = Column(Text)
+    procedures_done = Column(Text)
+    hospital_course = Column(Text)       # summary of stay
+    condition_at_discharge = Column(String(50))  # stable/improved/deteriorated/deceased
+    discharge_instructions = Column(Text)
+    follow_up_date = Column(Date)
+    follow_up_with = Column(String(200))
+    diet_advice = Column(Text)
+    activity_restrictions = Column(Text)
+    # Medications on discharge
+    discharge_medications = Column(Text)  # JSON string: [{name, dose, route, frequency, duration}]
+    # Status
+    status = Column(String(20), default="draft")  # draft / finalized
+    finalized_at = Column(DateTime)
+    finalized_by = Column(Integer, ForeignKey("staff.id"))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class ProgressNote(Base):
+    __tablename__ = "progress_notes"
+    id = Column(Integer, primary_key=True)
+    admission_id = Column(Integer, ForeignKey("admissions.id"), nullable=False)
+    clinic_id = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    written_by = Column(Integer, ForeignKey("staff.id"), nullable=False)
+    note_date = Column(Date, nullable=False)
+    note_time = Column(DateTime, default=datetime.utcnow)
+    # SOAP
+    subjective = Column(Text)
+    objective = Column(Text)
+    assessment = Column(Text)
+    plan = Column(Text)
+    # Extras
+    note_type = Column(String(30), default="progress")  # progress/consult/procedure/event
+    is_significant = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)

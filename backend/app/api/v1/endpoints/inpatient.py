@@ -19,6 +19,7 @@ from app.models.models import (
     StaffDepartment, AppointmentTokenSequence, InpatientReferral,
     PatientUser, BHProfile,
     VitalSign, NursingNote, MedicationAdministration, WardRound,
+    DischargeSummary, ProgressNote,
 )
 
 router = APIRouter(prefix="/inpatient", tags=["inpatient"])
@@ -1183,3 +1184,304 @@ def shift_handoff(
             },
         })
     return result
+
+
+# ── Phase 3: Discharge Summary ─────────────────────────────────────────────────
+
+def _summary_dict(s: DischargeSummary, db: Session) -> dict:
+    writer = db.query(Staff).filter(Staff.id == s.written_by).first()
+    writer_name = writer.full_name if writer else "Unknown"
+    return {
+        "id": s.id,
+        "admission_id": s.admission_id,
+        "status": s.status,
+        "admission_diagnosis": s.admission_diagnosis,
+        "final_diagnosis": s.final_diagnosis,
+        "procedures_done": s.procedures_done,
+        "hospital_course": s.hospital_course,
+        "condition_at_discharge": s.condition_at_discharge,
+        "discharge_instructions": s.discharge_instructions,
+        "follow_up_date": str(s.follow_up_date) if s.follow_up_date else None,
+        "follow_up_with": s.follow_up_with,
+        "diet_advice": s.diet_advice,
+        "activity_restrictions": s.activity_restrictions,
+        "discharge_medications": s.discharge_medications,
+        "finalized_at": s.finalized_at.isoformat() if s.finalized_at else None,
+        "written_by_name": writer_name,
+        "created_at": s.created_at.isoformat(),
+        "updated_at": s.updated_at.isoformat() if s.updated_at else None,
+    }
+
+
+@router.get("/admissions/{admission_id}/discharge-summary")
+def get_discharge_summary(
+    admission_id: int,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    adm = db.query(Admission).filter(
+        Admission.id == admission_id,
+        Admission.clinic_id == current.clinic_id,
+    ).first()
+    if not adm:
+        raise HTTPException(status_code=404, detail="Admission not found")
+
+    s = db.query(DischargeSummary).filter(DischargeSummary.admission_id == admission_id).first()
+    if not s:
+        raise HTTPException(status_code=404, detail="Discharge summary not found")
+    return _summary_dict(s, db)
+
+
+@router.post("/admissions/{admission_id}/discharge-summary")
+def create_discharge_summary(
+    admission_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    adm = db.query(Admission).filter(
+        Admission.id == admission_id,
+        Admission.clinic_id == current.clinic_id,
+    ).first()
+    if not adm:
+        raise HTTPException(status_code=404, detail="Admission not found")
+
+    existing = db.query(DischargeSummary).filter(DischargeSummary.admission_id == admission_id).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Discharge summary already exists, use PATCH to update")
+
+    s = DischargeSummary(
+        admission_id=admission_id,
+        clinic_id=current.clinic_id,
+        written_by=current.id,
+        status="draft",
+        admission_diagnosis=body.get("admission_diagnosis"),
+        final_diagnosis=body.get("final_diagnosis"),
+        procedures_done=body.get("procedures_done"),
+        hospital_course=body.get("hospital_course"),
+        condition_at_discharge=body.get("condition_at_discharge"),
+        discharge_instructions=body.get("discharge_instructions"),
+        follow_up_date=body.get("follow_up_date"),
+        follow_up_with=body.get("follow_up_with"),
+        diet_advice=body.get("diet_advice"),
+        activity_restrictions=body.get("activity_restrictions"),
+        discharge_medications=body.get("discharge_medications"),
+    )
+    db.add(s)
+    db.commit()
+    db.refresh(s)
+    return _summary_dict(s, db)
+
+
+@router.patch("/admissions/{admission_id}/discharge-summary")
+def update_discharge_summary(
+    admission_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    adm = db.query(Admission).filter(
+        Admission.id == admission_id,
+        Admission.clinic_id == current.clinic_id,
+    ).first()
+    if not adm:
+        raise HTTPException(status_code=404, detail="Admission not found")
+
+    s = db.query(DischargeSummary).filter(DischargeSummary.admission_id == admission_id).first()
+    if not s:
+        raise HTTPException(status_code=404, detail="Discharge summary not found")
+
+    for field in (
+        "admission_diagnosis", "final_diagnosis", "procedures_done", "hospital_course",
+        "condition_at_discharge", "discharge_instructions", "follow_up_date", "follow_up_with",
+        "diet_advice", "activity_restrictions", "discharge_medications",
+    ):
+        if field in body:
+            setattr(s, field, body[field])
+    s.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(s)
+    return _summary_dict(s, db)
+
+
+@router.post("/admissions/{admission_id}/discharge-summary/finalize")
+def finalize_discharge_summary(
+    admission_id: int,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    adm = db.query(Admission).filter(
+        Admission.id == admission_id,
+        Admission.clinic_id == current.clinic_id,
+    ).first()
+    if not adm:
+        raise HTTPException(status_code=404, detail="Admission not found")
+
+    s = db.query(DischargeSummary).filter(DischargeSummary.admission_id == admission_id).first()
+    if not s:
+        raise HTTPException(status_code=404, detail="Discharge summary not found")
+
+    s.status = "finalized"
+    s.finalized_at = datetime.utcnow()
+    s.finalized_by = current.id
+    s.updated_at = datetime.utcnow()
+
+    if adm.status == "active":
+        adm.status = "discharge_pending"
+
+    db.commit()
+    db.refresh(s)
+    return _summary_dict(s, db)
+
+
+# ── Phase 3: Progress Notes ────────────────────────────────────────────────────
+
+def _progress_note_dict(n: ProgressNote, db: Session) -> dict:
+    staff = db.query(Staff).filter(Staff.id == n.written_by).first()
+    name = staff.full_name if staff else "Unknown"
+    return {
+        "id": n.id,
+        "note_date": str(n.note_date),
+        "note_time": n.note_time.isoformat(),
+        "note_type": n.note_type,
+        "is_significant": n.is_significant,
+        "subjective": n.subjective,
+        "objective": n.objective,
+        "assessment": n.assessment,
+        "plan": n.plan,
+        "written_by_name": name,
+        "created_at": n.created_at.isoformat(),
+    }
+
+
+@router.get("/admissions/{admission_id}/progress-notes")
+def list_progress_notes(
+    admission_id: int,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    adm = db.query(Admission).filter(
+        Admission.id == admission_id,
+        Admission.clinic_id == current.clinic_id,
+    ).first()
+    if not adm:
+        raise HTTPException(status_code=404, detail="Admission not found")
+
+    notes = db.query(ProgressNote).filter(
+        ProgressNote.admission_id == admission_id,
+        ProgressNote.clinic_id == current.clinic_id,
+    ).order_by(ProgressNote.note_date.desc(), ProgressNote.note_time.desc()).all()
+    return [_progress_note_dict(n, db) for n in notes]
+
+
+@router.post("/admissions/{admission_id}/progress-notes")
+def create_progress_note(
+    admission_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    adm = db.query(Admission).filter(
+        Admission.id == admission_id,
+        Admission.clinic_id == current.clinic_id,
+    ).first()
+    if not adm:
+        raise HTTPException(status_code=404, detail="Admission not found")
+
+    note_date = body.get("note_date") or dt.today().isoformat()
+
+    n = ProgressNote(
+        admission_id=admission_id,
+        clinic_id=current.clinic_id,
+        written_by=current.id,
+        note_date=note_date,
+        subjective=body.get("subjective"),
+        objective=body.get("objective"),
+        assessment=body.get("assessment"),
+        plan=body.get("plan"),
+        note_type=body.get("note_type", "progress"),
+        is_significant=body.get("is_significant", False),
+    )
+    db.add(n)
+    db.commit()
+    db.refresh(n)
+    return _progress_note_dict(n, db)
+
+
+# ── Phase 3: Patient Inpatient Timeline ───────────────────────────────────────
+
+@router.get("/admissions/{admission_id}/timeline")
+def admission_timeline(
+    admission_id: int,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Merged chronological feed of all clinical events for an admission."""
+    adm = db.query(Admission).filter(
+        Admission.id == admission_id,
+        Admission.clinic_id == current.clinic_id,
+    ).first()
+    if not adm:
+        raise HTTPException(status_code=404, detail="Admission not found")
+
+    events = []
+
+    # Vitals
+    vitals = db.query(VitalSign).filter(VitalSign.admission_id == admission_id).all()
+    for v in vitals:
+        recorder = db.query(Staff).filter(Staff.id == v.recorded_by).first()
+        events.append({
+            "type": "vitals",
+            "timestamp": v.recorded_at,
+            "summary": f"Vitals recorded — BP {v.bp_systolic}/{v.bp_diastolic}, Temp {v.temperature}, SpO2 {v.spo2}",
+            "written_by_name": recorder.full_name if recorder else "Unknown",
+        })
+
+    # Nursing notes
+    nursing_notes = db.query(NursingNote).filter(NursingNote.admission_id == admission_id).all()
+    for n in nursing_notes:
+        writer = db.query(Staff).filter(Staff.id == n.written_by).first()
+        events.append({
+            "type": "nursing_note",
+            "timestamp": n.written_at,
+            "summary": n.note_text[:200] if n.note_text else "",
+            "written_by_name": writer.full_name if writer else "Unknown",
+        })
+
+    # Progress notes
+    progress_notes = db.query(ProgressNote).filter(ProgressNote.admission_id == admission_id).all()
+    for n in progress_notes:
+        writer = db.query(Staff).filter(Staff.id == n.written_by).first()
+        summary = " | ".join(filter(None, [n.assessment, n.plan]))[:200]
+        events.append({
+            "type": "progress_note",
+            "timestamp": n.note_time,
+            "summary": summary or f"{n.note_type} note",
+            "written_by_name": writer.full_name if writer else "Unknown",
+        })
+
+    # Ward rounds
+    rounds = db.query(WardRound).filter(WardRound.admission_id == admission_id).all()
+    for r in rounds:
+        doctor = db.query(Staff).filter(Staff.id == r.doctor_id).first()
+        summary = " | ".join(filter(None, [r.assessment, r.plan]))[:200]
+        events.append({
+            "type": "ward_round",
+            "timestamp": r.created_at,
+            "summary": summary or "Ward round",
+            "written_by_name": doctor.full_name if doctor else "Unknown",
+        })
+
+    # Transfers
+    transfers = db.query(AdmissionTransfer).filter(AdmissionTransfer.admission_id == admission_id).all()
+    for t in transfers:
+        mover = db.query(Staff).filter(Staff.id == t.transferred_by).first()
+        events.append({
+            "type": "transfer",
+            "timestamp": t.transferred_at,
+            "summary": t.reason or "Patient transferred",
+            "written_by_name": mover.full_name if mover else "Unknown",
+        })
+
+    events.sort(key=lambda e: e["timestamp"] or datetime.min, reverse=True)
+    return events[:100]
