@@ -80,6 +80,6 @@ export async function cacheClear() {
 export async function cacheInvalidate(key) {
   try {
     const db = await openDB()
-    db.transaction(STORE, 'readwrite').objectStore(STORE).delete(\`v\${CACHE_VERSION}:\${key}\`)
+    db.transaction(STORE, 'readwrite').objectStore(STORE).delete(`v${CACHE_VERSION}:${key}`)
   } catch {}
 }
