@@ -1072,6 +1072,451 @@ def get_imaging_order(
 
 
 # ══════════════════════════════════════════════════════════════
+# Imaging Phase 1 — Report Templates
+# ══════════════════════════════════════════════════════════════
+
+@imaging_router.get("/templates")
+def list_imaging_templates(
+    modality: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    from app.models.models import ImagingReportTemplate
+    q = db.query(ImagingReportTemplate).filter(
+        ImagingReportTemplate.clinic_id == current.clinic_id,
+        ImagingReportTemplate.is_active == True,
+    )
+    if modality:
+        q = q.filter(ImagingReportTemplate.modality == modality)
+    templates = q.order_by(ImagingReportTemplate.modality, ImagingReportTemplate.name).all()
+    return [
+        {
+            "id":                  t.id,
+            "modality":            t.modality,
+            "name":                t.name,
+            "findings_template":   t.findings_template,
+            "impression_template": t.impression_template,
+            "body_part":           t.body_part,
+            "is_active":           t.is_active,
+            "created_at":          str(t.created_at),
+        }
+        for t in templates
+    ]
+
+
+@imaging_router.post("/templates")
+def create_imaging_template(
+    body: dict,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    from app.models.models import ImagingReportTemplate
+    allowed = ['clinic_admin', 'radiologist', 'imaging_technician']
+    if current.role not in allowed:
+        raise HTTPException(403, "Access denied")
+    t = ImagingReportTemplate(
+        clinic_id           = current.clinic_id,
+        modality            = body.get("modality", "OT"),
+        name                = body.get("name", "Unnamed Template"),
+        findings_template   = body.get("findings_template"),
+        impression_template = body.get("impression_template"),
+        body_part           = body.get("body_part"),
+    )
+    db.add(t)
+    db.commit()
+    db.refresh(t)
+    return {"id": t.id, "message": "Template created"}
+
+
+@imaging_router.put("/templates/{template_id}")
+def update_imaging_template(
+    template_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    from app.models.models import ImagingReportTemplate
+    allowed = ['clinic_admin', 'radiologist', 'imaging_technician']
+    if current.role not in allowed:
+        raise HTTPException(403, "Access denied")
+    t = db.query(ImagingReportTemplate).filter(
+        ImagingReportTemplate.id == template_id,
+        ImagingReportTemplate.clinic_id == current.clinic_id,
+    ).first()
+    if not t:
+        raise HTTPException(404, "Template not found")
+    for field in ["modality", "name", "findings_template", "impression_template", "body_part", "is_active"]:
+        if field in body:
+            setattr(t, field, body[field])
+    db.commit()
+    return {"message": "Updated"}
+
+
+@imaging_router.delete("/templates/{template_id}")
+def delete_imaging_template(
+    template_id: int,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    from app.models.models import ImagingReportTemplate
+    allowed = ['clinic_admin', 'radiologist']
+    if current.role not in allowed:
+        raise HTTPException(403, "Access denied")
+    t = db.query(ImagingReportTemplate).filter(
+        ImagingReportTemplate.id == template_id,
+        ImagingReportTemplate.clinic_id == current.clinic_id,
+    ).first()
+    if not t:
+        raise HTTPException(404, "Template not found")
+    t.is_active = False
+    db.commit()
+    return {"message": "Deleted"}
+
+
+# ══════════════════════════════════════════════════════════════
+# Imaging Phase 1 — Acquire (Technician workflow)
+# ══════════════════════════════════════════════════════════════
+
+@imaging_router.post("/orders/{order_id}/acquire")
+def acquire_imaging_order(
+    order_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    from app.models.models import ImagingOrder
+    allowed = ['clinic_admin', 'imaging_technician']
+    if current.role not in allowed:
+        raise HTTPException(403, "Only imaging technicians or admins can acquire studies")
+    order = db.query(ImagingOrder).filter(
+        ImagingOrder.id == order_id,
+        ImagingOrder.clinic_id == current.clinic_id,
+    ).first()
+    if not order:
+        raise HTTPException(404, "Order not found")
+    if order.status not in ('pending', 'scheduled'):
+        raise HTTPException(400, f"Cannot acquire order in status '{order.status}'")
+    order.status              = 'acquired'
+    order.acquired_by         = current.id
+    order.acquired_at         = datetime.utcnow()
+    order.technician_notes    = body.get("technician_notes")
+    order.contrast_used       = bool(body.get("contrast_used", False))
+    order.contrast_agent      = body.get("contrast_agent")
+    order.contrast_volume_ml  = body.get("contrast_volume_ml")
+    order.radiation_dose_mgy  = body.get("radiation_dose_mgy")
+    order.film_count          = body.get("film_count", 0)
+    db.commit()
+    return {"message": "Study marked as acquired", "status": "acquired"}
+
+
+# ══════════════════════════════════════════════════════════════
+# Imaging Phase 1 — Critical Alerts
+# ══════════════════════════════════════════════════════════════
+
+CRITICAL_ALERT_TYPES = ['mass_lesion', 'pneumothorax', 'hemorrhage', 'fracture', 'foreign_body', 'other']
+
+
+@imaging_router.post("/orders/{order_id}/critical-alert")
+def flag_critical_alert(
+    order_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    from app.models.models import ImagingOrder, ImagingCriticalAlert
+    order = db.query(ImagingOrder).filter(
+        ImagingOrder.id == order_id,
+        ImagingOrder.clinic_id == current.clinic_id,
+    ).first()
+    if not order:
+        raise HTTPException(404, "Order not found")
+    alert_type = body.get("alert_type", "other")
+    if alert_type not in CRITICAL_ALERT_TYPES:
+        raise HTTPException(400, f"Invalid alert_type. Valid: {CRITICAL_ALERT_TYPES}")
+    alert = ImagingCriticalAlert(
+        clinic_id   = current.clinic_id,
+        order_id    = order_id,
+        alert_type  = alert_type,
+        description = body.get("description"),
+        alerted_by  = current.id,
+    )
+    db.add(alert)
+    db.commit()
+    db.refresh(alert)
+    return {"id": alert.id, "message": "Critical alert created"}
+
+
+@imaging_router.get("/critical-alerts/count")
+def get_critical_alert_count(
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    from app.models.models import ImagingCriticalAlert
+    count = db.query(ImagingCriticalAlert).filter(
+        ImagingCriticalAlert.clinic_id == current.clinic_id,
+        ImagingCriticalAlert.acknowledged_at == None,
+    ).count()
+    return {"count": count}
+
+
+@imaging_router.get("/critical-alerts")
+def list_critical_alerts(
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    from app.models.models import ImagingCriticalAlert, ImagingOrder, Patient as Pt
+    alerts = db.query(ImagingCriticalAlert).filter(
+        ImagingCriticalAlert.clinic_id == current.clinic_id,
+        ImagingCriticalAlert.acknowledged_at == None,
+    ).order_by(ImagingCriticalAlert.alerted_at.desc()).all()
+    result = []
+    for a in alerts:
+        order = db.query(ImagingOrder).filter(ImagingOrder.id == a.order_id).first()
+        patient = db.query(Pt).filter(Pt.id == order.patient_id).first() if order else None
+        alerted_by_staff = db.query(Staff).filter(Staff.id == a.alerted_by).first()
+        result.append({
+            "id":              a.id,
+            "order_id":        a.order_id,
+            "order_ref":       order.order_id if order else None,
+            "patient_name":    patient.full_name if patient else "Unknown",
+            "modality":        order.modality if order else None,
+            "alert_type":      a.alert_type,
+            "description":     a.description,
+            "alerted_by_name": alerted_by_staff.full_name if alerted_by_staff else None,
+            "alerted_at":      str(a.alerted_at),
+        })
+    return result
+
+
+@imaging_router.post("/critical-alerts/{alert_id}/acknowledge")
+def acknowledge_critical_alert(
+    alert_id: int,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    from app.models.models import ImagingCriticalAlert
+    alert = db.query(ImagingCriticalAlert).filter(
+        ImagingCriticalAlert.id == alert_id,
+        ImagingCriticalAlert.clinic_id == current.clinic_id,
+    ).first()
+    if not alert:
+        raise HTTPException(404, "Alert not found")
+    alert.acknowledged_by  = current.id
+    alert.acknowledged_at  = datetime.utcnow()
+    db.commit()
+    return {"message": "Alert acknowledged"}
+
+
+# ══════════════════════════════════════════════════════════════
+# Imaging Phase 1 — Analytics Reports
+# ══════════════════════════════════════════════════════════════
+
+@imaging_router.get("/reports/modality-volume")
+def report_modality_volume(
+    from_date: str = Query(...),
+    to_date: str = Query(...),
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    from sqlalchemy import text
+    sql = text("""
+        SELECT
+            COALESCE(modality, 'Unknown') AS modality,
+            COUNT(*) AS total_orders,
+            COUNT(*) FILTER (WHERE status IN ('signed', 'pending_review', 'acquired')) AS completed_count
+        FROM imaging_orders
+        WHERE clinic_id = :clinic_id
+          AND DATE(created_at) BETWEEN :from_date AND :to_date
+        GROUP BY modality
+        ORDER BY total_orders DESC
+    """)
+    rows = db.execute(sql, {"clinic_id": current.clinic_id, "from_date": from_date, "to_date": to_date}).fetchall()
+    return [
+        {
+            "modality":         r.modality,
+            "total_orders":     int(r.total_orders),
+            "completed_count":  int(r.completed_count),
+            "completion_rate":  round(int(r.completed_count) / int(r.total_orders) * 100, 1) if int(r.total_orders) > 0 else 0,
+        }
+        for r in rows
+    ]
+
+
+@imaging_router.get("/reports/tat")
+def report_tat(
+    from_date: str = Query(...),
+    to_date: str = Query(...),
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    from sqlalchemy import text
+    sql = text("""
+        SELECT
+            COALESCE(modality, 'Unknown') AS modality,
+            COUNT(*) FILTER (WHERE status = 'acquired' AND acquired_at IS NOT NULL) AS acquired_count,
+            AVG(EXTRACT(EPOCH FROM (acquired_at - created_at))/3600)
+                FILTER (WHERE status = 'acquired' AND acquired_at IS NOT NULL) AS avg_acquire_tat_hrs,
+            COUNT(*) FILTER (WHERE status IN ('signed') AND ir.signed_at IS NOT NULL) AS signed_count,
+            AVG(EXTRACT(EPOCH FROM (ir.signed_at - io.created_at))/3600)
+                FILTER (WHERE io.status = 'signed' AND ir.signed_at IS NOT NULL) AS avg_sign_tat_hrs
+        FROM imaging_orders io
+        LEFT JOIN imaging_results ir ON ir.order_id = io.id
+        WHERE io.clinic_id = :clinic_id
+          AND DATE(io.created_at) BETWEEN :from_date AND :to_date
+        GROUP BY modality
+        ORDER BY modality
+    """)
+    rows = db.execute(sql, {"clinic_id": current.clinic_id, "from_date": from_date, "to_date": to_date}).fetchall()
+    return [
+        {
+            "modality":           r.modality,
+            "acquired_count":     int(r.acquired_count or 0),
+            "avg_acquire_tat_hrs": round(float(r.avg_acquire_tat_hrs or 0), 2),
+            "signed_count":       int(r.signed_count or 0),
+            "avg_sign_tat_hrs":   round(float(r.avg_sign_tat_hrs or 0), 2),
+        }
+        for r in rows
+    ]
+
+
+@imaging_router.get("/reports/technician-productivity")
+def report_technician_productivity(
+    from_date: str = Query(...),
+    to_date: str = Query(...),
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    from sqlalchemy import text
+    sql = text("""
+        SELECT
+            s.full_name AS technician_name,
+            COUNT(*) AS acquisitions,
+            COUNT(*) FILTER (WHERE io.contrast_used = TRUE) AS contrast_studies
+        FROM imaging_orders io
+        JOIN staff s ON s.id = io.acquired_by
+        WHERE io.clinic_id = :clinic_id
+          AND io.acquired_by IS NOT NULL
+          AND DATE(io.acquired_at) BETWEEN :from_date AND :to_date
+        GROUP BY s.full_name
+        ORDER BY acquisitions DESC
+    """)
+    rows = db.execute(sql, {"clinic_id": current.clinic_id, "from_date": from_date, "to_date": to_date}).fetchall()
+    return [
+        {
+            "technician_name":  r.technician_name,
+            "acquisitions":     int(r.acquisitions),
+            "contrast_studies": int(r.contrast_studies),
+        }
+        for r in rows
+    ]
+
+
+@imaging_router.get("/reports/contrast-usage")
+def report_contrast_usage(
+    from_date: str = Query(...),
+    to_date: str = Query(...),
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    from sqlalchemy import text
+    sql = text("""
+        SELECT
+            COUNT(*) FILTER (WHERE contrast_used = TRUE) AS total_contrast_studies,
+            COUNT(*) AS total_studies,
+            COALESCE(contrast_agent, 'Unspecified') AS agent,
+            COUNT(*) FILTER (WHERE contrast_used = TRUE) AS agent_count,
+            SUM(contrast_volume_ml) FILTER (WHERE contrast_used = TRUE) AS total_volume_ml
+        FROM imaging_orders
+        WHERE clinic_id = :clinic_id
+          AND DATE(created_at) BETWEEN :from_date AND :to_date
+        GROUP BY contrast_agent
+        ORDER BY agent_count DESC
+    """)
+    rows = db.execute(sql, {"clinic_id": current.clinic_id, "from_date": from_date, "to_date": to_date}).fetchall()
+    total_contrast = sum(int(r.total_contrast_studies or 0) for r in rows)
+    total_all      = sum(int(r.total_studies or 0) for r in rows)
+    agents = [
+        {
+            "agent":        r.agent,
+            "count":        int(r.agent_count or 0),
+            "total_volume_ml": float(r.total_volume_ml or 0),
+        }
+        for r in rows if int(r.agent_count or 0) > 0
+    ]
+    return {
+        "total_studies":         total_all,
+        "total_contrast_studies": total_contrast,
+        "contrast_rate_pct":     round(total_contrast / total_all * 100, 1) if total_all > 0 else 0,
+        "agents":                agents,
+    }
+
+
+@imaging_router.get("/reports/radiation-dose")
+def report_radiation_dose(
+    from_date: str = Query(...),
+    to_date: str = Query(...),
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    from sqlalchemy import text
+    sql = text("""
+        SELECT
+            COALESCE(modality, 'Unknown') AS modality,
+            COUNT(*) FILTER (WHERE radiation_dose_mgy IS NOT NULL) AS studies_with_dose,
+            AVG(radiation_dose_mgy) FILTER (WHERE radiation_dose_mgy IS NOT NULL) AS avg_dose_mgy,
+            MAX(radiation_dose_mgy) AS max_dose_mgy
+        FROM imaging_orders
+        WHERE clinic_id = :clinic_id
+          AND DATE(created_at) BETWEEN :from_date AND :to_date
+        GROUP BY modality
+        ORDER BY avg_dose_mgy DESC NULLS LAST
+    """)
+    rows = db.execute(sql, {"clinic_id": current.clinic_id, "from_date": from_date, "to_date": to_date}).fetchall()
+    return [
+        {
+            "modality":          r.modality,
+            "studies_with_dose": int(r.studies_with_dose or 0),
+            "avg_dose_mgy":      round(float(r.avg_dose_mgy or 0), 3),
+            "max_dose_mgy":      round(float(r.max_dose_mgy or 0), 3),
+        }
+        for r in rows
+    ]
+
+
+@imaging_router.get("/reports/referral-source")
+def report_referral_source(
+    from_date: str = Query(...),
+    to_date: str = Query(...),
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    from sqlalchemy import text
+    sql = text("""
+        SELECT
+            COALESCE(referring_doctor, 'Unknown') AS referring_doctor,
+            MAX(referring_doctor_reg) AS referring_doctor_reg,
+            COUNT(*) AS study_count,
+            MODE() WITHIN GROUP (ORDER BY modality) AS top_modality
+        FROM imaging_orders
+        WHERE clinic_id = :clinic_id
+          AND DATE(created_at) BETWEEN :from_date AND :to_date
+        GROUP BY referring_doctor
+        ORDER BY study_count DESC
+        LIMIT 50
+    """)
+    rows = db.execute(sql, {"clinic_id": current.clinic_id, "from_date": from_date, "to_date": to_date}).fetchall()
+    return [
+        {
+            "referring_doctor":     r.referring_doctor,
+            "referring_doctor_reg": r.referring_doctor_reg,
+            "study_count":          int(r.study_count),
+            "top_modality":         r.top_modality,
+        }
+        for r in rows
+    ]
+
+
+# ══════════════════════════════════════════════════════════════
 # Supplier Router
 # ══════════════════════════════════════════════════════════════
 
@@ -1849,3 +2294,155 @@ def hsn_gst_report(
         }
         for r in rows
     ]
+
+
+# ── Referring Doctors ─────────────────────────────────────────────────────────
+
+@imaging_router.get("/referring-doctors")
+def list_referring_doctors(
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    from app.models.models import ReferringDoctor, ImagingOrder
+    from sqlalchemy import func as sqlfunc
+    doctors = db.query(ReferringDoctor).filter(
+        ReferringDoctor.clinic_id == current.clinic_id,
+        ReferringDoctor.is_active == True,
+    ).order_by(ReferringDoctor.name).all()
+    result = []
+    for d in doctors:
+        count = db.query(sqlfunc.count(ImagingOrder.id)).filter(
+            ImagingOrder.clinic_id == current.clinic_id,
+            ImagingOrder.referring_doctor == d.name,
+        ).scalar() or 0
+        result.append({
+            "id": d.id, "name": d.name, "registration_number": d.registration_number,
+            "specialization": d.specialization, "hospital": d.hospital,
+            "mobile": d.mobile, "email": d.email, "address": d.address,
+            "notes": d.notes, "is_active": d.is_active, "referral_count": count,
+        })
+    return result
+
+
+@imaging_router.post("/referring-doctors")
+def create_referring_doctor(
+    body: dict,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    from app.models.models import ReferringDoctor
+    doc = ReferringDoctor(
+        clinic_id=current.clinic_id,
+        name=body.get("name","").strip(),
+        registration_number=body.get("registration_number"),
+        specialization=body.get("specialization"),
+        hospital=body.get("hospital"),
+        mobile=body.get("mobile"),
+        email=body.get("email"),
+        address=body.get("address"),
+        notes=body.get("notes"),
+    )
+    db.add(doc); db.commit(); db.refresh(doc)
+    return {"id": doc.id, "name": doc.name}
+
+
+@imaging_router.put("/referring-doctors/{doctor_id}")
+def update_referring_doctor(
+    doctor_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    from app.models.models import ReferringDoctor
+    doc = db.query(ReferringDoctor).filter(
+        ReferringDoctor.id == doctor_id,
+        ReferringDoctor.clinic_id == current.clinic_id,
+    ).first()
+    if not doc:
+        raise HTTPException(404, "Doctor not found")
+    for k in ("name","registration_number","specialization","hospital","mobile","email","address","notes","is_active"):
+        if k in body:
+            setattr(doc, k, body[k])
+    db.commit(); db.refresh(doc)
+    return {"id": doc.id, "name": doc.name}
+
+
+# ── Imaging Schedule ──────────────────────────────────────────────────────────
+
+@imaging_router.get("/schedule/slots")
+def list_imaging_slots(
+    date: str = Query(...),
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    from app.models.models import ImagingSlot, ImagingBooking
+    slots = db.query(ImagingSlot).filter(
+        ImagingSlot.clinic_id == current.clinic_id,
+        ImagingSlot.date == date,
+    ).order_by(ImagingSlot.time).all()
+    result = []
+    for s in slots:
+        bookings = db.query(ImagingBooking).filter(ImagingBooking.slot_id == s.id).all()
+        result.append({
+            "id": s.id, "date": str(s.date), "time": s.time,
+            "modality": s.modality, "capacity": s.capacity,
+            "bookings": [
+                {
+                    "patient_name": b.patient_name, "patient_mobile": b.patient_mobile,
+                    "referring_doctor": b.referring_doctor, "priority": b.priority,
+                    "study_description": b.study_description,
+                }
+                for b in bookings
+            ],
+        })
+    return result
+
+
+@imaging_router.post("/schedule/slots")
+def create_imaging_slot(
+    body: dict,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    from app.models.models import ImagingSlot
+    slot = ImagingSlot(
+        clinic_id=current.clinic_id,
+        date=body.get("date"),
+        time=body.get("time","09:00"),
+        modality=body.get("modality","CT"),
+        capacity=int(body.get("capacity",1)),
+    )
+    db.add(slot); db.commit(); db.refresh(slot)
+    return {"id": slot.id}
+
+
+@imaging_router.post("/schedule/book")
+def book_imaging_slot(
+    body: dict,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    from app.models.models import ImagingSlot, ImagingBooking
+    slot_id = body.get("slot_id")
+    slot = db.query(ImagingSlot).filter(
+        ImagingSlot.id == slot_id,
+        ImagingSlot.clinic_id == current.clinic_id,
+    ).first()
+    if not slot:
+        raise HTTPException(404, "Slot not found")
+    booked_count = db.query(ImagingBooking).filter(ImagingBooking.slot_id == slot_id).count()
+    if booked_count >= slot.capacity:
+        raise HTTPException(400, "Slot is fully booked")
+    booking = ImagingBooking(
+        slot_id=slot_id,
+        clinic_id=current.clinic_id,
+        patient_name=body.get("patient_name",""),
+        patient_mobile=body.get("patient_mobile"),
+        modality=slot.modality,
+        study_description=body.get("study_description"),
+        referring_doctor=body.get("referring_doctor"),
+        priority=body.get("priority","routine"),
+        notes=body.get("notes"),
+    )
+    db.add(booking); db.commit(); db.refresh(booking)
+    return {"id": booking.id}

@@ -1,22 +1,164 @@
 import ChatWidget from './ChatWidget'
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
-import { LayoutDashboard, ScanLine, LogOut, AlertCircle, FileEdit, CreditCard, BarChart2, Users, Menu, X } from 'lucide-react'
+import {
+  LayoutDashboard, ScanLine, LogOut, AlertCircle, FileEdit,
+  CreditCard, BarChart2, Users, Menu, X, Bell, FileText, CheckCircle,
+  Calendar, UserCheck,
+} from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+import api from '../api/client'
 
 const NAV = [
-  { to: '/',              icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/pending',       icon: AlertCircle,     label: 'Pending Reports' },
-  { to: '/report-writer', icon: FileEdit,        label: 'Write Report' },
-  { to: '/orders',        icon: ScanLine,        label: 'All Orders' },
-  { to: '/billing',       icon: CreditCard,      label: 'Billing' },
-  { to: '/reports',       icon: BarChart2,       label: 'Analytics' },
-  { to: '/patients',      icon: Users,           label: 'Patient History' },
+  { to: '/',                icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/pending',         icon: AlertCircle,     label: 'Pending Reports' },
+  { to: '/report-writer',   icon: FileEdit,        label: 'Write Report' },
+  { to: '/orders',          icon: ScanLine,        label: 'All Orders' },
+  { to: '/schedule',        icon: Calendar,        label: 'Schedule' },
+  { to: '/referring',       icon: UserCheck,       label: 'Referring Doctors' },
+  { to: '/billing',         icon: CreditCard,      label: 'Billing' },
+  { to: '/reports',         icon: BarChart2,       label: 'Analytics' },
+  { to: '/patients',        icon: Users,           label: 'Patient History' },
+  { to: '/templates',       icon: FileText,        label: 'Report Templates' },
 ]
 
 function getInitials(name) {
   if (!name) return '?'
   return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+}
+
+// ── Critical Alerts Bell ───────────────────────────────────────────────────────
+function CriticalAlertsBell() {
+  const [count, setCount]   = useState(0)
+  const [alerts, setAlerts] = useState([])
+  const [open, setOpen]     = useState(false)
+  const [acking, setAcking] = useState(null)
+  const dropRef             = useRef(null)
+
+  const fetchCount = () => {
+    api.get('/imaging/critical-alerts/count')
+      .then(r => {
+        const val = r?.count ?? r?.data?.count ?? 0
+        setCount(val)
+      })
+      .catch(() => {})
+  }
+
+  const fetchAlerts = () => {
+    api.get('/imaging/critical-alerts')
+      .then(r => setAlerts(Array.isArray(r) ? r : (Array.isArray(r?.data) ? r.data : [])))
+      .catch(() => {})
+  }
+
+  useEffect(() => {
+    fetchCount()
+    const id = setInterval(fetchCount, 60_000)
+    return () => clearInterval(id)
+  }, [])
+
+  useEffect(() => {
+    if (open) fetchAlerts()
+  }, [open])
+
+  useEffect(() => {
+    function handleClick(e) {
+      if (dropRef.current && !dropRef.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  const acknowledge = async (id) => {
+    setAcking(id)
+    try {
+      await api.post(`/imaging/critical-alerts/${id}/acknowledge`)
+      setAlerts(prev => prev.filter(a => a.id !== id))
+      setCount(c => Math.max(0, c - 1))
+    } catch {}
+    setAcking(null)
+  }
+
+  const ALERT_LABELS = {
+    mass_lesion: 'Mass Lesion', pneumothorax: 'Pneumothorax',
+    hemorrhage: 'Hemorrhage', fracture: 'Fracture',
+    foreign_body: 'Foreign Body', other: 'Other',
+  }
+
+  return (
+    <div className="relative" ref={dropRef}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="relative p-2 rounded-lg hover:bg-white/10 transition-colors"
+        title="Critical Alerts"
+      >
+        <Bell size={18} className="text-white" />
+        {count > 0 && (
+          <span
+            className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full text-white text-[10px] font-bold flex items-center justify-center"
+            style={{ background: '#CC1414' }}
+          >
+            {count > 9 ? '9+' : count}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-10 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
+          <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
+            <Bell size={15} style={{ color: '#CC1414' }} />
+            <span className="font-bold text-sm text-gray-800">Critical Alerts</span>
+            {count > 0 && (
+              <span className="ml-auto text-xs font-bold text-white px-1.5 py-0.5 rounded-full" style={{ background: '#CC1414' }}>
+                {count} unacknowledged
+              </span>
+            )}
+          </div>
+          <div className="max-h-72 overflow-y-auto divide-y divide-gray-50">
+            {alerts.length === 0 ? (
+              <div className="px-4 py-6 text-center text-gray-400 text-sm">
+                <CheckCircle size={24} className="mx-auto mb-2 text-green-400" />
+                No unacknowledged alerts
+              </div>
+            ) : (
+              alerts.map(a => (
+                <div key={a.id} className="px-4 py-3">
+                  <div className="flex items-start gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span
+                          className="text-xs font-bold px-1.5 py-0.5 rounded"
+                          style={{ background: '#fee2e2', color: '#CC1414' }}
+                        >
+                          {ALERT_LABELS[a.alert_type] || a.alert_type}
+                        </span>
+                        <span className="text-xs text-gray-400 font-mono">{a.order_ref}</span>
+                      </div>
+                      <div className="text-xs font-semibold text-gray-800">{a.patient_name}</div>
+                      {a.modality && <div className="text-xs text-gray-500">{a.modality}</div>}
+                      {a.description && (
+                        <div className="text-xs text-gray-600 mt-0.5 line-clamp-2">{a.description}</div>
+                      )}
+                      <div className="text-xs text-gray-400 mt-0.5">
+                        by {a.alerted_by_name} · {new Date(a.alerted_at).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => acknowledge(a.id)}
+                      disabled={acking === a.id}
+                      className="flex-shrink-0 px-2 py-1 rounded-lg text-xs font-semibold text-white disabled:opacity-50"
+                      style={{ background: '#16a34a' }}
+                    >
+                      {acking === a.id ? '…' : 'ACK'}
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function Layout() {
@@ -32,9 +174,12 @@ export default function Layout() {
             Imaging Portal
           </div>
         </div>
-        <button onClick={() => setOpen(false)} className="md:hidden text-white/60 hover:text-white">
-          <X size={20} />
-        </button>
+        <div className="flex items-center gap-1">
+          <CriticalAlertsBell />
+          <button onClick={() => setOpen(false)} className="md:hidden text-white/60 hover:text-white">
+            <X size={20} />
+          </button>
+        </div>
       </div>
       <nav className="flex-1 px-3 py-4 overflow-y-auto">
         {NAV.map(({ to, icon: Icon, label }) => (
@@ -55,7 +200,7 @@ export default function Layout() {
           </div>
           <div className="min-w-0">
             <div className="text-white text-xs font-semibold truncate">{user?.full_name || user?.email}</div>
-            <div className="text-blue-300 text-xs">Radiologist</div>
+            <div className="text-blue-300 text-xs capitalize">{user?.role?.replace(/_/g, ' ') || 'Staff'}</div>
           </div>
         </div>
         <button onClick={logout} className="sidebar-link w-full"><LogOut size={15} />Sign Out</button>

@@ -10,6 +10,9 @@ import ReportWriter from './pages/ReportWriter'
 import Billing from './pages/Billing'
 import Reports from './pages/Reports'
 import PatientHistory from './pages/PatientHistory'
+import Templates from './pages/Templates'
+import Schedule from './pages/Schedule'
+import ReferringDoctors from './pages/ReferringDoctors'
 import { Loader2 } from 'lucide-react'
 function Guard({ children }) {
   const { user, loading } = useAuth()
@@ -34,9 +37,12 @@ export default function App() {
             <Route path="pending"        element={<PendingReports/>}/>
             <Route path="report-writer"  element={<ReportWriter/>}/>
             <Route path="orders"         element={<Orders/>}/>
+            <Route path="schedule"       element={<Schedule/>}/>
+            <Route path="referring"      element={<ReferringDoctors/>}/>
             <Route path="billing"        element={<Billing/>}/>
             <Route path="reports"        element={<Reports/>}/>
             <Route path="patients"       element={<PatientHistory/>}/>
+            <Route path="templates"      element={<Templates/>}/>
           </Route>
           <Route path="*" element={<Navigate to="/" replace/>}/>
         </Routes>

@@ -2,14 +2,16 @@ import { useState, useEffect, useRef } from 'react'
 import api from '../api/client'
 import {
   ScanLine, Loader2, AlertCircle, X, ChevronDown, ChevronUp,
-  Printer, Upload, CheckCircle, AlertTriangle,
+  Printer, Upload, CheckCircle, AlertTriangle, Camera,
 } from 'lucide-react'
 
-const STATUS_TABS = ['all', 'pending', 'pending_review', 'signed']
+const STATUS_TABS = ['all', 'pending', 'scheduled', 'acquired', 'pending_review', 'signed']
 
 const STATUS_BADGE = {
   pending:        { bg: '#fef9c3', color: '#854d0e', label: 'Pending' },
-  pending_review: { bg: '#dbeafe', color: '#1e40af', label: 'Pending Review' },
+  scheduled:      { bg: '#ede9fe', color: '#6d28d9', label: 'Scheduled' },
+  acquired:       { bg: '#dbeafe', color: '#1e40af', label: 'Acquired' },
+  pending_review: { bg: '#fed7aa', color: '#9a3412', label: 'Pending Review' },
   signed:         { bg: '#dcfce7', color: '#166534', label: 'Signed' },
   cancelled:      { bg: '#fee2e2', color: '#991b1b', label: 'Cancelled' },
 }
@@ -249,6 +251,95 @@ function UploadModal({ order, onClose, onUploaded }) {
   )
 }
 
+// ── Acquire Modal (Technician) ────────────────────────────────────────────────
+
+function AcquireModal({ order, onClose, onAcquired }) {
+  const [form, setForm] = useState({
+    technician_notes: '',
+    contrast_used: false,
+    contrast_agent: '',
+    contrast_volume_ml: '',
+    radiation_dose_mgy: '',
+    film_count: '',
+  })
+  const [saving, setSaving] = useState(false)
+  const [error, setError]   = useState('')
+
+  const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }))
+
+  async function submit() {
+    setSaving(true); setError('')
+    try {
+      const payload = {
+        ...form,
+        contrast_volume_ml: form.contrast_volume_ml ? parseFloat(form.contrast_volume_ml) : null,
+        radiation_dose_mgy: form.radiation_dose_mgy ? parseFloat(form.radiation_dose_mgy) : null,
+        film_count: form.film_count ? parseInt(form.film_count) : 0,
+      }
+      await api.post(`/imaging/orders/${order.id}/acquire`, payload)
+      onAcquired()
+    } catch(e) {
+      setError(e.response?.data?.detail || e.message)
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="modal-backdrop">
+      <div className="modal-box max-w-lg w-full">
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">Mark as Acquired</h2>
+            <p className="text-xs text-gray-500 mt-0.5">Order {order.order_id} — {order.modality} {order.body_part || ''}</p>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100"><X size={18}/></button>
+        </div>
+        {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">{error}</div>}
+        <div className="space-y-4">
+          <div>
+            <label className="label">Technician Notes</label>
+            <textarea className="input resize-none h-20" value={form.technician_notes} onChange={set('technician_notes')} placeholder="Patient positioning, cooperation, image quality..."/>
+          </div>
+          <div className="flex items-center gap-3">
+            <input type="checkbox" id="contrast" checked={form.contrast_used}
+              onChange={e => setForm(f => ({ ...f, contrast_used: e.target.checked }))} className="w-4 h-4 accent-blue-700"/>
+            <label htmlFor="contrast" className="text-sm font-medium text-gray-700">Contrast Used</label>
+          </div>
+          {form.contrast_used && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="label">Contrast Agent</label>
+                <input className="input" value={form.contrast_agent} onChange={set('contrast_agent')} placeholder="e.g. Omnipaque 300"/>
+              </div>
+              <div>
+                <label className="label">Volume (ml)</label>
+                <input className="input" type="number" value={form.contrast_volume_ml} onChange={set('contrast_volume_ml')} placeholder="100"/>
+              </div>
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="label">Radiation Dose (mGy)</label>
+              <input className="input" type="number" step="0.001" value={form.radiation_dose_mgy} onChange={set('radiation_dose_mgy')} placeholder="CT only"/>
+            </div>
+            <div>
+              <label className="label">Film Count</label>
+              <input className="input" type="number" value={form.film_count} onChange={set('film_count')} placeholder="0"/>
+            </div>
+          </div>
+        </div>
+        <div className="flex justify-end gap-3 mt-6">
+          <button onClick={onClose} className="btn-secondary">Cancel</button>
+          <button onClick={submit} disabled={saving} className="btn-primary gap-2">
+            {saving ? <Loader2 size={15} className="animate-spin"/> : <Camera size={15}/>}
+            {saving ? 'Saving...' : 'Mark Acquired'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Unmatched Queue ───────────────────────────────────────────────────────────
 
 function UnmatchedQueue({ onResolved }) {
@@ -341,6 +432,7 @@ function OrderRow({ order, onAction }) {
     <>
       {modal === 'sign' && <SignModal order={order} onClose={() => setModal(null)} onSigned={() => { setModal(null); setDetail(null); onAction() }} />}
       {modal === 'upload' && <UploadModal order={order} onClose={() => setModal(null)} onUploaded={() => { setModal(null); setDetail(null); onAction() }} />}
+      {modal === 'acquire' && <AcquireModal order={order} onClose={() => setModal(null)} onAcquired={() => { setModal(null); setDetail(null); onAction() }} />}
 
       <tr className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
         <td className="px-4 py-3">
@@ -368,6 +460,11 @@ function OrderRow({ order, onAction }) {
             <button onClick={() => printCollectionSheet(order)} title="Print collection sheet" className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500">
               <Printer size={14} />
             </button>
+            {(order.status === 'pending' || order.status === 'scheduled') && (
+              <button onClick={() => setModal('acquire')} title="Mark acquired" className="p-1.5 rounded-lg hover:bg-purple-50 text-purple-600">
+                <Camera size={14} />
+              </button>
+            )}
             {order.status !== 'signed' && (
               <button onClick={() => setModal('upload')} title="Upload report" className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-600">
                 <Upload size={14} />

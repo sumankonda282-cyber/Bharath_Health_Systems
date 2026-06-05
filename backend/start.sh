@@ -65,6 +65,27 @@ safe_cols = [
     \"CREATE TABLE IF NOT EXISTS sales_return_items (id SERIAL PRIMARY KEY, return_id INTEGER REFERENCES sales_returns(id) NOT NULL, medicine_id INTEGER REFERENCES medicines(id), medicine_name VARCHAR(200), quantity INTEGER DEFAULT 0, unit_price NUMERIC(10,2), total NUMERIC(10,2))\",
     \"CREATE TABLE IF NOT EXISTS drug_register (id SERIAL PRIMARY KEY, clinic_id INTEGER REFERENCES clinics(id) NOT NULL, invoice_id INTEGER REFERENCES invoices(id), medicine_id INTEGER REFERENCES medicines(id), medicine_name VARCHAR(200), schedule VARCHAR(10), patient_name VARCHAR(200), patient_age INTEGER, patient_address TEXT, doctor_name VARCHAR(200), doctor_reg_number VARCHAR(100), quantity INTEGER DEFAULT 0, batch_number VARCHAR(50), sold_at TIMESTAMP DEFAULT NOW())\",
     \"CREATE TABLE IF NOT EXISTS medicine_batches (id SERIAL PRIMARY KEY, medicine_id INTEGER REFERENCES medicines(id) NOT NULL, clinic_id INTEGER REFERENCES clinics(id) NOT NULL, branch_id INTEGER REFERENCES branches(id), batch_number VARCHAR(50), expiry_date DATE, quantity INTEGER DEFAULT 0, unit_cost NUMERIC(10,2), supplier_id INTEGER REFERENCES suppliers(id), received_at TIMESTAMP DEFAULT NOW())\",
+    # ── Imaging Phase 1: new columns on imaging_orders ──────────────────────────
+    \"ALTER TABLE imaging_orders ADD COLUMN IF NOT EXISTS acquired_by INTEGER REFERENCES staff(id)\",
+    \"ALTER TABLE imaging_orders ADD COLUMN IF NOT EXISTS acquired_at TIMESTAMP\",
+    \"ALTER TABLE imaging_orders ADD COLUMN IF NOT EXISTS technician_notes TEXT\",
+    \"ALTER TABLE imaging_orders ADD COLUMN IF NOT EXISTS contrast_used BOOLEAN DEFAULT FALSE\",
+    \"ALTER TABLE imaging_orders ADD COLUMN IF NOT EXISTS contrast_agent VARCHAR(100)\",
+    \"ALTER TABLE imaging_orders ADD COLUMN IF NOT EXISTS contrast_volume_ml NUMERIC(6,2)\",
+    \"ALTER TABLE imaging_orders ADD COLUMN IF NOT EXISTS radiation_dose_mgy NUMERIC(8,3)\",
+    \"ALTER TABLE imaging_orders ADD COLUMN IF NOT EXISTS film_count INTEGER DEFAULT 0\",
+    \"ALTER TABLE imaging_orders ADD COLUMN IF NOT EXISTS referring_doctor VARCHAR(200)\",
+    \"ALTER TABLE imaging_orders ADD COLUMN IF NOT EXISTS referring_doctor_reg VARCHAR(100)\",
+    \"ALTER TABLE imaging_orders ADD COLUMN IF NOT EXISTS order_id VARCHAR(20)\",
+    \"ALTER TABLE imaging_orders ADD COLUMN IF NOT EXISTS study_description TEXT\",
+    \"ALTER TABLE imaging_orders ADD COLUMN IF NOT EXISTS priority VARCHAR(20) DEFAULT 'routine'\",
+    # ── Imaging Phase 1: new tables ──────────────────────────────────────────────
+    \"CREATE TABLE IF NOT EXISTS imaging_report_templates (id SERIAL PRIMARY KEY, clinic_id INTEGER REFERENCES clinics(id), modality VARCHAR(10) NOT NULL, name VARCHAR(200) NOT NULL, findings_template TEXT, impression_template TEXT, body_part VARCHAR(100), is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE TABLE IF NOT EXISTS imaging_critical_alerts (id SERIAL PRIMARY KEY, clinic_id INTEGER REFERENCES clinics(id), order_id INTEGER REFERENCES imaging_orders(id), alert_type VARCHAR(50), description TEXT, alerted_by INTEGER REFERENCES staff(id), alerted_at TIMESTAMP DEFAULT NOW(), acknowledged_by INTEGER REFERENCES staff(id), acknowledged_at TIMESTAMP)\",
+    # ── Imaging Phase 2: Referring Doctors & Schedule ─────────────────────────
+    \"CREATE TABLE IF NOT EXISTS referring_doctors (id SERIAL PRIMARY KEY, clinic_id INTEGER REFERENCES clinics(id) NOT NULL, name VARCHAR(200) NOT NULL, registration_number VARCHAR(100), specialization VARCHAR(200), hospital VARCHAR(200), mobile VARCHAR(20), email VARCHAR(150), address TEXT, notes TEXT, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE TABLE IF NOT EXISTS imaging_slots (id SERIAL PRIMARY KEY, clinic_id INTEGER REFERENCES clinics(id) NOT NULL, date DATE NOT NULL, time VARCHAR(5) NOT NULL, modality VARCHAR(10) NOT NULL, capacity INTEGER DEFAULT 1, created_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE TABLE IF NOT EXISTS imaging_bookings (id SERIAL PRIMARY KEY, slot_id INTEGER REFERENCES imaging_slots(id) NOT NULL, clinic_id INTEGER REFERENCES clinics(id) NOT NULL, patient_name VARCHAR(200) NOT NULL, patient_mobile VARCHAR(20), modality VARCHAR(10), study_description TEXT, referring_doctor VARCHAR(200), priority VARCHAR(20) DEFAULT 'routine', notes TEXT, order_id INTEGER REFERENCES imaging_orders(id), created_at TIMESTAMP DEFAULT NOW())\",
 ]
 try:
     with engine.begin() as conn:

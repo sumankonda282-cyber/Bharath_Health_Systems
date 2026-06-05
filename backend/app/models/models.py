@@ -892,3 +892,84 @@ class MessageRead(Base):
     __table_args__ = (UniqueConstraint("message_id", "staff_id"),)
 
     message = relationship("InternalMessage", back_populates="reads")
+
+
+# ── Imaging Phase 1 Extensions ────────────────────────────────────────────────
+
+class ImagingReportTemplate(Base):
+    __tablename__ = "imaging_report_templates"
+    id                   = Column(Integer, primary_key=True, index=True)
+    clinic_id            = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    modality             = Column(String(10), nullable=False)
+    name                 = Column(String(200), nullable=False)
+    findings_template    = Column(Text, nullable=True)
+    impression_template  = Column(Text, nullable=True)
+    body_part            = Column(String(100), nullable=True)
+    is_active            = Column(Boolean, default=True)
+    created_at           = Column(DateTime, server_default=func.now())
+
+
+class ImagingCriticalAlert(Base):
+    __tablename__ = "imaging_critical_alerts"
+    id               = Column(Integer, primary_key=True, index=True)
+    clinic_id        = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    order_id         = Column(Integer, ForeignKey("imaging_orders.id"), nullable=False)
+    alert_type       = Column(String(50), nullable=False)
+    description      = Column(Text, nullable=True)
+    alerted_by       = Column(Integer, ForeignKey("staff.id"), nullable=False)
+    alerted_at       = Column(DateTime, server_default=func.now())
+    acknowledged_by  = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    acknowledged_at  = Column(DateTime, nullable=True)
+
+    order            = relationship("ImagingOrder", foreign_keys=[order_id])
+    alerted_by_staff = relationship("Staff", foreign_keys=[alerted_by])
+    ack_by_staff     = relationship("Staff", foreign_keys=[acknowledged_by])
+
+
+# ── Imaging Phase 2: Referring Doctors & Schedule ─────────────────────────────
+
+class ReferringDoctor(Base):
+    __tablename__ = "referring_doctors"
+    id                  = Column(Integer, primary_key=True, index=True)
+    clinic_id           = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    name                = Column(String(200), nullable=False)
+    registration_number = Column(String(100), nullable=True)
+    specialization      = Column(String(200), nullable=True)
+    hospital            = Column(String(200), nullable=True)
+    mobile              = Column(String(20), nullable=True)
+    email               = Column(String(150), nullable=True)
+    address             = Column(Text, nullable=True)
+    notes               = Column(Text, nullable=True)
+    is_active           = Column(Boolean, default=True)
+    created_at          = Column(DateTime, server_default=func.now())
+
+
+class ImagingSlot(Base):
+    __tablename__ = "imaging_slots"
+    id         = Column(Integer, primary_key=True, index=True)
+    clinic_id  = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    date       = Column(Date, nullable=False)
+    time       = Column(String(5), nullable=False)   # "09:00"
+    modality   = Column(String(10), nullable=False)
+    capacity   = Column(Integer, default=1)
+    created_at = Column(DateTime, server_default=func.now())
+
+    bookings   = relationship("ImagingBooking", back_populates="slot")
+
+
+class ImagingBooking(Base):
+    __tablename__ = "imaging_bookings"
+    id               = Column(Integer, primary_key=True, index=True)
+    slot_id          = Column(Integer, ForeignKey("imaging_slots.id"), nullable=False)
+    clinic_id        = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    patient_name     = Column(String(200), nullable=False)
+    patient_mobile   = Column(String(20), nullable=True)
+    modality         = Column(String(10), nullable=True)
+    study_description = Column(Text, nullable=True)
+    referring_doctor = Column(String(200), nullable=True)
+    priority         = Column(String(20), default='routine')
+    notes            = Column(Text, nullable=True)
+    order_id         = Column(Integer, ForeignKey("imaging_orders.id"), nullable=True)
+    created_at       = Column(DateTime, server_default=func.now())
+
+    slot             = relationship("ImagingSlot", back_populates="bookings")
