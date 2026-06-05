@@ -1,7 +1,7 @@
 import ChatWidget from './ChatWidget'
 import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
-import { CalendarDays, Users, CreditCard, LayoutDashboard, LogOut, ClipboardList, Menu, X, Settings } from 'lucide-react'
+import { CalendarDays, Users, CreditCard, LayoutDashboard, LogOut, ClipboardList, Menu, X, Settings, BedDouble, LayoutGrid } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
 const BASE_NAV = [
@@ -10,6 +10,10 @@ const BASE_NAV = [
   { to: '/patients',     icon: Users,           label: 'Patients' },
   { to: '/billing',      icon: CreditCard,      label: 'Billing' },
   { to: '/queue',        icon: ClipboardList,   label: 'Queue' },
+]
+const HOSPITAL_NAV = [
+  { to: '/admissions', icon: BedDouble,   label: 'Admissions' },
+  { to: '/bed-board',  icon: LayoutGrid,  label: 'Bed Board' },
 ]
 const MANAGER_NAV = [
   { to: '/staff', icon: Settings, label: 'Manage Staff' },
@@ -24,7 +28,12 @@ export default function Layout() {
   const { user, logout } = useAuth()
   const [open, setOpen] = useState(false)
   const isManager = user?.role === 'clinic_manager'
-  const NAV = isManager ? [...BASE_NAV, ...MANAGER_NAV] : BASE_NAV
+  const isHospital = user?.org_type === 'hospital'
+  const NAV = [
+    ...BASE_NAV,
+    ...(isHospital ? HOSPITAL_NAV : []),
+    ...(isManager ? MANAGER_NAV : []),
+  ]
 
   const sidebar = (
     <aside className="w-60 flex flex-col h-full flex-shrink-0" style={{ background: '#0F2557' }}>

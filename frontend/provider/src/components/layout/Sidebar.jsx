@@ -3,7 +3,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import {
   LayoutDashboard, Users, Calendar, Stethoscope, Pill,
   FlaskConical, Scan, Receipt, BarChart3, Send, Settings,
-  ShieldCheck, LogOut, ChevronRight, Building2, LayoutGrid
+  ShieldCheck, LogOut, ChevronRight, Building2, LayoutGrid, BedDouble
 } from 'lucide-react'
 import BrandLogo from '../BrandLogo'
 
@@ -19,6 +19,7 @@ const ALL_NAV = [
   { to: '/analytics',   label: 'Analytics',    icon: BarChart3,       roles: ['clinic_admin'] },
   { to: '/referrals',    label: 'Referrals',    icon: Send,            roles: ['clinic_admin','doctor'] },
   { to: '/admin',            label: 'Clinic Admin',    icon: Settings,     roles: ['clinic_admin'] },
+  { to: '/inpatient-admin', label: 'Inpatient',       icon: BedDouble,    roles: ['clinic_admin'], hospitalOnly: true },
   { to: '/branch-overview', label: 'Branch Overview', icon: LayoutGrid,   roles: ['clinic_admin'] },
   { to: '/platform',         label: 'Platform',        icon: ShieldCheck,  userType: 'platform_admin' },
 ]
@@ -32,7 +33,9 @@ export default function Sidebar({ onClose }) {
   const visible = ALL_NAV.filter(item => {
     if (item.userType === 'platform_admin') return isPlatformAdmin
     if (!item.roles) return true
-    return item.roles.includes(user?.role)
+    if (!item.roles.includes(user?.role)) return false
+    if (item.hospitalOnly && user?.org_type !== 'hospital') return false
+    return true
   })
 
   const handleLogout = () => { logout(); navigate('/login') }
