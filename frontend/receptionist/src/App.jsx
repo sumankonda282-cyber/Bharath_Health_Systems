@@ -11,6 +11,7 @@ import StaffManagement from './pages/StaffManagement'
 import SetPassword from './pages/SetPassword'
 import Admissions from './pages/Admissions'
 import BedBoard from './pages/BedBoard'
+import InpatientBilling from './pages/InpatientBilling'
 import { Loader2 } from 'lucide-react'
 
 function ManagerOnly({ children }) {
@@ -51,6 +52,7 @@ function AppRoutes() {
         <Route path="staff" element={<ManagerOnly><StaffManagement /></ManagerOnly>} />
         <Route path="admissions" element={<Admissions />} />
         <Route path="bed-board" element={<BedBoard />} />
+        <Route path="inpatient-billing" element={<InpatientBilling />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

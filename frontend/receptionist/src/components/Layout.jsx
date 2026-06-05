@@ -1,7 +1,7 @@
 import ChatWidget from './ChatWidget'
 import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
-import { CalendarDays, Users, CreditCard, LayoutDashboard, LogOut, ClipboardList, Menu, X, Settings, BedDouble, LayoutGrid } from 'lucide-react'
+import { CalendarDays, Users, CreditCard, LayoutDashboard, LogOut, ClipboardList, Menu, X, Settings, BedDouble, LayoutGrid, Banknote } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
 const BASE_NAV = [
@@ -12,8 +12,9 @@ const BASE_NAV = [
   { to: '/queue',        icon: ClipboardList,   label: 'Queue' },
 ]
 const HOSPITAL_NAV = [
-  { to: '/admissions', icon: BedDouble,   label: 'Admissions' },
-  { to: '/bed-board',  icon: LayoutGrid,  label: 'Bed Board' },
+  { to: '/admissions',        icon: BedDouble,   label: 'Admissions' },
+  { to: '/bed-board',         icon: LayoutGrid,  label: 'Bed Board' },
+  { to: '/inpatient-billing', icon: Banknote,    label: 'IPD Billing' },
 ]
 const MANAGER_NAV = [
   { to: '/staff', icon: Settings, label: 'Manage Staff' },

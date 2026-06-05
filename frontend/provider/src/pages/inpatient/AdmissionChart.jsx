@@ -5,9 +5,10 @@ import api from '../../api/client'
 import {
   ArrowLeft, Activity, FileText, Stethoscope, ClipboardList,
   ArrowLeftRight, BedDouble, AlertCircle, RefreshCw, Plus, Trash2,
-  Settings2, Copy, CheckCircle2, ChevronDown, Printer,
+  Settings2, Copy, CheckCircle2, ChevronDown, Printer, Banknote,
 } from 'lucide-react'
 import { PageLoader } from '../../components/ui/Spinner'
+import InpatientBilling from './InpatientBilling'
 
 // ── Smart Phrases ─────────────────────────────────────────────────────────────
 const SMART_PHRASES = [
@@ -964,6 +965,7 @@ export default function AdmissionChart() {
     { key: 'rounds',    label: 'Ward Rounds' },
     { key: 'timeline',  label: 'Timeline' },
     { key: 'discharge', label: 'Discharge Summary' },
+    { key: 'billing',   label: 'Billing', icon: Banknote },
   ]
 
   return (
@@ -1006,7 +1008,8 @@ export default function AdmissionChart() {
       <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-5 w-fit overflow-x-auto print:hidden">
         {TABS.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${tab === t.key ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>
+            className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${tab === t.key ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>
+            {t.icon && <t.icon size={14} />}
             {t.label}
           </button>
         ))}
@@ -1080,6 +1083,10 @@ export default function AdmissionChart() {
 
         {tab === 'discharge' && (
           <DischargeSummaryTab admissionId={admissionId} />
+        )}
+
+        {tab === 'billing' && (
+          <InpatientBilling admissionId={admissionId} admission={adm} />
         )}
       </div>
     </div>
