@@ -9,7 +9,7 @@ const api = axios.create({
 })
 
 api.interceptors.request.use((config) => {
-  const token = sessionStorage.getItem('staff_token')
+  const token = localStorage.getItem('staff_token')
   if (token) config.headers.Authorization = `Bearer ${token}`
   return config
 })
@@ -17,13 +17,11 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res.data,
   (err) => {
-    // Only redirect to login on 401 for non-auth endpoints
-    // Login endpoint returning 401 means wrong credentials — show error, don't redirect
     if (err.response?.status === 401) {
       const url = err.config?.url || ''
-      const isLoginCall = url.includes('/login') || url.includes('/send-otp') || url.includes('/verify-otp')
-      if (!isLoginCall) {
-        sessionStorage.clear()
+      const isExempt = url.includes('/login') || url.includes('/send-otp') || url.includes('/verify-otp') || url.includes('/me')
+      if (!isExempt) {
+        localStorage.clear()
         window.location.href = '/login'
       }
     }
@@ -32,7 +30,9 @@ api.interceptors.response.use(
       err.response?.data?.message ||
       err.message ||
       'Something went wrong'
-    return Promise.reject(new Error(message))
+    const error = new Error(message)
+    error.status = err.response?.status
+    return Promise.reject(error)
   }
 )
 
