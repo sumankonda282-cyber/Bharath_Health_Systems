@@ -460,7 +460,11 @@ export default function Orders() {
     }
   }
 
-  useEffect(() => { load() }, [tab])
+  useEffect(() => {
+    load()
+    const interval = setInterval(load, 30_000)
+    return () => clearInterval(interval)
+  }, [tab])
 
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto">

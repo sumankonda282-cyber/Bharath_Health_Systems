@@ -66,7 +66,11 @@ export default function ReportWriter() {
       .finally(() => setLoading(false))
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => { fetchOrders() }, [fetchOrders])
+  useEffect(() => {
+    fetchOrders()
+    const interval = setInterval(fetchOrders, 30_000)
+    return () => clearInterval(interval)
+  }, [fetchOrders])
 
   function selectOrder(order) {
     setSelected(order)

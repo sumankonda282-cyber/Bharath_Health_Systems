@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import api from '../api/client'
+import { cachedFetch, cacheInvalidate, TTL } from '../utils/cache'
 import { CreditCard, AlertCircle, Loader2, X, Printer } from 'lucide-react'
 
 const TABS = ['outstanding', 'paid', 'all']
@@ -124,13 +125,18 @@ export default function Billing() {
   const [activeTab, setActiveTab] = useState('outstanding')
   const [paying, setPaying]     = useState(null)
 
-  const fetchInvoices = useCallback(() => {
-    setLoading(true)
-    setError('')
-    api.get('/billing/invoices', { params: { limit: 200 } })
-      .then(r => setInvoices(Array.isArray(r) ? r : (Array.isArray(r?.items) ? r.items : [])))
-      .catch(err => setError(err.message))
-      .finally(() => setLoading(false))
+  const fetchInvoices = useCallback((invalidate = false) => {
+    setLoading(true); setError('')
+    const run = async () => {
+      if (invalidate) await cacheInvalidate('imaging_invoices')
+      await cachedFetch(
+        'imaging_invoices',
+        () => api.get('/billing/invoices', { params: { limit: 200 } }),
+        r => { setInvoices(Array.isArray(r) ? r : (Array.isArray(r?.items) ? r.items : [])); setLoading(false) },
+        TTL.SHORT
+      )
+    }
+    run().catch(err => { setError(err.message); setLoading(false) })
   }, [])
 
   useEffect(() => { fetchInvoices() }, [fetchInvoices])
@@ -285,7 +291,7 @@ export default function Billing() {
         <PayModal
           invoice={paying}
           onClose={() => setPaying(null)}
-          onPaid={() => { setPaying(null); fetchInvoices() }}
+          onPaid={() => { setPaying(null); fetchInvoices(true) }}
         />
       )}
     </div>

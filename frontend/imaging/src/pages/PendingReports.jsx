@@ -104,7 +104,7 @@ export default function PendingReports() {
 
   useEffect(() => {
     fetchOrders()
-    const interval = setInterval(fetchOrders, 60000)
+    const interval = setInterval(fetchOrders, 30_000)
     return () => clearInterval(interval)
   }, [fetchOrders])
 

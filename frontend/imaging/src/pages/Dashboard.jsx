@@ -1,10 +1,20 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import api from '../api/client'
 import { ScanLine, Clock, CheckCircle, Loader2 } from 'lucide-react'
 export default function Dashboard() {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
-  useEffect(() => { api.get('/imaging/orders', { params: { limit: 200 } }).then(r => setOrders(Array.isArray(r) ? r : [])).finally(() => setLoading(false)) }, [])
+  const fetch = useCallback(() => {
+    api.get('/imaging/orders', { params: { limit: 200 } })
+      .then(r => { setOrders(Array.isArray(r) ? r : []); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [])
+
+  useEffect(() => {
+    fetch()
+    const interval = setInterval(fetch, 30_000)
+    return () => clearInterval(interval)
+  }, [fetch])
   const pending   = orders.filter(o => o.status === 'pending' || o.status === 'scheduled')
   const inProcess = orders.filter(o => o.status === 'in_progress')
   const completed = orders.filter(o => o.status === 'completed')

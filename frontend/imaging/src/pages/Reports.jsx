@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import api from '../api/client'
+import { cachedFetch, TTL } from '../utils/cache'
 import { BarChart2, ChevronDown, ChevronUp, Loader2, AlertCircle, RefreshCw } from 'lucide-react'
 
 function todayStr() {
@@ -314,13 +315,14 @@ export default function Reports() {
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState('')
 
-  const fetchOrders = useCallback(() => {
-    setLoading(true)
-    setError('')
-    api.get('/imaging/orders', { params: { limit: 500 } })
-      .then(r => setOrders(Array.isArray(r) ? r : []))
-      .catch(err => setError(err.message))
-      .finally(() => setLoading(false))
+  const fetchOrders = useCallback((force = false) => {
+    setLoading(true); setError('')
+    cachedFetch(
+      'imaging_reports_analytics',
+      () => api.get('/imaging/orders', { params: { limit: 500 } }),
+      r => { setOrders(Array.isArray(r) ? r : []); setLoading(false) },
+      TTL.SHORT
+    ).catch(err => { setError(err.message); setLoading(false) })
   }, [])
 
   useEffect(() => { fetchOrders() }, [fetchOrders])
