@@ -1,88 +1,61 @@
 import { useEffect, useState } from 'react'
-import { Search, User, Loader2 } from 'lucide-react'
 import api from '../api/client'
 
 export default function PatientList({ selectedId, onSelect }) {
-  const [admissions, setAdmissions] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [search, setSearch] = useState('')
+  const [patients, setPatients] = useState([])
+  const [loading, setLoading]   = useState(true)
+  const [error, setError]       = useState(null)
 
   useEffect(() => {
-    setLoading(true)
-    api.get('/inpatient/admissions?status=active')
-      .then(data => setAdmissions(Array.isArray(data) ? data : (data.items || data.results || [])))
-      .catch(err => setError(err.message))
+    api.get('/inpatient/admissions/?status=admitted')
+      .then(data => {
+        const list = Array.isArray(data) ? data : (data.items || data.admissions || [])
+        setPatients(list)
+      })
+      .catch(e => setError(e.message))
       .finally(() => setLoading(false))
   }, [])
 
-  const filtered = admissions.filter(a => {
-    const q = search.toLowerCase()
-    const name = (a.patient?.full_name || a.patient_name || '').toLowerCase()
-    const num = (a.admission_number || a.id || '').toString().toLowerCase()
-    return name.includes(q) || num.includes(q)
-  })
+  if (loading) return (
+    <div className="flex items-center justify-center h-32 text-gray-500 text-sm animate-pulse">
+      Loading patients…
+    </div>
+  )
+
+  if (error) return (
+    <div className="p-4 text-red-600 text-sm">Error: {error}</div>
+  )
+
+  if (patients.length === 0) return (
+    <div className="flex flex-col items-center justify-center h-40 text-gray-400 px-4">
+      <svg className="w-10 h-10 mb-2 opacity-40" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round"
+          d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0" />
+      </svg>
+      <p className="text-sm text-center">No admitted patients</p>
+    </div>
+  )
 
   return (
-    <div className="w-72 flex-shrink-0 bg-white rounded-2xl border border-gray-200 flex flex-col overflow-hidden">
-      <div className="p-3 border-b border-gray-100">
-        <div className="relative">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            className="input pl-8 py-1.5 text-xs"
-            placeholder="Search patient or admission #"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-y-auto">
-        {loading && (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 size={24} className="animate-spin text-gray-400" />
-          </div>
-        )}
-        {error && (
-          <div className="p-4 text-sm text-red-600 text-center">{error}</div>
-        )}
-        {!loading && !error && filtered.length === 0 && (
-          <div className="empty-state">
-            <User size={32} className="empty-state-icon" />
-            <span className="empty-state-text">No active admissions</span>
-          </div>
-        )}
-        {filtered.map(a => {
-          const name = a.patient?.full_name || a.patient_name || 'Unknown'
-          const admNo = a.admission_number || `#${a.id}`
-          const bed = a.bed?.bed_number || a.bed_number || '—'
-          const ward = a.ward?.name || a.ward_name || ''
-          const isSelected = selectedId === a.id
-          return (
+    <ul className="divide-y divide-gray-100">
+      {patients.map(p => {
+        const name = p.patient_name || p.patient?.full_name || `Patient #${p.patient_id}`
+        const bed  = p.bed_label || p.bed?.label || p.bed_number || '—'
+        const mrn  = p.patient?.mrn || p.mrn || ''
+        return (
+          <li key={p.id}>
             <button
-              key={a.id}
-              onClick={() => onSelect(a)}
-              className={`w-full text-left px-4 py-3 border-b border-gray-50 transition-colors ${
-                isSelected
-                  ? 'bg-emerald-50 border-l-4 border-l-emerald-600'
-                  : 'hover:bg-gray-50'
+              onClick={() => onSelect(p)}
+              className={`w-full text-left px-4 py-3 hover:bg-emerald-50 transition-colors ${
+                selectedId === p.id ? 'bg-emerald-50 border-r-2 border-emerald-600' : ''
               }`}
             >
-              <div className="font-medium text-sm text-gray-900 truncate">{name}</div>
-              <div className="text-xs text-gray-500 mt-0.5">{admNo}</div>
-              {(ward || bed !== '—') && (
-                <div className="text-xs text-gray-400 mt-0.5">
-                  {ward}{ward && bed !== '—' ? ' · ' : ''}{bed !== '—' ? `Bed ${bed}` : ''}
-                </div>
-              )}
+              <p className="font-medium text-gray-800 text-sm truncate">{name}</p>
+              <p className="text-xs text-gray-500">Bed {bed}{mrn ? ` · MRN ${mrn}` : ''}</p>
             </button>
-          )
-        })}
-      </div>
-
-      <div className="px-4 py-2 border-t border-gray-100 text-xs text-gray-400">
-        {admissions.length} active admission{admissions.length !== 1 ? 's' : ''}
-      </div>
-    </div>
+          </li>
+        )
+      })}
+    </ul>
   )
 }
