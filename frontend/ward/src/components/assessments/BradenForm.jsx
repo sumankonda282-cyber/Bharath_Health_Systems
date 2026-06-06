@@ -2,9 +2,7 @@
 import { useState, useEffect } from 'react'
 import { usePin } from '../../contexts/PinContext'
 import { AlertTriangle } from 'lucide-react'
-import { usePin } from '../../contexts/PinContext'
 import api from '../../api/client'
-import { usePin } from '../../contexts/PinContext'
 import SignatureBlock from '../SignatureBlock'
 
 const SUBSCALES = [

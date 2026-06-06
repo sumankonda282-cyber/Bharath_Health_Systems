@@ -2,10 +2,9 @@
 import { useState, useEffect } from 'react'
 import { usePin } from '../../contexts/PinContext'
 import { Plus } from 'lucide-react'
-import { usePin } from '../../contexts/PinContext'
 import api from '../../api/client'
-import { usePin } from '../../contexts/PinContext'
 import SignatureBlock from '../SignatureBlock'
+import DictationTextarea from '../DictationTextarea'
 
 const RESTRAINT_TYPES = ['Wrist', 'Ankle', 'Vest', 'Mitten', 'Full body', 'Other']
 const ALTERNATIVES    = ['Verbal redirection', 'Environmental modification', 'Bed alarm', 'Sitter', 'Family presence']
@@ -157,9 +156,8 @@ export default function RestraintForm({ admission, onClose, onSaved }) {
         {/* Indication */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Clinical Indication <span className="text-red-500">*</span></label>
-          <textarea value={indication} onChange={e => setIndication(e.target.value)} rows={2}
-            placeholder="Required: clinical justification for restraint use"
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none" />
+          <DictationTextarea value={indication} onChange={e => setIndication(e.target.value)} rows={2}
+            placeholder="Required: clinical justification for restraint use" />
         </div>
 
         {/* Order ref */}

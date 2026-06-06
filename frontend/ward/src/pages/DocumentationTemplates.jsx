@@ -1,12 +1,10 @@
 import { useState, useEffect } from 'react'
 import { usePin } from '../contexts/PinContext'
 import { FileText, ClipboardList, CheckCircle, AlertTriangle } from 'lucide-react'
-import { usePin } from '../contexts/PinContext'
 import PatientList from '../components/PatientList'
-import { usePin } from '../contexts/PinContext'
 import SignatureBlock from '../components/SignatureBlock'
-import { usePin } from '../contexts/PinContext'
 import api from '../api/client'
+import DictationTextarea from '../components/DictationTextarea'
 
 
 // ── Template registry ────────────────────────────────────────────────────────
@@ -93,12 +91,11 @@ const PROVIDER_TEMPLATES = [
 function SmartTextarea({ value, onChange, placeholder, rows = 3, dotPhrase, hint }) {
   return (
     <div>
-      <textarea
+      <DictationTextarea
         value={value}
         onChange={e => onChange(e.target.value)}
         rows={rows}
         placeholder={placeholder}
-        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
       />
       {hint && <p className="text-xs text-gray-400 mt-0.5">{hint}</p>}
     </div>
@@ -576,15 +573,13 @@ function ShiftAssessmentForm({ admission, onClose, onSaved }) {
           </Row>
 
           <Row label="8. Patient Concerns">
-            <textarea value={concerns} onChange={e => setConcerns(e.target.value)} rows={2}
-              placeholder="Patient / family concerns or complaints…"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none" />
+            <DictationTextarea value={concerns} onChange={e => setConcerns(e.target.value)} rows={2}
+              placeholder="Patient / family concerns or complaints…" />
           </Row>
 
           <Row label="9. Interventions">
-            <textarea value={interventions} onChange={e => setInterventions(e.target.value)} rows={2}
-              placeholder="Nursing interventions performed this shift…"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none" />
+            <DictationTextarea value={interventions} onChange={e => setInterventions(e.target.value)} rows={2}
+              placeholder="Nursing interventions performed this shift…" />
           </Row>
         </div>
 

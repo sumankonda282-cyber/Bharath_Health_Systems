@@ -2,10 +2,9 @@
 import { useState, useEffect } from 'react'
 import { usePin } from '../../contexts/PinContext'
 import { AlertTriangle, CheckCircle } from 'lucide-react'
-import { usePin } from '../../contexts/PinContext'
 import api from '../../api/client'
-import { usePin } from '../../contexts/PinContext'
 import SignatureBlock from '../SignatureBlock'
+import DictationTextarea from '../DictationTextarea'
 
 const EYE_OPTIONS = [
   { value: 4, label: '4 — Spontaneous' },
@@ -242,12 +241,11 @@ export default function GCSForm({ admission, onClose, onSaved }) {
         {/* Notes */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-          <textarea
+          <DictationTextarea
             value={notes}
             onChange={e => setNotes(e.target.value)}
             rows={3}
             placeholder="Additional clinical observations…"
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
           />
         </div>
 

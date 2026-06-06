@@ -2,10 +2,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { usePin } from '../../contexts/PinContext'
 import { Plus, Trash2 } from 'lucide-react'
-import { usePin } from '../../contexts/PinContext'
 import api from '../../api/client'
-import { usePin } from '../../contexts/PinContext'
 import SignatureBlock from '../SignatureBlock'
+import DictationTextarea from '../DictationTextarea'
 
 const WOUND_TYPES = ['Surgical', 'Pressure injury', 'Diabetic ulcer', 'Traumatic', 'Arterial', 'Venous', 'Other']
 const STAGES      = ['Stage I', 'Stage II', 'Stage III', 'Stage IV', 'Unstageable', 'Deep tissue injury', 'Superficial', 'Partial thickness', 'Full thickness']
@@ -170,9 +169,8 @@ function WoundCard({ wound, onChange, onRemove }) {
 
       <div>
         <label className="block text-xs font-medium text-gray-600 mb-1">Notes</label>
-        <textarea value={wound.notes} onChange={e => update('notes', e.target.value)}
-          rows={2} placeholder="Additional wound notes…"
-          className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm resize-none" />
+        <DictationTextarea value={wound.notes} onChange={e => update('notes', e.target.value)}
+          rows={2} placeholder="Additional wound notes…" />
       </div>
     </div>
   )

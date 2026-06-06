@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { ClipboardList, Plus, Loader2, X, AlertCircle, CheckCircle } from 'lucide-react'
 import api from '../api/client'
 import DictationTextarea from '../components/DictationTextarea'
