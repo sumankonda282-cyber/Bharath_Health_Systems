@@ -38,7 +38,7 @@ export default function Login() {
         <div>
           <div className="text-2xl font-extrabold tracking-tight">BHaratCliniq</div>
           <div className="text-xs font-semibold mt-1 tracking-wider uppercase" style={{ color: '#6ee7b7' }}>
-            Ward Portal
+            CareChart
           </div>
         </div>
         <div>
@@ -61,7 +61,7 @@ export default function Login() {
             </div>
           ))}
         </div>
-        <div className="text-xs" style={{ color: '#6ee7b7' }}>BHaratCliniq · Ward Portal</div>
+        <div className="text-xs" style={{ color: '#6ee7b7' }}>BHaratCliniq · CareChart</div>
       </div>
 
       {/* Right form panel */}
@@ -71,12 +71,12 @@ export default function Login() {
           <div className="lg:hidden text-center mb-8">
             <div className="text-2xl font-extrabold" style={{ color: '#065F46' }}>BHaratCliniq</div>
             <div className="text-xs font-semibold tracking-wider uppercase mt-1" style={{ color: '#065F46' }}>
-              Ward Portal
+              CareChart
             </div>
           </div>
 
           <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-8">
-            <h2 className="text-2xl font-extrabold mb-1" style={{ color: '#0F2557' }}>Ward Sign In</h2>
+            <h2 className="text-2xl font-extrabold mb-1" style={{ color: '#0F2557' }}>CareChart Sign In</h2>
             <p className="text-gray-500 text-sm mb-6">Nursing &amp; clinical ward access</p>
 
             <form onSubmit={submit} className="space-y-4">

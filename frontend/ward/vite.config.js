@@ -9,8 +9,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico'],
       manifest: {
-        name: 'BHaratCliniq Ward',
-        short_name: 'BH Ward',
+        name: 'BHaratCliniq CareChart',
+        short_name: 'BH CareChart',
         description: 'Ward nursing portal for BHaratCliniq',
         theme_color: '#065F46',
         background_color: '#ffffff',

@@ -25,7 +25,7 @@ export function AuthProvider({ children }) {
   const login = async (identifier, password) => {
     const r = await api.post('/auth/staff/login', { identifier, password })
     if (BLOCKED_ROLES.includes(r.role))
-      throw new Error('Access denied. Platform admins cannot access the Ward portal.')
+      throw new Error('Access denied. Platform admins cannot access the CareChart.')
     localStorage.setItem('staff_token', r.access_token)
     if (r.refresh_token) localStorage.setItem('staff_refresh_token', r.refresh_token)
     if (r.clinic_id) localStorage.setItem('clinic_id', String(r.clinic_id))

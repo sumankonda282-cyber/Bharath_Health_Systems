@@ -49,7 +49,7 @@ export default function Layout() {
         <div>
           <div className="text-white font-extrabold text-lg tracking-tight">BHaratCliniq</div>
           <div className="text-xs font-semibold mt-0.5 tracking-wider uppercase" style={{ color: '#6ee7b7' }}>
-            Ward Portal
+            CareChart
           </div>
         </div>
         <button onClick={() => setOpen(false)} className="md:hidden text-white/60 hover:text-white">
