@@ -5,7 +5,7 @@ import api from '../../api/client'
 import {
   ArrowLeft, Activity, FileText, Stethoscope, ClipboardList,
   ArrowLeftRight, BedDouble, AlertCircle, RefreshCw, Plus, Trash2,
-  Settings2, Copy, CheckCircle2, ChevronDown, Printer, Banknote,
+  Settings2, Copy, CheckCircle2, ChevronDown, Printer, Banknote, Mic, MicOff,
 } from 'lucide-react'
 import { PageLoader } from '../../components/ui/Spinner'
 import InpatientBilling from './InpatientBilling'
@@ -27,7 +27,9 @@ const SMART_PHRASES = [
 function SmartTextarea({ value, onChange, placeholder, rows = 4, disabled = false }) {
   const [showDrop, setShowDrop] = useState(false)
   const [matches, setMatches]   = useState([])
+  const [listening, setListening] = useState(false)
   const ref = useRef(null)
+  const recogRef = useRef(null)
 
   const onKeyUp = e => {
     const before = e.target.value.slice(0, e.target.selectionStart)
@@ -48,12 +50,40 @@ function SmartTextarea({ value, onChange, placeholder, rows = 4, disabled = fals
     setTimeout(() => { ta.focus(); ta.selectionStart = ta.selectionEnd = newBefore.length }, 0)
   }
 
+  const startDictation = () => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!SR) { alert('Voice dictation not supported in this browser. Use Chrome.'); return }
+    const recog = new SR()
+    recog.continuous = true
+    recog.interimResults = true
+    recog.lang = 'en-IN'
+    recogRef.current = recog
+    recog.onresult = (e) => {
+      let final = ''
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) final += e.results[i][0].transcript
+      }
+      if (final) {
+        onChange({ target: { value: value + (value && !value.endsWith(' ') ? ' ' : '') + final } })
+      }
+    }
+    recog.onerror = () => setListening(false)
+    recog.onend = () => setListening(false)
+    recog.start()
+    setListening(true)
+  }
+
+  const stopDictation = () => {
+    recogRef.current?.stop()
+    setListening(false)
+  }
+
   return (
     <div className="relative">
       <textarea ref={ref} value={value} onChange={onChange} onKeyUp={onKeyUp}
         onBlur={() => setTimeout(() => setShowDrop(false), 150)}
         placeholder={placeholder} rows={rows} disabled={disabled}
-        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none disabled:bg-gray-50" />
+        className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 resize-none disabled:bg-gray-50 pr-10 ${listening ? 'border-red-400 bg-red-50 focus:ring-red-400' : 'border-gray-300 focus:ring-blue-500'}`} />
       {showDrop && (
         <div className="absolute z-50 left-0 top-full mt-1 w-80 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
           {matches.map(p => (
@@ -64,6 +94,23 @@ function SmartTextarea({ value, onChange, placeholder, rows = 4, disabled = fals
             </button>
           ))}
         </div>
+      )}
+      {!disabled && (
+        <button
+          type="button"
+          onMouseDown={listening ? stopDictation : startDictation}
+          title={listening ? 'Stop dictation' : 'Start voice dictation'}
+          className={`absolute right-2 bottom-2 p-1 rounded-full transition-all ${
+            listening
+              ? 'bg-red-500 text-white animate-pulse'
+              : 'bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600'
+          }`}
+        >
+          {listening ? <MicOff size={14} /> : <Mic size={14} />}
+        </button>
+      )}
+      {listening && (
+        <p className="text-xs text-red-500 animate-pulse mt-1">🎤 Listening… speak now. Click mic to stop.</p>
       )}
     </div>
   )

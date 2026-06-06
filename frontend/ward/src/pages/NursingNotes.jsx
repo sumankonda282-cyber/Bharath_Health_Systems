@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { ClipboardList, Plus, Loader2, X, AlertCircle, CheckCircle } from 'lucide-react'
 import api from '../api/client'
+import DictationTextarea from '../components/DictationTextarea'
 import PatientList from '../components/PatientList'
 import { usePin } from '../contexts/PinContext'
 import SignatureBlock from '../components/SignatureBlock'
@@ -234,14 +235,13 @@ export default function NursingNotes() {
               </div>
               <div>
                 <label className="label">Note</label>
-                <textarea
-                  className="input"
+                <DictationTextarea
                   rows={5}
                   placeholder="Write your nursing note here..."
                   value={form.note}
                   onChange={e => setForm(f => ({ ...f, note: e.target.value }))}
-                  required
                 />
+                <input type="hidden" required value={form.note} />
               </div>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" className="w-4 h-4 accent-emerald-600 rounded"
