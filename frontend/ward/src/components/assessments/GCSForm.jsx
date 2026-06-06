@@ -1,9 +1,10 @@
-// TODO: replace stub with: import { usePin } from '../../contexts/PinContext'
-const usePin = () => ({ requestPin: async () => ({ full_name: 'Staff', role: 'nurse', credentials: null }) })
 
 import { useState, useEffect } from 'react'
+import { usePin } from '../../contexts/PinContext'
 import { AlertTriangle, CheckCircle } from 'lucide-react'
+import { usePin } from '../../contexts/PinContext'
 import api from '../../api/client'
+import { usePin } from '../../contexts/PinContext'
 import SignatureBlock from '../SignatureBlock'
 
 const EYE_OPTIONS = [

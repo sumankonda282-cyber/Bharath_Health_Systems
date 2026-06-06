@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
+import { usePin } from '../contexts/PinContext'
 import { FileText, ClipboardList, CheckCircle, AlertTriangle } from 'lucide-react'
+import { usePin } from '../contexts/PinContext'
 import PatientList from '../components/PatientList'
+import { usePin } from '../contexts/PinContext'
 import SignatureBlock from '../components/SignatureBlock'
+import { usePin } from '../contexts/PinContext'
 import api from '../api/client'
 
-// TODO: replace stub with: import { usePin } from '../contexts/PinContext'
-const usePin = () => ({ requestPin: async () => ({ full_name: 'Staff', role: 'nurse', credentials: null }) })
 
 // ── Template registry ────────────────────────────────────────────────────────
 

@@ -1,8 +1,8 @@
-// TODO: replace stub with: import { usePin } from '../../contexts/PinContext'
-const usePin = () => ({ requestPin: async () => ({ full_name: 'Staff', role: 'nurse', credentials: null }) })
 
 import { useState, useEffect, useCallback } from 'react'
+import { usePin } from '../../contexts/PinContext'
 import { Plus, Trash2 } from 'lucide-react'
+import { usePin } from '../../contexts/PinContext'
 import api from '../../api/client'
 
 const INTAKE_TYPES  = ['IV Fluid', 'Oral', 'Blood Product', 'TPN', 'NG Feed', 'Other']
