@@ -5,6 +5,7 @@ import PatientList from '../components/PatientList'
 import SignatureBlock from '../components/SignatureBlock'
 import api from '../api/client'
 import DictationTextarea from '../components/DictationTextarea'
+import AllergySearch from '../components/AllergySearch'
 
 
 // ── Template registry ────────────────────────────────────────────────────────
@@ -115,6 +116,7 @@ function AdmissionAssessmentForm({ admission, onClose, onSaved }) {
   const [medications, setMedications]       = useState('')
   const [allergiesConfirmed, setAllergiesConfirmed] = useState(null)
   const [allergiesList, setAllergiesList]   = useState('')
+  const [allergiesCoded, setAllergiesCoded] = useState([])
   const [ros, setRos]                       = useState([])
   const [examination, setExamination]       = useState('')
   const [impression, setImpression]         = useState('')
@@ -266,9 +268,10 @@ function AdmissionAssessmentForm({ admission, onClose, onSaved }) {
             ))}
           </div>
           {allergiesConfirmed && (
-            <input type="text" value={allergiesList} onChange={e => setAllergiesList(e.target.value)}
-              placeholder="[List allergens and reactions…]"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+            <AllergySearch
+              allergies={allergiesCoded}
+              onChange={setAllergiesCoded}
+            />
           )}
         </div>
 
