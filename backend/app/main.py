@@ -7,26 +7,27 @@ import os
 
 from app.core.config import settings
 from app.core.limiter import limiter
-from app.api.v1.endpoints.auth             import router as auth_router
-from app.api.v1.endpoints.otp              import router as otp_router
-from app.api.v1.endpoints.public           import router as public_router
-from app.api.v1.endpoints.platform_admin   import router as platform_router
-from app.api.v1.endpoints.clinic_admin     import router as clinic_router
-from app.api.v1.endpoints.patients         import router as patients_router
-from app.api.v1.endpoints.appointments     import router as appointments_router
-from app.api.v1.endpoints.doctor           import router as doctor_router
+
+from app.api.v1.endpoints.auth import router as auth_router
+from app.api.v1.endpoints.otp import router as otp_router
+from app.api.v1.endpoints.public import router as public_router
+from app.api.v1.endpoints.platform_admin import router as platform_router
+from app.api.v1.endpoints.clinic_admin import router as clinic_router
+from app.api.v1.endpoints.patients import router as patients_router
+from app.api.v1.endpoints.appointments import router as appointments_router
+from app.api.v1.endpoints.doctor import router as doctor_router
 from app.api.v1.endpoints.pharmacy_lab_billing import (
     pharmacy_router, lab_router, billing_router, imaging_router
 )
-from app.api.v1.endpoints.portal           import router as portal_router
-from app.api.v1.endpoints.pdf_routes       import router as pdf_router
-from app.api.v1.endpoints.referrals        import router as referrals_router
-from app.api.v1.endpoints.encounters       import router as encounters_router
-from app.api.v1.endpoints.bridge           import router as bridge_router
-from app.api.v1.endpoints.lab_orders       import router as lab_orders_router
-from app.api.v1.endpoints.imaging_orders   import router as imaging_orders_router
-from app.api.v1.endpoints.chat             import router as chat_router
-from app.api.v1.endpoints.inpatient        import router as inpatient_router
+from app.api.v1.endpoints.portal import router as portal_router
+from app.api.v1.endpoints.pdf_routes import router as pdf_router
+from app.api.v1.endpoints.referrals import router as referrals_router
+from app.api.v1.endpoints.encounters import router as encounters_router
+from app.api.v1.endpoints.bridge import router as bridge_router
+from app.api.v1.endpoints.lab_orders import router as lab_orders_router
+from app.api.v1.endpoints.imaging_orders import router as imaging_orders_router
+from app.api.v1.endpoints.chat import router as chat_router
+from app.api.v1.endpoints.inpatient import router as inpatient_router
 
 app = FastAPI(
     title="BharatCliniq API v2",
@@ -36,18 +37,34 @@ app = FastAPI(
     redoc_url="/api/redoc",
 )
 
+# Rate limiter
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+# -----------------------------
+# ✅ UPDATED CORS CONFIGURATION
+# -----------------------------
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "Accept", "X-Requested-With"],
+    allow_origins=[
+        "https://bharatcliniq-lab.vercel.app",
+        "https://bharatcliniq-patient.vercel.app",
+        "https://bharatcliniq-imaging.vercel.app",
+        "https://bharatcliniq-receptionist.vercel.app",
+        "https://bharatcliniq-pharmacy.vercel.app",
+        "https://bharatcliniq-public.vercel.app",
+        "https://bharatcliniq-provider.vercel.app",
+        "https://bharatcliniq-superadmin.vercel.app",
+        "https://bharatcliniq-carechart.vercel.app"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-
+# -----------------------------
+# Security Headers Middleware
+# -----------------------------
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request as StarletteRequest
 
@@ -67,39 +84,46 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(SecurityHeadersMiddleware)
 
+# -----------------------------
+# Routers
+# -----------------------------
 PREFIX = "/api/v1"
 
-app.include_router(auth_router,         prefix=PREFIX)
-app.include_router(otp_router,          prefix=PREFIX)
-app.include_router(public_router,       prefix=PREFIX)
-app.include_router(platform_router,     prefix=PREFIX)
-app.include_router(clinic_router,       prefix=PREFIX)
-app.include_router(patients_router,     prefix=PREFIX)
+app.include_router(auth_router, prefix=PREFIX)
+app.include_router(otp_router, prefix=PREFIX)
+app.include_router(public_router, prefix=PREFIX)
+app.include_router(platform_router, prefix=PREFIX)
+app.include_router(clinic_router, prefix=PREFIX)
+app.include_router(patients_router, prefix=PREFIX)
 app.include_router(appointments_router, prefix=PREFIX)
-app.include_router(doctor_router,       prefix=PREFIX)
-app.include_router(pharmacy_router,     prefix=PREFIX)
-app.include_router(lab_router,          prefix=PREFIX)
-app.include_router(billing_router,      prefix=PREFIX)
-app.include_router(imaging_router,      prefix=PREFIX)
-app.include_router(portal_router,       prefix=PREFIX)
-app.include_router(pdf_router,          prefix=PREFIX)
-app.include_router(referrals_router,    prefix=PREFIX)
-app.include_router(encounters_router,   prefix=PREFIX)
-app.include_router(bridge_router,       prefix=PREFIX)
-app.include_router(lab_orders_router,   prefix=PREFIX)
+app.include_router(doctor_router, prefix=PREFIX)
+app.include_router(pharmacy_router, prefix=PREFIX)
+app.include_router(lab_router, prefix=PREFIX)
+app.include_router(billing_router, prefix=PREFIX)
+app.include_router(imaging_router, prefix=PREFIX)
+app.include_router(portal_router, prefix=PREFIX)
+app.include_router(pdf_router, prefix=PREFIX)
+app.include_router(referrals_router, prefix=PREFIX)
+app.include_router(encounters_router, prefix=PREFIX)
+app.include_router(bridge_router, prefix=PREFIX)
+app.include_router(lab_orders_router, prefix=PREFIX)
 app.include_router(imaging_orders_router, prefix=PREFIX)
-app.include_router(chat_router,           prefix=PREFIX)
-app.include_router(inpatient_router,      prefix=PREFIX)
+app.include_router(chat_router, prefix=PREFIX)
+app.include_router(inpatient_router, prefix=PREFIX)
 
+# -----------------------------
+# Static Uploads
+# -----------------------------
 uploads_dir = settings.UPLOAD_DIR
 os.makedirs(uploads_dir, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
 
-
+# -----------------------------
+# Health + Root
+# -----------------------------
 @app.get("/")
 def root():
     return {"status": "ok", "app": "BharatCliniq API", "version": settings.APP_VERSION}
-
 
 @app.get("/health")
 def health():
