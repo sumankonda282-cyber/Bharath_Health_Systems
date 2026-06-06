@@ -1,0 +1,158 @@
+#!/bin/bash
+set -e
+
+echo "[startup] Applying safe column additions (idempotent)..."
+python -c "
+from sqlalchemy import text
+from app.db.session import engine
+
+safe_cols = [
+    \"ALTER TABLE patient_users ADD COLUMN IF NOT EXISTS otp_token_expiry TIMESTAMP WITHOUT TIME ZONE\",
+    \"ALTER TABLE patient_users ADD COLUMN IF NOT EXISTS disclosure_pin VARCHAR(255)\",
+    \"ALTER TABLE patient_users ADD COLUMN IF NOT EXISTS disclosure_pin_plain VARCHAR(10)\",
+    \"ALTER TABLE patient_users ADD COLUMN IF NOT EXISTS disclosure_pin_expiry TIMESTAMP WITHOUT TIME ZONE\",
+    \"ALTER TABLE patient_users ADD COLUMN IF NOT EXISTS preferred_language VARCHAR(20) DEFAULT 'en'\",
+    \"ALTER TABLE patient_users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE\",
+    \"ALTER TABLE patient_users ADD COLUMN IF NOT EXISTS token_version INTEGER DEFAULT 1\",
+    \"ALTER TABLE patients ADD COLUMN IF NOT EXISTS guardian_name VARCHAR(200)\",
+    \"ALTER TABLE patients ADD COLUMN IF NOT EXISTS guardian_mobile VARCHAR(20)\",
+    \"ALTER TABLE appointments ADD COLUMN IF NOT EXISTS telehealth_room VARCHAR(100)\",
+    \"ALTER TABLE staff ADD COLUMN IF NOT EXISTS username VARCHAR(30)\",
+    \"ALTER TABLE staff ADD COLUMN IF NOT EXISTS is_first_login BOOLEAN DEFAULT FALSE\",
+    \"ALTER TABLE staff ADD COLUMN IF NOT EXISTS temp_pw_expiry TIMESTAMP WITHOUT TIME ZONE\",
+    \"ALTER TABLE staff ADD COLUMN IF NOT EXISTS token_version INTEGER DEFAULT 1\",
+    \"ALTER TABLE staff ADD COLUMN IF NOT EXISTS failed_login_attempts INTEGER DEFAULT 0\",
+    \"ALTER TABLE staff ADD COLUMN IF NOT EXISTS locked_until TIMESTAMP WITHOUT TIME ZONE\",
+    \"ALTER TABLE staff ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMP WITHOUT TIME ZONE\",
+    \"ALTER TABLE staff ADD COLUMN IF NOT EXISTS pin_hash VARCHAR(255)\",
+    \"ALTER TABLE staff ADD COLUMN IF NOT EXISTS pin_set_at TIMESTAMP WITHOUT TIME ZONE\",
+    \"ALTER TABLE staff ADD COLUMN IF NOT EXISTS pin_reset_required BOOLEAN DEFAULT FALSE\",
+    \"ALTER TABLE staff ADD COLUMN IF NOT EXISTS pin_failed_attempts INTEGER DEFAULT 0\",
+    \"ALTER TABLE staff ADD COLUMN IF NOT EXISTS pin_locked_until TIMESTAMP WITHOUT TIME ZONE\",
+    \"UPDATE staff SET is_first_login = FALSE WHERE is_first_login IS NULL\",
+    \"ALTER TABLE clinics ADD COLUMN IF NOT EXISTS bridge_api_key VARCHAR(64)\",
+    \"ALTER TABLE clinics ADD COLUMN IF NOT EXISTS brand_name VARCHAR(200)\",
+    \"ALTER TABLE doctor_profiles ADD COLUMN IF NOT EXISTS input_mode VARCHAR(20) DEFAULT 'type'\",
+    \"ALTER TABLE clinics ADD COLUMN IF NOT EXISTS brand_color VARCHAR(20)\",
+    \"CREATE TABLE IF NOT EXISTS lab_orders (id SERIAL PRIMARY KEY, order_id VARCHAR(20) UNIQUE NOT NULL, clinic_id INTEGER REFERENCES clinics(id), patient_id INTEGER REFERENCES patients(id), appointment_id INTEGER REFERENCES appointments(id), ordered_by INTEGER REFERENCES staff(id), test_names JSONB DEFAULT '[]', clinical_notes TEXT, priority VARCHAR(20) DEFAULT 'routine', specimen_type VARCHAR(100), status VARCHAR(30) DEFAULT 'pending', collected_at TIMESTAMP, abha_id VARCHAR(50), created_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE TABLE IF NOT EXISTS lab_results (id SERIAL PRIMARY KEY, order_id INTEGER UNIQUE REFERENCES lab_orders(id), raw_format VARCHAR(20), observations JSONB DEFAULT '[]', fhir_report JSONB, pdf_b64 TEXT, interpretation TEXT, status VARCHAR(30) DEFAULT 'pending_review', signed_by INTEGER REFERENCES staff(id), signed_at TIMESTAMP, report_hash VARCHAR(64), source VARCHAR(30) DEFAULT 'bridge', created_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE TABLE IF NOT EXISTS imaging_orders (id SERIAL PRIMARY KEY, order_id VARCHAR(20) UNIQUE NOT NULL, clinic_id INTEGER REFERENCES clinics(id), patient_id INTEGER REFERENCES patients(id), appointment_id INTEGER REFERENCES appointments(id), ordered_by INTEGER REFERENCES staff(id), modality VARCHAR(10), body_part VARCHAR(100), study_description TEXT, clinical_notes TEXT, priority VARCHAR(20) DEFAULT 'routine', status VARCHAR(30) DEFAULT 'pending', abha_id VARCHAR(50), created_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE TABLE IF NOT EXISTS imaging_results (id SERIAL PRIMARY KEY, order_id INTEGER UNIQUE REFERENCES imaging_orders(id), modality VARCHAR(10), study_uid VARCHAR(200), series_uid VARCHAR(200), dicom_metadata JSONB, fhir_report JSONB, key_image_paths JSONB DEFAULT '[]', pdf_b64 TEXT, findings TEXT, impression TEXT, status VARCHAR(30) DEFAULT 'pending_review', signed_by INTEGER REFERENCES staff(id), signed_at TIMESTAMP, report_hash VARCHAR(64), source VARCHAR(30) DEFAULT 'bridge', created_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE TABLE IF NOT EXISTS unmatched_results (id SERIAL PRIMARY KEY, clinic_id INTEGER REFERENCES clinics(id), source VARCHAR(30), raw_format VARCHAR(20), parsed_data JSONB, patient_hint VARCHAR(200), resolved BOOLEAN DEFAULT FALSE, resolved_by INTEGER REFERENCES staff(id), resolved_at TIMESTAMP, linked_lab_order_id INTEGER REFERENCES lab_orders(id), linked_imaging_order_id INTEGER REFERENCES imaging_orders(id), created_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE TABLE IF NOT EXISTS billing_waiver_logs (id SERIAL PRIMARY KEY, invoice_id INTEGER REFERENCES invoices(id), clinic_id INTEGER REFERENCES clinics(id), waived_by INTEGER REFERENCES staff(id), waiver_amount NUMERIC(10,2) NOT NULL, reason VARCHAR(50) NOT NULL, notes TEXT, created_at TIMESTAMP DEFAULT NOW())\",
+    \"ALTER TABLE medicines ADD COLUMN IF NOT EXISTS hsn_code VARCHAR(20)\",
+    \"ALTER TABLE medicines ADD COLUMN IF NOT EXISTS schedule VARCHAR(10)\",
+    \"ALTER TABLE medicines ADD COLUMN IF NOT EXISTS gst_rate NUMERIC(5,2)\",
+    \"ALTER TABLE medicines ADD COLUMN IF NOT EXISTS mrp NUMERIC(10,2)\",
+    \"ALTER TABLE clinics ADD COLUMN IF NOT EXISTS drug_license_number VARCHAR(100)\",
+    \"ALTER TABLE clinics ADD COLUMN IF NOT EXISTS gstin VARCHAR(20)\",
+    \"ALTER TABLE invoices ALTER COLUMN patient_id DROP NOT NULL\",
+    \"ALTER TABLE invoices ADD COLUMN IF NOT EXISTS customer_name VARCHAR(200)\",
+    \"ALTER TABLE invoices ADD COLUMN IF NOT EXISTS customer_mobile VARCHAR(20)\",
+    \"ALTER TABLE invoices ADD COLUMN IF NOT EXISTS sale_type VARCHAR(20) DEFAULT 'prescription'\",
+    \"ALTER TABLE invoices ADD COLUMN IF NOT EXISTS gst_amount NUMERIC(10,2) DEFAULT 0\",
+    \"ALTER TABLE invoices ADD COLUMN IF NOT EXISTS prescription_ref VARCHAR(100)\",
+    \"ALTER TABLE invoice_items ADD COLUMN IF NOT EXISTS hsn_code VARCHAR(20)\",
+    \"ALTER TABLE invoice_items ADD COLUMN IF NOT EXISTS gst_rate NUMERIC(5,2)\",
+    \"ALTER TABLE invoice_items ADD COLUMN IF NOT EXISTS gst_amount NUMERIC(10,2)\",
+    \"ALTER TABLE invoice_items ADD COLUMN IF NOT EXISTS medicine_id INTEGER REFERENCES medicines(id)\",
+    \"ALTER TABLE invoice_items ADD COLUMN IF NOT EXISTS discount_amount NUMERIC(10,2) DEFAULT 0\",
+    \"ALTER TABLE invoice_items ADD COLUMN IF NOT EXISTS mrp NUMERIC(10,2)\",
+    \"CREATE TABLE IF NOT EXISTS stock_transactions (id SERIAL PRIMARY KEY, clinic_id INTEGER REFERENCES clinics(id), branch_id INTEGER REFERENCES branches(id), medicine_id INTEGER REFERENCES medicines(id) NOT NULL, transaction_type VARCHAR(20) NOT NULL, quantity INTEGER NOT NULL, quantity_before INTEGER NOT NULL, quantity_after INTEGER NOT NULL, batch_number VARCHAR(50), expiry_date DATE, unit_cost NUMERIC(10,2), supplier_name VARCHAR(200), notes TEXT, performed_by INTEGER REFERENCES staff(id), created_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE TABLE IF NOT EXISTS chat_rooms (id SERIAL PRIMARY KEY, clinic_id INTEGER REFERENCES clinics(id), room_type VARCHAR(20) DEFAULT 'direct', name VARCHAR(200), created_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE TABLE IF NOT EXISTS chat_room_members (id SERIAL PRIMARY KEY, room_id INTEGER REFERENCES chat_rooms(id), staff_id INTEGER REFERENCES staff(id), joined_at TIMESTAMP DEFAULT NOW(), UNIQUE(room_id, staff_id))\",
+    \"CREATE TABLE IF NOT EXISTS internal_messages (id SERIAL PRIMARY KEY, room_id INTEGER REFERENCES chat_rooms(id), sender_id INTEGER REFERENCES staff(id), body TEXT NOT NULL, msg_type VARCHAR(20) DEFAULT 'text', created_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE TABLE IF NOT EXISTS message_reads (id SERIAL PRIMARY KEY, message_id INTEGER REFERENCES internal_messages(id), staff_id INTEGER REFERENCES staff(id), read_at TIMESTAMP DEFAULT NOW(), UNIQUE(message_id, staff_id))\",
+    \"CREATE TABLE IF NOT EXISTS suppliers (id SERIAL PRIMARY KEY, clinic_id INTEGER REFERENCES clinics(id) NOT NULL, name VARCHAR(200) NOT NULL, contact_person VARCHAR(200), mobile VARCHAR(20), email VARCHAR(150), address TEXT, gstin VARCHAR(20), drug_license_number VARCHAR(100), payment_terms INTEGER DEFAULT 30, notes TEXT, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE TABLE IF NOT EXISTS purchase_orders (id SERIAL PRIMARY KEY, clinic_id INTEGER REFERENCES clinics(id) NOT NULL, branch_id INTEGER REFERENCES branches(id), supplier_id INTEGER REFERENCES suppliers(id), po_number VARCHAR(50), status VARCHAR(20) DEFAULT 'draft', expected_date DATE, notes TEXT, total_amount NUMERIC(12,2) DEFAULT 0, created_by INTEGER REFERENCES staff(id), created_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE TABLE IF NOT EXISTS purchase_order_items (id SERIAL PRIMARY KEY, po_id INTEGER REFERENCES purchase_orders(id) NOT NULL, medicine_id INTEGER REFERENCES medicines(id), medicine_name VARCHAR(200), quantity_ordered INTEGER DEFAULT 0, quantity_received INTEGER DEFAULT 0, unit_cost NUMERIC(10,2), total_cost NUMERIC(10,2), batch_number VARCHAR(50), expiry_date DATE)\",
+    \"CREATE TABLE IF NOT EXISTS sales_returns (id SERIAL PRIMARY KEY, clinic_id INTEGER REFERENCES clinics(id) NOT NULL, invoice_id INTEGER REFERENCES invoices(id), return_number VARCHAR(50), reason VARCHAR(100), total_refund NUMERIC(10,2) DEFAULT 0, refund_method VARCHAR(50), processed_by INTEGER REFERENCES staff(id), created_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE TABLE IF NOT EXISTS sales_return_items (id SERIAL PRIMARY KEY, return_id INTEGER REFERENCES sales_returns(id) NOT NULL, medicine_id INTEGER REFERENCES medicines(id), medicine_name VARCHAR(200), quantity INTEGER DEFAULT 0, unit_price NUMERIC(10,2), total NUMERIC(10,2))\",
+    \"CREATE TABLE IF NOT EXISTS drug_register (id SERIAL PRIMARY KEY, clinic_id INTEGER REFERENCES clinics(id) NOT NULL, invoice_id INTEGER REFERENCES invoices(id), medicine_id INTEGER REFERENCES medicines(id), medicine_name VARCHAR(200), schedule VARCHAR(10), patient_name VARCHAR(200), patient_age INTEGER, patient_address TEXT, doctor_name VARCHAR(200), doctor_reg_number VARCHAR(100), quantity INTEGER DEFAULT 0, batch_number VARCHAR(50), sold_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE TABLE IF NOT EXISTS medicine_batches (id SERIAL PRIMARY KEY, medicine_id INTEGER REFERENCES medicines(id) NOT NULL, clinic_id INTEGER REFERENCES clinics(id) NOT NULL, branch_id INTEGER REFERENCES branches(id), batch_number VARCHAR(50), expiry_date DATE, quantity INTEGER DEFAULT 0, unit_cost NUMERIC(10,2), supplier_id INTEGER REFERENCES suppliers(id), received_at TIMESTAMP DEFAULT NOW())\",
+    \"ALTER TABLE imaging_orders ADD COLUMN IF NOT EXISTS acquired_by INTEGER REFERENCES staff(id)\",
+    \"ALTER TABLE imaging_orders ADD COLUMN IF NOT EXISTS acquired_at TIMESTAMP\",
+    \"ALTER TABLE imaging_orders ADD COLUMN IF NOT EXISTS technician_notes TEXT\",
+    \"ALTER TABLE imaging_orders ADD COLUMN IF NOT EXISTS contrast_used BOOLEAN DEFAULT FALSE\",
+    \"ALTER TABLE imaging_orders ADD COLUMN IF NOT EXISTS contrast_agent VARCHAR(100)\",
+    \"ALTER TABLE imaging_orders ADD COLUMN IF NOT EXISTS contrast_volume_ml NUMERIC(6,2)\",
+    \"ALTER TABLE imaging_orders ADD COLUMN IF NOT EXISTS radiation_dose_mgy NUMERIC(8,3)\",
+    \"ALTER TABLE imaging_orders ADD COLUMN IF NOT EXISTS film_count INTEGER DEFAULT 0\",
+    \"ALTER TABLE imaging_orders ADD COLUMN IF NOT EXISTS referring_doctor VARCHAR(200)\",
+    \"ALTER TABLE imaging_orders ADD COLUMN IF NOT EXISTS referring_doctor_reg VARCHAR(100)\",
+    \"ALTER TABLE imaging_orders ADD COLUMN IF NOT EXISTS order_id VARCHAR(20)\",
+    \"ALTER TABLE imaging_orders ADD COLUMN IF NOT EXISTS study_description TEXT\",
+    \"ALTER TABLE imaging_orders ADD COLUMN IF NOT EXISTS priority VARCHAR(20) DEFAULT 'routine'\",
+    \"CREATE TABLE IF NOT EXISTS imaging_report_templates (id SERIAL PRIMARY KEY, clinic_id INTEGER REFERENCES clinics(id), modality VARCHAR(10) NOT NULL, name VARCHAR(200) NOT NULL, findings_template TEXT, impression_template TEXT, body_part VARCHAR(100), is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE TABLE IF NOT EXISTS imaging_critical_alerts (id SERIAL PRIMARY KEY, clinic_id INTEGER REFERENCES clinics(id), order_id INTEGER REFERENCES imaging_orders(id), alert_type VARCHAR(50), description TEXT, alerted_by INTEGER REFERENCES staff(id), alerted_at TIMESTAMP DEFAULT NOW(), acknowledged_by INTEGER REFERENCES staff(id), acknowledged_at TIMESTAMP)\",
+    \"CREATE TABLE IF NOT EXISTS referring_doctors (id SERIAL PRIMARY KEY, clinic_id INTEGER REFERENCES clinics(id) NOT NULL, name VARCHAR(200) NOT NULL, registration_number VARCHAR(100), specialization VARCHAR(200), hospital VARCHAR(200), mobile VARCHAR(20), email VARCHAR(150), address TEXT, notes TEXT, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE TABLE IF NOT EXISTS imaging_slots (id SERIAL PRIMARY KEY, clinic_id INTEGER REFERENCES clinics(id) NOT NULL, date DATE NOT NULL, time VARCHAR(5) NOT NULL, modality VARCHAR(10) NOT NULL, capacity INTEGER DEFAULT 1, created_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE TABLE IF NOT EXISTS imaging_bookings (id SERIAL PRIMARY KEY, slot_id INTEGER REFERENCES imaging_slots(id) NOT NULL, clinic_id INTEGER REFERENCES clinics(id) NOT NULL, patient_name VARCHAR(200) NOT NULL, patient_mobile VARCHAR(20), modality VARCHAR(10), study_description TEXT, referring_doctor VARCHAR(200), priority VARCHAR(20) DEFAULT 'routine', notes TEXT, order_id INTEGER REFERENCES imaging_orders(id), created_at TIMESTAMP DEFAULT NOW())\",
+    \"ALTER TABLE clinics ADD COLUMN IF NOT EXISTS org_type VARCHAR(20) DEFAULT 'clinic'\",
+    \"ALTER TABLE clinics ADD COLUMN IF NOT EXISTS wards_enabled BOOLEAN DEFAULT FALSE\",
+    \"ALTER TABLE clinics ADD COLUMN IF NOT EXISTS admission_sequence INTEGER DEFAULT 0\",
+    \"ALTER TABLE patients ADD COLUMN IF NOT EXISTS bhid_profile_id INTEGER REFERENCES bh_profiles(id)\",
+    \"CREATE TABLE IF NOT EXISTS appointment_token_sequences (id SERIAL PRIMARY KEY, clinic_id INTEGER REFERENCES clinics(id) NOT NULL, branch_id INTEGER REFERENCES branches(id) NOT NULL, doctor_id INTEGER REFERENCES staff(id) NOT NULL, date DATE NOT NULL, last_token INTEGER NOT NULL DEFAULT 0, UNIQUE(clinic_id, branch_id, doctor_id, date))\",
+    \"CREATE TABLE IF NOT EXISTS departments (id SERIAL PRIMARY KEY, clinic_id INTEGER REFERENCES clinics(id) NOT NULL, name VARCHAR(200) NOT NULL, code VARCHAR(10), dept_type VARCHAR(20) DEFAULT 'clinical', head_doctor_id INTEGER REFERENCES staff(id), color_hex VARCHAR(7), is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE TABLE IF NOT EXISTS staff_departments (id SERIAL PRIMARY KEY, staff_id INTEGER REFERENCES staff(id) NOT NULL, department_id INTEGER REFERENCES departments(id) NOT NULL, is_primary BOOLEAN DEFAULT TRUE, UNIQUE(staff_id, department_id))\",
+    \"CREATE TABLE IF NOT EXISTS wards (id SERIAL PRIMARY KEY, clinic_id INTEGER REFERENCES clinics(id) NOT NULL, department_id INTEGER REFERENCES departments(id) NOT NULL, name VARCHAR(200) NOT NULL, floor VARCHAR(20), wing VARCHAR(50), ward_type VARCHAR(20) DEFAULT 'general', total_beds INTEGER DEFAULT 0, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE TABLE IF NOT EXISTS beds (id SERIAL PRIMARY KEY, clinic_id INTEGER REFERENCES clinics(id) NOT NULL, ward_id INTEGER REFERENCES wards(id) NOT NULL, bed_number VARCHAR(20) NOT NULL, bed_type VARCHAR(20) DEFAULT 'general', status VARCHAR(20) DEFAULT 'vacant', current_admission_id INTEGER, created_at TIMESTAMP DEFAULT NOW(), UNIQUE(ward_id, bed_number))\",
+    \"CREATE TABLE IF NOT EXISTS admissions (id SERIAL PRIMARY KEY, clinic_id INTEGER REFERENCES clinics(id) NOT NULL, patient_id INTEGER REFERENCES patients(id) NOT NULL, admission_number VARCHAR(30) UNIQUE NOT NULL, admission_sequence INTEGER NOT NULL, department_id INTEGER REFERENCES departments(id), ward_id INTEGER REFERENCES wards(id), bed_id INTEGER REFERENCES beds(id), admission_type VARCHAR(20) DEFAULT 'opd_referred', source_appointment_id INTEGER REFERENCES appointments(id), admitting_doctor_id INTEGER REFERENCES staff(id) NOT NULL, primary_diagnosis TEXT, admitted_at TIMESTAMP DEFAULT NOW(), discharged_at TIMESTAMP, expected_discharge DATE, status VARCHAR(20) DEFAULT 'active', tpa_id VARCHAR(50), insurance_company VARCHAR(200), policy_number VARCHAR(100), pre_auth_number VARCHAR(100), created_by INTEGER REFERENCES staff(id), created_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE TABLE IF NOT EXISTS admission_transfers (id SERIAL PRIMARY KEY, admission_id INTEGER REFERENCES admissions(id) NOT NULL, from_department_id INTEGER REFERENCES departments(id), from_ward_id INTEGER REFERENCES wards(id), from_bed_id INTEGER REFERENCES beds(id), to_department_id INTEGER REFERENCES departments(id), to_ward_id INTEGER REFERENCES wards(id), to_bed_id INTEGER REFERENCES beds(id), transferred_at TIMESTAMP DEFAULT NOW(), transferred_by INTEGER REFERENCES staff(id), reason TEXT)\",
+    \"CREATE TABLE IF NOT EXISTS referrals (id SERIAL PRIMARY KEY, clinic_id INTEGER REFERENCES clinics(id) NOT NULL, patient_id INTEGER REFERENCES patients(id) NOT NULL, bhid VARCHAR(15), referral_number VARCHAR(30) UNIQUE NOT NULL, referring_type VARCHAR(20) DEFAULT 'internal', referring_doctor_id INTEGER REFERENCES staff(id), referring_doctor_name VARCHAR(200), referring_doctor_reg VARCHAR(100), referring_org_name VARCHAR(200), referred_to_type VARCHAR(20) DEFAULT 'external_outside', referred_to_clinic_id INTEGER REFERENCES clinics(id), referred_to_doctor_id INTEGER REFERENCES staff(id), referred_to_doctor_name VARCHAR(200), referred_to_specialty VARCHAR(100), referred_to_org_name VARCHAR(200), urgency VARCHAR(20) DEFAULT 'routine', reason TEXT, clinical_summary TEXT, current_medications TEXT, relevant_investigations TEXT, source_appointment_id INTEGER REFERENCES appointments(id), source_admission_id INTEGER REFERENCES admissions(id), status VARCHAR(20) DEFAULT 'draft', referred_at TIMESTAMP DEFAULT NOW(), accepted_at TIMESTAMP, completed_at TIMESTAMP, rejection_reason TEXT, outcome_notes TEXT, resulted_in_admission BOOLEAN DEFAULT FALSE, destination_admission_id INTEGER REFERENCES admissions(id), created_by INTEGER REFERENCES staff(id), created_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE TABLE IF NOT EXISTS vital_signs (id SERIAL PRIMARY KEY, admission_id INTEGER REFERENCES admissions(id) NOT NULL, clinic_id INTEGER REFERENCES clinics(id) NOT NULL, recorded_by INTEGER REFERENCES staff(id) NOT NULL, recorded_at TIMESTAMP DEFAULT NOW(), temperature FLOAT, pulse INTEGER, respiration_rate INTEGER, bp_systolic INTEGER, bp_diastolic INTEGER, spo2 FLOAT, weight FLOAT, height FLOAT, pain_score INTEGER, notes TEXT, created_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE TABLE IF NOT EXISTS nursing_notes (id SERIAL PRIMARY KEY, admission_id INTEGER REFERENCES admissions(id) NOT NULL, clinic_id INTEGER REFERENCES clinics(id) NOT NULL, note_type VARCHAR(30) DEFAULT 'general', note_text TEXT NOT NULL, written_by INTEGER REFERENCES staff(id) NOT NULL, written_at TIMESTAMP DEFAULT NOW(), shift VARCHAR(10), is_handoff BOOLEAN DEFAULT FALSE, created_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE TABLE IF NOT EXISTS medication_administrations (id SERIAL PRIMARY KEY, admission_id INTEGER REFERENCES admissions(id) NOT NULL, clinic_id INTEGER REFERENCES clinics(id) NOT NULL, medicine_name VARCHAR(200) NOT NULL, dose VARCHAR(100), route VARCHAR(50), scheduled_time TIMESTAMP, administered_at TIMESTAMP, administered_by INTEGER REFERENCES staff(id), status VARCHAR(20) DEFAULT 'scheduled', reason_held VARCHAR(200), notes TEXT, created_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE TABLE IF NOT EXISTS ward_rounds (id SERIAL PRIMARY KEY, admission_id INTEGER REFERENCES admissions(id) NOT NULL, clinic_id INTEGER REFERENCES clinics(id) NOT NULL, doctor_id INTEGER REFERENCES staff(id) NOT NULL, round_date DATE NOT NULL, subjective TEXT, objective TEXT, assessment TEXT, plan TEXT, created_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE TABLE IF NOT EXISTS discharge_summaries (id SERIAL PRIMARY KEY, admission_id INTEGER REFERENCES admissions(id) UNIQUE NOT NULL, clinic_id INTEGER REFERENCES clinics(id) NOT NULL, written_by INTEGER REFERENCES staff(id) NOT NULL, admission_diagnosis TEXT, final_diagnosis TEXT, procedures_done TEXT, hospital_course TEXT, condition_at_discharge VARCHAR(50), discharge_instructions TEXT, follow_up_date DATE, follow_up_with VARCHAR(200), diet_advice TEXT, activity_restrictions TEXT, discharge_medications TEXT, status VARCHAR(20) DEFAULT 'draft', finalized_at TIMESTAMP, finalized_by INTEGER REFERENCES staff(id), created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE TABLE IF NOT EXISTS progress_notes (id SERIAL PRIMARY KEY, admission_id INTEGER REFERENCES admissions(id) NOT NULL, clinic_id INTEGER REFERENCES clinics(id) NOT NULL, written_by INTEGER REFERENCES staff(id) NOT NULL, note_date DATE NOT NULL, note_time TIMESTAMP DEFAULT NOW(), subjective TEXT, objective TEXT, assessment TEXT, plan TEXT, note_type VARCHAR(30) DEFAULT 'progress', is_significant BOOLEAN DEFAULT FALSE, created_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE TABLE IF NOT EXISTS inpatient_charges (id SERIAL PRIMARY KEY, admission_id INTEGER REFERENCES admissions(id) NOT NULL, clinic_id INTEGER REFERENCES clinics(id) NOT NULL, charge_date DATE NOT NULL, charge_type VARCHAR(30) NOT NULL, description VARCHAR(300) NOT NULL, quantity NUMERIC(10,2) DEFAULT 1, unit_price NUMERIC(10,2) NOT NULL, total NUMERIC(10,2) NOT NULL, gst_rate NUMERIC(5,2) DEFAULT 0, gst_amount NUMERIC(10,2) DEFAULT 0, added_by INTEGER REFERENCES staff(id), is_voided BOOLEAN DEFAULT FALSE, void_reason VARCHAR(200), created_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE TABLE IF NOT EXISTS inpatient_bills (id SERIAL PRIMARY KEY, admission_id INTEGER REFERENCES admissions(id) UNIQUE NOT NULL, clinic_id INTEGER REFERENCES clinics(id) NOT NULL, invoice_id INTEGER REFERENCES invoices(id), bill_number VARCHAR(30) UNIQUE NOT NULL, room_charges NUMERIC(10,2) DEFAULT 0, procedure_charges NUMERIC(10,2) DEFAULT 0, consultation_charges NUMERIC(10,2) DEFAULT 0, lab_charges NUMERIC(10,2) DEFAULT 0, imaging_charges NUMERIC(10,2) DEFAULT 0, pharmacy_charges NUMERIC(10,2) DEFAULT 0, misc_charges NUMERIC(10,2) DEFAULT 0, subtotal NUMERIC(10,2) DEFAULT 0, gst_amount NUMERIC(10,2) DEFAULT 0, discount NUMERIC(10,2) DEFAULT 0, total NUMERIC(10,2) DEFAULT 0, insurance_claim_amount NUMERIC(10,2) DEFAULT 0, tpa_approved_amount NUMERIC(10,2) DEFAULT 0, patient_payable NUMERIC(10,2) DEFAULT 0, amount_paid NUMERIC(10,2) DEFAULT 0, payment_method VARCHAR(50), status VARCHAR(20) DEFAULT 'draft', notes TEXT, generated_by INTEGER REFERENCES staff(id), finalized_at TIMESTAMP, created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW())\",
+    \"ALTER TABLE invoices ADD COLUMN IF NOT EXISTS admission_id INTEGER REFERENCES admissions(id)\",
+    \"ALTER TABLE invoices ADD COLUMN IF NOT EXISTS sale_type_inpatient BOOLEAN DEFAULT FALSE\",
+    \"CREATE TABLE IF NOT EXISTS documentation_sessions (id SERIAL PRIMARY KEY, clinic_id INTEGER REFERENCES clinics(id) NOT NULL, admission_id INTEGER REFERENCES admissions(id) NOT NULL, signed_by INTEGER REFERENCES staff(id) NOT NULL, signed_at TIMESTAMP DEFAULT NOW(), shift VARCHAR(20), note TEXT)\",
+    \"CREATE TABLE IF NOT EXISTS assessment_templates (id SERIAL PRIMARY KEY, name VARCHAR(200) NOT NULL, specialty VARCHAR(100) NOT NULL, description TEXT, fields JSONB NOT NULL DEFAULT '[]', scope VARCHAR(20) DEFAULT 'platform', clinic_id INTEGER REFERENCES clinics(id), is_active BOOLEAN DEFAULT TRUE, created_by_admin INTEGER REFERENCES platform_admins(id), created_by_staff INTEGER REFERENCES staff(id), created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE TABLE IF NOT EXISTS template_assignments (id SERIAL PRIMARY KEY, template_id INTEGER REFERENCES assessment_templates(id) NOT NULL, scope VARCHAR(20) NOT NULL, clinic_id INTEGER REFERENCES clinics(id), department_id INTEGER REFERENCES departments(id), assigned_by INTEGER REFERENCES platform_admins(id), assigned_at TIMESTAMP DEFAULT NOW())\",
+]
+try:
+    with engine.begin() as conn:
+        for sql in safe_cols:
+            conn.execute(text(sql))
+    print('[startup] Safe column additions complete.')
+except Exception as e:
+    print(f'[startup] Safe column additions failed: {e}')
+
+indexes = [
+    \"CREATE INDEX IF NOT EXISTS idx_appointments_clinic_date ON appointments(clinic_id, booking_date)\",
+    \"CREATE INDEX IF NOT EXISTS idx_appointments_status ON appointments(clinic_id, status)\",
+    \"CREATE INDEX IF NOT EXISTS idx_staff_clinic ON staff(clinic_id)\",
+    \"CREATE INDEX IF NOT EXISTS idx_patients_clinic ON patients(clinic_id)\",
+    \"CREATE INDEX IF NOT EXISTS idx_invoices_clinic ON invoices(clinic_id)\",
+    \"CREATE INDEX IF NOT EXISTS idx_invoices_created ON invoices(clinic_id, created_at)\",
+    \"CREATE INDEX IF NOT EXISTS idx_admissions_clinic_status ON admissions(clinic_id, status)\",
+    \"CREATE INDEX IF NOT EXISTS idx_audit_log_clinic ON audit_logs(clinic_id)\",
+    \"CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_logs(created_at)\",
+    \"CREATE INDEX IF NOT EXISTS idx_medicines_clinic ON medicines(clinic_id)\",
+    \"CREATE INDEX IF NOT EXISTS idx_lab_orders_clinic ON lab_orders(clinic_id)\",
+    \"CREATE INDEX IF NOT EXISTS idx_imaging_orders_clinic ON imaging_orders(clinic_id)\",
+    \"CREATE INDEX IF NOT EXISTS idx_internal_messages_room ON internal_messages(room_id, created_at)\",
+    \"CREATE INDEX IF NOT EXISTS idx_chat_room_members_staff ON chat_room_members(staff_id)\",
+    \"CREATE INDEX IF NOT EXISTS idx_password_reset_requests_clinic ON password_reset_requests(clinic_id, status)\",
+]
+try:
+    with engine.begin() as conn:
+        for sql in indexes:
+            conn.execute(text(sql))
+    print('[startup] Indexes created/verified.')
+except Exception as e:
+    print(f'[startup] Index creation failed: {e}')
+"
+
+echo "[startup] Syncing database schema..."
+alembic upgrade head || echo "[startup] Migration failed — continuing with existing schema"
+
+echo "[startup] Seeding database..."
+python seed.py || echo "[startup] Seed failed (non-fatal) — continuing with existing data"
+
+echo "[startup] Starting server..."
+exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8000}" --workers 1
