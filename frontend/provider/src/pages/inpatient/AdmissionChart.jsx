@@ -6,6 +6,7 @@ import {
   ArrowLeft, Activity, FileText, Stethoscope, ClipboardList,
   ArrowLeftRight, BedDouble, AlertCircle, RefreshCw, Plus, Trash2,
   Settings2, Copy, CheckCircle2, ChevronDown, Printer, Banknote, Mic, MicOff,
+  UserCheck, X as XIcon, Search,
 } from 'lucide-react'
 import { PageLoader } from '../../components/ui/Spinner'
 import InpatientBilling from './InpatientBilling'
@@ -952,6 +953,93 @@ function DischargeSummaryTab({ admissionId }) {
   )
 }
 
+// ── PrimaryDrModal ────────────────────────────────────────────────────────────
+function PrimaryDrModal({ admissionId, currentDoctorName, onClose, onAssigned }) {
+  const [doctors, setDoctors]   = useState([])
+  const [query, setQuery]       = useState('')
+  const [selected, setSelected] = useState(null)
+  const [saving, setSaving]     = useState(false)
+  const [err, setErr]           = useState('')
+
+  useEffect(() => {
+    api.get('/staff/?role=doctor')
+      .then(r => setDoctors(Array.isArray(r) ? r : (r?.items || r?.data || [])))
+      .catch(() => {})
+  }, [])
+
+  const filtered = query.length > 0
+    ? doctors.filter(d => (d.full_name || d.email || '').toLowerCase().includes(query.toLowerCase()))
+    : doctors
+
+  const assign = async () => {
+    if (!selected) return
+    setSaving(true); setErr('')
+    try {
+      await api.patch(`/inpatient/admissions/${admissionId}/primary-doctor`, { primary_doctor_id: selected.id })
+      onAssigned(selected)
+    } catch (ex) {
+      // Fallback: try generic patch
+      try {
+        await api.patch(`/inpatient/admissions/${admissionId}`, { primary_doctor_id: selected.id })
+        onAssigned(selected)
+      } catch (ex2) {
+        setErr(ex2?.response?.data?.detail || ex2.message || 'Failed to assign doctor')
+      }
+    } finally { setSaving(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+        <div className="border-b border-gray-100 px-6 py-4 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-bold" style={{ color: '#0F2557' }}>Assign Primary Doctor</h2>
+            {currentDoctorName && <p className="text-xs text-gray-400 mt-0.5">Current: {currentDoctorName}</p>}
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500"><XIcon size={18} /></button>
+        </div>
+        <div className="p-5 space-y-3">
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Search doctor…"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              autoFocus
+            />
+          </div>
+          <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-xl divide-y divide-gray-100">
+            {filtered.length === 0 ? (
+              <p className="text-center text-gray-400 text-sm py-6">No doctors found</p>
+            ) : filtered.map(d => (
+              <button key={d.id} type="button"
+                onClick={() => setSelected(d)}
+                className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${selected?.id === d.id ? 'bg-blue-50 text-blue-800 font-medium' : 'hover:bg-gray-50 text-gray-700'}`}>
+                {d.full_name || d.email}
+                {d.specialization && <span className="text-xs text-gray-400 ml-2">{d.specialization}</span>}
+              </button>
+            ))}
+          </div>
+          {err && <p className="text-red-600 text-sm flex items-center gap-1"><AlertCircle size={14} />{err}</p>}
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose}
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-xl text-sm font-medium hover:bg-gray-50">
+              Cancel
+            </button>
+            <button type="button" disabled={!selected || saving} onClick={assign}
+              className="flex-1 px-4 py-2 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2 disabled:opacity-50"
+              style={{ background: '#0F2557' }}>
+              {saving ? <RefreshCw size={14} className="animate-spin" /> : <UserCheck size={14} />}
+              {saving ? 'Assigning…' : 'Assign'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Main AdmissionChart ───────────────────────────────────────────────────────
 export default function AdmissionChart() {
   const { admissionId } = useParams()
@@ -964,6 +1052,8 @@ export default function AdmissionChart() {
   const [loading, setLoading]     = useState(true)
   const [err, setErr]             = useState('')
   const [tab, setTab]             = useState('overview')
+  const [showPrimaryDrModal, setShowPrimaryDrModal] = useState(false)
+  const [primaryDoctorName, setPrimaryDoctorName]   = useState(null)
 
   const canWrite = user?.role === 'doctor' || user?.role === 'clinic_admin'
 
@@ -973,6 +1063,7 @@ export default function AdmissionChart() {
       try {
         const r = await api.get(`/inpatient/admissions/${admissionId}`)
         setAdmission(r)
+        setPrimaryDoctorName(r?.primary_doctor_name || null)
         const pat = r?.patient || null
         setPatient(pat)
         // If no patient in admission response, try fetching separately
@@ -1035,6 +1126,20 @@ export default function AdmissionChart() {
                 <span className="font-mono">UHID: {pat.clinic_patient_id || adm.uhid || '—'}</span>
                 <span>Admission: <span className="font-semibold text-gray-700">{adm.admission_number || `#${adm.id}`}</span></span>
                 <span>Admitted: {fmtDate(adm.admission_date || adm.created_at)}</span>
+              </div>
+              <div className="flex items-center gap-2 mt-2">
+                <span className="text-xs text-gray-500">Primary Dr:</span>
+                {(primaryDoctorName || adm?.primary_doctor_name) ? (
+                  <span className="text-sm font-medium text-blue-700">{primaryDoctorName || adm.primary_doctor_name}</span>
+                ) : (
+                  <span className="text-xs text-gray-400 italic">Unassigned</span>
+                )}
+                {(user?.role === 'clinic_admin' || user?.role === 'doctor') && (
+                  <button onClick={() => setShowPrimaryDrModal(true)}
+                    className="text-xs text-blue-500 hover:text-blue-700 underline">
+                    {(primaryDoctorName || adm?.primary_doctor_name) ? 'Change' : 'Assign'}
+                  </button>
+                )}
               </div>
             </div>
             <div className="flex flex-wrap gap-3 text-sm text-gray-600">
@@ -1136,6 +1241,19 @@ export default function AdmissionChart() {
           <InpatientBilling admissionId={admissionId} admission={adm} />
         )}
       </div>
+
+      {showPrimaryDrModal && (
+        <PrimaryDrModal
+          admissionId={admissionId}
+          currentDoctorName={primaryDoctorName || adm?.primary_doctor_name}
+          onClose={() => setShowPrimaryDrModal(false)}
+          onAssigned={(doctor) => {
+            setPrimaryDoctorName(doctor.full_name || doctor.email)
+            setAdmission(prev => ({ ...prev, primary_doctor_name: doctor.full_name || doctor.email }))
+            setShowPrimaryDrModal(false)
+          }}
+        />
+      )}
     </div>
   )
 }

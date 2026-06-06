@@ -7,6 +7,90 @@ import {
   Clock, Filter,
 } from 'lucide-react'
 
+// ── PrimaryDrModal ────────────────────────────────────────────────────────────
+function PrimaryDrModal({ admission, onClose, onSuccess }) {
+  const [doctors, setDoctors]   = useState([])
+  const [query, setQuery]       = useState('')
+  const [selected, setSelected] = useState(null)
+  const [saving, setSaving]     = useState(false)
+  const [err, setErr]           = useState('')
+
+  useEffect(() => {
+    api.get('/staff/?role=doctor')
+      .then(r => setDoctors(Array.isArray(r) ? r : (r?.items || r?.data || [])))
+      .catch(() => {})
+  }, [])
+
+  const filtered = query.length > 0
+    ? doctors.filter(d => (d.full_name || d.email || '').toLowerCase().includes(query.toLowerCase()))
+    : doctors
+
+  const assign = async () => {
+    if (!selected) return
+    setSaving(true); setErr('')
+    try {
+      await api.patch(`/inpatient/admissions/${admission.id}/primary-doctor`, { primary_doctor_id: selected.id })
+      onSuccess(`Primary doctor assigned: ${selected.full_name || selected.email}`)
+    } catch (_) {
+      try {
+        await api.patch(`/inpatient/admissions/${admission.id}`, { primary_doctor_id: selected.id })
+        onSuccess(`Primary doctor assigned: ${selected.full_name || selected.email}`)
+      } catch (ex2) {
+        setErr(ex2?.response?.data?.detail || ex2.message || 'Failed to assign doctor')
+      }
+    } finally { setSaving(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+        <div className="border-b border-gray-100 px-6 py-4 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-bold" style={{ color: '#0F2557' }}>Assign Primary Doctor</h2>
+            <p className="text-sm text-gray-500">{admission.patient_name || `Admission #${admission.admission_number}`}</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500"><X size={18} /></button>
+        </div>
+        <div className="p-5 space-y-3">
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Search doctor…"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              autoFocus
+            />
+          </div>
+          <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-xl divide-y divide-gray-100">
+            {filtered.length === 0 ? (
+              <p className="text-center text-gray-400 text-sm py-6">No doctors found</p>
+            ) : filtered.map(d => (
+              <button key={d.id} type="button"
+                onClick={() => setSelected(d)}
+                className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${selected?.id === d.id ? 'bg-blue-50 text-blue-800 font-medium' : 'hover:bg-gray-50 text-gray-700'}`}>
+                {d.full_name || d.email}
+                {d.specialization && <span className="text-xs text-gray-400 ml-2">{d.specialization}</span>}
+              </button>
+            ))}
+          </div>
+          {err && <p className="text-red-600 text-sm flex items-center gap-1"><AlertCircle size={14} />{err}</p>}
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose}
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-xl text-sm font-medium hover:bg-gray-50">Cancel</button>
+            <button type="button" disabled={!selected || saving} onClick={assign}
+              className="flex-1 px-4 py-2 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2 disabled:opacity-50"
+              style={{ background: '#0F2557' }}>
+              {saving ? <Loader2 size={14} className="animate-spin" /> : <UserCheck size={14} />}
+              {saving ? 'Assigning…' : 'Assign'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function relTime(dt) {
   if (!dt) return '—'
@@ -623,6 +707,7 @@ export default function Admissions() {
   const [dischargeTarget, setDischargeTarget] = useState(null)
   const [transferTarget, setTransferTarget] = useState(null)
   const [assignBedTarget, setAssignBedTarget] = useState(null)
+  const [primaryDrTarget, setPrimaryDrTarget] = useState(null)
   const [toast, setToast] = useState(null)
   const [refresh, setRefresh] = useState(0)
 
@@ -665,6 +750,7 @@ export default function Admissions() {
     setDischargeTarget(null)
     setTransferTarget(null)
     setAssignBedTarget(null)
+    setPrimaryDrTarget(null)
   }
 
   if (user?.org_type !== 'hospital') {
@@ -751,7 +837,7 @@ export default function Admissions() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-gray-100" style={{ background: '#F8FAFF' }}>
-                      {['Admission #', 'Patient', 'UHID', 'Department', 'Ward / Bed', 'Doctor', 'Admitted', 'Status', 'Actions'].map(h => (
+                      {['Admission #', 'Patient', 'UHID', 'Department', 'Ward / Bed', 'Doctor', 'Primary Dr', 'Admitted', 'Status', 'Actions'].map(h => (
                         <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
                       ))}
                     </tr>
@@ -765,12 +851,21 @@ export default function Admissions() {
                         <td className="px-4 py-3 text-gray-600">{a.department_name || '—'}</td>
                         <td className="px-4 py-3 text-gray-600">{a.ward_name ? `${a.ward_name} / ${a.bed_number || '—'}` : '—'}</td>
                         <td className="px-4 py-3 text-gray-600">{a.admitting_doctor_name || '—'}</td>
+                        <td className="px-4 py-3">
+                          {a.primary_doctor_name
+                            ? <span className="text-sm font-medium text-blue-700">{a.primary_doctor_name}</span>
+                            : <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">Unassigned</span>}
+                        </td>
                         <td className="px-4 py-3 text-gray-400 text-xs">
                           <span className="flex items-center gap-1"><Clock size={11} />{relTime(a.created_at)}</span>
                         </td>
                         <td className="px-4 py-3">{statusBadge(a.status)}</td>
                         <td className="px-4 py-3">
                           <div className="flex gap-1">
+                            <button onClick={() => setPrimaryDrTarget(a)}
+                              className="p-1.5 rounded-lg text-indigo-600 hover:bg-indigo-50 text-xs" title="Assign Primary Doctor">
+                              <UserCheck size={14} />
+                            </button>
                             <button onClick={() => setTransferTarget(a)}
                               className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 text-xs" title="Transfer">
                               <ArrowRightLeft size={14} />
@@ -837,6 +932,7 @@ export default function Admissions() {
       {showAdmit && <AdmitPatientModal onClose={() => setShowAdmit(false)} onSuccess={handleSuccess} />}
       {dischargeTarget && <DischargeModal admission={dischargeTarget} onClose={() => setDischargeTarget(null)} onSuccess={handleSuccess} />}
       {transferTarget && <TransferModal admission={transferTarget} onClose={() => setTransferTarget(null)} onSuccess={handleSuccess} />}
+      {primaryDrTarget && <PrimaryDrModal admission={primaryDrTarget} onClose={() => setPrimaryDrTarget(null)} onSuccess={handleSuccess} />}
       {assignBedTarget && (
         <AssignBedModal
           bed={assignBedTarget}

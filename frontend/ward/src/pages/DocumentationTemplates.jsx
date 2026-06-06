@@ -179,7 +179,7 @@ function AdmissionAssessmentForm({ admission, onClose, onSaved }) {
           chiefComplaint, hpi,
           pmh: [...pmh, ...(pmh.includes('Other') ? [pmhOther] : [])],
           surgicalHistory, medications,
-          allergies: { confirmed: allergiesConfirmed, list: allergiesList },
+          allergies: { confirmed: allergiesConfirmed, list: allergiesList, coded: allergiesCoded },
           reviewOfSystems: ros,
           examination, impression, plan,
           scores: { painScore },
