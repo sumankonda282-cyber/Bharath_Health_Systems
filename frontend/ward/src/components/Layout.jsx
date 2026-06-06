@@ -2,19 +2,34 @@ import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import {
   LayoutDashboard, BedDouble, Activity, ClipboardList, Pill,
-  Stethoscope, ArrowLeftRight, LogOut, Menu, X, Sun, Sunset, Moon
+  Stethoscope, ArrowLeftRight, LogOut, Menu, X, Sun, Sunset, Moon,
+  FileText, ClipboardCheck
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+import { useWardSession } from '../contexts/WardSessionContext'
 
-const NAV = [
-  { to: '/',        icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/ward-board', icon: BedDouble,    label: 'Ward Board' },
-  { to: '/vitals',  icon: Activity,        label: 'Vitals' },
-  { to: '/notes',   icon: ClipboardList,   label: 'Nursing Notes' },
-  { to: '/mar',     icon: Pill,            label: 'MAR' },
-  { to: '/rounds',  icon: Stethoscope,     label: 'Ward Rounds' },
-  { to: '/handoff', icon: ArrowLeftRight,  label: 'Shift Handoff' },
+// ── Nav definitions ───────────────────────────────────────────────────────────
+
+const NURSE_NAV = [
+  { to: '/',              icon: LayoutDashboard, label: 'Dashboard',     end: true  },
+  { to: '/ward-board',    icon: BedDouble,       label: 'Ward Board'               },
+  { to: '/vitals',        icon: Activity,        label: 'Vitals'                   },
+  { to: '/notes',         icon: ClipboardList,   label: 'Nursing Notes'            },
+  { to: '/mar',           icon: Pill,            label: 'MAR'                      },
+  { to: '/assessments',   icon: ClipboardCheck,  label: 'Assessments'              },
+  { to: '/handoff',       icon: ArrowLeftRight,  label: 'Shift Handoff'            },
 ]
+
+const PROVIDER_NAV = [
+  { to: '/',              icon: LayoutDashboard, label: 'Dashboard',     end: true  },
+  { to: '/ward-board',    icon: BedDouble,       label: 'Ward Board'               },
+  { to: '/rounds',        icon: Stethoscope,     label: 'Ward Rounds'              },
+  { to: '/progress-notes', icon: FileText,       label: 'Progress Notes'           },
+  { to: '/orders',        icon: ClipboardList,   label: 'Orders',   disabled: true  },
+  { to: '/handoff',       icon: ArrowLeftRight,  label: 'Shift Handoff'            },
+]
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function getInitials(name) {
   if (!name) return '?'
@@ -37,38 +52,61 @@ function formatRole(role) {
   return role.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
 
-export default function Layout() {
-  const { user, logout } = useAuth()
-  const [open, setOpen] = useState(false)
-  const shift = getShift()
-  const ShiftIcon = shift.icon
+// ── Sidebar ───────────────────────────────────────────────────────────────────
 
-  const sidebar = (
+function Sidebar({ onClose }) {
+  const { user, logout } = useAuth()
+  const { mode, department, ward } = useWardSession()
+  const navItems = mode === 'provider' ? PROVIDER_NAV : NURSE_NAV
+
+  return (
     <aside className="w-60 flex flex-col h-full flex-shrink-0" style={{ background: '#065F46' }}>
       <div className="px-5 py-5 border-b border-white/10 flex items-center justify-between">
         <div>
           <div className="text-white font-extrabold text-lg tracking-tight">BHaratCliniq</div>
           <div className="text-xs font-semibold mt-0.5 tracking-wider uppercase" style={{ color: '#6ee7b7' }}>
-            CareChart
+            Ward Portal
           </div>
+          {department && (
+            <div className="text-xs mt-1" style={{ color: 'rgba(110,231,183,0.7)' }}>
+              {department.name}{ward ? ` · ${ward.name}` : ''}
+            </div>
+          )}
         </div>
-        <button onClick={() => setOpen(false)} className="md:hidden text-white/60 hover:text-white">
-          <X size={20} />
-        </button>
+        {onClose && (
+          <button onClick={onClose} className="md:hidden text-white/60 hover:text-white">
+            <X size={20} />
+          </button>
+        )}
       </div>
 
       <nav className="flex-1 px-3 py-4 overflow-y-auto">
-        {NAV.map(({ to, icon: Icon, label }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={to === '/'}
-            onClick={() => setOpen(false)}
-            className={({ isActive }) => isActive ? 'sidebar-link-active' : 'sidebar-link'}
-          >
-            <Icon size={17} />{label}
-          </NavLink>
-        ))}
+        {navItems.map(({ to, icon: Icon, label, end, disabled }) =>
+          disabled ? (
+            <div
+              key={to}
+              className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm mb-0.5 cursor-not-allowed"
+              style={{ color: 'rgba(255,255,255,0.3)' }}
+            >
+              <Icon size={17} className="flex-shrink-0" />
+              {label}
+              <span className="ml-auto text-xs px-1.5 py-0.5 rounded"
+                style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.3)' }}>
+                Soon
+              </span>
+            </div>
+          ) : (
+            <NavLink
+              key={to}
+              to={to}
+              end={end}
+              onClick={onClose}
+              className={({ isActive }) => isActive ? 'sidebar-link-active' : 'sidebar-link'}
+            >
+              <Icon size={17} className="flex-shrink-0" />{label}
+            </NavLink>
+          )
+        )}
       </nav>
 
       <div className="px-3 py-4 border-t border-white/10">
@@ -88,6 +126,15 @@ export default function Layout() {
       </div>
     </aside>
   )
+}
+
+// ── Layout ────────────────────────────────────────────────────────────────────
+
+export default function Layout() {
+  const { mode, switchMode, department, ward } = useWardSession()
+  const [open, setOpen] = useState(false)
+  const shift = getShift()
+  const ShiftIcon = shift.icon
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
@@ -97,25 +144,58 @@ export default function Layout() {
         </div>
       )}
       <div className={`fixed inset-y-0 left-0 z-50 md:hidden transition-transform duration-300 ${open ? 'translate-x-0' : '-translate-x-full'}`}>
-        {sidebar}
+        <Sidebar onClose={() => setOpen(false)} />
       </div>
       <div className="hidden md:flex flex-shrink-0">
-        {sidebar}
+        <Sidebar />
       </div>
 
       <main className="flex-1 overflow-y-auto">
         {/* Top bar */}
-        <div className="sticky top-0 z-30 bg-white border-b border-gray-200 flex items-center justify-between px-4 py-2.5">
-          <div className="flex items-center gap-3">
-            <button onClick={() => setOpen(true)} className="md:hidden p-1.5 rounded-lg text-gray-600 hover:bg-gray-100">
+        <div className="sticky top-0 z-30 bg-white border-b border-gray-200 flex items-center justify-between px-4 py-2.5 gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <button onClick={() => setOpen(true)} className="md:hidden p-1.5 rounded-lg text-gray-600 hover:bg-gray-100 flex-shrink-0">
               <Menu size={22} />
             </button>
-            <span className="hidden md:block text-sm text-gray-500">{formatDate(new Date())}</span>
+            {/* Department/Ward indicator */}
+            {department ? (
+              <span className="hidden md:block text-xs text-gray-500 truncate">
+                {department.name}{ward ? ` · ${ward.name}` : ' · All Wards'}
+              </span>
+            ) : (
+              <span className="hidden md:block text-xs text-gray-400">{formatDate(new Date())}</span>
+            )}
           </div>
-          <div className="flex items-center gap-2 text-sm font-medium" style={{ color: shift.color }}>
+
+          {/* Mode toggle pill */}
+          <div className="flex items-center bg-gray-100 rounded-full p-0.5 gap-0.5 flex-shrink-0">
+            <button
+              onClick={() => switchMode('nurse')}
+              className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${
+                mode === 'nurse'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Nurse Mode
+            </button>
+            <button
+              onClick={() => switchMode('provider')}
+              className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${
+                mode === 'provider'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Provider Mode
+            </button>
+          </div>
+
+          {/* Shift indicator */}
+          <div className="flex items-center gap-2 text-sm font-medium flex-shrink-0" style={{ color: shift.color }}>
             <ShiftIcon size={15} />
-            <span>{shift.label}</span>
-            <span className="text-gray-400 font-normal">({shift.range})</span>
+            <span className="hidden sm:inline">{shift.label}</span>
+            <span className="text-gray-400 font-normal text-xs hidden sm:inline">({shift.range})</span>
           </div>
         </div>
 

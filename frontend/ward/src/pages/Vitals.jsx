@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { Activity, Plus, Loader2, X, AlertCircle, CheckCircle } from 'lucide-react'
 import api from '../api/client'
 import PatientList from '../components/PatientList'
+import { usePin } from '../contexts/PinContext'
+import SignatureBlock from '../components/SignatureBlock'
 
 const NORMAL_RANGES = {
   temperature: { min: 36, max: 38.5 },
@@ -47,6 +49,7 @@ const EMPTY_FORM = {
 }
 
 export default function Vitals() {
+  const { requestPin } = usePin()
   const [selected, setSelected] = useState(null)
   const [vitals, setVitals] = useState([])
   const [vitalsLoading, setVitalsLoading] = useState(false)
@@ -56,6 +59,8 @@ export default function Vitals() {
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
   const [submitSuccess, setSubmitSuccess] = useState(false)
+  const [signedIdentity, setSignedIdentity] = useState(null)
+  const [signedAt, setSignedAt] = useState('')
 
   const fetchVitals = (admId) => {
     setVitalsLoading(true); setVitalsError('')
@@ -71,15 +76,28 @@ export default function Vitals() {
   }
 
   const handleSubmit = async e => {
-    e.preventDefault(); setSubmitting(true); setSubmitError(''); setSubmitSuccess(false)
+    e.preventDefault()
+    setSubmitError(''); setSubmitSuccess(false); setSignedIdentity(null)
+    let identity
+    try {
+      identity = await requestPin('Record Vitals')
+    } catch {
+      // User cancelled PIN — do nothing
+      return
+    }
+    setSubmitting(true)
     const payload = {}
     Object.entries(form).forEach(([k, v]) => {
       if (v !== '' && v != null) payload[k] = k === 'notes' ? v : Number(v)
     })
     payload.notes = form.notes
+    payload.recorded_by = identity.staff_id
     try {
       await api.post(`/inpatient/admissions/${selected.id}/vitals`, payload)
+      const now = new Date().toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
       setSubmitSuccess(true)
+      setSignedIdentity(identity)
+      setSignedAt(now)
       setForm(EMPTY_FORM)
       setShowForm(false)
       fetchVitals(selected.id)
@@ -131,6 +149,14 @@ export default function Vitals() {
                   <div className="flex items-center gap-2 p-3 mb-4 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm">
                     <CheckCircle size={15} /> Vitals recorded successfully.
                   </div>
+                )}
+
+                {signedIdentity && (
+                  <SignatureBlock
+                    verifiedIdentity={signedIdentity}
+                    signed={true}
+                    signedAt={signedAt}
+                  />
                 )}
 
                 {showForm && (

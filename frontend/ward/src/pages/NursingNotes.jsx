@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { ClipboardList, Plus, Loader2, X, AlertCircle, CheckCircle } from 'lucide-react'
 import api from '../api/client'
 import PatientList from '../components/PatientList'
+import { usePin } from '../contexts/PinContext'
+import SignatureBlock from '../components/SignatureBlock'
 
 function getCurrentShift() {
   const h = new Date().getHours()
@@ -28,6 +30,7 @@ const NOTE_TYPE_COLORS = {
 const EMPTY_FORM = { note_type: 'general', shift: getCurrentShift(), note: '', is_handoff: false }
 
 export default function NursingNotes() {
+  const { requestPin } = usePin()
   const [selected, setSelected] = useState(null)
   const [notes, setNotes] = useState([])
   const [notesLoading, setNotesLoading] = useState(false)
@@ -37,6 +40,9 @@ export default function NursingNotes() {
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
   const [submitSuccess, setSubmitSuccess] = useState(false)
+  const [noteIdentity, setNoteIdentity] = useState(null)  // PIN-verified identity for current note session
+  const [noteSigned, setNoteSigned] = useState(false)
+  const [noteSignedAt, setNoteSignedAt] = useState('')
 
   const fetchNotes = (admId) => {
     setNotesLoading(true); setNotesError('')
@@ -51,22 +57,38 @@ export default function NursingNotes() {
     fetchNotes(adm.id)
   }
 
-  const openModal = () => {
+  const openModal = async () => {
+    // Require PIN before opening the note modal
+    let identity
+    try {
+      identity = await requestPin('Add Nursing Note')
+    } catch {
+      return // User cancelled
+    }
+    setNoteIdentity(identity)
+    setNoteSigned(false)
+    setNoteSignedAt('')
     setForm({ ...EMPTY_FORM, shift: getCurrentShift() })
     setSubmitError('')
     setShowModal(true)
   }
 
-  const handleSubmit = async e => {
-    e.preventDefault(); setSubmitting(true); setSubmitError('')
+  const handleSubmit = async (signed = false) => {
+    setSubmitting(true); setSubmitError('')
+    const now = new Date().toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
     try {
       await api.post(`/inpatient/admissions/${selected.id}/notes`, {
         note_type: form.is_handoff ? 'shift_handoff' : form.note_type,
         shift: form.shift,
         note: form.note,
         is_handoff: form.is_handoff,
+        written_by: noteIdentity?.staff_id,
+        signed,
+        signed_at: signed ? now : null,
+        signer_name: signed ? noteIdentity?.full_name : null,
       })
       setSubmitSuccess(true)
+      if (signed) { setNoteSigned(true); setNoteSignedAt(now) }
       setShowModal(false)
       fetchNotes(selected.id)
     } catch (err) {
@@ -74,6 +96,11 @@ export default function NursingNotes() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const handleFormSubmit = async e => {
+    e.preventDefault()
+    await handleSubmit(false)
   }
 
   return (
@@ -141,6 +168,17 @@ export default function NursingNotes() {
                         {n.shift && (
                           <span className="badge-gray">{n.shift} shift</span>
                         )}
+                        {/* Signed / unsigned badge */}
+                        {n.signed ? (
+                          <span className="flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                            <CheckCircle size={11} />
+                            SIGNED · {n.signer_name || n.written_by || ''} · {n.signed_at ? new Date(n.signed_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : ''}
+                          </span>
+                        ) : (
+                          <span className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                            UNSIGNED DRAFT
+                          </span>
+                        )}
                         <span className="text-xs text-gray-400 ml-auto">
                           {n.written_by || n.nurse_name || ''}
                           {' · '}
@@ -166,7 +204,15 @@ export default function NursingNotes() {
               <h3 className="font-bold text-gray-800 text-lg">Add Nursing Note</h3>
               <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
             </div>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            {noteIdentity && (
+              <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 mb-4 text-sm text-emerald-800">
+                <CheckCircle size={14} className="text-emerald-600 flex-shrink-0" />
+                <span>Documenting as: <strong>{noteIdentity.full_name}</strong>
+                  {noteIdentity.credentials ? ` · ${noteIdentity.credentials}` : ` · ${noteIdentity.role?.replace(/_/g, ' ')}`}
+                </span>
+              </div>
+            )}
+            <form onSubmit={handleFormSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="label">Note Type</label>
@@ -209,12 +255,21 @@ export default function NursingNotes() {
                 </div>
               )}
 
-              <div className="flex gap-2 pt-1">
-                <button type="submit" disabled={submitting} className="btn-primary flex-1">
-                  {submitting ? <><Loader2 size={14} className="animate-spin" />Saving…</> : 'Add Note'}
-                </button>
-                <button type="button" onClick={() => setShowModal(false)} className="btn-secondary">Cancel</button>
-              </div>
+              <SignatureBlock
+                verifiedIdentity={noteIdentity}
+                onSign={() => handleSubmit(true)}
+                signed={noteSigned}
+                signedAt={noteSignedAt}
+              />
+
+              {!noteSigned && (
+                <div className="flex gap-2 pt-1">
+                  <button type="submit" disabled={submitting} className="btn-primary flex-1">
+                    {submitting ? <><Loader2 size={14} className="animate-spin" />Saving…</> : 'Save as Draft'}
+                  </button>
+                  <button type="button" onClick={() => setShowModal(false)} className="btn-secondary">Cancel</button>
+                </div>
+              )}
             </form>
           </div>
         </div>
