@@ -81,12 +81,25 @@ function AppRoutes() {
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
-  )
+    export default function App() {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <Routes>
+
+          {/* your routes here */}
+          <Route path="/" element={<Home />} />
+          <Route path="/login" element={<Login />} />
+
+          {/* fallback */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+
+        </Routes>
+      </AuthProvider>
+    </BrowserRouter>
+  );
 }
 
-export default function App() {
-  return (
     <BrowserRouter>
       <AuthProvider>
         <WardSessionProvider>
