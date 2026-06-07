@@ -8,6 +8,7 @@ import BookingStatus from './pages/BookingStatus'
 import RegisterLanding from './pages/RegisterLanding'
 import RegisterForm from './pages/RegisterForm'
 import TelehealthPage from './pages/Telehealth'
+import PharmacyOrder from './pages/PharmacyOrder'
 
 export default function App() {
   return (
@@ -23,6 +24,9 @@ export default function App() {
         <Route path="/register" element={<RegisterLanding />} />
         <Route path="/register/:type" element={<RegisterForm />} />
         <Route path="/telehealth" element={<TelehealthPage />} />
+        <Route path="/pharmacy" element={<PharmacyOrder />} />
       </Routes>
     </BrowserRouter>
     </>
+  )
+}

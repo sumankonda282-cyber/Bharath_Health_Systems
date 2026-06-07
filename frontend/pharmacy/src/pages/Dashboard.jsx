@@ -96,7 +96,7 @@ export default function Dashboard() {
     <div>
       <div className="page-header"><h1 className="page-title">Pharmacy Dashboard</h1></div>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
-        <KpiCard icon={Pill}        label="Pending Rx"      value={pending.length}                  bg="#CC141418" fg="#CC1414" to="/pending" />
+        <KpiCard icon={Pill}        label="Pending Rx"      value={pending.length}                  bg="#CC141418" fg="#CC1414" to="/orders" />
         <KpiCard icon={Package}     label="Total Medicines"  value={medicines.length}                 bg="#F5821E18" fg="#F5821E" to="/inventory" />
         <KpiCard icon={Package}     label="Low Stock (<10)"  value={lowStock.length}                  bg="#DC262618" fg="#DC2626" to="/inventory" />
         <KpiCard icon={TrendingUp}  label="Dispensed Today"  value={dispensedToday}                   bg="#16a34a18" fg="#16a34a" to="/history" />

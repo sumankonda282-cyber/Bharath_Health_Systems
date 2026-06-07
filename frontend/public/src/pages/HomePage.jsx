@@ -25,6 +25,9 @@ function Navbar() {
             <Link to="/telehealth" className="text-gray-600 hover:text-[#0F2557] font-medium transition-colors text-sm flex items-center gap-1">
               <Video className="w-3.5 h-3.5" style={{ color: '#F5821E' }} />Telehealth
             </Link>
+            <Link to="/pharmacy" className="text-gray-600 hover:text-[#0F2557] font-medium transition-colors text-sm flex items-center gap-1">
+              <Pill className="w-3.5 h-3.5" style={{ color: '#F5821E' }} />Order Medicine
+            </Link>
             <Link to="/booking/check" className="text-gray-600 hover:text-[#0F2557] font-medium transition-colors text-sm">My Booking</Link>
             <Link to="/register" className="text-gray-600 hover:text-[#0F2557] font-medium transition-colors text-sm">Register Free</Link>
           </div>
@@ -58,6 +61,7 @@ function Navbar() {
         {open && (
           <div className="md:hidden pb-4 pt-2 flex flex-col gap-2 border-t border-gray-100">
             <Link to="/clinics" className="text-gray-600 font-medium px-2 py-2 text-sm" onClick={() => setOpen(false)}>Find Clinics</Link>
+            <Link to="/pharmacy" className="text-gray-600 font-medium px-2 py-2 text-sm" onClick={() => setOpen(false)}>Order Medicine</Link>
             <Link to="/booking/check" className="text-gray-600 font-medium px-2 py-2 text-sm" onClick={() => setOpen(false)}>My Booking</Link>
             <Link to="/register" className="text-gray-600 font-medium px-2 py-2 text-sm" onClick={() => setOpen(false)}>Register Free</Link>
             <div className="flex gap-2 mt-1">
@@ -90,6 +94,7 @@ function Footer() {
             <ul className="space-y-2.5 text-sm">
               <li><Link to="/clinics" className="hover:text-white transition-colors">Find Clinics</Link></li>
               <li><Link to="/book" className="hover:text-white transition-colors">Book Appointment</Link></li>
+              <li><Link to="/pharmacy" className="hover:text-white transition-colors">Order Medicine</Link></li>
               <li><Link to="/booking/check" className="hover:text-white transition-colors">Check Booking Status</Link></li>
               <li><a href={PATIENT_URL} className="hover:text-white transition-colors">My Health Portal</a></li>
             </ul>

@@ -2296,6 +2296,437 @@ def hsn_gst_report(
     ]
 
 
+# ── Pharmacy Orders & Dispense Workflow ───────────────────────────────────────
+
+def _order_out(o):
+    return {
+        "id": o.id, "source": o.source, "status": o.status,
+        "patient_id": o.patient_id,
+        "patient_name": (o.patient.full_name if o.patient else o.patient_name) or "Walk-in",
+        "patient_mobile": (o.patient.mobile if o.patient else o.patient_mobile),
+        "prescription_image_url": o.prescription_image_url,
+        "prescription_id": o.prescription_id,
+        "notes": o.notes,
+        "created_at": o.created_at.isoformat() if o.created_at else None,
+        "items_count": len(o.prescription.items) if o.prescription else 0,
+    }
+
+
+@pharmacy_router.get("/orders")
+def list_pharmacy_orders(
+    status: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    from app.models.models import PharmacyOrder
+    q = db.query(PharmacyOrder).filter(PharmacyOrder.clinic_id == current.clinic_id)
+    if status:
+        q = q.filter(PharmacyOrder.status == status)
+    else:
+        q = q.filter(PharmacyOrder.status.in_(["pending_fill", "filling", "ready"]))
+    orders = q.order_by(PharmacyOrder.created_at.desc()).limit(200).all()
+    return [_order_out(o) for o in orders]
+
+
+@pharmacy_router.post("/orders")
+def create_pharmacy_order(
+    body: dict,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    from app.models.models import PharmacyOrder
+    source = body.get("source", "walkin")
+    if source not in ("walkin", "cpoe"):
+        raise HTTPException(400, "Invalid source. Use walkin or cpoe.")
+    order = PharmacyOrder(
+        clinic_id=current.clinic_id,
+        branch_id=body.get("branch_id") or current.branch_id,
+        patient_id=body.get("patient_id"),
+        source=source,
+        prescription_id=body.get("prescription_id"),
+        patient_name=body.get("patient_name"),
+        patient_mobile=body.get("patient_mobile"),
+        notes=body.get("notes"),
+        created_by=current.id,
+    )
+    db.add(order); db.commit(); db.refresh(order)
+    return _order_out(order)
+
+
+@pharmacy_router.get("/orders/{order_id}")
+def get_pharmacy_order(
+    order_id: int,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    from app.models.models import PharmacyOrder
+    o = db.query(PharmacyOrder).filter(
+        PharmacyOrder.id == order_id,
+        PharmacyOrder.clinic_id == current.clinic_id,
+    ).first()
+    if not o:
+        raise HTTPException(404, "Order not found")
+    out = _order_out(o)
+    # include prescription items if linked
+    if o.prescription:
+        out["rx_items"] = [
+            {
+                "medicine_id": i.medicine_id,
+                "medicine_name": i.medicine_name,
+                "dosage": i.dosage,
+                "frequency": i.frequency,
+                "duration": i.duration,
+                "quantity_prescribed": i.quantity_prescribed or 0,
+            }
+            for i in (o.prescription.items or [])
+        ]
+    return out
+
+
+@pharmacy_router.put("/orders/{order_id}/status")
+def update_order_status(
+    order_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    from app.models.models import PharmacyOrder
+    o = db.query(PharmacyOrder).filter(
+        PharmacyOrder.id == order_id,
+        PharmacyOrder.clinic_id == current.clinic_id,
+    ).first()
+    if not o:
+        raise HTTPException(404, "Order not found")
+    new_status = body.get("status")
+    valid = ["pending_fill", "filling", "ready", "dispensed", "cancelled"]
+    if new_status not in valid:
+        raise HTTPException(400, f"status must be one of {valid}")
+    o.status = new_status
+    db.commit()
+    return {"id": o.id, "status": o.status}
+
+
+@pharmacy_router.get("/patients/lookup")
+def lookup_patients(
+    q: str = Query(""),
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Search patients by name or mobile for walk-in order / POS verification."""
+    from app.models.models import Patient
+    query = db.query(Patient).filter(Patient.clinic_id == current.clinic_id)
+    if q:
+        query = query.filter(
+            Patient.full_name.ilike(f"%{q}%") | Patient.mobile.ilike(f"%{q}%")
+        )
+    patients = query.order_by(Patient.full_name).limit(20).all()
+    return [
+        {
+            "id": p.id, "full_name": p.full_name, "mobile": p.mobile,
+            "date_of_birth": str(p.date_of_birth) if p.date_of_birth else None,
+        }
+        for p in patients
+    ]
+
+
+# ── Dispense Sessions ─────────────────────────────────────────────────────────
+
+def _session_out(s):
+    return {
+        "id": s.id,
+        "order_id": s.order_id,
+        "patient_id": s.patient_id,
+        "patient_name": (s.patient.full_name if s.patient else s.patient_name) or "Walk-in",
+        "patient_mobile": (s.patient.mobile if s.patient else s.patient_mobile),
+        "dispense_number": s.dispense_number,
+        "status": s.status,
+        "subtotal": float(s.subtotal or 0),
+        "gst_total": float(s.gst_total or 0),
+        "total_amount": float(s.total_amount or 0),
+        "amount_paid": float(s.amount_paid or 0),
+        "balance_due": float(s.balance_due or 0),
+        "payment_method": s.payment_method,
+        "dispensed_at": s.dispensed_at.isoformat() if s.dispensed_at else None,
+        "created_at": s.created_at.isoformat() if s.created_at else None,
+        "items": [
+            {
+                "id": i.id,
+                "medicine_id": i.medicine_id,
+                "medicine_name": i.medicine_name,
+                "batch_number": i.batch_number,
+                "expiry_date": str(i.expiry_date) if i.expiry_date else None,
+                "ordered_qty": i.ordered_qty,
+                "dispensed_qty": i.dispensed_qty,
+                "unit_price": float(i.unit_price or 0),
+                "mrp": float(i.mrp or 0) if i.mrp else None,
+                "gst_percent": float(i.gst_percent or 0),
+                "gst_amount": float(i.gst_amount or 0),
+                "line_total": float(i.line_total or 0),
+                "gathered": i.gathered,
+                "is_schedule_h": i.is_schedule_h,
+            }
+            for i in (s.items or [])
+        ],
+    }
+
+
+@pharmacy_router.post("/dispense/sessions")
+def create_dispense_session(
+    body: dict,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Create a draft dispense session with items (pre-POS)."""
+    from app.models.models import DispenseSession, DispenseItem, PharmacyOrder
+    patient_id = body.get("patient_id")
+
+    # auto-increment dispense_number per patient
+    from sqlalchemy import func as sqlfunc
+    max_num = db.query(sqlfunc.max(DispenseSession.dispense_number)).filter(
+        DispenseSession.clinic_id == current.clinic_id,
+        DispenseSession.patient_id == patient_id if patient_id else True,
+    ).scalar() or 0
+
+    session = DispenseSession(
+        clinic_id=current.clinic_id,
+        branch_id=body.get("branch_id") or current.branch_id,
+        order_id=body.get("order_id"),
+        patient_id=patient_id,
+        patient_name=body.get("patient_name"),
+        patient_mobile=body.get("patient_mobile"),
+        dispense_number=max_num + 1,
+        status="draft",
+        dispensed_by=current.id,
+        notes=body.get("notes"),
+    )
+    db.add(session); db.flush()
+
+    subtotal = 0.0; gst_total = 0.0
+    for it in (body.get("items") or []):
+        qty   = int(it.get("dispensed_qty") or it.get("ordered_qty") or 0)
+        price = float(it.get("unit_price") or 0)
+        gst_p = float(it.get("gst_percent") or 0)
+        line_pre_gst = qty * price
+        gst_amt = round(line_pre_gst * gst_p / 100, 2)
+        line_tot = round(line_pre_gst + gst_amt, 2)
+        subtotal  += line_pre_gst
+        gst_total += gst_amt
+
+        item = DispenseItem(
+            session_id=session.id,
+            medicine_id=it.get("medicine_id"),
+            medicine_name=it.get("medicine_name", ""),
+            batch_number=it.get("batch_number"),
+            expiry_date=it.get("expiry_date"),
+            ordered_qty=it.get("ordered_qty") or qty,
+            dispensed_qty=qty,
+            unit_price=price,
+            mrp=it.get("mrp"),
+            gst_percent=gst_p,
+            gst_amount=gst_amt,
+            line_total=line_tot,
+            gathered=it.get("gathered", True),
+            is_schedule_h=it.get("is_schedule_h", False),
+        )
+        db.add(item)
+
+    session.subtotal     = round(subtotal, 2)
+    session.gst_total    = round(gst_total, 2)
+    session.total_amount = round(subtotal + gst_total, 2)
+    session.balance_due  = session.total_amount
+    db.commit(); db.refresh(session)
+    return _session_out(session)
+
+
+@pharmacy_router.get("/dispense/sessions")
+def list_dispense_sessions(
+    patient_id: Optional[int] = None,
+    status: Optional[str] = None,
+    limit: int = Query(100),
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    from app.models.models import DispenseSession
+    q = db.query(DispenseSession).filter(DispenseSession.clinic_id == current.clinic_id)
+    if patient_id:
+        q = q.filter(DispenseSession.patient_id == patient_id)
+    if status:
+        q = q.filter(DispenseSession.status == status)
+    sessions = q.order_by(DispenseSession.created_at.desc()).limit(limit).all()
+    return [_session_out(s) for s in sessions]
+
+
+@pharmacy_router.get("/dispense/sessions/{session_id}")
+def get_dispense_session(
+    session_id: int,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    from app.models.models import DispenseSession
+    s = db.query(DispenseSession).filter(
+        DispenseSession.id == session_id,
+        DispenseSession.clinic_id == current.clinic_id,
+    ).first()
+    if not s:
+        raise HTTPException(404, "Session not found")
+    return _session_out(s)
+
+
+@pharmacy_router.put("/dispense/sessions/{session_id}/items")
+def update_session_items(
+    session_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Replace all items in a draft session (POS edit)."""
+    from app.models.models import DispenseSession, DispenseItem
+    s = db.query(DispenseSession).filter(
+        DispenseSession.id == session_id,
+        DispenseSession.clinic_id == current.clinic_id,
+        DispenseSession.status == "draft",
+    ).first()
+    if not s:
+        raise HTTPException(404, "Draft session not found")
+    # delete existing items
+    db.query(DispenseItem).filter(DispenseItem.session_id == s.id).delete()
+    subtotal = 0.0; gst_total = 0.0
+    for it in (body.get("items") or []):
+        qty   = int(it.get("dispensed_qty") or 0)
+        price = float(it.get("unit_price") or 0)
+        gst_p = float(it.get("gst_percent") or 0)
+        line_pre_gst = qty * price
+        gst_amt  = round(line_pre_gst * gst_p / 100, 2)
+        line_tot = round(line_pre_gst + gst_amt, 2)
+        subtotal += line_pre_gst; gst_total += gst_amt
+        db.add(DispenseItem(
+            session_id=s.id,
+            medicine_id=it.get("medicine_id"),
+            medicine_name=it.get("medicine_name", ""),
+            batch_number=it.get("batch_number"),
+            expiry_date=it.get("expiry_date"),
+            ordered_qty=it.get("ordered_qty") or qty,
+            dispensed_qty=qty,
+            unit_price=price,
+            mrp=it.get("mrp"),
+            gst_percent=gst_p,
+            gst_amount=gst_amt,
+            line_total=line_tot,
+            gathered=it.get("gathered", True),
+            is_schedule_h=it.get("is_schedule_h", False),
+        ))
+    s.subtotal = round(subtotal, 2)
+    s.gst_total = round(gst_total, 2)
+    s.total_amount = round(subtotal + gst_total, 2)
+    s.balance_due = s.total_amount - float(s.amount_paid or 0)
+    db.commit(); db.refresh(s)
+    return _session_out(s)
+
+
+@pharmacy_router.post("/dispense/sessions/{session_id}/checkout")
+def checkout_dispense(
+    session_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Finalise payment: deduct stock, mark session, generate invoice."""
+    from app.models.models import DispenseSession, PharmacyOrder, StockTransaction
+    s = db.query(DispenseSession).filter(
+        DispenseSession.id == session_id,
+        DispenseSession.clinic_id == current.clinic_id,
+    ).first()
+    if not s:
+        raise HTTPException(404, "Session not found")
+    if s.status not in ("draft",):
+        raise HTTPException(400, "Session already finalised")
+
+    payment_method = body.get("payment_method", "cash")
+    amount_paid    = float(body.get("amount_paid") or 0)
+    is_credit      = payment_method == "credit" or amount_paid == 0
+
+    # deduct stock
+    for item in s.items:
+        if item.medicine_id and item.dispensed_qty:
+            med = db.query(Medicine).filter(Medicine.id == item.medicine_id).first()
+            if med:
+                before = med.stock_quantity or 0
+                med.stock_quantity = max(0, before - item.dispensed_qty)
+                db.add(StockTransaction(
+                    clinic_id=current.clinic_id,
+                    medicine_id=med.id,
+                    transaction_type="dispense",
+                    quantity=-item.dispensed_qty,
+                    quantity_before=before,
+                    quantity_after=med.stock_quantity,
+                    batch_number=item.batch_number,
+                    performed_by=current.id,
+                ))
+
+    s.payment_method = payment_method
+    s.amount_paid    = amount_paid if not is_credit else 0
+    s.balance_due    = float(s.total_amount or 0) - (amount_paid if not is_credit else 0)
+    s.status         = "credit" if is_credit else "paid"
+    s.dispensed_at   = datetime.utcnow()
+    s.dispensed_by   = current.id
+
+    # mark linked order as dispensed
+    if s.order_id:
+        o = db.query(PharmacyOrder).filter(PharmacyOrder.id == s.order_id).first()
+        if o:
+            o.status = "dispensed"
+
+    db.commit(); db.refresh(s)
+    return _session_out(s)
+
+
+@pharmacy_router.get("/credit")
+def get_credit_ledger(
+    patient_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """All credit/unpaid dispense sessions."""
+    from app.models.models import DispenseSession
+    q = db.query(DispenseSession).filter(
+        DispenseSession.clinic_id == current.clinic_id,
+        DispenseSession.status == "credit",
+    )
+    if patient_id:
+        q = q.filter(DispenseSession.patient_id == patient_id)
+    sessions = q.order_by(DispenseSession.created_at.desc()).limit(500).all()
+    return [_session_out(s) for s in sessions]
+
+
+@pharmacy_router.post("/credit/{session_id}/collect")
+def collect_credit_payment(
+    session_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Record a payment against a credit dispense session."""
+    from app.models.models import DispenseSession
+    s = db.query(DispenseSession).filter(
+        DispenseSession.id == session_id,
+        DispenseSession.clinic_id == current.clinic_id,
+        DispenseSession.status == "credit",
+    ).first()
+    if not s:
+        raise HTTPException(404, "Credit session not found")
+    amount = float(body.get("amount") or 0)
+    method = body.get("payment_method", "cash")
+    if amount <= 0:
+        raise HTTPException(400, "Amount must be > 0")
+    s.amount_paid   = float(s.amount_paid or 0) + amount
+    s.balance_due   = max(0, float(s.total_amount or 0) - float(s.amount_paid))
+    s.payment_method = method
+    if s.balance_due == 0:
+        s.status = "paid"
+    db.commit(); db.refresh(s)
+    return _session_out(s)
+
+
 # ── Referring Doctors ─────────────────────────────────────────────────────────
 
 @imaging_router.get("/referring-doctors")

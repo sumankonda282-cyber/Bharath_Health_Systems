@@ -48,6 +48,11 @@ export const publicApi = {
 
   // Telehealth
   getTelehealthDoctors: (params) => api.get('/public/telehealth-doctors', { params }),
+
+  // Pharmacy (public ordering)
+  getPharmacies: (params) => api.get('/public/pharmacies', { params }),
+  createPharmacyOrder: (body) => api.post('/public/pharmacy/orders', body),
+  trackPharmacyOrder: (id, mobile) => api.get(`/public/pharmacy/orders/${id}`, { params: { mobile } }),
 }
 
 export default api

@@ -1393,3 +1393,81 @@ class PasswordResetRequest(Base):
     resolved_at  = Column(DateTime, nullable=True)
     resolved_by  = Column(Integer, ForeignKey("staff.id"), nullable=True)
     note         = Column(Text, nullable=True)
+
+
+# ── Pharmacy Dispensing Workflow (GoFrugal-parity) ────────────────────────────
+
+class PharmacyOrder(Base):
+    """Unified order from any source: online Rx upload, walk-in, or CPOE."""
+    __tablename__ = "pharmacy_orders"
+    id                     = Column(Integer, primary_key=True, index=True)
+    clinic_id              = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    branch_id              = Column(Integer, ForeignKey("branches.id"), nullable=True)
+    patient_id             = Column(Integer, ForeignKey("patients.id"), nullable=True)
+    source                 = Column(String(20), nullable=False)   # online | walkin | cpoe
+    status                 = Column(String(30), default="pending_fill")
+    # pending_fill | filling | ready | dispensed | cancelled
+    prescription_image_url = Column(String(500), nullable=True)   # for online orders
+    prescription_id        = Column(Integer, ForeignKey("prescriptions.id"), nullable=True)
+    patient_name           = Column(String(200), nullable=True)   # walk-in without patient record
+    patient_mobile         = Column(String(20), nullable=True)
+    notes                  = Column(Text, nullable=True)
+    created_by             = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    created_at             = Column(DateTime, server_default=func.now())
+    updated_at             = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    patient           = relationship("Patient",      foreign_keys=[patient_id])
+    prescription      = relationship("Prescription", foreign_keys=[prescription_id])
+    dispense_sessions = relationship("DispenseSession", back_populates="order")
+
+
+class DispenseSession(Base):
+    """One dispensing event — patient picks up medications at counter."""
+    __tablename__ = "dispense_sessions"
+    id              = Column(Integer, primary_key=True, index=True)
+    clinic_id       = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    branch_id       = Column(Integer, ForeignKey("branches.id"), nullable=True)
+    order_id        = Column(Integer, ForeignKey("pharmacy_orders.id"), nullable=True)
+    patient_id      = Column(Integer, ForeignKey("patients.id"), nullable=True)
+    dispense_number = Column(Integer, nullable=False)   # auto per-patient: 1, 2, 3…
+    status          = Column(String(20), default="draft")  # draft | dispensed | paid | credit
+    subtotal        = Column(Numeric(10, 2), default=0)
+    gst_total       = Column(Numeric(10, 2), default=0)
+    total_amount    = Column(Numeric(10, 2), default=0)
+    amount_paid     = Column(Numeric(10, 2), default=0)
+    balance_due     = Column(Numeric(10, 2), default=0)
+    payment_method  = Column(String(50), nullable=True)   # cash | card | upi | credit
+    dispensed_by    = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    dispensed_at    = Column(DateTime, nullable=True)
+    invoice_id      = Column(Integer, ForeignKey("invoices.id"), nullable=True)
+    patient_name    = Column(String(200), nullable=True)  # for walk-in
+    patient_mobile  = Column(String(20), nullable=True)
+    notes           = Column(Text, nullable=True)
+    created_at      = Column(DateTime, server_default=func.now())
+
+    order   = relationship("PharmacyOrder", back_populates="dispense_sessions")
+    patient = relationship("Patient", foreign_keys=[patient_id])
+    items   = relationship("DispenseItem", back_populates="session", cascade="all, delete-orphan")
+
+
+class DispenseItem(Base):
+    """One medicine line in a dispense session."""
+    __tablename__ = "dispense_items"
+    id            = Column(Integer, primary_key=True, index=True)
+    session_id    = Column(Integer, ForeignKey("dispense_sessions.id"), nullable=False)
+    medicine_id   = Column(Integer, ForeignKey("medicines.id"), nullable=True)
+    medicine_name = Column(String(200), nullable=False)
+    batch_number  = Column(String(50), nullable=True)
+    expiry_date   = Column(Date, nullable=True)
+    ordered_qty   = Column(Integer, default=0)
+    dispensed_qty = Column(Integer, default=0)
+    unit_price    = Column(Numeric(10, 2), default=0)
+    mrp           = Column(Numeric(10, 2), nullable=True)
+    gst_percent   = Column(Numeric(5, 2), default=0)
+    gst_amount    = Column(Numeric(10, 2), default=0)
+    line_total    = Column(Numeric(10, 2), default=0)
+    is_schedule_h = Column(Boolean, default=False)
+    gathered      = Column(Boolean, default=False)  # checklist: physically picked
+
+    session  = relationship("DispenseSession", back_populates="items")
+    medicine = relationship("Medicine", foreign_keys=[medicine_id])

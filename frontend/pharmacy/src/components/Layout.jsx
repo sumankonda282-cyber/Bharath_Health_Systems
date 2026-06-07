@@ -1,20 +1,21 @@
 import ChatWidget from './ChatWidget'
 import { useState, useEffect, useRef } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Pill, Package, Settings, LogOut, History, PackagePlus, CreditCard, BarChart2, Menu, X, Building2, ShoppingCart, Bell, AlertTriangle, Clock, RotateCcw } from 'lucide-react'
+import { LayoutDashboard, Pill, Package, Settings, LogOut, History, PackagePlus, CreditCard, BarChart2, Menu, X, Building2, ShoppingCart, Bell, AlertTriangle, Clock, RotateCcw, ClipboardList, IndianRupee } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../api/client'
 
 const NAV = [
-  { to: '/',              icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/pending',       icon: Pill,            label: 'Pending Rx' },
-  { to: '/history',       icon: History,         label: 'Rx History' },
-  { to: '/inventory',     icon: Package,         label: 'Inventory' },
-  { to: '/stock-in',      icon: PackagePlus,     label: 'Receive Stock' },
-  { to: '/suppliers',     icon: Building2,       label: 'Suppliers' },
-  { to: '/purchase-orders', icon: ShoppingCart,  label: 'Purchase Orders' },
-  { to: '/billing',       icon: CreditCard,      label: 'Billing' },
-  { to: '/reports',       icon: BarChart2,       label: 'Reports' },
+  { to: '/',               icon: LayoutDashboard, label: 'Dashboard'      },
+  { to: '/orders',         icon: ClipboardList,   label: 'Order Queue'    },
+  { to: '/credit',         icon: IndianRupee,     label: 'Credit Ledger'  },
+  { to: '/history',        icon: History,         label: 'Dispense History'},
+  { to: '/inventory',      icon: Package,         label: 'Inventory'      },
+  { to: '/stock-in',       icon: PackagePlus,     label: 'Receive Stock'  },
+  { to: '/suppliers',      icon: Building2,       label: 'Suppliers'      },
+  { to: '/purchase-orders',icon: ShoppingCart,    label: 'Purchase Orders'},
+  { to: '/billing',        icon: CreditCard,      label: 'Billing'        },
+  { to: '/reports',        icon: BarChart2,       label: 'Reports'        },
 ]
 
 // ── Alerts Bell ───────────────────────────────────────────────────────────────

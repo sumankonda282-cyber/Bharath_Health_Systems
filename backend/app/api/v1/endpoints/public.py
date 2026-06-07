@@ -586,3 +586,89 @@ def get_clinic_branding(clinic_id: int, db: Session = Depends(get_db)):
         'brand_color': clinic.brand_color or '#0F2557',
         'logo_url':    clinic.logo_url,
     }
+
+
+# ── Public Pharmacy Order (prescription upload) ───────────────────────────────
+
+@router.get("/pharmacies")
+def list_public_pharmacies(
+    city: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """Return active clinics that have a pharmacy branch."""
+    from app.models.models import Clinic
+    q = db.query(Clinic).filter(Clinic.is_active == True, Clinic.status == "active")
+    if city:
+        q = q.filter(Clinic.city.ilike(f"%{city}%"))
+    clinics = q.order_by(Clinic.name).limit(50).all()
+    return [
+        {
+            "id": c.id, "name": c.name, "slug": c.slug,
+            "city": c.city, "state": c.state, "address": c.address,
+            "phone": c.phone, "email": c.email,
+        }
+        for c in clinics
+    ]
+
+
+@router.post("/pharmacy/orders")
+def create_online_pharmacy_order(
+    body: dict,
+    db: Session = Depends(get_db),
+):
+    """Patient submits prescription image — creates a pending_fill order at the clinic."""
+    from app.models.models import PharmacyOrder, Clinic
+    clinic_id = body.get("clinic_id")
+    if not clinic_id:
+        raise HTTPException(400, "clinic_id is required")
+    clinic = db.query(Clinic).filter_by(id=clinic_id, is_active=True).first()
+    if not clinic:
+        raise HTTPException(404, "Clinic not found")
+
+    order = PharmacyOrder(
+        clinic_id=clinic_id,
+        source="online",
+        patient_name=body.get("patient_name", "").strip(),
+        patient_mobile=body.get("patient_mobile", "").strip(),
+        prescription_image_url=body.get("prescription_image_url"),
+        notes=body.get("notes"),
+        status="pending_fill",
+    )
+    db.add(order); db.commit(); db.refresh(order)
+    return {
+        "id": order.id,
+        "order_ref": f"ORX-{order.id:04d}",
+        "status": order.status,
+        "clinic_name": clinic.name,
+        "message": "Your prescription has been received. Please visit the pharmacy for pickup.",
+    }
+
+
+@router.get("/pharmacy/orders/{order_id}")
+def track_online_pharmacy_order(
+    order_id: int,
+    mobile: str = Query(...),
+    db: Session = Depends(get_db),
+):
+    """Patient tracks their order using order_id + mobile number."""
+    from app.models.models import PharmacyOrder
+    o = db.query(PharmacyOrder).filter(
+        PharmacyOrder.id == order_id,
+        PharmacyOrder.patient_mobile == mobile,
+    ).first()
+    if not o:
+        raise HTTPException(404, "Order not found")
+    status_labels = {
+        "pending_fill": "Received — pharmacist will prepare your order",
+        "filling":      "Pharmacist is gathering your medications",
+        "ready":        "Ready for pickup at the counter",
+        "dispensed":    "Dispensed — thank you!",
+        "cancelled":    "Order cancelled — please contact the pharmacy",
+    }
+    return {
+        "id": o.id,
+        "order_ref": f"ORX-{o.id:04d}",
+        "status": o.status,
+        "status_label": status_labels.get(o.status, o.status),
+        "created_at": o.created_at.isoformat() if o.created_at else None,
+    }
