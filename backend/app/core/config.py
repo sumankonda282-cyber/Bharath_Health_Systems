@@ -54,6 +54,13 @@ class Settings(BaseSettings):
             "https://bharatcliniq-imaging.vercel.app",
             "https://bharatcliniq-staff.vercel.app",
             "https://bharatcliniq-carechart.vercel.app",
+            # Cloudflare Pages
+            "https://bhs-provider.pages.dev",
+            "https://bhs-carechart.pages.dev",
+            "https://bhs-lab.pages.dev",
+            "https://bhs-pharmacy.pages.dev",
+            "https://bhs-imaging.pages.dev",
+            "https://bhs-staff.pages.dev",
             "http://localhost:5173",
             "http://localhost:5174",
             "http://localhost:5175",
