@@ -8,6 +8,21 @@ function todayStr() {
   return new Date().toISOString().slice(0, 10)
 }
 
+function KpiCard({ icon: Icon, label, value, bg, fg, to }) {
+  const inner = (
+    <div className={`card p-5 flex items-center gap-4 ${to ? 'cursor-pointer hover:shadow-md transition-shadow' : ''}`}>
+      <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: bg }}>
+        <Icon size={22} style={{ color: fg }} />
+      </div>
+      <div>
+        <div className="text-2xl font-bold" style={{ color: fg }}>{value}</div>
+        <div className="text-xs text-gray-500">{label}</div>
+      </div>
+    </div>
+  )
+  return to ? <Link to={to} className="block">{inner}</Link> : inner
+}
+
 export default function Dashboard() {
   const [pending, setPending] = useState([])
   const [medicines, setMedicines] = useState([])
@@ -81,26 +96,11 @@ export default function Dashboard() {
     <div>
       <div className="page-header"><h1 className="page-title">Pharmacy Dashboard</h1></div>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
-        <div className="card p-5 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{background:'#CC141418'}}><Pill size={22} style={{color:'#CC1414'}}/></div>
-          <div><div className="text-2xl font-bold" style={{color:'#0F2557'}}>{pending.length}</div><div className="text-xs text-gray-500">Pending Rx</div></div>
-        </div>
-        <div className="card p-5 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{background:'#F5821E18'}}><Package size={22} style={{color:'#F5821E'}}/></div>
-          <div><div className="text-2xl font-bold" style={{color:'#0F2557'}}>{medicines.length}</div><div className="text-xs text-gray-500">Total Medicines</div></div>
-        </div>
-        <div className="card p-5 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{background:'#DC262618'}}><Package size={22} style={{color:'#DC2626'}}/></div>
-          <div><div className="text-2xl font-bold" style={{color:'#DC2626'}}>{lowStock.length}</div><div className="text-xs text-gray-500">Low Stock (&lt;10)</div></div>
-        </div>
-        <div className="card p-5 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{background:'#16a34a18'}}><TrendingUp size={22} style={{color:'#16a34a'}}/></div>
-          <div><div className="text-2xl font-bold" style={{color:'#16a34a'}}>{dispensedToday}</div><div className="text-xs text-gray-500">Dispensed Today</div></div>
-        </div>
-        <div className="card p-5 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{background:'#0F255718'}}><IndianRupee size={22} style={{color:'#0F2557'}}/></div>
-          <div><div className="text-2xl font-bold" style={{color:'#0F2557'}}>₹{revenueToday.toFixed(0)}</div><div className="text-xs text-gray-500">Revenue Today</div></div>
-        </div>
+        <KpiCard icon={Pill}        label="Pending Rx"      value={pending.length}                  bg="#CC141418" fg="#CC1414" to="/pending" />
+        <KpiCard icon={Package}     label="Total Medicines"  value={medicines.length}                 bg="#F5821E18" fg="#F5821E" to="/inventory" />
+        <KpiCard icon={Package}     label="Low Stock (<10)"  value={lowStock.length}                  bg="#DC262618" fg="#DC2626" to="/inventory" />
+        <KpiCard icon={TrendingUp}  label="Dispensed Today"  value={dispensedToday}                   bg="#16a34a18" fg="#16a34a" to="/history" />
+        <KpiCard icon={IndianRupee} label="Revenue Today"    value={`₹${revenueToday.toFixed(0)}`}   bg="#0F255718" fg="#0F2557" to="/billing" />
       </div>
 
       {/* Quick Actions */}

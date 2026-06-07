@@ -61,33 +61,33 @@ export default function Dashboard() {
             <div className="text-3xl font-extrabold text-white">{data.opd_today ?? data.appointments_today ?? '—'}</div>
             <div className="text-xs text-gray-500 mt-1">Appointments across all clinics</div>
           </div>
-          <div className="bg-gray-800 rounded-2xl p-5 border border-gray-700/50">
+          <Link to="/clinics?status=active" className="block bg-gray-800 rounded-2xl p-5 border border-gray-700/50 hover:border-emerald-500/50 transition-colors cursor-pointer">
             <div className="text-xs font-semibold text-emerald-400 uppercase tracking-wider mb-1">Active Clinics</div>
             <div className="text-3xl font-extrabold text-white">{data.active_clinics ?? '—'}</div>
             <div className="text-xs text-gray-500 mt-1">With active subscription</div>
-          </div>
+          </Link>
           <div className="bg-gray-800 rounded-2xl p-5 border border-gray-700/50">
             <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: '#0F2557' }}>Total Patients</div>
             <div className="text-3xl font-extrabold text-white">{data.total_patients ?? '—'}</div>
             <div className="text-xs text-gray-500 mt-1">Registered on platform</div>
           </div>
-          <div className="bg-gray-800 rounded-2xl p-5 border border-gray-700/50">
+          <Link to="/subscriptions" className="block bg-gray-800 rounded-2xl p-5 border border-gray-700/50 hover:border-orange-500/50 transition-colors cursor-pointer">
             <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: '#F5821E' }}>Revenue This Month</div>
             <div className="text-3xl font-extrabold text-white">₹{data.mrr?.toLocaleString('en-IN') ?? '—'}</div>
             <div className="text-xs text-gray-500 mt-1">Platform MRR</div>
-          </div>
+          </Link>
         </div>
       </div>
 
       {/* MRR Banner */}
-      <div className="rounded-2xl p-5 mb-6 flex items-center justify-between" style={{ background: 'rgba(245,130,30,0.1)', border: '1px solid rgba(245,130,30,0.3)' }}>
+      <Link to="/subscriptions" className="block rounded-2xl p-5 mb-6 flex items-center justify-between cursor-pointer hover:opacity-90 transition-opacity" style={{ background: 'rgba(245,130,30,0.1)', border: '1px solid rgba(245,130,30,0.3)' }}>
         <div>
           <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: '#F5821E' }}>Estimated Monthly Revenue</div>
           <div className="text-3xl font-extrabold text-white">₹{data.mrr?.toLocaleString('en-IN')}</div>
-          <div className="text-xs text-gray-500 mt-1">Based on active doctors × plan rate</div>
+          <div className="text-xs text-gray-500 mt-1">Based on active doctors × plan rate — click to manage subscriptions</div>
         </div>
         <IndianRupee size={40} style={{ color: 'rgba(245,130,30,0.3)' }} />
-      </div>
+      </Link>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

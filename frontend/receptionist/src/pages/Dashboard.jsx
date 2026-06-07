@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import api from '../api/client'
 import { cachedFetch, TTL } from '../utils/cache'
 import { CalendarDays, Users, CreditCard, Clock, CheckCircle, XCircle, Loader2 } from 'lucide-react'
 
-function StatCard({ icon: Icon, label, value, color }) {
-  return (
-    <div className="card p-5 flex items-center gap-4">
+function StatCard({ icon: Icon, label, value, color, to }) {
+  const inner = (
+    <div className={`card p-5 flex items-center gap-4 ${to ? 'cursor-pointer hover:shadow-md transition-shadow' : ''}`}>
       <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: color + '18' }}>
         <Icon size={22} style={{ color }} />
       </div>
@@ -15,6 +16,7 @@ function StatCard({ icon: Icon, label, value, color }) {
       </div>
     </div>
   )
+  return to ? <Link to={to} className="block">{inner}</Link> : inner
 }
 
 export default function Dashboard() {
@@ -46,10 +48,10 @@ export default function Dashboard() {
       {loading ? <div className="flex justify-center py-20"><Loader2 size={32} className="animate-spin text-gray-400" /></div> : (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">
-            <StatCard icon={CalendarDays} label="Total Today"   value={appts.length} color="#0F2557" />
-            <StatCard icon={Clock}        label="Waiting"       value={waiting}      color="#F5821E" />
-            <StatCard icon={CheckCircle}  label="Completed"     value={completed}    color="#16A34A" />
-            <StatCard icon={XCircle}      label="Cancelled"     value={cancelled}    color="#CC1414" />
+            <StatCard icon={CalendarDays} label="Total Today"   value={appts.length} color="#0F2557" to="/appointments" />
+            <StatCard icon={Clock}        label="Waiting"       value={waiting}      color="#F5821E" to="/appointments" />
+            <StatCard icon={CheckCircle}  label="Completed"     value={completed}    color="#16A34A" to="/appointments" />
+            <StatCard icon={XCircle}      label="Cancelled"     value={cancelled}    color="#CC1414" to="/appointments" />
           </div>
           <div className="card overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-100 font-semibold text-gray-700">Today's Schedule</div>

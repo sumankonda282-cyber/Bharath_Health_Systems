@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { Link } from 'react-router-dom'
 import api from '../api/client'
 import {
   FlaskConical, Clock, CheckCircle, AlertTriangle, Zap, Loader2,
@@ -48,9 +49,9 @@ function ageColor(mins, priority) {
 
 // ── Stat Card ─────────────────────────────────────────────────────────────────
 
-function KpiCard({ icon: Icon, label, value, accent, sub, urgent }) {
-  return (
-    <div className={`card p-5 flex items-center gap-4 ${urgent ? 'ring-2 ring-red-300' : ''}`}>
+function KpiCard({ icon: Icon, label, value, accent, sub, urgent, to }) {
+  const inner = (
+    <div className={`card p-5 flex items-center gap-4 ${urgent ? 'ring-2 ring-red-300' : ''} ${to ? 'cursor-pointer hover:shadow-md transition-shadow' : ''}`}>
       <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
         style={{ background: accent + '18' }}>
         <Icon size={20} style={{ color: accent }} />
@@ -62,6 +63,7 @@ function KpiCard({ icon: Icon, label, value, accent, sub, urgent }) {
       </div>
     </div>
   )
+  return to ? <Link to={to} className="block">{inner}</Link> : inner
 }
 
 // ── STAT / Urgent Queue Row ───────────────────────────────────────────────────
@@ -201,15 +203,11 @@ export default function Dashboard() {
 
       {/* KPI grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
-        <KpiCard icon={Activity}       label="Today's Orders"  value={today.length}       accent="#0F2557" />
-        <KpiCard icon={Zap}            label="STAT / Urgent"   value={statUrgent.length}  accent="#CC1414"
-          urgent={statUrgent.length > 0}
-          sub={statUrgent.length > 0 ? 'Needs attention' : 'All clear'} />
-        <KpiCard icon={AlertTriangle}  label="TAT Breaches"    value={tatBreaches.length} accent="#F5821E"
-          urgent={tatBreaches.length > 0}
-          sub={tatBreaches.length > 0 ? 'Exceeded target TAT' : 'On time'} />
-        <KpiCard icon={Clock}          label="Pending"          value={pending.length}     accent="#3B82F6" />
-        <KpiCard icon={CheckCircle}    label="Completed Today"  value={completed.length}   accent="#16A34A" />
+        <KpiCard icon={Activity}       label="Today's Orders"  value={today.length}       accent="#0F2557" to="/orders" />
+        <KpiCard icon={Zap}            label="STAT / Urgent"   value={statUrgent.length}  accent="#CC1414" urgent={statUrgent.length > 0} sub={statUrgent.length > 0 ? 'Needs attention' : 'All clear'} to="/orders" />
+        <KpiCard icon={AlertTriangle}  label="TAT Breaches"    value={tatBreaches.length} accent="#F5821E" urgent={tatBreaches.length > 0} sub={tatBreaches.length > 0 ? 'Exceeded target TAT' : 'On time'} to="/orders" />
+        <KpiCard icon={Clock}          label="Pending"          value={pending.length}     accent="#3B82F6" to="/orders" />
+        <KpiCard icon={CheckCircle}    label="Completed Today"  value={completed.length}   accent="#16A34A" to="/reports" />
       </div>
 
       {/* TAT breach alert */}

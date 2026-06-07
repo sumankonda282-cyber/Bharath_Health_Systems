@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { BedDouble, Activity, Pill, ArrowLeftRight, Loader2, Clock, User } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import api from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -12,9 +12,9 @@ function timeAgo(dateStr) {
   return `${Math.round(diff / 1440)}d ago`
 }
 
-function StatCard({ icon: Icon, label, value, color, sub }) {
-  return (
-    <div className="card p-5 flex items-center gap-4">
+function StatCard({ icon: Icon, label, value, color, sub, to }) {
+  const inner = (
+    <div className={`card p-5 flex items-center gap-4 ${to ? 'cursor-pointer hover:shadow-md transition-shadow' : ''}`}>
       <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: `${color}18` }}>
         <Icon size={22} style={{ color }} />
       </div>
@@ -25,6 +25,7 @@ function StatCard({ icon: Icon, label, value, color, sub }) {
       </div>
     </div>
   )
+  return to ? <Link to={to} className="block">{inner}</Link> : inner
 }
 
 export default function Dashboard() {
@@ -73,33 +74,10 @@ export default function Dashboard() {
       ) : (
         <>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            <StatCard
-              icon={BedDouble}
-              label="Active Admissions"
-              value={admissions.length}
-              color="#065F46"
-            />
-            <StatCard
-              icon={Activity}
-              label="Vitals Due"
-              value={vitalsDue}
-              color={vitalsDue > 0 ? '#CC1414' : '#16A34A'}
-              sub="> 4h since last charting"
-            />
-            <StatCard
-              icon={Pill}
-              label="MAR Status"
-              value="—"
-              color="#d97706"
-              sub="Check MAR tab"
-            />
-            <StatCard
-              icon={ArrowLeftRight}
-              label="Shift Handoff"
-              value={shiftName}
-              color="#6366f1"
-              sub="Handoff tab for notes"
-            />
+            <StatCard icon={BedDouble}      label="Active Admissions" value={admissions.length} color="#065F46" to="/ward-board" />
+            <StatCard icon={Activity}       label="Vitals Due"        value={vitalsDue} color={vitalsDue > 0 ? '#CC1414' : '#16A34A'} sub="> 4h since last charting" to="/vitals" />
+            <StatCard icon={Pill}           label="MAR Status"        value="—" color="#d97706" sub="Check MAR tab" to="/mar" />
+            <StatCard icon={ArrowLeftRight} label="Shift Handoff"     value={shiftName} color="#6366f1" sub="Handoff tab for notes" to="/handoff" />
           </div>
 
           <div className="card overflow-hidden">

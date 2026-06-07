@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { Link } from 'react-router-dom'
 import api from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 import {
@@ -54,9 +55,9 @@ function avgTAT(orders) {
   return `${Math.floor(avgMins / 60)}h ${avgMins % 60}m`
 }
 
-function KpiCard({ icon: Icon, label, value, accent, sub, urgent }) {
-  return (
-    <div className={`card p-5 flex items-start gap-4 ${urgent ? 'ring-2 ring-red-400' : ''}`}>
+function KpiCard({ icon: Icon, label, value, accent, sub, urgent, to }) {
+  const inner = (
+    <div className={`card p-5 flex items-start gap-4 ${urgent ? 'ring-2 ring-red-400' : ''} ${to ? 'cursor-pointer hover:shadow-md transition-shadow' : ''}`}>
       <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
         style={{ background: accent + '1a' }}>
         <Icon size={22} style={{ color: accent }} />
@@ -70,6 +71,7 @@ function KpiCard({ icon: Icon, label, value, accent, sub, urgent }) {
       </div>
     </div>
   )
+  return to ? <Link to={to} className="block">{inner}</Link> : inner
 }
 
 function QueueRow({ order }) {
@@ -201,20 +203,18 @@ export default function Dashboard() {
       {/* KPI Cards */}
       {isRadiologist ? (
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-          <KpiCard icon={ScanLine}      label="Pending Review" value={pendingReview.length}  accent="#F5821E" urgent={pendingReview.length > 10} />
-          <KpiCard icon={Zap}           label="STAT / Urgent"  value={statUrgent.length}     accent="#EF4444" urgent={statUrgent.length > 0} />
-          <KpiCard icon={AlertTriangle} label="TAT Breaches"   value={tatBreaches.length}    accent="#EF4444" urgent={tatBreaches.length > 0} />
-          <KpiCard icon={CheckCircle}   label="Signed Today"   value={signedToday.length}    accent="#16A34A" />
-          <KpiCard icon={BarChart2}     label="Avg TAT"        value={avgTA ?? '—'}          accent="#0F2557" sub="acquisition → sign" />
+          <KpiCard icon={ScanLine}      label="Pending Review" value={pendingReview.length}  accent="#F5821E" urgent={pendingReview.length > 10} to="/pending-review" />
+          <KpiCard icon={Zap}           label="STAT / Urgent"  value={statUrgent.length}     accent="#EF4444" urgent={statUrgent.length > 0} to="/orders" />
+          <KpiCard icon={AlertTriangle} label="TAT Breaches"   value={tatBreaches.length}    accent="#EF4444" urgent={tatBreaches.length > 0} to="/orders" />
+          <KpiCard icon={CheckCircle}   label="Signed Today"   value={signedToday.length}    accent="#16A34A" to="/reports" />
+          <KpiCard icon={BarChart2}     label="Avg TAT"        value={avgTA ?? '—'}          accent="#0F2557" sub="acquisition → sign" to="/reports" />
         </div>
       ) : (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <KpiCard icon={Activity}  label="Today's Studies" value={todayOrders.length}  accent="#F5821E" />
-          <KpiCard icon={Zap}       label="STAT / Urgent"   value={statUrgent.length}   accent="#EF4444" urgent={statUrgent.length > 0} />
-          <KpiCard icon={ScanLine}  label="Acquired"        value={acquiredCount}        accent="#0F2557" />
-          <KpiCard icon={FileEdit}  label="Pending"         value={pendingAcq.length}   accent="#6366F1"
-            urgent={tatBreaches.length > 0}
-            sub={tatBreaches.length > 0 ? `${tatBreaches.length} TAT breached` : undefined} />
+          <KpiCard icon={Activity}  label="Today's Studies" value={todayOrders.length}  accent="#F5821E" to="/orders" />
+          <KpiCard icon={Zap}       label="STAT / Urgent"   value={statUrgent.length}   accent="#EF4444" urgent={statUrgent.length > 0} to="/orders" />
+          <KpiCard icon={ScanLine}  label="Acquired"        value={acquiredCount}        accent="#0F2557" to="/orders" />
+          <KpiCard icon={FileEdit}  label="Pending"         value={pendingAcq.length}   accent="#6366F1" urgent={tatBreaches.length > 0} sub={tatBreaches.length > 0 ? `${tatBreaches.length} TAT breached` : undefined} to="/pending" />
         </div>
       )}
 
