@@ -15,18 +15,18 @@ export default function App() {
     <>
       <InstallPrompt appName="BHarath Health Systems" />
       <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/clinics" element={<FindClinics />} />
-        <Route path="/clinics/:slug" element={<ClinicDetail />} />
-        <Route path="/book" element={<BookAppointment />} />
-        <Route path="/booking/:code" element={<BookingStatus />} />
-        <Route path="/register" element={<RegisterLanding />} />
-        <Route path="/register/:type" element={<RegisterForm />} />
-        <Route path="/telehealth" element={<TelehealthPage />} />
-        <Route path="/pharmacy" element={<PharmacyOrder />} />
-      </Routes>
-    </BrowserRouter>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/clinics" element={<FindClinics />} />
+          <Route path="/clinics/:slug" element={<ClinicDetail />} />
+          <Route path="/book" element={<BookAppointment />} />
+          <Route path="/booking/:code" element={<BookingStatus />} />
+          <Route path="/register" element={<RegisterLanding />} />
+          <Route path="/register/:type" element={<RegisterForm />} />
+          <Route path="/telehealth" element={<TelehealthPage />} />
+          <Route path="/pharmacy" element={<PharmacyOrder />} />
+        </Routes>
+      </BrowserRouter>
     </>
   )
 }
