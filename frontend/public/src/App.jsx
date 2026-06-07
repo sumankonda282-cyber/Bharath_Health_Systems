@@ -13,7 +13,7 @@ import PharmacyOrder from './pages/PharmacyOrder'
 export default function App() {
   return (
     <>
-      <InstallPrompt appName="BharatCliniq" />
+      <InstallPrompt appName="BH Health Systems" />
       <BrowserRouter>
       <Routes>
         <Route path="/" element={<HomePage />} />
