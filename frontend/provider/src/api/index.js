@@ -12,6 +12,8 @@ export const authApi = {
     api.post('/auth/staff/change-password', { current_password, new_password }),
   setPassword: (new_password) =>
     api.post('/auth/staff/set-password', { new_password }),
+  crossPortalToken: (target = 'carechart') =>
+    api.post(`/auth/cross-portal-token?target=${target}`),
 }
 
 // ── Clinic Admin ──────────────────────────────────────────────────
@@ -31,7 +33,8 @@ export const clinicApi = {
   updateBooking:   (id, data) => api.put(`/clinic/online-bookings/${id}`, data),
   setSchedule:       (doctorId, data) => api.post(`/clinic/doctors/${doctorId}/schedule`, data),
   getSchedules:      (doctorId) => api.get(`/clinic/doctors/${doctorId}/schedules`),
-  updateTelehealth:  (profileId, data) => api.put(`/clinic/doctors/${profileId}/telehealth`, data),
+  updateTelehealth:       (profileId, data) => api.put(`/clinic/doctors/${profileId}/telehealth`, data),
+  setInpatientAccess:     (staffId, grant) => api.put(`/clinic/staff/${staffId}/inpatient-access`, { grant }),
 }
 
 // ── Patients ──────────────────────────────────────────────────────

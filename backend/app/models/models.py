@@ -129,6 +129,7 @@ class Staff(Base):
     pin_reset_required   = Column(Boolean, default=False)
     pin_failed_attempts  = Column(Integer, default=0)
     pin_locked_until     = Column(DateTime, nullable=True)
+    has_inpatient_access = Column(Boolean, default=False)
     created_at           = Column(DateTime, server_default=func.now())
     updated_at           = Column(DateTime, server_default=func.now(), onupdate=func.now())
 

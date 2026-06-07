@@ -241,6 +241,32 @@ def toggle_staff(
     return {"id": staff.id, "is_active": staff.is_active}
 
 
+@router.put("/staff/{staff_id}/inpatient-access")
+def set_inpatient_access(
+    staff_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current=Depends(require_clinic_admin),
+):
+    """Grant or revoke CareChart inpatient access for a doctor. Hospital managers only."""
+    clinic = db.query(Clinic).filter(Clinic.id == current.clinic_id).first()
+    if not clinic or str(clinic.org_type) not in ("hospital",):
+        raise HTTPException(403, "Inpatient access management is only available for hospitals")
+    if not clinic.wards_enabled:
+        raise HTTPException(403, "Wards are not enabled for this clinic")
+
+    staff = db.query(Staff).filter(Staff.id == staff_id, Staff.clinic_id == current.clinic_id).first()
+    if not staff:
+        raise HTTPException(404, "Staff not found")
+    if staff.role not in ("doctor", "nurse"):
+        raise HTTPException(400, "Inpatient access can only be granted to doctors or nurses")
+
+    grant = bool(body.get("grant", True))
+    staff.has_inpatient_access = grant
+    db.commit()
+    return {"id": staff.id, "has_inpatient_access": staff.has_inpatient_access}
+
+
 # ── Doctor Profiles & Schedules ───────────────────────────────────────────────
 
 @router.get("/doctors")

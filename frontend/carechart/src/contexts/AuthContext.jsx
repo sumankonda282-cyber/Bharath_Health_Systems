@@ -3,7 +3,6 @@ import api from '../api/client'
 
 const AuthContext = createContext(null)
 
-// All staff roles except platform_admin are allowed
 const BLOCKED_ROLES = ['platform_admin']
 
 export function AuthProvider({ children }) {
@@ -11,8 +10,33 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const ssoToken = params.get('sso')
+
+    if (ssoToken) {
+      // Remove sso param from URL without a page reload
+      const cleanUrl = window.location.pathname + (params.toString().replace(/sso=[^&]*&?/, '').replace(/^&/, '') ? `?${params.toString().replace(/sso=[^&]*&?/, '').replace(/^&/, '')}` : '')
+      window.history.replaceState({}, '', cleanUrl)
+
+      api.post('/auth/verify-cross-portal-token', { sso_token: ssoToken })
+        .then(r => {
+          if (BLOCKED_ROLES.includes(r.role)) throw new Error('Access denied')
+          localStorage.setItem('staff_token', r.access_token)
+          if (r.refresh_token) localStorage.setItem('staff_refresh_token', r.refresh_token)
+          if (r.clinic_id)  localStorage.setItem('clinic_id',  String(r.clinic_id))
+          if (r.branch_id)  localStorage.setItem('branch_id',  String(r.branch_id))
+          setUser(r)
+        })
+        .catch(() => {
+          localStorage.removeItem('staff_token')
+        })
+        .finally(() => setLoading(false))
+      return
+    }
+
     const token = localStorage.getItem('staff_token')
     if (!token) { setLoading(false); return }
+
     api.get('/auth/staff/me')
       .then(u => setUser(u))
       .catch(err => {

@@ -11,7 +11,7 @@ from app.schemas.schemas import StaffLoginRequest, TokenResponse, ChangePassword
 from app.core.config import settings
 from app.core.security import (
     verify_password, hash_password,
-    create_access_token, create_refresh_token, decode_token,
+    create_access_token, create_refresh_token, create_cross_portal_token, decode_token,
     get_current_staff, get_current_patient_user,
     get_current_platform_admin
 )
@@ -202,18 +202,69 @@ def platform_admin_login(request: Request, payload: StaffLoginRequest, db: Sessi
 def staff_me(current=Depends(get_current_staff), db: Session = Depends(get_db)):
     clinic = db.query(Clinic).filter(Clinic.id == current.clinic_id).first()
     return {
-        "id":           current.id,
-        "full_name":    current.full_name,
-        "email":        current.email,
-        "mobile":       current.mobile,
-        "username":     current.username,
-        "role":         current.role if isinstance(current.role, str) else str(current.role),
-        "clinic_id":    current.clinic_id,
-        "branch_id":    current.branch_id,
-        "clinic_name":  clinic.name if clinic else None,
-        "clinic_verified": clinic.is_verified if clinic else False,
-        "clinic_plan":  str(clinic.subscription_plan) if clinic else "free",
-        "force_reset":  current.is_first_login is True,
+        "id":                    current.id,
+        "full_name":             current.full_name,
+        "email":                 current.email,
+        "mobile":                current.mobile,
+        "username":              current.username,
+        "role":                  current.role if isinstance(current.role, str) else str(current.role),
+        "clinic_id":             current.clinic_id,
+        "branch_id":             current.branch_id,
+        "clinic_name":           clinic.name if clinic else None,
+        "clinic_verified":       clinic.is_verified if clinic else False,
+        "clinic_plan":           str(clinic.subscription_plan) if clinic else "free",
+        "force_reset":           current.is_first_login is True,
+        "org_type":              str(clinic.org_type) if clinic and clinic.org_type else "clinic",
+        "wards_enabled":         bool(clinic.wards_enabled) if clinic else False,
+        "has_inpatient_access":  bool(current.has_inpatient_access) if hasattr(current, 'has_inpatient_access') else False,
+    }
+
+
+@router.post("/cross-portal-token")
+def issue_cross_portal_token(
+    target: str = "carechart",
+    current=Depends(get_current_staff),
+):
+    """Issue a 15-min SSO token so a staff member can launch another portal without re-login."""
+    if not getattr(current, 'has_inpatient_access', False):
+        raise HTTPException(status_code=403, detail="Inpatient access not granted for this account")
+    token = create_cross_portal_token(current.id, current.clinic_id, target)
+    return {"sso_token": token}
+
+
+class CrossPortalVerifyRequest(BaseModel):
+    sso_token: str
+
+
+@router.post("/verify-cross-portal-token")
+def verify_cross_portal_token(body: CrossPortalVerifyRequest, db: Session = Depends(get_db)):
+    """CareChart calls this to exchange an SSO token for a full staff session."""
+    payload = decode_token(body.sso_token)
+    if not payload or payload.get("user_type") != "cross_portal":
+        raise HTTPException(status_code=401, detail="Invalid or expired SSO token")
+
+    staff_id = payload.get("sub")
+    if not staff_id:
+        raise HTTPException(status_code=401, detail="Malformed SSO token")
+
+    staff = db.query(Staff).filter(Staff.id == int(staff_id)).first()
+    if not staff or not staff.is_active:
+        raise HTTPException(status_code=401, detail="Staff account inactive")
+
+    token_data = {
+        "sub": str(staff.id),
+        "user_type": "staff",
+        "token_version": staff.token_version or 1,
+    }
+    return {
+        "access_token":  create_access_token(token_data),
+        "refresh_token": create_refresh_token(token_data),
+        "user_type":     "staff",
+        "user_id":       staff.id,
+        "full_name":     staff.full_name,
+        "role":          staff.role,
+        "clinic_id":     staff.clinic_id,
+        "branch_id":     staff.branch_id,
     }
 
 

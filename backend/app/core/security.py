@@ -158,6 +158,17 @@ def create_refresh_token(data: dict):
     return create_access_token(data, expires_delta=timedelta(days=7))
 
 
+def create_cross_portal_token(staff_id: int, clinic_id: int, target_portal: str = "carechart") -> str:
+    """Short-lived (15 min) token for cross-portal SSO. Carries user_type='cross_portal'."""
+    data = {
+        "sub": str(staff_id),
+        "user_type": "cross_portal",
+        "clinic_id": clinic_id,
+        "target": target_portal,
+    }
+    return create_access_token(data, expires_delta=timedelta(minutes=15))
+
+
 def decode_token(token: str):
     try:
         return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
