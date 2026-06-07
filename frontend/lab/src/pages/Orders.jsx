@@ -39,7 +39,7 @@ function printCollectionSheet(sheet) {
       .note { background: #fffbeb; border: 1px solid #fbbf24; border-radius: 6px; padding: 10px; font-size: 12px; margin-top: 16px; }
       @media print { button { display:none; } }
     </style></head><body>
-    <h2>${sheet.clinic_name || 'BHaratCliniq'}</h2>
+    <h2>${sheet.clinic_name || 'BHarath Health Systems'}</h2>
     <div class="sub">Sample Collection Sheet · ${new Date().toLocaleString('en-IN')}</div>
     <div class="box">
       <div class="id">${sheet.order_id}</div>

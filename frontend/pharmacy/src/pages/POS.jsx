@@ -207,7 +207,7 @@ export default function POS() {
       th{background:#f5f5f5;font-weight:600}.total{font-weight:bold;font-size:15px}
       .credit{color:#dc2626;font-weight:bold}.hdr{color:#0F2557}</style></head>
       <body>
-        <h2 class="hdr">BHaratCliniq Pharmacy</h2>
+        <h2 class="hdr">BHarath Health Systems Pharmacy</h2>
         <p>Dispense Slip #<strong>${done.dispense_number}</strong></p>
         <p>Patient: <strong>${done.patient_name}</strong></p>
         <p>Date: ${new Date().toLocaleDateString('en-IN', { day:'numeric', month:'long', year:'numeric' })}</p>

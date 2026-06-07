@@ -44,7 +44,7 @@ export default function Login() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
         <div className="w-full max-w-sm">
           <div className="text-center mb-8">
-            <div className="text-2xl font-extrabold" style={{ color: '#0F2557' }}>BHaratCliniq</div>
+            <div className="text-2xl font-extrabold" style={{ color: '#0F2557' }}>BHarath Health Systems</div>
             <div className="text-sm mt-1 font-medium text-gray-500">Imaging</div>
           </div>
           <div className="bg-white rounded-2xl shadow-md p-6 space-y-4">
@@ -99,7 +99,7 @@ export default function Login() {
         style={{ background: 'linear-gradient(145deg, #0F2557 0%, #1a3a7a 100%)' }}
       >
         <div>
-          <div className="text-2xl font-extrabold tracking-tight">BHaratCliniq</div>
+          <div className="text-2xl font-extrabold tracking-tight">BHarath Health Systems</div>
           <div className="text-xs font-semibold mt-1 tracking-wider uppercase" style={{ color: '#F5821E' }}>
             Imaging Portal
           </div>
@@ -124,7 +124,7 @@ export default function Login() {
             </div>
           ))}
         </div>
-        <div className="text-xs" style={{ color: '#93c5fd' }}>BHaratCliniq · Imaging Portal</div>
+        <div className="text-xs" style={{ color: '#93c5fd' }}>BHarath Health Systems · Imaging Portal</div>
       </div>
 
       {/* Right form panel */}
@@ -132,7 +132,7 @@ export default function Login() {
         <div className="w-full max-w-md">
           {/* Mobile brand */}
           <div className="lg:hidden text-center mb-8">
-            <div className="text-2xl font-extrabold" style={{ color: '#0F2557' }}>BHaratCliniq</div>
+            <div className="text-2xl font-extrabold" style={{ color: '#0F2557' }}>BHarath Health Systems</div>
             <div className="text-xs font-semibold tracking-wider uppercase mt-1" style={{ color: '#F5821E' }}>
               Imaging Portal
             </div>

@@ -118,7 +118,7 @@ function Footer() {
           </div>
         </div>
         <div className="border-t border-blue-800 mt-12 pt-6 flex flex-col md:flex-row items-center justify-between gap-3 text-sm text-blue-300">
-          <p>© {new Date().getFullYear()} BHaratCliniq. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} BHarath Health Systems. All rights reserved.</p>
           <p>Made with ❤️ in India</p>
         </div>
       </div>
@@ -141,7 +141,7 @@ const TESTIMONIALS = [
     role: 'General Physician, Mumbai',
     avatar: 'PS',
     rating: 5,
-    text: 'BHaratCliniq transformed my practice. Patient wait times dropped by 40% and billing became completely hassle-free.',
+    text: 'BHarath Health Systems transformed my practice. Patient wait times dropped by 40% and billing became completely hassle-free.',
     color: '#CC1414',
   },
   {
@@ -377,7 +377,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-14">
             <h2 className="text-3xl md:text-4xl font-extrabold" style={{ color: '#0F2557' }}>How It Works</h2>
-            <p className="text-lg text-gray-500 mt-3">Simple steps to get started with BHaratCliniq</p>
+            <p className="text-lg text-gray-500 mt-3">Simple steps to get started with BHarath Health Systems</p>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
             <div>
@@ -417,7 +417,7 @@ export default function HomePage() {
                 {[
                   { step: '01', title: 'Register Your Clinic', desc: 'Fill in clinic and doctor details. Submit for approval. We verify within 24 hours.' },
                   { step: '02', title: 'Set Up Your Profile', desc: 'Add doctors, configure time slots, set consultation fees, and upload logo.' },
-                  { step: '03', title: 'Start Accepting Bookings', desc: 'Go live on BHaratCliniq. Manage appointments, EMR, billing — all from one dashboard.' },
+                  { step: '03', title: 'Start Accepting Bookings', desc: 'Go live on BHarath Health Systems. Manage appointments, EMR, billing — all from one dashboard.' },
                 ].map(item => (
                   <div key={item.step} className="flex gap-5">
                     <div className="w-12 h-12 text-white rounded-xl flex items-center justify-center font-bold text-sm flex-shrink-0"
@@ -533,7 +533,7 @@ export default function HomePage() {
           </div>
           <h2 className="text-3xl font-extrabold mb-4">Ready to modernize your clinic?</h2>
           <p className="text-blue-200 mb-8 text-lg leading-relaxed">
-            Join clinics already on BHaratCliniq. Registration is free. Go live in 24 hours.
+            Join clinics already on BHarath Health Systems. Registration is free. Go live in 24 hours.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/register"

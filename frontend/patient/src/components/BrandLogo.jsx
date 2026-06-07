@@ -12,7 +12,7 @@ export default function BrandLogo({ size = 'md', showText = true, light = false 
     <div className={`inline-flex items-center ${s.gap}`}>
       <img
         src={logoImg}
-        alt="BHaratCliniq logo"
+        alt="BHarath Health Systems logo"
         style={{ height: s.img, width: 'auto', flexShrink: 0 }}
       />
       {showText && (

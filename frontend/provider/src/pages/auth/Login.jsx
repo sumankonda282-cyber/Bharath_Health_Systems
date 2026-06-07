@@ -21,7 +21,7 @@ export default function Login() {
   const handleForgotPassword = () => {
     alert(
       'Password Reset\n\n' +
-      'Please contact your clinic administrator or the BHaratCliniq super admin to reset your password.\n\n' +
+      'Please contact your clinic administrator or the BHarath Health Systems super admin to reset your password.\n\n' +
       'Your new temporary password will be sent to your registered email and phone number.'
     )
   }
@@ -93,7 +93,7 @@ export default function Login() {
         </div>
 
         <p className="relative text-xs text-blue-400">
-          BHaratCliniq · India's Digital Health Network
+          BHarath Health Systems · India's Digital Health Network
         </p>
       </div>
 
@@ -211,7 +211,7 @@ export default function Login() {
           </p>
 
           <p className="text-center text-xs text-gray-400 mt-2">
-            BHaratCliniq · Doctor Portal
+            BHarath Health Systems · Doctor Portal
           </p>
         </div>
       </div>

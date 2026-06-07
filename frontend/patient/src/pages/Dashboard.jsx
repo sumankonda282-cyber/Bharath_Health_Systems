@@ -57,8 +57,8 @@ export default function Dashboard() {
         <div className="relative">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2">
-              <img src={logoImg} alt="BHaratCliniq" style={{ height: 32, width: 'auto' }} />
-              <span className="font-extrabold text-sm tracking-wider text-white" style={{ letterSpacing: '-0.01em' }}>BHaratCliniq</span>
+              <img src={logoImg} alt="BHarath Health Systems" style={{ height: 32, width: 'auto' }} />
+              <span className="font-extrabold text-sm tracking-wider text-white" style={{ letterSpacing: '-0.01em' }}>BHarath Health Systems</span>
             </div>
             <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium"
               style={{ background: 'rgba(245,130,30,0.2)', color: '#fbbf24' }}>

@@ -88,7 +88,7 @@ function BrandingTab({ clinicId, profile }) {
     <div className="card p-6 space-y-6 max-w-lg">
       <div>
         <h2 className="font-semibold text-gray-800 mb-1">Portal Branding</h2>
-        <p className="text-xs text-gray-500">Customise how your clinic appears in all portals after login. The BHaratCliniq platform name is replaced with your clinic's brand in the sidebar.</p>
+        <p className="text-xs text-gray-500">Customise how your clinic appears in all portals after login. The BHarath Health Systems platform name is replaced with your clinic's brand in the sidebar.</p>
       </div>
 
       <div>

@@ -52,7 +52,7 @@ export default function WardSetup() {
 
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-extrabold text-emerald-700 tracking-tight">BHaratCliniq CareChart</h1>
+          <h1 className="text-2xl font-extrabold text-emerald-700 tracking-tight">BHarath Health Systems CareChart</h1>
           <p className="text-gray-500 text-sm mt-1">Select your working location</p>
         </div>
 

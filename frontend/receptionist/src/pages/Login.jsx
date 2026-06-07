@@ -142,7 +142,7 @@ export default function Login() {
           ))}
         </div>
         <div className="text-xs" style={{ color: '#93c5fd' }}>
-          BHaratCliniq · {tab === 0 ? 'Staff Portal' : 'Manager Portal'}
+          BHarath Health Systems · {tab === 0 ? 'Staff Portal' : 'Manager Portal'}
         </div>
       </div>
 

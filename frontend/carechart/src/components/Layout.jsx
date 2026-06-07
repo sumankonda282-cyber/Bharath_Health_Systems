@@ -73,7 +73,7 @@ function Sidebar({ onClose, compact }) {
           </div>
         ) : (
           <div>
-            <div className="text-white font-extrabold text-lg tracking-tight">BHaratCliniq</div>
+            <div className="text-white font-extrabold text-lg tracking-tight">BHarath Health Systems</div>
             <div className="text-xs font-semibold mt-0.5 tracking-wider uppercase" style={{ color: '#6ee7b7' }}>
               Ward Portal
             </div>

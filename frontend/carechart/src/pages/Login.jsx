@@ -30,7 +30,7 @@ export default function Login() {
 
   const forgotPassword = () => alert(
     'Password Reset\n\n' +
-    'Please contact your clinic administrator or the BHaratCliniq super admin to reset your password.\n\n' +
+    'Please contact your clinic administrator or the BHarath Health Systems super admin to reset your password.\n\n' +
     'Your new temporary password will be sent to your registered email and phone number.'
   )
   const submitForgot = async e => {
@@ -108,7 +108,7 @@ export default function Login() {
         style={{ background: 'linear-gradient(145deg, #065F46 0%, #047857 100%)' }}
       >
         <div>
-          <div className="text-2xl font-extrabold tracking-tight">BHaratCliniq</div>
+          <div className="text-2xl font-extrabold tracking-tight">BHarath Health Systems</div>
           <div className="text-xs font-semibold mt-1 tracking-wider uppercase" style={{ color: '#6ee7b7' }}>
             CareChart
           </div>
@@ -137,7 +137,7 @@ export default function Login() {
             </div>
           ))}
         </div>
-        <div className="text-xs" style={{ color: '#6ee7b7' }}>BHaratCliniq · CareChart</div>
+        <div className="text-xs" style={{ color: '#6ee7b7' }}>BHarath Health Systems · CareChart</div>
       </div>
 
       {/* Right form panel */}
@@ -145,7 +145,7 @@ export default function Login() {
         <div className="w-full max-w-md">
           {/* Mobile brand */}
           <div className="lg:hidden text-center mb-8">
-            <div className="text-2xl font-extrabold" style={{ color: '#065F46' }}>BHaratCliniq</div>
+            <div className="text-2xl font-extrabold" style={{ color: '#065F46' }}>BHarath Health Systems</div>
             <div className="text-xs font-semibold tracking-wider uppercase mt-1" style={{ color: '#065F46' }}>
               CareChart
             </div>

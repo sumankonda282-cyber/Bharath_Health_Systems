@@ -63,7 +63,7 @@ function printCollectionSheet(order) {
   @media print { button { display: none; } }
 </style></head><body>
 <div class="header">
-  <div style="font-size:22px;font-weight:bold;color:#CC1414;">BHaratCliniq</div>
+  <div style="font-size:22px;font-weight:bold;color:#CC1414;">BHarath Health Systems</div>
   <div style="font-size:16px;color:#0F2557;">Imaging Collection Sheet</div>
   <div style="margin-top:12px;"><span class="order-id">${order.order_id}</span></div>
   <div style="margin-top:8px;font-size:12px;color:#6b7280;">Generated: ${date}</div>
