@@ -50,6 +50,8 @@ class Settings(BaseSettings):
             "https://bharatcliniq-lab.vercel.app",
             "https://bharatcliniq-receptionist.vercel.app",
             "https://bharatcliniq-imaging.vercel.app",
+            "https://bharatcliniq-staff.vercel.app",
+            "https://bharatcliniq-carechart.vercel.app",
             "http://localhost:5173",
             "http://localhost:5174",
             "http://localhost:5175",

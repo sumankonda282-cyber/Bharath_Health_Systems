@@ -13,12 +13,6 @@ if DATABASE_URL.startswith("postgres://"):
 elif DATABASE_URL.startswith("postgresql://") and "+psycopg2" not in DATABASE_URL:
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
 
-# Required for PgBouncer transaction-mode pooling (port 6543 on Supabase)
-# Without this, psycopg2 prepared statement cache causes "already exists" errors
-if "prepared_statement_cache_size" not in DATABASE_URL:
-    sep = "&" if "?" in DATABASE_URL else "?"
-    DATABASE_URL = f"{DATABASE_URL}{sep}prepared_statement_cache_size=0" 
-
 # NullPool: let Supavisor manage connection pooling, prevents pool exhaustion
 # on Supabase free tier (~45 usable connections after internal services)
 engine = create_engine(
