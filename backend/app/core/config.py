@@ -23,7 +23,8 @@ class Settings(BaseSettings):
         "https://bharatcliniq-patient.vercel.app,https://bharatcliniq-lab.vercel.app,"
         "https://bharatcliniq-imaging.vercel.app,https://bharatcliniq-pharmacy.vercel.app,"
         "https://bharatcliniq-receptionist.vercel.app,https://bharatcliniq-admin.vercel.app,"
-        "https://bharatcliniq-staff.vercel.app"
+        "https://bharatcliniq-staff.vercel.app,https://bharatcliniq-superadmin.vercel.app,"
+        "https://bharatcliniq-carechart.vercel.app"
     )
 
     DEBUG: bool = False
@@ -45,6 +46,7 @@ class Settings(BaseSettings):
             "https://bharatcliniq-provider.vercel.app",
             "https://bharatcliniq-patient.vercel.app",
             "https://bharatcliniq-admin.vercel.app",
+            "https://bharatcliniq-superadmin.vercel.app",
             "https://bharatcliniq-public.vercel.app",
             "https://bharatcliniq-pharmacy.vercel.app",
             "https://bharatcliniq-lab.vercel.app",
