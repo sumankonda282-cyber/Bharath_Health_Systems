@@ -18,7 +18,7 @@ class Settings(BaseSettings):
         "https://lab.bharatcliniq.com,https://pharmacy.bharatcliniq.com,"
         "https://receptionist.bharatcliniq.com,https://staff.bharatcliniq.com,"
         "https://admin.bharatcliniq.com,https://doctor.bharatcliniq.com,"
-        "https://imaging.bharatcliniq.com,"
+        "https://imaging.bharatcliniq.com,https://carechart.bharatcliniq.com,"
         "https://bharatcliniq-public.vercel.app,https://bharatcliniq-provider.vercel.app,"
         "https://bharatcliniq-patient.vercel.app,https://bharatcliniq-lab.vercel.app,"
         "https://bharatcliniq-imaging.vercel.app,https://bharatcliniq-pharmacy.vercel.app,"
