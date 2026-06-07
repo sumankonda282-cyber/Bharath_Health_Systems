@@ -56,7 +56,6 @@ function ClinicSettingsTab({ clinic, onSaved }) {
     has_telehealth:  !!clinic.has_telehealth,
     has_blood_bank:  !!clinic.has_blood_bank,
     has_ambulance:   !!clinic.has_ambulance,
-    has_ambulance:   !!clinic.has_ambulance,
     wards_enabled:   !!clinic.wards_enabled,
     nabl_accredited: !!clinic.nabl_accredited,
     // departments stored as comma-separated in description; keep separate for display
