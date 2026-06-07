@@ -20,9 +20,9 @@ export function AuthProvider({ children }) {
   const loginWithToken = async (access_token, bh_profile_id) => {
     sessionStorage.setItem('patient_token', access_token)
     if (bh_profile_id) sessionStorage.setItem('bh_profile_id', String(bh_profile_id))
-    const me = await api.get('/portal/me')
-    setUser(me.data || me)
-    return me.data || me
+    setUser({ bh_profile_id })
+    api.get('/portal/me').then(r => setUser(r.data || r)).catch(() => {})
+    return { bh_profile_id }
   }
 
   const logout = () => {
