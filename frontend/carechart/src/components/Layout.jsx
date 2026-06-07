@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, BedDouble, Activity, ClipboardList, Pill,
   Stethoscope, ArrowLeftRight, LogOut, Menu, X, Sun, Sunset, Moon,
@@ -149,7 +149,9 @@ function Sidebar({ onClose, compact }) {
 // ── Layout ────────────────────────────────────────────────────────────────────
 
 export default function Layout() {
+  const { user, logout } = useAuth()
   const { mode, switchMode, department, ward } = useWardSession()
+  const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const shift = getShift()
   const ShiftIcon = shift.icon
