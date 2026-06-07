@@ -46,17 +46,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 # -----------------------------
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://bharatcliniq-lab.vercel.app",
-        "https://bharatcliniq-patient.vercel.app",
-        "https://bharatcliniq-imaging.vercel.app",
-        "https://bharatcliniq-receptionist.vercel.app",
-        "https://bharatcliniq-pharmacy.vercel.app",
-        "https://bharatcliniq-public.vercel.app",
-        "https://bharatcliniq-provider.vercel.app",
-        "https://bharatcliniq-superadmin.vercel.app",
-        "https://bharatcliniq-carechart.vercel.app"
-    ],
+    allow_origins=settings.cors_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
