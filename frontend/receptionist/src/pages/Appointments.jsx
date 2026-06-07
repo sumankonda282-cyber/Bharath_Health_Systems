@@ -12,7 +12,7 @@ export default function Appointments() {
   const [showNew, setShowNew] = useState(false)
   const [patients, setPatients] = useState([])
   const [doctors, setDoctors] = useState([])
-  const [form, setForm] = useState({ patient_id: '', doctor_profile_id: '', appointment_date: date, appointment_time: '09:00', visit_type: 'walk_in', notes: '' })
+  const [form, setForm] = useState({ patient_id: '', doctor_id: '', appointment_date: date, appointment_time: '09:00', visit_type: 'walk_in', notes: '' })
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
 
@@ -38,7 +38,7 @@ export default function Appointments() {
   const book = async e => {
     e.preventDefault(); setSaving(true); setErr('')
     try {
-      await api.post('/appointments', { ...form, patient_id: parseInt(form.patient_id), doctor_profile_id: parseInt(form.doctor_profile_id) })
+      await api.post('/appointments', { ...form, patient_id: parseInt(form.patient_id), doctor_id: parseInt(form.doctor_id) })
       setShowNew(false); load()
     } catch (ex) { setErr(ex.message) }
     finally { setSaving(false) }
@@ -69,7 +69,7 @@ export default function Appointments() {
               </div>
               <div>
                 <label className="label">Doctor *</label>
-                <select className="input" value={form.doctor_profile_id} onChange={e => setForm(f => ({ ...f, doctor_profile_id: e.target.value }))} required>
+                <select className="input" value={form.doctor_id} onChange={e => setForm(f => ({ ...f, doctor_id: e.target.value }))} required>
                   <option value="">Select doctor</option>
                   {doctors.map(d => <option key={d.id} value={d.id}>{d.staff?.full_name || 'Dr. ' + d.id} — {d.specialty}</option>)}
                 </select>

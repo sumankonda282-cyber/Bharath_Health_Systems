@@ -177,11 +177,13 @@ function Step2({ data, onChange, onNext, onBack }) {
   const validate = () => {
     const e = {}
     if (!data.doctor_name?.trim()) e.doctor_name = 'Doctor name is required'
-    if (!data.doctor_email?.trim() || !/\S+@\S+\.\S+/.test(data.doctor_email)) e.doctor_email = 'Valid email required — login credentials will be sent here'
-    if (!data.doctor_phone?.trim() || !/^[6-9]\d{9}$/.test(data.doctor_phone)) e.doctor_phone = 'Valid 10-digit phone required — credentials also sent via SMS'
+    if (!data.doctor_email?.trim() || !/\S+@\S+\.\S+/.test(data.doctor_email)) e.doctor_email = 'Valid email required — this will be your login username'
+    if (!data.doctor_phone?.trim() || !/^[6-9]\d{9}$/.test(data.doctor_phone)) e.doctor_phone = 'Valid 10-digit phone required'
     if (!data.doctor_specialty) e.doctor_specialty = 'Specialty is required'
     if (!data.qualification?.trim()) e.qualification = 'Qualification is required'
     if (!data.mci_number?.trim()) e.mci_number = 'MCI registration number is required'
+    if (!data.admin_password?.trim() || data.admin_password.length < 8) e.admin_password = 'Password must be at least 8 characters'
+    if (data.admin_password !== data.confirm_password) e.confirm_password = 'Passwords do not match'
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -197,11 +199,11 @@ function Step2({ data, onChange, onNext, onBack }) {
       <h2 className="text-xl font-bold mb-1" style={{ color: '#0F2557' }}>Primary Doctor Details</h2>
       <p className="text-gray-500 text-sm mb-2">Details of the main consulting doctor / clinic owner</p>
 
-      {/* Credentials notice */}
+      {/* Login credentials notice */}
       <div className="mb-5 rounded-xl p-3 text-xs flex gap-3 items-start" style={{ background: '#0F255510', border: '1px solid #0F255530' }}>
         <span className="text-lg mt-0.5">🔐</span>
         <p style={{ color: '#0F2557' }}>
-          No password needed now. Once your clinic is approved, your <strong>username and temporary password</strong> will be sent to the email and phone number you provide below.
+          Set your admin login password below. Your <strong>email address</strong> will be your username. Keep credentials safe — they activate once your clinic is approved.
         </p>
       </div>
 
@@ -232,6 +234,12 @@ function Step2({ data, onChange, onNext, onBack }) {
         </Field>
         <Field label="Consultation Fee (₹)">
           <input type="number" {...inp('fee')} min="0" placeholder="e.g. 500" />
+        </Field>
+        <Field label="Admin Password" required error={errors.admin_password}>
+          <input type="password" {...inp('admin_password')} placeholder="Min. 8 characters" autoComplete="new-password" />
+        </Field>
+        <Field label="Confirm Password" required error={errors.confirm_password}>
+          <input type="password" {...inp('confirm_password')} placeholder="Re-enter password" autoComplete="new-password" />
         </Field>
       </div>
 
@@ -415,6 +423,7 @@ export default function RegisterClinic() {
           specialty:           formData.doctor_specialty,
         },
         admin_email: formData.doctor_email,
+        admin_password: formData.admin_password,
       })
       setSubmitted(true)
     } catch (err) {
