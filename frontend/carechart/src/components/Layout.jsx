@@ -3,12 +3,11 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, BedDouble, Activity, ClipboardList, Pill,
   Stethoscope, ArrowLeftRight, LogOut, Menu, X, Sun, Sunset, Moon,
-  FileText, ClipboardCheck
+  FileText, ClipboardCheck, ListOrdered, KeyRound, Settings
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useWardSession } from '../contexts/WardSessionContext'
 import ChatWidget from './ChatWidget'
-import { LayoutDashboard, Pill, ListOrdered, KeyRound, LogOut, Settings } from 'lucide-react'
 
 // ── Nav definitions ───────────────────────────────────────────────────────────
 
