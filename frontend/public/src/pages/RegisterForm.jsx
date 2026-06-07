@@ -636,7 +636,6 @@ function HospitalFlow({ data, onChange, step, setStep, color, onSubmit, submitti
           </label>
         ))}
       </div>
-      </div>
       <NavButtons onBack={() => setStep(1)} onNext={() => setStep(3)} color={color} />
     </div>
   )
