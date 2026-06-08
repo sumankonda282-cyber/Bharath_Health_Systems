@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Building2, ChevronRight, Check, CheckCircle, ArrowLeft, Mail, Phone, Upload, X } from 'lucide-react'
 import { publicApi } from '../api/client'
@@ -285,8 +285,22 @@ function Step2({ data, onChange, onNext, onBack }) {
   )
 }
 
+function useSubmitLabel(submitting) {
+  const [secs, setSecs] = useState(0)
+  useEffect(() => {
+    if (!submitting) { setSecs(0); return }
+    const t = setInterval(() => setSecs(s => s + 1), 1000)
+    return () => clearInterval(t)
+  }, [submitting])
+  if (!submitting) return null
+  if (secs < 8)  return 'Submitting...'
+  if (secs < 20) return 'Connecting to server...'
+  return 'Server waking up, please wait...'
+}
+
 // ── Step 3: Review & Submit ───────────────────────────────────────────────────
 function Step3({ data, onBack, onSubmit, submitting, error }) {
+  const submitLabel = useSubmitLabel(submitting)
   const rows = [
     { label: 'Clinic Name',      value: data.clinic_name },
     { label: 'Clinic Type',      value: data.specialty },
@@ -342,7 +356,7 @@ function Step3({ data, onBack, onSubmit, submitting, error }) {
           className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm text-white disabled:opacity-50"
           style={btnPrimary}>
           {submitting
-            ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Submitting...</>
+            ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />{submitLabel}</>
             : 'Submit Registration'}
         </button>
       </div>
