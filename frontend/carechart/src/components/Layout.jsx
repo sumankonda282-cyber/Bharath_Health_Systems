@@ -3,7 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, BedDouble, Activity, ClipboardList, Pill,
   Stethoscope, ArrowLeftRight, LogOut, Menu, X, Sun, Sunset, Moon,
-  FileText, ClipboardCheck, KeyRound, Settings, PackageOpen, LayoutTemplate
+  FileText, ClipboardCheck, KeyRound, Settings, PackageOpen, LayoutTemplate, RefreshCw
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useWardSession } from '../contexts/WardSessionContext'
@@ -194,6 +194,7 @@ export default function Layout() {
   const { mode, switchMode, department, ward } = useWardSession()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
   const shift = getShift()
   const ShiftIcon = shift.icon
   const location = useLocation()
@@ -281,17 +282,22 @@ export default function Layout() {
             </button>
           </div>
 
-          <span className="text-xs text-gray-400 hidden sm:block">{formatDate(new Date())}</span>
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-gray-400 hidden sm:block">{formatDate(new Date())}</span>
+            <button onClick={() => setRefreshKey(k => k + 1)} className="p-1.5 rounded text-gray-400 hover:bg-gray-100 hover:text-gray-700" title="Refresh data">
+              <RefreshCw size={15} />
+            </button>
+          </div>
         </div>
 
         {/* Page content — overflow-hidden so each page controls its own scroll */}
         <main className="flex-1 min-h-0 overflow-hidden">
           {isPatientChart ? (
-            <div className="h-full overflow-hidden flex flex-col">
+            <div key={refreshKey} className="h-full overflow-hidden flex flex-col">
               <Outlet />
             </div>
           ) : (
-            <div className="h-full overflow-y-auto p-4 md:p-6">
+            <div key={refreshKey} className="h-full overflow-y-auto p-4 md:p-6">
               <Outlet />
             </div>
           )}

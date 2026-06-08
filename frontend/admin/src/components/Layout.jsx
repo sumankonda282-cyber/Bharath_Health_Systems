@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import {
   LayoutDashboard, Clock, Building2, ShieldCheck,
   ClipboardList, BarChart3, LogOut, Menu, X, Search, CreditCard, Hospital,
-  FileSpreadsheet, Settings
+  FileSpreadsheet, Settings, RefreshCw
 } from 'lucide-react'
 
 const NAV = [
@@ -88,6 +88,7 @@ function Sidebar({ onClose }) {
 
 export default function Layout() {
   const [open, setOpen] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
   return (
     <div className="flex h-screen overflow-hidden bg-gray-950">
       {open && (
@@ -102,14 +103,18 @@ export default function Layout() {
         <Sidebar />
       </div>
       <main className="flex-1 overflow-y-auto">
-        <div className="md:hidden flex items-center gap-3 px-4 py-3 border-b border-gray-800 bg-gray-900 sticky top-0 z-30">
-          <button onClick={() => setOpen(true)} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-800">
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-800 bg-gray-900 sticky top-0 z-30">
+          <button onClick={() => setOpen(true)} className="md:hidden p-1.5 rounded-lg text-gray-400 hover:bg-gray-800">
             <Menu size={22} />
           </button>
-          <span className="font-extrabold text-sm"><span style={{ color: '#CC1414' }}>BH</span><span className="text-white">arath Health</span></span>
-          <span className="text-xs font-bold ml-1" style={{ color: '#F5821E' }}>Admin</span>
+          <span className="font-extrabold text-sm md:hidden"><span style={{ color: '#CC1414' }}>BH</span><span className="text-white">arath Health</span></span>
+          <span className="text-xs font-bold ml-1 md:hidden" style={{ color: '#F5821E' }}>Admin</span>
+          <div className="flex-1" />
+          <button onClick={() => setRefreshKey(k => k + 1)} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white" title="Refresh data">
+            <RefreshCw size={16} />
+          </button>
         </div>
-        <div className="p-4 md:p-6">
+        <div key={refreshKey} className="p-4 md:p-6">
           <Outlet />
         </div>
       </main>

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { NavLink, useNavigate, Outlet } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
-import { LayoutDashboard, Calendar, Pill, FlaskConical, Receipt, LogOut, Menu, Clock, Smartphone } from 'lucide-react'
+import { LayoutDashboard, Calendar, Pill, FlaskConical, Receipt, LogOut, Menu, Clock, Smartphone, RefreshCw } from 'lucide-react'
 import BrandLogo from '../BrandLogo'
 import InstallPrompt, { useInstallState, InstallModal } from '../InstallPrompt'
 
@@ -18,6 +18,7 @@ export default function Layout() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
   const [showInstallModal, setShowInstallModal] = useState(false)
   const [installing, setInstalling] = useState(false)
   const { canInstall, isIos, installed, install } = useInstallState('BH Health')
@@ -141,6 +142,9 @@ export default function Layout() {
           </button>
           <BrandLogo size="sm" />
           <div className="flex items-center gap-2">
+            <button onClick={() => setRefreshKey(k => k + 1)} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100" title="Refresh data">
+              <RefreshCw size={16} />
+            </button>
             {canInstall && !installed && (
               <button
                 onClick={() => setShowInstallModal(true)}
@@ -158,7 +162,9 @@ export default function Layout() {
         </div>
 
         <main className="flex-1 overflow-y-auto p-4 lg:p-6">
-          <Outlet />
+          <div key={refreshKey}>
+            <Outlet />
+          </div>
         </main>
       </div>
       <InstallPrompt appName="BH Health" />

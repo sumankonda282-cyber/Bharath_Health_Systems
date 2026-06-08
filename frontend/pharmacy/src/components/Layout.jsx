@@ -1,7 +1,7 @@
 import ChatWidget from './ChatWidget'
 import { useState, useEffect, useRef } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Pill, Package, Settings, LogOut, History, PackagePlus, CreditCard, BarChart2, Menu, X, Building2, ShoppingCart, Bell, AlertTriangle, Clock, RotateCcw, ClipboardList, IndianRupee } from 'lucide-react'
+import { LayoutDashboard, Pill, Package, Settings, LogOut, History, PackagePlus, CreditCard, BarChart2, Menu, X, Building2, ShoppingCart, Bell, AlertTriangle, Clock, RotateCcw, ClipboardList, IndianRupee, RefreshCw } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../api/client'
 
@@ -127,6 +127,7 @@ function getInitials(name) {
 export default function Layout() {
   const { user, logout } = useAuth()
   const [open, setOpen] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   const sidebar = (
     <aside className="w-60 flex flex-col h-full flex-shrink-0" style={{ background: '#0F2557' }}>
@@ -193,14 +194,18 @@ export default function Layout() {
         {sidebar}
       </div>
       <main className="flex-1 overflow-y-auto">
-        <div className="md:hidden flex items-center gap-3 px-4 py-3 border-b border-gray-200 bg-white sticky top-0 z-30">
-          <button onClick={() => setOpen(true)} className="p-1.5 rounded-lg text-gray-600 hover:bg-gray-100">
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 bg-white sticky top-0 z-30">
+          <button onClick={() => setOpen(true)} className="md:hidden p-1.5 rounded-lg text-gray-600 hover:bg-gray-100">
             <Menu size={22} />
           </button>
-          <span className="font-extrabold text-sm"><span style={{ color: '#CC1414' }}>BH</span><span style={{ color: '#0F2557' }}>arath Health</span></span>
-          <span className="text-xs font-semibold ml-1" style={{ color: '#F5821E' }}>Pharmacy</span>
+          <span className="md:hidden font-extrabold text-sm"><span style={{ color: '#CC1414' }}>BH</span><span style={{ color: '#0F2557' }}>arath Health</span></span>
+          <span className="md:hidden text-xs font-semibold ml-1" style={{ color: '#F5821E' }}>Pharmacy</span>
+          <div className="flex-1" />
+          <button onClick={() => setRefreshKey(k => k + 1)} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700" title="Refresh data">
+            <RefreshCw size={16} />
+          </button>
         </div>
-        <div className="p-4 md:p-6">
+        <div key={refreshKey} className="p-4 md:p-6">
           <Outlet />
         </div>
       </main>
