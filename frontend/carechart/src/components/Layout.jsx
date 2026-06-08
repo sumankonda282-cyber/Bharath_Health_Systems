@@ -244,5 +244,6 @@ export default function Layout() {
       {/* Floating chat widget — same style as provider portal, PIN-gated */}
       <ChatWidget />
     </div>
+    </div>
   )
 }
