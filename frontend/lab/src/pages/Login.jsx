@@ -1,6 +1,6 @@
-import { CheckCircle, useState } from 'react'
+import { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
-import { Eye, EyeOff, AlertCircle, FlaskConical, Microscope, ClipboardList, KeyRound } from 'lucide-react'
+import { Eye, EyeOff, AlertCircle, FlaskConical, Microscope, ClipboardList, KeyRound, CheckCircle } from 'lucide-react'
 
 const API = import.meta.env.VITE_API_URL ?? ''
 

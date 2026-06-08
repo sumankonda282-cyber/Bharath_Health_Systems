@@ -135,7 +135,9 @@ export default function Appointments() {
                       <span className={`badge ${a.mode === 'online' ? 'badge-blue' : 'badge-gray'}`}>{a.mode}</span>
                     </td>
                     <td className="td">
-                      <span className={STATUS_COLORS[a.status] || 'badge-gray'}>{a.status}</span>
+                      <span className={`badge ${STATUS_COLORS[a.status] || 'badge-gray'}`}>
+                        {a.status?.replace('_', ' ')}
+                      </span>
                     </td>
                     <td className="td">
                       <div className="flex items-center gap-2">
