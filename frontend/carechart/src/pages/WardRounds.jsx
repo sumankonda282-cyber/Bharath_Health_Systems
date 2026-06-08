@@ -3,6 +3,7 @@ import { Stethoscope, Plus, Loader2, X, AlertCircle, CheckCircle, ChevronDown, C
 import api from '../api/client'
 import PatientList from '../components/PatientList'
 import { useAuth } from '../contexts/AuthContext'
+import { usePin } from '../contexts/PinContext'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -161,6 +162,7 @@ function RoundCard({ round }) {
 
 function RoundForm({ admissionId, lastVitals, onClose, onSaved }) {
   const { user } = useAuth()
+  const { requestPin } = usePin()
   const [form, setForm]     = useState({
     ...EMPTY_FORM,
     // Pre-fill vitals from last recorded
@@ -178,7 +180,9 @@ function RoundForm({ admissionId, lastVitals, onClose, onSaved }) {
 
   const handleSubmit = async e => {
     e.preventDefault()
-    setSubmitting(true); setSubmitError('')
+    setSubmitError('')
+    try { await requestPin('Sign Ward Round') } catch { return }
+    setSubmitting(true)
     try {
       const payload = {
         round_date: `${form.round_date}T${form.round_time}:00`,
