@@ -30,6 +30,7 @@ const PROVIDER_NAV = [
   { to: '/rounds',        icon: Stethoscope,     label: 'Ward Rounds'            },
   { to: '/progress-notes',icon: FileText,        label: 'Progress Notes'         },
   { to: '/orders',        icon: ClipboardList,   label: 'Orders'                 },
+  { to: '/assessments',   icon: ClipboardCheck,  label: 'Assessments'            },
   { to: '/handoff',       icon: ArrowLeftRight,  label: 'Shift Handoff'          },
   { to: '/discharge',     icon: PackageOpen,     label: 'Discharge'              },
   { to: '/templates',     icon: LayoutTemplate,  label: 'Templates'              },

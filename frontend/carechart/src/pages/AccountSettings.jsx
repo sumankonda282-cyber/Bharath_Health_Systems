@@ -5,15 +5,17 @@ import { Eye, EyeOff, CheckCircle, AlertCircle, KeyRound, Lock, LogOut } from 'l
 const API = import.meta.env.VITE_API_URL ?? ''
 
 function useApi() {
-  const { token } = useAuth()
-  const call = (url, opts = {}) => fetch(`${API}${url}`, {
-    ...opts,
-    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', ...(opts.headers || {}) }
-  }).then(async r => {
-    const data = await r.json()
-    if (!r.ok) throw new Error(data.detail || 'Error')
-    return data
-  })
+  const call = (url, opts = {}) => {
+    const token = localStorage.getItem('staff_token')
+    return fetch(`${API}${url}`, {
+      ...opts,
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', ...(opts.headers || {}) }
+    }).then(async r => {
+      const data = await r.json()
+      if (!r.ok) throw new Error(data.detail || 'Error')
+      return data
+    })
+  }
   return call
 }
 

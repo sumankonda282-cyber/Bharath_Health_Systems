@@ -12,6 +12,7 @@ import IOChartForm from '../components/assessments/IOChartForm'
 import WoundCareForm from '../components/assessments/WoundCareForm'
 import RestraintForm from '../components/assessments/RestraintForm'
 import api from '../api/client'
+import { useAuth } from '../contexts/AuthContext'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -136,6 +137,8 @@ const PROVIDER_ASSESSMENTS = [
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function Assessments() {
+  const { user } = useAuth()
+  const isDoctor = ['doctor', 'clinic_admin', 'provider'].includes(user?.role)
   const [selectedAdmission, setSelectedAdmission] = useState(null)
   const [openModal, setOpenModal]                 = useState(null)
   const [lastNotes, setLastNotes]                 = useState({})
@@ -231,8 +234,27 @@ export default function Assessments() {
               </div>
             </div>
 
+            {/* Provider Assessments — shown first for doctors */}
+            {isDoctor && (
+              <section className="mb-8">
+                <h2 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                  <FileText size={14} /> Provider / Clinical Assessments
+                </h2>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {PROVIDER_ASSESSMENTS.map(a => (
+                    <AssessmentCard
+                      key={a.key}
+                      assessment={a}
+                      lastNote={lastNotes[a.key] || lastNotes[a.noteType]}
+                      onClick={() => setOpenModal(a.key)}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+
             {/* Nursing Assessments */}
-            <section className="mb-8">
+            <section className={isDoctor ? '' : 'mb-8'}>
               <h2 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
                 <Activity size={14} /> Nursing Assessments
               </h2>
@@ -248,22 +270,24 @@ export default function Assessments() {
               </div>
             </section>
 
-            {/* Provider Assessments */}
-            <section>
-              <h2 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
-                <FileText size={14} /> Provider Assessments
-              </h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                {PROVIDER_ASSESSMENTS.map(a => (
-                  <AssessmentCard
-                    key={a.key}
-                    assessment={a}
-                    lastNote={lastNotes[a.key] || lastNotes[a.noteType]}
-                    onClick={() => setOpenModal(a.key)}
-                  />
-                ))}
-              </div>
-            </section>
+            {/* Provider Assessments — shown last for nurses (reference only) */}
+            {!isDoctor && (
+              <section>
+                <h2 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                  <FileText size={14} /> Provider / Clinical Notes (view)
+                </h2>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {PROVIDER_ASSESSMENTS.map(a => (
+                    <AssessmentCard
+                      key={a.key}
+                      assessment={a}
+                      lastNote={lastNotes[a.key] || lastNotes[a.noteType]}
+                      onClick={() => setOpenModal(a.key)}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
           </>
         )}
       </main>
