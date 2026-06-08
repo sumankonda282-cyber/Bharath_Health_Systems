@@ -58,6 +58,17 @@ app.add_middleware(
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request as StarletteRequest
 
+class PathNormalizeMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: StarletteRequest, call_next):
+        # Collapse any leading duplicate slashes that proxies may introduce
+        if request.url.path.startswith('//'):
+            scope = dict(request.scope)
+            scope['path'] = '/' + request.url.path.lstrip('/')
+            request = StarletteRequest(scope, request.receive)
+        return await call_next(request)
+
+app.add_middleware(PathNormalizeMiddleware)
+
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: StarletteRequest, call_next):
         response = await call_next(request)
