@@ -47,7 +47,7 @@ export default function PatientList({ selectedId, onSelect, navigateTo = false }
         return (
           <li key={p.id}>
             <button
-              onClick={() => { if (onSelect) onSelect(p); navigate(`/patient/${p.id}`) }}
+              onClick={() => { if (onSelect) onSelect(p); if (navigateTo) navigate(`/patient/${p.id}`) }}
               className={`w-full text-left px-4 py-3 hover:bg-emerald-50 transition-colors ${
                 selectedId === p.id ? 'bg-emerald-50 border-r-2 border-emerald-600' : ''
               }`}
