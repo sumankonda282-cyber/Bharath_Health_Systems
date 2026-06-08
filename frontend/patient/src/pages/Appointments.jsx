@@ -11,7 +11,7 @@ const STATUS_BADGE = {
 function TelehealthJoinModal({ appt, onClose }) {
   const [consented, setConsented] = useState(false)
   const handleJoin = () => {
-    const url = `https://meet.jit.si/bharatcliniq-appt-${appt.id}`
+    const url = `https://meet.jit.si/bhs-appt-${appt.id}`
     window.open(url, '_blank', 'noopener')
     onClose()
   }
