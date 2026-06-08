@@ -20,6 +20,7 @@ const DocumentationTemplates = lazy(() => import('./pages/DocumentationTemplates
 const PatientChart           = lazy(() => import('./pages/PatientChart'))
 const Orders                 = lazy(() => import('./pages/Orders'))
 const AccountSettings        = lazy(() => import('./pages/AccountSettings'))
+const DischargeSummary       = lazy(() => import('./pages/DischargeSummary'))
 const Layout                 = lazy(() => import('./components/Layout'))
 
 function AppLoader() {
@@ -66,6 +67,8 @@ function AppRoutes() {
           <Route path="handoff" element={<ShiftHandoff />} />
           <Route path="assessments" element={<Assessments />} />
           <Route path="templates" element={<DocumentationTemplates />} />
+          <Route path="discharge" element={<DischargeSummary />} />
+          <Route path="progress-notes" element={<WardRounds />} />
           <Route path="patient/:admissionId" element={<PatientChart />} />
         </Route>
 

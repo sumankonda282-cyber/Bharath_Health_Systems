@@ -184,7 +184,7 @@ function PatientBanner({ admission, onBack }) {
 // ── Tab Bar ───────────────────────────────────────────────────────────────────
 
 const NURSE_TABS    = ['Overview', 'Vitals', 'I & O', 'Chart', 'MAR', 'Assessments']
-const PROVIDER_TABS = ['Overview', 'Vitals', 'I & O', 'Chart', 'MAR', 'Orders', 'Assessments']
+const PROVIDER_TABS = ['Overview', 'Vitals', 'I & O', 'Chart', 'MAR', 'Orders', 'Assessments', 'Discharge']
 
 function TabBar({ active, setActive, tabs }) {
   return (
@@ -1284,6 +1284,262 @@ function DynamicAssessmentForm({ template, admission, onClose }) {
   )
 }
 
+// ── Discharge Tab ─────────────────────────────────────────────────────────────
+
+const DISCHARGE_TYPES = ['Home', 'Transfer', 'AMA (Against Medical Advice)', 'Deceased', 'LAMA (Left Against Medical Advice)']
+const DISCHARGE_CONDITIONS = ['Improved', 'Stable', 'Same', 'Deteriorated', 'Critical']
+
+function DischargeTab({ admission }) {
+  const { requestPin } = usePin()
+  const { user } = useAuth()
+  const isDoctor = ['doctor', 'clinic_admin', 'provider'].includes(user?.role)
+
+  const [summary, setSummary]     = useState(null)
+  const [loading, setLoading]     = useState(true)
+  const [showForm, setShowForm]   = useState(false)
+  const [saving, setSaving]       = useState(false)
+  const [err, setErr]             = useState('')
+  const [saved, setSaved]         = useState(false)
+
+  const [form, setForm] = useState({
+    discharge_date: new Date().toISOString().slice(0, 10),
+    discharge_time: `${String(new Date().getHours()).padStart(2,'0')}:${String(new Date().getMinutes()).padStart(2,'0')}`,
+    discharge_type: 'Home',
+    condition_at_discharge: 'Improved',
+    discharge_diagnosis: admission?.primary_diagnosis || '',
+    hospital_course: '',
+    procedures_done: '',
+    medications_at_discharge: '',
+    follow_up_instructions: '',
+    dietary_instructions: '',
+    activity_instructions: '',
+    warning_signs: '',
+    follow_up_date: '',
+    follow_up_with: '',
+    notes: '',
+  })
+
+  const load = useCallback(() => {
+    setLoading(true)
+    api.get(`/inpatient/admissions/${admission.id}/discharge-summary`)
+      .then(data => setSummary(data || null))
+      .catch(() => setSummary(null))
+      .finally(() => setLoading(false))
+  }, [admission?.id])
+
+  useEffect(() => { load() }, [load])
+
+  const openEdit = () => {
+    if (summary) {
+      setForm(prev => ({
+        ...prev,
+        discharge_date:           summary.discharge_date           || prev.discharge_date,
+        discharge_time:           summary.discharge_time           || prev.discharge_time,
+        discharge_type:           summary.discharge_type           || 'Home',
+        condition_at_discharge:   summary.condition_at_discharge   || 'Improved',
+        discharge_diagnosis:      summary.discharge_diagnosis      || '',
+        hospital_course:          summary.hospital_course          || '',
+        procedures_done:          summary.procedures_done          || '',
+        medications_at_discharge: summary.medications_at_discharge || '',
+        follow_up_instructions:   summary.follow_up_instructions   || '',
+        dietary_instructions:     summary.dietary_instructions     || '',
+        activity_instructions:    summary.activity_instructions    || '',
+        warning_signs:            summary.warning_signs            || '',
+        follow_up_date:           summary.follow_up_date           || '',
+        follow_up_with:           summary.follow_up_with           || '',
+        notes:                    summary.notes                    || '',
+      }))
+    }
+    setErr(''); setShowForm(true)
+  }
+
+  const save = async (signed) => {
+    if (!form.discharge_diagnosis.trim()) { setErr('Discharge diagnosis is required'); return }
+    setErr('')
+    let identity
+    try { identity = await requestPin('Save Discharge Summary') } catch { return }
+    setSaving(true)
+    const now = new Date().toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
+    try {
+      await api.post(`/inpatient/admissions/${admission.id}/discharge-summary`, {
+        ...form,
+        created_by: identity.staff_id,
+        signed,
+        signed_by: signed ? identity.full_name : null,
+        signed_at: signed ? now : null,
+      })
+      setSaved(true); setShowForm(false); load()
+    } catch (e) {
+      setErr(e.message || 'Failed to save')
+    } finally { setSaving(false) }
+  }
+
+  const f = (key) => ({
+    value: form[key],
+    onChange: e => setForm(p => ({ ...p, [key]: e.target.value })),
+  })
+
+  const summaryRows = [
+    ['Date / Time', summary ? `${summary.discharge_date || ''} ${summary.discharge_time || ''}` : null],
+    ['Type', summary?.discharge_type],
+    ['Condition', summary?.condition_at_discharge],
+    ['Diagnosis', summary?.discharge_diagnosis],
+    ['Hospital Course', summary?.hospital_course],
+    ['Procedures', summary?.procedures_done],
+    ['Medications', summary?.medications_at_discharge],
+    ['Diet', summary?.dietary_instructions],
+    ['Activity', summary?.activity_instructions],
+    ['Follow-up Date', summary?.follow_up_date],
+    ['Follow-up With', summary?.follow_up_with],
+    ['Follow-up Instructions', summary?.follow_up_instructions],
+    ['Warning Signs', summary?.warning_signs],
+    ['Notes', summary?.notes],
+  ]
+
+  return (
+    <div className="p-4 max-w-3xl mx-auto">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+          <PillIcon size={16} className="text-emerald-600" /> Discharge Summary
+        </h3>
+        {isDoctor && !showForm && (
+          <button onClick={openEdit} className="btn-primary">
+            <Plus size={14} />{summary ? 'Edit Summary' : 'Create Summary'}
+          </button>
+        )}
+      </div>
+
+      {saved && !showForm && (
+        <div className="flex items-center gap-2 p-3 mb-4 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm">
+          <CheckCircle size={14} /> Discharge summary saved.
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex items-center justify-center py-10">
+          <Loader2 size={24} className="animate-spin text-gray-400" />
+        </div>
+      ) : !summary && !showForm ? (
+        <div className="empty-state py-10">
+          <FileText size={32} className="empty-state-icon" />
+          <span className="empty-state-text">No discharge summary yet</span>
+          {isDoctor && (
+            <button onClick={openEdit} className="btn-primary mt-3">
+              <Plus size={14} />Create Summary
+            </button>
+          )}
+        </div>
+      ) : !showForm && summary ? (
+        <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-2.5">
+          {summaryRows.map(([label, val]) => val ? (
+            <div key={label} className="grid grid-cols-3 gap-2 text-sm border-b border-gray-50 pb-2">
+              <div className="font-semibold text-gray-500">{label}</div>
+              <div className="col-span-2 text-gray-800 whitespace-pre-wrap">{val}</div>
+            </div>
+          ) : null)}
+          {summary.signed_by && (
+            <div className="mt-4 pt-3 border-t border-gray-100 text-xs text-gray-500">
+              Signed by <strong>{summary.signed_by}</strong>
+              {summary.signed_at && ` · ${new Date(summary.signed_at).toLocaleString('en-IN')}`}
+            </div>
+          )}
+        </div>
+      ) : null}
+
+      {showForm && (
+        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h4 className="font-semibold text-gray-800">Discharge Summary Form</h4>
+            <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <div>
+              <label className="label">Discharge Date</label>
+              <input className="input" type="date" {...f('discharge_date')} />
+            </div>
+            <div>
+              <label className="label">Time</label>
+              <input className="input" type="time" {...f('discharge_time')} />
+            </div>
+            <div>
+              <label className="label">Discharge Type</label>
+              <select className="input" {...f('discharge_type')}>
+                {DISCHARGE_TYPES.map(t => <option key={t}>{t}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label">Condition at Discharge</label>
+              <select className="input" {...f('condition_at_discharge')}>
+                {DISCHARGE_CONDITIONS.map(c => <option key={c}>{c}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label">Follow-up Date</label>
+              <input className="input" type="date" {...f('follow_up_date')} />
+            </div>
+            <div>
+              <label className="label">Follow-up With</label>
+              <input className="input" type="text" placeholder="Dr. / Clinic" {...f('follow_up_with')} />
+            </div>
+          </div>
+
+          <div>
+            <label className="label">Discharge Diagnosis <span className="text-red-500">*</span></label>
+            <input className="input" type="text" placeholder="Primary and secondary diagnoses" {...f('discharge_diagnosis')} />
+          </div>
+          <div>
+            <label className="label">Hospital Course</label>
+            <textarea className="input" rows={3} placeholder="Reason for admission, key treatments, response..." {...f('hospital_course')} />
+          </div>
+          <div>
+            <label className="label">Procedures Done</label>
+            <textarea className="input" rows={2} placeholder="Surgeries, procedures..." {...f('procedures_done')} />
+          </div>
+          <div>
+            <label className="label">Medications at Discharge</label>
+            <textarea className="input" rows={3} placeholder="Drug · Dose · Frequency · Duration" {...f('medications_at_discharge')} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">Dietary Instructions</label>
+              <textarea className="input" rows={2} {...f('dietary_instructions')} />
+            </div>
+            <div>
+              <label className="label">Activity Instructions</label>
+              <textarea className="input" rows={2} {...f('activity_instructions')} />
+            </div>
+          </div>
+          <div>
+            <label className="label">Follow-up Instructions</label>
+            <textarea className="input" rows={2} {...f('follow_up_instructions')} />
+          </div>
+          <div>
+            <label className="label">Warning Signs</label>
+            <textarea className="input" rows={2} placeholder="Return if fever, chest pain, breathlessness..." {...f('warning_signs')} />
+          </div>
+
+          {err && (
+            <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
+              <AlertTriangle size={14} />{err}
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <button onClick={() => save(true)} disabled={saving} className="btn-primary">
+              {saving ? <><Loader2 size={13} className="animate-spin" />Saving…</> : 'Save & Sign'}
+            </button>
+            <button onClick={() => save(false)} disabled={saving} className="btn-secondary">Save Draft</button>
+            <button onClick={() => setShowForm(false)} className="btn-secondary">Cancel</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Assessments Tab ───────────────────────────────────────────────────────────
+
 function AssessmentsTab({ admission }) {
   const [openKey, setOpenKey] = useState(null)
   const [dynamicTemplates, setDynamicTemplates] = useState([])
@@ -1514,6 +1770,9 @@ export default function PatientChart() {
         )}
         {activeTab === 'Assessments' && (
           <AssessmentsTab admission={admission} />
+        )}
+        {activeTab === 'Discharge' && (
+          <DischargeTab admission={admission} />
         )}
       </div>
     </div>
