@@ -26,15 +26,18 @@ export default function Layout() {
 
   const sidebar = (
     <aside className="w-60 flex flex-col h-full flex-shrink-0" style={{ background: '#0F2557' }}>
-      <div className="px-5 py-5 border-b border-white/10 flex items-center justify-between">
+      <div className="px-4 py-4 border-b border-white/10 flex items-center justify-between">
         <div>
-          <div className="text-white font-extrabold text-lg tracking-tight">BHarath Health Systems</div>
+          <div className="font-extrabold text-base leading-tight" style={{ letterSpacing: '-0.01em' }}>
+            <span style={{ color: '#CC1414' }}>BH</span>
+            <span className="text-white">arath Health</span>
+          </div>
           <div className="text-xs font-semibold mt-0.5 tracking-wider uppercase" style={{ color: '#F5821E' }}>
             Laboratory Portal
           </div>
         </div>
-        <button onClick={() => setOpen(false)} className="md:hidden text-white/60 hover:text-white">
-          <X size={20} />
+        <button onClick={() => setOpen(false)} className="md:hidden text-white/60 hover:text-white p-1">
+          <X size={18} />
         </button>
       </div>
       <nav className="flex-1 px-3 py-4 overflow-y-auto">
@@ -56,7 +59,7 @@ export default function Layout() {
           </div>
           <div className="min-w-0">
             <div className="text-white text-xs font-semibold truncate">{user?.full_name || user?.email}</div>
-            <div className="text-blue-300 text-xs">Lab Technician</div>
+            <div className="text-blue-300 text-xs">{user?.role?.replace(/_/g, ' ') || 'Lab Staff'}</div>
           </div>
         </div>
         <NavLink to="/account" end
@@ -87,7 +90,8 @@ export default function Layout() {
           <button onClick={() => setOpen(true)} className="p-1.5 rounded-lg text-gray-600 hover:bg-gray-100">
             <Menu size={22} />
           </button>
-          <span className="font-bold text-sm" style={{ color: '#0F2557' }}>BHarath Health Systems Laboratory</span>
+          <span className="font-extrabold text-sm"><span style={{ color: '#CC1414' }}>BH</span><span style={{ color: '#0F2557' }}>arath Health</span></span>
+          <span className="text-xs font-semibold ml-1" style={{ color: '#F5821E' }}>Lab</span>
         </div>
         <div className="p-4 md:p-6">
           <Outlet />

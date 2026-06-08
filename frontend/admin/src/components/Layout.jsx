@@ -30,16 +30,19 @@ function Sidebar({ onClose }) {
   return (
     <aside className="w-60 flex flex-col h-full bg-gray-900 border-r border-gray-800">
       {/* Brand */}
-      <div className="px-5 py-5 border-b border-gray-800 flex items-center justify-between">
+      <div className="px-4 py-4 border-b border-gray-800 flex items-center justify-between">
         <div>
-          <div className="text-white font-extrabold text-base tracking-tight">BharatCliniq</div>
+          <div className="font-extrabold text-base leading-tight" style={{ letterSpacing: '-0.01em' }}>
+            <span style={{ color: '#CC1414' }}>BH</span>
+            <span className="text-white">arath Health</span>
+          </div>
           <div className="text-xs font-bold mt-0.5 tracking-widest uppercase" style={{ color: '#F5821E' }}>
             Super Admin
           </div>
         </div>
         {onClose && (
-          <button onClick={onClose} className="md:hidden text-gray-500 hover:text-white">
-            <X size={20} />
+          <button onClick={onClose} className="md:hidden text-gray-500 hover:text-white p-1">
+            <X size={18} />
           </button>
         )}
       </div>
@@ -103,7 +106,8 @@ export default function Layout() {
           <button onClick={() => setOpen(true)} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-800">
             <Menu size={22} />
           </button>
-          <span className="font-bold text-sm text-white">BharatCliniq Admin</span>
+          <span className="font-extrabold text-sm"><span style={{ color: '#CC1414' }}>BH</span><span className="text-white">arath Health</span></span>
+          <span className="text-xs font-bold ml-1" style={{ color: '#F5821E' }}>Admin</span>
         </div>
         <div className="p-4 md:p-6">
           <Outlet />

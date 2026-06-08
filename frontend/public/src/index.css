@@ -1,14 +1,15 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --red: #CC1414;
-  --navy: #0F2557;
+  --red:     #CC1414;
+  --navy:    #0F2557;
   --saffron: #F5821E;
-  --gold: #D4AF37;
-  --light: #F0F4F8;
+  --gold:    #D4AF37;
+  --green:   #138808;
+  --light:   #F0F4F8;
 }
 
 @layer base {
@@ -18,49 +19,67 @@
     background-color: #ffffff;
     color: #1a1a2e;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    line-height: 1.6;
   }
+  h1, h2, h3, h4 { letter-spacing: -0.02em; line-height: 1.25; }
 }
 
 @layer components {
+  /* ── Buttons ─────────────────────────────────────────────────────── */
   .btn {
-    @apply inline-flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-sm transition-all duration-150 cursor-pointer disabled:opacity-50;
+    @apply inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm
+           transition-all duration-150 cursor-pointer select-none
+           disabled:opacity-50 disabled:cursor-not-allowed;
   }
-  .btn-primary { @apply btn text-white; background-color: var(--red); }
-  .btn-primary:hover { background-color: #b01010; }
-  .btn-navy { @apply btn text-white; background-color: var(--navy); }
-  .btn-navy:hover { background-color: #0a1a3e; }
-  .btn-outline {
-    @apply btn bg-transparent border-2 font-semibold;
-    border-color: var(--navy); color: var(--navy);
-  }
-  .btn-outline:hover { background-color: var(--navy); color: white; }
-  .btn-white { @apply btn bg-white font-semibold; color: var(--navy); }
-  .btn-white:hover { background-color: #f8fafc; }
-  .btn-secondary { @apply btn bg-white text-gray-700 border border-gray-300 hover:bg-gray-50; }
+  .btn-sm { @apply btn px-3.5 py-2 text-xs rounded-lg; }
+  .btn-lg { @apply btn px-7 py-3.5 text-base; }
+  .btn-primary   { @apply btn text-white; background-color: var(--red); }
+  .btn-primary:hover:not(:disabled)  { background-color: #b01010; }
+  .btn-navy      { @apply btn text-white; background-color: var(--navy); }
+  .btn-navy:hover:not(:disabled)     { background-color: #0a1a3e; }
+  .btn-outline   { @apply btn bg-transparent border-2 font-semibold; border-color: var(--navy); color: var(--navy); }
+  .btn-outline:hover:not(:disabled)  { background-color: var(--navy); color: white; }
+  .btn-secondary { @apply btn bg-white text-gray-700 border border-gray-200 hover:bg-gray-50; }
 
-  .card { @apply bg-white rounded-2xl border border-gray-100 shadow-md p-6; }
+  /* ── Cards ───────────────────────────────────────────────────────── */
+  .card {
+    @apply bg-white rounded-2xl border border-gray-100 p-6;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(15,37,87,0.05);
+  }
+  .card:hover { box-shadow: 0 4px 24px rgba(15,37,87,0.10); }
+
+  /* ── Forms ───────────────────────────────────────────────────────── */
   .input {
-    @apply w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-transparent transition-all;
+    @apply w-full px-4 py-3 border border-gray-300 rounded-xl text-sm
+           focus:outline-none focus:ring-2 focus:border-transparent transition-all
+           placeholder:text-gray-400 bg-white;
     --tw-ring-color: var(--navy);
   }
   .label { @apply block text-sm font-semibold text-gray-700 mb-1.5; }
 
-  .badge { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold; }
-  .badge-blue   { @apply badge bg-blue-100 text-blue-800; }
-  .badge-green  { @apply badge bg-green-100 text-green-800; }
-  .badge-yellow { @apply badge bg-yellow-100 text-yellow-800; }
-  .badge-red    { @apply badge bg-red-100 text-red-800; }
-  .badge-gray   { @apply badge bg-gray-100 text-gray-700; }
+  /* ── Badges ──────────────────────────────────────────────────────── */
+  .badge        { @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold; }
+  .badge-blue   { @apply badge bg-blue-100   text-blue-800; }
+  .badge-green  { @apply badge bg-emerald-100 text-emerald-800; }
+  .badge-yellow { @apply badge bg-amber-100  text-amber-800; }
+  .badge-red    { @apply badge bg-red-100    text-red-700; }
+  .badge-gray   { @apply badge bg-gray-100   text-gray-600; }
 
-  .section-title {
-    @apply text-3xl md:text-4xl font-extrabold;
-    color: var(--navy);
-    letter-spacing: -0.02em;
-  }
-  .section-subtitle { @apply text-lg text-gray-500 mt-3 max-w-2xl mx-auto; }
+  /* ── Section typography ──────────────────────────────────────────── */
+  .section-title    { @apply text-3xl md:text-4xl font-extrabold; color: var(--navy); letter-spacing: -0.02em; }
+  .section-subtitle { @apply text-lg text-gray-500 mt-3 leading-relaxed; }
+
+  /* ── Alerts ──────────────────────────────────────────────────────── */
+  .alert         { @apply flex items-start gap-2.5 p-4 rounded-xl text-sm border; }
+  .alert-success { @apply alert bg-emerald-50 border-emerald-200 text-emerald-800; }
+  .alert-error   { @apply alert bg-red-50 border-red-200 text-red-700; }
+  .alert-warning { @apply alert bg-amber-50 border-amber-200 text-amber-800; }
+  .alert-info    { @apply alert bg-blue-50 border-blue-200 text-blue-800; }
 }
 
-::-webkit-scrollbar { width: 6px; height: 6px; }
+/* ── Scrollbar ───────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: #f1f5f9; }
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }

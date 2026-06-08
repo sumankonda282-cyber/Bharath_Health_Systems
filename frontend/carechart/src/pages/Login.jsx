@@ -130,10 +130,6 @@ export default function Login() {
                 <Icon size={16} style={{ color: '#6ee7b7' }} />
               </div>
               <span className="text-emerald-100 text-sm">{text}</span>
-              <button type="button" onClick={() => setMode('forgot')}
-                className="text-xs text-emerald-600 hover:underline mt-1 float-right">
-                Forgot password?
-              </button>
             </div>
           ))}
         </div>

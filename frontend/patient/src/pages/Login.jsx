@@ -62,7 +62,7 @@ function HeroPanel() {
         </div>
       </div>
       <div className="relative text-xs" style={{ color: '#93c5fd' }}>
-        BharatCliniq · India's Digital Health Network
+        BHarath Health Systems · India's Digital Health Network
       </div>
     </div>
   )
@@ -537,7 +537,7 @@ export default function Login() {
           </div>
 
           <p className="text-center text-xs text-gray-400 mt-4">
-            BharatCliniq · My Health Portal · Your data is private & secure
+            BHarath Health Systems · My Health Portal · Your data is private &amp; secure
           </p>
         </div>
       </div>
