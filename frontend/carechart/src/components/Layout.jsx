@@ -3,7 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, BedDouble, Activity, ClipboardList, Pill,
   Stethoscope, ArrowLeftRight, LogOut, Menu, X, Sun, Sunset, Moon,
-  FileText, ClipboardCheck, KeyRound, Settings, PackageOpen
+  FileText, ClipboardCheck, KeyRound, Settings, PackageOpen, LayoutTemplate
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useWardSession } from '../contexts/WardSessionContext'
@@ -21,6 +21,7 @@ const NURSE_NAV = [
   { to: '/assessments',  icon: ClipboardCheck,  label: 'Assessments'            },
   { to: '/handoff',      icon: ArrowLeftRight,  label: 'Shift Handoff'          },
   { to: '/discharge',    icon: PackageOpen,     label: 'Discharge'              },
+  { to: '/templates',    icon: LayoutTemplate,  label: 'Templates'              },
 ]
 
 const PROVIDER_NAV = [
@@ -31,6 +32,7 @@ const PROVIDER_NAV = [
   { to: '/orders',        icon: ClipboardList,   label: 'Orders'                 },
   { to: '/handoff',       icon: ArrowLeftRight,  label: 'Shift Handoff'          },
   { to: '/discharge',     icon: PackageOpen,     label: 'Discharge'              },
+  { to: '/templates',     icon: LayoutTemplate,  label: 'Templates'              },
 ]
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

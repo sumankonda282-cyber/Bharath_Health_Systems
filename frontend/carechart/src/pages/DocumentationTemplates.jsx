@@ -696,11 +696,11 @@ export default function DocumentationTemplates() {
   const activeTemplate = [...NURSING_TEMPLATES, ...PROVIDER_TEMPLATES].find(t => t.key === openTemplate)
 
   return (
-    <div className="flex h-full min-h-screen bg-gray-50">
+    <div className="flex h-full bg-gray-50">
       {/* Sidebar */}
-      <aside className="w-64 shrink-0 bg-white border-r border-gray-200 flex flex-col">
-        <div className="px-4 py-4 border-b border-gray-100">
-          <h2 className="font-bold text-gray-700 text-sm uppercase tracking-widest">Patients</h2>
+      <aside className="w-56 shrink-0 bg-white border-r border-gray-200 flex flex-col">
+        <div className="px-4 py-3 border-b border-gray-100">
+          <h2 className="font-bold text-gray-700 text-xs uppercase tracking-widest">Patients</h2>
         </div>
         <div className="flex-1 overflow-y-auto">
           <PatientList selectedId={selectedAdmission?.id} onSelect={adm => { setSelectedAdmission(adm); setOpenTemplate(null) }} />
@@ -708,7 +708,7 @@ export default function DocumentationTemplates() {
       </aside>
 
       {/* Main */}
-      <main className="flex-1 overflow-y-auto px-6 py-6">
+      <main className="flex-1 overflow-y-auto px-5 py-5">
         {!selectedAdmission ? (
           <div className="flex flex-col items-center justify-center h-64 text-gray-400">
             <FileText size={40} className="mb-3 opacity-30" />
