@@ -3,6 +3,7 @@ import { Pill, Plus, X, Loader2, Printer, ChevronLeft, ChevronRight, AlertCircle
 import api from '../api/client'
 import PatientList from '../components/PatientList'
 import { useAuth } from '../contexts/AuthContext'
+import { usePin } from '../contexts/PinContext'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -499,6 +500,7 @@ function AddMedModal({ onClose, onSave, saving, error }) {
 
 export default function MAR() {
   const { user } = useAuth()
+  const { requestPin } = usePin()
   const [selected, setSelected]       = useState(null)
   const [admission, setAdmission]     = useState(null)
   const [marItems, setMarItems]       = useState([])
@@ -572,6 +574,7 @@ export default function MAR() {
 
   const handleAdminSave = async (form) => {
     if (!actionCtx) return
+    try { await requestPin(`${form.status === 'given' ? 'Administer' : 'Update'} medication`) } catch { return }
     setActioning(true)
     try {
       const { drug, item, dateIso, slot } = actionCtx
@@ -625,7 +628,10 @@ export default function MAR() {
   const handleAddMed = async (form) => {
     setAddSaving(true); setAddError('')
     try {
-      await api.post(`/inpatient/admissions/${selected.id}/mar`, form)
+      await api.post(`/inpatient/admissions/${selected.id}/mar`, {
+        ...form,
+        ordered_by: user?.id,
+      })
       setShowAdd(false)
       fetchMAR(selected)
     } catch (err) {
