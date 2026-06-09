@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, and_
 from typing import Optional
 from datetime import datetime, date, timedelta
+from pydantic import BaseModel, EmailStr
 from app.db.session import get_db
 from app.core.security import get_current_platform_admin, hash_password
 from app.models.models import Clinic, Branch, Staff, Patient, Appointment, PlatformAdmin, AuditLog, Invoice, AssessmentTemplate, TemplateAssignment, Department
@@ -1197,3 +1198,98 @@ def superadmin_edit_clinic(
     db.add(log)
     db.commit()
     return {"message": f"Clinic updated. {len(changes)} field(s) changed.", "changes": changes}
+
+
+# ── Platform Admin Team Management ───────────────────────────────────────────
+
+class CreateAdminRequest(BaseModel):
+    full_name: str
+    email: str
+
+
+@router.get("/admins")
+def list_platform_admins(
+    current=Depends(get_current_platform_admin),
+    db: Session = Depends(get_db),
+):
+    """List all platform admin accounts."""
+    admins = db.query(PlatformAdmin).order_by(PlatformAdmin.created_at.asc()).all()
+    return [
+        {
+            "id":         a.id,
+            "full_name":  a.full_name,
+            "email":      a.email,
+            "is_active":  a.is_active,
+            "created_at": a.created_at.isoformat() if a.created_at else None,
+        }
+        for a in admins
+    ]
+
+
+@router.post("/admins")
+def create_platform_admin(
+    body: CreateAdminRequest,
+    current=Depends(get_current_platform_admin),
+    db: Session = Depends(get_db),
+):
+    """Create a new platform admin. Returns a one-time temp password."""
+    existing = db.query(PlatformAdmin).filter(
+        PlatformAdmin.email == body.email.lower().strip()
+    ).first()
+    if existing:
+        raise HTTPException(status_code=409, detail="An admin with this email already exists")
+
+    temp_pw = _generate_temp_password()
+    admin = PlatformAdmin(
+        full_name=body.full_name.strip(),
+        email=body.email.lower().strip(),
+        hashed_password=hash_password(temp_pw),
+        is_active=True,
+        token_version=1,
+    )
+    db.add(admin)
+    db.commit()
+    db.refresh(admin)
+
+    log = AuditLog(
+        actor_id=current.id, actor_type="platform_admin",
+        action="create_platform_admin",
+        target_type="platform_admin", target_id=admin.id,
+        details=f"Created admin: {admin.email}",
+    )
+    db.add(log)
+    db.commit()
+
+    return {
+        "id":           admin.id,
+        "full_name":    admin.full_name,
+        "email":        admin.email,
+        "temp_password": temp_pw,
+        "message":      "Admin created. Share the temp password securely — it won't be shown again.",
+    }
+
+
+@router.patch("/admins/{admin_id}/toggle")
+def toggle_platform_admin(
+    admin_id: int,
+    current=Depends(get_current_platform_admin),
+    db: Session = Depends(get_db),
+):
+    """Activate or deactivate a platform admin account."""
+    if admin_id == current.id:
+        raise HTTPException(status_code=400, detail="You cannot deactivate your own account")
+    admin = db.query(PlatformAdmin).filter(PlatformAdmin.id == admin_id).first()
+    if not admin:
+        raise HTTPException(status_code=404, detail="Admin not found")
+    admin.is_active = not admin.is_active
+    db.commit()
+    action = "activated" if admin.is_active else "deactivated"
+    log = AuditLog(
+        actor_id=current.id, actor_type="platform_admin",
+        action=f"platform_admin_{action}",
+        target_type="platform_admin", target_id=admin_id,
+        details=f"{admin.email} {action}",
+    )
+    db.add(log)
+    db.commit()
+    return {"id": admin_id, "is_active": admin.is_active, "message": f"Admin {action}"}

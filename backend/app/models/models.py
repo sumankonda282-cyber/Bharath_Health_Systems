@@ -18,6 +18,8 @@ class PlatformAdmin(Base):
     hashed_password = Column(String(255), nullable=False)
     is_active       = Column(Boolean, default=True)
     token_version   = Column(Integer, default=1)
+    otp_code        = Column(String(6), nullable=True)
+    otp_expiry      = Column(DateTime, nullable=True)
     created_at      = Column(DateTime, server_default=func.now())
 
 

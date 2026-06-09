@@ -15,6 +15,7 @@ import Subscriptions from './pages/Subscriptions'
 import HospitalSettings from './pages/HospitalSettings'
 import AssessmentTemplates from './pages/AssessmentTemplates'
 import AccountSettings from './pages/AccountSettings'
+import TeamAdmins from './pages/TeamAdmins'
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth()
@@ -42,7 +43,8 @@ export default function App() {
           <Route path="subscriptions" element={<Subscriptions />} />
           <Route path="hospital-settings" element={<HospitalSettings />} />
           <Route path="assessment-templates" element={<AssessmentTemplates />} />
-          <Route path="account" element={<AccountSettings />} />
+          <Route path="account"      element={<AccountSettings />} />
+          <Route path="team-admins"  element={<TeamAdmins />} />
         </Route>
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>

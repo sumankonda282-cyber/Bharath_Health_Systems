@@ -5,7 +5,7 @@ const AuthContext = createContext(null)
 export const useAuth = () => useContext(AuthContext)
 
 export function AuthProvider({ children }) {
-  const [user, setUser]     = useState(null)
+  const [user, setUser]       = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -17,10 +17,17 @@ export function AuthProvider({ children }) {
       .finally(() => setLoading(false))
   }, [])
 
+  // Step 1: verify password → returns {requires_otp, email, dev_otp?}
   const login = async (identifier, password) => {
     const data = await authApi.login(identifier, password)
+    return data
+  }
+
+  // Step 2: verify OTP → sets token and user
+  const verifyOtp = async (email, otp) => {
+    const data = await authApi.verifyOtp(email, otp)
     sessionStorage.setItem('admin_token', data.access_token)
-    setUser({ id: data.user_id, full_name: data.full_name, email: identifier, user_type: data.user_type })
+    setUser({ id: data.user_id, full_name: data.full_name, email, user_type: data.user_type })
     authApi.me().then(me => setUser(me)).catch(() => {})
   }
 
@@ -29,5 +36,9 @@ export function AuthProvider({ children }) {
     setUser(null)
   }
 
-  return <AuthContext.Provider value={{ user, loading, login, logout }}>{children}</AuthContext.Provider>
+  return (
+    <AuthContext.Provider value={{ user, loading, login, verifyOtp, logout }}>
+      {children}
+    </AuthContext.Provider>
+  )
 }

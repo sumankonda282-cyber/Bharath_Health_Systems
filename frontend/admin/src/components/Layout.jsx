@@ -5,20 +5,21 @@ import { useAuth } from '../contexts/AuthContext'
 import {
   LayoutDashboard, Clock, Building2, ShieldCheck,
   ClipboardList, BarChart3, LogOut, Menu, X, Search, CreditCard, Hospital,
-  FileSpreadsheet, Settings, RefreshCw, HelpCircle
+  FileSpreadsheet, Settings, RefreshCw, HelpCircle, Users
 } from 'lucide-react'
 
 const NAV = [
-  { to: '/dashboard',         icon: LayoutDashboard,  label: 'Dashboard' },
-  { to: '/pending',           icon: Clock,            label: 'Pending Approvals' },
-  { to: '/clinics',           icon: Building2,        label: 'All Clinics' },
-  { to: '/subscriptions',     icon: CreditCard,       label: 'Subscriptions' },
-  { to: '/staff',             icon: ShieldCheck,      label: 'Staff Verification' },
-  { to: '/audit',             icon: ClipboardList,    label: 'Audit Log' },
-  { to: '/reports',           icon: BarChart3,       label: 'Reports' },
-  { to: '/bhid',              icon: Search,          label: 'BH ID Lookup' },
-  { to: '/hospital-settings',   icon: Hospital,         label: 'Hospital Setup' },
+  { to: '/dashboard',          icon: LayoutDashboard,  label: 'Dashboard' },
+  { to: '/pending',            icon: Clock,            label: 'Pending Approvals' },
+  { to: '/clinics',            icon: Building2,        label: 'All Clinics' },
+  { to: '/subscriptions',      icon: CreditCard,       label: 'Subscriptions' },
+  { to: '/staff',              icon: ShieldCheck,      label: 'Staff Verification' },
+  { to: '/audit',              icon: ClipboardList,    label: 'Audit Log' },
+  { to: '/reports',            icon: BarChart3,        label: 'Reports' },
+  { to: '/bhid',               icon: Search,           label: 'BH ID Lookup' },
+  { to: '/hospital-settings',  icon: Hospital,         label: 'Hospital Setup' },
   { to: '/assessment-templates', icon: FileSpreadsheet, label: 'Assessment Forms' },
+  { to: '/team-admins',        icon: Users,            label: 'Admin Team' },
 ]
 
 function getInitials(email) {
@@ -69,7 +70,7 @@ function Sidebar({ onClose }) {
             {getInitials(user?.email || user?.full_name)}
           </div>
           <div className="min-w-0">
-            <div className="text-white text-xs font-semibold truncate">{user?.email || user?.full_name}</div>
+            <div className="text-white text-xs font-semibold truncate">{user?.full_name || user?.email}</div>
             <div className="text-gray-500 text-xs">Super Admin</div>
           </div>
         </div>
@@ -88,9 +89,9 @@ function Sidebar({ onClose }) {
 }
 
 export default function Layout() {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen]         = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
-  const [helpOpen, setHelpOpen]   = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
   return (
     <div className="flex h-screen overflow-hidden bg-gray-950">
       {open && (

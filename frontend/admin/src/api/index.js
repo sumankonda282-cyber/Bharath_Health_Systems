@@ -1,8 +1,9 @@
 import api from './client'
 
 export const authApi = {
-  login: (identifier, password) => api.post('/auth/platform/login', { identifier, password }),
-  me:    () => api.get('/auth/platform/me'),
+  login:     (identifier, password) => api.post('/auth/platform/login', { identifier, password }),
+  verifyOtp: (email, otp)           => api.post('/auth/platform/verify-otp', { email, otp }),
+  me:        ()                     => api.get('/auth/platform/me'),
 }
 
 export const adminApi = {
@@ -43,4 +44,9 @@ export const adminApi = {
 
   // Clinic Edit (superadmin)
   editClinic: (id, body) => api.put(`/platform/clinics/${id}/edit`, body),
+
+  // Platform Admin Team
+  listAdmins:    ()       => api.get('/platform/admins'),
+  createAdmin:   (body)   => api.post('/platform/admins', body),
+  toggleAdmin:   (id)     => api.patch(`/platform/admins/${id}/toggle`),
 }

@@ -178,15 +178,54 @@ def patient_login(request: Request, payload: StaffLoginRequest, db: Session = De
     )
 
 
-@router.post("/platform/login", response_model=TokenResponse)
+@router.post("/platform/login")
 @limiter.limit("5/minute")
 def platform_admin_login(request: Request, payload: StaffLoginRequest, db: Session = Depends(get_db)):
-    """Login for BharatHealth platform superadmins."""
+    """Step 1 of 2FA: verify password, issue OTP to email."""
+    import logging, random
     admin = db.query(PlatformAdmin).filter(
         PlatformAdmin.email == payload.identifier.lower()
     ).first()
-    if not admin or not verify_password(payload.password, admin.hashed_password):
+    if not admin or not admin.is_active or not verify_password(payload.password, admin.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    otp = str(random.randint(100000, 999999))
+    admin.otp_code   = otp
+    admin.otp_expiry = datetime.utcnow() + timedelta(minutes=10)
+    db.commit()
+
+    logging.getLogger(__name__).info(f"[ADMIN 2FA] OTP for {admin.email}: {otp}")
+
+    resp = {"requires_otp": True, "email": admin.email, "message": "OTP sent to your email"}
+    if settings.OTP_MOCK:
+        resp["dev_otp"] = otp
+    return resp
+
+
+class PlatformOTPRequest(BaseModel):
+    email: str
+    otp: str
+
+
+@router.post("/platform/verify-otp", response_model=TokenResponse)
+@limiter.limit("10/minute")
+def platform_admin_verify_otp(request: Request, payload: PlatformOTPRequest, db: Session = Depends(get_db)):
+    """Step 2 of 2FA: verify OTP, return JWT."""
+    admin = db.query(PlatformAdmin).filter(
+        PlatformAdmin.email == payload.email.lower()
+    ).first()
+    if not admin or not admin.is_active:
+        raise HTTPException(status_code=401, detail="Invalid request")
+    if not admin.otp_code or not admin.otp_expiry:
+        raise HTTPException(status_code=400, detail="No OTP pending — please login again")
+    if datetime.utcnow() > admin.otp_expiry:
+        raise HTTPException(status_code=400, detail="OTP expired — please login again")
+    if payload.otp.strip() != admin.otp_code:
+        raise HTTPException(status_code=401, detail="Incorrect OTP")
+
+    admin.otp_code   = None
+    admin.otp_expiry = None
+    db.commit()
 
     token_data = {"sub": str(admin.id), "user_type": "platform_admin", "token_version": admin.token_version or 1}
     return TokenResponse(
