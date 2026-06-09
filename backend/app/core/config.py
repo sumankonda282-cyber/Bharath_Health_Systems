@@ -11,6 +11,23 @@ class Settings(BaseSettings):
     OTP_MOCK: bool = True
     FAST2SMS_API_KEY: str = ""
 
+    # Email — Brevo (Sendinblue)
+    BREVO_API_KEY: str = ""
+    BREVO_SENDER_EMAIL: str = "noreply@bharathhealthsystems.com"
+    BREVO_SENDER_NAME: str = "BharatCliniq"
+
+    # SMS — 2Factor.in (free 10k OTPs/month)
+    TWO_FACTOR_API_KEY: str = ""
+
+    # Payments — Razorpay (UPI: 0% MDR; cards: 2%)
+    RAZORPAY_KEY_ID: str = ""
+    RAZORPAY_KEY_SECRET: str = ""
+    RAZORPAY_WEBHOOK_SECRET: str = ""
+
+    # Telehealth — Daily.co (10k free participant-minutes/month)
+    DAILY_API_KEY: str = ""
+    DAILY_DOMAIN: str = ""
+
     CORS_ORIGINS: str = (
         "http://localhost:3000,http://localhost:5173,http://localhost:5174,http://localhost:5175,"
         "https://bharatcliniq.com,https://www.bharatcliniq.com,"

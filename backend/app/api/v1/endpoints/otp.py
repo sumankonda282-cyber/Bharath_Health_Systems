@@ -1,5 +1,4 @@
 import random
-import httpx
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
@@ -8,6 +7,8 @@ from app.core.config import settings
 from app.core.security import create_access_token
 from app.core.limiter import limiter
 from app.models.models import PatientUser
+from app.utils.sms import send_otp_sms
+from app.utils.email import send_otp_email
 
 router = APIRouter(prefix="/otp", tags=["otp"])
 
@@ -34,19 +35,12 @@ async def send_otp(request: Request, body: dict, db: Session = Depends(get_db)):
     user.otp_expiry = datetime.utcnow() + timedelta(minutes=OTP_TTL_MINUTES)
     db.commit()
 
-    if not settings.OTP_MOCK and settings.FAST2SMS_API_KEY:
-        try:
-            async with httpx.AsyncClient() as client:
-                await client.post(
-                    "https://www.fast2sms.com/dev/bulkV2",
-                    headers={"authorization": settings.FAST2SMS_API_KEY},
-                    data={"variables_values": otp, "route": "otp", "numbers": mobile},
-                    timeout=10.0,
-                )
-        except Exception as e:
-            # Log failure server-side only — never expose to client
-            import logging
-            logging.getLogger(__name__).error(f"SMS send failed for {mobile[-4:]}: {e}")
+    if not settings.OTP_MOCK:
+        # Try SMS first (only when user explicitly enters phone — saves SMS cost)
+        sms_sent = await send_otp_sms(mobile, otp)
+        # If SMS failed and patient has a registered email, fall back to email OTP
+        if not sms_sent and user.email:
+            await send_otp_email(user.email, otp)
 
     resp = {"message": "OTP sent", "mobile": mobile}
     if settings.OTP_MOCK:

@@ -1626,3 +1626,78 @@ def platform_update_bed(
             setattr(bed, field, body[field])
     db.commit()
     return {"detail": "updated"}
+
+
+# ── Direct Clinic Creation ────────────────────────────────────────────────────
+
+import re as _re
+
+
+def _make_slug(name: str, db) -> str:
+    base = _re.sub(r'[^a-z0-9]+', '-', name.strip().lower()).strip('-')[:60]
+    slug, n = base, 2
+    while db.query(Clinic).filter(Clinic.slug == slug).first():
+        slug = f"{base}-{n}"; n += 1
+    return slug
+
+
+@router.post("/clinics/create-direct")
+async def create_clinic_direct(
+    body: dict,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    """
+    Register a new clinic/hospital directly — no public registration flow.
+    Creates clinic as active + verified, generates clinic_admin account,
+    and emails credentials via Brevo.
+    """
+    from app.utils.email import send_clinic_credentials
+
+    name  = (body.get("name")  or "").strip()
+    email = (body.get("email") or "").strip().lower()
+    phone = (body.get("phone") or "").strip()
+    if not name or not email or not phone:
+        raise HTTPException(400, "Name, email and phone are required")
+    if db.query(Clinic).filter(Clinic.email == email).first():
+        raise HTTPException(409, "A clinic with this email already exists")
+
+    clinic = Clinic(
+        name=name, slug=_make_slug(name, db), phone=phone, email=email,
+        city=body.get("city", ""), state=body.get("state", ""),
+        specialty=body.get("specialty", ""),
+        subscription_plan=body.get("plan", "free"),
+        status="active", is_active=True, is_verified=True,
+    )
+    db.add(clinic); db.flush()
+
+    temp_pw  = _generate_temp_password()
+    username = _generate_username(name, db)
+    admin = Staff(
+        clinic_id=clinic.id, full_name=f"{name} Admin", email=email,
+        hashed_password=hash_password(temp_pw), role="clinic_admin",
+        username=username, is_active=True, is_first_login=True,
+        temp_pw_expiry=datetime.utcnow() + timedelta(days=7), token_version=1,
+    )
+    db.add(admin)
+    db.add(AuditLog(
+        actor_id=current.id, actor_type="platform_admin",
+        action="create_clinic_direct", target_type="clinic", target_id=clinic.id,
+        details=f"Direct creation: {name} ({email}). Admin: {username}",
+    ))
+    db.commit(); db.refresh(clinic)
+
+    await send_clinic_credentials(email, name, username, temp_pw)
+
+    return {
+        "clinic": {
+            "id": clinic.id, "name": clinic.name, "slug": clinic.slug,
+            "email": clinic.email, "phone": clinic.phone,
+            "city": clinic.city, "state": clinic.state,
+            "specialty": clinic.specialty, "plan": str(clinic.subscription_plan),
+        },
+        "credentials": {
+            "username": username, "email": email, "temp_password": temp_pw,
+            "note": "Credentials emailed to the clinic admin. Temp password expires in 7 days.",
+        },
+    }
