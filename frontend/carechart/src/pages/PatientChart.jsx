@@ -494,15 +494,47 @@ function OverviewTab({ admission, vitals, meds }) {
 
 // ── Section: Provider View ────────────────────────────────────────────────────
 
+// Assessment form field definitions for inline fill
+const FORM_FIELDS = {
+  pain:      [{ k:'location', l:'Pain Location' },{ k:'score', l:'Score (0–10)' },{ k:'character', l:'Character (sharp/dull/burning…)' },{ k:'duration', l:'Duration' },{ k:'aggravating', l:'Aggravating factors' },{ k:'relieving', l:'Relieving factors' }],
+  braden:    [{ k:'sensory', l:'Sensory perception (1–4)' },{ k:'moisture', l:'Moisture (1–4)' },{ k:'activity', l:'Activity (1–4)' },{ k:'mobility', l:'Mobility (1–4)' },{ k:'nutrition', l:'Nutrition (1–4)' },{ k:'friction', l:'Friction/Shear (1–3)' }],
+  morse:     [{ k:'history_falls', l:'Hx of falling — Yes(25)/No(0)' },{ k:'secondary_diag', l:'Secondary diagnosis — Yes(15)/No(0)' },{ k:'ambulatory_aid', l:'Ambulatory aid (0/15/30)' },{ k:'iv', l:'IV/Heparin lock — Yes(20)/No(0)' },{ k:'gait', l:'Gait (0/10/20)' },{ k:'mental_status', l:'Mental status (0/15)' }],
+  gcs:       [{ k:'eye', l:'Eye opening (1–4)' },{ k:'verbal', l:'Verbal response (1–5)' },{ k:'motor', l:'Motor response (1–6)' },{ k:'total', l:'GCS Total' },{ k:'interpretation', l:'Interpretation' }],
+  io:        [{ k:'oral_intake', l:'Oral intake (ml)' },{ k:'iv_intake', l:'IV fluids (ml)' },{ k:'urine_output', l:'Urine output (ml)' },{ k:'other_output', l:'Other output (ml)' },{ k:'balance', l:'Fluid balance (ml)' }],
+  wound:     [{ k:'location', l:'Wound location' },{ k:'size', l:'Size (cm × cm)' },{ k:'depth', l:'Depth' },{ k:'appearance', l:'Wound appearance' },{ k:'exudate', l:'Exudate type/amount' },{ k:'treatment', l:'Treatment applied' }],
+  restraint: [{ k:'reason', l:'Reason for restraint' },{ k:'type', l:'Type of restraint' },{ k:'circulation', l:'Circulation check' },{ k:'skin', l:'Skin integrity' },{ k:'behaviour', l:'Behaviour/response' }],
+  nutrition: [{ k:'weight', l:'Weight (kg)' },{ k:'bmi', l:'BMI' },{ k:'appetite', l:'Appetite' },{ k:'swallowing', l:'Swallowing status' },{ k:'diet_type', l:'Diet type' }],
+  discharge: [{ k:'mobility', l:'Mobility status' },{ k:'understanding', l:'Discharge instructions understood' },{ k:'followup', l:'Follow-up arranged' },{ k:'medications', l:'Medications explained' },{ k:'support', l:'Home support available' }],
+  consent:   [{ k:'procedure', l:'Procedure' },{ k:'risks_explained', l:'Risks explained' },{ k:'alternatives', l:'Alternatives discussed' },{ k:'questions', l:'Patient questions addressed' },{ k:'witness', l:'Witness name' }],
+  incident:  [{ k:'type', l:'Incident type' },{ k:'time', l:'Time of incident' },{ k:'description', l:'Description' },{ k:'injury', l:'Injury sustained' },{ k:'action', l:'Immediate action taken' }],
+  anesthesia:[{ k:'asa_class', l:'ASA classification' },{ k:'airway', l:'Airway assessment' },{ k:'npo_status', l:'NPO status' },{ k:'previous_anesthesia', l:'Previous anaesthesia issues' },{ k:'plan', l:'Anaesthesia plan' }],
+}
+
+function formatAssessmentNote(form, data) {
+  const fields = FORM_FIELDS[form.id] || []
+  const lines  = fields.map(f => `${f.l}: ${data[f.k] || '—'}`).join('\n')
+  return `${form.label}\n${'─'.repeat(form.label.length)}\n${lines}`
+}
+
 function ProviderView({ admission, notes, setNotes, meds, admissionId }) {
   const { requestPin } = usePin()
-  const [text, setText]         = useState('')
-  const [noteType, setNoteType] = useState('Progress Note')
-  const [saving, setSaving]     = useState(false)
+  const [text, setText]           = useState('')
+  const [noteType, setNoteType]   = useState('Progress Note')
+  const [saving, setSaving]       = useState(false)
   const [collapsed, setCollapsed] = useState({})
   const textRef = useRef(null)
 
+  // Right panel state
+  const [formSearch, setFormSearch]   = useState('')
+  const [selectedForm, setSelectedForm] = useState(null)
+  const [formData, setFormData]       = useState({})
+  const [formSaving, setFormSaving]   = useState(false)
+
   const NOTE_TYPES = ['Progress Note','SOAP Note','Nursing Note','Procedure Note','Discharge Summary']
+
+  const filteredForms = formSearch.length > 0
+    ? ASSESSMENT_FORMS.filter(f => f.label.toLowerCase().includes(formSearch.toLowerCase()) || f.category.toLowerCase().includes(formSearch.toLowerCase()))
+    : ASSESSMENT_FORMS
 
   const handleInput = e => {
     let val = e.target.value
@@ -528,70 +560,168 @@ function ProviderView({ admission, notes, setNotes, meds, admissionId }) {
     setSaving(true)
     try {
       await requestPin('Continue same Rx')
-      await api.post(`/inpatient/admissions/${admissionId}/notes`, {
-        note_type: 'Progress Note', content: 'Continue same Rx. Patient reviewed. No changes to current medications.',
-      })
-      setNotes(prev => [{
-        id: Date.now(), note_type: 'Progress Note',
-        content: 'Continue same Rx. Patient reviewed. No changes to current medications.',
-        created_at: new Date().toISOString(),
-      }, ...prev])
+      const content = 'Continue same Rx. Patient reviewed. No changes to current medications.'
+      await api.post(`/inpatient/admissions/${admissionId}/notes`, { note_type: 'Progress Note', content })
+      setNotes(prev => [{ id: Date.now(), note_type: 'Progress Note', content, created_at: new Date().toISOString() }, ...prev])
     } catch {}
     finally { setSaving(false) }
   }
 
+  const submitForm = async () => {
+    if (!selectedForm) return
+    setFormSaving(true)
+    try {
+      await requestPin(`Sign ${selectedForm.label}`)
+      const content = formatAssessmentNote(selectedForm, formData)
+      const r = await api.post(`/inpatient/admissions/${admissionId}/notes`, {
+        note_type: selectedForm.label, content,
+      }).catch(() => null)
+      setNotes(prev => [
+        r?.data || { id: Date.now(), note_type: selectedForm.label, content, created_at: new Date().toISOString() },
+        ...prev,
+      ])
+      setSelectedForm(null)
+      setFormData({})
+      setFormSearch('')
+    } catch {}
+    finally { setFormSaving(false) }
+  }
+
+  const formFields = selectedForm ? (FORM_FIELDS[selectedForm.id] || []) : []
+
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      {/* Compose */}
-      <div className="flex-shrink-0 border-b border-gray-200 bg-white">
-        <div className="flex items-center gap-2 px-3 pt-2.5 pb-1.5 flex-wrap border-b border-gray-100">
-          <select value={noteType} onChange={e => setNoteType(e.target.value)}
-            className="border border-gray-200 rounded px-2 py-0.5 text-xs text-gray-600 bg-gray-50 focus:outline-none focus:ring-1 focus:ring-emerald-400">
-            {NOTE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
-          <span className="text-xs text-gray-300 hidden sm:block">.soap .shift .normal .pain .fall</span>
-          <div className="flex-1" />
-          <button onClick={continueSameRx} disabled={saving || !meds.length}
-            className="text-xs text-emerald-600 hover:text-emerald-800 disabled:opacity-40 disabled:cursor-not-allowed">
-            Continue Same Rx
-          </button>
+    <div className="flex h-full overflow-hidden">
+
+      {/* ── Left: compose + timeline ── */}
+      <div className="flex flex-col flex-1 min-w-0 overflow-hidden border-r border-gray-100">
+        {/* Compose */}
+        <div className="flex-shrink-0 border-b border-gray-200 bg-white">
+          <div className="flex items-center gap-2 px-3 pt-2.5 pb-1.5 flex-wrap border-b border-gray-100">
+            <select value={noteType} onChange={e => setNoteType(e.target.value)}
+              className="border border-gray-200 rounded px-2 py-0.5 text-xs text-gray-600 bg-gray-50 focus:outline-none focus:ring-1 focus:ring-emerald-400">
+              {NOTE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+            <span className="text-xs text-gray-300 hidden sm:block">.soap .shift .normal .pain .fall</span>
+            <div className="flex-1" />
+            <button onClick={continueSameRx} disabled={saving || !meds.length}
+              className="text-xs text-emerald-600 hover:text-emerald-800 disabled:opacity-40 disabled:cursor-not-allowed">
+              Continue Same Rx
+            </button>
+          </div>
+          <textarea ref={textRef} value={text} onChange={handleInput} rows={3}
+            placeholder="Write clinical note…"
+            className="w-full px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none resize-none placeholder-gray-300" />
+          <div className="flex items-center px-3 pb-2 gap-2">
+            <span className="text-xs text-gray-300 flex-1">{text.length > 0 ? `${text.length} chars` : ''}</span>
+            <button onClick={submit} disabled={!text.trim() || saving}
+              className="bg-emerald-600 text-white text-xs px-4 py-1.5 rounded hover:bg-emerald-700 disabled:opacity-40 flex items-center gap-1.5">
+              {saving ? <Loader2 size={12} className="animate-spin" /> : <PenLine size={12} />} Sign & Submit
+            </button>
+          </div>
         </div>
-        <textarea ref={textRef} value={text} onChange={handleInput} rows={3}
-          placeholder="Write clinical note…"
-          className="w-full px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none resize-none placeholder-gray-300" />
-        <div className="flex items-center justify-end gap-2 px-3 pb-2">
-          <span className="text-xs text-gray-300 flex-1">{text.length > 0 ? `${text.length} chars` : ''}</span>
-          <button onClick={submit} disabled={!text.trim() || saving}
-            className="bg-emerald-600 text-white text-xs px-4 py-1.5 rounded hover:bg-emerald-700 disabled:opacity-40 flex items-center gap-1.5">
-            {saving ? <Loader2 size={12} className="animate-spin" /> : <PenLine size={12} />} Sign & Submit
-          </button>
+        {/* Notes timeline */}
+        <div className="flex-1 overflow-y-auto">
+          {notes.length === 0 && <p className="text-sm text-gray-400 text-center py-10">No notes yet.</p>}
+          {notes.map((n, i) => {
+            const isCollapsed = collapsed[i]
+            return (
+              <div key={n.id || i} className="px-4 py-3 border-b border-gray-100 last:border-0">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <span className="text-xs font-semibold text-emerald-700">{n.note_type}</span>
+                  <span className="text-xs text-gray-300">·</span>
+                  <span className="text-xs text-gray-400">{fmtDateTime(n.created_at)}</span>
+                  {n.author?.full_name && (
+                    <><span className="text-xs text-gray-300">·</span>
+                    <span className="text-xs text-gray-400">{n.author.full_name}</span></>
+                  )}
+                  <button onClick={() => setCollapsed(c => ({...c, [i]: !c[i]}))} className="ml-auto text-gray-300 hover:text-gray-500">
+                    {isCollapsed ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
+                  </button>
+                </div>
+                {!isCollapsed && (
+                  <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{n.content}</p>
+                )}
+              </div>
+            )
+          })}
         </div>
       </div>
-      {/* Notes — prose format, thin dividers */}
-      <div className="flex-1 overflow-y-auto">
-        {notes.length === 0 && <p className="text-sm text-gray-400 text-center py-10">No notes yet.</p>}
-        {notes.map((n, i) => {
-          const isCollapsed = collapsed[i]
-          return (
-            <div key={n.id || i} className="px-4 py-3 border-b border-gray-100 last:border-0">
-              <div className="flex items-center gap-1.5 mb-1">
-                <span className="text-xs font-semibold text-emerald-700">{n.note_type}</span>
-                <span className="text-xs text-gray-300">·</span>
-                <span className="text-xs text-gray-400">{fmtDateTime(n.created_at)}</span>
-                {n.author?.full_name && (
-                  <><span className="text-xs text-gray-300">·</span>
-                  <span className="text-xs text-gray-400">{n.author.full_name}</span></>
-                )}
-                <button onClick={() => setCollapsed(c => ({...c, [i]: !c[i]}))} className="ml-auto text-gray-300 hover:text-gray-500">
-                  {isCollapsed ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
-                </button>
-              </div>
-              {!isCollapsed && (
-                <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{n.content}</p>
+
+      {/* ── Right: assessment form panel ── */}
+      <div className="flex-shrink-0 flex flex-col overflow-hidden bg-white" style={{ width: 272 }}>
+        <div className="flex-shrink-0 px-3 pt-3 pb-2 border-b border-gray-100">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Assessment Forms</p>
+          <div className="relative">
+            <Search size={12} className="absolute left-2.5 top-2 text-gray-400" />
+            <input
+              value={formSearch}
+              onChange={e => { setFormSearch(e.target.value); setSelectedForm(null); setFormData({}) }}
+              placeholder="Search forms…"
+              className="w-full border border-gray-200 rounded-lg pl-7 pr-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
+            />
+          </div>
+        </div>
+
+        {selectedForm ? (
+          /* Inline form fill */
+          <div className="flex-1 overflow-y-auto flex flex-col">
+            <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2 border-b border-gray-100 bg-gray-50">
+              <button onClick={() => { setSelectedForm(null); setFormData({}) }} className="text-gray-400 hover:text-gray-600">
+                <ArrowLeft size={13} />
+              </button>
+              <span className="text-xs font-semibold text-gray-700 truncate">{selectedForm.label}</span>
+              <span className="text-xs text-gray-400 ml-auto flex-shrink-0">{selectedForm.category}</span>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3 space-y-2">
+              {formFields.map(f => (
+                <div key={f.k}>
+                  <label className="text-xs text-gray-500 block mb-0.5">{f.l}</label>
+                  <input
+                    value={formData[f.k] || ''}
+                    onChange={e => setFormData(d => ({...d, [f.k]: e.target.value}))}
+                    className="w-full border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                  />
+                </div>
+              ))}
+              {formFields.length === 0 && (
+                <textarea
+                  value={formData['notes'] || ''}
+                  onChange={e => setFormData(d => ({...d, notes: e.target.value}))}
+                  rows={6}
+                  placeholder="Enter assessment findings…"
+                  className="w-full border border-gray-200 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400 resize-none"
+                />
               )}
             </div>
-          )
-        })}
+            <div className="flex-shrink-0 px-3 py-2.5 border-t border-gray-100">
+              <button
+                onClick={submitForm}
+                disabled={formSaving}
+                className="w-full bg-emerald-600 text-white text-xs py-2 rounded-lg hover:bg-emerald-700 disabled:opacity-50 flex items-center justify-center gap-1.5"
+              >
+                {formSaving ? <Loader2 size={12} className="animate-spin" /> : <PenLine size={12} />}
+                Sign & Post to Timeline
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* Form list */
+          <div className="flex-1 overflow-y-auto p-1.5">
+            {filteredForms.map(f => (
+              <button
+                key={f.id}
+                onClick={() => { setSelectedForm(f); setFormData({}) }}
+                className="w-full text-left px-3 py-2 rounded-lg hover:bg-emerald-50 group transition-colors"
+              >
+                <span className="block text-xs font-medium text-gray-700 group-hover:text-emerald-700">{f.label}</span>
+                <span className="text-xs text-gray-400">{f.category}</span>
+              </button>
+            ))}
+            {filteredForms.length === 0 && (
+              <p className="text-xs text-gray-400 text-center py-6">No forms match "{formSearch}"</p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
