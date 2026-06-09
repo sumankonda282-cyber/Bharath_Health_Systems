@@ -4,6 +4,12 @@ import App from './App'
 import { AuthProvider } from './contexts/AuthContext'
 import './index.css'
 
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(regs => {
+    regs.forEach(r => r.unregister())
+  })
+}
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode><AuthProvider><App /></AuthProvider></React.StrictMode>
 )
