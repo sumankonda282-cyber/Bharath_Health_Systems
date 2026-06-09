@@ -77,6 +77,8 @@ class Clinic(Base):
     # Diagnostic
     nabl_accredited         = Column(Boolean, default=False)
     nabl_number             = Column(String(100), nullable=True)
+    # Association — for hospital-attached pharmacies / diagnostics
+    parent_clinic_id        = Column(Integer, ForeignKey("clinics.id"), nullable=True)
     # Counters
     admission_sequence      = Column(Integer, default=0)
     patient_id_counter      = Column(Integer, default=0)

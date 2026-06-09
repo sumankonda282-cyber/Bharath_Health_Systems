@@ -1648,9 +1648,8 @@ async def create_clinic_direct(
     current=Depends(get_current_platform_admin),
 ):
     """
-    Register a new clinic/hospital directly — no public registration flow.
-    Creates clinic as active + verified, generates clinic_admin account,
-    and emails credentials via Brevo.
+    Register a new clinic/hospital/pharmacy/diagnostic directly.
+    Creates org as active + verified, generates admin account, emails credentials.
     """
     from app.utils.email import send_clinic_credentials
 
@@ -1660,14 +1659,28 @@ async def create_clinic_direct(
     if not name or not email or not phone:
         raise HTTPException(400, "Name, email and phone are required")
     if db.query(Clinic).filter(Clinic.email == email).first():
-        raise HTTPException(409, "A clinic with this email already exists")
+        raise HTTPException(409, "An organisation with this email already exists")
+
+    org_type = body.get("org_type", "hospital")
+    if org_type not in ("clinic", "hospital", "pharmacy", "diagnostic"):
+        org_type = "hospital"
+
+    parent_id = body.get("parent_clinic_id")
+    if parent_id:
+        if not db.query(Clinic).filter(Clinic.id == int(parent_id)).first():
+            raise HTTPException(404, "Parent clinic/hospital not found")
 
     clinic = Clinic(
         name=name, slug=_make_slug(name, db), phone=phone, email=email,
         city=body.get("city", ""), state=body.get("state", ""),
         specialty=body.get("specialty", ""),
         subscription_plan=body.get("plan", "free"),
+        org_type=org_type,
         status="active", is_active=True, is_verified=True,
+        drug_license_number=body.get("drug_license_number") or None,
+        nabl_accredited=bool(body.get("nabl_accredited", False)),
+        nabl_number=body.get("nabl_number") or None,
+        parent_clinic_id=int(parent_id) if parent_id else None,
     )
     db.add(clinic); db.flush()
 
@@ -1683,7 +1696,7 @@ async def create_clinic_direct(
     db.add(AuditLog(
         actor_id=current.id, actor_type="platform_admin",
         action="create_clinic_direct", target_type="clinic", target_id=clinic.id,
-        details=f"Direct creation: {name} ({email}). Admin: {username}",
+        details=f"Direct creation [{org_type}]: {name} ({email}). Admin: {username}",
     ))
     db.commit(); db.refresh(clinic)
 
@@ -1695,9 +1708,10 @@ async def create_clinic_direct(
             "email": clinic.email, "phone": clinic.phone,
             "city": clinic.city, "state": clinic.state,
             "specialty": clinic.specialty, "plan": str(clinic.subscription_plan),
+            "org_type": clinic.org_type,
         },
         "credentials": {
             "username": username, "email": email, "temp_password": temp_pw,
-            "note": "Credentials emailed to the clinic admin. Temp password expires in 7 days.",
+            "note": "Credentials emailed to the admin. Temp password expires in 7 days.",
         },
     }

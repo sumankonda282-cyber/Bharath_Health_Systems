@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { Building2, Pill, FlaskConical, ChevronRight, Check, CheckCircle, ArrowLeft, Mail, Phone } from 'lucide-react'
+import { Building2, Pill, FlaskConical, ChevronRight, Check, CheckCircle, ArrowLeft, Mail, Phone, Search } from 'lucide-react'
 import { publicApi } from '../api/client'
 import BrandLogo from '../components/BrandLogo'
 
@@ -337,6 +337,77 @@ function OwnerManagerBlock({ data, onChange, errors }) {
         </Field>
       </div>
     </>
+  )
+}
+
+// ── Parent Clinic Search (for hospital-attached pharmacy/diagnostic) ──────────
+function ClinicSearchField({ value, onChange }) {
+  const [q, setQ] = useState('')
+  const [results, setResults] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  useEffect(() => {
+    if (!q.trim()) { setResults([]); return }
+    const timer = setTimeout(async () => {
+      setLoading(true)
+      try {
+        const data = await publicApi.searchClinics(q)
+        setResults(Array.isArray(data) ? data : [])
+        setOpen(true)
+      } catch { setResults([]) }
+      finally { setLoading(false) }
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [q])
+
+  const select = (clinic) => {
+    onChange(clinic)
+    setQ(clinic.name + (clinic.city ? ` · ${clinic.city}` : ''))
+    setOpen(false)
+  }
+
+  const clear = () => { onChange(null); setQ('') }
+
+  return (
+    <div ref={ref} className="relative">
+      <div className="relative">
+        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+        <input
+          type="text"
+          value={q}
+          onChange={e => { setQ(e.target.value); if (!e.target.value) clear() }}
+          placeholder="Search by clinic or hospital name…"
+          className={`${inputCls(false)} pl-9`}
+        />
+        {loading && <span className="absolute right-3 top-1/2 -translate-y-1/2 w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />}
+      </div>
+      {open && results.length > 0 && (
+        <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-52 overflow-y-auto">
+          {results.map(c => (
+            <button key={c.id} type="button" onClick={() => select(c)}
+              className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 flex justify-between items-center">
+              <span className="font-medium text-gray-800">{c.name}</span>
+              <span className="text-xs text-gray-400 ml-2 capitalize">{c.org_type}{c.city ? ` · ${c.city}` : ''}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {value && (
+        <div className="mt-2 flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-xl px-3 py-2">
+          <Check size={14} />
+          <span>Linked to: <strong>{value.name}</strong>{value.city ? ` · ${value.city}` : ''}</span>
+          <button type="button" onClick={clear} className="ml-auto text-xs text-gray-400 hover:text-red-500">Remove</button>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -745,6 +816,18 @@ function PharmacyFlow({ data, onChange, step, setStep, color, onSubmit, submitti
           onChange={v => onChange('services', v)}
           label="Specializes In" searchable={false} />
       </div>
+      {data.org_subtype === 'hospital_dispensary' && (
+        <div className="mt-5">
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            Associated Clinic / Hospital <span className="text-gray-400 font-normal">(optional)</span>
+          </label>
+          <p className="text-xs text-gray-400 mb-2">If this pharmacy is part of an existing registered hospital, link it here.</p>
+          <ClinicSearchField
+            value={data.parent_clinic || null}
+            onChange={clinic => { onChange('parent_clinic', clinic); onChange('parent_clinic_id', clinic?.id || null) }}
+          />
+        </div>
+      )}
       <NavButtons onBack={() => setStep(0)} onNext={() => { if (validateStep2()) setStep(2) }} color={color} />
     </div>
   )
@@ -833,6 +916,18 @@ function DiagnosticFlow({ data, onChange, step, setStep, color, onSubmit, submit
         options={DIAGNOSTIC_SERVICES} selected={data.services || []}
         onChange={v => onChange('services', v)}
         label="Services" required error={errors.services} searchable={false} />
+      {data.org_subtype === 'hospital_attached' && (
+        <div className="mt-5">
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            Associated Clinic / Hospital <span className="text-gray-400 font-normal">(optional)</span>
+          </label>
+          <p className="text-xs text-gray-400 mb-2">If this diagnostic center is attached to an existing registered hospital, link it here.</p>
+          <ClinicSearchField
+            value={data.parent_clinic || null}
+            onChange={clinic => { onChange('parent_clinic', clinic); onChange('parent_clinic_id', clinic?.id || null) }}
+          />
+        </div>
+      )}
       <NavButtons onBack={() => setStep(0)} onNext={() => { if (validateStep1()) setStep(2) }} color={color} />
     </div>
   )
@@ -902,6 +997,7 @@ export default function RegisterForm() {
           operating_hours:    formData.operating_hours,
           departments:        formData.departments?.join(', '),
           services:           formData.services?.join(', '),
+          parent_clinic_id:   formData.parent_clinic_id || undefined,
         },
         doctor: {
           full_name:           formData.doctor_name || formData.owner_name || 'Admin',

@@ -357,6 +357,26 @@ def get_booking_status(confirmation_code: str, db: Session = Depends(get_db)):
     }
 
 
+@router.get("/clinics/search")
+def search_clinics_for_association(q: str = "", db: Session = Depends(get_db)):
+    """
+    Search active clinics/hospitals by name — used during pharmacy/diagnostic
+    registration to associate with a parent clinic or hospital.
+    """
+    query = db.query(Clinic).filter(
+        Clinic.is_active == True,
+        Clinic.is_verified == True,
+        Clinic.org_type.in_(["clinic", "hospital"]),
+    )
+    if q.strip():
+        query = query.filter(Clinic.name.ilike(f"%{q.strip()}%"))
+    results = query.order_by(Clinic.name).limit(15).all()
+    return [
+        {"id": c.id, "name": c.name, "city": c.city or "", "org_type": c.org_type or "clinic"}
+        for c in results
+    ]
+
+
 @router.get("/cities")
 def get_active_cities(db: Session = Depends(get_db)):
     """Return distinct cities that have active clinics."""
@@ -502,6 +522,7 @@ def register_clinic(body: dict, db: Session = Depends(get_db)):
         'icu_beds':            clinic_data.get("icu_beds"),
         'ot_count':            clinic_data.get("ot_count"),
         'description':         clinic_data.get("departments") or clinic_data.get("services"),
+        'parent_clinic_id':    clinic_data.get("parent_clinic_id"),
     }
     for _k, _v in _extra.items():
         if _v is not None and hasattr(Clinic, _k):

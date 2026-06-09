@@ -46,6 +46,9 @@ export const publicApi = {
   // Register clinic
   registerClinic: (data) => api.post('/public/register-clinic', data),
 
+  // Search existing clinics/hospitals for association
+  searchClinics: (q) => api.get('/public/clinics/search', { params: { q } }),
+
   // Demo inquiry
   sendDemoInquiry: (data) => api.post('/public/demo-inquiry', data),
 

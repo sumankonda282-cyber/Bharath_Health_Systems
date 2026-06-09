@@ -1,9 +1,19 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { adminApi } from '../api'
+import axios from 'axios'
 import {
   Building2, Layers, BedDouble, LayoutGrid,
-  Plus, Edit2, Trash2, Loader2, X, Check, ChevronDown, Copy, CheckCheck,
+  Plus, Edit2, Trash2, Loader2, X, Check, ChevronDown, Copy, CheckCheck, Search,
 } from 'lucide-react'
+
+const API_BASE = import.meta.env.VITE_API_URL || 'https://bharatcliniq-api.onrender.com'
+
+const ORG_TYPE_CONFIG = {
+  clinic:     { label: 'Clinic',              icon: '🏥', desc: 'Outpatient only' },
+  hospital:   { label: 'Hospital',            icon: '🏨', desc: 'Inpatient + Outpatient' },
+  pharmacy:   { label: 'Standalone Pharmacy', icon: '💊', desc: 'Drug dispensary' },
+  diagnostic: { label: 'Diagnostic Centre',   icon: '🔬', desc: 'Lab / Radiology' },
+}
 
 const SPECIALTIES = [
   'General Medicine', 'Multi-Specialty', 'Cardiology', 'Orthopaedics',
@@ -13,10 +23,91 @@ const SPECIALTIES = [
   'Pulmonology', 'Rheumatology', 'Diagnostic Centre', 'Pharmacy', 'Other',
 ]
 
-// ── Create New Hospital Modal ─────────────────────────────────────────────────
+// ── Parent clinic autocomplete (used inside CreateModal) ─────────────────────
+function ParentClinicSearch({ value, onChange }) {
+  const [q, setQ] = useState('')
+  const [results, setResults] = useState([])
+  const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const timer = useRef(null)
+
+  const search = (term) => {
+    clearTimeout(timer.current)
+    if (!term.trim()) { setResults([]); setOpen(false); return }
+    timer.current = setTimeout(async () => {
+      setLoading(true)
+      try {
+        const res = await axios.get(`${API_BASE}/api/v1/public/clinics/search`, { params: { q: term } })
+        setResults(res.data || [])
+        setOpen(true)
+      } catch { setResults([]) }
+      finally { setLoading(false) }
+    }, 300)
+  }
+
+  const pick = (clinic) => {
+    onChange(clinic)
+    setQ(clinic.name)
+    setOpen(false)
+  }
+
+  const clear = () => { onChange(null); setQ(''); setResults([]); setOpen(false) }
+
+  return (
+    <div className="relative">
+      <label className="label">Associated Hospital / Clinic (optional)</label>
+      <div className="relative">
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+        <input
+          className="input pl-8 pr-8"
+          placeholder="Search by name…"
+          value={q}
+          onChange={e => { setQ(e.target.value); search(e.target.value); onChange(null) }}
+          onFocus={() => q && setOpen(true)}
+        />
+        {loading && <Loader2 size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 animate-spin" />}
+        {value && !loading && (
+          <button type="button" onClick={clear} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+            <X size={12} />
+          </button>
+        )}
+      </div>
+      {value && (
+        <div className="mt-1 flex items-center gap-1.5 text-xs text-green-700 font-medium">
+          <Check size={12} className="text-green-600" />{value.name}{value.city ? ` · ${value.city}` : ''}
+        </div>
+      )}
+      {open && results.length > 0 && (
+        <ul className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+          {results.map(c => (
+            <li key={c.id}>
+              <button
+                type="button"
+                onMouseDown={() => pick(c)}
+                className="w-full text-left px-3 py-2.5 hover:bg-gray-50 text-sm"
+              >
+                <span className="font-medium">{c.name}</span>
+                {c.city && <span className="text-gray-400 text-xs ml-1">· {c.city}</span>}
+                <span className="ml-2 text-xs text-gray-400 capitalize">{c.org_type || 'clinic'}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+// ── Create New Organisation Modal ─────────────────────────────────────────────
 function CreateHospitalModal({ onClose, onCreated }) {
-  const EMPTY = { name: '', phone: '', email: '', city: '', state: '', specialty: '', plan: 'free' }
+  const EMPTY = {
+    org_type: 'hospital', name: '', phone: '', email: '',
+    city: '', state: '', specialty: '', plan: 'free',
+    drug_license_number: '', nabl_accredited: false, nabl_number: '',
+    parent_clinic_id: null,
+  }
   const [form, setForm] = useState(EMPTY)
+  const [parentClinic, setParentClinic] = useState(null)
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
   const [result, setResult] = useState(null)
@@ -31,22 +122,32 @@ function CreateHospitalModal({ onClose, onCreated }) {
     })
   }
 
+  const orgCfg = ORG_TYPE_CONFIG[form.org_type] || ORG_TYPE_CONFIG.hospital
+  const isPharmacy   = form.org_type === 'pharmacy'
+  const isDiagnostic = form.org_type === 'diagnostic'
+
   const submit = async (e) => {
     e.preventDefault(); setSaving(true); setErr('')
     try {
-      const data = await adminApi.createClinicDirect(form)
+      const payload = {
+        ...form,
+        parent_clinic_id: parentClinic?.id || null,
+      }
+      const data = await adminApi.createClinicDirect(payload)
       setResult(data)
-    } catch (ex) { setErr(ex.message || 'Failed to create hospital') }
+    } catch (ex) { setErr(ex.message || 'Failed to create organisation') }
     finally { setSaving(false) }
   }
 
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[92vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 sticky top-0 bg-white z-10">
           <h3 className="text-lg font-bold" style={{ color: '#0F2557' }}>
-            {result ? 'Hospital Created' : 'Register New Hospital'}
+            {result
+              ? `${orgCfg.label} Registered`
+              : `Register New ${orgCfg.label}`}
           </h3>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400">
             <X size={16} />
@@ -54,7 +155,7 @@ function CreateHospitalModal({ onClose, onCreated }) {
         </div>
 
         {result ? (
-          /* ── Success state: show credentials ── */
+          /* ── Success state ── */
           <div className="p-6 space-y-4">
             <div className="flex items-center gap-2 p-3 rounded-xl bg-green-50 text-green-700 text-sm font-medium">
               <Check size={16} />{result.clinic.name} has been registered and activated.
@@ -62,7 +163,7 @@ function CreateHospitalModal({ onClose, onCreated }) {
 
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-3">
               <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide">
-                Clinic Admin Login Credentials — share securely
+                Admin Login Credentials — share securely
               </p>
               {[
                 { label: 'Portal Login URL', key: 'url', val: 'https://staff.bharathhealthsystems.com' },
@@ -93,17 +194,38 @@ function CreateHospitalModal({ onClose, onCreated }) {
                 onClick={() => { onCreated(result.clinic); onClose() }}
                 className="btn-primary flex-1 justify-center"
               >
-                Configure Hospital Settings
+                Configure Settings
               </button>
             </div>
           </div>
         ) : (
           /* ── Form state ── */
           <form onSubmit={submit} className="p-6 space-y-4">
+            {/* Org type selector */}
+            <div>
+              <label className="label">Organisation Type *</label>
+              <div className="grid grid-cols-2 gap-2 mt-1">
+                {Object.entries(ORG_TYPE_CONFIG).map(([type, cfg]) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setForm(p => ({ ...p, org_type: type }))}
+                    className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium transition-all text-left ${form.org_type === type ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+                  >
+                    <span>{cfg.icon}</span>
+                    <div>
+                      <div className="font-semibold text-xs">{cfg.label}</div>
+                      <div className="text-xs opacity-60">{cfg.desc}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2">
-                <label className="label">Hospital / Clinic Name *</label>
-                <input className="input" value={form.name} onChange={f('name')} required placeholder="e.g. City Heart Hospital" />
+                <label className="label">{orgCfg.label} Name *</label>
+                <input className="input" value={form.name} onChange={f('name')} required placeholder={`e.g. ${form.org_type === 'pharmacy' ? 'MedPlus Pharmacy' : form.org_type === 'diagnostic' ? 'Apollo Diagnostics' : 'City Heart Hospital'}`} />
               </div>
               <div>
                 <label className="label">Phone *</label>
@@ -111,7 +233,7 @@ function CreateHospitalModal({ onClose, onCreated }) {
               </div>
               <div>
                 <label className="label">Email *</label>
-                <input className="input" type="email" value={form.email} onChange={f('email')} required placeholder="admin@hospital.com" />
+                <input className="input" type="email" value={form.email} onChange={f('email')} required placeholder="admin@org.com" />
               </div>
               <div>
                 <label className="label">City</label>
@@ -121,13 +243,46 @@ function CreateHospitalModal({ onClose, onCreated }) {
                 <label className="label">State</label>
                 <input className="input" value={form.state} onChange={f('state')} placeholder="Telangana" />
               </div>
-              <div className="col-span-2">
-                <label className="label">Specialty</label>
-                <select className="input" value={form.specialty} onChange={f('specialty')}>
-                  <option value="">— Select specialty —</option>
-                  {SPECIALTIES.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>
+
+              {/* Pharmacy-specific */}
+              {isPharmacy && (
+                <div className="col-span-2">
+                  <label className="label">Drug License Number</label>
+                  <input className="input" value={form.drug_license_number} onChange={f('drug_license_number')} placeholder="e.g. DL-TS-2024-001234" />
+                </div>
+              )}
+
+              {/* Diagnostic-specific */}
+              {isDiagnostic && (
+                <>
+                  <div className="col-span-2">
+                    <label className="label">NABL Number (if accredited)</label>
+                    <input className="input" value={form.nabl_number} onChange={f('nabl_number')} placeholder="e.g. TC-4567" />
+                  </div>
+                  <div className="col-span-2 flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="nabl_acc"
+                      checked={form.nabl_accredited}
+                      onChange={e => setForm(p => ({ ...p, nabl_accredited: e.target.checked }))}
+                      className="w-4 h-4 accent-blue-600"
+                    />
+                    <label htmlFor="nabl_acc" className="text-sm text-gray-700 cursor-pointer">NABL Accredited</label>
+                  </div>
+                </>
+              )}
+
+              {/* Specialty (not needed for pharmacy/diagnostic standalone) */}
+              {!isPharmacy && !isDiagnostic && (
+                <div className="col-span-2">
+                  <label className="label">Specialty</label>
+                  <select className="input" value={form.specialty} onChange={f('specialty')}>
+                    <option value="">— Select specialty —</option>
+                    {SPECIALTIES.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+              )}
+
               <div className="col-span-2">
                 <label className="label">Subscription Plan</label>
                 <select className="input" value={form.plan} onChange={f('plan')}>
@@ -139,6 +294,14 @@ function CreateHospitalModal({ onClose, onCreated }) {
               </div>
             </div>
 
+            {/* Parent association for pharmacy/diagnostic */}
+            {(isPharmacy || isDiagnostic) && (
+              <ParentClinicSearch
+                value={parentClinic}
+                onChange={setParentClinic}
+              />
+            )}
+
             {err && (
               <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">{err}</div>
             )}
@@ -146,7 +309,10 @@ function CreateHospitalModal({ onClose, onCreated }) {
             <div className="flex gap-3 pt-1">
               <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
               <button type="submit" disabled={saving} className="btn-primary flex-1 justify-center">
-                {saving ? <><Loader2 size={14} className="animate-spin" />Creating…</> : <><Plus size={14} />Create Hospital</>}
+                {saving
+                  ? <><Loader2 size={14} className="animate-spin" />Creating…</>
+                  : <><Plus size={14} />Create {orgCfg.label}</>
+                }
               </button>
             </div>
           </form>
@@ -716,12 +882,12 @@ export default function HospitalSettings() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">Hospital Setup</h1>
+        <h1 className="page-title">Organisation Setup</h1>
       </div>
 
       {/* Clinic selector */}
       <div className="card p-4 mb-6 flex items-center gap-4">
-        <label className="text-sm font-medium text-gray-600 shrink-0">Configure clinic:</label>
+        <label className="text-sm font-medium text-gray-600 shrink-0">Configure:</label>
         {loadingClinics ? (
           <Loader2 size={16} className="animate-spin text-gray-400" />
         ) : (
@@ -731,7 +897,7 @@ export default function HospitalSettings() {
               value={clinicId || ''}
               onChange={e => { setClinicId(Number(e.target.value) || null); setTab('overview') }}
             >
-              <option value="">— Select a clinic —</option>
+              <option value="">— Select organisation —</option>
               {clinics.map(c => (
                 <option key={c.id} value={c.id}>{c.name}{c.city ? ` · ${c.city}` : ''}</option>
               ))}
@@ -746,14 +912,14 @@ export default function HospitalSettings() {
           onClick={() => setShowCreate(true)}
           className="btn-primary ml-auto"
         >
-          <Plus size={14} />New Hospital
+          <Plus size={14} />Register New
         </button>
       </div>
 
       {!clinicId ? (
         <div className="text-center py-20 text-gray-400">
           <Building2 size={36} className="mx-auto mb-3 opacity-25" />
-          <p className="text-sm">Select a clinic above to configure its settings, or register a new one.</p>
+          <p className="text-sm">Select an organisation above to configure its settings, or register a new one.</p>
         </div>
       ) : (
         <>
