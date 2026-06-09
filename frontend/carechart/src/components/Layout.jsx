@@ -247,8 +247,8 @@ export default function Layout() {
           </button>
         </header>
 
-        {/* Sub-bar: mode toggle + context */}
-        <div className="flex-shrink-0 bg-white border-b border-gray-200 flex items-center justify-between px-4 py-2 gap-3">
+        {/* Sub-bar: mode toggle + context — hidden on patient chart to save space */}
+        <div className={`flex-shrink-0 bg-white border-b border-gray-200 flex items-center justify-between px-4 py-2 gap-3 ${isPatientChart ? 'hidden' : ''}`}>
           <div className="flex items-center gap-3 min-w-0">
             <button onClick={() => setOpen(true)} className="md:hidden p-1.5 rounded text-gray-600 hover:bg-gray-100 flex-shrink-0">
               <Menu size={20} />
