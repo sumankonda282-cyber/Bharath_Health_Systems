@@ -61,7 +61,7 @@ function ApptCard({ a }) {
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
-          <div className="font-semibold text-gray-900 text-sm">{a.clinic_name || 'Clinic'}</div>
+          <div className="font-semibold text-gray-900 text-sm">{a.clinic_name || (a.org_type === 'hospital' ? 'Hospital' : 'Clinic')}</div>
           <span className={`${STATUS_BADGE[a.status] || 'badge-gray'} flex-shrink-0`}>{a.status?.replace('_',' ')}</span>
         </div>
         <div className="text-sm text-gray-500 mt-0.5">Dr. {a.doctor_name || 'Doctor'}</div>
