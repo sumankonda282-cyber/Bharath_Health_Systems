@@ -64,4 +64,7 @@ export const adminApi = {
   listBeds:            (cid)          => api.get(`/platform/clinics/${cid}/beds`),
   createBed:           (cid, body)    => api.post(`/platform/clinics/${cid}/beds`, body),
   updateBed:           (cid, id, body) => api.put(`/platform/clinics/${cid}/beds/${id}`, body),
+
+  // Direct clinic creation
+  createClinicDirect: (body) => api.post('/platform/clinics/create-direct', body),
 }

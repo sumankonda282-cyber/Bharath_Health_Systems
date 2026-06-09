@@ -2,8 +2,159 @@ import { useState, useEffect, useCallback } from 'react'
 import { adminApi } from '../api'
 import {
   Building2, Layers, BedDouble, LayoutGrid,
-  Plus, Edit2, Trash2, Loader2, X, Check, ChevronDown,
+  Plus, Edit2, Trash2, Loader2, X, Check, ChevronDown, Copy, CheckCheck,
 } from 'lucide-react'
+
+const SPECIALTIES = [
+  'General Medicine', 'Multi-Specialty', 'Cardiology', 'Orthopaedics',
+  'Gynaecology & Obstetrics', 'Paediatrics', 'Neurology', 'Oncology',
+  'Ophthalmology', 'ENT', 'Dermatology', 'Psychiatry', 'Dental',
+  'Urology', 'Nephrology', 'Gastroenterology', 'Endocrinology',
+  'Pulmonology', 'Rheumatology', 'Diagnostic Centre', 'Pharmacy', 'Other',
+]
+
+// ── Create New Hospital Modal ─────────────────────────────────────────────────
+function CreateHospitalModal({ onClose, onCreated }) {
+  const EMPTY = { name: '', phone: '', email: '', city: '', state: '', specialty: '', plan: 'free' }
+  const [form, setForm] = useState(EMPTY)
+  const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState('')
+  const [result, setResult] = useState(null)
+  const [copied, setCopied] = useState({})
+
+  const f = (key) => (e) => setForm(p => ({ ...p, [key]: e.target.value }))
+
+  const copyText = (key, val) => {
+    navigator.clipboard.writeText(val).then(() => {
+      setCopied(p => ({ ...p, [key]: true }))
+      setTimeout(() => setCopied(p => ({ ...p, [key]: false })), 2000)
+    })
+  }
+
+  const submit = async (e) => {
+    e.preventDefault(); setSaving(true); setErr('')
+    try {
+      const data = await adminApi.createClinicDirect(form)
+      setResult(data)
+    } catch (ex) { setErr(ex.message || 'Failed to create hospital') }
+    finally { setSaving(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <h3 className="text-lg font-bold" style={{ color: '#0F2557' }}>
+            {result ? 'Hospital Created' : 'Register New Hospital'}
+          </h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400">
+            <X size={16} />
+          </button>
+        </div>
+
+        {result ? (
+          /* ── Success state: show credentials ── */
+          <div className="p-6 space-y-4">
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-green-50 text-green-700 text-sm font-medium">
+              <Check size={16} />{result.clinic.name} has been registered and activated.
+            </div>
+
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-3">
+              <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide">
+                Clinic Admin Login Credentials — share securely
+              </p>
+              {[
+                { label: 'Portal Login URL', key: 'url', val: 'https://staff.bharathhealthsystems.com' },
+                { label: 'Username',        key: 'uname', val: result.credentials.username },
+                { label: 'Email',           key: 'email', val: result.credentials.email },
+                { label: 'Temp Password',   key: 'pw',    val: result.credentials.temp_password },
+              ].map(({ label, key, val }) => (
+                <div key={key} className="flex items-center justify-between gap-2">
+                  <div>
+                    <div className="text-xs text-amber-600">{label}</div>
+                    <div className="text-sm font-mono font-semibold text-gray-800">{val}</div>
+                  </div>
+                  <button
+                    onClick={() => copyText(key, val)}
+                    className="p-1.5 rounded-lg hover:bg-amber-100 text-amber-600 shrink-0"
+                    title="Copy"
+                  >
+                    {copied[key] ? <CheckCheck size={14} /> : <Copy size={14} />}
+                  </button>
+                </div>
+              ))}
+              <p className="text-xs text-amber-600 mt-1">{result.credentials.note}</p>
+            </div>
+
+            <div className="flex gap-3 pt-1">
+              <button onClick={onClose} className="btn-secondary flex-1">Close</button>
+              <button
+                onClick={() => { onCreated(result.clinic); onClose() }}
+                className="btn-primary flex-1 justify-center"
+              >
+                Configure Hospital Settings
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* ── Form state ── */
+          <form onSubmit={submit} className="p-6 space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2">
+                <label className="label">Hospital / Clinic Name *</label>
+                <input className="input" value={form.name} onChange={f('name')} required placeholder="e.g. City Heart Hospital" />
+              </div>
+              <div>
+                <label className="label">Phone *</label>
+                <input className="input" value={form.phone} onChange={f('phone')} required placeholder="+91 98765 43210" />
+              </div>
+              <div>
+                <label className="label">Email *</label>
+                <input className="input" type="email" value={form.email} onChange={f('email')} required placeholder="admin@hospital.com" />
+              </div>
+              <div>
+                <label className="label">City</label>
+                <input className="input" value={form.city} onChange={f('city')} placeholder="Hyderabad" />
+              </div>
+              <div>
+                <label className="label">State</label>
+                <input className="input" value={form.state} onChange={f('state')} placeholder="Telangana" />
+              </div>
+              <div className="col-span-2">
+                <label className="label">Specialty</label>
+                <select className="input" value={form.specialty} onChange={f('specialty')}>
+                  <option value="">— Select specialty —</option>
+                  {SPECIALTIES.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div className="col-span-2">
+                <label className="label">Subscription Plan</label>
+                <select className="input" value={form.plan} onChange={f('plan')}>
+                  <option value="free">Free</option>
+                  <option value="basic">Basic</option>
+                  <option value="pro">Pro</option>
+                  <option value="enterprise">Enterprise</option>
+                </select>
+              </div>
+            </div>
+
+            {err && (
+              <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">{err}</div>
+            )}
+
+            <div className="flex gap-3 pt-1">
+              <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
+              <button type="submit" disabled={saving} className="btn-primary flex-1 justify-center">
+                {saving ? <><Loader2 size={14} className="animate-spin" />Creating…</> : <><Plus size={14} />Create Hospital</>}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  )
+}
 
 const DEPT_TYPE_COLORS = {
   clinical: 'badge-blue',
@@ -541,6 +692,7 @@ export default function HospitalSettings() {
   const [clinics, setClinics] = useState([])
   const [clinicId, setClinicId] = useState(null)
   const [loadingClinics, setLoadingClinics] = useState(true)
+  const [showCreate, setShowCreate] = useState(false)
 
   useEffect(() => {
     adminApi.getClinics({ limit: 200, status: 'active' })
@@ -552,6 +704,12 @@ export default function HospitalSettings() {
       .catch(() => {})
       .finally(() => setLoadingClinics(false))
   }, [])
+
+  const handleCreated = (clinic) => {
+    setClinics(prev => [clinic, ...prev])
+    setClinicId(clinic.id)
+    setTab('overview')
+  }
 
   const selectedClinic = clinics.find(c => c.id === clinicId)
 
@@ -584,12 +742,18 @@ export default function HospitalSettings() {
         {selectedClinic && (
           <span className="text-xs text-gray-400 truncate">{selectedClinic.specialty || ''}</span>
         )}
+        <button
+          onClick={() => setShowCreate(true)}
+          className="btn-primary ml-auto"
+        >
+          <Plus size={14} />New Hospital
+        </button>
       </div>
 
       {!clinicId ? (
         <div className="text-center py-20 text-gray-400">
           <Building2 size={36} className="mx-auto mb-3 opacity-25" />
-          <p className="text-sm">Select a clinic above to configure its hospital settings</p>
+          <p className="text-sm">Select a clinic above to configure its settings, or register a new one.</p>
         </div>
       ) : (
         <>
@@ -610,6 +774,13 @@ export default function HospitalSettings() {
           {tab === 'wards'       && <WardsTab       clinicId={clinicId} />}
           {tab === 'beds'        && <BedsTab        clinicId={clinicId} />}
         </>
+      )}
+
+      {showCreate && (
+        <CreateHospitalModal
+          onClose={() => setShowCreate(false)}
+          onCreated={handleCreated}
+        />
       )}
     </div>
   )
