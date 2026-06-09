@@ -42,7 +42,7 @@ export default function Layout() {
   const [open, setOpen] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
   const [maintBadge, setMaintBadge] = useState(0)
-  const isManager = ['clinic_manager', 'clinic_admin'].includes(user?.role)
+  const isManager = user?.role === 'clinic_manager'
   const isHospital = user?.org_type === 'hospital'
   const NAV = [
     ...BASE_NAV,
