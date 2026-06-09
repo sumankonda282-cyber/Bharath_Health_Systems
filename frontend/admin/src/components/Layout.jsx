@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import {
   LayoutDashboard, Clock, Building2, ShieldCheck,
   ClipboardList, BarChart3, LogOut, Menu, X, Search, CreditCard, Hospital,
-  FileSpreadsheet, Settings, RefreshCw
+  FileSpreadsheet, Settings, RefreshCw, HelpCircle
 } from 'lucide-react'
 
 const NAV = [
@@ -90,6 +90,7 @@ function Sidebar({ onClose }) {
 export default function Layout() {
   const [open, setOpen] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [helpOpen, setHelpOpen]   = useState(false)
   return (
     <div className="flex h-screen overflow-hidden bg-gray-950">
       {open && (
@@ -111,6 +112,9 @@ export default function Layout() {
           <span className="font-extrabold text-sm md:hidden"><span style={{ color: '#CC1414' }}>BH</span><span className="text-white">arath Health</span></span>
           <span className="text-xs font-bold ml-1 md:hidden" style={{ color: '#F5821E' }}>Admin</span>
           <div className="flex-1" />
+          <button onClick={() => setHelpOpen(true)} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white" title="Help & Support">
+            <HelpCircle size={16} />
+          </button>
           <button onClick={() => setRefreshKey(k => k + 1)} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white" title="Refresh data">
             <RefreshCw size={16} />
           </button>
@@ -119,7 +123,7 @@ export default function Layout() {
           <Outlet />
         </div>
       </main>
-      <HelpWidget />
+      <HelpWidget open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>
   )
 }

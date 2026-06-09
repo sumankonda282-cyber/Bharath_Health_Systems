@@ -21,9 +21,8 @@ const PRIORITIES = [
 
 const EMPTY = { title: '', category: 'facility', priority: 'medium', location: '', description: '' }
 
-export default function HelpWidget() {
+export default function HelpWidget({ open, onClose }) {
   const { user } = useAuth()
-  const [open, setOpen]       = useState(false)
   const [path, setPath]       = useState(null)   // null | 'internal' | 'it'
   const [form, setForm]       = useState(EMPTY)
   const [saving, setSaving]   = useState(false)
@@ -31,7 +30,7 @@ export default function HelpWidget() {
   const [error, setError]     = useState('')
 
   const reset = () => { setPath(null); setForm(EMPTY); setDone(false); setError('') }
-  const close = () => { setOpen(false); setTimeout(reset, 300) }
+  const close = () => { onClose(); setTimeout(reset, 300) }
 
   const submit = async e => {
     e.preventDefault()
@@ -52,71 +51,6 @@ export default function HelpWidget() {
 
   return (
     <>
-      {/* Floating button — sits above the ChatWidget */}
-      <button
-        onClick={() => setOpen(true)}
-        title="Help & Maintenance"
-        className="fixed bottom-4 right-4 z-40 w-12 h-12 rounded-full shadow-lg flex items-center justify-center text-white transition-transform hover:scale-110 active:scale-95"
-        style={{ background: '#065F46' }}
-      >
-        <HelpCircle size={22} />
-      </button>
-
-      {/* Modal overlay */}
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50" onClick={close} />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md z-10 overflow-hidden">
-
-            {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b" style={{ background: '#065F46' }}>
-              <div className="flex items-center gap-2 text-white">
-                <HelpCircle size={18} />
-                <span className="font-semibold text-sm">Help &amp; Support</span>
-                <span className="text-white/50 text-xs ml-1">· {PORTAL_SOURCE}</span>
-              </div>
-              <button onClick={close} className="text-white/60 hover:text-white">
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="p-5">
-
-              {/* Path selection */}
-              {!path && (
-                <div className="space-y-3">
-                  <p className="text-xs text-gray-500 mb-4">What do you need help with?</p>
-
-                  <button
-                    onClick={() => setPath('internal')}
-                    className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-gray-100 hover:border-emerald-200 hover:bg-emerald-50 transition-all text-left group"
-                  >
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#d1fae5' }}>
-                      <Wrench size={18} style={{ color: '#065F46' }} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-gray-800 text-sm">Report an Issue</div>
-                      <div className="text-xs text-gray-500 mt-0.5">Bed, equipment, facility, or hospital IT problem</div>
-                    </div>
-                    <ChevronRight size={16} className="text-gray-400 group-hover:text-emerald-600 flex-shrink-0" />
-                  </button>
-
-                  <button
-                    onClick={() => setPath('it')}
-                    className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-gray-100 hover:border-blue-200 hover:bg-blue-50 transition-all text-left group"
-                  >
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#dbeafe' }}>
-                      <Phone size={18} className="text-blue-600" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-gray-800 text-sm">Contact IT Support</div>
-                      <div className="text-xs text-gray-500 mt-0.5">Software bugs, login issues, BharatCliniq help</div>
-                    </div>
-                    <ChevronRight size={16} className="text-gray-400 group-hover:text-blue-600 flex-shrink-0" />
-                  </button>
-                </div>
-              )}
-
               {/* IT Contact card */}
               {path === 'it' && (
                 <div className="text-center py-4">

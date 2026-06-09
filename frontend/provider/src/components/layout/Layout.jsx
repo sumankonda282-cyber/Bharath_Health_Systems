@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import Sidebar from './Sidebar'
 import { Outlet } from 'react-router-dom'
-import { Menu, RefreshCw } from 'lucide-react'
+import { Menu, RefreshCw, HelpCircle } from 'lucide-react'
 import BrandLogo from '../BrandLogo'
 import ChatWidget from '../ChatWidget'
 import HelpWidget from '../HelpWidget'
@@ -9,6 +9,7 @@ import HelpWidget from '../HelpWidget'
 export default function Layout() {
   const [open, setOpen] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [helpOpen, setHelpOpen]   = useState(false)
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: '#F0F4F8' }}>
@@ -37,7 +38,10 @@ export default function Layout() {
           </button>
           <div className="md:hidden"><BrandLogo size="sm" /></div>
           <div className="flex-1" />
-          <button onClick={() => setRefreshKey(k => k + 1)} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700" title="Refresh data">
+          <button onClick={() => setHelpOpen(true)} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700" title="Help & Support">
+          <HelpCircle size={16} />
+        </button>
+        <button onClick={() => setRefreshKey(k => k + 1)} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700" title="Refresh data">
             <RefreshCw size={16} />
           </button>
         </div>
@@ -46,7 +50,7 @@ export default function Layout() {
         </div>
       </main>
       <ChatWidget />
-      <HelpWidget />
+      <HelpWidget open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>
   )
 }

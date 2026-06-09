@@ -5,7 +5,7 @@ import { NavLink, Outlet } from 'react-router-dom'
 import {
   LayoutDashboard, ScanLine, Settings, LogOut, AlertCircle, FileEdit,
   CreditCard, BarChart2, Users, Menu, X, Bell, FileText, CheckCircle,
-  Calendar, UserCheck, ClipboardList, RefreshCw,
+  Calendar, UserCheck, ClipboardList, RefreshCw, HelpCircle,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../api/client'
@@ -176,6 +176,7 @@ export default function Layout() {
   const { user, logout } = useAuth()
   const [open, setOpen] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [helpOpen, setHelpOpen]   = useState(false)
 
   const role = user?.role
   const navItems = role === 'radiologist' ? RADIOLOGIST_NAV : TECHNICIAN_NAV
@@ -258,7 +259,10 @@ export default function Layout() {
           <span className="md:hidden font-extrabold text-sm"><span style={{ color: '#CC1414' }}>BH</span><span style={{ color: '#0F2557' }}>arath Health</span></span>
           <span className="md:hidden text-xs font-semibold ml-1" style={{ color: '#F5821E' }}>Imaging</span>
           <div className="flex-1" />
-          <button onClick={() => setRefreshKey(k => k + 1)} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700" title="Refresh data">
+          <button onClick={() => setHelpOpen(true)} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700" title="Help & Support">
+          <HelpCircle size={16} />
+        </button>
+        <button onClick={() => setRefreshKey(k => k + 1)} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700" title="Refresh data">
             <RefreshCw size={16} />
           </button>
         </div>
@@ -267,7 +271,7 @@ export default function Layout() {
         </div>
       </main>
       <ChatWidget />
-      <HelpWidget />
+      <HelpWidget open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>
   )
 }

@@ -3,7 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, BedDouble, Activity, ClipboardList, Pill,
   Stethoscope, ArrowLeftRight, LogOut, Menu, X, Sun, Sunset, Moon,
-  FileText, ClipboardCheck, KeyRound, Settings, PackageOpen, LayoutTemplate, RefreshCw
+  FileText, ClipboardCheck, KeyRound, Settings, PackageOpen, LayoutTemplate, RefreshCw, HelpCircle
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useWardSession } from '../contexts/WardSessionContext'
@@ -196,6 +196,7 @@ export default function Layout() {
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [helpOpen, setHelpOpen]   = useState(false)
   const shift = getShift()
   const ShiftIcon = shift.icon
   const location = useLocation()
@@ -237,6 +238,9 @@ export default function Layout() {
             {user?.full_name} · {formatRole(user?.role)}
           </span>
 
+          <button onClick={() => setHelpOpen(true)} className="p-1.5 hover:bg-emerald-700 rounded" title="Help & Support">
+            <HelpCircle size={14} />
+          </button>
           <button onClick={() => navigate('/pin-setup')} className="p-1.5 hover:bg-emerald-700 rounded" title="PIN Setup">
             <KeyRound size={14} />
           </button>
@@ -305,7 +309,7 @@ export default function Layout() {
         </main>
 
         <ChatWidget />
-        <HelpWidget />
+        <HelpWidget open={helpOpen} onClose={() => setHelpOpen(false)} />
       </div>
     </div>
   )
