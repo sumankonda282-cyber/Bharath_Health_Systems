@@ -49,4 +49,19 @@ export const adminApi = {
   listAdmins:    ()       => api.get('/platform/admins'),
   createAdmin:   (body)   => api.post('/platform/admins', body),
   toggleAdmin:   (id)     => api.patch(`/platform/admins/${id}/toggle`),
+
+  // Hospital Setup (platform-admin scoped)
+  getOrgConfig:        (cid)          => api.get(`/platform/clinics/${cid}/org-config`),
+  updateOrgConfig:     (cid, body)    => api.put(`/platform/clinics/${cid}/org-config`, body),
+  listDepartments:     (cid)          => api.get(`/platform/clinics/${cid}/departments`),
+  createDepartment:    (cid, body)    => api.post(`/platform/clinics/${cid}/departments`, body),
+  updateDepartment:    (cid, id, body) => api.put(`/platform/clinics/${cid}/departments/${id}`, body),
+  deleteDepartment:    (cid, id)      => api.delete(`/platform/clinics/${cid}/departments/${id}`),
+  listWards:           (cid)          => api.get(`/platform/clinics/${cid}/wards`),
+  createWard:          (cid, body)    => api.post(`/platform/clinics/${cid}/wards`, body),
+  updateWard:          (cid, id, body) => api.put(`/platform/clinics/${cid}/wards/${id}`, body),
+  deleteWard:          (cid, id)      => api.delete(`/platform/clinics/${cid}/wards/${id}`),
+  listBeds:            (cid)          => api.get(`/platform/clinics/${cid}/beds`),
+  createBed:           (cid, body)    => api.post(`/platform/clinics/${cid}/beds`, body),
+  updateBed:           (cid, id, body) => api.put(`/platform/clinics/${cid}/beds/${id}`, body),
 }

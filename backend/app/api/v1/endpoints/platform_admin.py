@@ -6,8 +6,7 @@ from datetime import datetime, date, timedelta
 from pydantic import BaseModel, EmailStr
 from app.db.session import get_db
 from app.core.security import get_current_platform_admin, hash_password
-from app.models.models import Clinic, Branch, Staff, Patient, Appointment, PlatformAdmin, AuditLog, Invoice, AssessmentTemplate, TemplateAssignment, Department
-from app.models.models import Clinic, Branch, Staff, Patient, Appointment, PlatformAdmin, AuditLog, Invoice, PasswordResetRequest
+from app.models.models import Clinic, Branch, Staff, Patient, Appointment, PlatformAdmin, AuditLog, Invoice, AssessmentTemplate, TemplateAssignment, Department, Ward, Bed, PasswordResetRequest
 
 import re
 import secrets
@@ -720,28 +719,6 @@ def get_reports(
     }
 
 
-# ── Platform Admin Management ─────────────────────────────────────────────────
-
-@router.post("/admins")
-def create_platform_admin(
-    body: dict,
-    db: Session = Depends(get_db),
-    current=Depends(get_current_platform_admin),
-):
-    existing = db.query(PlatformAdmin).filter(PlatformAdmin.email == body.get("email")).first()
-    if existing:
-        raise HTTPException(400, "Email already registered")
-    admin = PlatformAdmin(
-        full_name=body.get("full_name"),
-        email=body.get("email"),
-        hashed_password=hash_password(body.get("password")),
-    )
-    db.add(admin)
-    db.commit()
-    db.refresh(admin)
-    return {"id": admin.id, "email": admin.email, "message": "Platform admin created"}
-
-
 @router.get("/bhid/{bh_id}")
 def platform_bhid_lookup(
     bh_id: str,
@@ -1293,3 +1270,267 @@ def toggle_platform_admin(
     db.add(log)
     db.commit()
     return {"id": admin_id, "is_active": admin.is_active, "message": f"Admin {action}"}
+
+
+# ── Hospital Setup (Platform Admin) ──────────────────────────────────────────────
+
+def _get_clinic_or_404(clinic_id: int, db: Session) -> Clinic:
+    clinic = db.query(Clinic).filter(Clinic.id == clinic_id).first()
+    if not clinic:
+        raise HTTPException(status_code=404, detail="Clinic not found")
+    return clinic
+
+
+@router.get("/clinics/{clinic_id}/org-config")
+def platform_get_org_config(
+    clinic_id: int,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    clinic = _get_clinic_or_404(clinic_id, db)
+    return {
+        "org_type": getattr(clinic, "org_type", "clinic"),
+        "wards_enabled": getattr(clinic, "wards_enabled", False),
+        "clinic_prefix": clinic.clinic_prefix,
+        "patient_id_counter": clinic.patient_id_counter,
+        "admission_sequence": getattr(clinic, "admission_sequence", 0),
+    }
+
+
+@router.put("/clinics/{clinic_id}/org-config")
+def platform_update_org_config(
+    clinic_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    clinic = _get_clinic_or_404(clinic_id, db)
+    if "org_type" in body:
+        clinic.org_type = body["org_type"]
+    if "wards_enabled" in body:
+        clinic.wards_enabled = body["wards_enabled"]
+    if "clinic_prefix" in body:
+        clinic.clinic_prefix = body["clinic_prefix"]
+    db.commit()
+    return {"detail": "org config updated"}
+
+
+@router.get("/clinics/{clinic_id}/departments")
+def platform_list_departments(
+    clinic_id: int,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    _get_clinic_or_404(clinic_id, db)
+    depts = db.query(Department).filter(Department.clinic_id == clinic_id).all()
+    return [
+        {
+            "id": d.id,
+            "name": d.name,
+            "code": d.code,
+            "dept_type": d.dept_type,
+            "head_doctor_id": d.head_doctor_id,
+            "color_hex": d.color_hex,
+            "is_active": d.is_active,
+        }
+        for d in depts
+    ]
+
+
+@router.post("/clinics/{clinic_id}/departments")
+def platform_create_department(
+    clinic_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    _get_clinic_or_404(clinic_id, db)
+    dept = Department(
+        clinic_id=clinic_id,
+        name=body["name"],
+        code=body.get("code"),
+        dept_type=body.get("dept_type", "clinical"),
+        head_doctor_id=body.get("head_doctor_id"),
+        color_hex=body.get("color_hex"),
+        is_active=body.get("is_active", True),
+    )
+    db.add(dept)
+    db.commit()
+    db.refresh(dept)
+    return {"id": dept.id, "name": dept.name}
+
+
+@router.put("/clinics/{clinic_id}/departments/{dept_id}")
+def platform_update_department(
+    clinic_id: int,
+    dept_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    dept = db.query(Department).filter(
+        Department.id == dept_id,
+        Department.clinic_id == clinic_id,
+    ).first()
+    if not dept:
+        raise HTTPException(status_code=404, detail="Department not found")
+    for field in ("name", "code", "dept_type", "head_doctor_id", "color_hex", "is_active"):
+        if field in body:
+            setattr(dept, field, body[field])
+    db.commit()
+    return {"detail": "updated"}
+
+
+@router.delete("/clinics/{clinic_id}/departments/{dept_id}")
+def platform_delete_department(
+    clinic_id: int,
+    dept_id: int,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    dept = db.query(Department).filter(
+        Department.id == dept_id,
+        Department.clinic_id == clinic_id,
+    ).first()
+    if not dept:
+        raise HTTPException(status_code=404, detail="Department not found")
+    dept.is_active = False
+    db.commit()
+    return {"detail": "deleted"}
+
+
+@router.get("/clinics/{clinic_id}/wards")
+def platform_list_wards(
+    clinic_id: int,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    _get_clinic_or_404(clinic_id, db)
+    wards = db.query(Ward).filter(Ward.clinic_id == clinic_id, Ward.is_active == True).all()
+    return [
+        {
+            "id": w.id,
+            "name": w.name,
+            "department_id": w.department_id,
+            "floor": w.floor,
+            "wing": w.wing,
+            "ward_type": w.ward_type,
+            "total_beds": w.total_beds,
+        }
+        for w in wards
+    ]
+
+
+@router.post("/clinics/{clinic_id}/wards")
+def platform_create_ward(
+    clinic_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    _get_clinic_or_404(clinic_id, db)
+    ward = Ward(
+        clinic_id=clinic_id,
+        department_id=body.get("department_id"),
+        name=body["name"],
+        floor=body.get("floor"),
+        wing=body.get("wing"),
+        ward_type=body.get("ward_type", "general"),
+        total_beds=body.get("total_beds", 0),
+    )
+    db.add(ward)
+    db.commit()
+    db.refresh(ward)
+    return {"id": ward.id, "name": ward.name}
+
+
+@router.put("/clinics/{clinic_id}/wards/{ward_id}")
+def platform_update_ward(
+    clinic_id: int,
+    ward_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    ward = db.query(Ward).filter(Ward.id == ward_id, Ward.clinic_id == clinic_id).first()
+    if not ward:
+        raise HTTPException(status_code=404, detail="Ward not found")
+    for field in ("name", "floor", "wing", "ward_type", "total_beds", "is_active"):
+        if field in body:
+            setattr(ward, field, body[field])
+    db.commit()
+    return {"detail": "updated"}
+
+
+@router.delete("/clinics/{clinic_id}/wards/{ward_id}")
+def platform_delete_ward(
+    clinic_id: int,
+    ward_id: int,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    ward = db.query(Ward).filter(Ward.id == ward_id, Ward.clinic_id == clinic_id).first()
+    if not ward:
+        raise HTTPException(status_code=404, detail="Ward not found")
+    ward.is_active = False
+    db.commit()
+    return {"detail": "deleted"}
+
+
+@router.get("/clinics/{clinic_id}/beds")
+def platform_list_beds(
+    clinic_id: int,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    _get_clinic_or_404(clinic_id, db)
+    beds = db.query(Bed).filter(Bed.clinic_id == clinic_id).all()
+    return [
+        {
+            "id": b.id,
+            "ward_id": b.ward_id,
+            "bed_number": b.bed_number,
+            "bed_type": b.bed_type,
+            "status": b.status,
+            "current_admission_id": b.current_admission_id,
+        }
+        for b in beds
+    ]
+
+
+@router.post("/clinics/{clinic_id}/beds")
+def platform_create_bed(
+    clinic_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    _get_clinic_or_404(clinic_id, db)
+    bed = Bed(
+        clinic_id=clinic_id,
+        ward_id=body["ward_id"],
+        bed_number=body["bed_number"],
+        bed_type=body.get("bed_type", "general"),
+    )
+    db.add(bed)
+    db.commit()
+    db.refresh(bed)
+    return {"id": bed.id, "bed_number": bed.bed_number}
+
+
+@router.put("/clinics/{clinic_id}/beds/{bed_id}")
+def platform_update_bed(
+    clinic_id: int,
+    bed_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    bed = db.query(Bed).filter(Bed.id == bed_id, Bed.clinic_id == clinic_id).first()
+    if not bed:
+        raise HTTPException(status_code=404, detail="Bed not found")
+    for field in ("bed_type", "status", "current_admission_id"):
+        if field in body:
+            setattr(bed, field, body[field])
+    db.commit()
+    return {"detail": "updated"}
