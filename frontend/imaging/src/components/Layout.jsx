@@ -1,4 +1,5 @@
 import ChatWidget from './ChatWidget'
+import HelpWidget from './HelpWidget'
 import { useState, useEffect, useRef } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import {
@@ -266,6 +267,7 @@ export default function Layout() {
         </div>
       </main>
       <ChatWidget />
+      <HelpWidget />
     </div>
   )
 }

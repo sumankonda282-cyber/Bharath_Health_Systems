@@ -1,12 +1,14 @@
 import ChatWidget from './ChatWidget'
-import { useState } from 'react'
+import HelpWidget from './HelpWidget'
+import { useState, useEffect } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import {
   CalendarDays, Users, CreditCard, LayoutDashboard, LogOut,
-  ClipboardList, Menu, X, Settings, BedDouble, LayoutGrid, Banknote, RefreshCw
+  ClipboardList, Menu, X, Settings, BedDouble, LayoutGrid, Banknote, RefreshCw, Wrench
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import BrandLogo from './BrandLogo'
+import api from '../api/client'
 
 const BASE_NAV = [
   { to: '/',             icon: LayoutDashboard, label: 'Dashboard' },
@@ -21,7 +23,8 @@ const HOSPITAL_NAV = [
   { to: '/inpatient-billing', icon: Banknote,    label: 'IPD Billing' },
 ]
 const MANAGER_NAV = [
-  { to: '/staff', icon: Settings, label: 'Manage Staff' },
+  { to: '/staff',       icon: Settings, label: 'Manage Staff' },
+  { to: '/maintenance', icon: Wrench,   label: 'Maintenance' },
 ]
 
 function getInitials(name) {
@@ -38,13 +41,22 @@ export default function Layout() {
   const { user, logout } = useAuth()
   const [open, setOpen] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
-  const isManager = user?.role === 'clinic_manager'
+  const [maintBadge, setMaintBadge] = useState(0)
+  const isManager = ['clinic_manager', 'clinic_admin'].includes(user?.role)
   const isHospital = user?.org_type === 'hospital'
   const NAV = [
     ...BASE_NAV,
     ...(isHospital ? HOSPITAL_NAV : []),
     ...(isManager ? MANAGER_NAV : []),
   ]
+
+  useEffect(() => {
+    if (!isManager) return
+    const fetch = () => api.get('/maintenance/requests/badge').then(r => setMaintBadge(r.data?.count || 0)).catch(() => {})
+    fetch()
+    const id = setInterval(fetch, 60000)
+    return () => clearInterval(id)
+  }, [isManager])
 
   const sidebar = (
     <aside className="w-60 flex flex-col h-full flex-shrink-0" style={{ background: '#0F2557' }}>
@@ -68,7 +80,12 @@ export default function Layout() {
             onClick={() => setOpen(false)}
             className={({ isActive }) => isActive ? 'sidebar-link-active' : 'sidebar-link'}>
             <Icon size={17} className="flex-shrink-0" />
-            <span>{label}</span>
+            <span className="flex-1">{label}</span>
+            {to === '/maintenance' && maintBadge > 0 && (
+              <span className="ml-auto px-1.5 py-0.5 rounded-full text-white text-xs font-bold leading-none bg-red-500">
+                {maintBadge}
+              </span>
+            )}
           </NavLink>
         ))}
       </nav>
@@ -128,6 +145,7 @@ export default function Layout() {
         </div>
       </main>
       <ChatWidget />
+      <HelpWidget />
     </div>
   )
 }

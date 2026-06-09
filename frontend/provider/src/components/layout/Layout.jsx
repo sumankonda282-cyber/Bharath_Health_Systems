@@ -4,6 +4,7 @@ import { Outlet } from 'react-router-dom'
 import { Menu, RefreshCw } from 'lucide-react'
 import BrandLogo from '../BrandLogo'
 import ChatWidget from '../ChatWidget'
+import HelpWidget from '../HelpWidget'
 
 export default function Layout() {
   const [open, setOpen] = useState(false)
@@ -45,6 +46,7 @@ export default function Layout() {
         </div>
       </main>
       <ChatWidget />
+      <HelpWidget />
     </div>
   )
 }

@@ -1,4 +1,5 @@
 import ChatWidget from './ChatWidget'
+import HelpWidget from './HelpWidget'
 import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { LayoutDashboard, FlaskConical, ClipboardList, Settings, LogOut, Beaker, ClipboardPen, CreditCard, BarChart2, Users, Menu, X, RefreshCw } from 'lucide-react'
@@ -103,6 +104,7 @@ export default function Layout() {
         </div>
       </main>
       <ChatWidget />
+      <HelpWidget />
     </div>
   )
 }

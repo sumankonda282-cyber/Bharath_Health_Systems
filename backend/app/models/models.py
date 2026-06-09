@@ -1471,3 +1471,32 @@ class DispenseItem(Base):
 
     session  = relationship("DispenseSession", back_populates="items")
     medicine = relationship("Medicine", foreign_keys=[medicine_id])
+
+
+# ── Maintenance Requests ──────────────────────────────────────────────────────
+
+class MaintenanceRequest(Base):
+    """Hospital maintenance & facility requests submitted from any portal."""
+    __tablename__ = "maintenance_requests"
+    id            = Column(Integer, primary_key=True, index=True)
+    clinic_id     = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    title         = Column(String(300), nullable=False)
+    description   = Column(Text, nullable=True)
+    category      = Column(String(50),  nullable=False, default="facility")
+    # facility | equipment | it_software | other
+    priority      = Column(String(20),  nullable=False, default="medium")
+    # urgent | high | medium | low
+    status        = Column(String(30),  nullable=False, default="new")
+    # new | in_progress | resolved | closed
+    location      = Column(String(200), nullable=True)
+    portal_source = Column(String(50),  nullable=True)
+    submitted_by  = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    assigned_to   = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    notes         = Column(Text, nullable=True)
+    resolved_at   = Column(DateTime, nullable=True)
+    created_at    = Column(DateTime, server_default=func.now())
+    updated_at    = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    submitter = relationship("Staff", foreign_keys=[submitted_by])
+    assignee  = relationship("Staff", foreign_keys=[assigned_to])
+    clinic    = relationship("Clinic", foreign_keys=[clinic_id])

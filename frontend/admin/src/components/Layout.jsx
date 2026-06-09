@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import HelpWidget from './HelpWidget'
 import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import {
@@ -118,6 +119,7 @@ export default function Layout() {
           <Outlet />
         </div>
       </main>
+      <HelpWidget />
     </div>
   )
 }

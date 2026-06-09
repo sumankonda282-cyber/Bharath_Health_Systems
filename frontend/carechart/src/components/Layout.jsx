@@ -8,6 +8,7 @@ import {
 import { useAuth } from '../contexts/AuthContext'
 import { useWardSession } from '../contexts/WardSessionContext'
 import ChatWidget from './ChatWidget'
+import HelpWidget from './HelpWidget'
 import logoImg from '../assets/logo.png'
 
 // ── Nav definitions ───────────────────────────────────────────────────────────
@@ -304,6 +305,7 @@ export default function Layout() {
         </main>
 
         <ChatWidget />
+        <HelpWidget />
       </div>
     </div>
   )

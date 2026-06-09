@@ -1,4 +1,5 @@
 import ChatWidget from './ChatWidget'
+import HelpWidget from './HelpWidget'
 import { useState, useEffect, useRef } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { LayoutDashboard, Pill, Package, Settings, LogOut, History, PackagePlus, CreditCard, BarChart2, Menu, X, Building2, ShoppingCart, Bell, AlertTriangle, Clock, RotateCcw, ClipboardList, IndianRupee, RefreshCw } from 'lucide-react'
@@ -210,6 +211,7 @@ export default function Layout() {
         </div>
       </main>
       <ChatWidget />
+      <HelpWidget />
     </div>
   )
 }

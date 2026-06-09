@@ -13,6 +13,7 @@ import AccountSettings from './pages/AccountSettings'
 import Admissions from './pages/Admissions'
 import BedBoard from './pages/BedBoard'
 import InpatientBilling from './pages/InpatientBilling'
+import MaintenanceDashboard from './pages/MaintenanceDashboard'
 import { Loader2 } from 'lucide-react'
 
 function ManagerOnly({ children }) {
@@ -54,6 +55,7 @@ function AppRoutes() {
         <Route path="admissions" element={<Admissions />} />
         <Route path="bed-board" element={<BedBoard />} />
         <Route path="inpatient-billing" element={<InpatientBilling />} />
+        <Route path="maintenance" element={<MaintenanceDashboard />} />
         <Route path="account" element={<AccountSettings />} />
       </Route>
 
