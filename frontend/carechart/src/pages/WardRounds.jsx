@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
-import { Stethoscope, Plus, Loader2, X, AlertCircle, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Stethoscope, Plus, Loader2, X, AlertCircle, CheckCircle, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react'
 import api from '../api/client'
 import PatientList from '../components/PatientList'
 import { useAuth } from '../contexts/AuthContext'
@@ -429,6 +430,7 @@ function RoundForm({ admissionId, lastVitals, onClose, onSaved }) {
 
 export default function WardRounds() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const canWrite = ['doctor', 'clinic_admin', 'provider'].includes(user?.role)
   const [selected, setSelected]   = useState(null)
   const [rounds, setRounds]       = useState([])
@@ -496,6 +498,12 @@ export default function WardRounds() {
                       <CheckCircle size={14} />Round saved
                     </span>
                   )}
+                  <button
+                    onClick={() => navigate(`/patient/${selected.id}`)}
+                    className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-xl border border-emerald-700 text-emerald-700 hover:bg-emerald-50 transition-colors"
+                  >
+                    <ExternalLink size={14} />Open Patient Chart
+                  </button>
                   {canWrite && (
                     <button
                       onClick={() => { setShowForm(true); setSaved(false) }}
