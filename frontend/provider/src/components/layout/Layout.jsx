@@ -30,7 +30,7 @@ export default function Layout() {
         <Sidebar />
       </div>
 
-      <main className="flex-1 md:ml-60 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto">
         {/* Mobile top bar */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 bg-white sticky top-0 z-30">
           <button onClick={() => setOpen(true)} className="md:hidden p-1.5 rounded-lg text-gray-600 hover:bg-gray-100">
