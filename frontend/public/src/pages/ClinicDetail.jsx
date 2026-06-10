@@ -15,7 +15,7 @@ function DoctorCard({ doctor, clinic }) {
   }
 
   return (
-    <div className="card hover:shadow-md transition-shadow">
+    <div className="card p-5 hover:shadow-md transition-shadow">
       <div className="flex items-start gap-4">
         <div className="w-16 h-16 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: '#EEF2FF' }}>
           {doctor.photo_url ? (
@@ -253,7 +253,7 @@ export default function ClinicDetail() {
 
         {/* About */}
         {clinic.description && (
-          <div className="mt-10 card">
+          <div className="mt-10 card p-6">
             <h2 className="text-xl font-bold text-gray-900 mb-4">About the Clinic</h2>
             <p className="text-gray-600 leading-relaxed">{clinic.description}</p>
           </div>
