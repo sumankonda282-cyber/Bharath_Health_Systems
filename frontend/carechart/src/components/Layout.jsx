@@ -3,7 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, BedDouble, Activity, ClipboardList, Pill,
   Stethoscope, ArrowLeftRight, LogOut, Menu, X, Sun, Sunset, Moon,
-  FileText, ClipboardCheck, KeyRound, Settings, PackageOpen, LayoutTemplate, RefreshCw
+  FileText, ClipboardCheck, KeyRound, Settings, PackageOpen, LayoutTemplate, RefreshCw, Video
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useWardSession } from '../contexts/WardSessionContext'
@@ -20,6 +20,7 @@ const NURSE_NAV = [
   { to: '/mar',          icon: Pill,            label: 'MAR'                    },
   { to: '/assessments',  icon: ClipboardCheck,  label: 'Assessments'            },
   { to: '/handoff',      icon: ArrowLeftRight,  label: 'Shift Handoff'          },
+  { to: '/telehealth',   icon: Video,           label: 'Virtual Rounds'         },
   { to: '/discharge',    icon: PackageOpen,     label: 'Discharge'              },
   { to: '/templates',    icon: LayoutTemplate,  label: 'Templates'              },
 ]
@@ -32,6 +33,7 @@ const PROVIDER_NAV = [
   { to: '/orders',        icon: ClipboardList,   label: 'Orders'                 },
   { to: '/assessments',   icon: ClipboardCheck,  label: 'Assessments'            },
   { to: '/handoff',       icon: ArrowLeftRight,  label: 'Shift Handoff'          },
+  { to: '/telehealth',    icon: Video,           label: 'Virtual Rounds'         },
   { to: '/discharge',     icon: PackageOpen,     label: 'Discharge'              },
   { to: '/templates',     icon: LayoutTemplate,  label: 'Templates'              },
 ]

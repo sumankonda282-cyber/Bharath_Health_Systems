@@ -5,6 +5,8 @@ import Layout from './components/layout/Layout'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Appointments from './pages/Appointments'
+import Telehealth from './pages/Telehealth'
+import TelehealthCall from './pages/TelehealthCall'
 import Prescriptions from './pages/Prescriptions'
 import LabResults from './pages/LabResults'
 import Bills from './pages/Bills'
@@ -30,11 +32,15 @@ function AppRoutes() {
       <Route element={<Guard><Layout /></Guard>}>
         <Route path="/"              element={<Dashboard />} />
         <Route path="/appointments"  element={<Appointments />} />
+        <Route path="/telehealth"    element={<Telehealth />} />
         <Route path="/prescriptions" element={<Prescriptions />} />
         <Route path="/lab-results"   element={<LabResults />} />
         <Route path="/bills"         element={<Bills />} />
         <Route path="/timeline"      element={<Timeline />} />
       </Route>
+      {/* Full-screen call — no sidebar */}
+      <Route path="/telehealth/call/:appointmentId"
+        element={<Guard><TelehealthCall /></Guard>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

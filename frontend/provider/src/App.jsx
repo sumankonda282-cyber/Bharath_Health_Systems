@@ -26,6 +26,8 @@ const BranchOverview = lazy(() => import('./pages/admin/BranchOverview'))
 const PlatformAdmin  = lazy(() => import('./pages/platform/PlatformAdmin'))
 const InpatientDesk  = lazy(() => import('./pages/inpatient/InpatientDesk'))
 const AdmissionChart = lazy(() => import('./pages/inpatient/AdmissionChart'))
+const TelehealthDesk = lazy(() => import('./pages/telehealth/TelehealthDesk'))
+const TelehealthCall = lazy(() => import('./pages/telehealth/TelehealthCall'))
 
 function AppRoutes() {
   const { user, loading } = useAuth()
@@ -65,7 +67,12 @@ function AppRoutes() {
         <Route path="/inpatient/:admissionId" element={<Suspense fallback={<PageLoader />}><AdmissionChart /></Suspense>} />
         <Route path="/admin"        element={<Suspense fallback={<PageLoader />}><ClinicAdmin /></Suspense>} />
         <Route path="/platform"     element={<Suspense fallback={<PageLoader />}><PlatformAdmin /></Suspense>} />
+        <Route path="/telehealth"   element={<Suspense fallback={<PageLoader />}><TelehealthDesk /></Suspense>} />
       </Route>
+
+      {/* Full-screen call page — no Layout wrapper */}
+      <Route path="/telehealth/call/:appointmentId"
+        element={user ? <Suspense fallback={<PageLoader />}><TelehealthCall /></Suspense> : <Navigate to="/login" replace />} />
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>

@@ -13,6 +13,7 @@ import AccountSettings from './pages/AccountSettings'
 import Admissions from './pages/Admissions'
 import BedBoard from './pages/BedBoard'
 import InpatientBilling from './pages/InpatientBilling'
+import Telehealth from './pages/Telehealth'
 import MaintenanceDashboard from './pages/MaintenanceDashboard'
 import { Loader2 } from 'lucide-react'
 
@@ -48,6 +49,7 @@ function AppRoutes() {
       <Route element={user ? <Layout /> : <Navigate to="/login" replace />}>
         <Route index element={<Dashboard />} />
         <Route path="appointments" element={<Appointments />} />
+        <Route path="telehealth"   element={<Telehealth />} />
         <Route path="patients" element={<Patients />} />
         <Route path="billing" element={<Billing />} />
         <Route path="queue" element={<Queue />} />

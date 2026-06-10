@@ -21,6 +21,8 @@ const PatientChart           = lazy(() => import('./pages/PatientChart'))
 const Orders                 = lazy(() => import('./pages/Orders'))
 const AccountSettings        = lazy(() => import('./pages/AccountSettings'))
 const DischargeSummary       = lazy(() => import('./pages/DischargeSummary'))
+const Telehealth             = lazy(() => import('./pages/Telehealth'))
+const TelehealthCall         = lazy(() => import('./pages/TelehealthCall'))
 const Layout                 = lazy(() => import('./components/Layout'))
 
 function AppLoader() {
@@ -69,8 +71,12 @@ function AppRoutes() {
           <Route path="templates" element={<DocumentationTemplates />} />
           <Route path="discharge" element={<DischargeSummary />} />
           <Route path="progress-notes" element={<WardRounds />} />
+          <Route path="telehealth" element={<Telehealth />} />
           <Route path="patient/:admissionId" element={<PatientChart />} />
         </Route>
+
+        {/* Full-screen call — no sidebar */}
+        <Route path="/telehealth/call/:appointmentId" element={<TelehealthCall />} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

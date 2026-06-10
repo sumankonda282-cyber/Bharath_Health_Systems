@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import {
   CalendarDays, Users, CreditCard, LayoutDashboard, LogOut,
-  ClipboardList, Menu, X, Settings, BedDouble, LayoutGrid, Banknote, RefreshCw, Wrench, HelpCircle
+  ClipboardList, Menu, X, Settings, BedDouble, LayoutGrid, Banknote, RefreshCw, Wrench, HelpCircle, Video
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import BrandLogo from './BrandLogo'
@@ -13,6 +13,7 @@ import api from '../api/client'
 const BASE_NAV = [
   { to: '/',             icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/appointments', icon: CalendarDays,    label: 'Appointments' },
+  { to: '/telehealth',   icon: Video,          label: 'Telehealth' },
   { to: '/patients',     icon: Users,           label: 'Patients' },
   { to: '/billing',      icon: CreditCard,      label: 'Billing' },
   { to: '/queue',        icon: ClipboardList,   label: 'Queue' },
