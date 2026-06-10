@@ -353,7 +353,7 @@ def create_clinic_manager(
     if mobile and db.query(Staff).filter(Staff.mobile == mobile).first():
         raise HTTPException(400, "Mobile already registered")
 
-    temp_password = _generate_temp_password()
+    temp_password = body.get("password") or _generate_temp_password()
 
     manager = Staff(
         clinic_id       = clinic_id,
