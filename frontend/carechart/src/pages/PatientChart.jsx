@@ -5,8 +5,7 @@ import {
   ArrowLeft, Activity, Pill, FileText, Loader2, AlertTriangle,
   ChevronDown, ChevronUp, Plus, X, FlaskConical, Printer,
   LayoutDashboard, ClipboardCheck, Scissors, PenLine, Search,
-  Lock, User, Calendar, ArrowRight, PillIcon, Bell, Settings,
-  CheckCircle2, Circle, MapPin, Clock, Stethoscope
+  Lock, User, Calendar, ArrowRight, PillIcon
 } from 'lucide-react'
 import api from '../api/client'
 import { usePin } from '../contexts/PinContext'
@@ -90,15 +89,13 @@ const ASSESSMENT_FORMS = [
 ]
 
 const DEFAULT_FLOW_STAGES = [
-  { id: 'opd',      type: 'OPD',      label: 'OPD',               time: '', sendDoc: '', recvDoc: '', notes: '', hospital: '' },
-  { id: 'casualty', type: 'Casualty', label: 'Casualty / ER',     time: '', sendDoc: '', recvDoc: '', notes: '', hospital: '' },
-  { id: 'ward',     type: 'Ward',     label: 'Ward',              time: '', sendDoc: '', recvDoc: '', notes: '', hospital: '' },
-  { id: 'icu',      type: 'ICU',      label: 'ICU',               time: '', sendDoc: '', recvDoc: '', notes: '', hospital: '' },
-  { id: 'ot',       type: 'OT',       label: 'Operation Theatre', time: '', sendDoc: '', recvDoc: '', notes: '', hospital: '' },
-  { id: 'discharge',type: 'Discharge',label: 'Discharge',         time: '', sendDoc: '', recvDoc: '', notes: '', hospital: '' },
+  { id: 'opd',      label: 'OPD',               time: null, sendDoc: '', recvDoc: '', notes: '' },
+  { id: 'casualty', label: 'Casualty / ER',      time: null, sendDoc: '', recvDoc: '', notes: '' },
+  { id: 'ward',     label: 'Ward',               time: null, sendDoc: '', recvDoc: '', notes: '' },
+  { id: 'icu',      label: 'ICU',                time: null, sendDoc: '', recvDoc: '', notes: '' },
+  { id: 'ot',       label: 'Operation Theatre',  time: null, sendDoc: '', recvDoc: '', notes: '' },
+  { id: 'discharge',label: 'Discharge',          time: null, sendDoc: '', recvDoc: '', notes: '' },
 ]
-
-const FLOW_LOCATION_TYPES = ['OPD','Casualty','Ward','ICU','OT','Branch Hospital','External Hospital','Home','Other']
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -134,10 +131,6 @@ function isAbnormal(key, val) {
   return n < r.min || n > r.max
 }
 
-function todayLong() {
-  return new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
-}
-
 // ── Sparkline ─────────────────────────────────────────────────────────────────
 
 function Sparkline({ values, width = 100, height = 32, color = '#065F46' }) {
@@ -159,188 +152,40 @@ function Sparkline({ values, width = 100, height = 32, color = '#065F46' }) {
   )
 }
 
-// ── Vitals freshness ──────────────────────────────────────────────────────────
-
-function vitalsFreshness(recordedAt) {
-  if (!recordedAt) return 'none'
-  const mins = (Date.now() - new Date(recordedAt).getTime()) / 60000
-  if (mins < 120) return 'green'
-  if (mins < 240) return 'yellow'
-  return 'red'
-}
-
-const FRESHNESS_DOT = {
-  green:  'bg-green-400 shadow-green-300',
-  yellow: 'bg-yellow-400 shadow-yellow-300',
-  red:    'bg-red-500 shadow-red-300 animate-pulse',
-  none:   'bg-gray-400',
-}
-
-// ── VitalsModal ───────────────────────────────────────────────────────────────
-
-const VITALS_FIELDS = [
-  { key: 'temperature',      label: 'Temperature',   unit: '°C',    placeholder: '37.0' },
-  { key: 'bp_systolic',      label: 'BP Systolic',   unit: 'mmHg',  placeholder: '120' },
-  { key: 'bp_diastolic',     label: 'BP Diastolic',  unit: 'mmHg',  placeholder: '80' },
-  { key: 'pulse',            label: 'Pulse',         unit: 'bpm',   placeholder: '72' },
-  { key: 'spo2',             label: 'SpO₂',          unit: '%',     placeholder: '98' },
-  { key: 'respiration_rate', label: 'Resp Rate',     unit: '/min',  placeholder: '16' },
-  { key: 'pain_score',       label: 'Pain Score',    unit: '/10',   placeholder: '0' },
-  { key: 'weight',           label: 'Weight',        unit: 'kg',    placeholder: '' },
-]
-
-function VitalsModal({ admissionId, onClose, onSaved }) {
-  const [vals, setVals]   = useState({})
-  const [notes, setNotes] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [err, setErr]     = useState('')
-
-  const set = k => e => setVals(v => ({ ...v, [k]: e.target.value }))
-
-  const save = async () => {
-    setSaving(true); setErr('')
-    try {
-      const payload = {}
-      VITALS_FIELDS.forEach(f => { if (vals[f.key] !== '' && vals[f.key] != null) payload[f.key] = Number(vals[f.key]) })
-      payload.notes = notes
-      const r = await api.post(`/inpatient/admissions/${admissionId}/vitals`, payload)
-      onSaved(r.data)
-      onClose()
-    } catch (e) {
-      setErr(e?.response?.data?.detail || 'Failed to save vitals')
-    } finally { setSaving(false) }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-      onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-          <h2 className="font-semibold text-gray-800 flex items-center gap-2">
-            <Activity size={15} className="text-emerald-600" /> Record Vitals
-          </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
-        </div>
-        <div className="p-4 grid grid-cols-2 gap-3">
-          {VITALS_FIELDS.map(f => {
-            const val = vals[f.key] ?? ''
-            const bad = val !== '' && isAbnormal(f.key, Number(val))
-            return (
-              <div key={f.key}>
-                <label className="text-xs text-gray-500 block mb-0.5">{f.label} <span className="text-gray-300">{f.unit}</span></label>
-                <input
-                  type="number"
-                  value={val}
-                  onChange={set(f.key)}
-                  placeholder={f.placeholder}
-                  className={`w-full border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 ${bad ? 'border-red-300 bg-red-50 focus:ring-red-400 text-red-700' : 'border-gray-300 focus:ring-emerald-400'}`}
-                />
-                {bad && <span className="text-xs text-red-500">Abnormal</span>}
-              </div>
-            )
-          })}
-          <div className="col-span-2">
-            <label className="text-xs text-gray-500 block mb-0.5">Notes</label>
-            <input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Optional notes…"
-              className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-400" />
-          </div>
-        </div>
-        {err && <p className="px-4 pb-2 text-xs text-red-600">{err}</p>}
-        <div className="flex justify-end gap-2 px-4 pb-4">
-          <button onClick={onClose} className="text-xs text-gray-500 px-3 py-1.5 rounded hover:bg-gray-100">Cancel</button>
-          <button onClick={save} disabled={saving}
-            className="bg-emerald-600 text-white text-xs px-4 py-1.5 rounded hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-1.5">
-            {saving ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />} Save Vitals
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ── ClinicalAlerts ────────────────────────────────────────────────────────────
-
-function ClinicalAlerts({ meds, allergies }) {
-  const alerts = []
-  const active = meds.filter(m => m.is_active !== false && !m.is_past)
-
-  allergies.forEach(al => {
-    const aWord = (al.display || '').toLowerCase().split(' ')[0]
-    if (!aWord) return
-    active.forEach(m => {
-      const mWord = (m.drug_name || m.medication_name || m.name || '').toLowerCase().split(' ')[0]
-      if (mWord && (mWord.includes(aWord) || aWord.includes(mWord))) {
-        alerts.push({
-          type: 'allergy', sev: al.severity,
-          msg: `${m.drug_name || m.name} — allergy to ${al.display} (${al.severity || 'unknown severity'})`,
-        })
-      }
-    })
-  })
-
-  const seen = {}
-  active.forEach(m => {
-    const w = (m.drug_name || m.medication_name || m.name || '').toLowerCase().split(' ')[0]
-    if (!w) return
-    if (seen[w]) alerts.push({ type: 'duplicate', sev: 'moderate', msg: `Possible duplicate order: ${w}` })
-    else seen[w] = true
-  })
-
-  if (alerts.length === 0) return null
-  return (
-    <div>
-      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-        <Bell size={11} className="text-red-400" /> Clinical Alerts
-        <span className="bg-red-100 text-red-600 text-xs px-1.5 py-0.5 rounded-full font-bold">{alerts.length}</span>
-      </p>
-      <div className="space-y-1">
-        {alerts.map((a, i) => {
-          const high = a.sev === 'life-threatening' || a.sev === 'severe'
-          return (
-            <div key={i} className={`text-xs px-3 py-1.5 rounded flex items-start gap-2 ${high ? 'bg-red-50 text-red-700 border border-red-100' : 'bg-amber-50 text-amber-700 border border-amber-100'}`}>
-              <AlertTriangle size={11} className="mt-0.5 flex-shrink-0" />
-              <span>{a.msg}</span>
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
 // ── PatientBanner ─────────────────────────────────────────────────────────────
 
-function PatientBanner({ admission, vitals, onBack, onAllergyOpen, onVitalsOpen }) {
+function PatientBanner({ admission, vitals, onBack, onAllergyOpen }) {
   if (!admission) return null
   const p = admission.patient || {}
-  const name    = p.full_name || admission.patient_name || 'Unknown'
-  const mrn     = p.mrn || admission.mrn || admission.uhid || '—'
-  const bhid    = p.bhid || p.bharatcliniq_id || admission.bhid || '—'
-  const dob     = p.date_of_birth || admission.date_of_birth
-  const age     = dob ? Math.floor((Date.now() - new Date(dob)) / 86400000 / 365.25) : null
-  const sex     = (p.gender || p.sex || '').toUpperCase().slice(0, 1) || '?'
-  const bg      = p.blood_group || admission.blood_group
-  const dept    = admission.department_name || ''
-  const ward    = admission.ward_name || '—'
-  const bed     = admission.bed_number || '—'
-  const ipNo    = admission.admission_number || admission.ip_number || `IP${admission.id}`
+  const name   = p.full_name || admission.patient_name || 'Unknown'
+  const mrn    = p.mrn || admission.mrn || admission.uhid || '—'
+  const bhid   = p.bhid || p.bharatcliniq_id || admission.bhid || '—'
+  const dob    = p.date_of_birth || admission.date_of_birth
+  const age    = dob ? Math.floor((Date.now() - new Date(dob)) / 86400000 / 365.25) : null
+  const sex    = (p.gender || p.sex || '').toUpperCase().slice(0, 1) || '?'
+  const bg     = p.blood_group || admission.blood_group
+  const dept   = admission.department_name || ''
+  const ward   = admission.ward_name || '—'
+  const bed    = admission.bed_number || '—'
+  const ipNo   = admission.admission_number || admission.ip_number || `IP${admission.id}`
   const admitted = admission.admitted_at || admission.admission_date
-  const days    = admitted ? Math.max(1, Math.floor((Date.now() - new Date(admitted)) / 86400000) + 1) : null
-  const doctor  = admission.attending_doctor?.full_name || admission.primary_doctor?.full_name
+  const days   = admitted ? Math.max(1, Math.floor((Date.now() - new Date(admitted)) / 86400000) + 1) : null
+  const doctor = admission.attending_doctor?.full_name || admission.primary_doctor?.full_name
     || admission.admitting_doctor_name || admission.doctor?.full_name || '—'
-  const diag    = admission.primary_diagnosis || admission.diagnosis || '—'
-  const lv      = vitals?.[0] || null
+  const diag   = admission.primary_diagnosis || admission.diagnosis || '—'
+  const lv     = vitals?.[0] || null
 
   const strip = [
-    { label: 'T',    key: 'temperature',      val: lv?.temperature != null      ? `${lv.temperature}°C`                         : null },
-    { label: 'BP',   key: 'bp_systolic',      val: lv?.bp_systolic != null      ? `${lv.bp_systolic}/${lv.bp_diastolic ?? '?'}` : null },
-    { label: 'P',    key: 'pulse',            val: lv?.pulse != null            ? `${lv.pulse}`                                 : null },
-    { label: 'SpO₂', key: 'spo2',            val: lv?.spo2 != null             ? `${lv.spo2}%`                                 : null },
-    { label: 'RR',   key: 'respiration_rate', val: lv?.respiration_rate != null ? `${lv.respiration_rate}`                      : null },
+    { label: 'T', key: 'temperature',      val: lv?.temperature != null      ? `${lv.temperature}°C`                              : null },
+    { label: 'BP',key: 'bp_systolic',      val: lv?.bp_systolic != null      ? `${lv.bp_systolic}/${lv.bp_diastolic ?? '?'}`      : null },
+    { label: 'P', key: 'pulse',            val: lv?.pulse != null            ? `${lv.pulse}`                                      : null },
+    { label: 'SpO₂',key:'spo2',           val: lv?.spo2 != null             ? `${lv.spo2}%`                                      : null },
+    { label: 'RR',key: 'respiration_rate', val: lv?.respiration_rate != null ? `${lv.respiration_rate}`                           : null },
   ].filter(v => v.val != null)
 
   return (
     <div className="flex-shrink-0 shadow-md" style={{ background: '#065F46' }}>
+      {/* Row 1 — identity */}
       <div className="flex items-center gap-2.5 px-3 pt-2.5 pb-1">
         <button onClick={onBack} className="text-white/70 hover:text-white flex-shrink-0">
           <ArrowLeft size={17} />
@@ -361,6 +206,7 @@ function PatientBanner({ admission, vitals, onBack, onAllergyOpen, onVitalsOpen 
           <Printer size={15} />
         </button>
       </div>
+      {/* Row 2 — location */}
       <div className="flex items-center gap-3 px-3 pb-1 pt-0.5 flex-wrap">
         <span className="text-xs text-emerald-100">{dept}{ward !== '—' ? ` · ${ward}` : ''}{bed !== '—' ? ` · Bed ${bed}` : ''}</span>
         <span className="text-xs text-white/30">·</span>
@@ -370,22 +216,19 @@ function PatientBanner({ admission, vitals, onBack, onAllergyOpen, onVitalsOpen 
         <span className="text-xs text-emerald-200 hidden sm:block">Dr. <span className="text-white font-medium">{doctor}</span></span>
         {diag !== '—' && <span className="text-xs text-emerald-100/60 truncate max-w-xs hidden md:block" title={diag}>· {diag}</span>}
       </div>
-      <div className="flex items-center gap-3 px-3 pb-2 pt-0.5">
-        <button
-          onClick={onVitalsOpen}
-          title="Record vitals"
-          className={`w-3 h-3 rounded-full flex-shrink-0 shadow-sm transition-transform hover:scale-125 ${FRESHNESS_DOT[vitalsFreshness(lv?.recorded_at)]}`}
-        />
-        {strip.map(v => (
-          <span key={v.key} className={`text-xs ${isAbnormal(v.key, v.key === 'bp_systolic' ? lv?.bp_systolic : parseFloat(v.val)) ? 'text-red-300 font-bold' : 'text-emerald-100'}`}>
-            <span className="text-white/40 mr-0.5">{v.label}:</span>{v.val}
-          </span>
-        ))}
-        {!strip.length && <span className="text-xs text-white/40">No vitals — click dot to record</span>}
-        {lv?.recorded_at && (
-          <span className="text-xs text-white/35 ml-auto">{timeAgo(lv.recorded_at)}</span>
-        )}
-      </div>
+      {/* Row 3 — vitals strip */}
+      {strip.length > 0 && (
+        <div className="flex items-center gap-4 px-3 pb-2 pt-0.5">
+          {strip.map(v => (
+            <span key={v.key} className={`text-xs ${isAbnormal(v.key, v.key === 'bp_systolic' ? lv?.bp_systolic : parseFloat(v.val)) ? 'text-red-300 font-bold' : 'text-emerald-100'}`}>
+              <span className="text-white/40 mr-0.5">{v.label}:</span>{v.val}
+            </span>
+          ))}
+          {lv?.recorded_at && (
+            <span className="text-xs text-white/35 ml-auto">{timeAgo(lv.recorded_at)}</span>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -393,11 +236,11 @@ function PatientBanner({ admission, vitals, onBack, onAllergyOpen, onVitalsOpen 
 // ── AllergyPanel ──────────────────────────────────────────────────────────────
 
 function AllergyPanel({ admissionId, onClose }) {
-  const [allergies, setAllergies]           = useState([])
-  const [loading, setLoading]               = useState(true)
-  const [saving, setSaving]                 = useState(false)
-  const [manualMode, setManualMode]         = useState(false)
-  const [manualName, setManualName]         = useState('')
+  const [allergies, setAllergies]       = useState([])
+  const [loading, setLoading]           = useState(true)
+  const [saving, setSaving]             = useState(false)
+  const [manualMode, setManualMode]     = useState(false)
+  const [manualName, setManualName]     = useState('')
   const [manualReaction, setManualReaction] = useState('')
   const [manualSeverity, setManualSeverity] = useState('moderate')
 
@@ -536,9 +379,9 @@ function ChartNav({ active, setActive }) {
   )
 }
 
-// ── Section: Patient Dashboard ────────────────────────────────────────────────
+// ── Section: Patient Dashboard ─────────────────────────────────────────────────
 
-function OverviewTab({ admission, vitals, meds, allergies, onVitalsOpen }) {
+function OverviewTab({ admission, vitals, meds }) {
   const p       = admission.patient || {}
   const lv      = vitals[0] || null
   const admitted = admission.admitted_at || admission.admission_date
@@ -566,89 +409,73 @@ function OverviewTab({ admission, vitals, meds, allergies, onVitalsOpen }) {
   ]
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto">
-      <div className="flex-shrink-0 flex items-center gap-6 px-4 py-2.5 bg-white border-b border-gray-100 flex-wrap">
+    <div className="p-4 space-y-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {kpis.map(k => (
-          <div key={k.label} className="flex items-baseline gap-1.5">
-            <span className={`text-lg font-bold ${k.warn ? 'text-red-600' : 'text-emerald-700'}`}>{k.value}</span>
-            <span className="text-xs text-gray-400">{k.label}</span>
+          <div key={k.label} className={`bg-white rounded-xl border p-4 ${k.warn ? 'border-red-200' : 'border-gray-200'}`}>
+            <div className={`text-2xl font-bold ${k.warn ? 'text-red-600' : 'text-emerald-700'}`}>{k.value}</div>
+            <div className="text-xs text-gray-500 mt-0.5">{k.label}</div>
           </div>
         ))}
-        {lv?.recorded_at && (
-          <span className="text-xs text-gray-300 ml-auto">Vitals {timeAgo(lv.recorded_at)}</span>
-        )}
       </div>
 
-      <div className="p-4 space-y-4">
-        <ClinicalAlerts meds={meds} allergies={allergies || []} />
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+        {vCards.map(v => {
+          const curr = lv?.[v.key]
+          const bad  = isAbnormal(v.key, curr)
+          const hist = vHistory(v.key)
+          return (
+            <div key={v.key} className={`bg-white rounded-xl border p-3 ${bad ? 'border-red-200' : 'border-gray-200'}`}>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs text-gray-500">{v.label}</span>
+                {bad && <AlertTriangle size={11} className="text-red-500" />}
+              </div>
+              <div className={`text-xl font-bold ${bad ? 'text-red-600' : 'text-emerald-700'}`}>
+                {curr != null ? `${curr}${v.unit}` : '—'}
+              </div>
+              {v.sec && lv?.[v.sec.key] != null && (
+                <div className="text-xs text-gray-400">{v.sec.label}: {lv[v.sec.key]}</div>
+              )}
+              <div className="mt-1"><Sparkline values={hist} color={bad ? '#dc2626' : '#065F46'} /></div>
+            </div>
+          )
+        })}
+      </div>
 
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <button onClick={onVitalsOpen} title="Record vitals"
-              className={`w-3 h-3 rounded-full flex-shrink-0 shadow-sm transition-transform hover:scale-125 ${FRESHNESS_DOT[vitalsFreshness(lv?.recorded_at)]}`} />
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Latest Vitals</p>
-            <button onClick={onVitalsOpen}
-              className="ml-auto text-xs text-emerald-600 hover:text-emerald-800 flex items-center gap-1">
-              <Plus size={11} /> Record
-            </button>
-          </div>
-          <div className="grid grid-cols-3 lg:grid-cols-6 gap-0 border border-gray-200 rounded-lg overflow-hidden bg-white">
-            {vCards.map((v, vi) => {
-              const curr = lv?.[v.key]
-              const bad  = isAbnormal(v.key, curr)
-              const hist = vHistory(v.key)
-              return (
-                <div key={v.key} className={`px-3 py-2 ${vi > 0 ? 'border-l border-gray-100' : ''} ${bad ? 'bg-red-50' : ''}`}>
-                  <div className="text-xs text-gray-400 mb-0.5">{v.label}</div>
-                  <div className={`text-base font-bold leading-tight ${bad ? 'text-red-600' : 'text-emerald-700'}`}>
-                    {curr != null ? `${curr}${v.unit}` : '—'}
-                  </div>
-                  {v.sec && lv?.[v.sec.key] != null && (
-                    <div className="text-xs text-gray-300">/{lv[v.sec.key]}</div>
-                  )}
-                  {bad && <AlertTriangle size={10} className="text-red-400 mt-0.5" />}
-                  <Sparkline values={hist} width={80} height={24} color={bad ? '#dc2626' : '#065F46'} />
-                </div>
-              )
-            })}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2"><User size={13} /> Patient Info</h3>
+          <div className="space-y-1">
+            {[
+              ['Name',      p.full_name || admission.patient_name || '—'],
+              ['Age / Sex', age ? `${age} yrs / ${(p.gender||'').toUpperCase().slice(0,1)||'?'}` : '—'],
+              ['Blood Group',p.blood_group || '—'],
+              ['Contact',   p.phone || p.contact_number || '—'],
+              ['Address',   p.address || '—'],
+            ].map(([l, v]) => (
+              <div key={l} className="flex gap-2 text-sm">
+                <span className="text-gray-400 w-24 flex-shrink-0 text-xs">{l}</span>
+                <span className="text-gray-700 font-medium text-xs truncate">{v}</span>
+              </div>
+            ))}
           </div>
         </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1"><User size={11} /> Patient</p>
-            <dl className="space-y-0.5">
-              {[
-                ['Name',       p.full_name || admission.patient_name || '—'],
-                ['Age / Sex',  age ? `${age} yrs / ${(p.gender||'').toUpperCase().slice(0,1)||'?'}` : '—'],
-                ['Blood Group',p.blood_group || '—'],
-                ['Contact',    p.phone || p.contact_number || '—'],
-                ['Address',    p.address || '—'],
-              ].map(([l, v]) => (
-                <div key={l} className="flex gap-2 py-0.5 border-b border-gray-50 last:border-0">
-                  <dt className="text-xs text-gray-400 w-24 flex-shrink-0">{l}</dt>
-                  <dd className="text-xs text-gray-700 font-medium truncate">{v}</dd>
-                </div>
-              ))}
-            </dl>
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1"><Calendar size={11} /> Admission</p>
-            <dl className="space-y-0.5">
-              {[
-                ['Admitted',   fmtDateTime(admission.admitted_at || admission.admission_date)],
-                ['Department', admission.department_name || '—'],
-                ['Ward / Bed', `${admission.ward_name || '—'} / Bed ${admission.bed_number || '—'}`],
-                ['IP Number',  admission.admission_number || admission.ip_number || '—'],
-                ['Diagnosis',  admission.primary_diagnosis || '—'],
-                ['Doctor',     admission.attending_doctor?.full_name || admission.admitting_doctor_name || '—'],
-              ].map(([l, v]) => (
-                <div key={l} className="flex gap-2 py-0.5 border-b border-gray-50 last:border-0">
-                  <dt className="text-xs text-gray-400 w-24 flex-shrink-0">{l}</dt>
-                  <dd className="text-xs text-gray-700 font-medium truncate">{v}</dd>
-                </div>
-              ))}
-            </dl>
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2"><Calendar size={13} /> Admission Info</h3>
+          <div className="space-y-1">
+            {[
+              ['Admitted',   fmtDateTime(admission.admitted_at || admission.admission_date)],
+              ['Department', admission.department_name || '—'],
+              ['Ward / Bed', `${admission.ward_name || '—'} / Bed ${admission.bed_number || '—'}`],
+              ['IP Number',  admission.admission_number || admission.ip_number || '—'],
+              ['Diagnosis',  admission.primary_diagnosis || '—'],
+              ['Doctor',     admission.attending_doctor?.full_name || admission.admitting_doctor_name || '—'],
+            ].map(([l, v]) => (
+              <div key={l} className="flex gap-2 text-sm">
+                <span className="text-gray-400 w-24 flex-shrink-0 text-xs">{l}</span>
+                <span className="text-gray-700 font-medium text-xs truncate">{v}</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -658,103 +485,15 @@ function OverviewTab({ admission, vitals, meds, allergies, onVitalsOpen }) {
 
 // ── Section: Provider View ────────────────────────────────────────────────────
 
-const FORM_FIELDS = {
-  pain:      [{ k:'location', l:'Pain Location' },{ k:'score', l:'Score (0–10)' },{ k:'character', l:'Character (sharp/dull/burning…)' },{ k:'duration', l:'Duration' },{ k:'aggravating', l:'Aggravating factors' },{ k:'relieving', l:'Relieving factors' }],
-  braden:    [{ k:'sensory', l:'Sensory perception (1–4)' },{ k:'moisture', l:'Moisture (1–4)' },{ k:'activity', l:'Activity (1–4)' },{ k:'mobility', l:'Mobility (1–4)' },{ k:'nutrition', l:'Nutrition (1–4)' },{ k:'friction', l:'Friction/Shear (1–3)' }],
-  morse:     [{ k:'history_falls', l:'Hx of falling — Yes(25)/No(0)' },{ k:'secondary_diag', l:'Secondary diagnosis — Yes(15)/No(0)' },{ k:'ambulatory_aid', l:'Ambulatory aid (0/15/30)' },{ k:'iv', l:'IV/Heparin lock — Yes(20)/No(0)' },{ k:'gait', l:'Gait (0/10/20)' },{ k:'mental_status', l:'Mental status (0/15)' }],
-  gcs:       [{ k:'eye', l:'Eye opening (1–4)' },{ k:'verbal', l:'Verbal response (1–5)' },{ k:'motor', l:'Motor response (1–6)' },{ k:'total', l:'GCS Total' },{ k:'interpretation', l:'Interpretation' }],
-  io:        [{ k:'oral_intake', l:'Oral intake (ml)' },{ k:'iv_intake', l:'IV fluids (ml)' },{ k:'urine_output', l:'Urine output (ml)' },{ k:'other_output', l:'Other output (ml)' },{ k:'balance', l:'Fluid balance (ml)' }],
-  wound:     [{ k:'location', l:'Wound location' },{ k:'size', l:'Size (cm × cm)' },{ k:'depth', l:'Depth' },{ k:'appearance', l:'Wound appearance' },{ k:'exudate', l:'Exudate type/amount' },{ k:'treatment', l:'Treatment applied' }],
-  restraint: [{ k:'reason', l:'Reason for restraint' },{ k:'type', l:'Type of restraint' },{ k:'circulation', l:'Circulation check' },{ k:'skin', l:'Skin integrity' },{ k:'behaviour', l:'Behaviour/response' }],
-  nutrition: [{ k:'weight', l:'Weight (kg)' },{ k:'bmi', l:'BMI' },{ k:'appetite', l:'Appetite' },{ k:'swallowing', l:'Swallowing status' },{ k:'diet_type', l:'Diet type' }],
-  discharge: [{ k:'mobility', l:'Mobility status' },{ k:'understanding', l:'Discharge instructions understood' },{ k:'followup', l:'Follow-up arranged' },{ k:'medications', l:'Medications explained' },{ k:'support', l:'Home support available' }],
-  consent:   [{ k:'procedure', l:'Procedure' },{ k:'risks_explained', l:'Risks explained' },{ k:'alternatives', l:'Alternatives discussed' },{ k:'questions', l:'Patient questions addressed' },{ k:'witness', l:'Witness name' }],
-  incident:  [{ k:'type', l:'Incident type' },{ k:'time', l:'Time of incident' },{ k:'description', l:'Description' },{ k:'injury', l:'Injury sustained' },{ k:'action', l:'Immediate action taken' }],
-  anesthesia:[{ k:'asa_class', l:'ASA classification' },{ k:'airway', l:'Airway assessment' },{ k:'npo_status', l:'NPO status' },{ k:'previous_anesthesia', l:'Previous anaesthesia issues' },{ k:'plan', l:'Anaesthesia plan' }],
-}
-
-function formatAssessmentNote(form, data) {
-  const fields = FORM_FIELDS[form.id] || []
-  const lines  = fields.map(f => `${f.l}: ${data[f.k] || '—'}`).join('\n')
-  return `${form.label}\n${'─'.repeat(form.label.length)}\n${lines}`
-}
-
-function buildWardRoundNote(admission, vitals, meds) {
-  const lv      = vitals?.[0] || null
-  const admitted = admission?.admitted_at || admission?.admission_date
-  const days    = admitted ? Math.max(1, Math.floor((Date.now() - new Date(admitted)) / 86400000) + 1) : '?'
-  const diag    = admission?.primary_diagnosis || admission?.diagnosis || '[diagnosis]'
-  const activeMeds = meds.filter(m => m.is_active !== false && !m.is_past)
-
-  const vLine = lv
-    ? `BP ${lv.bp_systolic ?? '?'}/${lv.bp_diastolic ?? '?'} mmHg · HR ${lv.pulse ?? '?'} bpm · Temp ${lv.temperature ?? '?'}°C · SpO₂ ${lv.spo2 ?? '?'}% · Pain ${lv.pain_score ?? '?'}/10`
-    : 'Vitals not recorded'
-
-  const medLines = activeMeds.length
-    ? activeMeds.map(m => {
-        const name  = m.drug_name || m.medication_name || m.name || 'Unknown'
-        const dose  = m.dose ? ` ${m.dose}${m.unit ? m.unit : ''}` : ''
-        const freq  = m.frequency || m.freq || ''
-        const route = m.route || ''
-        return `  • ${name}${dose} ${freq} ${route}`.trimEnd()
-      }).join('\n')
-    : '  (No active medications)'
-
-  return `Ward Round — ${todayLong()}
-
-Patient reviewed. No new complaints. ${diag}. Day ${days} of admission.
-
-Vitals: ${vLine}
-
-Active Medications (unchanged):
-${medLines}
-
-Assessment: Clinically stable.
-Plan: Continue current treatment. Review in 24 hours.`
-}
-
-function buildSOAPNote(admission, vitals) {
-  const lv      = vitals?.[0] || null
-  const admitted = admission?.admitted_at || admission?.admission_date
-  const days    = admitted ? Math.max(1, Math.floor((Date.now() - new Date(admitted)) / 86400000) + 1) : '?'
-  const diag    = admission?.primary_diagnosis || admission?.diagnosis || '[diagnosis]'
-
-  const sys  = lv?.bp_systolic ?? '?'
-  const dia  = lv?.bp_diastolic ?? '?'
-  const hr   = lv?.pulse ?? '?'
-  const temp = lv?.temperature ?? '?'
-  const spo2 = lv?.spo2 ?? '?'
-  const rr   = lv?.respiration_rate ?? '?'
-
-  return `S: Patient reports [symptoms]. [changes since last review].
-O: BP ${sys}/${dia}, HR ${hr}, Temp ${temp}°C, SpO₂ ${spo2}%, RR ${rr}
-   Examination: [findings].
-A: ${diag}. Day ${days} of admission. [stable/improving/deteriorating].
-P: [plan — medications, investigations, review].`
-}
-
-function ProviderView({ admission, notes, setNotes, meds, admissionId, vitals }) {
+function ProviderView({ admission, notes, setNotes, meds, admissionId }) {
   const { requestPin } = usePin()
-  const [text, setText]           = useState('')
-  const [noteType, setNoteType]   = useState('Progress Note')
-  const [saving, setSaving]       = useState(false)
-  const [collapsed, setCollapsed] = useState({})
+  const [text, setText]         = useState('')
+  const [noteType, setNoteType] = useState('Progress Note')
+  const [saving, setSaving]     = useState(false)
+  const [expanded, setExpanded] = useState(0)
   const textRef = useRef(null)
 
-  const [formSearch, setFormSearch]     = useState('')
-  const [catTab, setCatTab]             = useState('All')
-  const [selectedForm, setSelectedForm] = useState(null)
-  const [formData, setFormData]         = useState({})
-  const [formSaving, setFormSaving]     = useState(false)
-
   const NOTE_TYPES = ['Progress Note','SOAP Note','Nursing Note','Procedure Note','Discharge Summary']
-  const CAT_TABS   = ['All', ...Array.from(new Set(ASSESSMENT_FORMS.map(f => f.category)))]
-
-  const filteredForms = ASSESSMENT_FORMS.filter(f => {
-    const matchCat  = catTab === 'All' || f.category === catTab
-    const matchText = formSearch.length === 0 || f.label.toLowerCase().includes(formSearch.toLowerCase()) || f.category.toLowerCase().includes(formSearch.toLowerCase())
-    return matchCat && matchText
-  })
 
   const handleInput = e => {
     let val = e.target.value
@@ -779,201 +518,64 @@ function ProviderView({ admission, notes, setNotes, meds, admissionId, vitals })
   const continueSameRx = async () => {
     setSaving(true)
     try {
-      await requestPin('Continue same Rx — ward round note')
-      const content = buildWardRoundNote(admission, vitals, meds)
-      const r = await api.post(`/inpatient/admissions/${admissionId}/notes`, {
-        note_type: 'Progress Note', content,
-      }).catch(() => null)
-      setNotes(prev => [
-        r?.data || { id: Date.now(), note_type: 'Progress Note', content, created_at: new Date().toISOString() },
-        ...prev,
-      ])
+      await requestPin('Continue same Rx')
+      await api.post(`/inpatient/admissions/${admissionId}/notes`, {
+        note_type: 'Progress Note', content: 'Continue same Rx. Patient reviewed. No changes to current medications.',
+      })
+      setNotes(prev => [{
+        id: Date.now(), note_type: 'Progress Note',
+        content: 'Continue same Rx. Patient reviewed. No changes to current medications.',
+        created_at: new Date().toISOString(),
+      }, ...prev])
     } catch {}
     finally { setSaving(false) }
   }
 
-  const fillSOAP = () => {
-    setText(buildSOAPNote(admission, vitals))
-    setNoteType('SOAP Note')
-    setTimeout(() => textRef.current?.focus(), 50)
-  }
-
-  const submitForm = async () => {
-    if (!selectedForm) return
-    setFormSaving(true)
-    try {
-      await requestPin(`Sign ${selectedForm.label}`)
-      const content = formatAssessmentNote(selectedForm, formData)
-      const r = await api.post(`/inpatient/admissions/${admissionId}/notes`, {
-        note_type: selectedForm.label, content,
-      }).catch(() => null)
-      setNotes(prev => [
-        r?.data || { id: Date.now(), note_type: selectedForm.label, content, created_at: new Date().toISOString() },
-        ...prev,
-      ])
-      setSelectedForm(null)
-      setFormData({})
-      setFormSearch('')
-    } catch {}
-    finally { setFormSaving(false) }
-  }
-
-  const formFields = selectedForm ? (FORM_FIELDS[selectedForm.id] || []) : []
-
   return (
-    <div className="flex h-full overflow-hidden">
-      {/* Left: compose + timeline */}
-      <div className="flex flex-col flex-1 min-w-0 overflow-hidden border-r border-gray-100">
-        <div className="flex-shrink-0 border-b border-gray-200 bg-white">
-          <div className="flex items-center gap-2 px-3 pt-2.5 pb-1.5 flex-wrap border-b border-gray-100">
-            <select value={noteType} onChange={e => setNoteType(e.target.value)}
-              className="border border-gray-200 rounded px-2 py-0.5 text-xs text-gray-600 bg-gray-50 focus:outline-none focus:ring-1 focus:ring-emerald-400">
-              {NOTE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-            <span className="text-xs text-gray-300 hidden sm:block">.soap .shift .normal .pain .fall</span>
-            <div className="flex-1" />
-            <button
-              onClick={fillSOAP}
-              disabled={saving}
-              className="text-xs bg-blue-50 text-blue-600 border border-blue-200 px-2.5 py-1 rounded hover:bg-blue-100 disabled:opacity-40 flex items-center gap-1"
-              title="Pre-fill SOAP template with latest vitals"
-            >
-              <FileText size={11} /> SOAP Fill
-            </button>
-            <button
-              onClick={continueSameRx}
-              disabled={saving || !meds.length}
-              className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded hover:bg-emerald-100 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
-              title="Generate ward round note with current vitals and active medications"
-            >
-              <Stethoscope size={11} /> Continue Same Rx
-            </button>
-          </div>
-          <textarea ref={textRef} value={text} onChange={handleInput} rows={5}
-            placeholder="Write clinical note — SOAP, observation, or free text… (try .soap, .shift, .normal)"
-            className="w-full px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none resize-none placeholder-gray-300" />
-          <div className="flex items-center px-3 pb-2 gap-2">
-            <span className="text-xs text-gray-300 flex-1">{text.length > 0 ? `${text.length} chars` : ''}</span>
-            <button onClick={submit} disabled={!text.trim() || saving}
-              className="bg-emerald-600 text-white text-xs px-4 py-1.5 rounded hover:bg-emerald-700 disabled:opacity-40 flex items-center gap-1.5">
-              {saving ? <Loader2 size={12} className="animate-spin" /> : <PenLine size={12} />} Sign & Submit
-            </button>
-          </div>
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Compose */}
+      <div className="flex-shrink-0 p-3 border-b border-gray-100 bg-white">
+        <div className="flex items-center gap-2 mb-2 flex-wrap">
+          <select value={noteType} onChange={e => setNoteType(e.target.value)}
+            className="border border-gray-300 rounded px-2 py-1 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-emerald-400">
+            {NOTE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+          <span className="text-xs text-gray-400">Dot-phrases: .soap .shift .normal .pain .fall</span>
+          <div className="flex-1" />
+          <button onClick={continueSameRx} disabled={saving || !meds.length}
+            className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-lg hover:bg-emerald-100 disabled:opacity-50">
+            Continue Same Rx
+          </button>
         </div>
-        <div className="flex-1 overflow-y-auto">
-          {notes.length === 0 && <p className="text-sm text-gray-400 text-center py-10">No notes yet.</p>}
-          {notes.map((n, i) => {
-            const isCollapsed = collapsed[i]
-            return (
-              <div key={n.id || i} className="px-4 py-3 border-b border-gray-100 last:border-0">
-                <div className="flex items-center gap-1.5 mb-1">
-                  <span className="text-xs font-semibold text-emerald-700">{n.note_type}</span>
-                  <span className="text-xs text-gray-300">·</span>
-                  <span className="text-xs text-gray-400">{fmtDateTime(n.created_at)}</span>
-                  {n.author?.full_name && (
-                    <><span className="text-xs text-gray-300">·</span>
-                    <span className="text-xs text-gray-400">{n.author.full_name}</span></>
-                  )}
-                  <button onClick={() => setCollapsed(c => ({...c, [i]: !c[i]}))} className="ml-auto text-gray-300 hover:text-gray-500">
-                    {isCollapsed ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
-                  </button>
-                </div>
-                {!isCollapsed && (
-                  <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{n.content}</p>
-                )}
-              </div>
-            )
-          })}
+        <textarea ref={textRef} value={text} onChange={handleInput} rows={4}
+          placeholder="Write clinical note… (dot-phrases expand on type)"
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 resize-none" />
+        <div className="flex justify-end mt-1.5">
+          <button onClick={submit} disabled={!text.trim() || saving}
+            className="bg-emerald-600 text-white text-xs px-4 py-1.5 rounded-lg hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-1.5">
+            {saving ? <Loader2 size={12} className="animate-spin" /> : <PenLine size={12} />} Sign & Submit
+          </button>
         </div>
       </div>
-
-      {/* Right: assessment form panel */}
-      <div className="flex-shrink-0 flex flex-col overflow-hidden bg-white" style={{ width: 272 }}>
-        <div className="flex-shrink-0 px-3 pt-3 pb-0 border-b border-gray-100">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Assessment Forms</p>
-          <div className="relative mb-2">
-            <Search size={12} className="absolute left-2.5 top-2 text-gray-400" />
-            <input
-              value={formSearch}
-              onChange={e => { setFormSearch(e.target.value); setSelectedForm(null); setFormData({}) }}
-              placeholder="Search forms…"
-              className="w-full border border-gray-200 rounded-lg pl-7 pr-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
-            />
-          </div>
-          <div className="flex gap-1 overflow-x-auto pb-2 scrollbar-none" style={{ scrollbarWidth: 'none' }}>
-            {CAT_TABS.map(tab => (
-              <button
-                key={tab}
-                onClick={() => { setCatTab(tab); setSelectedForm(null); setFormData({}) }}
-                className="flex-shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold transition-colors"
-                style={catTab === tab
-                  ? { background: '#065F46', color: '#fff' }
-                  : { background: '#f3f4f6', color: '#6b7280' }}
-              >
-                {tab}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {selectedForm ? (
-          <div className="flex-1 overflow-y-auto flex flex-col">
-            <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2 border-b border-gray-100 bg-gray-50">
-              <button onClick={() => { setSelectedForm(null); setFormData({}) }} className="text-gray-400 hover:text-gray-600">
-                <ArrowLeft size={13} />
-              </button>
-              <span className="text-xs font-semibold text-gray-700 truncate">{selectedForm.label}</span>
-              <span className="text-xs text-gray-400 ml-auto flex-shrink-0">{selectedForm.category}</span>
-            </div>
-            <div className="flex-1 overflow-y-auto p-3 space-y-2">
-              {formFields.map(f => (
-                <div key={f.k}>
-                  <label className="text-xs text-gray-500 block mb-0.5">{f.l}</label>
-                  <input
-                    value={formData[f.k] || ''}
-                    onChange={e => setFormData(d => ({...d, [f.k]: e.target.value}))}
-                    className="w-full border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
-                  />
-                </div>
-              ))}
-              {formFields.length === 0 && (
-                <textarea
-                  value={formData['notes'] || ''}
-                  onChange={e => setFormData(d => ({...d, notes: e.target.value}))}
-                  rows={6}
-                  placeholder="Enter assessment findings…"
-                  className="w-full border border-gray-200 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400 resize-none"
-                />
-              )}
-            </div>
-            <div className="flex-shrink-0 px-3 py-2.5 border-t border-gray-100">
-              <button
-                onClick={submitForm}
-                disabled={formSaving}
-                className="w-full bg-emerald-600 text-white text-xs py-2 rounded-lg hover:bg-emerald-700 disabled:opacity-50 flex items-center justify-center gap-1.5"
-              >
-                {formSaving ? <Loader2 size={12} className="animate-spin" /> : <PenLine size={12} />}
-                Sign & Post to Timeline
+      {/* Notes timeline */}
+      <div className="flex-1 overflow-y-auto p-3 space-y-1">
+        {notes.length === 0 && <p className="text-sm text-gray-400 text-center py-8">No notes yet.</p>}
+        {notes.map((n, i) => (
+          <div key={n.id || i} className="border-l-2 border-emerald-200 pl-3 py-1.5">
+            <div className="flex items-center gap-2 mb-0.5">
+              <span className="text-xs font-medium text-emerald-700">{n.note_type}</span>
+              <span className="text-xs text-gray-400">{fmtDateTime(n.created_at)}</span>
+              {n.author?.full_name && <span className="text-xs text-gray-400">· {n.author.full_name}</span>}
+              <button onClick={() => setExpanded(expanded === i ? -1 : i)} className="ml-auto text-gray-400 hover:text-gray-600">
+                {expanded === i ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
               </button>
             </div>
+            {expanded === i
+              ? <pre className="text-xs text-gray-700 whitespace-pre-wrap font-sans leading-relaxed">{n.content}</pre>
+              : <p className="text-xs text-gray-600 line-clamp-2">{n.content}</p>
+            }
           </div>
-        ) : (
-          <div className="flex-1 overflow-y-auto p-1.5">
-            {filteredForms.map(f => (
-              <button
-                key={f.id}
-                onClick={() => { setSelectedForm(f); setFormData({}) }}
-                className="w-full text-left px-3 py-2 rounded-lg hover:bg-emerald-50 group transition-colors"
-              >
-                <span className="block text-xs font-medium text-gray-700 group-hover:text-emerald-700">{f.label}</span>
-                <span className="text-xs text-gray-400">{f.category}</span>
-              </button>
-            ))}
-            {filteredForms.length === 0 && (
-              <p className="text-xs text-gray-400 text-center py-6">No forms match "{formSearch}"</p>
-            )}
-          </div>
-        )}
+        ))}
       </div>
     </div>
   )
@@ -981,34 +583,13 @@ function ProviderView({ admission, notes, setNotes, meds, admissionId, vitals })
 
 // ── Section: MAR ──────────────────────────────────────────────────────────────
 
-function MARTab({ meds, admissionId }) {
-  const TODAY = new Date().toISOString().slice(0, 10)
-  const [marState, setMarState]   = useState({})
-  const [loadingMAR, setLoadingMAR] = useState(true)
+function MARTab({ meds }) {
+  const [marState, setMarState] = useState({})
 
-  const scheduled = meds.filter(m => !m.is_past && m.is_active !== false)
+  const scheduled = meds.filter(m => !m.is_past && !(!m.is_active))
   const allSlots  = [...new Set(scheduled.flatMap(m => FREQ_SLOTS[m.frequency || m.freq || 'OD'] || ['08:00']))].sort()
 
-  useEffect(() => {
-    api.get(`/inpatient/admissions/${admissionId}/mar`, { params: { date: TODAY } })
-      .then(r => {
-        const saved = {}
-        ;(r.data || []).forEach(rec => {
-          saved[`${rec.medication_index ?? rec.med_index}-${rec.time_slot}`] = rec.status
-        })
-        setMarState(saved)
-      })
-      .catch(() => {})
-      .finally(() => setLoadingMAR(false))
-  }, [admissionId, TODAY])
-
-  const toggle = (key, val, medIdx, slot) => {
-    const next = marState[key] === val ? null : val
-    setMarState(s => ({ ...s, [key]: next }))
-    api.post(`/inpatient/admissions/${admissionId}/mar`, {
-      date: TODAY, medication_index: medIdx, time_slot: slot, status: next,
-    }).catch(() => {})
-  }
+  const toggle = (key, val) => setMarState(s => ({ ...s, [key]: s[key] === val ? null : val }))
 
   if (scheduled.length === 0) return (
     <div className="flex items-center justify-center h-full text-gray-400">
@@ -1044,19 +625,16 @@ function MARTab({ meds, admissionId }) {
                   </td>
                   <td className="px-3 py-2 text-xs text-gray-500">{m.route || '—'}</td>
                   {allSlots.map(slot => {
-                    const isScheduled = slots.includes(slot)
+                    const scheduled = slots.includes(slot)
                     const key = `${mi}-${slot}`
                     const st  = marState[key]
-                    const now = new Date()
-                    const [sh, sm] = slot.split(':').map(Number)
-                    const slotPast = now.getHours() > sh || (now.getHours() === sh && now.getMinutes() > sm + 30)
-                    if (!isScheduled) return <td key={slot} className="px-2 py-2 text-center text-gray-100">·</td>
+                    if (!scheduled) return <td key={slot} className="px-2 py-2 text-center text-gray-100">·</td>
                     return (
-                      <td key={slot} className={`px-2 py-2 ${!st && slotPast ? 'bg-red-50/40' : ''}`}>
+                      <td key={slot} className="px-2 py-2">
                         <div className="flex flex-col gap-0.5 items-center">
-                          <button onClick={() => toggle(key, 'given', mi, slot)}
+                          <button onClick={() => toggle(key, 'given')}
                             className={`text-xs px-1.5 py-0.5 rounded transition-colors leading-none ${st === 'given' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-emerald-50 hover:text-emerald-700'}`}>G</button>
-                          <button onClick={() => toggle(key, 'held', mi, slot)}
+                          <button onClick={() => toggle(key, 'held')}
                             className={`text-xs px-1.5 py-0.5 rounded transition-colors leading-none ${st === 'held' ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-600'}`}>H</button>
                         </div>
                       </td>
@@ -1189,8 +767,8 @@ function MedicationChartSection({ admissionId, meds, setMeds }) {
 // ── Section: Orders / Investigations ─────────────────────────────────────────
 
 function OrdersInvestigationsSection({ admissionId }) {
-  const [orders, setOrders]     = useState([])
-  const [loading, setLoading]   = useState(true)
+  const [orders, setOrders]   = useState([])
+  const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState({})
   const [newOrder, setNewOrder] = useState('')
   const [orderType, setOrderType] = useState('Lab')
@@ -1262,32 +840,18 @@ function OrdersInvestigationsSection({ admissionId }) {
 // ── Section: Notes / Assessments ─────────────────────────────────────────────
 
 function NotesAssessmentsSection({ admissionId }) {
-  const { requestPin } = usePin()
-  const GKEY = `asmGroups_${admissionId}`
-  const [catFilter, setCatFilter]   = useState('Groups')
-  const [search, setSearch]         = useState('')
+  const { requestPin }  = usePin()
+  const [catFilter, setCatFilter] = useState('All')
+  const [search, setSearch]       = useState('')
   const [activeForm, setActiveForm] = useState(null)
   const [submissions, setSubmissions] = useState([])
-  const [groups, setGroups] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(GKEY)) || [
-      { name: 'Clinical', formIds: ['pain','braden','morse','io','wound'] },
-      { name: 'Safety',   formIds: ['gcs','restraint','incident'] },
-    ] } catch { return [] }
-  })
-  const [groupMgr, setGroupMgr]       = useState(false)
-  const [newGroupName, setNewGroupName] = useState('')
-  const [activeGroup, setActiveGroup]   = useState(groups[0]?.name || '')
+  const [savedGroups] = useState(['Clinical', 'Safety'])
 
-  const saveGroups = g => { setGroups(g); localStorage.setItem(GKEY, JSON.stringify(g)) }
-
-  const categories = ['Groups', 'All', ...new Set(ASSESSMENT_FORMS.map(f => f.category))]
-
-  const filtered = catFilter === 'Groups'
-    ? (groups.find(g => g.name === activeGroup)?.formIds || []).map(id => ASSESSMENT_FORMS.find(f => f.id === id)).filter(Boolean)
-    : ASSESSMENT_FORMS.filter(f =>
-        (catFilter === 'All' || f.category === catFilter) &&
-        (search === '' || f.label.toLowerCase().includes(search.toLowerCase()))
-      )
+  const categories = ['All', ...new Set(ASSESSMENT_FORMS.map(f => f.category))]
+  const filtered   = ASSESSMENT_FORMS.filter(f =>
+    (catFilter === 'All' || f.category === catFilter) &&
+    (search === '' || f.label.toLowerCase().includes(search.toLowerCase()))
+  )
 
   const handleSubmit = async formData => {
     try {
@@ -1300,107 +864,25 @@ function NotesAssessmentsSection({ admissionId }) {
     } catch {}
   }
 
-  const toggleFormInGroup = (groupName, formId) => {
-    const updated = groups.map(g => {
-      if (g.name !== groupName) return g
-      const has = g.formIds.includes(formId)
-      return { ...g, formIds: has ? g.formIds.filter(id => id !== formId) : [...g.formIds, formId] }
-    })
-    saveGroups(updated)
-  }
-
-  const addGroup = () => {
-    if (!newGroupName.trim()) return
-    const updated = [...groups, { name: newGroupName.trim(), formIds: [] }]
-    saveGroups(updated); setNewGroupName(''); setActiveGroup(newGroupName.trim())
-  }
-
-  const removeGroup = name => {
-    const updated = groups.filter(g => g.name !== name)
-    saveGroups(updated)
-    if (activeGroup === name) setActiveGroup(updated[0]?.name || '')
-  }
-
   return (
     <div className="flex h-full overflow-hidden">
-      <div className="w-64 flex-shrink-0 border-r border-gray-100 bg-white flex flex-col">
+      <div className="w-60 flex-shrink-0 border-r border-gray-100 bg-white flex flex-col">
         <div className="p-3 border-b border-gray-100 space-y-2">
-          <div className="flex items-center gap-1.5">
-            <div className="relative flex-1">
-              <Search size={12} className="absolute left-2.5 top-2 text-gray-400" />
-              <input value={search} onChange={e => { setSearch(e.target.value); if (e.target.value) setCatFilter('All') }}
-                placeholder="Search forms…"
-                className="w-full border border-gray-200 rounded-lg pl-7 pr-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400" />
-            </div>
-            <button onClick={() => setGroupMgr(g => !g)} title="Manage groups"
-              className={`p-1.5 rounded-lg border transition-colors ${groupMgr ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : 'border-gray-200 text-gray-400 hover:border-emerald-300'}`}>
-              <Settings size={13} />
-            </button>
+          <div className="relative">
+            <Search size={12} className="absolute left-2.5 top-2 text-gray-400" />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search forms…"
+              className="w-full border border-gray-200 rounded-lg pl-7 pr-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400" />
           </div>
           <div className="flex gap-1 flex-wrap">
             {categories.map(c => (
-              <button key={c} onClick={() => { setCatFilter(c); setSearch('') }}
+              <button key={c} onClick={() => setCatFilter(c)}
                 className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${catFilter === c ? 'bg-emerald-600 text-white border-emerald-600' : 'border-gray-200 text-gray-500 hover:border-emerald-300'}`}>
                 {c}
               </button>
             ))}
           </div>
-          {catFilter === 'Groups' && groups.length > 0 && (
-            <div className="flex gap-1 flex-wrap">
-              {groups.map(g => (
-                <button key={g.name} onClick={() => setActiveGroup(g.name)}
-                  className={`text-xs px-2 py-0.5 rounded-full flex items-center gap-1 transition-colors ${activeGroup === g.name ? 'bg-emerald-700 text-white' : 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'}`}>
-                  <Lock size={8} /> {g.name}
-                  <span className="opacity-60">({groups.find(x => x.name === g.name)?.formIds.length || 0})</span>
-                </button>
-              ))}
-            </div>
-          )}
         </div>
-
-        {groupMgr && (
-          <div className="border-b border-gray-100 p-3 bg-gray-50 space-y-2">
-            <p className="text-xs font-semibold text-gray-600">Manage Groups</p>
-            <div className="flex gap-1">
-              <input value={newGroupName} onChange={e => setNewGroupName(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && addGroup()}
-                placeholder="New group name…"
-                className="flex-1 border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400" />
-              <button onClick={addGroup} disabled={!newGroupName.trim()}
-                className="bg-emerald-600 text-white text-xs px-2 py-1 rounded hover:bg-emerald-700 disabled:opacity-50">Add</button>
-            </div>
-            {groups.map(g => (
-              <div key={g.name} className="flex items-center justify-between text-xs">
-                <span className="font-medium text-gray-700">{g.name} <span className="text-gray-400">({g.formIds.length} forms)</span></span>
-                <button onClick={() => removeGroup(g.name)} className="text-red-400 hover:text-red-600"><X size={11} /></button>
-              </div>
-            ))}
-            {catFilter === 'Groups' && activeGroup && (
-              <div>
-                <p className="text-xs text-gray-500 mb-1">Forms in "{activeGroup}":</p>
-                <div className="max-h-32 overflow-y-auto space-y-0.5">
-                  {ASSESSMENT_FORMS.map(f => {
-                    const inGroup = groups.find(g => g.name === activeGroup)?.formIds.includes(f.id)
-                    return (
-                      <button key={f.id} onClick={() => toggleFormInGroup(activeGroup, f.id)}
-                        className={`w-full text-left text-xs px-2 py-1 rounded flex items-center gap-2 ${inGroup ? 'bg-emerald-50 text-emerald-700' : 'text-gray-500 hover:bg-gray-100'}`}>
-                        {inGroup ? <CheckCircle2 size={11} /> : <Circle size={11} className="opacity-40" />}
-                        {f.label}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
         <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
-          {filtered.length === 0 && (
-            <p className="text-xs text-gray-400 text-center py-4">
-              {catFilter === 'Groups' ? 'No forms in this group. Use gear icon to add forms.' : 'No forms found.'}
-            </p>
-          )}
           {filtered.map(f => (
             <button key={f.id} onClick={() => setActiveForm(f)}
               className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${activeForm?.id === f.id ? 'bg-emerald-50 text-emerald-700 font-medium' : 'text-gray-700 hover:bg-gray-50'}`}>
@@ -1408,6 +890,16 @@ function NotesAssessmentsSection({ admissionId }) {
               <span className="text-xs text-gray-400">{f.category}</span>
             </button>
           ))}
+        </div>
+        <div className="p-3 border-t border-gray-100">
+          <p className="text-xs font-medium text-gray-500 mb-1.5">Quick Groups</p>
+          <div className="flex flex-wrap gap-1">
+            {savedGroups.map(g => (
+              <span key={g} className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                <Lock size={9} /> {g}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -1454,54 +946,36 @@ function NotesAssessmentsSection({ admissionId }) {
 
 // ── Section: Patient Flow Sheet ───────────────────────────────────────────────
 
-function PatientFlowSheetSection({ admission }) {
-  const [stages, setStages]         = useState(DEFAULT_FLOW_STAGES)
-  const [activeStage, setActiveStage] = useState(null)
-  const [adding, setAdding]         = useState(false)
-  const [newLabel, setNewLabel]     = useState('')
-  const [newType, setNewType]       = useState('Ward')
+function PatientFlowSheetSection() {
+  const [stages, setStages]       = useState(DEFAULT_FLOW_STAGES)
+  const [activeStage, setActive]  = useState(null)
+  const [newName, setNewName]     = useState('')
+  const [adding, setAdding]       = useState(false)
 
   const update = (id, field, val) =>
     setStages(ss => ss.map(s => s.id === id ? { ...s, [field]: val } : s))
 
-  const markArrived = (id, e) => {
-    e.stopPropagation()
-    const now = new Date().toISOString().slice(0, 16)
-    setStages(ss => ss.map(s => s.id === id ? { ...s, time: now } : s))
-  }
-
-  const removeStage = (id, e) => {
-    e.stopPropagation()
-    setStages(ss => ss.filter(s => s.id !== id))
-    if (activeStage === id) setActiveStage(null)
-  }
+  const arrive = id =>
+    setStages(ss => ss.map(s => s.id === id ? { ...s, time: new Date().toISOString() } : s))
 
   const addStage = () => {
-    if (!newLabel.trim()) return
+    if (!newName.trim()) return
     const id = `custom_${Date.now()}`
     setStages(ss => {
-      const lastIdx = ss.length - 1
-      return [
-        ...ss.slice(0, lastIdx),
-        { id, type: newType, label: newLabel.trim(), time: '', sendDoc: '', recvDoc: '', notes: '', hospital: '' },
-        ...ss.slice(lastIdx),
-      ]
+      const last = ss.length - 1
+      return [...ss.slice(0, last), { id, label: newName.trim(), time: null, sendDoc: '', recvDoc: '', notes: '' }, ...ss.slice(last)]
     })
-    setNewLabel(''); setNewType('Ward'); setAdding(false)
+    setNewName(''); setAdding(false)
   }
 
   const isDefault = id => DEFAULT_FLOW_STAGES.some(d => d.id === id)
+
   const sel = stages.find(s => s.id === activeStage)
 
-  const completedWithNotes = stages.filter(s => s.time && (s.notes || s.sendDoc || s.recvDoc || s.hospital))
-
   return (
-    <div className="p-4 space-y-5">
+    <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
-        <div>
-          <h2 className="font-semibold text-gray-700 text-sm">Patient Journey Flow</h2>
-          <p className="text-xs text-gray-400 mt-0.5">Track patient movement across care settings. Click a stage to edit details.</p>
-        </div>
+        <h2 className="font-semibold text-gray-700 text-sm">Patient Transfer Flow</h2>
         <button onClick={() => setAdding(true)}
           className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded-lg hover:bg-emerald-100 flex items-center gap-1">
           <Plus size={12} /> Add Stage
@@ -1509,184 +983,81 @@ function PatientFlowSheetSection({ admission }) {
       </div>
 
       {adding && (
-        <div className="bg-white rounded-xl border border-gray-200 p-3 flex flex-wrap gap-2 items-end">
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-gray-500">Location type</label>
-            <select value={newType} onChange={e => setNewType(e.target.value)}
-              className="border border-gray-300 rounded px-2 py-1.5 text-sm">
-              {FLOW_LOCATION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </div>
-          <div className="flex flex-col gap-1 flex-1 min-w-32">
-            <label className="text-xs text-gray-500">Location name</label>
-            <input value={newLabel} onChange={e => setNewLabel(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && addStage()}
-              placeholder="e.g. Ward A, Apollo Chennai…"
-              className="border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-400" />
-          </div>
-          <button onClick={addStage} disabled={!newLabel.trim()}
-            className="bg-emerald-600 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-emerald-700 disabled:opacity-50">Add</button>
-          <button onClick={() => { setAdding(false); setNewLabel('') }}
-            className="text-xs text-gray-500 px-2 py-1.5 rounded-lg hover:bg-gray-100">Cancel</button>
+        <div className="bg-white rounded-xl border border-gray-200 p-3 flex gap-2">
+          <input value={newName} onChange={e => setNewName(e.target.value)}
+            placeholder="Stage name (e.g. NICU, Radiology, Burns Ward)…"
+            className="flex-1 border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-400"
+            onKeyDown={e => e.key === 'Enter' && addStage()} />
+          <button onClick={addStage} className="bg-emerald-600 text-white text-xs px-3 py-1.5 rounded-lg">Add</button>
+          <button onClick={() => setAdding(false)} className="text-xs text-gray-500 px-2 py-1.5 rounded-lg hover:bg-gray-100">Cancel</button>
         </div>
       )}
 
-      {/* Horizontal timeline */}
+      {/* Flow chart */}
       <div className="overflow-x-auto pb-2">
         <div className="flex items-center gap-0 min-w-max">
-          {stages.map((s, i) => {
-            const hasDate = !!s.time
-            const isActive = activeStage === s.id
-            return (
-              <div key={s.id} className="flex items-center">
-                <div
-                  onClick={() => setActiveStage(isActive ? null : s.id)}
-                  className={`cursor-pointer flex flex-col items-center gap-1 w-28 px-2 py-2.5 rounded-xl border-2 transition-all select-none ${
-                    hasDate
-                      ? 'border-emerald-400 bg-emerald-50'
-                      : 'border-dashed border-gray-300 bg-white hover:border-emerald-300 hover:bg-emerald-50/30'
-                  } ${isActive ? 'ring-2 ring-emerald-300 ring-offset-1 shadow-md' : ''}`}
-                >
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold ${hasDate ? 'bg-emerald-500 text-white' : 'bg-gray-100 text-gray-400'}`}>
-                    {i + 1}
-                  </div>
-                  <span className="text-xs font-semibold text-gray-700 text-center leading-tight">{s.label}</span>
-                  {s.type !== s.label && (
-                    <span className="text-[10px] text-gray-400 text-center">{s.type}</span>
-                  )}
-                  {hasDate ? (
-                    <span className="text-[10px] text-emerald-600 font-medium flex items-center gap-0.5">
-                      <Clock size={9} /> {fmtTime(s.time)}
-                    </span>
-                  ) : (
-                    <button
-                      onClick={e => markArrived(s.id, e)}
-                      className="text-[10px] bg-emerald-600 text-white px-2 py-0.5 rounded hover:bg-emerald-700 mt-0.5 leading-tight"
-                    >
+          {stages.map((s, i) => (
+            <div key={s.id} className="flex items-center">
+              <div
+                onClick={() => setActive(activeStage === s.id ? null : s.id)}
+                className={`cursor-pointer flex flex-col items-center gap-1 w-28 p-2.5 rounded-xl border-2 transition-all ${
+                  s.time ? 'border-emerald-400 bg-emerald-50' : 'border-gray-200 bg-white hover:border-emerald-200'
+                } ${activeStage === s.id ? 'ring-2 ring-emerald-300 ring-offset-1' : ''}`}
+              >
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${s.time ? 'bg-emerald-500 text-white' : 'bg-gray-100 text-gray-400'}`}>
+                  {i + 1}
+                </div>
+                <span className="text-xs font-medium text-gray-700 text-center leading-tight">{s.label}</span>
+                {s.time
+                  ? <span className="text-xs text-emerald-600 font-medium">{fmtTime(s.time)}</span>
+                  : (
+                    <button onClick={e => { e.stopPropagation(); arrive(s.id) }}
+                      className="text-xs bg-emerald-600 text-white px-2 py-0.5 rounded hover:bg-emerald-700 mt-0.5">
                       Arrived
                     </button>
-                  )}
-                  {!isDefault(s.id) && (
-                    <button
-                      onClick={e => removeStage(s.id, e)}
-                      className="text-gray-300 hover:text-red-400 mt-0.5"
-                    >
-                      <X size={10} />
-                    </button>
-                  )}
-                </div>
-                {i < stages.length - 1 && (
-                  <div className="flex items-center px-0.5">
-                    <div className={`w-5 h-px ${stages[i].time && stages[i + 1].time ? 'bg-emerald-300' : 'bg-gray-200'}`} />
-                    <ArrowRight size={10} className={`-ml-px ${stages[i].time && stages[i + 1].time ? 'text-emerald-400' : 'text-gray-300'}`} />
-                  </div>
+                  )
+                }
+                {!isDefault(s.id) && (
+                  <button onClick={e => { e.stopPropagation(); setStages(ss => ss.filter(x => x.id !== s.id)) }}
+                    className="text-gray-300 hover:text-red-400 mt-0.5"><X size={10} /></button>
                 )}
               </div>
-            )
-          })}
-          {/* Add stage placeholder */}
-          <div className="flex items-center">
-            <div className="w-5 h-px bg-gray-200 mx-0.5" />
-            <button
-              onClick={() => setAdding(true)}
-              className="w-20 h-20 rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-1 text-gray-300 hover:border-emerald-300 hover:text-emerald-400 transition-colors"
-            >
-              <Plus size={16} />
-              <span className="text-[10px]">Add</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Inline edit panel for selected stage */}
-      {sel && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50 rounded-t-xl">
-            <div className="flex items-center gap-2">
-              <MapPin size={14} className="text-emerald-600" />
-              <span className="font-semibold text-gray-800 text-sm">{sel.label}</span>
-              <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">{sel.type}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              {sel.time && <span className="text-xs text-emerald-600 font-medium">Arrived: {fmtDateTime(sel.time)}</span>}
-              <button onClick={() => setActiveStage(null)} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
-            </div>
-          </div>
-          <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs text-gray-500 block mb-1">Location type</label>
-                <select value={sel.type} onChange={e => update(sel.id, 'type', e.target.value)}
-                  className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-400">
-                  {FLOW_LOCATION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="text-xs text-gray-500 block mb-1">Location name</label>
-                <input value={sel.label} onChange={e => update(sel.id, 'label', e.target.value)}
-                  placeholder="e.g. Ward A, Apollo Chennai, Home"
-                  className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-400" />
-              </div>
-              <div>
-                <label className="text-xs text-gray-500 block mb-1">Date / Time</label>
-                <input type="datetime-local" value={sel.time || ''}
-                  onChange={e => update(sel.id, 'time', e.target.value)}
-                  className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-400" />
-              </div>
-              {(sel.type === 'Branch Hospital' || sel.type === 'External Hospital') && (
-                <div>
-                  <label className="text-xs text-gray-500 block mb-1">Hospital name</label>
-                  <input value={sel.hospital || ''} onChange={e => update(sel.id, 'hospital', e.target.value)}
-                    placeholder="Hospital name…"
-                    className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-400" />
+              {i < stages.length - 1 && (
+                <div className="flex items-center px-0.5">
+                  <div className="w-5 h-px bg-gray-300" />
+                  <ArrowRight size={10} className="text-gray-300 -ml-px" />
                 </div>
               )}
             </div>
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs text-gray-500 block mb-1">Sending doctor</label>
-                <input value={sel.sendDoc} onChange={e => update(sel.id, 'sendDoc', e.target.value)}
-                  placeholder="Dr. Name"
-                  className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-400" />
-              </div>
-              <div>
-                <label className="text-xs text-gray-500 block mb-1">Receiving doctor</label>
-                <input value={sel.recvDoc} onChange={e => update(sel.id, 'recvDoc', e.target.value)}
-                  placeholder="Dr. Name"
-                  className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-400" />
-              </div>
-              <div>
-                <label className="text-xs text-gray-500 block mb-1">Notes / Plan</label>
-                <textarea value={sel.notes} onChange={e => update(sel.id, 'notes', e.target.value)}
-                  rows={3} placeholder="Key treatment, clinical summary, reason for transfer…"
-                  className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-400 resize-none" />
-              </div>
+          ))}
+        </div>
+      </div>
+
+      {sel && (
+        <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-gray-800 text-sm">{sel.label}</h3>
+            {sel.time && <span className="text-xs text-emerald-600 font-medium">Arrived: {fmtDateTime(sel.time)}</span>}
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Sending Doctor</label>
+              <input value={sel.sendDoc} onChange={e => update(sel.id, 'sendDoc', e.target.value)}
+                placeholder="Dr. Name"
+                className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-400" />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Receiving Doctor</label>
+              <input value={sel.recvDoc} onChange={e => update(sel.id, 'recvDoc', e.target.value)}
+                placeholder="Dr. Name"
+                className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-400" />
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Completed stage cards */}
-      {completedWithNotes.length > 0 && (
-        <div>
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Stage Notes</p>
-          <div className="space-y-2">
-            {completedWithNotes.map(s => (
-              <div key={s.id} className="bg-white rounded-lg border border-gray-200 px-4 py-3">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xs font-semibold text-emerald-700">{s.label}</span>
-                  <span className="text-xs text-gray-400">{s.type}</span>
-                  <span className="text-xs text-gray-300 ml-auto">{fmtDateTime(s.time)}</span>
-                </div>
-                {(s.sendDoc || s.recvDoc) && (
-                  <p className="text-xs text-gray-500 mb-1">
-                    {s.sendDoc ? `From: Dr. ${s.sendDoc}` : ''}{s.sendDoc && s.recvDoc ? ' → ' : ''}{s.recvDoc ? `To: Dr. ${s.recvDoc}` : ''}
-                  </p>
-                )}
-                {s.hospital && <p className="text-xs text-gray-500 mb-1">Hospital: {s.hospital}</p>}
-                {s.notes && <p className="text-xs text-gray-600 whitespace-pre-wrap">{s.notes}</p>}
-              </div>
-            ))}
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">Transfer Notes</label>
+            <textarea value={sel.notes} onChange={e => update(sel.id, 'notes', e.target.value)}
+              rows={2} placeholder="Clinical handover notes…"
+              className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-400 resize-none" />
           </div>
         </div>
       )}
@@ -1698,7 +1069,7 @@ function PatientFlowSheetSection({ admission }) {
 
 function PerioperativeSection({ admissionId }) {
   const { requestPin } = usePin()
-  const [tab, setTab]     = useState('preop')
+  const [tab, setTab]   = useState('preop')
   const [forms, setForms] = useState({ preop: {}, intraop: {}, postop: {} })
   const [saving, setSaving] = useState(false)
 
@@ -1782,39 +1153,35 @@ function PerioperativeSection({ admissionId }) {
 // ── Main: PatientChart ────────────────────────────────────────────────────────
 
 export default function PatientChart() {
-  const { admissionId } = useParams()
+  const { id } = useParams()
   const navigate = useNavigate()
-  const [admission, setAdmission]   = useState(null)
-  const [vitals, setVitals]         = useState([])
-  const [notes, setNotes]           = useState([])
-  const [meds, setMeds]             = useState([])
-  const [loading, setLoading]       = useState(true)
-  const [error, setError]           = useState(null)
-  const [section, setSection]       = useState('dashboard')
+  const [admission, setAdmission] = useState(null)
+  const [vitals, setVitals]       = useState([])
+  const [notes, setNotes]         = useState([])
+  const [meds, setMeds]           = useState([])
+  const [loading, setLoading]     = useState(true)
+  const [error, setError]         = useState(null)
+  const [section, setSection]     = useState('dashboard')
   const [showAllergy, setShowAllergy] = useState(false)
-  const [showVitals, setShowVitals]   = useState(false)
-  const [allergies, setAllergies]     = useState([])
 
   const load = useCallback(async () => {
     try {
-      const [admR, vitR, notR, medR, algR] = await Promise.all([
-        api.get(`/inpatient/admissions/${admissionId}`),
-        api.get(`/inpatient/admissions/${admissionId}/vitals`),
-        api.get(`/inpatient/admissions/${admissionId}/notes`),
-        api.get(`/inpatient/admissions/${admissionId}/medications`),
-        api.get(`/inpatient/admissions/${admissionId}/allergies`).catch(() => ({ data: [] })),
+      const [admR, vitR, notR, medR] = await Promise.all([
+        api.get(`/inpatient/admissions/${id}`),
+        api.get(`/inpatient/admissions/${id}/vitals`),
+        api.get(`/inpatient/admissions/${id}/notes`),
+        api.get(`/inpatient/admissions/${id}/medications`),
       ])
       setAdmission(admR.data)
       setVitals(vitR.data || [])
       setNotes(notR.data || [])
       setMeds(medR.data || [])
-      setAllergies(algR.data || [])
     } catch (e) {
       setError(e?.response?.data?.detail || 'Failed to load patient chart')
     } finally {
       setLoading(false)
     }
-  }, [admissionId])
+  }, [id])
 
   useEffect(() => { load() }, [load])
 
@@ -1839,14 +1206,14 @@ export default function PatientChart() {
 
   const renderSection = () => {
     switch (section) {
-      case 'dashboard':   return <OverviewTab admission={admission} vitals={vitals} meds={meds} allergies={allergies} onVitalsOpen={() => setShowVitals(true)} />
-      case 'provider':    return <ProviderView admission={admission} notes={notes} setNotes={setNotes} meds={meds} admissionId={admissionId} vitals={vitals} />
-      case 'mar':         return <MARTab meds={meds} admissionId={admissionId} />
-      case 'medications': return <MedicationChartSection admissionId={admissionId} meds={meds} setMeds={setMeds} />
-      case 'orders':      return <OrdersInvestigationsSection admissionId={admissionId} />
-      case 'notes':       return <NotesAssessmentsSection admissionId={admissionId} />
+      case 'dashboard':   return <OverviewTab admission={admission} vitals={vitals} meds={meds} />
+      case 'provider':    return <ProviderView admission={admission} notes={notes} setNotes={setNotes} meds={meds} admissionId={id} />
+      case 'mar':         return <MARTab meds={meds} />
+      case 'medications': return <MedicationChartSection admissionId={id} meds={meds} setMeds={setMeds} />
+      case 'orders':      return <OrdersInvestigationsSection admissionId={id} />
+      case 'notes':       return <NotesAssessmentsSection admissionId={id} />
       case 'flowsheet':   return <PatientFlowSheetSection admission={admission} />
-      case 'periop':      return <PerioperativeSection admissionId={admissionId} />
+      case 'periop':      return <PerioperativeSection admissionId={id} />
       default:            return null
     }
   }
@@ -1858,7 +1225,6 @@ export default function PatientChart() {
         vitals={vitals}
         onBack={() => navigate(-1)}
         onAllergyOpen={() => setShowAllergy(true)}
-        onVitalsOpen={() => setShowVitals(true)}
       />
       <div className="flex flex-1 min-h-0 overflow-hidden">
         <ChartNav active={section} setActive={setSection} />
@@ -1867,14 +1233,7 @@ export default function PatientChart() {
         </div>
       </div>
       {showAllergy && (
-        <AllergyPanel admissionId={admissionId} onClose={() => setShowAllergy(false)} />
-      )}
-      {showVitals && (
-        <VitalsModal
-          admissionId={admissionId}
-          onClose={() => setShowVitals(false)}
-          onSaved={v => { setVitals(prev => [v, ...prev]); setShowVitals(false) }}
-        />
+        <AllergyPanel admissionId={id} onClose={() => setShowAllergy(false)} />
       )}
     </div>
   )

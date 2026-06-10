@@ -6,11 +6,9 @@ import { PinProvider } from './contexts/PinContext'
 import { Loader2 } from 'lucide-react'
 
 const Login                  = lazy(() => import('./pages/Login'))
-const SetPasswordScreen      = lazy(() => import('./pages/SetPasswordScreen'))
 const PinSetup               = lazy(() => import('./pages/PinSetup'))
 const WardSetup              = lazy(() => import('./pages/WardSetup'))
 const Dashboard              = lazy(() => import('./pages/Dashboard'))
-const PatientList            = lazy(() => import('./pages/PatientList'))
 const WardBoard              = lazy(() => import('./pages/WardBoard'))
 const Vitals                 = lazy(() => import('./pages/Vitals'))
 const NursingNotes           = lazy(() => import('./pages/NursingNotes'))
@@ -34,18 +32,10 @@ function AppLoader() {
 }
 
 function AppRoutes() {
-  const { user, loading, refreshUser } = useAuth()
+  const { user, loading } = useAuth()
   const { setupComplete } = useWardSession()
 
   if (loading) return <AppLoader />
-
-  if (user?.force_reset) {
-    return (
-      <Suspense fallback={<AppLoader />}>
-        <SetPasswordScreen onDone={refreshUser} />
-      </Suspense>
-    )
-  }
 
   if (!user) {
     return (
@@ -68,7 +58,6 @@ function AppRoutes() {
 
         <Route element={setupComplete ? <Layout /> : <Navigate to="/ward-setup" replace />}>
           <Route index element={<Dashboard />} />
-          <Route path="patients" element={<PatientList />} />
           <Route path="ward-board" element={<WardBoard />} />
           <Route path="vitals" element={<Vitals />} />
           <Route path="notes" element={<NursingNotes />} />
