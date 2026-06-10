@@ -79,7 +79,7 @@ function BrandLogo({ compact }) {
           <span className="text-white">arath Health</span>
         </div>
         <div className="text-white font-semibold italic text-xs" style={{ letterSpacing: '0.02em' }}>
-          Systems
+          CareChart
         </div>
       </div>
     </div>
