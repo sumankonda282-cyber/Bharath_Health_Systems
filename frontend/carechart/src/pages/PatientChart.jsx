@@ -781,7 +781,7 @@ function ProviderView({ admission, notes, setNotes, meds, admissionId }) {
             </button>
           </div>
           <textarea ref={textRef} value={text} onChange={handleInput} rows={3}
-            placeholder="Write clinical note…"
+            placeholder="Write clinical note — SOAP, observation, or free text…"
             className="w-full px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none resize-none placeholder-gray-300" />
           <div className="flex items-center px-3 pb-2 gap-2">
             <span className="text-xs text-gray-300 flex-1">{text.length > 0 ? `${text.length} chars` : ''}</span>
