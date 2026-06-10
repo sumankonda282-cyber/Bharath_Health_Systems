@@ -301,6 +301,7 @@ class Appointment(Base):
     fee               = Column(Numeric(10, 2), nullable=True)
     online_booking_id  = Column(Integer, ForeignKey("online_bookings.id"), nullable=True)
     telehealth_joined_at = Column(DateTime, nullable=True)
+    telehealth_room      = Column(String(120), nullable=True)
     triage_complaint   = Column(Text, nullable=True)
     visit_type         = Column(String(20), default="fresh")  # fresh|followup|emergency
     created_at         = Column(DateTime, server_default=func.now())
