@@ -1,316 +1,125 @@
 import { useState } from 'react'
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
-  LayoutDashboard, BedDouble, Activity, ClipboardList, Pill,
-  Stethoscope, ArrowLeftRight, LogOut, Menu, X, Sun, Sunset, Moon,
-  FileText, ClipboardCheck, KeyRound, Settings, PackageOpen, LayoutTemplate, RefreshCw, HelpCircle
+  LayoutDashboard, Users, BedDouble, ArrowLeftRight,
+  PackageOpen, LayoutTemplate, RefreshCw, Menu, X
 } from 'lucide-react'
-import { useAuth } from '../contexts/AuthContext'
-import { useWardSession } from '../contexts/WardSessionContext'
+import TopRibbon from './TopRibbon'
 import ChatWidget from './ChatWidget'
 import HelpWidget from './HelpWidget'
-import logoImg from '../assets/logo.png'
 
-// ── Nav definitions ───────────────────────────────────────────────────────────
-
-const NURSE_NAV = [
-  { to: '/',             icon: LayoutDashboard, label: 'Dashboard',    end: true },
-  { to: '/ward-board',   icon: BedDouble,       label: 'Ward Board'             },
-  { to: '/vitals',       icon: Activity,        label: 'Vitals'                 },
-  { to: '/notes',        icon: ClipboardList,   label: 'Nursing Notes'          },
-  { to: '/mar',          icon: Pill,            label: 'MAR'                    },
-  { to: '/assessments',  icon: ClipboardCheck,  label: 'Assessments'            },
-  { to: '/handoff',      icon: ArrowLeftRight,  label: 'Shift Handoff'          },
-  { to: '/discharge',    icon: PackageOpen,     label: 'Discharge'              },
-  { to: '/templates',    icon: LayoutTemplate,  label: 'Templates'              },
+const NAV = [
+  { to: '/',           icon: LayoutDashboard, label: 'Dashboard',    end: true },
+  { to: '/patients',   icon: Users,           label: 'Patients'              },
+  { to: '/ward-board', icon: BedDouble,       label: 'Ward Board'            },
+  { to: '/handoff',    icon: ArrowLeftRight,  label: 'Shift Handoff'         },
+  { to: '/discharge',  icon: PackageOpen,     label: 'Discharge'             },
+  { to: '/templates',  icon: LayoutTemplate,  label: 'Asmt Forms'            },
 ]
-
-const PROVIDER_NAV = [
-  { to: '/',              icon: LayoutDashboard, label: 'Dashboard',    end: true },
-  { to: '/ward-board',    icon: BedDouble,       label: 'Ward Board'             },
-  { to: '/rounds',        icon: Stethoscope,     label: 'Ward Rounds'            },
-  { to: '/progress-notes',icon: FileText,        label: 'Progress Notes'         },
-  { to: '/orders',        icon: ClipboardList,   label: 'Orders'                 },
-  { to: '/assessments',   icon: ClipboardCheck,  label: 'Assessments'            },
-  { to: '/handoff',       icon: ArrowLeftRight,  label: 'Shift Handoff'          },
-  { to: '/discharge',     icon: PackageOpen,     label: 'Discharge'              },
-  { to: '/templates',     icon: LayoutTemplate,  label: 'Templates'              },
-]
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function getInitials(name) {
-  if (!name) return '?'
-  return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
-}
-
-function getShift() {
-  const h = new Date().getHours()
-  if (h >= 6 && h < 14)  return { label: 'Morning',   icon: Sun,    color: '#F5821E', range: '6am–2pm'   }
-  if (h >= 14 && h < 22) return { label: 'Afternoon',  icon: Sunset, color: '#d97706', range: '2pm–10pm'  }
-  return                         { label: 'Night',      icon: Moon,   color: '#6366f1', range: '10pm–6am'  }
-}
-
-function formatDate(d) {
-  return d.toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })
-}
-
-function formatRole(role) {
-  if (!role) return ''
-  return role.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
-}
-
-// ── Brand logo ────────────────────────────────────────────────────────────────
-
-function BrandLogo({ compact }) {
-  if (compact) {
-    return (
-      <div className="flex flex-col items-center gap-0.5">
-        <img src={logoImg} alt="BHarath Health Systems" style={{ height: 32, width: 'auto' }} />
-      </div>
-    )
-  }
-  return (
-    <div className="flex items-center gap-2">
-      <img src={logoImg} alt="BHarath Health Systems" style={{ height: 36, width: 'auto', flexShrink: 0 }} />
-      <div>
-        <div className="font-extrabold text-base leading-tight" style={{ letterSpacing: '-0.02em' }}>
-          <span style={{ color: '#CC1414' }}>BH</span>
-          <span className="text-white">arath Health</span>
-        </div>
-        <div className="text-white font-semibold italic text-xs" style={{ letterSpacing: '0.02em' }}>
-          CareChart
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ── Sidebar ───────────────────────────────────────────────────────────────────
-
-function Sidebar({ onClose, compact }) {
-  const { user, logout } = useAuth()
-  const { mode, department, ward } = useWardSession()
-  const navItems = mode === 'provider' ? PROVIDER_NAV : NURSE_NAV
-
-  return (
-    <aside
-      className={`${compact ? 'w-[60px]' : 'w-56'} flex flex-col h-full flex-shrink-0 transition-all duration-200`}
-      style={{ background: '#065F46' }}
-    >
-      {/* Brand header */}
-      <div className={`${compact ? 'px-2 py-4 justify-center' : 'px-4 py-4'} border-b border-white/10 flex items-center justify-between`}>
-        <BrandLogo compact={compact} />
-        {onClose && (
-          <button onClick={onClose} className="md:hidden text-white/60 hover:text-white ml-auto">
-            <X size={18} />
-          </button>
-        )}
-      </div>
-
-      {/* Ward info strip */}
-      {!compact && department && (
-        <div className="px-4 py-1.5 border-b border-white/10">
-          <div className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#6ee7b7' }}>
-            Ward Portal
-          </div>
-          <div className="text-xs mt-0.5" style={{ color: 'rgba(110,231,183,0.7)' }}>
-            {department.name}{ward ? ` · ${ward.name}` : ''}
-          </div>
-        </div>
-      )}
-
-      {/* Navigation */}
-      <nav className={`flex-1 ${compact ? 'px-1' : 'px-2'} py-3 overflow-y-auto`}>
-        {navItems.map(({ to, icon: Icon, label, end, disabled }) =>
-          disabled ? (
-            <div
-              key={to}
-              className={`flex items-center ${compact ? 'justify-center px-2' : 'gap-3 px-3'} py-2 rounded-lg text-sm mb-0.5 cursor-not-allowed`}
-              style={{ color: 'rgba(255,255,255,0.3)' }}
-              title={label}
-            >
-              <Icon size={16} className="flex-shrink-0" />
-              {!compact && <span>{label}</span>}
-              {!compact && (
-                <span className="ml-auto text-xs px-1.5 py-0.5 rounded" style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.3)' }}>
-                  Soon
-                </span>
-              )}
-            </div>
-          ) : (
-            <NavLink
-              key={to}
-              to={to}
-              end={end}
-              onClick={onClose}
-              title={compact ? label : undefined}
-              className={({ isActive }) =>
-                `flex items-center ${compact ? 'justify-center px-2' : 'gap-3 px-3'} py-2 rounded-lg text-sm mb-0.5 transition-colors
-                 ${isActive
-                   ? 'bg-white/15 text-white font-semibold'
-                   : 'text-white/70 hover:bg-white/10 hover:text-white'}`
-              }
-            >
-              <Icon size={16} className="flex-shrink-0" />
-              {!compact && <span>{label}</span>}
-            </NavLink>
-          )
-        )}
-      </nav>
-
-      {/* User footer */}
-      <div className={`${compact ? 'px-1' : 'px-2'} py-3 border-t border-white/10`}>
-        {!compact && (
-          <div className="flex items-center gap-2 px-2 mb-2">
-            <div
-              className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-              style={{ background: 'rgba(110,231,183,0.2)', color: '#6ee7b7' }}
-            >
-              {getInitials(user?.full_name || user?.email)}
-            </div>
-            <div className="min-w-0">
-              <div className="text-white text-xs font-semibold truncate">{user?.full_name || user?.email}</div>
-              <div className="text-xs truncate" style={{ color: '#6ee7b7' }}>{formatRole(user?.role)}</div>
-            </div>
-          </div>
-        )}
-        <button
-          onClick={logout}
-          title={compact ? 'Sign Out' : undefined}
-          className={`flex items-center ${compact ? 'justify-center px-2' : 'gap-2 px-3'} py-2 rounded-lg text-sm w-full text-white/60 hover:bg-white/10 hover:text-white transition-colors`}
-        >
-          <LogOut size={15} />
-          {!compact && <span>Sign Out</span>}
-        </button>
-      </div>
-    </aside>
-  )
-}
-
-// ── Layout ────────────────────────────────────────────────────────────────────
 
 export default function Layout() {
-  const { user, logout } = useAuth()
-  const { mode, switchMode, department, ward } = useWardSession()
-  const navigate = useNavigate()
-  const [open, setOpen] = useState(false)
-  const [refreshKey, setRefreshKey] = useState(0)
-  const [helpOpen, setHelpOpen]   = useState(false)
-  const shift = getShift()
-  const ShiftIcon = shift.icon
   const location = useLocation()
-  const isPatientChart = location.pathname.startsWith('/patient/')
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  // Collapse sidebar to icon-only when inside a patient chart
+  const inChart = location.pathname.startsWith('/patient/')
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50">
-      {/* Mobile overlay */}
-      {open && (
-        <div className="fixed inset-0 z-40 md:hidden" onClick={() => setOpen(false)}>
-          <div className="absolute inset-0 bg-black/50" />
-        </div>
-      )}
+    <div className="flex flex-col h-screen overflow-hidden bg-gray-50">
+      <TopRibbon onRefresh={() => setRefreshKey(k => k + 1)} />
 
-      {/* Mobile sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-50 md:hidden transition-transform duration-300 ${open ? 'translate-x-0' : '-translate-x-full'}`}>
-        <Sidebar onClose={() => setOpen(false)} />
-      </div>
-
-      {/* Desktop sidebar */}
-      <div className="hidden md:flex flex-shrink-0">
-        <Sidebar compact={isPatientChart} />
-      </div>
-
-      {/* Main content */}
-      <div className="flex flex-col flex-1 min-w-0 h-screen">
-        {/* Top bar */}
-        <header className="flex-shrink-0 bg-emerald-800 text-white px-4 py-2.5 flex items-center gap-3">
-          <div className="font-bold text-base tracking-tight">CareChart</div>
-          <div className="flex-1" />
-
-          {/* Shift indicator */}
-          <div className="hidden sm:flex items-center gap-1.5 text-xs font-medium" style={{ color: shift.color === '#F5821E' ? '#fbbf24' : shift.color === '#d97706' ? '#fcd34d' : '#a5b4fc' }}>
-            <ShiftIcon size={13} />
-            <span>{shift.label} ({shift.range})</span>
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+        {/* Mobile overlay */}
+        {mobileOpen && !inChart && (
+          <div className="fixed inset-0 z-40 md:hidden" onClick={() => setMobileOpen(false)}>
+            <div className="absolute inset-0 bg-black/50" />
           </div>
+        )}
 
-          <span className="hidden md:block text-emerald-200 text-xs">
-            {user?.full_name} · {formatRole(user?.role)}
-          </span>
+        {/* Desktop sidebar */}
+        <aside
+          className={`hidden md:flex flex-col flex-shrink-0 transition-all duration-200 overflow-hidden`}
+          style={{ width: inChart ? 48 : 220, background: '#065F46' }}>
+          <nav className="flex flex-col flex-1 py-2 gap-0.5">
+            {NAV.map(({ to, icon: Icon, label, end }) => (
+              <NavLink
+                key={to}
+                to={to}
+                end={end}
+                title={inChart ? label : undefined}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 mx-1.5 px-2 py-2 rounded-lg text-sm font-medium transition-colors
+                  ${isActive
+                    ? 'bg-white/15 text-white'
+                    : 'text-emerald-100/60 hover:bg-white/10 hover:text-white'}
+                  ${inChart ? 'justify-center' : ''}`
+                }>
+                <Icon size={18} className="flex-shrink-0" />
+                {!inChart && <span className="truncate">{label}</span>}
+              </NavLink>
+            ))}
+          </nav>
 
-          <button onClick={() => setHelpOpen(true)} className="p-1.5 hover:bg-emerald-700 rounded" title="Help & Support">
-            <HelpCircle size={14} />
-          </button>
-          <button onClick={() => navigate('/pin-setup')} className="p-1.5 hover:bg-emerald-700 rounded" title="PIN Setup">
-            <KeyRound size={14} />
-          </button>
-          <button onClick={() => navigate('/account')} className="p-1.5 hover:bg-emerald-700 rounded" title="Account">
-            <Settings size={14} />
-          </button>
-          <button onClick={logout} className="p-1.5 hover:bg-emerald-700 rounded" title="Sign Out">
-            <LogOut size={14} />
-          </button>
-        </header>
-
-        {/* Sub-bar: mode toggle + context — hidden on patient chart to save space */}
-        <div className={`flex-shrink-0 bg-white border-b border-gray-200 flex items-center justify-between px-4 py-2 gap-3 ${isPatientChart ? 'hidden' : ''}`}>
-          <div className="flex items-center gap-3 min-w-0">
-            <button onClick={() => setOpen(true)} className="md:hidden p-1.5 rounded text-gray-600 hover:bg-gray-100 flex-shrink-0">
-              <Menu size={20} />
-            </button>
-            {department ? (
-              <span className="hidden md:block text-xs text-gray-500 truncate">
-                {department.name}{ward ? ` · ${ward.name}` : ' · All Wards'}
-              </span>
-            ) : (
-              <span className="hidden md:block text-xs text-gray-400">{formatDate(new Date())}</span>
-            )}
-          </div>
-
-          {/* Mode toggle */}
-          <div className="flex items-center bg-gray-100 rounded-full p-0.5 gap-0.5 flex-shrink-0">
+          {!inChart && (
             <button
-              onClick={() => switchMode('nurse')}
-              className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${
-                mode === 'nurse' ? 'bg-emerald-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Nurse
+              onClick={() => setRefreshKey(k => k + 1)}
+              className="flex items-center gap-3 mx-1.5 mb-2 px-2 py-2 rounded-lg text-emerald-100/40 hover:text-white hover:bg-white/10 transition-colors text-sm">
+              <RefreshCw size={16} className="flex-shrink-0" />
+              <span>Refresh</span>
             </button>
-            <button
-              onClick={() => switchMode('provider')}
-              className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${
-                mode === 'provider' ? 'bg-emerald-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Provider
-            </button>
-          </div>
+          )}
+        </aside>
 
-          <div className="flex items-center gap-1">
-            <span className="text-xs text-gray-400 hidden sm:block">{formatDate(new Date())}</span>
-            <button onClick={() => setRefreshKey(k => k + 1)} className="p-1.5 rounded text-gray-400 hover:bg-gray-100 hover:text-gray-700" title="Refresh data">
-              <RefreshCw size={15} />
-            </button>
+        {/* Mobile sidebar (drawer) */}
+        {!inChart && (
+          <div className={`fixed inset-y-0 left-0 z-50 md:hidden transition-transform duration-200 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+            <aside className="h-full w-56 flex flex-col py-2 gap-0.5" style={{ background: '#065F46' }}>
+              <button onClick={() => setMobileOpen(false)}
+                className="flex items-center justify-end px-3 py-2 text-white/50 hover:text-white">
+                <X size={18} />
+              </button>
+              {NAV.map(({ to, icon: Icon, label, end }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  end={end}
+                  onClick={() => setMobileOpen(false)}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 mx-1.5 px-2 py-2 rounded-lg text-sm font-medium transition-colors
+                    ${isActive ? 'bg-white/15 text-white' : 'text-emerald-100/60 hover:bg-white/10 hover:text-white'}`
+                  }>
+                  <Icon size={18} />
+                  <span>{label}</span>
+                </NavLink>
+              ))}
+            </aside>
           </div>
-        </div>
+        )}
 
-        {/* Page content — overflow-hidden so each page controls its own scroll */}
-        <main className="flex-1 min-h-0 overflow-hidden">
-          {isPatientChart ? (
-            <div key={refreshKey} className="h-full overflow-hidden flex flex-col">
-              <Outlet />
-            </div>
-          ) : (
-            <div key={refreshKey} className="h-full overflow-y-auto p-4 md:p-6">
-              <Outlet />
+        {/* Main content */}
+        <main className="flex-1 overflow-y-auto">
+          {/* Mobile topbar (when not in chart) */}
+          {!inChart && (
+            <div className="flex items-center gap-3 px-4 py-2.5 border-b border-gray-200 bg-white sticky top-0 z-30 md:hidden">
+              <button onClick={() => setMobileOpen(v => !v)} className="text-gray-600 hover:bg-gray-100 p-1.5 rounded-lg">
+                <Menu size={20} />
+              </button>
+              <div className="flex-1" />
+              <button onClick={() => setRefreshKey(k => k + 1)} className="p-1.5 text-gray-400 hover:bg-gray-100 rounded-lg">
+                <RefreshCw size={16} />
+              </button>
             </div>
           )}
-        </main>
 
-        <ChatWidget />
-        <HelpWidget open={helpOpen} onClose={() => setHelpOpen(false)} />
+          <div key={refreshKey} className={inChart ? 'h-full flex flex-col' : 'p-4 md:p-6 max-w-screen-xl'}>
+            <Outlet />
+          </div>
+        </main>
       </div>
+
+      <ChatWidget />
+      <HelpWidget />
     </div>
   )
 }
