@@ -9,6 +9,7 @@ const Login                  = lazy(() => import('./pages/Login'))
 const PinSetup               = lazy(() => import('./pages/PinSetup'))
 const WardSetup              = lazy(() => import('./pages/WardSetup'))
 const Dashboard              = lazy(() => import('./pages/Dashboard'))
+const PatientList            = lazy(() => import('./pages/PatientList'))
 const WardBoard              = lazy(() => import('./pages/WardBoard'))
 const Vitals                 = lazy(() => import('./pages/Vitals'))
 const NursingNotes           = lazy(() => import('./pages/NursingNotes'))
@@ -58,6 +59,7 @@ function AppRoutes() {
 
         <Route element={setupComplete ? <Layout /> : <Navigate to="/ward-setup" replace />}>
           <Route index element={<Dashboard />} />
+          <Route path="patients" element={<PatientList />} />
           <Route path="ward-board" element={<WardBoard />} />
           <Route path="vitals" element={<Vitals />} />
           <Route path="notes" element={<NursingNotes />} />

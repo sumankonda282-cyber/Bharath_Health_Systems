@@ -87,6 +87,7 @@ const ASSESSMENT_FORMS = [
   { id: 'consent',   label: 'Informed Consent',             category: 'Medico-Legal'   },
   { id: 'incident',  label: 'Incident Report',              category: 'Safety'         },
   { id: 'anesthesia',label: 'Anesthesia Pre-Op',            category: 'Perioperative'  },
+  { id: 'transfer',  label: 'Patient Transfer Note',        category: 'Transfer'       },
 ]
 
 const DEFAULT_FLOW_STAGES = [
@@ -675,6 +676,17 @@ const FORM_FIELDS = {
   consent:   [{ k:'procedure', l:'Procedure' },{ k:'risks_explained', l:'Risks explained' },{ k:'alternatives', l:'Alternatives discussed' },{ k:'questions', l:'Patient questions addressed' },{ k:'witness', l:'Witness name' }],
   incident:  [{ k:'type', l:'Incident type' },{ k:'time', l:'Time of incident' },{ k:'description', l:'Description' },{ k:'injury', l:'Injury sustained' },{ k:'action', l:'Immediate action taken' }],
   anesthesia:[{ k:'asa_class', l:'ASA classification' },{ k:'airway', l:'Airway assessment' },{ k:'npo_status', l:'NPO status' },{ k:'previous_anesthesia', l:'Previous anaesthesia issues' },{ k:'plan', l:'Anaesthesia plan' }],
+  transfer:  [
+    { k: 'from_location',    l: 'Transferring From (Ward/Unit)' },
+    { k: 'to_location',      l: 'Transferring To (Ward/Unit/Hospital)' },
+    { k: 'transfer_type',    l: 'Transfer Type (Internal Ward / Branch Hospital / External Hospital / Home)' },
+    { k: 'reason',           l: 'Reason for Transfer' },
+    { k: 'clinical_status',  l: 'Clinical Status at Transfer' },
+    { k: 'active_issues',    l: 'Active Issues / Ongoing Treatment' },
+    { k: 'sending_doctor',   l: 'Sending Doctor' },
+    { k: 'receiving_doctor', l: 'Receiving Doctor / Hospital' },
+    { k: 'instructions',     l: 'Special Instructions / Handover Notes' },
+  ],
 }
 
 function formatAssessmentNote(form, data) {
@@ -683,7 +695,7 @@ function formatAssessmentNote(form, data) {
   return `${form.label}\n${'─'.repeat(form.label.length)}\n${lines}`
 }
 
-function ProviderView({ admission, notes, setNotes, meds, admissionId }) {
+function ProviderView({ admission, notes, setNotes, meds, vitals, admissionId, onTransferFormSigned }) {
   const { requestPin } = usePin()
   const [text, setText]           = useState('')
   const [noteType, setNoteType]   = useState('Progress Note')
@@ -732,7 +744,31 @@ function ProviderView({ admission, notes, setNotes, meds, admissionId }) {
     setSaving(true)
     try {
       await requestPin('Continue same Rx')
-      const content = 'Continue same Rx. Patient reviewed. No changes to current medications.'
+      const v = vitals?.[0]
+      const vitalLine = v
+        ? `BP ${v.systolic || '—'}/${v.diastolic || '—'} mmHg · HR ${v.heart_rate || '—'} bpm · Temp ${v.temperature || '—'}°C · SpO₂ ${v.spo2 || '—'}% · Pain ${v.pain_score ?? '—'}/10`
+        : 'Vitals not charted'
+      const activeMeds = (meds || []).filter(m => m.status === 'active' || !m.status)
+      const medLines = activeMeds.length
+        ? activeMeds.map(m => `  • ${m.drug_name || m.name} ${m.dose || ''} ${m.frequency || ''}`.trim()).join('\n')
+        : '  • (no active medications)'
+      const p = admission?.patient || {}
+      const content = [
+        `Ward Round — ${new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}`,
+        `Patient: ${p.full_name || admission?.patient_name || '—'} | MRN: ${p.mrn || p.uhid || '—'}`,
+        '',
+        `Subjective: Patient reviewed. No new complaints.`,
+        '',
+        `Objective:`,
+        `  Vitals: ${vitalLine}`,
+        '',
+        `Active Medications (unchanged):`,
+        medLines,
+        '',
+        `Assessment: Clinically stable. No change in condition.`,
+        '',
+        `Plan: Continue current treatment plan. No medication changes today.`,
+      ].join('\n')
       await api.post(`/inpatient/admissions/${admissionId}/notes`, { note_type: 'Progress Note', content })
       setNotes(prev => [{ id: Date.now(), note_type: 'Progress Note', content, created_at: new Date().toISOString() }, ...prev])
     } catch {}
@@ -752,6 +788,9 @@ function ProviderView({ admission, notes, setNotes, meds, admissionId }) {
         r?.data || { id: Date.now(), note_type: selectedForm.label, content, created_at: new Date().toISOString() },
         ...prev,
       ])
+      if (selectedForm.id === 'transfer' && typeof onTransferFormSigned === 'function') {
+        onTransferFormSigned({ ...formData })
+      }
       setSelectedForm(null)
       setFormData({})
       setFormSearch('')
@@ -1392,11 +1431,43 @@ function NotesAssessmentsSection({ admissionId }) {
 
 // ── Section: Patient Flow Sheet ───────────────────────────────────────────────
 
-function PatientFlowSheetSection() {
-  const [stages, setStages]       = useState(DEFAULT_FLOW_STAGES)
-  const [activeStage, setActive]  = useState(null)
-  const [newName, setNewName]     = useState('')
-  const [adding, setAdding]       = useState(false)
+function PatientFlowSheetSection({ pendingTransfer }) {
+  const [stages, setStages]             = useState(DEFAULT_FLOW_STAGES)
+  const [activeStage, setActive]        = useState(null)
+  const [newName, setNewName]           = useState('')
+  const [adding, setAdding]             = useState(false)
+  const [transferBanner, setTransferBanner] = useState(false)
+  const prevTransferRef                 = useRef(null)
+
+  // When a signed transfer form arrives, inject a new flow sheet stage
+  useEffect(() => {
+    if (!pendingTransfer) return
+    if (pendingTransfer === prevTransferRef.current) return
+    prevTransferRef.current = pendingTransfer
+
+    const toLabel = pendingTransfer.to_location || 'Transfer'
+    const id = `transfer_${Date.now()}`
+    setStages(ss => {
+      const last = ss.length - 1
+      const newStage = {
+        id,
+        label:         toLabel,
+        time:          new Date().toISOString(),
+        sendDoc:       pendingTransfer.sending_doctor   || '',
+        recvDoc:       pendingTransfer.receiving_doctor || '',
+        notes:         [
+          pendingTransfer.reason           ? `Reason: ${pendingTransfer.reason}`           : '',
+          pendingTransfer.clinical_status  ? `Status: ${pendingTransfer.clinical_status}`  : '',
+          pendingTransfer.active_issues    ? `Issues: ${pendingTransfer.active_issues}`    : '',
+          pendingTransfer.instructions     ? `Instructions: ${pendingTransfer.instructions}` : '',
+        ].filter(Boolean).join('\n'),
+        fromAssessment: true,
+        transferData:  pendingTransfer,
+      }
+      return [...ss.slice(0, last), newStage, ...ss.slice(last)]
+    })
+    setTransferBanner(true)
+  }, [pendingTransfer])
 
   const update = (id, field, val) =>
     setStages(ss => ss.map(s => s.id === id ? { ...s, [field]: val } : s))
@@ -1428,6 +1499,15 @@ function PatientFlowSheetSection() {
         </button>
       </div>
 
+      {/* Transfer-from-assessment banner */}
+      {transferBanner && (
+        <div className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-800 rounded-lg px-4 py-2.5">
+          <CheckCircle2 size={15} className="text-green-600 flex-shrink-0" />
+          <span className="text-sm font-medium flex-1">Transfer form signed. New flow sheet stage added.</span>
+          <button onClick={() => setTransferBanner(false)} className="text-green-500 hover:text-green-700"><X size={14} /></button>
+        </div>
+      )}
+
       {adding && (
         <div className="bg-white rounded-xl border border-gray-200 p-3 flex gap-2">
           <input value={newName} onChange={e => setNewName(e.target.value)}
@@ -1454,6 +1534,11 @@ function PatientFlowSheetSection() {
                   {i + 1}
                 </div>
                 <span className="text-xs font-medium text-gray-700 text-center leading-tight">{s.label}</span>
+                {s.fromAssessment && (
+                  <span className="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-semibold leading-tight">
+                    From Assessment
+                  </span>
+                )}
                 {s.time
                   ? <span className="text-xs text-emerald-600 font-medium">{fmtTime(s.time)}</span>
                   : (
@@ -1482,9 +1567,23 @@ function PatientFlowSheetSection() {
       {sel && (
         <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-gray-800 text-sm">{sel.label}</h3>
+            <h3 className="font-semibold text-gray-800 text-sm flex items-center gap-2">
+              {sel.label}
+              {sel.fromAssessment && (
+                <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">From Assessment</span>
+              )}
+            </h3>
             {sel.time && <span className="text-xs text-emerald-600 font-medium">Arrived: {fmtDateTime(sel.time)}</span>}
           </div>
+          {sel.fromAssessment && sel.transferData && (
+            <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-xs text-blue-700 space-y-0.5">
+              {sel.transferData.from_location   && <div><span className="font-medium">From:</span> {sel.transferData.from_location}</div>}
+              {sel.transferData.to_location     && <div><span className="font-medium">To:</span> {sel.transferData.to_location}</div>}
+              {sel.transferData.transfer_type   && <div><span className="font-medium">Type:</span> {sel.transferData.transfer_type}</div>}
+              {sel.transferData.clinical_status && <div><span className="font-medium">Clinical status:</span> {sel.transferData.clinical_status}</div>}
+              {sel.transferData.active_issues   && <div><span className="font-medium">Active issues:</span> {sel.transferData.active_issues}</div>}
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="text-xs text-gray-500 block mb-1">Sending Doctor</label>
@@ -1599,7 +1698,7 @@ function PerioperativeSection({ admissionId }) {
 // ── Main: PatientChart ────────────────────────────────────────────────────────
 
 export default function PatientChart() {
-  const { id } = useParams()
+  const { admissionId } = useParams()
   const navigate = useNavigate()
   const [admission, setAdmission] = useState(null)
   const [vitals, setVitals]       = useState([])
@@ -1608,18 +1707,19 @@ export default function PatientChart() {
   const [loading, setLoading]     = useState(true)
   const [error, setError]         = useState(null)
   const [section, setSection]     = useState('dashboard')
-  const [showAllergy, setShowAllergy] = useState(false)
-  const [showVitals, setShowVitals]   = useState(false)
-  const [allergies, setAllergies]     = useState([])
+  const [showAllergy, setShowAllergy]     = useState(false)
+  const [showVitals, setShowVitals]       = useState(false)
+  const [allergies, setAllergies]         = useState([])
+  const [pendingTransfer, setPendingTransfer] = useState(null)
 
   const load = useCallback(async () => {
     try {
       const [admR, vitR, notR, medR, algR] = await Promise.all([
-        api.get(`/inpatient/admissions/${id}`),
-        api.get(`/inpatient/admissions/${id}/vitals`),
-        api.get(`/inpatient/admissions/${id}/notes`),
-        api.get(`/inpatient/admissions/${id}/medications`),
-        api.get(`/inpatient/admissions/${id}/allergies`).catch(() => ({ data: [] })),
+        api.get(`/inpatient/admissions/${admissionId}`),
+        api.get(`/inpatient/admissions/${admissionId}/vitals`),
+        api.get(`/inpatient/admissions/${admissionId}/notes`),
+        api.get(`/inpatient/admissions/${admissionId}/medications`),
+        api.get(`/inpatient/admissions/${admissionId}/allergies`).catch(() => ({ data: [] })),
       ])
       setAdmission(admR.data)
       setVitals(vitR.data || [])
@@ -1631,7 +1731,7 @@ export default function PatientChart() {
     } finally {
       setLoading(false)
     }
-  }, [id])
+  }, [admissionId])
 
   useEffect(() => { load() }, [load])
 
@@ -1657,13 +1757,13 @@ export default function PatientChart() {
   const renderSection = () => {
     switch (section) {
       case 'dashboard':   return <OverviewTab admission={admission} vitals={vitals} meds={meds} allergies={allergies} onVitalsOpen={() => setShowVitals(true)} />
-      case 'provider':    return <ProviderView admission={admission} notes={notes} setNotes={setNotes} meds={meds} admissionId={id} />
-      case 'mar':         return <MARTab meds={meds} admissionId={id} />
-      case 'medications': return <MedicationChartSection admissionId={id} meds={meds} setMeds={setMeds} />
-      case 'orders':      return <OrdersInvestigationsSection admissionId={id} />
-      case 'notes':       return <NotesAssessmentsSection admissionId={id} />
-      case 'flowsheet':   return <PatientFlowSheetSection admission={admission} />
-      case 'periop':      return <PerioperativeSection admissionId={id} />
+      case 'provider':    return <ProviderView admission={admission} notes={notes} setNotes={setNotes} meds={meds} vitals={vitals} admissionId={admissionId} onTransferFormSigned={data => setPendingTransfer({ ...data, _ts: Date.now() })} />
+      case 'mar':         return <MARTab meds={meds} admissionId={admissionId} />
+      case 'medications': return <MedicationChartSection admissionId={admissionId} meds={meds} setMeds={setMeds} />
+      case 'orders':      return <OrdersInvestigationsSection admissionId={admissionId} />
+      case 'notes':       return <NotesAssessmentsSection admissionId={admissionId} />
+      case 'flowsheet':   return <PatientFlowSheetSection admission={admission} pendingTransfer={pendingTransfer} />
+      case 'periop':      return <PerioperativeSection admissionId={admissionId} />
       default:            return null
     }
   }
@@ -1684,11 +1784,11 @@ export default function PatientChart() {
         </div>
       </div>
       {showAllergy && (
-        <AllergyPanel admissionId={id} onClose={() => setShowAllergy(false)} />
+        <AllergyPanel admissionId={admissionId} onClose={() => setShowAllergy(false)} />
       )}
       {showVitals && (
         <VitalsModal
-          admissionId={id}
+          admissionId={admissionId}
           onClose={() => setShowVitals(false)}
           onSaved={v => { setVitals(prev => [v, ...prev]); setShowVitals(false) }}
         />
