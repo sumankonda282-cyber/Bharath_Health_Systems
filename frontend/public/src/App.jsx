@@ -7,6 +7,7 @@ import BookAppointment from './pages/BookAppointment'
 import BookingStatus from './pages/BookingStatus'
 import RegisterClinic from './pages/RegisterClinic'
 import TelehealthPage from './pages/Telehealth'
+import PreVisitForm from './pages/PreVisitForm'
 
 export default function App() {
   return (
@@ -21,6 +22,7 @@ export default function App() {
         <Route path="/booking/:code" element={<BookingStatus />} />
         <Route path="/register" element={<RegisterClinic />} />
         <Route path="/telehealth" element={<TelehealthPage />} />
+        <Route path="/previsit/:token" element={<PreVisitForm />} />
       </Routes>
     </BrowserRouter>
     </>
