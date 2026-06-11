@@ -17,6 +17,9 @@ class PlatformAdmin(Base):
     email           = Column(String(150), unique=True, nullable=False)
     hashed_password = Column(String(255), nullable=False)
     is_active       = Column(Boolean, default=True)
+    token_version   = Column(Integer, default=1)
+    otp_code        = Column(String(6), nullable=True)
+    otp_expiry      = Column(DateTime, nullable=True)
     created_at      = Column(DateTime, server_default=func.now())
 
 
@@ -49,9 +52,36 @@ class Clinic(Base):
     subscription_expires_at = Column(DateTime, nullable=True)
     subscription_expiry     = Column(DateTime, nullable=True)
     clinic_prefix           = Column(String(10), nullable=True)
-    patient_id_counter      = Column(Integer, default=0)
     drug_license_number     = Column(String(100), nullable=True)
     gstin                   = Column(String(20), nullable=True)
+    # Org type & capabilities
+    org_type                = Column(String(20), default="clinic")   # clinic|hospital|pharmacy|diagnostic
+    website                 = Column(String(300), nullable=True)
+    operating_hours         = Column(String(200), nullable=True)
+    reg_number              = Column(String(100), nullable=True)      # hospital registration number
+    accreditation           = Column(String(100), nullable=True)      # NABH, JCI, ISO etc.
+    # Module flags — set during registration, controls which portals are enabled
+    has_pharmacy            = Column(Boolean, default=False)
+    has_lab                 = Column(Boolean, default=False)
+    has_imaging             = Column(Boolean, default=False)
+    has_inpatient           = Column(Boolean, default=False)
+    has_emergency           = Column(Boolean, default=False)
+    has_blood_bank          = Column(Boolean, default=False)
+    has_ambulance           = Column(Boolean, default=False)
+    has_telehealth          = Column(Boolean, default=False)
+    wards_enabled           = Column(Boolean, default=False)
+    # Capacity
+    total_beds              = Column(Integer, default=0)
+    icu_beds                = Column(Integer, default=0)
+    ot_count                = Column(Integer, default=0)
+    # Diagnostic
+    nabl_accredited         = Column(Boolean, default=False)
+    nabl_number             = Column(String(100), nullable=True)
+    # Association — for hospital-attached pharmacies / diagnostics
+    parent_clinic_id        = Column(Integer, ForeignKey("clinics.id"), nullable=True)
+    # Counters
+    admission_sequence      = Column(Integer, default=0)
+    patient_id_counter      = Column(Integer, default=0)
     created_at              = Column(DateTime, server_default=func.now())
 
     branches        = relationship("Branch", back_populates="clinic", cascade="all, delete-orphan")
@@ -98,6 +128,12 @@ class Staff(Base):
     license_number       = Column(String(100), nullable=True)
     license_document_url = Column(String(500), nullable=True)
     avatar_url           = Column(String(500))
+    pin_hash             = Column(String(255), nullable=True)
+    pin_set_at           = Column(DateTime, nullable=True)
+    pin_reset_required   = Column(Boolean, default=False)
+    pin_failed_attempts  = Column(Integer, default=0)
+    pin_locked_until     = Column(DateTime, nullable=True)
+    has_inpatient_access = Column(Boolean, default=False)
     created_at           = Column(DateTime, server_default=func.now())
     updated_at           = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
@@ -124,10 +160,6 @@ class DoctorProfile(Base):
     telehealth_fee     = Column(Numeric(10, 2), nullable=True)
     telehealth_slots   = Column(JSON, nullable=True)
     input_mode         = Column(String(20), default='type')   # type | voice | handwriting
-    achievements       = Column(JSON, nullable=True)
-    working_hours      = Column(JSON, nullable=True)
-    is_online          = Column(Boolean, default=False)
-    qualifications_list = Column(JSON, nullable=True)  # list of qualification strings
     created_at         = Column(DateTime, server_default=func.now())
 
     staff        = relationship("Staff", back_populates="doctor_profile")
@@ -269,6 +301,7 @@ class Appointment(Base):
     fee               = Column(Numeric(10, 2), nullable=True)
     online_booking_id  = Column(Integer, ForeignKey("online_bookings.id"), nullable=True)
     telehealth_joined_at = Column(DateTime, nullable=True)
+    telehealth_room      = Column(String(120), nullable=True)
     triage_complaint   = Column(Text, nullable=True)
     visit_type         = Column(String(20), default="fresh")  # fresh|followup|emergency
     created_at         = Column(DateTime, server_default=func.now())
@@ -485,9 +518,11 @@ class Invoice(Base):
     total            = Column(Numeric(10, 2), default=0)
     amount_paid      = Column(Numeric(10, 2), default=0)
     payment_method   = Column(String(50), nullable=True)
-    notes            = Column(Text, nullable=True)
-    created_at       = Column(DateTime, server_default=func.now())
-    paid_at          = Column(DateTime, nullable=True)
+    notes                = Column(Text, nullable=True)
+    created_at           = Column(DateTime, server_default=func.now())
+    paid_at              = Column(DateTime, nullable=True)
+    razorpay_order_id    = Column(String(100), nullable=True, index=True)
+    razorpay_payment_id  = Column(String(100), nullable=True)
 
     patient     = relationship("Patient", back_populates="invoices")
     appointment = relationship("Appointment", back_populates="invoices")
@@ -1046,6 +1081,7 @@ class Admission(Base):
     discharged_at         = Column(DateTime, nullable=True)
     expected_discharge    = Column(Date, nullable=True)
     status                = Column(String(20), default='active')
+    chart_pin_hash        = Column(String, nullable=True)
     tpa_id                = Column(String(50), nullable=True)
     insurance_company     = Column(String(200), nullable=True)
     policy_number         = Column(String(100), nullable=True)
@@ -1312,158 +1348,336 @@ class InpatientBill(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
-# ---------------------------------------------------------------------------
-# Assessment Forms (PowerForms) — Smart Assessment Forms system
-# ---------------------------------------------------------------------------
-
-class AssessmentForm(Base):
-    """Master form template/schema — authored in admin portal."""
-    __tablename__ = "assessment_forms"
-    id              = Column(Integer, primary_key=True)
-    title           = Column(String(300), nullable=False)
-    description     = Column(Text)
-    category        = Column(String(50), default="general")  # vitals|pain|mental|safety|admission|discharge|surgery|custom|general
-    subcategory     = Column(String(100))
-    icon            = Column(String(50))                      # emoji or lucide icon name
-    schema          = Column(JSON, nullable=False, default=dict)  # full form JSON schema
-    scoring_config  = Column(JSON)                            # scoring bands, interpretation
-    iview_config    = Column(JSON)                            # flowsheet configuration
-    alert_rules     = Column(JSON)                            # critical value alert rules
-    translations    = Column(JSON)                            # {lang: {field_id: label}}
-    status          = Column(String(20), default="draft")     # draft|review|published|retired
-    version         = Column(Integer, default=1)
-    is_template     = Column(Boolean, default=False)          # system template vs custom
-    is_iview_enabled = Column(Boolean, default=False)
-    requires_cosign = Column(Boolean, default=False)
-    time_limit_minutes = Column(Integer)                      # null = no limit
-    created_by      = Column(Integer, ForeignKey("staff.id"), nullable=True)
-    created_by_admin = Column(Integer, ForeignKey("platform_admins.id"), nullable=True)
-    clinic_id       = Column(Integer, ForeignKey("clinics.id"), nullable=True)  # null = global
-    parent_form_id  = Column(Integer, ForeignKey("assessment_forms.id"), nullable=True)  # cloned from
-    published_at    = Column(DateTime)
-    retired_at      = Column(DateTime)
-    created_at      = Column(DateTime, default=datetime.utcnow)
-    updated_at      = Column(DateTime, default=datetime.utcnow)
+class DocumentationSession(Base):
+    """A 'sign & close' marker that groups all entries above it under one clinician block."""
+    __tablename__ = "documentation_sessions"
+    id            = Column(Integer, primary_key=True, index=True)
+    clinic_id     = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    admission_id  = Column(Integer, ForeignKey("admissions.id"), nullable=False)
+    signed_by     = Column(Integer, ForeignKey("staff.id"), nullable=False)
+    signed_at     = Column(DateTime, default=datetime.utcnow)
+    shift         = Column(String(20))   # morning | afternoon | night
+    note          = Column(Text)         # optional closing remark
 
 
-class AssessmentFormVersion(Base):
-    """Snapshot of form schema at each publish — submissions reference version."""
-    __tablename__ = "assessment_form_versions"
-    id          = Column(Integer, primary_key=True)
-    form_id     = Column(Integer, ForeignKey("assessment_forms.id"), nullable=False)
-    version     = Column(Integer, nullable=False)
-    schema      = Column(JSON, nullable=False)
-    scoring_config = Column(JSON)
-    published_by = Column(Integer, ForeignKey("platform_admins.id"))
-    published_at = Column(DateTime, default=datetime.utcnow)
+class AssessmentTemplate(Base):
+    """Superadmin or clinic-admin defined assessment form templates."""
+    __tablename__ = "assessment_templates"
+    id           = Column(Integer, primary_key=True, index=True)
+    name         = Column(String(200), nullable=False)
+    specialty    = Column(String(100), nullable=False)
+    description  = Column(Text)
+    # fields: list of {key, label, type, options, required, unit}
+    fields       = Column(JSON, nullable=False, default=list)
+    scope        = Column(String(20), default='platform')  # platform | clinic
+    clinic_id    = Column(Integer, ForeignKey("clinics.id"), nullable=True)
+    is_active    = Column(Boolean, default=True)
+    created_by_admin  = Column(Integer, ForeignKey("platform_admins.id"), nullable=True)
+    created_by_staff  = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    created_at   = Column(DateTime, default=datetime.utcnow)
+    updated_at   = Column(DateTime, default=datetime.utcnow)
 
 
-class FormPool(Base):
-    """Published forms available for clinic assignment."""
-    __tablename__ = "form_pool"
-    id          = Column(Integer, primary_key=True)
-    form_id     = Column(Integer, ForeignKey("assessment_forms.id"), nullable=False)
-    clinic_id   = Column(Integer, ForeignKey("clinics.id"), nullable=True)  # null = all clinics
-    assigned_by = Column(Integer, ForeignKey("platform_admins.id"))
-    assigned_at = Column(DateTime, default=datetime.utcnow)
-    is_active   = Column(Boolean, default=True)
-    __table_args__ = (UniqueConstraint("form_id", "clinic_id", name="uq_pool_form_clinic"),)
+class TemplateAssignment(Base):
+    """Maps an assessment template to clinics / departments (multi-select)."""
+    __tablename__ = "template_assignments"
+    id            = Column(Integer, primary_key=True, index=True)
+    template_id   = Column(Integer, ForeignKey("assessment_templates.id"), nullable=False)
+    # scope: all=visible everywhere, clinic=specific clinic, department=specific dept
+    scope         = Column(String(20), nullable=False)  # all | clinic | department
+    clinic_id     = Column(Integer, ForeignKey("clinics.id"), nullable=True)
+    department_id = Column(Integer, ForeignKey("departments.id"), nullable=True)
+    assigned_by   = Column(Integer, ForeignKey("platform_admins.id"), nullable=True)
+    assigned_at   = Column(DateTime, default=datetime.utcnow)
 
 
-class FormAssignment(Base):
-    """A form assigned to a specific patient encounter or admission."""
-    __tablename__ = "form_assignments"
-    id              = Column(Integer, primary_key=True)
-    form_id         = Column(Integer, ForeignKey("assessment_forms.id"), nullable=False)
-    form_version    = Column(Integer, nullable=False)
+class PasswordResetRequest(Base):
+    __tablename__ = "password_reset_requests"
+    id           = Column(Integer, primary_key=True, index=True)
+    staff_id     = Column(Integer, ForeignKey("staff.id"), nullable=False)
+    clinic_id    = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    status       = Column(String(20), default="pending")  # pending | resolved | expired
+    requested_at = Column(DateTime, default=datetime.utcnow)
+    resolved_at  = Column(DateTime, nullable=True)
+    resolved_by  = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    note         = Column(Text, nullable=True)
+
+
+# ── Pharmacy Dispensing Workflow (GoFrugal-parity) ────────────────────────────
+
+class PharmacyOrder(Base):
+    """Unified order from any source: online Rx upload, walk-in, or CPOE."""
+    __tablename__ = "pharmacy_orders"
+    id                     = Column(Integer, primary_key=True, index=True)
+    clinic_id              = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    branch_id              = Column(Integer, ForeignKey("branches.id"), nullable=True)
+    patient_id             = Column(Integer, ForeignKey("patients.id"), nullable=True)
+    source                 = Column(String(20), nullable=False)   # online | walkin | cpoe
+    status                 = Column(String(30), default="pending_fill")
+    # pending_fill | filling | ready | dispensed | cancelled
+    prescription_image_url = Column(String(500), nullable=True)   # for online orders
+    prescription_id        = Column(Integer, ForeignKey("prescriptions.id"), nullable=True)
+    patient_name           = Column(String(200), nullable=True)   # walk-in without patient record
+    patient_mobile         = Column(String(20), nullable=True)
+    notes                  = Column(Text, nullable=True)
+    created_by             = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    created_at             = Column(DateTime, server_default=func.now())
+    updated_at             = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    patient           = relationship("Patient",      foreign_keys=[patient_id])
+    prescription      = relationship("Prescription", foreign_keys=[prescription_id])
+    dispense_sessions = relationship("DispenseSession", back_populates="order")
+
+
+class DispenseSession(Base):
+    """One dispensing event — patient picks up medications at counter."""
+    __tablename__ = "dispense_sessions"
+    id              = Column(Integer, primary_key=True, index=True)
     clinic_id       = Column(Integer, ForeignKey("clinics.id"), nullable=False)
-    patient_id      = Column(Integer, ForeignKey("patients.id"), nullable=False)
-    appointment_id  = Column(Integer, ForeignKey("appointments.id"), nullable=True)
-    admission_id    = Column(Integer, ForeignKey("admissions.id"), nullable=True)
-    assigned_by     = Column(Integer, ForeignKey("staff.id"), nullable=False)
-    assigned_to_role = Column(String(30))                     # nurse|doctor|patient|any
-    due_at          = Column(DateTime)
-    status          = Column(String(20), default="pending")   # pending|in_progress|completed|overdue|cancelled
-    priority        = Column(String(10), default="routine")   # stat|urgent|routine
-    notes           = Column(Text)
-    assigned_at     = Column(DateTime, default=datetime.utcnow)
-    completed_at    = Column(DateTime)
+    branch_id       = Column(Integer, ForeignKey("branches.id"), nullable=True)
+    order_id        = Column(Integer, ForeignKey("pharmacy_orders.id"), nullable=True)
+    patient_id      = Column(Integer, ForeignKey("patients.id"), nullable=True)
+    dispense_number = Column(Integer, nullable=False)   # auto per-patient: 1, 2, 3…
+    status          = Column(String(20), default="draft")  # draft | dispensed | paid | credit
+    subtotal        = Column(Numeric(10, 2), default=0)
+    gst_total       = Column(Numeric(10, 2), default=0)
+    total_amount    = Column(Numeric(10, 2), default=0)
+    amount_paid     = Column(Numeric(10, 2), default=0)
+    balance_due     = Column(Numeric(10, 2), default=0)
+    payment_method  = Column(String(50), nullable=True)   # cash | card | upi | credit
+    dispensed_by    = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    dispensed_at    = Column(DateTime, nullable=True)
+    invoice_id      = Column(Integer, ForeignKey("invoices.id"), nullable=True)
+    patient_name    = Column(String(200), nullable=True)  # for walk-in
+    patient_mobile  = Column(String(20), nullable=True)
+    notes           = Column(Text, nullable=True)
+    created_at      = Column(DateTime, server_default=func.now())
+
+    order   = relationship("PharmacyOrder", back_populates="dispense_sessions")
+    patient = relationship("Patient", foreign_keys=[patient_id])
+    items   = relationship("DispenseItem", back_populates="session", cascade="all, delete-orphan")
 
 
-class FormSubmission(Base):
-    """Completed form data."""
-    __tablename__ = "form_submissions"
-    id              = Column(Integer, primary_key=True)
-    form_id         = Column(Integer, ForeignKey("assessment_forms.id"), nullable=False)
-    form_version    = Column(Integer, nullable=False)
-    assignment_id   = Column(Integer, ForeignKey("form_assignments.id"), nullable=True)
+class DispenseItem(Base):
+    """One medicine line in a dispense session."""
+    __tablename__ = "dispense_items"
+    id            = Column(Integer, primary_key=True, index=True)
+    session_id    = Column(Integer, ForeignKey("dispense_sessions.id"), nullable=False)
+    medicine_id   = Column(Integer, ForeignKey("medicines.id"), nullable=True)
+    medicine_name = Column(String(200), nullable=False)
+    batch_number  = Column(String(50), nullable=True)
+    expiry_date   = Column(Date, nullable=True)
+    ordered_qty   = Column(Integer, default=0)
+    dispensed_qty = Column(Integer, default=0)
+    unit_price    = Column(Numeric(10, 2), default=0)
+    mrp           = Column(Numeric(10, 2), nullable=True)
+    gst_percent   = Column(Numeric(5, 2), default=0)
+    gst_amount    = Column(Numeric(10, 2), default=0)
+    line_total    = Column(Numeric(10, 2), default=0)
+    is_schedule_h = Column(Boolean, default=False)
+    gathered      = Column(Boolean, default=False)  # checklist: physically picked
+
+    session  = relationship("DispenseSession", back_populates="items")
+    medicine = relationship("Medicine", foreign_keys=[medicine_id])
+
+
+# ── Maintenance Requests ──────────────────────────────────────────────────────
+
+class MaintenanceRequest(Base):
+    """Hospital maintenance & facility requests submitted from any portal."""
+    __tablename__ = "maintenance_requests"
+    id            = Column(Integer, primary_key=True, index=True)
+    clinic_id     = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    title         = Column(String(300), nullable=False)
+    description   = Column(Text, nullable=True)
+    category      = Column(String(50),  nullable=False, default="facility")
+    # facility | equipment | it_software | other
+    priority      = Column(String(20),  nullable=False, default="medium")
+    # urgent | high | medium | low
+    status        = Column(String(30),  nullable=False, default="new")
+    # new | in_progress | resolved | closed
+    location      = Column(String(200), nullable=True)
+    portal_source = Column(String(50),  nullable=True)
+    submitted_by  = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    assigned_to   = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    notes         = Column(Text, nullable=True)
+    resolved_at   = Column(DateTime, nullable=True)
+    created_at    = Column(DateTime, server_default=func.now())
+    updated_at    = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    submitter = relationship("Staff", foreign_keys=[submitted_by])
+    assignee  = relationship("Staff", foreign_keys=[assigned_to])
+    clinic    = relationship("Clinic", foreign_keys=[clinic_id])
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Platform settings (editable pricing & global config)
+# ═══════════════════════════════════════════════════════════════════
+
+class PlatformSetting(Base):
+    """Key-value JSON config editable from the admin portal (pricing, fees, discounts)."""
+    __tablename__ = "platform_settings"
+    key        = Column(String(100), primary_key=True)
+    value      = Column(JSON, nullable=False, default=dict)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    updated_by = Column(Integer, ForeignKey("platform_admins.id"), nullable=True)
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Telehealth sessions — lifecycle + join gating
+# ═══════════════════════════════════════════════════════════════════
+
+class TelehealthSession(Base):
+    """
+    One row per telehealth appointment. Controls when join tokens may be
+    issued and whether the Daily room exists (room name is deterministic:
+    bc-{appointment_id}, so the patient's link never changes).
+    States: scheduled | ready | in_progress | completed | expired | cancelled
+    """
+    __tablename__ = "telehealth_sessions"
+    id              = Column(Integer, primary_key=True, index=True)
+    appointment_id  = Column(Integer, ForeignKey("appointments.id"), unique=True, nullable=False, index=True)
     clinic_id       = Column(Integer, ForeignKey("clinics.id"), nullable=False)
-    patient_id      = Column(Integer, ForeignKey("patients.id"), nullable=False)
-    appointment_id  = Column(Integer, ForeignKey("appointments.id"), nullable=True)
-    admission_id    = Column(Integer, ForeignKey("admissions.id"), nullable=True)
-    submitted_by    = Column(Integer, ForeignKey("staff.id"), nullable=False)
-    cosigned_by     = Column(Integer, ForeignKey("staff.id"), nullable=True)
-    cosigned_at     = Column(DateTime, nullable=True)
-    data            = Column(JSON, nullable=False, default=dict)   # {field_id: value}
-    scores          = Column(JSON)                                  # {score_name: value, interpretation: str}
-    alerts_fired    = Column(JSON)                                  # list of triggered alert rules
-    is_draft        = Column(Boolean, default=False)
-    submitted_at    = Column(DateTime, default=datetime.utcnow)
-    charted_at      = Column(DateTime)                              # when it was recorded (may differ from submitted_at)
-    source          = Column(String(20), default="provider")        # provider|patient|nurse
-    created_at      = Column(DateTime, default=datetime.utcnow)
+    room_name       = Column(String(100), nullable=False)
+    state           = Column(String(30), default="scheduled", index=True)
+    slot_start      = Column(DateTime, nullable=False)   # IST naive, matches appointment storage
+    slot_end        = Column(DateTime, nullable=False)
+    room_expires_at = Column(DateTime, nullable=True)
+    doctor_first_joined_at  = Column(DateTime, nullable=True)
+    patient_first_joined_at = Column(DateTime, nullable=True)
+    completed_at    = Column(DateTime, nullable=True)
+    completed_by    = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    reopen_count    = Column(Integer, default=0)
+    reopened_until  = Column(DateTime, nullable=True)    # doctor-approved rejoin window
+    created_at      = Column(DateTime, server_default=func.now())
 
 
-class FormAlert(Base):
-    """Fired alert from critical value in form submission."""
-    __tablename__ = "form_alerts"
-    id              = Column(Integer, primary_key=True)
-    submission_id   = Column(Integer, ForeignKey("form_submissions.id"), nullable=False)
-    clinic_id       = Column(Integer, ForeignKey("clinics.id"), nullable=False)
-    patient_id      = Column(Integer, ForeignKey("patients.id"), nullable=False)
-    field_id        = Column(String(100), nullable=False)
-    field_label     = Column(String(300))
-    value           = Column(String(500))
-    severity        = Column(String(20))    # critical|high|warning
-    message         = Column(Text)
-    notified_staff  = Column(JSON)          # list of staff ids notified
-    acknowledged_by = Column(Integer, ForeignKey("staff.id"), nullable=True)
-    acknowledged_at = Column(DateTime)
-    created_at      = Column(DateTime, default=datetime.utcnow)
+class TelehealthSessionEvent(Base):
+    """Audit trail of session transitions — doubles as refund evidence."""
+    __tablename__ = "telehealth_session_events"
+    id         = Column(Integer, primary_key=True, index=True)
+    session_id = Column(Integer, ForeignKey("telehealth_sessions.id"), nullable=False, index=True)
+    event_type = Column(String(50), nullable=False)   # created|doctor_joined|patient_joined|completed|expired|rejoin_window|room_deleted
+    actor_type = Column(String(20), nullable=True)    # staff|patient|system
+    actor_id   = Column(Integer, nullable=True)
+    payload    = Column(JSON, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
 
 
-class iViewFlowsheet(Base):
-    """Flowsheet configuration per form — defines time-banded charting."""
-    __tablename__ = "iview_flowsheets"
-    id              = Column(Integer, primary_key=True)
-    form_id         = Column(Integer, ForeignKey("assessment_forms.id"), nullable=False, unique=True)
-    title           = Column(String(300))
-    time_band       = Column(String(10), default="4h")   # 1h|2h|4h|8h|12h|24h
-    row_config      = Column(JSON)                        # ordered list of {field_id, label, unit, ref_range}
-    clinic_id       = Column(Integer, ForeignKey("clinics.id"), nullable=True)
-    created_at      = Column(DateTime, default=datetime.utcnow)
-    updated_at      = Column(DateTime, default=datetime.utcnow)
+# ═══════════════════════════════════════════════════════════════════════════════
+# Staff Scheduler — shift types, groups, schedule entries, leaves, patterns
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class ShiftType(Base):
+    """Clinic-defined shift template: Morning 06:00–14:00, Night 22:00–06:00 etc."""
+    __tablename__ = "shift_types"
+    id         = Column(Integer, primary_key=True, index=True)
+    clinic_id  = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    name       = Column(String(100), nullable=False)
+    start_time = Column(String(5), nullable=False)   # "06:00"
+    end_time   = Column(String(5), nullable=False)   # "14:00"
+    color_hex  = Column(String(7), default="#0F2557")
+    is_active  = Column(Boolean, default=True)
+    created_at = Column(DateTime, server_default=func.now())
 
 
-class FormCoSign(Base):
-    """Co-sign requests for critical findings."""
-    __tablename__ = "form_cosigns"
-    id              = Column(Integer, primary_key=True)
-    submission_id   = Column(Integer, ForeignKey("form_submissions.id"), nullable=False)
-    requested_by    = Column(Integer, ForeignKey("staff.id"), nullable=False)
-    requested_from  = Column(Integer, ForeignKey("staff.id"), nullable=False)
-    status          = Column(String(20), default="pending")  # pending|approved|rejected
-    note            = Column(Text)
-    responded_at    = Column(DateTime)
-    created_at      = Column(DateTime, default=datetime.utcnow)
+class StaffGroup(Base):
+    """Manager-created group: 'ICU Nurses', 'OPD Doctors', 'Front Desk'."""
+    __tablename__ = "staff_groups"
+    id            = Column(Integer, primary_key=True, index=True)
+    clinic_id     = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    name          = Column(String(200), nullable=False)
+    department_id = Column(Integer, ForeignKey("departments.id"), nullable=True)
+    manager_id    = Column(Integer, ForeignKey("staff.id"), nullable=True)  # owning manager
+    created_at    = Column(DateTime, server_default=func.now())
+
+    members = relationship("StaffGroupMember", back_populates="group", cascade="all, delete-orphan")
 
 
-class Feedback(Base):
-    __tablename__ = "feedback"
-    id         = Column(Integer, primary_key=True)
-    name       = Column(String, nullable=False)
-    email      = Column(String, nullable=True)
-    message    = Column(Text, nullable=False)
-    type       = Column(String, default="general")
-    is_read    = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+class StaffGroupMember(Base):
+    __tablename__ = "staff_group_members"
+    __table_args__ = (UniqueConstraint("group_id", "staff_id"),)
+    id        = Column(Integer, primary_key=True, index=True)
+    group_id  = Column(Integer, ForeignKey("staff_groups.id"), nullable=False)
+    staff_id  = Column(Integer, ForeignKey("staff.id"), nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+
+    group = relationship("StaffGroup", back_populates="members")
+    staff = relationship("Staff", foreign_keys=[staff_id])
+
+
+class ScheduleEntry(Base):
+    """One staff member assigned one shift on one date."""
+    __tablename__ = "schedule_entries"
+    __table_args__ = (UniqueConstraint("staff_id", "work_date", "shift_type_id"),)
+    id            = Column(Integer, primary_key=True, index=True)
+    clinic_id     = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    group_id      = Column(Integer, ForeignKey("staff_groups.id"), nullable=True)
+    staff_id      = Column(Integer, ForeignKey("staff.id"), nullable=False)
+    shift_type_id = Column(Integer, ForeignKey("shift_types.id"), nullable=False)
+    work_date     = Column(Date, nullable=False)
+    status        = Column(String(20), default="draft")   # draft | published
+    notes         = Column(String(300), nullable=True)
+    created_by    = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    created_at    = Column(DateTime, server_default=func.now())
+    updated_at    = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    shift_type = relationship("ShiftType", foreign_keys=[shift_type_id])
+    staff      = relationship("Staff", foreign_keys=[staff_id])
+
+
+class LeaveRequest(Base):
+    __tablename__ = "leave_requests"
+    id            = Column(Integer, primary_key=True, index=True)
+    clinic_id     = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    staff_id      = Column(Integer, ForeignKey("staff.id"), nullable=False)
+    leave_type    = Column(String(20), default="casual")   # casual | sick | pto | earned
+    from_date     = Column(Date, nullable=False)
+    to_date       = Column(Date, nullable=False)
+    reason        = Column(String(500), nullable=True)
+    status        = Column(String(20), default="pending")  # pending | approved | rejected
+    decided_by    = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    decided_at    = Column(DateTime, nullable=True)
+    decision_note = Column(String(300), nullable=True)
+    created_at    = Column(DateTime, server_default=func.now())
+
+    staff = relationship("Staff", foreign_keys=[staff_id])
+
+
+class SchedulePattern(Base):
+    """Saved weekly template that can be re-applied to any week (weekly/monthly/permanent)."""
+    __tablename__ = "schedule_patterns"
+    id           = Column(Integer, primary_key=True, index=True)
+    clinic_id    = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    group_id     = Column(Integer, ForeignKey("staff_groups.id"), nullable=True)
+    name         = Column(String(200), nullable=False)
+    recurrence   = Column(String(20), default="manual")   # manual | weekly | monthly | permanent
+    pattern_data = Column(JSON, nullable=False, default=list)  # [{staff_id, weekday, shift_type_id}]
+    created_by   = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    created_at   = Column(DateTime, server_default=func.now())
+
+
+class SchedulePublishLog(Base):
+    __tablename__ = "schedule_publish_logs"
+    id           = Column(Integer, primary_key=True, index=True)
+    clinic_id    = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    group_id     = Column(Integer, ForeignKey("staff_groups.id"), nullable=True)
+    week_start   = Column(Date, nullable=False)
+    week_end     = Column(Date, nullable=False)
+    published_by = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    published_at = Column(DateTime, server_default=func.now())
+    recipients   = Column(JSON, default=list)  # [{staff_id, name, email, sent}]
+
+
+class SchedulerSettings(Base):
+    """Per-clinic scheduling rules set up once by the manager."""
+    __tablename__ = "scheduler_settings"
+    id                  = Column(Integer, primary_key=True, index=True)
+    clinic_id           = Column(Integer, ForeignKey("clinics.id"), unique=True, nullable=False)
+    min_rest_hours      = Column(Integer, default=8)
+    max_shifts_per_week = Column(Integer, default=6)
+    weekly_off_day      = Column(String(10), nullable=True)   # e.g. "sunday"
+    leave_quotas        = Column(JSON, default=dict)          # {"casual": 12, "sick": 10, "pto": 15, "earned": 15}
+    setup_complete      = Column(Boolean, default=False)
+    created_at          = Column(DateTime, server_default=func.now())
+    updated_at          = Column(DateTime, server_default=func.now(), onupdate=func.now())
