@@ -110,6 +110,11 @@ function Footer() {
               <li>1800-XXX-XXXX (Toll Free)</li>
               <li>Mon–Sat, 9am–6pm IST</li>
             </ul>
+            <div className="border-t border-blue-800 mt-6 pt-4 text-xs text-blue-400">
+              <p className="font-semibold text-blue-300">Founded by</p>
+              <p>Suman Konda</p>
+              <a href="mailto:kondasuman23496@gmail.com" className="hover:text-white transition-colors">kondasuman23496@gmail.com</a>
+            </div>
           </div>
         </div>
         <div className="border-t border-blue-800 mt-12 pt-6 flex flex-col md:flex-row items-center justify-between gap-3 text-sm text-blue-300">
@@ -124,10 +129,10 @@ function Footer() {
 const FEATURES = [
   { icon: Calendar, title: 'Online Appointments', desc: 'Patients book slots 24/7. Automated reminders reduce no-shows by 60%.', color: '#CC1414' },
   { icon: FileText, title: 'Digital EMR', desc: 'Paperless electronic medical records. Secure, searchable patient history.', color: '#0F2557' },
-  { icon: Pill, title: 'Pharmacy Module', desc: 'Integrated dispensing, inventory alerts, and prescription tracking.', color: '#F5821E' },
+  { icon: Pill, title: 'Pharmacy Module', desc: 'Integrated dispensing, inventory alerts, and prescription tracking.', color: '#F5821E', comingSoon: true },
   { icon: FlaskConical, title: 'Lab Integration', desc: 'Order tests, receive reports digitally, share with patients instantly.', color: '#138808' },
-  { icon: ReceiptText, title: 'Smart Billing', desc: 'GST-ready invoicing, insurance claims, and UPI/card payments.', color: '#7C3AED' },
-  { icon: BarChart3, title: 'Analytics Dashboard', desc: 'Revenue trends, patient flow, and performance insights at a glance.', color: '#0891B2' },
+  { icon: ReceiptText, title: 'Smart Billing', desc: 'GST-ready invoicing, insurance claims, and UPI/card payments.', color: '#7C3AED', comingSoon: true },
+  { icon: BarChart3, title: 'Analytics Dashboard', desc: 'Revenue trends, patient flow, and performance insights at a glance.', color: '#0891B2', comingSoon: true },
 ]
 
 const TESTIMONIALS = [
@@ -252,8 +257,8 @@ export default function HomePage() {
         <div className="max-w-5xl mx-auto text-center relative">
           <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium mb-8"
             style={{ background: 'rgba(245,130,30,0.2)', color: '#F5821E', border: '1px solid rgba(245,130,30,0.3)' }}>
-            <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-            Trusted by {stats ? `${stats.clinics.toLocaleString('en-IN')}+` : '—'} health centers across India
+            <span className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
+            Launching Soon — India's Digital Health Network
           </div>
 
           <h1 className="text-4xl md:text-6xl font-extrabold leading-tight mb-6" style={{ letterSpacing: '-0.02em' }}>
@@ -276,19 +281,15 @@ export default function HomePage() {
                 type="text"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Doctor name, specialty, clinic..."
+                placeholder="Doctor name, specialty, health center..."
                 className="w-full pl-10 pr-4 py-3 rounded-xl text-gray-700 border border-gray-200 focus:outline-none focus:ring-2 text-sm"
                 style={{ '--tw-ring-color': '#0F2557' }}
               />
             </div>
-            <button
-              type="submit"
-              className="px-6 py-3 rounded-xl font-semibold text-white text-sm whitespace-nowrap transition-colors"
-              style={{ background: '#CC1414' }}
-              onMouseEnter={e => e.currentTarget.style.background = '#b01010'}
-              onMouseLeave={e => e.currentTarget.style.background = '#CC1414'}
-            >
-              Find a Doctor
+            <button type="button" disabled
+              className="px-6 py-3 rounded-xl font-semibold text-white text-sm whitespace-nowrap opacity-70 cursor-not-allowed"
+              style={{ background: '#CC1414' }}>
+              Coming Soon
             </button>
           </form>
 
@@ -297,7 +298,7 @@ export default function HomePage() {
               className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm transition-all"
               style={{ background: 'rgba(255,255,255,0.12)', color: 'white', border: '1px solid rgba(255,255,255,0.25)' }}
             >
-              Register Your Health Center <ArrowRight className="w-4 h-4" />
+              Register Your Health Center (Beta) →
             </Link>
             <a href={PATIENT_URL}
               className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm transition-all"
@@ -312,9 +313,8 @@ export default function HomePage() {
       {/* Stats ribbon */}
       <section className="bg-white py-10 border-b border-gray-100 shadow-sm">
         <div className="max-w-5xl mx-auto px-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-6 text-center">
             {[
-              { label: 'Health Centers', value: stats ? stats.clinics : null, icon: Building2, color: '#CC1414' },
               { label: 'Verified Doctors', value: stats ? stats.doctors : null, icon: Users, color: '#0F2557' },
               { label: 'Appointments Booked', value: stats ? stats.bookings : null, icon: Calendar, color: '#F5821E' },
               { label: 'Cities Covered', value: stats ? stats.cities : null, icon: MapPin, color: '#138808' },
@@ -338,6 +338,36 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Vision */}
+      <section className="py-20 px-4 bg-white">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-14">
+            <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#F5821E' }}>Our Vision</span>
+            <h2 className="text-3xl md:text-4xl font-extrabold mt-2" style={{ color: '#0F2557' }}>
+              Transforming Healthcare in India
+            </h2>
+            <p className="text-gray-500 mt-3 max-w-2xl mx-auto">BharatHealth Systems is building the digital backbone of Indian healthcare — one health center at a time.</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {[
+              { num: '01', title: 'Digitize & Build Trust', desc: 'Digitizing Indian healthcare to establish trust, transparency, and consistent quality of care across every health center.', color: '#0F2557' },
+              { num: '02', title: 'Safety Through Documentation', desc: 'Reducing misinterpretation and medical errors with legitimate, structured documentation — protecting patients and providers alike.', color: '#CC1414' },
+              { num: '03', title: 'Ease Insurance Approvals', desc: 'Proper clinical documentation means faster, smoother insurance claims — less burden on patients, more revenue for health centers.', color: '#F5821E' },
+              { num: '04', title: 'Continuity of Care', desc: 'A unified health record that travels with the patient — ensuring every doctor, every visit, every health center is connected.', color: '#138808' },
+            ].map(v => (
+              <div key={v.num} className="flex gap-5 p-6 rounded-2xl border border-gray-100 bg-gray-50 hover:shadow-md transition-shadow">
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-white text-sm flex-shrink-0"
+                  style={{ background: v.color }}>{v.num}</div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-1">{v.title}</h3>
+                  <p className="text-gray-500 text-sm leading-relaxed">{v.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Features */}
       <section id="features" className="py-20 px-4" style={{ background: '#F0F4F8' }}>
         <div className="max-w-7xl mx-auto">
@@ -348,7 +378,7 @@ export default function HomePage() {
             <p className="text-lg text-gray-500 mt-3">One platform to manage your entire health center operations</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {FEATURES.map(({ icon: Icon, title, desc, color }) => (
+            {FEATURES.map(({ icon: Icon, title, desc, color, comingSoon }) => (
               <div
                 key={title}
                 className="bg-white rounded-2xl shadow-md border border-gray-100 p-6 hover:shadow-lg transition-shadow group"
@@ -359,7 +389,13 @@ export default function HomePage() {
                 >
                   <Icon className="w-6 h-6" style={{ color }} />
                 </div>
-                <h3 className="text-lg font-semibold mb-2" style={{ color: '#0F2557' }}>{title}</h3>
+                <h3 className="text-lg font-semibold mb-2 flex items-center flex-wrap gap-1" style={{ color: '#0F2557' }}>
+                  {title}
+                  {comingSoon && (
+                    <span className="ml-2 text-xs font-semibold px-2 py-0.5 rounded-full"
+                      style={{ background: '#F5821E22', color: '#F5821E' }}>Coming Soon</span>
+                  )}
+                </h3>
                 <p className="text-gray-500 text-sm leading-relaxed">{desc}</p>
               </div>
             ))}
@@ -380,13 +416,16 @@ export default function HomePage() {
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: '#CC141415' }}>
                   <Users className="w-5 h-5" style={{ color: '#CC1414' }} />
                 </div>
-                <h3 className="text-2xl font-bold" style={{ color: '#0F2557' }}>For Patients</h3>
+                <div>
+                  <h3 className="text-2xl font-bold" style={{ color: '#0F2557' }}>For Patients</h3>
+                  <p className="text-sm text-gray-400 mt-1">In-person & online consultations available</p>
+                </div>
               </div>
               <div className="space-y-6">
                 {[
                   { step: '01', title: 'Search a Doctor', desc: 'Browse doctors by city, specialty, or name. Read profiles and check availability.' },
                   { step: '02', title: 'Book an Appointment', desc: 'Select your preferred doctor, date, and time slot. Fill in basic patient details.' },
-                  { step: '03', title: 'Visit & Get Treated', desc: 'Show your confirmation code at the health center. Your medical history is ready digitally.' },
+                  { step: '03', title: 'Visit & Get Treated', desc: 'Visit in-person or join online — show your confirmation code, your medical history is ready digitally.' },
                 ].map(item => (
                   <div key={item.step} className="flex gap-5">
                     <div className="w-12 h-12 text-white rounded-xl flex items-center justify-center font-bold text-sm flex-shrink-0"
@@ -518,6 +557,29 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Coming Soon Strip */}
+      <section className="py-10 px-4 bg-white border-t border-b border-gray-100">
+        <div className="max-w-4xl mx-auto text-center">
+          <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-4">Also Coming Soon</p>
+          <div className="flex flex-wrap justify-center gap-6">
+            {[
+              { name: 'Pharmacy', icon: '💊', desc: 'Standalone pharmacy management' },
+              { name: 'Diagnostics Lab', icon: '🔬', desc: 'Lab orders, reports & billing' },
+              { name: 'Imaging Center', icon: '🩻', desc: 'Radiology & imaging workflows' },
+            ].map(item => (
+              <div key={item.name} className="flex items-center gap-3 px-6 py-3 rounded-2xl border border-dashed border-gray-300 bg-gray-50">
+                <span className="text-2xl">{item.icon}</span>
+                <div className="text-left">
+                  <div className="font-semibold text-gray-700 text-sm">{item.name}</div>
+                  <div className="text-xs text-gray-400">{item.desc}</div>
+                </div>
+                <span className="ml-2 text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: '#F5821E22', color: '#F5821E' }}>Soon</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* CTA Banner */}
       <section className="py-16 px-4" style={{ background: '#0F2557' }}>
         <div className="max-w-3xl mx-auto text-center text-white">
@@ -537,7 +599,7 @@ export default function HomePage() {
               onMouseEnter={e => e.currentTarget.style.background = '#b01010'}
               onMouseLeave={e => e.currentTarget.style.background = '#CC1414'}
             >
-              Register Your Health Center <ArrowRight className="w-4 h-4" />
+              Register Your Health Center (Beta) <ArrowRight className="w-4 h-4" />
             </Link>
             <Link to="/clinics"
               className="inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl font-semibold text-sm transition-all"
