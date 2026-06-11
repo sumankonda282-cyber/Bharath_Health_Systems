@@ -106,32 +106,110 @@ def portal_me(
 
 @router.get("/appointments")
 def portal_appointments(current=Depends(get_current_patient), db: Session = Depends(get_db)):
-    from app.models.models import Appointment, DoctorProfile, Clinic
+    from app.models.models import Appointment, DoctorProfile, Clinic, OnlineBooking
     patients = db.query(Patient).filter(Patient.portal_user_id == current.id).all()
     patient_ids = [p.id for p in patients]
-    if not patient_ids:
-        return {"appointments": []}
-    appts = db.query(Appointment).filter(
-        Appointment.patient_id.in_(patient_ids)
-    ).order_by(Appointment.appointment_date.desc()).limit(50).all()
+
     result = []
-    for a in appts:
-        doc = db.query(DoctorProfile).filter(DoctorProfile.id == a.doctor_id).first()
-        clinic = db.query(Clinic).filter(Clinic.id == a.clinic_id).first()
+    converted_booking_ids = set()
+
+    if patient_ids:
+        appts = db.query(Appointment).filter(
+            Appointment.patient_id.in_(patient_ids)
+        ).order_by(Appointment.appointment_date.desc()).limit(50).all()
+        for a in appts:
+            if a.online_booking_id:
+                converted_booking_ids.add(a.online_booking_id)
+            doc = db.query(DoctorProfile).filter(DoctorProfile.id == a.doctor_id).first()
+            clinic = db.query(Clinic).filter(Clinic.id == a.clinic_id).first()
+            result.append({
+                "id": a.id,
+                "date": str(a.appointment_date),
+                "time": a.appointment_time,
+                "status": str(a.status) if a.status else None,
+                "doctor_name": doc.staff.full_name if doc and doc.staff else "Unknown",
+                "clinic_name": clinic.name if clinic else "Unknown",
+                "clinic_address": clinic.address if clinic else None,
+                "clinic_city": clinic.city if clinic else None,
+                "reason": a.reason,
+                "token_number": a.token_number,
+                "mode": a.mode or "offline",
+                "source": "clinic",
+            })
+
+    # Online bookings made via the public website or this portal, matched by
+    # account or mobile number — visible even before the health center confirms
+    bookings = db.query(OnlineBooking).filter(
+        (OnlineBooking.patient_user_id == current.id) |
+        (OnlineBooking.patient_mobile == current.mobile)
+    ).order_by(OnlineBooking.booking_date.desc()).limit(50).all()
+    for b in bookings:
+        if b.id in converted_booking_ids:
+            continue  # already shown as a clinic-confirmed appointment
+        doc = db.query(DoctorProfile).filter(DoctorProfile.id == b.doctor_id).first() if b.doctor_id else None
+        clinic = db.query(Clinic).filter(Clinic.id == b.clinic_id).first()
         result.append({
-            "id": a.id,
-            "date": str(a.appointment_date),
-            "time": a.appointment_time,
-            "status": str(a.status) if a.status else None,
-            "doctor_name": doc.staff.full_name if doc and doc.staff else "Unknown",
+            "id": f"ob-{b.id}",
+            "date": str(b.booking_date),
+            "time": b.booking_time,
+            "status": b.status or "pending",
+            "doctor_name": doc.staff.full_name if doc and doc.staff else "Doctor",
             "clinic_name": clinic.name if clinic else "Unknown",
             "clinic_address": clinic.address if clinic else None,
             "clinic_city": clinic.city if clinic else None,
-            "reason": a.reason,
-            "token_number": a.token_number,
-            "mode": a.mode or "offline",
+            "reason": b.reason,
+            "token_number": None,
+            "mode": "online",
+            "source": "online_booking",
+            "confirmation_code": b.confirmation_code,
+            "patient_name": b.patient_name,
         })
+
+    result.sort(key=lambda x: ((x["date"] or ""), (x["time"] or "")), reverse=True)
     return {"appointments": result}
+
+
+@router.post("/book")
+def portal_book_appointment(
+    body: dict,
+    current: PatientUser = Depends(get_current_patient),
+    db: Session = Depends(get_db),
+):
+    """
+    Book an appointment from inside the patient portal.
+    Reuses the public booking flow, with name/mobile taken from the
+    logged-in account so the booking is always linked to it.
+    """
+    from app.schemas.schemas import OnlineBookingCreate
+    from app.api.v1.endpoints.public import book_appointment_online
+
+    try:
+        payload = OnlineBookingCreate(
+            clinic_id=body.get("clinic_id"),
+            branch_id=body.get("branch_id"),
+            doctor_id=body.get("doctor_id"),
+            patient_name=(body.get("patient_name") or current.full_name or "Patient").strip(),
+            patient_mobile=current.mobile,
+            patient_email=body.get("patient_email") or current.email or None,
+            booking_date=body.get("booking_date"),
+            booking_time=body.get("booking_time"),
+            reason=body.get("reason"),
+        )
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Invalid booking details: {e}")
+
+    booking = book_appointment_online(payload, db)
+    if not booking.patient_user_id:
+        booking.patient_user_id = current.id
+        db.commit()
+        db.refresh(booking)
+    return {
+        "id": booking.id,
+        "confirmation_code": booking.confirmation_code,
+        "status": booking.status,
+        "booking_date": str(booking.booking_date),
+        "booking_time": booking.booking_time,
+    }
 
 
 @router.get("/prescriptions")

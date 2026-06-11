@@ -12,7 +12,7 @@ from datetime import date, datetime, timedelta
 from app.db.session import get_db
 from app.models.models import (
     Clinic, Branch, Staff, DoctorProfile, DoctorSchedule,
-    Appointment, OnlineBooking, Feedback
+    Appointment, OnlineBooking, Feedback, PatientUser
 )
 from app.schemas.schemas import OnlineBookingCreate, OnlineBookingOut
 from app.core.security import hash_password
@@ -306,10 +306,17 @@ def book_appointment_online(
             detail="You already have a booking with this doctor on this date."
         )
 
+    # Link to a patient portal account if one exists for this mobile,
+    # so the booking shows up in their "My Appointments" immediately
+    portal_user = db.query(PatientUser).filter(
+        PatientUser.mobile == payload.patient_mobile
+    ).first()
+
     booking = OnlineBooking(
         clinic_id=payload.clinic_id,
         branch_id=branch_id,
         doctor_id=payload.doctor_id,
+        patient_user_id=portal_user.id if portal_user else None,
         patient_name=payload.patient_name,
         patient_mobile=payload.patient_mobile,
         patient_email=payload.patient_email,

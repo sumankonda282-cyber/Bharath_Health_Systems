@@ -149,14 +149,19 @@ def list_online_bookings(
 @router.post("/online-bookings/{booking_id}/confirm")
 def confirm_online_booking(
     booking_id: int,
-    patient_id: int = Query(..., description="Existing patient ID or newly registered"),
+    patient_id: Optional[int] = Query(None, description="Existing patient ID; omit to auto-match by mobile or auto-register"),
     db: Session = Depends(get_db),
     current: Staff = Depends(get_current_staff),
 ):
     """
     Confirm an online booking and convert it to a proper appointment.
-    Receptionist links it to an existing or new patient.
+    If no patient_id is given, the patient is matched by mobile number
+    within this clinic, or auto-registered from the booking details.
+    The patient record is linked to their portal account (by mobile) so the
+    appointment appears in their My Health Portal.
     """
+    from app.models.models import PatientUser
+
     booking = db.query(OnlineBooking).filter(
         OnlineBooking.id == booking_id,
         OnlineBooking.clinic_id == current.clinic_id,
@@ -166,7 +171,36 @@ def confirm_online_booking(
     if booking.status != "pending":
         raise HTTPException(status_code=400, detail=f"Booking is already {booking.status}")
 
-    conf_patient = db.query(Patient).filter(Patient.id == patient_id).first()
+    portal_user = db.query(PatientUser).filter(
+        PatientUser.mobile == booking.patient_mobile
+    ).first() if booking.patient_mobile else None
+
+    conf_patient = None
+    if patient_id:
+        conf_patient = db.query(Patient).filter(Patient.id == patient_id).first()
+    if not conf_patient and booking.patient_mobile:
+        conf_patient = db.query(Patient).filter(
+            Patient.clinic_id == current.clinic_id,
+            Patient.mobile == booking.patient_mobile,
+        ).first()
+    if not conf_patient:
+        conf_patient = Patient(
+            clinic_id=current.clinic_id,
+            branch_id=booking.branch_id,
+            full_name=booking.patient_name or "Patient",
+            mobile=booking.patient_mobile,
+            email=booking.patient_email,
+            portal_user_id=portal_user.id if portal_user else None,
+        )
+        db.add(conf_patient)
+        db.flush()
+    elif portal_user and not conf_patient.portal_user_id:
+        conf_patient.portal_user_id = portal_user.id
+
+    patient_id = conf_patient.id
+    if portal_user and not booking.patient_user_id:
+        booking.patient_user_id = portal_user.id
+
     conf_doc_profile = db.query(DoctorProfile).filter(DoctorProfile.id == booking.doctor_id).first()
     conf_patient_name = conf_patient.full_name if conf_patient else booking.patient_name or ""
     conf_doctor_name = conf_doc_profile.staff.full_name if conf_doc_profile and conf_doc_profile.staff else ""

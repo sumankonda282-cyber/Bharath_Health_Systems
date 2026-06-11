@@ -17,9 +17,9 @@ function Navbar() {
         <div className="flex items-center justify-between h-16">
           <Link to="/"><BrandLogo size="md" /></Link>
           <div className="hidden md:flex items-center gap-6">
-            <Link to="/clinics" className="font-semibold text-sm" style={{ color: '#CC1414' }}>Find Clinics</Link>
+            <Link to="/clinics" className="font-semibold text-sm" style={{ color: '#CC1414' }}>Find Doctors</Link>
             <Link to="/booking/check" className="text-gray-600 hover:text-gray-900 font-medium text-sm transition-colors">My Booking</Link>
-            <Link to="/register" className="text-gray-600 hover:text-gray-900 font-medium text-sm transition-colors">Register Clinic</Link>
+            <Link to="/register" className="text-gray-600 hover:text-gray-900 font-medium text-sm transition-colors">Register Health Center</Link>
           </div>
           <div className="hidden md:flex items-center gap-3">
             <a href={PROVIDER_URL} className="px-4 py-2 rounded-xl border-2 font-semibold text-sm transition-all" style={{ borderColor: '#0F2557', color: '#0F2557' }}>Provider Login</a>
@@ -52,12 +52,7 @@ function StarRating({ rating = 0, max = 5 }) {
 }
 
 function DoctorCard({ doctor }) {
-  const isOnline = doctor.is_online || doctor.telehealth_available
-
-  const handleBook = () => {
-    const bookUrl = `${PATIENT_URL}/appointments?doctor_id=${doctor.id}&doctor_name=${encodeURIComponent(doctor.name)}&specialty=${encodeURIComponent(doctor.specialty || '')}`
-    window.open(bookUrl, '_blank')
-  }
+  const isOnline = doctor.is_online || doctor.telehealth_available || doctor.telehealth_enabled
 
   return (
     <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-5 hover:shadow-lg transition-all">
@@ -143,21 +138,21 @@ function DoctorCard({ doctor }) {
       {/* Actions */}
       <div className="flex items-center gap-3 mt-4 pt-3 border-t border-gray-100">
         <Link
-          to={`/clinics/${doctor.slug || doctor.id}`}
+          to={`/clinics/${doctor.clinic_slug || doctor.slug || doctor.id}`}
           className="flex-1 text-center text-sm font-semibold py-2 rounded-xl border-2 transition-all"
           style={{ borderColor: '#0F2557', color: '#0F2557' }}
         >
           View Profile
         </Link>
-        <button
-          onClick={handleBook}
-          className="flex-1 text-sm font-semibold py-2 rounded-xl text-white transition-all"
+        <Link
+          to={doctor.clinic_slug ? `/book?clinic=${doctor.clinic_slug}&doctor=${doctor.id}` : '/book'}
+          className="flex-1 text-center text-sm font-semibold py-2 rounded-xl text-white transition-all"
           style={{ background: '#CC1414' }}
           onMouseEnter={e => e.currentTarget.style.background = '#b01010'}
           onMouseLeave={e => e.currentTarget.style.background = '#CC1414'}
         >
           Book Appointment
-        </button>
+        </Link>
       </div>
     </div>
   )
@@ -255,17 +250,13 @@ function CitySearch({ value, onChange, cities }) {
   )
 }
 
-// Determine whether an item is a doctor (vs a clinic) based on available fields
-function isDoctor(item) {
-  return !!(item.specialty && (item.experience_years !== undefined || item.qualification || item.mci_verified))
-}
-
 export default function FindClinics() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [allResults, setAllResults] = useState([])
   const [cities, setCities] = useState([])
   const [loading, setLoading] = useState(true)
   const [fetchFailed, setFetchFailed] = useState(false)
+  const [view, setView] = useState(searchParams.get('view') === 'centers' ? 'centers' : 'doctors')
 
   const [filters, setFilters] = useState({
     q: searchParams.get('q') || '',
@@ -301,25 +292,39 @@ export default function FindClinics() {
 
   useEffect(() => { fetchResults({}) }, []) // eslint-disable-line
 
+  // Flatten doctors out of clinic results, carrying their health center info
+  const allDoctors = useMemo(() => allResults.flatMap(c =>
+    (c.doctors || []).map(d => ({
+      ...d,
+      clinic_id: c.id,
+      clinic_slug: c.slug,
+      clinic_name: c.name,
+      city: c.city,
+      state: c.state,
+    }))
+  ), [allResults])
+
   // Client-side filter applied on every keystroke
+  const matchItem = useCallback((item, q, city, specialty) => {
+    const name = (item.name || '').toLowerCase()
+    const itemSpecialty = (item.specialty || '').toLowerCase()
+    const itemCity = (item.city || item.location || '').toLowerCase()
+    const clinicName = (item.clinic_name || item.health_center_name || '').toLowerCase()
+
+    const matchesQ = !q || name.includes(q) || itemSpecialty.includes(q) || itemCity.includes(q) || clinicName.includes(q)
+    const matchesCity = !city || itemCity.includes(city)
+    const matchesSpecialty = !specialty || itemSpecialty.includes(specialty)
+
+    return matchesQ && matchesCity && matchesSpecialty
+  }, [])
+
   const displayed = useMemo(() => {
     const q = liveQ.trim().toLowerCase()
     const city = filters.city.trim().toLowerCase()
     const specialty = filters.specialty.trim().toLowerCase()
-
-    return allResults.filter(item => {
-      const name = (item.name || '').toLowerCase()
-      const itemSpecialty = (item.specialty || '').toLowerCase()
-      const itemCity = (item.city || item.location || '').toLowerCase()
-      const clinicName = (item.clinic_name || item.health_center_name || '').toLowerCase()
-
-      const matchesQ = !q || name.includes(q) || itemSpecialty.includes(q) || itemCity.includes(q) || clinicName.includes(q)
-      const matchesCity = !city || itemCity.includes(city)
-      const matchesSpecialty = !specialty || itemSpecialty.includes(specialty)
-
-      return matchesQ && matchesCity && matchesSpecialty
-    })
-  }, [allResults, liveQ, filters.city, filters.specialty])
+    const source = view === 'doctors' ? allDoctors : allResults
+    return source.filter(item => matchItem(item, q, city, specialty))
+  }, [allResults, allDoctors, view, liveQ, filters.city, filters.specialty, matchItem])
 
   const handleSearch = (e) => {
     e.preventDefault()
@@ -357,12 +362,31 @@ export default function FindClinics() {
           <Link to="/" className="inline-flex items-center gap-1 text-blue-200 hover:text-white text-sm mb-4 transition-colors">
             <ArrowLeft className="w-4 h-4" /> Back to Home
           </Link>
-          <h1 className="text-3xl font-extrabold mb-1">Find Clinics Near You</h1>
-          <p className="text-blue-200">Discover verified clinics and doctors across India</p>
+          <h1 className="text-3xl font-extrabold mb-1">Find Doctors Near You</h1>
+          <p className="text-blue-200">Discover verified doctors and health centers across India — book in minutes</p>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* View toggle: Doctors | Health Centers */}
+        <div className="inline-flex rounded-xl border border-gray-200 bg-white p-1 mb-5 shadow-sm">
+          {[
+            { key: 'doctors', label: 'Doctors' },
+            { key: 'centers', label: 'Health Centers' },
+          ].map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setView(tab.key)}
+              className="px-5 py-2 rounded-lg text-sm font-semibold transition-all"
+              style={view === tab.key
+                ? { background: '#0F2557', color: '#ffffff' }
+                : { background: 'transparent', color: '#6b7280' }}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
         {/* Search & Filter Bar */}
         <form onSubmit={handleSearch} className="bg-white rounded-2xl shadow-md border border-gray-100 p-4 mb-6">
           <div className="flex flex-col md:flex-row gap-3">
@@ -426,7 +450,7 @@ export default function FindClinics() {
         {loading ? (
           <div className="flex flex-col items-center justify-center py-24">
             <div className="w-10 h-10 border-4 border-t-transparent rounded-full animate-spin mb-4" style={{ borderColor: '#0F2557', borderTopColor: 'transparent' }} />
-            <p className="text-gray-500">Searching clinics...</p>
+            <p className="text-gray-500">Searching...</p>
           </div>
         ) : fetchFailed || allResults.length === 0 ? (
           comingSoonState
@@ -436,14 +460,14 @@ export default function FindClinics() {
           <>
             <p className="text-gray-500 text-sm mb-4 font-medium">
               <span style={{ color: '#0F2557', fontWeight: 700 }}>{displayed.length}</span>{' '}
-              result{displayed.length !== 1 ? 's' : ''} found
+              {view === 'doctors'
+                ? `doctor${displayed.length !== 1 ? 's' : ''}`
+                : `health center${displayed.length !== 1 ? 's' : ''}`} found
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {displayed.map(item =>
-                isDoctor(item)
-                  ? <DoctorCard key={item.id || item.slug} doctor={item} />
-                  : <ClinicCard key={item.id || item.slug} clinic={item} />
-              )}
+              {view === 'doctors'
+                ? displayed.map(item => <DoctorCard key={`${item.clinic_id}-${item.id}`} doctor={item} />)
+                : displayed.map(item => <ClinicCard key={item.id || item.slug} clinic={item} />)}
             </div>
           </>
         )}

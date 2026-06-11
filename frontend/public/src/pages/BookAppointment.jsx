@@ -8,6 +8,8 @@ import {
 import { publicApi } from '../api/client'
 import Navbar from '../components/Navbar'
 
+const PATIENT_URL = import.meta.env.VITE_PATIENT_URL || 'https://bharatcliniq-patient.vercel.app'
+
 const STEPS = ['Select Doctor', 'Choose Slot', 'Patient Details', 'Confirmation']
 
 function StepIndicator({ current }) {
@@ -36,11 +38,8 @@ function StepIndicator({ current }) {
   )
 }
 
-// Step 1: Select Clinic + Doctor
+// Step 1: Select Health Center + Doctor
 function Step1({ onNext }) {
-  const [searchParams] = useSearchParams()
-  const [clinicId, setClinicId] = useState(searchParams.get('clinicId') || '')
-  const [doctorId, setDoctorId] = useState(searchParams.get('doctorId') || '')
   const [searchText, setSearchText] = useState('')
   const [clinics, setClinics] = useState([])
   const [selectedClinic, setSelectedClinic] = useState(null)
@@ -49,37 +48,19 @@ function Step1({ onNext }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const loadClinicDetail = async (slug, preselectedDoctorId) => {
+  const loadClinicDetail = async (slug) => {
     setLoading(true)
     try {
       const detail = await publicApi.getClinicBySlug(slug)
       const c = detail.clinic || detail
       setSelectedClinic(c)
       setDoctors(c.doctors || [])
-      if (preselectedDoctorId) {
-        const d = (c.doctors || []).find(d => String(d.id) === String(preselectedDoctorId))
-        if (d) setSelectedDoctor(d)
-      }
     } catch {
-      setError('Could not load clinic details.')
+      setError('Could not load health center details.')
     } finally {
       setLoading(false)
     }
   }
-
-  // Auto-load if params provided
-  useEffect(() => {
-    if (clinicId) {
-      publicApi.getClinics({ id: clinicId }).then(data => {
-        const list = Array.isArray(data) ? data : data.clinics || []
-        if (list.length > 0) {
-          loadClinicDetail(list[0].slug, doctorId)
-        } else {
-          setLoading(false)
-        }
-      }).catch(() => setLoading(false))
-    }
-  }, []) // eslint-disable-line
 
   const searchClinics = async () => {
     if (!searchText.trim()) return
@@ -109,7 +90,7 @@ function Step1({ onNext }) {
 
   return (
     <div>
-      <h2 className="text-xl font-bold text-gray-900 mb-6">Select a Clinic & Doctor</h2>
+      <h2 className="text-xl font-bold text-gray-900 mb-6">Select a Health Center & Doctor</h2>
 
       {!selectedClinic ? (
         <div>
@@ -121,7 +102,7 @@ function Step1({ onNext }) {
                 value={searchText}
                 onChange={e => setSearchText(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && searchClinics()}
-                placeholder="Search clinic by name or city..."
+                placeholder="Search health center by name or city..."
                 className="input pl-10"
               />
             </div>
@@ -150,9 +131,9 @@ function Step1({ onNext }) {
             </div>
           )}
           {!loading && clinics.length === 0 && searchText && (
-            <p className="text-gray-400 text-sm text-center py-8">No clinics found. Try a different search.</p>
+            <p className="text-gray-400 text-sm text-center py-8">No health centers found. Try a different search.</p>
           )}
-          <p className="text-gray-400 text-sm text-center mt-8">or <Link to="/clinics" className="text-[#0F2557] underline">browse all clinics</Link></p>
+          <p className="text-gray-400 text-sm text-center mt-8">or <Link to="/clinics" className="text-[#0F2557] underline">browse all doctors</Link></p>
         </div>
       ) : (
         <div>
@@ -169,7 +150,7 @@ function Step1({ onNext }) {
           {/* Doctor selection */}
           <h3 className="font-semibold text-gray-800 mb-3">Choose a Doctor</h3>
           {doctors.length === 0 ? (
-            <p className="text-gray-400 text-sm">No doctors available for this clinic.</p>
+            <p className="text-gray-400 text-sm">No doctors available for this health center.</p>
           ) : (
             <div className="space-y-3">
               {doctors.map(doctor => (
@@ -375,7 +356,7 @@ function Step3({ data, onNext, onBack }) {
       <div className="bg-[#EEF2FF] rounded-xl p-4 mb-6 text-sm">
         <div className="grid grid-cols-2 gap-2 text-gray-600">
           <div><span className="font-medium">Doctor:</span> {data.doctor.name}</div>
-          <div><span className="font-medium">Clinic:</span> {data.clinic.name}</div>
+          <div><span className="font-medium">Health Center:</span> {data.clinic.name}</div>
           <div><span className="font-medium">Date:</span> {data.date}</div>
           <div><span className="font-medium">Time:</span> {data.slot}</div>
           {data.doctor.fee && <div><span className="font-medium">Fee:</span> ₹{data.doctor.fee}</div>}
@@ -463,7 +444,7 @@ function Step4({ booking }) {
         )}
         {booking.clinic_name && (
           <div className="flex justify-between">
-            <span className="text-gray-500">Clinic</span>
+            <span className="text-gray-500">Health Center</span>
             <span className="font-medium">{booking.clinic_name}</span>
           </div>
         )}
@@ -487,7 +468,17 @@ function Step4({ booking }) {
         )}
       </div>
 
-      <p className="text-gray-400 text-xs mb-6">Show this code at the clinic reception. You can also check your booking status anytime.</p>
+      <p className="text-gray-400 text-xs mb-4">Show this code at the health center reception. You can also check your booking status anytime.</p>
+
+      <div className="rounded-xl p-4 mb-6 max-w-sm mx-auto text-sm text-left flex items-start gap-3"
+        style={{ background: '#0F255708', border: '1px solid #0F255720' }}>
+        <User className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: '#0F2557' }} />
+        <p className="text-gray-600">
+          Track this appointment in{' '}
+          <a href={PATIENT_URL} className="font-semibold underline" style={{ color: '#CC1414' }}>My Health Portal</a>
+          {' '}— log in with the same mobile number you used to book.
+        </p>
+      </div>
 
       <div className="flex gap-3 justify-center">
         <button
@@ -503,11 +494,34 @@ function Step4({ booking }) {
 }
 
 export default function BookAppointment() {
+  const [searchParams] = useSearchParams()
   const [step, setStep] = useState(0)
   const [bookingData, setBookingData] = useState({})
   const [confirmedBooking, setConfirmedBooking] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
+  const [autoLoading, setAutoLoading] = useState(
+    !!(searchParams.get('clinic') && searchParams.get('doctor'))
+  )
+
+  // Deep link from doctor cards: /book?clinic=<slug>&doctor=<id>
+  // Loads the doctor and jumps straight to slot selection
+  useEffect(() => {
+    const clinicSlug = searchParams.get('clinic')
+    const doctorId = searchParams.get('doctor')
+    if (!clinicSlug || !doctorId) return
+    publicApi.getClinicBySlug(clinicSlug)
+      .then(detail => {
+        const c = detail.clinic || detail
+        const d = (c.doctors || []).find(x => String(x.id) === String(doctorId))
+        if (d) {
+          setBookingData({ clinic: c, doctor: d })
+          setStep(1)
+        }
+      })
+      .catch(() => {})
+      .finally(() => setAutoLoading(false))
+  }, []) // eslint-disable-line
 
   const handleStep1 = (data) => {
     setBookingData(prev => ({ ...prev, ...data }))
@@ -556,7 +570,7 @@ export default function BookAppointment() {
       <div className="max-w-2xl mx-auto px-4 py-10">
         <div className="mb-8">
           <Link to="/clinics" className="inline-flex items-center gap-1 text-gray-500 hover:text-[#0F2557] text-sm transition-colors">
-            <ArrowLeft className="w-4 h-4" /> Back to Clinics
+            <ArrowLeft className="w-4 h-4" /> Back to Find Doctors
           </Link>
           <h1 className="text-2xl font-bold text-gray-900 mt-3">Book Appointment</h1>
         </div>
@@ -564,7 +578,12 @@ export default function BookAppointment() {
         <StepIndicator current={step} />
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8">
-          {submitting ? (
+          {autoLoading ? (
+            <div className="flex flex-col items-center py-16">
+              <div className="w-12 h-12 border-4 border-[#0F2557] border-t-transparent rounded-full animate-spin mb-4"></div>
+              <p className="text-gray-600 font-medium">Loading doctor details...</p>
+            </div>
+          ) : submitting ? (
             <div className="flex flex-col items-center py-16">
               <div className="w-12 h-12 border-4 border-[#0F2557] border-t-transparent rounded-full animate-spin mb-4"></div>
               <p className="text-gray-600 font-medium">Confirming your booking...</p>

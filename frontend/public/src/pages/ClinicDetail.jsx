@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useNavigate } from 'react-router-dom'
 import {
   MapPin, Phone, Mail, Stethoscope, Clock,
   User, ArrowLeft, Building2, Calendar,
@@ -7,8 +7,6 @@ import {
 } from 'lucide-react'
 import { publicApi } from '../api/client'
 import Navbar from '../components/Navbar'
-
-const PATIENT_URL = import.meta.env.VITE_PATIENT_URL || 'https://bharatcliniq-patient.vercel.app'
 
 // Avatar from initials
 function Avatar({ name, photoUrl, size = 'lg' }) {
@@ -76,6 +74,7 @@ function InfoRow({ icon: Icon, label, value, iconColor }) {
 
 function DoctorProfile({ doctor, clinic }) {
   const [bookHovered, setBookHovered] = useState(false)
+  const navigate = useNavigate()
 
   const fullAddress = [
     doctor.address || clinic?.address,
@@ -87,8 +86,9 @@ function DoctorProfile({ doctor, clinic }) {
   const mapsAddress = fullAddress || doctor.name || ''
 
   const handleBook = () => {
-    const bookUrl = `${PATIENT_URL}/appointments?doctor_id=${doctor.id}&doctor_name=${encodeURIComponent(doctor.name)}&specialty=${encodeURIComponent(doctor.specialty || '')}`
-    window.open(bookUrl, '_blank')
+    const slug = clinic?.slug || doctor.clinic_slug
+    if (slug) navigate(`/book?clinic=${slug}&doctor=${doctor.id}`)
+    else navigate('/book')
   }
 
   const achievements = doctor.achievements || doctor.qualifications || []
@@ -214,24 +214,17 @@ function DoctorProfile({ doctor, clinic }) {
       {/* Book Appointment CTA */}
       <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
         <h2 className="text-lg font-bold mb-1" style={{ color: '#0F2557' }}>Book an Appointment</h2>
-        <p className="text-sm text-gray-500 mb-4">Online booking is coming soon. For now, call the clinic to book.</p>
+        <p className="text-sm text-gray-500 mb-4">Pick a time slot online — you'll get a confirmation code instantly, and the booking appears in your My Health Portal.</p>
 
-        <div className="relative inline-block group">
-          <button
-            onClick={handleBook}
-            onMouseEnter={() => setBookHovered(true)}
-            onMouseLeave={() => setBookHovered(false)}
-            className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl font-bold text-white text-base transition-all shadow-md"
-            style={{ background: bookHovered ? '#b01010' : '#CC1414' }}
-          >
-            <Calendar className="w-5 h-5" /> Book Appointment
-          </button>
-          {/* Tooltip */}
-          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 bg-gray-800 text-white text-xs rounded-lg px-3 py-2 text-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">
-            Online booking launching soon — call to book
-            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
-          </div>
-        </div>
+        <button
+          onClick={handleBook}
+          onMouseEnter={() => setBookHovered(true)}
+          onMouseLeave={() => setBookHovered(false)}
+          className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl font-bold text-white text-base transition-all shadow-md"
+          style={{ background: bookHovered ? '#b01010' : '#CC1414' }}
+        >
+          <Calendar className="w-5 h-5" /> Book Appointment
+        </button>
       </div>
     </div>
   )
@@ -274,7 +267,7 @@ export default function ClinicDetail() {
           <Building2 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
           <p className="text-gray-500 text-lg mb-2">Profile not found</p>
           <p className="text-gray-400 text-sm mb-6">{error}</p>
-          <Link to="/clinics" className="btn-primary">Browse Clinics</Link>
+          <Link to="/clinics" className="btn-primary">Browse Doctors</Link>
         </div>
       </div>
     )
@@ -290,7 +283,7 @@ export default function ClinicDetail() {
         <Navbar />
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <Link to="/clinics" className="inline-flex items-center gap-1 text-gray-500 hover:text-[#0F2557] text-sm mb-6 transition-colors">
-            <ArrowLeft className="w-4 h-4" /> Back to Clinics
+            <ArrowLeft className="w-4 h-4" /> Back to Find Doctors
           </Link>
           <DoctorProfile doctor={clinic} clinic={null} />
         </div>
@@ -309,7 +302,7 @@ export default function ClinicDetail() {
       <div className="bg-white border-b">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <Link to="/clinics" className="inline-flex items-center gap-1 text-gray-500 hover:text-[#0F2557] text-sm mb-6 transition-colors">
-            <ArrowLeft className="w-4 h-4" /> Back to Clinics
+            <ArrowLeft className="w-4 h-4" /> Back to Find Doctors
           </Link>
           <div className="flex items-start gap-6">
             <div className="w-20 h-20 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: '#EEF2FF' }}>
@@ -430,7 +423,7 @@ export default function ClinicDetail() {
         {/* About */}
         {clinic.description && (
           <div className="mt-10 bg-white rounded-2xl shadow-md border border-gray-100 p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">About the Clinic</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">About the Health Center</h2>
             <p className="text-gray-600 leading-relaxed">{clinic.description}</p>
           </div>
         )}
