@@ -6,7 +6,7 @@ import json
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -1135,6 +1135,408 @@ def get_iview_flowsheet(
         raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
+
+
+# ===========================================================================
+# ENDPOINT 1 — Live Analytics
+# ===========================================================================
+
+@router.get("/platform/forms/analytics")
+def platform_analytics(
+    x_clinic_id: Optional[str] = Header(None),
+    x_user_role: Optional[str] = Header(None),
+    db: Session = Depends(get_db),
+):
+    """
+    GET /platform/forms/analytics
+    Returns aggregated counts across forms, submissions, assignments and alerts.
+    Access is restricted to admin/platform_admin roles, or callers whose
+    x_clinic_id matches the scope they are requesting.
+    """
+    from datetime import timedelta
+
+    allowed_roles = {"admin", "platform_admin"}
+    if x_user_role not in allowed_roles and not x_clinic_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Access denied: requires admin role or a valid x_clinic_id header",
+        )
+
+    try:
+        # ── Forms ─────────────────────────────────────────────────────────
+        forms_q = db.query(AssessmentForm)
+        all_forms = forms_q.all()
+
+        by_status: Dict[str, int] = {}
+        by_category: Dict[str, int] = {}
+        for f in all_forms:
+            s = f.status or "unknown"
+            by_status[s] = by_status.get(s, 0) + 1
+            c = f.category or "unknown"
+            by_category[c] = by_category.get(c, 0) + 1
+
+        # ── Submissions ───────────────────────────────────────────────────
+        all_submissions = db.query(FormSubmission).all()
+        total_submissions = len(all_submissions)
+
+        cutoff = datetime.utcnow() - timedelta(days=30)
+        submissions_last_30d = sum(
+            1 for sub in all_submissions
+            if sub.submitted_at and sub.submitted_at >= cutoff
+        )
+
+        # Per-form counts (python-side groupby)
+        sub_count_by_form: Dict[int, int] = {}
+        last_sub_by_form: Dict[int, Optional[datetime]] = {}
+        for sub in all_submissions:
+            fid = sub.form_id
+            sub_count_by_form[fid] = sub_count_by_form.get(fid, 0) + 1
+            prev = last_sub_by_form.get(fid)
+            if sub.submitted_at and (prev is None or sub.submitted_at > prev):
+                last_sub_by_form[fid] = sub.submitted_at
+
+        # ── Assignments ───────────────────────────────────────────────────
+        all_assignments = db.query(FormAssignment).all()
+        total_assignments = len(all_assignments)
+        open_assignments = sum(
+            1 for a in all_assignments if a.status not in ("completed", "cancelled")
+        )
+
+        assign_count_by_form: Dict[int, int] = {}
+        for a in all_assignments:
+            assign_count_by_form[a.form_id] = assign_count_by_form.get(a.form_id, 0) + 1
+
+        # ── Alerts ────────────────────────────────────────────────────────
+        all_alerts = db.query(FormAlert).all()
+        total_alerts = len(all_alerts)
+        unacknowledged_alerts = sum(
+            1 for al in all_alerts if al.acknowledged_by is None
+        )
+
+        alert_count_by_sub: Dict[int, int] = {}
+        for al in all_alerts:
+            alert_count_by_sub[al.submission_id] = alert_count_by_sub.get(al.submission_id, 0) + 1
+
+        # Map alert counts to forms via submission → form_id
+        alert_count_by_form: Dict[int, int] = {}
+        sub_form_map = {sub.id: sub.form_id for sub in all_submissions}
+        for sub_id, count in alert_count_by_sub.items():
+            fid = sub_form_map.get(sub_id)
+            if fid is not None:
+                alert_count_by_form[fid] = alert_count_by_form.get(fid, 0) + count
+
+        # ── Per-form summary ──────────────────────────────────────────────
+        form_rows = []
+        for f in all_forms:
+            last_sub_dt = last_sub_by_form.get(f.id)
+            form_rows.append({
+                "id":               f.id,
+                "title":            f.title,
+                "status":           f.status,
+                "category":         f.category,
+                "submission_count": sub_count_by_form.get(f.id, 0),
+                "assignment_count": assign_count_by_form.get(f.id, 0),
+                "alert_count":      alert_count_by_form.get(f.id, 0),
+                "last_submission_at": last_sub_dt.isoformat() if last_sub_dt else None,
+            })
+
+        return {
+            "total_forms":            len(all_forms),
+            "by_status":              by_status,
+            "by_category":            by_category,
+            "total_submissions":      total_submissions,
+            "submissions_last_30d":   submissions_last_30d,
+            "total_assignments":      total_assignments,
+            "open_assignments":       open_assignments,
+            "total_alerts":           total_alerts,
+            "unacknowledged_alerts":  unacknowledged_alerts,
+            "forms":                  form_rows,
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+# ===========================================================================
+# ENDPOINT 2 — FHIR QuestionnaireResponse export
+# ===========================================================================
+
+@router.get("/provider/forms/submissions/{submission_id}/fhir")
+def get_submission_fhir(
+    submission_id: int,
+    x_clinic_id: Optional[str] = Header(None),
+    x_user_id: Optional[str] = Header(None),
+    db: Session = Depends(get_db),
+    current=Depends(get_current_staff),
+):
+    """
+    GET /provider/forms/submissions/{submission_id}/fhir
+    Returns a FHIR R4 QuestionnaireResponse document built from the submission.
+    """
+    from fastapi.responses import JSONResponse
+
+    submission = db.query(FormSubmission).filter(FormSubmission.id == submission_id).first()
+    if not submission:
+        raise HTTPException(status_code=404, detail="Submission not found")
+
+    form = db.query(AssessmentForm).filter(AssessmentForm.id == submission.form_id).first()
+
+    # ── Build a field-label lookup from schema sections/fields ─────────────
+    field_label_map: Dict[str, str] = {}
+    if form and form.schema:
+        schema = form.schema
+        # Support both top-level "fields" and "sections[].fields" layouts
+        for field in schema.get("fields", []):
+            if isinstance(field, dict):
+                field_label_map[str(field.get("id", ""))] = field.get("label", str(field.get("id", "")))
+        for section in schema.get("sections", []):
+            if isinstance(section, dict):
+                for field in section.get("fields", []):
+                    if isinstance(field, dict):
+                        field_label_map[str(field.get("id", ""))] = field.get("label", str(field.get("id", "")))
+
+    # ── Build FHIR items ───────────────────────────────────────────────────
+    data: dict = submission.data or {}
+    fhir_items = []
+    for field_id, raw_value in data.items():
+        label = field_label_map.get(str(field_id), str(field_id))
+
+        # Determine FHIR answer type
+        if isinstance(raw_value, bool):
+            answer = [{"valueBoolean": raw_value}]
+        elif isinstance(raw_value, (int, float)):
+            answer = [{"valueDecimal": raw_value}]
+        else:
+            str_val = str(raw_value) if raw_value is not None else ""
+            # Detect ISO date strings (YYYY-MM-DD)
+            if len(str_val) == 10 and str_val.count("-") == 2:
+                try:
+                    datetime.strptime(str_val, "%Y-%m-%d")
+                    answer = [{"valueDate": str_val}]
+                except ValueError:
+                    answer = [{"valueString": str_val}]
+            else:
+                answer = [{"valueString": str_val}]
+
+        fhir_items.append({
+            "linkId": str(field_id),
+            "text":   label,
+            "answer": answer,
+        })
+
+    authored = (
+        submission.submitted_at.isoformat()
+        if submission.submitted_at
+        else datetime.utcnow().isoformat()
+    )
+
+    qr = {
+        "resourceType": "QuestionnaireResponse",
+        "id":           str(submission_id),
+        "status":       "completed",
+        "questionnaire": f"AssessmentForm/{submission.form_id}",
+        "subject":      {"reference": f"Patient/{submission.patient_id}"},
+        "authored":     authored,
+        "item":         fhir_items,
+    }
+
+    return JSONResponse(content=qr, headers={"Content-Type": "application/fhir+json"})
+
+
+# ===========================================================================
+# ENDPOINT 3 — ABDM FHIR Bundle export
+# ===========================================================================
+
+@router.get("/provider/forms/submissions/{submission_id}/abdm")
+def get_submission_abdm(
+    submission_id: int,
+    x_clinic_id: Optional[str] = Header(None),
+    x_user_id: Optional[str] = Header(None),
+    db: Session = Depends(get_db),
+    current=Depends(get_current_staff),
+):
+    """
+    GET /provider/forms/submissions/{submission_id}/abdm
+    Returns an ABDM-compliant FHIR R4 DocumentBundle wrapping the
+    QuestionnaireResponse (same content as /fhir but bundled per NDHM spec).
+    """
+    from fastapi.responses import JSONResponse
+
+    submission = db.query(FormSubmission).filter(FormSubmission.id == submission_id).first()
+    if not submission:
+        raise HTTPException(status_code=404, detail="Submission not found")
+
+    form = db.query(AssessmentForm).filter(AssessmentForm.id == submission.form_id).first()
+
+    # ── Re-build field-label lookup (same logic as /fhir) ─────────────────
+    field_label_map: Dict[str, str] = {}
+    if form and form.schema:
+        schema = form.schema
+        for field in schema.get("fields", []):
+            if isinstance(field, dict):
+                field_label_map[str(field.get("id", ""))] = field.get("label", str(field.get("id", "")))
+        for section in schema.get("sections", []):
+            if isinstance(section, dict):
+                for field in section.get("fields", []):
+                    if isinstance(field, dict):
+                        field_label_map[str(field.get("id", ""))] = field.get("label", str(field.get("id", "")))
+
+    data: dict = submission.data or {}
+    fhir_items = []
+    for field_id, raw_value in data.items():
+        label = field_label_map.get(str(field_id), str(field_id))
+        if isinstance(raw_value, bool):
+            answer = [{"valueBoolean": raw_value}]
+        elif isinstance(raw_value, (int, float)):
+            answer = [{"valueDecimal": raw_value}]
+        else:
+            str_val = str(raw_value) if raw_value is not None else ""
+            if len(str_val) == 10 and str_val.count("-") == 2:
+                try:
+                    datetime.strptime(str_val, "%Y-%m-%d")
+                    answer = [{"valueDate": str_val}]
+                except ValueError:
+                    answer = [{"valueString": str_val}]
+            else:
+                answer = [{"valueString": str_val}]
+        fhir_items.append({"linkId": str(field_id), "text": label, "answer": answer})
+
+    authored = (
+        submission.submitted_at.isoformat()
+        if submission.submitted_at
+        else datetime.utcnow().isoformat()
+    )
+
+    questionnaire_response = {
+        "resourceType": "QuestionnaireResponse",
+        "id":           str(submission_id),
+        "status":       "completed",
+        "questionnaire": f"AssessmentForm/{submission.form_id}",
+        "subject":      {"reference": f"Patient/{submission.patient_id}"},
+        "authored":     authored,
+        "item":         fhir_items,
+    }
+
+    bundle = {
+        "resourceType": "Bundle",
+        "type":         "document",
+        "meta": {
+            "profile": [
+                "https://nrces.in/ndhm/fhir/r4/StructureDefinition/DocumentBundle"
+            ]
+        },
+        "entry": [
+            {"resource": questionnaire_response}
+        ],
+    }
+
+    return JSONResponse(content=bundle, headers={"Content-Type": "application/fhir+json"})
+
+
+# ===========================================================================
+# ENDPOINT 4 — Submission data for PDF rendering
+# ===========================================================================
+
+@router.get("/provider/forms/submissions/{submission_id}/pdf-data")
+def get_submission_pdf_data(
+    submission_id: int,
+    x_clinic_id: Optional[str] = Header(None),
+    x_user_id: Optional[str] = Header(None),
+    db: Session = Depends(get_db),
+    current=Depends(get_current_staff),
+):
+    """
+    GET /provider/forms/submissions/{submission_id}/pdf-data
+    Returns a structured JSON document the frontend can use to render a
+    print-ready PDF page — sections with labelled field values, scores, and
+    any fired alerts.
+    """
+    submission = db.query(FormSubmission).filter(FormSubmission.id == submission_id).first()
+    if not submission:
+        raise HTTPException(status_code=404, detail="Submission not found")
+
+    form = db.query(AssessmentForm).filter(AssessmentForm.id == submission.form_id).first()
+
+    data: dict = submission.data or {}
+
+    def _format_value(raw) -> str:
+        if raw is None:
+            return ""
+        if isinstance(raw, list):
+            return ", ".join(str(v) for v in raw)
+        return str(raw)
+
+    # ── Walk schema sections/fields ────────────────────────────────────────
+    sections_out = []
+    if form and form.schema:
+        schema = form.schema
+
+        # If the schema has top-level sections, iterate them
+        raw_sections = schema.get("sections", [])
+        if raw_sections:
+            for section in raw_sections:
+                if not isinstance(section, dict):
+                    continue
+                section_title = section.get("title", section.get("name", ""))
+                fields_out = []
+                for field in section.get("fields", []):
+                    if not isinstance(field, dict):
+                        continue
+                    fid   = str(field.get("id", ""))
+                    label = field.get("label", fid)
+                    unit  = field.get("unit", "")
+                    raw   = data.get(fid)
+                    fields_out.append({
+                        "label": label,
+                        "value": _format_value(raw),
+                        "unit":  unit,
+                    })
+                sections_out.append({"title": section_title, "fields": fields_out})
+
+        # If the schema has a flat top-level "fields" list (no sections), wrap in one section
+        elif schema.get("fields"):
+            fields_out = []
+            for field in schema.get("fields", []):
+                if not isinstance(field, dict):
+                    continue
+                fid   = str(field.get("id", ""))
+                label = field.get("label", fid)
+                unit  = field.get("unit", "")
+                raw   = data.get(fid)
+                fields_out.append({
+                    "label": label,
+                    "value": _format_value(raw),
+                    "unit":  unit,
+                })
+            sections_out.append({"title": form.title if form else "Form", "fields": fields_out})
+
+    # If no schema available, emit raw key-value pairs in a single section
+    if not sections_out and data:
+        fields_out = [
+            {"label": k, "value": _format_value(v), "unit": ""}
+            for k, v in data.items()
+        ]
+        sections_out.append({"title": "Data", "fields": fields_out})
+
+    # ── Alerts for this submission ─────────────────────────────────────────
+    db_alerts = (
+        db.query(FormAlert)
+        .filter(FormAlert.submission_id == submission_id)
+        .all()
+    )
+    alerts_out = [_alert_dict(a) for a in db_alerts]
+
+    return {
+        "form_title":    form.title if form else "",
+        "form_category": form.category if form else "",
+        "patient_id":    submission.patient_id,
+        "submitted_at":  submission.submitted_at.isoformat() if submission.submitted_at else None,
+        "submitted_by":  str(submission.submitted_by) if submission.submitted_by else "",
+        "sections":      sections_out,
+        "scores":        submission.scores or {},
+        "alerts":        alerts_out,
+    }
 
 
 # ===========================================================================

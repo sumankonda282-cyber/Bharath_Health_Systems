@@ -106,6 +106,103 @@ export default function SubmissionViewer() {
     setCosignLoading(false)
   }
 
+  const exportPDF = async () => {
+    try {
+      const res = await api.get(`/provider/forms/submissions/${id}/pdf-data`)
+      const d = res.data
+      const sections = d.sections || []
+      const scores = d.scores || []
+      const alerts = d.alerts || []
+
+      const sectionsHtml = sections.map(section => `
+        <h3 style="font-size:14px;font-weight:bold;color:#0F2557;margin:16px 0 6px;">${section.title || ''}</h3>
+        <table style="width:100%;border-collapse:collapse;margin-bottom:8px;">
+          ${(section.fields || []).map(f => `
+            <tr>
+              <td style="padding:6px 8px;border:1px solid #e5e7eb;width:35%;font-size:12px;font-weight:600;color:#374151;background:#f9fafb;">${f.label}</td>
+              <td style="padding:6px 8px;border:1px solid #e5e7eb;font-size:12px;color:#111827;">${f.value !== undefined && f.value !== null ? String(f.value) : '—'}</td>
+            </tr>
+          `).join('')}
+        </table>
+      `).join('')
+
+      const scoresHtml = scores.length > 0 ? `
+        <div style="margin-top:16px;padding:12px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;">
+          <h3 style="font-size:13px;font-weight:bold;color:#0369a1;margin:0 0 8px;">Assessment Scores</h3>
+          ${scores.map(sc => `<p style="margin:4px 0;font-size:12px;color:#0c4a6e;"><strong>${sc.name}:</strong> ${sc.value}${sc.band?.label ? ` — ${sc.band.label}` : ''}</p>`).join('')}
+        </div>
+      ` : ''
+
+      const alertsHtml = alerts.length > 0 ? `
+        <div style="margin-top:16px;padding:12px;background:#fff1f2;border:1px solid #fecdd3;border-radius:6px;">
+          <h3 style="font-size:13px;font-weight:bold;color:#be123c;margin:0 0 8px;">Critical Alerts</h3>
+          ${alerts.map(a => `<p style="margin:4px 0;font-size:12px;color:#881337;"><strong>${a.field_label || a.field_id}:</strong> ${a.message}</p>`).join('')}
+        </div>
+      ` : ''
+
+      const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>${d.form_title || 'Clinical Report'}</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #fff; color: #111; margin: 0; padding: 24px; }
+    @media print { body { padding: 0; } }
+  </style>
+</head>
+<body>
+  <div style="border-bottom:2px solid #0F2557;padding-bottom:12px;margin-bottom:16px;">
+    <h1 style="font-size:20px;font-weight:bold;color:#0F2557;margin:0 0 4px;">${d.form_title || 'Clinical Report'}</h1>
+    ${d.category ? `<p style="margin:2px 0;font-size:12px;color:#6b7280;">Category: ${d.category}</p>` : ''}
+    ${d.patient_id ? `<p style="margin:2px 0;font-size:12px;color:#6b7280;">Patient ID: ${d.patient_id}</p>` : ''}
+    ${d.submitted_at ? `<p style="margin:2px 0;font-size:12px;color:#6b7280;">Submitted: ${new Date(d.submitted_at).toLocaleString()}</p>` : ''}
+    ${d.submitted_by ? `<p style="margin:2px 0;font-size:12px;color:#6b7280;">Submitted by: ${d.submitted_by}</p>` : ''}
+  </div>
+  ${sectionsHtml}
+  ${scoresHtml}
+  ${alertsHtml}
+</body>
+</html>`
+
+      const win = window.open('', '_blank')
+      win.document.write(html)
+      win.document.close()
+      win.focus()
+      win.print()
+      win.addEventListener('afterprint', () => win.close())
+    } catch (err) {
+      console.error('PDF export failed', err)
+    }
+  }
+
+  const downloadJson = (data, filename) => {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const exportFHIR = async () => {
+    try {
+      const res = await api.get(`/provider/forms/submissions/${id}/fhir`)
+      downloadJson(res.data, `submission-${id}.fhir.json`)
+    } catch (err) {
+      console.error('FHIR export failed', err)
+    }
+  }
+
+  const exportABDM = async () => {
+    try {
+      const res = await api.get(`/provider/forms/submissions/${id}/abdm`)
+      downloadJson(res.data, `submission-${id}.abdm.json`)
+    } catch (err) {
+      console.error('ABDM export failed', err)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
@@ -157,13 +254,33 @@ export default function SubmissionViewer() {
               </span>
             </div>
           </div>
-          <button
-            onClick={() => window.print()}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition print:hidden"
-          >
-            <Printer size={14} />
-            Print
-          </button>
+          <div className="flex items-center gap-2 print:hidden">
+            <button
+              onClick={() => window.print()}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition"
+            >
+              <Printer size={14} />
+              Print
+            </button>
+            <button
+              onClick={exportPDF}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition"
+            >
+              Export PDF
+            </button>
+            <button
+              onClick={exportFHIR}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-blue-200 text-sm text-blue-600 hover:bg-blue-50 transition"
+            >
+              FHIR Export
+            </button>
+            <button
+              onClick={exportABDM}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-green-200 text-sm text-green-600 hover:bg-green-50 transition"
+            >
+              ABDM Export
+            </button>
+          </div>
         </div>
       </div>
 
