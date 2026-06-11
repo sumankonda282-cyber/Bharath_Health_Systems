@@ -29,6 +29,9 @@ const AdmissionChart = lazy(() => import('./pages/inpatient/AdmissionChart'))
 const PlatformAdmin  = lazy(() => import('./pages/platform/PlatformAdmin'))
 const IViewSelector  = lazy(() => import('./pages/forms/iViewSelector'))
 const IViewFlowsheet = lazy(() => import('./pages/forms/iViewFlowsheet'))
+const FormTaskList   = lazy(() => import('./pages/forms/FormTaskList'))
+const FormFiller     = lazy(() => import('./pages/forms/FormFiller'))
+const SubmissionViewer = lazy(() => import('./pages/forms/SubmissionViewer'))
 
 function AppRoutes() {
   const { user, loading } = useAuth()
@@ -71,6 +74,9 @@ function AppRoutes() {
         <Route path="/platform"        element={<Suspense fallback={<PageLoader />}><PlatformAdmin /></Suspense>} />
         <Route path="/forms/iview"           element={<Suspense fallback={<PageLoader />}><IViewSelector /></Suspense>} />
         <Route path="/forms/iview/:formId"   element={<Suspense fallback={<PageLoader />}><IViewFlowsheet /></Suspense>} />
+        <Route path="/forms"                 element={<Suspense fallback={<PageLoader />}><FormTaskList /></Suspense>} />
+        <Route path="/forms/fill/:assignmentId" element={<Suspense fallback={<PageLoader />}><FormFiller /></Suspense>} />
+        <Route path="/forms/submission/:id"  element={<Suspense fallback={<PageLoader />}><SubmissionViewer /></Suspense>} />
       </Route>
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
