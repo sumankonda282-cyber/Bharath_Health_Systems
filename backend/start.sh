@@ -135,7 +135,7 @@ except Exception as e:
 python seed_forms.py || echo "[startup] Form template seed failed (non-fatal)"
 
 echo "[startup] Syncing database schema..."
-alembic upgrade head || echo "[startup] Migration failed — continuing with existing schema"
+timeout 60 alembic upgrade head || echo "[startup] Migration failed or timed out — continuing with existing schema"
 
 echo "[startup] Seeding database..."
 python seed.py || echo "[startup] Seed failed (non-fatal) — continuing with existing data"
