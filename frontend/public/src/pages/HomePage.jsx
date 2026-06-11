@@ -354,10 +354,14 @@ export default function HomePage() {
                 style={{ '--tw-ring-color': '#0F2557' }}
               />
             </div>
-            <button type="button" disabled
-              className="px-6 py-3 rounded-xl font-semibold text-white text-sm whitespace-nowrap opacity-70 cursor-not-allowed"
-              style={{ background: '#CC1414' }}>
-              Coming Soon
+            <button
+              type="submit"
+              className="px-6 py-3 rounded-xl font-semibold text-white text-sm whitespace-nowrap transition-colors"
+              style={{ background: '#CC1414' }}
+              onMouseEnter={e => e.currentTarget.style.background = '#b01010'}
+              onMouseLeave={e => e.currentTarget.style.background = '#CC1414'}
+            >
+              Find a Doctor
             </button>
           </form>
 
@@ -538,34 +542,13 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Testimonials */}
-      <section className="py-20 px-4" style={{ background: '#F0F4F8' }}>
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-14">
-            <h2 className="text-3xl md:text-4xl font-extrabold" style={{ color: '#0F2557' }}>Trusted across India</h2>
-            <p className="text-lg text-gray-500 mt-3">What our doctors and patients say</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {TESTIMONIALS.map(t => (
-              <div key={t.name} className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
-                <div className="flex gap-1 mb-4">
-                  {Array.from({ length: t.rating }).map((_, i) => (
-                    <Star key={i} className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                  ))}
-                </div>
-                <p className="text-gray-600 text-sm leading-relaxed mb-6">"{t.text}"</p>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 text-white rounded-full flex items-center justify-center font-bold text-sm"
-                    style={{ background: t.color }}>
-                    {t.avatar}
-                  </div>
-                  <div>
-                    <div className="font-semibold text-sm" style={{ color: '#0F2557' }}>{t.name}</div>
-                    <div className="text-gray-500 text-xs">{t.role}</div>
-                  </div>
-                </div>
-              </div>
-            ))}
+      {/* Reviews coming soon */}
+      <section className="py-12 px-4" style={{ background: '#F0F4F8' }}>
+        <div className="max-w-2xl mx-auto text-center">
+          <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-3">Reviews & Testimonials</p>
+          <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-dashed border-gray-300 bg-white text-gray-500 text-sm">
+            <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
+            Coming soon — be one of our first verified reviewers
           </div>
         </div>
       </section>
