@@ -13,6 +13,8 @@ import Reports from './pages/Reports'
 import BhidLookup from './pages/BhidLookup'
 import Subscriptions from './pages/Subscriptions'
 import HospitalSettings from './pages/HospitalSettings'
+import FormBuilder from './pages/FormBuilder'
+import FormPool from './pages/FormPool'
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth()
@@ -39,6 +41,9 @@ export default function App() {
           <Route path="bhid"          element={<BhidLookup />} />
           <Route path="subscriptions" element={<Subscriptions />} />
           <Route path="hospital-settings" element={<HospitalSettings />} />
+          <Route path="forms"             element={<FormPool />} />
+          <Route path="forms/builder"     element={<FormBuilder />} />
+          <Route path="forms/builder/:id" element={<FormBuilder />} />
         </Route>
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
