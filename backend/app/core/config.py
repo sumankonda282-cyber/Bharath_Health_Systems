@@ -23,7 +23,12 @@ class Settings(BaseSettings):
         "https://bharatcliniq-patient.vercel.app,https://bharatcliniq-lab.vercel.app,"
         "https://bharatcliniq-imaging.vercel.app,https://bharatcliniq-pharmacy.vercel.app,"
         "https://bharatcliniq-receptionist.vercel.app,https://bharatcliniq-admin.vercel.app,"
-        "https://bharatcliniq-staff.vercel.app"
+        "https://bharatcliniq-staff.vercel.app,"
+        "https://bharathhealthsystems.com,https://www.bharathhealthsystems.com,"
+        "https://staff.bharathhealthsystems.com,https://provider.bharathhealthsystems.com,"
+        "https://my.bharathhealthsystems.com,https://admin.bharathhealthsystems.com,"
+        "https://lab.bharathhealthsystems.com,https://pharmacy.bharathhealthsystems.com,"
+        "https://imaging.bharathhealthsystems.com"
     )
 
     DEBUG: bool = False
