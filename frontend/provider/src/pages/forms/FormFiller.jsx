@@ -4,9 +4,61 @@ import {
   ChevronLeft, Save, Send, AlertTriangle, CheckCircle2,
   Clock, BarChart2, Loader2, X, ChevronDown, ChevronUp,
   Plus, Minus, RotateCcw, Pen, Type, Camera, Upload,
-  Info, Activity
+  Info, Activity, Mic
 } from 'lucide-react'
 import api from '../../api/client'
+
+// ─── Language context ────────────────────────────────────────────────────────
+
+const LangContext = React.createContext({ lang: 'en', translations: null })
+
+function getLabel(field, lang, translations) {
+  if (lang === 'en' || !translations) return field.label
+  return translations[lang]?.[field.field_id] || field.label
+}
+
+// ─── Voice dictation hook ────────────────────────────────────────────────────
+
+function useVoiceDictation(onResult) {
+  const [listening, setListening] = useState(false)
+  const recRef = useRef(null)
+
+  const start = useCallback(() => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!SR) { onResult(null, 'Voice input not supported in this browser'); return }
+    const rec = new SR()
+    rec.lang = 'en-IN'
+    rec.interimResults = false
+    rec.maxAlternatives = 1
+    rec.onresult = e => { onResult(e.results[0][0].transcript, null); setListening(false) }
+    rec.onerror = () => { onResult(null, 'Voice error'); setListening(false) }
+    rec.onend = () => setListening(false)
+    recRef.current = rec
+    rec.start()
+    setListening(true)
+  }, [onResult])
+
+  const stop = useCallback(() => { recRef.current?.stop(); setListening(false) }, [])
+  return { listening, start, stop }
+}
+
+function MicButton({ onAppend }) {
+  const [toast, setToast] = useState(null)
+  const { listening, start } = useVoiceDictation((text, err) => {
+    if (err) { setToast(err); setTimeout(() => setToast(null), 2000); return }
+    onAppend(text)
+  })
+  return (
+    <div className="relative inline-flex">
+      <button type="button" onClick={start}
+        className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-colors ${listening ? 'text-red-500 bg-red-50' : 'text-gray-400 hover:text-[#0F2557] hover:bg-gray-100'}`}
+        title="Voice input">
+        <Mic size={14} className={listening ? 'animate-pulse' : ''} />
+      </button>
+      {toast && <div className="absolute right-0 top-full mt-1 text-xs bg-gray-800 text-white px-2 py-1 rounded z-10 whitespace-nowrap">{toast}</div>}
+    </div>
+  )
+}
 
 // ─── Utility helpers ────────────────────────────────────────────────────────
 
@@ -77,9 +129,10 @@ function getCompletionPct(sections, values) {
 // ─── Field Components ────────────────────────────────────────────────────────
 
 function FieldLabel({ field }) {
+  const { lang, translations } = React.useContext(LangContext)
   return (
     <label className="block text-sm font-medium text-gray-700 mb-1">
-      {field.label}
+      {getLabel(field, lang, translations)}
       {field.required && <span className="text-red-500 ml-1">*</span>}
       {field.help_text && (
         <span className="ml-2 text-xs text-gray-400 font-normal">{field.help_text}</span>
@@ -119,13 +172,20 @@ function TextField({ field, value, onChange, error }) {
   return (
     <div>
       <FieldLabel field={field} />
-      <input
-        type="text"
-        value={value || ''}
-        onChange={e => onChange(e.target.value)}
-        placeholder={field.placeholder}
-        className={`${INPUT_CLS} ${error ? INPUT_ERROR_CLS : ''}`}
-      />
+      <div className="relative">
+        <input
+          type="text"
+          value={value || ''}
+          onChange={e => onChange(e.target.value)}
+          placeholder={field.placeholder}
+          className={`${INPUT_CLS} pr-10 ${error ? INPUT_ERROR_CLS : ''}`}
+        />
+        <MicButton
+          fieldId={field.field_id}
+          value={value}
+          onAppend={val => onChange((value || '') + ' ' + val)}
+        />
+      </div>
       <FieldError error={error} />
     </div>
   )
@@ -136,14 +196,21 @@ function TextAreaField({ field, value, onChange, error }) {
   return (
     <div>
       <FieldLabel field={field} />
-      <textarea
-        value={value || ''}
-        onChange={e => onChange(e.target.value)}
-        rows={field.rows || 3}
-        maxLength={max || undefined}
-        placeholder={field.placeholder}
-        className={`${INPUT_CLS} resize-y ${error ? INPUT_ERROR_CLS : ''}`}
-      />
+      <div className="relative">
+        <textarea
+          value={value || ''}
+          onChange={e => onChange(e.target.value)}
+          rows={field.rows || 3}
+          maxLength={max || undefined}
+          placeholder={field.placeholder}
+          className={`${INPUT_CLS} resize-y pr-10 ${error ? INPUT_ERROR_CLS : ''}`}
+        />
+        <MicButton
+          fieldId={field.field_id}
+          value={value}
+          onAppend={val => onChange((value || '') + ' ' + val)}
+        />
+      </div>
       {max && (
         <p className="text-right text-xs text-gray-400 mt-0.5">{(value || '').length}/{max}</p>
       )}
@@ -874,6 +941,7 @@ export default function FormFiller() {
     showNormalMacro: false,
   })
 
+  const [lang, setLang] = useState('en')
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(null)
   const [hasDraft, setHasDraft] = useState(false)
@@ -1141,6 +1209,7 @@ export default function FormFiller() {
   }
 
   return (
+    <LangContext.Provider value={{ lang, translations: formMeta?.translations || null }}>
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Top Bar */}
       <div className="bg-white border-b border-gray-100 sticky top-0 z-20 shadow-sm">
@@ -1154,6 +1223,14 @@ export default function FormFiller() {
               {formMeta?.category && (
                 <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 capitalize">{formMeta.category}</span>
               )}
+              <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
+                {['en', 'hi', 'te'].map(l => (
+                  <button key={l} onClick={() => setLang(l)}
+                    className={`px-2 py-1 rounded text-xs font-semibold transition-colors ${lang === l ? 'bg-white text-[#0F2557] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+                    {l === 'en' ? 'EN' : l === 'hi' ? 'हि' : 'తె'}
+                  </button>
+                ))}
+              </div>
               {assignment?.priority && (
                 <span className={`text-xs px-2 py-0.5 rounded-full font-semibold uppercase ${
                   assignment.priority === 'stat' ? 'bg-red-100 text-red-700' : assignment.priority === 'urgent' ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-600'
@@ -1333,5 +1410,6 @@ export default function FormFiller() {
         )}
       </div>
     </div>
+    </LangContext.Provider>
   )
 }

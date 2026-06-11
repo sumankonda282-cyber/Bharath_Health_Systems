@@ -6,8 +6,11 @@ import { PageLoader } from '../../components/ui/Spinner'
 import {
   ArrowLeft, ChevronDown, ChevronUp, Lock, User,
   Phone, Mail, MapPin, Tag, Plus, X, Edit2, Save,
+  ClipboardList, Send,
 } from 'lucide-react'
 import AllergySearch from '../../components/AllergySearch'
+import QuickAssign from '../forms/QuickAssign'
+import SendPreVisitModal from '../../components/forms/SendPreVisitModal'
 
 // ── TagInput (same 3-tier system as PatientList) ──────────────────────────────
 function TagInput({ patientId, currentTags, onTagsChange }) {
@@ -325,6 +328,64 @@ function EditModal({ patient, onSave, onClose }) {
   )
 }
 
+// ── Recent Assessments ────────────────────────────────────────────────────────
+const STATUS_BADGE = {
+  pending:    'bg-yellow-50 text-yellow-700 border-yellow-200',
+  sent:       'bg-blue-50 text-blue-700 border-blue-200',
+  completed:  'bg-green-50 text-green-700 border-green-200',
+  viewed:     'bg-purple-50 text-purple-700 border-purple-200',
+}
+
+function RecentAssessments({ patientId }) {
+  const [assignments, setAssignments] = useState([])
+  const [loading, setLoading]         = useState(true)
+
+  useEffect(() => {
+    if (!patientId) return
+    fetch(`/provider/forms/assignments?patient_id=${patientId}`, { credentials: 'include' })
+      .then(r => r.ok ? r.json() : [])
+      .then(data => { setAssignments(Array.isArray(data) ? data : (data.assignments || [])); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [patientId])
+
+  return (
+    <Section title="Assessment Forms" badge={loading ? null : assignments.length} defaultOpen={false}>
+      {loading ? (
+        <p className="text-center text-gray-400 py-6 text-sm">Loading…</p>
+      ) : assignments.length === 0 ? (
+        <p className="text-center text-gray-400 py-8 text-sm">No forms assigned yet</p>
+      ) : (
+        <div className="divide-y divide-gray-100">
+          {assignments.map((a) => (
+            <div key={a.id} className="flex items-center gap-3 px-5 py-3 text-sm">
+              <ClipboardList size={14} className="text-gray-400 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-gray-900 truncate">{a.form_name || a.form_title || `Form #${a.form_id}`}</div>
+                <div className="text-xs text-gray-400">{a.assigned_at || a.created_at}</div>
+              </div>
+              <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${STATUS_BADGE[a.status] || 'bg-gray-50 text-gray-600 border-gray-200'}`}>
+                {a.status || 'pending'}
+              </span>
+              {a.fill_url && (
+                <a href={a.fill_url} target="_blank" rel="noopener noreferrer"
+                  className="text-xs px-2 py-1 rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50">
+                  Fill
+                </a>
+              )}
+              {a.view_url && (
+                <a href={a.view_url} target="_blank" rel="noopener noreferrer"
+                  className="text-xs px-2 py-1 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">
+                  View
+                </a>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </Section>
+  )
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function PatientDetail() {
   const { id } = useParams()
@@ -333,6 +394,8 @@ export default function PatientDetail() {
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)
   const [allergiesCoded, setAllergiesCoded] = useState([])
+  const [showAssignForm, setShowAssignForm] = useState(false)
+  const [showPreVisit, setShowPreVisit] = useState(false)
 
   const load = () => {
     setLoading(true)
@@ -374,6 +437,23 @@ export default function PatientDetail() {
       {editing && (
         <EditModal patient={d} onSave={handleSave} onClose={() => setEditing(false)} />
       )}
+      {showAssignForm && (
+        <QuickAssign
+          patientId={parseInt(id)}
+          appointmentId={null}
+          admissionId={null}
+          onClose={() => setShowAssignForm(false)}
+          onAssigned={() => setShowAssignForm(false)}
+        />
+      )}
+      {showPreVisit && (
+        <SendPreVisitModal
+          patientId={parseInt(id)}
+          appointmentId={null}
+          clinicId={d?.clinic_id}
+          onClose={() => setShowPreVisit(false)}
+        />
+      )}
 
       {/* Page header */}
       <div className="page-header">
@@ -384,7 +464,19 @@ export default function PatientDetail() {
             <p className="text-sm text-gray-500 font-mono">{d.clinic_patient_id}</p>
           </div>
         </div>
-        <button onClick={() => setEditing(true)} className="btn-secondary"><Edit2 size={15} />Edit</button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setShowAssignForm(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 transition-colors">
+            <ClipboardList size={14} />
+            Assign Form
+          </button>
+          <button onClick={() => setShowPreVisit(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 transition-colors">
+            <Send size={14} />
+            Pre-Visit Form
+          </button>
+          <button onClick={() => setEditing(true)} className="btn-secondary"><Edit2 size={15} />Edit</button>
+        </div>
       </div>
 
       {/* Summary strip */}
@@ -465,6 +557,9 @@ export default function PatientDetail() {
           </div>
         </Section>
       )}
+
+      {/* Section 4 — Recent Assessments */}
+      <RecentAssessments patientId={parseInt(id)} />
     </div>
   )
 }

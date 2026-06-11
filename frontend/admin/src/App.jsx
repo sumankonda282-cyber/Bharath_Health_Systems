@@ -16,6 +16,7 @@ import HospitalSettings from './pages/HospitalSettings'
 import FormBuilder from './pages/FormBuilder'
 import FormPool from './pages/FormPool'
 import FormPreview from './pages/FormPreview'
+import FormAnalytics from './pages/FormAnalytics'
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth()
@@ -43,6 +44,7 @@ export default function App() {
           <Route path="subscriptions" element={<Subscriptions />} />
           <Route path="hospital-settings" element={<HospitalSettings />} />
           <Route path="forms"             element={<FormPool />} />
+          <Route path="forms/analytics"   element={<FormAnalytics />} />
           <Route path="forms/builder"     element={<FormBuilder />} />
           <Route path="forms/builder/:id" element={<FormBuilder />} />
           <Route path="forms/preview/:id" element={<FormPreview />} />

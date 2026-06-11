@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { doctorApi } from '../../api'
 import { PageLoader } from '../../components/ui/Spinner'
-import { Stethoscope, Clock, CheckCircle, ChevronRight, Calendar, Video } from 'lucide-react'
+import { Stethoscope, Clock, CheckCircle, ChevronRight, Calendar, Video, ClipboardList } from 'lucide-react'
 import { format } from 'date-fns'
 import { Link } from 'react-router-dom'
+import QuickAssign from '../forms/QuickAssign'
 
 const STATUS_COLORS = {
   pending: 'badge-yellow', confirmed: 'badge-blue',
@@ -74,6 +75,7 @@ export default function DoctorDesk() {
   const [loading, setLoading] = useState(true)
   const [date, setDate] = useState(today)
   const [telehealthAppt, setTelehealthAppt] = useState(null)
+  const [assignTarget, setAssignTarget] = useState(null)
 
   useEffect(() => {
     const fetch = () => {
@@ -160,6 +162,11 @@ export default function DoctorDesk() {
                 </Link>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <span className={STATUS_COLORS[appt.status] || 'badge-gray'}>{appt.status.replace('_', ' ')}</span>
+                  <button
+                    onClick={() => setAssignTarget({ patientId: appt.patient_id, appointmentId: appt.id })}
+                    className="text-xs px-2 py-1 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 flex items-center gap-1">
+                    <ClipboardList size={11} /> Assign Form
+                  </button>
                   {appt.mode === 'telehealth' && ['pending', 'confirmed', 'in_progress'].includes(appt.status) && (
                     <button
                       onClick={() => setTelehealthAppt(appt)}
@@ -176,6 +183,15 @@ export default function DoctorDesk() {
           </div>
           {telehealthAppt && (
             <TelehealthConsentModal appt={telehealthAppt} onClose={() => setTelehealthAppt(null)} />
+          )}
+          {assignTarget && (
+            <QuickAssign
+              patientId={assignTarget.patientId}
+              appointmentId={assignTarget.appointmentId}
+              admissionId={null}
+              onClose={() => setAssignTarget(null)}
+              onAssigned={() => setAssignTarget(null)}
+            />
           )}
         </>
       )}
