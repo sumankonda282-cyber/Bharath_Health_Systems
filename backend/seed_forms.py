@@ -1,0 +1,2071 @@
+#!/usr/bin/env python3
+import sys, os
+sys.path.insert(0, os.path.dirname(__file__))
+
+DATABASE_URL = os.environ.get("DATABASE_URL", "")
+if not DATABASE_URL:
+    print("[forms] DATABASE_URL not set — skipping")
+    sys.exit(0)
+
+if "postgresql+asyncpg" in DATABASE_URL:
+    DATABASE_URL = DATABASE_URL.replace("postgresql+asyncpg", "postgresql")
+
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from app.models.models import AssessmentForm, AssessmentFormVersion, FormPool
+from datetime import datetime
+
+engine = create_engine(DATABASE_URL, pool_pre_ping=True,
+                       connect_args={"options": "-c prepared_statement_cache_size=0"})
+Session = sessionmaker(bind=engine)
+
+TEMPLATES = [
+    # ─────────────────────────────────────────────────────────────────────────────
+    # 1. Vitals Assessment
+    # ─────────────────────────────────────────────────────────────────────────────
+    {
+        "title": "Vitals Assessment",
+        "description": "Comprehensive vital signs assessment including BP, HR, SpO2, temperature, respiratory rate, and pain score.",
+        "category": "vitals",
+        "icon": "🫀",
+        "is_iview_enabled": True,
+        "iview_config": {
+            "time_band": "4h",
+            "row_config": [
+                {"field_id": "bp_systolic",      "label": "BP Systolic",      "unit": "mmHg",  "ref_range": {"critical_low": 70, "normal_low": 90, "normal_high": 140, "critical_high": 180}},
+                {"field_id": "bp_diastolic",     "label": "BP Diastolic",     "unit": "mmHg",  "ref_range": {"critical_low": 40, "normal_low": 60, "normal_high": 90,  "critical_high": 120}},
+                {"field_id": "heart_rate",       "label": "Heart Rate",       "unit": "/min",  "ref_range": {"critical_low": 40, "normal_low": 60, "normal_high": 100, "critical_high": 150}},
+                {"field_id": "spo2",             "label": "SpO2",             "unit": "%",     "ref_range": {"critical_low": 85, "normal_low": 95, "normal_high": 100}},
+                {"field_id": "temperature",      "label": "Temperature",      "unit": "°C",    "ref_range": {"critical_low": 35, "normal_low": 36.1, "normal_high": 37.2, "critical_high": 39.5}},
+                {"field_id": "respiratory_rate", "label": "Respiratory Rate", "unit": "/min",  "ref_range": {"critical_low": 8,  "normal_low": 12,  "normal_high": 20,  "critical_high": 30}},
+                {"field_id": "pain_score",       "label": "Pain Score",       "unit": "/10",   "ref_range": {"normal_low": 0, "normal_high": 3, "critical_high": 7}},
+            ],
+        },
+        "alert_rules": [
+            {"field_id": "bp_systolic",  "operator": "greater_than", "value": 180, "severity": "critical", "message": "BP Systolic critically high"},
+            {"field_id": "bp_systolic",  "operator": "less_than",    "value": 70,  "severity": "critical", "message": "BP Systolic critically low"},
+            {"field_id": "spo2",         "operator": "less_than",    "value": 90,  "severity": "critical", "message": "SpO2 critically low"},
+            {"field_id": "heart_rate",   "operator": "greater_than", "value": 150, "severity": "critical", "message": "Heart rate critically high"},
+            {"field_id": "heart_rate",   "operator": "less_than",    "value": 40,  "severity": "critical", "message": "Heart rate critically low"},
+            {"field_id": "temperature",  "operator": "greater_than", "value": 39.5,"severity": "high",     "message": "High temperature — possible fever"},
+            {"field_id": "pain_score",   "operator": "greater_than", "value": 7,   "severity": "high",     "message": "Severe pain score reported"},
+        ],
+        "scoring_config": None,
+        "schema": {
+            "sections": [
+                {
+                    "id": "vital_signs",
+                    "title": "Vital Signs",
+                    "layout": {"columns": 2},
+                    "fields": [
+                        {
+                            "id": "bp_systolic", "field_id": "bp_systolic",
+                            "type": "number", "label": "BP Systolic", "unit": "mmHg",
+                            "required": True,
+                            "ref_range": {"critical_low": 70, "normal_low": 90, "normal_high": 140, "critical_high": 180},
+                        },
+                        {
+                            "id": "bp_diastolic", "field_id": "bp_diastolic",
+                            "type": "number", "label": "BP Diastolic", "unit": "mmHg",
+                            "required": True,
+                            "ref_range": {"critical_low": 40, "normal_low": 60, "normal_high": 90, "critical_high": 120},
+                        },
+                        {
+                            "id": "heart_rate", "field_id": "heart_rate",
+                            "type": "number", "label": "Heart Rate", "unit": "/min",
+                            "required": True,
+                            "ref_range": {"critical_low": 40, "normal_low": 60, "normal_high": 100, "critical_high": 150},
+                        },
+                        {
+                            "id": "respiratory_rate", "field_id": "respiratory_rate",
+                            "type": "number", "label": "Respiratory Rate", "unit": "/min",
+                            "required": True,
+                            "ref_range": {"critical_low": 8, "normal_low": 12, "normal_high": 20, "critical_high": 30},
+                        },
+                        {
+                            "id": "spo2", "field_id": "spo2",
+                            "type": "number", "label": "SpO2", "unit": "%",
+                            "required": True,
+                            "ref_range": {"critical_low": 85, "normal_low": 95, "normal_high": 100},
+                        },
+                        {
+                            "id": "temperature", "field_id": "temperature",
+                            "type": "number", "label": "Temperature", "unit": "°C",
+                            "decimal_places": 1,
+                            "required": True,
+                            "ref_range": {"critical_low": 35, "normal_low": 36.1, "normal_high": 37.2, "critical_high": 39.5},
+                        },
+                        {
+                            "id": "weight", "field_id": "weight",
+                            "type": "number", "label": "Weight", "unit": "kg",
+                            "decimal_places": 1,
+                            "required": False,
+                        },
+                        {
+                            "id": "height", "field_id": "height",
+                            "type": "number", "label": "Height", "unit": "cm",
+                            "required": False,
+                        },
+                        {
+                            "id": "bmi", "field_id": "bmi",
+                            "type": "calculated",
+                            "label": "BMI",
+                            "unit": "kg/m²",
+                            "formula": "{weight} / (({height} / 100) * ({height} / 100))",
+                            "decimal_places": 1,
+                        },
+                        {
+                            "id": "pain_score", "field_id": "pain_score",
+                            "type": "scale",
+                            "label": "Pain Score",
+                            "min": 0, "max": 10,
+                            "left_label": "No Pain",
+                            "right_label": "Worst Pain",
+                            "scale_style": "nrs",
+                            "required": True,
+                        },
+                        {
+                            "id": "pain_location", "field_id": "pain_location",
+                            "type": "text",
+                            "label": "Pain Location",
+                            "required": False,
+                            "conditions": [{"field_id": "pain_score", "operator": "greater_than", "value": 0}],
+                        },
+                        {
+                            "id": "notes", "field_id": "notes",
+                            "type": "textarea",
+                            "label": "Notes",
+                            "required": False,
+                        },
+                    ],
+                }
+            ]
+        },
+    },
+
+    # ─────────────────────────────────────────────────────────────────────────────
+    # 2. PHQ-9 Depression Screening
+    # ─────────────────────────────────────────────────────────────────────────────
+    {
+        "title": "PHQ-9 Depression Screening",
+        "description": "Patient Health Questionnaire — 9-item depression screening tool.",
+        "category": "mental",
+        "icon": "🧠",
+        "is_iview_enabled": False,
+        "iview_config": None,
+        "alert_rules": [
+            {
+                "field_id": "phq9",
+                "operator": "greater_than",
+                "value": 0,
+                "severity": "critical",
+                "message": "Patient reports self-harm thoughts — safety assessment required",
+            }
+        ],
+        "scoring_config": {
+            "type": "PHQ-9",
+            "fields_to_sum": ["phq1", "phq2", "phq3", "phq4", "phq5", "phq6", "phq7", "phq8", "phq9"],
+            "score_field": "phq_total",
+            "bands": [
+                {"min": 0,  "max": 4,  "label": "Minimal",            "color": "green",    "action": "Monitor"},
+                {"min": 5,  "max": 9,  "label": "Mild",               "color": "yellow",   "action": "Watchful waiting"},
+                {"min": 10, "max": 14, "label": "Moderate",           "color": "orange",   "action": "Consider treatment"},
+                {"min": 15, "max": 19, "label": "Moderately Severe",  "color": "red",      "action": "Active treatment"},
+                {"min": 20, "max": 27, "label": "Severe",             "color": "critical", "action": "Immediate psychiatric referral"},
+            ],
+        },
+        "schema": {
+            "sections": [
+                {
+                    "id": "phq9_questions",
+                    "title": "Over the last 2 weeks, how often have you been bothered by any of the following problems?",
+                    "fields": [
+                        {
+                            "id": "phq1", "field_id": "phq1",
+                            "type": "radio",
+                            "label": "1. Little interest or pleasure in doing things",
+                            "required": True,
+                            "options": [
+                                {"label": "Not at all",               "value": 0},
+                                {"label": "Several days",             "value": 1},
+                                {"label": "More than half the days",  "value": 2},
+                                {"label": "Nearly every day",         "value": 3},
+                            ],
+                        },
+                        {
+                            "id": "phq2", "field_id": "phq2",
+                            "type": "radio",
+                            "label": "2. Feeling down, depressed, or hopeless",
+                            "required": True,
+                            "options": [
+                                {"label": "Not at all",               "value": 0},
+                                {"label": "Several days",             "value": 1},
+                                {"label": "More than half the days",  "value": 2},
+                                {"label": "Nearly every day",         "value": 3},
+                            ],
+                        },
+                        {
+                            "id": "phq3", "field_id": "phq3",
+                            "type": "radio",
+                            "label": "3. Trouble falling or staying asleep, or sleeping too much",
+                            "required": True,
+                            "options": [
+                                {"label": "Not at all",               "value": 0},
+                                {"label": "Several days",             "value": 1},
+                                {"label": "More than half the days",  "value": 2},
+                                {"label": "Nearly every day",         "value": 3},
+                            ],
+                        },
+                        {
+                            "id": "phq4", "field_id": "phq4",
+                            "type": "radio",
+                            "label": "4. Feeling tired or having little energy",
+                            "required": True,
+                            "options": [
+                                {"label": "Not at all",               "value": 0},
+                                {"label": "Several days",             "value": 1},
+                                {"label": "More than half the days",  "value": 2},
+                                {"label": "Nearly every day",         "value": 3},
+                            ],
+                        },
+                        {
+                            "id": "phq5", "field_id": "phq5",
+                            "type": "radio",
+                            "label": "5. Poor appetite or overeating",
+                            "required": True,
+                            "options": [
+                                {"label": "Not at all",               "value": 0},
+                                {"label": "Several days",             "value": 1},
+                                {"label": "More than half the days",  "value": 2},
+                                {"label": "Nearly every day",         "value": 3},
+                            ],
+                        },
+                        {
+                            "id": "phq6", "field_id": "phq6",
+                            "type": "radio",
+                            "label": "6. Feeling bad about yourself — or that you are a failure or have let yourself or your family down",
+                            "required": True,
+                            "options": [
+                                {"label": "Not at all",               "value": 0},
+                                {"label": "Several days",             "value": 1},
+                                {"label": "More than half the days",  "value": 2},
+                                {"label": "Nearly every day",         "value": 3},
+                            ],
+                        },
+                        {
+                            "id": "phq7", "field_id": "phq7",
+                            "type": "radio",
+                            "label": "7. Trouble concentrating on things, such as reading the newspaper or watching television",
+                            "required": True,
+                            "options": [
+                                {"label": "Not at all",               "value": 0},
+                                {"label": "Several days",             "value": 1},
+                                {"label": "More than half the days",  "value": 2},
+                                {"label": "Nearly every day",         "value": 3},
+                            ],
+                        },
+                        {
+                            "id": "phq8", "field_id": "phq8",
+                            "type": "radio",
+                            "label": "8. Moving or speaking so slowly that other people could have noticed? Or the opposite — being so fidgety or restless that you have been moving around a lot more than usual",
+                            "required": True,
+                            "options": [
+                                {"label": "Not at all",               "value": 0},
+                                {"label": "Several days",             "value": 1},
+                                {"label": "More than half the days",  "value": 2},
+                                {"label": "Nearly every day",         "value": 3},
+                            ],
+                        },
+                        {
+                            "id": "phq9", "field_id": "phq9",
+                            "type": "radio",
+                            "label": "9. Thoughts that you would be better off dead, or of hurting yourself in some way",
+                            "required": True,
+                            "options": [
+                                {"label": "Not at all",               "value": 0},
+                                {"label": "Several days",             "value": 1},
+                                {"label": "More than half the days",  "value": 2},
+                                {"label": "Nearly every day",         "value": 3},
+                            ],
+                        },
+                        {
+                            "id": "phq_total", "field_id": "phq_total",
+                            "type": "calculated",
+                            "label": "PHQ-9 Total Score",
+                            "formula": "{phq1} + {phq2} + {phq3} + {phq4} + {phq5} + {phq6} + {phq7} + {phq8} + {phq9}",
+                        },
+                        {
+                            "id": "phq_difficulty", "field_id": "phq_difficulty",
+                            "type": "radio",
+                            "label": "If you checked off any problems, how difficult have these problems made it for you to do your work, take care of things at home, or get along with other people?",
+                            "required": False,
+                            "options": [
+                                {"label": "Not difficult at all", "value": "not_difficult"},
+                                {"label": "Somewhat difficult",   "value": "somewhat_difficult"},
+                                {"label": "Very difficult",       "value": "very_difficult"},
+                                {"label": "Extremely difficult",  "value": "extremely_difficult"},
+                            ],
+                        },
+                    ],
+                }
+            ]
+        },
+    },
+
+    # ─────────────────────────────────────────────────────────────────────────────
+    # 3. GAD-7 Anxiety Screening
+    # ─────────────────────────────────────────────────────────────────────────────
+    {
+        "title": "GAD-7 Anxiety Screening",
+        "description": "Generalized Anxiety Disorder — 7-item anxiety screening tool.",
+        "category": "mental",
+        "icon": "😰",
+        "is_iview_enabled": False,
+        "iview_config": None,
+        "alert_rules": [],
+        "scoring_config": {
+            "type": "GAD-7",
+            "fields_to_sum": ["gad1", "gad2", "gad3", "gad4", "gad5", "gad6", "gad7"],
+            "score_field": "gad_total",
+            "bands": [
+                {"min": 0,  "max": 4,  "label": "Minimal",  "color": "green",  "action": "Monitor"},
+                {"min": 5,  "max": 9,  "label": "Mild",     "color": "yellow", "action": "Watchful waiting"},
+                {"min": 10, "max": 14, "label": "Moderate", "color": "orange", "action": "Consider treatment"},
+                {"min": 15, "max": 21, "label": "Severe",   "color": "red",    "action": "Psychiatric referral"},
+            ],
+        },
+        "schema": {
+            "sections": [
+                {
+                    "id": "gad7_questions",
+                    "title": "Over the last 2 weeks, how often have you been bothered by the following problems?",
+                    "fields": [
+                        {
+                            "id": "gad1", "field_id": "gad1",
+                            "type": "radio",
+                            "label": "1. Feeling nervous, anxious, or on edge",
+                            "required": True,
+                            "options": [
+                                {"label": "Not at all",               "value": 0},
+                                {"label": "Several days",             "value": 1},
+                                {"label": "More than half the days",  "value": 2},
+                                {"label": "Nearly every day",         "value": 3},
+                            ],
+                        },
+                        {
+                            "id": "gad2", "field_id": "gad2",
+                            "type": "radio",
+                            "label": "2. Not being able to stop or control worrying",
+                            "required": True,
+                            "options": [
+                                {"label": "Not at all",               "value": 0},
+                                {"label": "Several days",             "value": 1},
+                                {"label": "More than half the days",  "value": 2},
+                                {"label": "Nearly every day",         "value": 3},
+                            ],
+                        },
+                        {
+                            "id": "gad3", "field_id": "gad3",
+                            "type": "radio",
+                            "label": "3. Worrying too much about different things",
+                            "required": True,
+                            "options": [
+                                {"label": "Not at all",               "value": 0},
+                                {"label": "Several days",             "value": 1},
+                                {"label": "More than half the days",  "value": 2},
+                                {"label": "Nearly every day",         "value": 3},
+                            ],
+                        },
+                        {
+                            "id": "gad4", "field_id": "gad4",
+                            "type": "radio",
+                            "label": "4. Trouble relaxing",
+                            "required": True,
+                            "options": [
+                                {"label": "Not at all",               "value": 0},
+                                {"label": "Several days",             "value": 1},
+                                {"label": "More than half the days",  "value": 2},
+                                {"label": "Nearly every day",         "value": 3},
+                            ],
+                        },
+                        {
+                            "id": "gad5", "field_id": "gad5",
+                            "type": "radio",
+                            "label": "5. Being so restless that it is hard to sit still",
+                            "required": True,
+                            "options": [
+                                {"label": "Not at all",               "value": 0},
+                                {"label": "Several days",             "value": 1},
+                                {"label": "More than half the days",  "value": 2},
+                                {"label": "Nearly every day",         "value": 3},
+                            ],
+                        },
+                        {
+                            "id": "gad6", "field_id": "gad6",
+                            "type": "radio",
+                            "label": "6. Becoming easily annoyed or irritable",
+                            "required": True,
+                            "options": [
+                                {"label": "Not at all",               "value": 0},
+                                {"label": "Several days",             "value": 1},
+                                {"label": "More than half the days",  "value": 2},
+                                {"label": "Nearly every day",         "value": 3},
+                            ],
+                        },
+                        {
+                            "id": "gad7", "field_id": "gad7",
+                            "type": "radio",
+                            "label": "7. Feeling afraid as if something awful might happen",
+                            "required": True,
+                            "options": [
+                                {"label": "Not at all",               "value": 0},
+                                {"label": "Several days",             "value": 1},
+                                {"label": "More than half the days",  "value": 2},
+                                {"label": "Nearly every day",         "value": 3},
+                            ],
+                        },
+                        {
+                            "id": "gad_total", "field_id": "gad_total",
+                            "type": "calculated",
+                            "label": "GAD-7 Total Score",
+                            "formula": "{gad1} + {gad2} + {gad3} + {gad4} + {gad5} + {gad6} + {gad7}",
+                        },
+                    ],
+                }
+            ]
+        },
+    },
+
+    # ─────────────────────────────────────────────────────────────────────────────
+    # 4. Glasgow Coma Scale (GCS)
+    # ─────────────────────────────────────────────────────────────────────────────
+    {
+        "title": "Glasgow Coma Scale (GCS)",
+        "description": "Standardised neurological scale to assess conscious level in acute settings.",
+        "category": "safety",
+        "icon": "🧠",
+        "is_iview_enabled": True,
+        "iview_config": {
+            "time_band": "4h",
+            "row_config": [
+                {"field_id": "gcs_eye",    "label": "Eye Opening",     "unit": "/4"},
+                {"field_id": "gcs_verbal", "label": "Verbal Response",  "unit": "/5"},
+                {"field_id": "gcs_motor",  "label": "Motor Response",   "unit": "/6"},
+                {"field_id": "gcs_total",  "label": "GCS Total",        "unit": "/15", "ref_range": {"critical_low": 8, "normal_low": 13, "normal_high": 15}},
+            ],
+        },
+        "alert_rules": [
+            {
+                "field_id": "gcs_total",
+                "operator": "less_than",
+                "value": 8,
+                "severity": "critical",
+                "message": "Severe GCS — airway management and urgent neurology",
+            }
+        ],
+        "scoring_config": {
+            "type": "GCS",
+            "fields_to_sum": ["gcs_eye", "gcs_verbal", "gcs_motor"],
+            "score_field": "gcs_total",
+            "bands": [
+                {"min": 13, "max": 15, "label": "Mild",     "color": "green",  "action": "Monitor"},
+                {"min": 9,  "max": 12, "label": "Moderate", "color": "yellow", "action": "Urgent review"},
+                {"min": 3,  "max": 8,  "label": "Severe",   "color": "red",    "action": "Immediate intervention"},
+            ],
+        },
+        "schema": {
+            "sections": [
+                {
+                    "id": "gcs_eye_section",
+                    "title": "Eye Opening",
+                    "fields": [
+                        {
+                            "id": "gcs_eye", "field_id": "gcs_eye",
+                            "type": "radio",
+                            "label": "Eye Opening Response",
+                            "required": True,
+                            "options": [
+                                {"label": "Spontaneous (4)",  "value": 4},
+                                {"label": "To voice (3)",     "value": 3},
+                                {"label": "To pain (2)",      "value": 2},
+                                {"label": "None (1)",         "value": 1},
+                            ],
+                        },
+                    ],
+                },
+                {
+                    "id": "gcs_verbal_section",
+                    "title": "Verbal Response",
+                    "fields": [
+                        {
+                            "id": "gcs_verbal", "field_id": "gcs_verbal",
+                            "type": "radio",
+                            "label": "Verbal Response",
+                            "required": True,
+                            "options": [
+                                {"label": "Oriented (5)",          "value": 5},
+                                {"label": "Confused (4)",          "value": 4},
+                                {"label": "Inappropriate words (3)","value": 3},
+                                {"label": "Sounds (2)",            "value": 2},
+                                {"label": "None (1)",              "value": 1},
+                            ],
+                        },
+                    ],
+                },
+                {
+                    "id": "gcs_motor_section",
+                    "title": "Motor Response",
+                    "fields": [
+                        {
+                            "id": "gcs_motor", "field_id": "gcs_motor",
+                            "type": "radio",
+                            "label": "Motor Response",
+                            "required": True,
+                            "options": [
+                                {"label": "Obeys commands (6)",  "value": 6},
+                                {"label": "Localises pain (5)",  "value": 5},
+                                {"label": "Withdraws (4)",       "value": 4},
+                                {"label": "Flexion (3)",         "value": 3},
+                                {"label": "Extension (2)",       "value": 2},
+                                {"label": "None (1)",            "value": 1},
+                            ],
+                        },
+                        {
+                            "id": "gcs_total", "field_id": "gcs_total",
+                            "type": "calculated",
+                            "label": "GCS Total Score",
+                            "formula": "{gcs_eye} + {gcs_verbal} + {gcs_motor}",
+                        },
+                    ],
+                },
+            ]
+        },
+    },
+
+    # ─────────────────────────────────────────────────────────────────────────────
+    # 5. Morse Fall Risk Scale
+    # ─────────────────────────────────────────────────────────────────────────────
+    {
+        "title": "Morse Fall Risk Scale",
+        "description": "Validated tool for assessing patient fall risk in hospital settings.",
+        "category": "safety",
+        "icon": "⚠️",
+        "is_iview_enabled": False,
+        "iview_config": None,
+        "alert_rules": [],
+        "scoring_config": {
+            "type": "Morse",
+            "fields_to_sum": ["history_of_falls", "secondary_diagnosis", "ambulatory_aid", "iv_access", "gait", "mental_status"],
+            "score_field": "morse_total",
+            "bands": [
+                {"min": 0,  "max": 24,  "label": "Low Risk",    "color": "green",  "action": "Standard care"},
+                {"min": 25, "max": 44,  "label": "Medium Risk", "color": "yellow", "action": "Fall prevention measures"},
+                {"min": 45, "max": 125, "label": "High Risk",   "color": "red",    "action": "Intensive fall prevention"},
+            ],
+        },
+        "schema": {
+            "sections": [
+                {
+                    "id": "morse_section",
+                    "title": "Morse Fall Risk Assessment",
+                    "fields": [
+                        {
+                            "id": "history_of_falls", "field_id": "history_of_falls",
+                            "type": "radio",
+                            "label": "History of Falls (in past 3 months)",
+                            "required": True,
+                            "options": [
+                                {"label": "No (0)",  "value": 0},
+                                {"label": "Yes (25)","value": 25},
+                            ],
+                        },
+                        {
+                            "id": "secondary_diagnosis", "field_id": "secondary_diagnosis",
+                            "type": "radio",
+                            "label": "Secondary Diagnosis",
+                            "required": True,
+                            "options": [
+                                {"label": "No (0)",  "value": 0},
+                                {"label": "Yes (15)","value": 15},
+                            ],
+                        },
+                        {
+                            "id": "ambulatory_aid", "field_id": "ambulatory_aid",
+                            "type": "radio",
+                            "label": "Ambulatory Aid",
+                            "required": True,
+                            "options": [
+                                {"label": "None / Bedrest / Nurse assist (0)",   "value": 0},
+                                {"label": "Crutches / Cane / Walker (15)",       "value": 15},
+                                {"label": "Furniture (30)",                       "value": 30},
+                            ],
+                        },
+                        {
+                            "id": "iv_access", "field_id": "iv_access",
+                            "type": "radio",
+                            "label": "IV Access / Heparin Lock",
+                            "required": True,
+                            "options": [
+                                {"label": "No (0)",  "value": 0},
+                                {"label": "Yes (20)","value": 20},
+                            ],
+                        },
+                        {
+                            "id": "gait", "field_id": "gait",
+                            "type": "radio",
+                            "label": "Gait",
+                            "required": True,
+                            "options": [
+                                {"label": "Normal / Bedrest / Wheelchair (0)", "value": 0},
+                                {"label": "Weak (10)",                          "value": 10},
+                                {"label": "Impaired (20)",                      "value": 20},
+                            ],
+                        },
+                        {
+                            "id": "mental_status", "field_id": "mental_status",
+                            "type": "radio",
+                            "label": "Mental Status",
+                            "required": True,
+                            "options": [
+                                {"label": "Oriented to own ability (0)",       "value": 0},
+                                {"label": "Forgets limitations (15)",          "value": 15},
+                            ],
+                        },
+                        {
+                            "id": "morse_total", "field_id": "morse_total",
+                            "type": "calculated",
+                            "label": "Morse Fall Score Total",
+                            "formula": "{history_of_falls} + {secondary_diagnosis} + {ambulatory_aid} + {iv_access} + {gait} + {mental_status}",
+                        },
+                    ],
+                }
+            ]
+        },
+    },
+
+    # ─────────────────────────────────────────────────────────────────────────────
+    # 6. APGAR Score
+    # ─────────────────────────────────────────────────────────────────────────────
+    {
+        "title": "APGAR Score",
+        "description": "Neonatal APGAR scoring tool assessed at 1 minute and 5 minutes after birth.",
+        "category": "vitals",
+        "icon": "👶",
+        "is_iview_enabled": False,
+        "iview_config": None,
+        "alert_rules": [
+            {
+                "field_id": "apgar_total",
+                "operator": "less_than",
+                "value": 4,
+                "severity": "critical",
+                "message": "Low APGAR — immediate neonatal resuscitation",
+            }
+        ],
+        "scoring_config": {
+            "type": "APGAR",
+            "fields_to_sum": ["appearance", "pulse", "grimace", "activity", "respiration"],
+            "score_field": "apgar_total",
+            "bands": [
+                {"min": 7,  "max": 10, "label": "Normal",                "color": "green",  "action": "Routine care"},
+                {"min": 4,  "max": 6,  "label": "Moderately Depressed",  "color": "yellow", "action": "Stimulation and O2"},
+                {"min": 0,  "max": 3,  "label": "Severely Depressed",    "color": "red",    "action": "Immediate resuscitation"},
+            ],
+        },
+        "schema": {
+            "sections": [
+                {
+                    "id": "apgar_section",
+                    "title": "APGAR Score Assessment",
+                    "fields": [
+                        {
+                            "id": "appearance", "field_id": "appearance",
+                            "type": "radio",
+                            "label": "Appearance (Skin Colour)",
+                            "required": True,
+                            "options": [
+                                {"label": "Blue all over (0)",                    "value": 0},
+                                {"label": "Pink body, blue extremities (1)",      "value": 1},
+                                {"label": "Pink all over (2)",                    "value": 2},
+                            ],
+                        },
+                        {
+                            "id": "pulse", "field_id": "pulse",
+                            "type": "radio",
+                            "label": "Pulse (Heart Rate)",
+                            "required": True,
+                            "options": [
+                                {"label": "Absent (0)",   "value": 0},
+                                {"label": "<100 bpm (1)", "value": 1},
+                                {"label": ">100 bpm (2)", "value": 2},
+                            ],
+                        },
+                        {
+                            "id": "grimace", "field_id": "grimace",
+                            "type": "radio",
+                            "label": "Grimace (Reflex Irritability)",
+                            "required": True,
+                            "options": [
+                                {"label": "No response (0)", "value": 0},
+                                {"label": "Grimace (1)",     "value": 1},
+                                {"label": "Cry / Cough (2)", "value": 2},
+                            ],
+                        },
+                        {
+                            "id": "activity", "field_id": "activity",
+                            "type": "radio",
+                            "label": "Activity (Muscle Tone)",
+                            "required": True,
+                            "options": [
+                                {"label": "Limp (0)",          "value": 0},
+                                {"label": "Some flexion (1)",  "value": 1},
+                                {"label": "Active motion (2)", "value": 2},
+                            ],
+                        },
+                        {
+                            "id": "respiration", "field_id": "respiration",
+                            "type": "radio",
+                            "label": "Respiration",
+                            "required": True,
+                            "options": [
+                                {"label": "Absent (0)",     "value": 0},
+                                {"label": "Weak cry (1)",   "value": 1},
+                                {"label": "Strong cry (2)", "value": 2},
+                            ],
+                        },
+                        {
+                            "id": "apgar_total", "field_id": "apgar_total",
+                            "type": "calculated",
+                            "label": "APGAR Total Score",
+                            "formula": "{appearance} + {pulse} + {grimace} + {activity} + {respiration}",
+                        },
+                    ],
+                }
+            ]
+        },
+    },
+
+    # ─────────────────────────────────────────────────────────────────────────────
+    # 7. Comprehensive Pain Assessment
+    # ─────────────────────────────────────────────────────────────────────────────
+    {
+        "title": "Comprehensive Pain Assessment",
+        "description": "Detailed multi-dimensional pain assessment including location, character, onset, and functional impact.",
+        "category": "pain",
+        "icon": "🩹",
+        "is_iview_enabled": False,
+        "iview_config": None,
+        "alert_rules": [
+            {
+                "field_id": "pain_nrs",
+                "operator": "greater_than",
+                "value": 7,
+                "severity": "critical",
+                "message": "Severe pain — immediate pain management review",
+            }
+        ],
+        "scoring_config": None,
+        "schema": {
+            "sections": [
+                {
+                    "id": "pain_details",
+                    "title": "Pain Details",
+                    "fields": [
+                        {
+                            "id": "pain_nrs", "field_id": "pain_nrs",
+                            "type": "scale",
+                            "label": "Pain Intensity (NRS)",
+                            "min": 0, "max": 10,
+                            "left_label": "No Pain",
+                            "right_label": "Worst Pain Imaginable",
+                            "scale_style": "nrs",
+                            "required": True,
+                        },
+                        {
+                            "id": "pain_location", "field_id": "pain_location",
+                            "type": "body_map",
+                            "label": "Pain Location",
+                            "required": False,
+                        },
+                        {
+                            "id": "pain_character", "field_id": "pain_character",
+                            "type": "checkbox",
+                            "label": "Pain Character (select all that apply)",
+                            "required": False,
+                            "options": [
+                                {"label": "Burning",   "value": "burning"},
+                                {"label": "Stabbing",  "value": "stabbing"},
+                                {"label": "Throbbing", "value": "throbbing"},
+                                {"label": "Aching",    "value": "aching"},
+                                {"label": "Cramping",  "value": "cramping"},
+                                {"label": "Shooting",  "value": "shooting"},
+                                {"label": "Dull",      "value": "dull"},
+                            ],
+                        },
+                        {
+                            "id": "pain_onset", "field_id": "pain_onset",
+                            "type": "text",
+                            "label": "When did pain start?",
+                            "placeholder": "Describe onset of pain",
+                            "required": False,
+                        },
+                        {
+                            "id": "pain_duration", "field_id": "pain_duration",
+                            "type": "dropdown",
+                            "label": "Pain Duration",
+                            "required": False,
+                            "options": [
+                                {"label": "Less than 1 hour",  "value": "<1hr"},
+                                {"label": "Less than 6 hours", "value": "<6hr"},
+                                {"label": "Less than 24 hours","value": "<24hr"},
+                                {"label": "1–7 days",          "value": "1-7days"},
+                                {"label": "More than 7 days",  "value": ">7days"},
+                            ],
+                        },
+                    ],
+                },
+                {
+                    "id": "pain_context",
+                    "title": "Context",
+                    "fields": [
+                        {
+                            "id": "aggravating_factors", "field_id": "aggravating_factors",
+                            "type": "textarea",
+                            "label": "Aggravating Factors",
+                            "required": False,
+                        },
+                        {
+                            "id": "relieving_factors", "field_id": "relieving_factors",
+                            "type": "textarea",
+                            "label": "Relieving Factors",
+                            "required": False,
+                        },
+                        {
+                            "id": "radiation", "field_id": "radiation",
+                            "type": "radio",
+                            "label": "Does the pain radiate?",
+                            "required": False,
+                            "options": [
+                                {"label": "Yes", "value": "Yes"},
+                                {"label": "No",  "value": "No"},
+                            ],
+                        },
+                        {
+                            "id": "radiation_site", "field_id": "radiation_site",
+                            "type": "text",
+                            "label": "Radiation Site",
+                            "required": False,
+                            "conditions": [{"field_id": "radiation", "operator": "equals", "value": "Yes"}],
+                        },
+                        {
+                            "id": "current_pain_meds", "field_id": "current_pain_meds",
+                            "type": "textarea",
+                            "label": "Current Pain Medications",
+                            "required": False,
+                        },
+                        {
+                            "id": "pain_impact", "field_id": "pain_impact",
+                            "type": "scale",
+                            "label": "Impact on Daily Activities",
+                            "min": 0, "max": 10,
+                            "left_label": "No impact",
+                            "right_label": "Cannot function",
+                            "scale_style": "nrs",
+                            "required": False,
+                        },
+                    ],
+                },
+            ]
+        },
+    },
+
+    # ─────────────────────────────────────────────────────────────────────────────
+    # 8. Nursing Admission Assessment
+    # ─────────────────────────────────────────────────────────────────────────────
+    {
+        "title": "Nursing Admission Assessment",
+        "description": "Comprehensive nursing admission assessment covering history, medications, social history, review of systems, and initial clinical findings.",
+        "category": "admission",
+        "icon": "🏥",
+        "is_iview_enabled": False,
+        "iview_config": None,
+        "alert_rules": [],
+        "scoring_config": None,
+        "schema": {
+            "sections": [
+                {
+                    "id": "chief_complaint_history",
+                    "title": "Chief Complaint & History",
+                    "fields": [
+                        {
+                            "id": "chief_complaint", "field_id": "chief_complaint",
+                            "type": "textarea",
+                            "label": "Chief Complaint",
+                            "required": True,
+                        },
+                        {
+                            "id": "onset", "field_id": "onset",
+                            "type": "text",
+                            "label": "Onset",
+                            "required": False,
+                        },
+                        {
+                            "id": "medical_history", "field_id": "medical_history",
+                            "type": "checkbox",
+                            "label": "Past Medical History",
+                            "required": False,
+                            "options": [
+                                {"label": "Diabetes",      "value": "diabetes"},
+                                {"label": "Hypertension",  "value": "hypertension"},
+                                {"label": "CAD",           "value": "cad"},
+                                {"label": "Asthma",        "value": "asthma"},
+                                {"label": "COPD",          "value": "copd"},
+                                {"label": "CKD",           "value": "ckd"},
+                                {"label": "Epilepsy",      "value": "epilepsy"},
+                                {"label": "Thyroid",       "value": "thyroid"},
+                                {"label": "Cancer",        "value": "cancer"},
+                                {"label": "Other",         "value": "other"},
+                            ],
+                        },
+                        {
+                            "id": "surgical_history", "field_id": "surgical_history",
+                            "type": "textarea",
+                            "label": "Surgical History",
+                            "required": False,
+                        },
+                        {
+                            "id": "allergies_any", "field_id": "allergies_any",
+                            "type": "radio",
+                            "label": "Any Known Allergies?",
+                            "required": False,
+                            "options": [
+                                {"label": "No",  "value": "No"},
+                                {"label": "Yes", "value": "Yes"},
+                            ],
+                        },
+                        {
+                            "id": "allergies_detail", "field_id": "allergies_detail",
+                            "type": "textarea",
+                            "label": "Allergy Details",
+                            "required": False,
+                            "conditions": [{"field_id": "allergies_any", "operator": "equals", "value": "Yes"}],
+                        },
+                    ],
+                },
+                {
+                    "id": "current_medications_section",
+                    "title": "Current Medications",
+                    "fields": [
+                        {
+                            "id": "current_meds", "field_id": "current_meds",
+                            "type": "textarea",
+                            "label": "Current Medications",
+                            "placeholder": "List current medications, doses, frequency",
+                            "required": False,
+                        },
+                    ],
+                },
+                {
+                    "id": "social_family_history",
+                    "title": "Social & Family History",
+                    "fields": [
+                        {
+                            "id": "smoking", "field_id": "smoking",
+                            "type": "radio",
+                            "label": "Smoking",
+                            "required": False,
+                            "options": [
+                                {"label": "Never",  "value": "never"},
+                                {"label": "Former", "value": "former"},
+                                {"label": "Current","value": "current"},
+                            ],
+                        },
+                        {
+                            "id": "alcohol", "field_id": "alcohol",
+                            "type": "radio",
+                            "label": "Alcohol Use",
+                            "required": False,
+                            "options": [
+                                {"label": "Never",      "value": "never"},
+                                {"label": "Occasional", "value": "occasional"},
+                                {"label": "Regular",    "value": "regular"},
+                            ],
+                        },
+                        {
+                            "id": "occupation", "field_id": "occupation",
+                            "type": "text",
+                            "label": "Occupation",
+                            "required": False,
+                        },
+                        {
+                            "id": "family_history", "field_id": "family_history",
+                            "type": "textarea",
+                            "label": "Family History",
+                            "required": False,
+                        },
+                    ],
+                },
+                {
+                    "id": "review_of_systems",
+                    "title": "Review of Systems",
+                    "fields": [
+                        {
+                            "id": "systems", "field_id": "systems",
+                            "type": "checkbox",
+                            "label": "Systems with Complaints",
+                            "required": False,
+                            "options": [
+                                {"label": "Cardiovascular",  "value": "cardiovascular"},
+                                {"label": "Respiratory",     "value": "respiratory"},
+                                {"label": "GI",              "value": "gi"},
+                                {"label": "Neuro",           "value": "neuro"},
+                                {"label": "Musculoskeletal", "value": "musculoskeletal"},
+                                {"label": "Skin",            "value": "skin"},
+                                {"label": "Eyes",            "value": "eyes"},
+                                {"label": "ENT",             "value": "ent"},
+                                {"label": "Urinary",         "value": "urinary"},
+                                {"label": "Endocrine",       "value": "endocrine"},
+                                {"label": "Psychiatric",     "value": "psychiatric"},
+                            ],
+                        },
+                        {
+                            "id": "ros_notes", "field_id": "ros_notes",
+                            "type": "textarea",
+                            "label": "Review of Systems Notes",
+                            "required": False,
+                        },
+                    ],
+                },
+                {
+                    "id": "initial_assessment",
+                    "title": "Initial Assessment",
+                    "fields": [
+                        {
+                            "id": "fall_risk", "field_id": "fall_risk",
+                            "type": "radio",
+                            "label": "Fall Risk",
+                            "required": False,
+                            "options": [
+                                {"label": "Low",    "value": "low"},
+                                {"label": "Medium", "value": "medium"},
+                                {"label": "High",   "value": "high"},
+                            ],
+                        },
+                        {
+                            "id": "skin_condition", "field_id": "skin_condition",
+                            "type": "radio",
+                            "label": "Skin Condition",
+                            "required": False,
+                            "options": [
+                                {"label": "Intact",           "value": "Intact"},
+                                {"label": "Wound",            "value": "Wound"},
+                                {"label": "Rash",             "value": "Rash"},
+                                {"label": "Pressure injury",  "value": "Pressure injury"},
+                            ],
+                        },
+                        {
+                            "id": "wound_location", "field_id": "wound_location",
+                            "type": "text",
+                            "label": "Wound / Skin Issue Location",
+                            "required": False,
+                            "conditions": [{"field_id": "skin_condition", "operator": "not_equals", "value": "Intact"}],
+                        },
+                        {
+                            "id": "orientation", "field_id": "orientation",
+                            "type": "radio",
+                            "label": "Orientation",
+                            "required": False,
+                            "options": [
+                                {"label": "Fully oriented", "value": "fully_oriented"},
+                                {"label": "Confused",       "value": "confused"},
+                                {"label": "Unresponsive",   "value": "unresponsive"},
+                            ],
+                        },
+                        {
+                            "id": "admission_notes", "field_id": "admission_notes",
+                            "type": "textarea",
+                            "label": "Admission Notes",
+                            "required": False,
+                        },
+                    ],
+                },
+            ]
+        },
+    },
+
+    # ─────────────────────────────────────────────────────────────────────────────
+    # 9. SOAP Note Structured
+    # ─────────────────────────────────────────────────────────────────────────────
+    {
+        "title": "SOAP Note Structured",
+        "description": "Structured SOAP (Subjective, Objective, Assessment, Plan) clinical documentation form.",
+        "category": "general",
+        "icon": "📋",
+        "is_iview_enabled": False,
+        "iview_config": None,
+        "alert_rules": [],
+        "scoring_config": None,
+        "schema": {
+            "sections": [
+                {
+                    "id": "subjective",
+                    "title": "Subjective",
+                    "fields": [
+                        {
+                            "id": "chief_complaint", "field_id": "chief_complaint",
+                            "type": "textarea",
+                            "label": "Chief Complaint",
+                            "required": True,
+                        },
+                        {
+                            "id": "hpi", "field_id": "hpi",
+                            "type": "textarea",
+                            "label": "History of Present Illness",
+                            "placeholder": "History of present illness",
+                            "required": False,
+                        },
+                        {
+                            "id": "associated_symptoms", "field_id": "associated_symptoms",
+                            "type": "checkbox",
+                            "label": "Associated Symptoms",
+                            "required": False,
+                            "options": [
+                                {"label": "Fever",     "value": "fever"},
+                                {"label": "Chills",    "value": "chills"},
+                                {"label": "Fatigue",   "value": "fatigue"},
+                                {"label": "Nausea",    "value": "nausea"},
+                                {"label": "Vomiting",  "value": "vomiting"},
+                                {"label": "Pain",      "value": "pain"},
+                                {"label": "Dyspnea",   "value": "dyspnea"},
+                                {"label": "Cough",     "value": "cough"},
+                                {"label": "Dizziness", "value": "dizziness"},
+                            ],
+                        },
+                        {
+                            "id": "review_of_systems", "field_id": "review_of_systems",
+                            "type": "textarea",
+                            "label": "Review of Systems",
+                            "required": False,
+                        },
+                        {
+                            "id": "past_medical_history", "field_id": "past_medical_history",
+                            "type": "textarea",
+                            "label": "Past Medical History",
+                            "required": False,
+                        },
+                        {
+                            "id": "current_medications", "field_id": "current_medications",
+                            "type": "textarea",
+                            "label": "Current Medications",
+                            "required": False,
+                        },
+                        {
+                            "id": "allergies", "field_id": "allergies",
+                            "type": "textarea",
+                            "label": "Allergies",
+                            "required": False,
+                        },
+                        {
+                            "id": "social_history", "field_id": "social_history",
+                            "type": "text",
+                            "label": "Social History",
+                            "required": False,
+                        },
+                        {
+                            "id": "family_history", "field_id": "family_history",
+                            "type": "text",
+                            "label": "Family History",
+                            "required": False,
+                        },
+                    ],
+                },
+                {
+                    "id": "objective",
+                    "title": "Objective",
+                    "fields": [
+                        {
+                            "id": "bp", "field_id": "bp",
+                            "type": "text",
+                            "label": "Blood Pressure",
+                            "placeholder": "e.g., 120/80",
+                            "required": False,
+                        },
+                        {
+                            "id": "hr", "field_id": "hr",
+                            "type": "number",
+                            "label": "Heart Rate",
+                            "unit": "/min",
+                            "required": False,
+                        },
+                        {
+                            "id": "rr", "field_id": "rr",
+                            "type": "number",
+                            "label": "Respiratory Rate",
+                            "unit": "/min",
+                            "required": False,
+                        },
+                        {
+                            "id": "temp", "field_id": "temp",
+                            "type": "number",
+                            "label": "Temperature",
+                            "unit": "°C",
+                            "required": False,
+                        },
+                        {
+                            "id": "spo2", "field_id": "spo2",
+                            "type": "number",
+                            "label": "SpO2",
+                            "unit": "%",
+                            "required": False,
+                        },
+                        {
+                            "id": "weight", "field_id": "weight",
+                            "type": "number",
+                            "label": "Weight",
+                            "unit": "kg",
+                            "required": False,
+                        },
+                        {
+                            "id": "general_appearance", "field_id": "general_appearance",
+                            "type": "textarea",
+                            "label": "General Appearance",
+                            "required": False,
+                        },
+                        {
+                            "id": "examination_findings", "field_id": "examination_findings",
+                            "type": "textarea",
+                            "label": "Examination Findings",
+                            "placeholder": "System-wise examination findings",
+                            "required": False,
+                        },
+                    ],
+                },
+                {
+                    "id": "assessment",
+                    "title": "Assessment",
+                    "fields": [
+                        {
+                            "id": "primary_diagnosis", "field_id": "primary_diagnosis",
+                            "type": "text",
+                            "label": "Primary Diagnosis",
+                            "required": True,
+                        },
+                        {
+                            "id": "differential_diagnoses", "field_id": "differential_diagnoses",
+                            "type": "textarea",
+                            "label": "Differential Diagnoses",
+                            "required": False,
+                        },
+                        {
+                            "id": "problem_list", "field_id": "problem_list",
+                            "type": "textarea",
+                            "label": "Problem List",
+                            "required": False,
+                        },
+                    ],
+                },
+                {
+                    "id": "plan",
+                    "title": "Plan",
+                    "fields": [
+                        {
+                            "id": "investigations", "field_id": "investigations",
+                            "type": "textarea",
+                            "label": "Investigations",
+                            "placeholder": "Investigations ordered",
+                            "required": False,
+                        },
+                        {
+                            "id": "medications", "field_id": "medications",
+                            "type": "textarea",
+                            "label": "Medications",
+                            "placeholder": "Medications prescribed/modified",
+                            "required": False,
+                        },
+                        {
+                            "id": "referrals", "field_id": "referrals",
+                            "type": "textarea",
+                            "label": "Referrals",
+                            "required": False,
+                        },
+                        {
+                            "id": "follow_up", "field_id": "follow_up",
+                            "type": "text",
+                            "label": "Follow-up",
+                            "placeholder": "Follow-up instructions",
+                            "required": False,
+                        },
+                        {
+                            "id": "patient_education", "field_id": "patient_education",
+                            "type": "textarea",
+                            "label": "Patient Education",
+                            "required": False,
+                        },
+                        {
+                            "id": "return_precautions", "field_id": "return_precautions",
+                            "type": "textarea",
+                            "label": "Return Precautions",
+                            "required": False,
+                        },
+                    ],
+                },
+            ]
+        },
+    },
+
+    # ─────────────────────────────────────────────────────────────────────────────
+    # 10. Discharge Checklist
+    # ─────────────────────────────────────────────────────────────────────────────
+    {
+        "title": "Discharge Checklist",
+        "description": "Structured discharge documentation covering clinical summary, medications, instructions, follow-up, and patient education.",
+        "category": "discharge",
+        "icon": "🏠",
+        "is_iview_enabled": False,
+        "iview_config": None,
+        "requires_cosign": True,
+        "alert_rules": [],
+        "scoring_config": None,
+        "schema": {
+            "sections": [
+                {
+                    "id": "clinical_summary",
+                    "title": "Clinical Summary",
+                    "fields": [
+                        {
+                            "id": "discharge_diagnosis", "field_id": "discharge_diagnosis",
+                            "type": "text",
+                            "label": "Discharge Diagnosis",
+                            "required": True,
+                        },
+                        {
+                            "id": "condition_at_discharge", "field_id": "condition_at_discharge",
+                            "type": "dropdown",
+                            "label": "Condition at Discharge",
+                            "required": False,
+                            "options": [
+                                {"label": "Stable",       "value": "stable"},
+                                {"label": "Improved",     "value": "improved"},
+                                {"label": "Unchanged",    "value": "unchanged"},
+                                {"label": "Deteriorated", "value": "deteriorated"},
+                                {"label": "Deceased",     "value": "deceased"},
+                            ],
+                        },
+                        {
+                            "id": "procedures_done", "field_id": "procedures_done",
+                            "type": "textarea",
+                            "label": "Procedures Done",
+                            "required": False,
+                        },
+                        {
+                            "id": "hospital_course", "field_id": "hospital_course",
+                            "type": "textarea",
+                            "label": "Hospital Course",
+                            "required": False,
+                        },
+                    ],
+                },
+                {
+                    "id": "discharge_medications",
+                    "title": "Discharge Medications",
+                    "fields": [
+                        {
+                            "id": "medication_reconciliation", "field_id": "medication_reconciliation",
+                            "type": "textarea",
+                            "label": "Medication Reconciliation",
+                            "placeholder": "List all discharge medications with doses",
+                            "required": False,
+                        },
+                        {
+                            "id": "new_medications", "field_id": "new_medications",
+                            "type": "textarea",
+                            "label": "New Medications",
+                            "required": False,
+                        },
+                        {
+                            "id": "stopped_medications", "field_id": "stopped_medications",
+                            "type": "textarea",
+                            "label": "Stopped Medications",
+                            "required": False,
+                        },
+                    ],
+                },
+                {
+                    "id": "instructions",
+                    "title": "Instructions",
+                    "fields": [
+                        {
+                            "id": "diet_advice", "field_id": "diet_advice",
+                            "type": "textarea",
+                            "label": "Diet Advice",
+                            "required": False,
+                        },
+                        {
+                            "id": "activity_restrictions", "field_id": "activity_restrictions",
+                            "type": "textarea",
+                            "label": "Activity Restrictions",
+                            "required": False,
+                        },
+                        {
+                            "id": "wound_care", "field_id": "wound_care",
+                            "type": "textarea",
+                            "label": "Wound Care",
+                            "required": False,
+                        },
+                        {
+                            "id": "danger_signs", "field_id": "danger_signs",
+                            "type": "textarea",
+                            "label": "Danger Signs",
+                            "placeholder": "Symptoms requiring emergency care",
+                            "required": True,
+                        },
+                    ],
+                },
+                {
+                    "id": "follow_up_section",
+                    "title": "Follow-up",
+                    "fields": [
+                        {
+                            "id": "follow_up_date", "field_id": "follow_up_date",
+                            "type": "date",
+                            "label": "Follow-up Date",
+                            "required": False,
+                        },
+                        {
+                            "id": "follow_up_doctor", "field_id": "follow_up_doctor",
+                            "type": "text",
+                            "label": "Follow-up Doctor",
+                            "required": False,
+                        },
+                        {
+                            "id": "follow_up_location", "field_id": "follow_up_location",
+                            "type": "text",
+                            "label": "Follow-up Location",
+                            "required": False,
+                        },
+                        {
+                            "id": "investigations_pending", "field_id": "investigations_pending",
+                            "type": "textarea",
+                            "label": "Investigations Pending",
+                            "required": False,
+                        },
+                    ],
+                },
+                {
+                    "id": "patient_education_consent",
+                    "title": "Patient Education & Consent",
+                    "fields": [
+                        {
+                            "id": "education_given", "field_id": "education_given",
+                            "type": "checkbox",
+                            "label": "Education Given On",
+                            "required": False,
+                            "options": [
+                                {"label": "Diagnosis",    "value": "diagnosis"},
+                                {"label": "Medications",  "value": "medications"},
+                                {"label": "Diet",         "value": "diet"},
+                                {"label": "Activity",     "value": "activity"},
+                                {"label": "Follow-up",    "value": "follow_up"},
+                                {"label": "Danger signs", "value": "danger_signs"},
+                            ],
+                        },
+                        {
+                            "id": "education_method", "field_id": "education_method",
+                            "type": "radio",
+                            "label": "Education Method",
+                            "required": False,
+                            "options": [
+                                {"label": "Verbal",        "value": "verbal"},
+                                {"label": "Written",       "value": "written"},
+                                {"label": "Demonstration", "value": "demonstration"},
+                            ],
+                        },
+                        {
+                            "id": "patient_understands", "field_id": "patient_understands",
+                            "type": "radio",
+                            "label": "Patient Understands Instructions",
+                            "required": False,
+                            "options": [
+                                {"label": "Yes",     "value": "yes"},
+                                {"label": "No",      "value": "no"},
+                                {"label": "Partial", "value": "partial"},
+                            ],
+                        },
+                        {
+                            "id": "patient_signature", "field_id": "patient_signature",
+                            "type": "signature",
+                            "label": "Patient / Guardian Signature",
+                            "required": True,
+                        },
+                    ],
+                },
+            ]
+        },
+    },
+
+    # ─────────────────────────────────────────────────────────────────────────────
+    # 11. Pre-Operative Assessment
+    # ─────────────────────────────────────────────────────────────────────────────
+    {
+        "title": "Pre-Operative Assessment",
+        "description": "Pre-operative anaesthesia and surgical risk assessment form.",
+        "category": "surgery",
+        "icon": "🔬",
+        "is_iview_enabled": False,
+        "iview_config": None,
+        "requires_cosign": True,
+        "alert_rules": [],
+        "scoring_config": None,
+        "schema": {
+            "sections": [
+                {
+                    "id": "procedure_history",
+                    "title": "Procedure & History",
+                    "fields": [
+                        {
+                            "id": "procedure_planned", "field_id": "procedure_planned",
+                            "type": "text",
+                            "label": "Procedure Planned",
+                            "required": True,
+                        },
+                        {
+                            "id": "planned_anaesthesia", "field_id": "planned_anaesthesia",
+                            "type": "dropdown",
+                            "label": "Planned Anaesthesia",
+                            "required": False,
+                            "options": [
+                                {"label": "General",  "value": "general"},
+                                {"label": "Spinal",   "value": "spinal"},
+                                {"label": "Epidural", "value": "epidural"},
+                                {"label": "Regional", "value": "regional"},
+                                {"label": "Local",    "value": "local"},
+                                {"label": "MAC",      "value": "mac"},
+                            ],
+                        },
+                        {
+                            "id": "medical_history", "field_id": "medical_history",
+                            "type": "checkbox",
+                            "label": "Past Medical History",
+                            "required": False,
+                            "options": [
+                                {"label": "Diabetes",      "value": "diabetes"},
+                                {"label": "Hypertension",  "value": "hypertension"},
+                                {"label": "CAD",           "value": "cad"},
+                                {"label": "Asthma",        "value": "asthma"},
+                                {"label": "COPD",          "value": "copd"},
+                                {"label": "CKD",           "value": "ckd"},
+                                {"label": "Epilepsy",      "value": "epilepsy"},
+                                {"label": "Thyroid",       "value": "thyroid"},
+                                {"label": "Cancer",        "value": "cancer"},
+                                {"label": "Other",         "value": "other"},
+                            ],
+                        },
+                        {
+                            "id": "surgical_history", "field_id": "surgical_history",
+                            "type": "textarea",
+                            "label": "Surgical History",
+                            "required": False,
+                        },
+                        {
+                            "id": "current_medications", "field_id": "current_medications",
+                            "type": "textarea",
+                            "label": "Current Medications",
+                            "required": False,
+                        },
+                        {
+                            "id": "allergies", "field_id": "allergies",
+                            "type": "textarea",
+                            "label": "Allergies",
+                            "required": False,
+                        },
+                        {
+                            "id": "allergies_detail", "field_id": "allergies_detail",
+                            "type": "text",
+                            "label": "Allergy Details",
+                            "required": False,
+                        },
+                        {
+                            "id": "last_meal_time", "field_id": "last_meal_time",
+                            "type": "datetime",
+                            "label": "Last Meal Time (Fasting Status)",
+                            "placeholder": "Fasting status",
+                            "required": False,
+                        },
+                        {
+                            "id": "consent_obtained", "field_id": "consent_obtained",
+                            "type": "radio",
+                            "label": "Informed Consent Obtained",
+                            "required": True,
+                            "options": [
+                                {"label": "Yes", "value": "Yes"},
+                                {"label": "No",  "value": "No"},
+                            ],
+                        },
+                    ],
+                },
+                {
+                    "id": "examination",
+                    "title": "Examination",
+                    "fields": [
+                        {
+                            "id": "weight", "field_id": "weight",
+                            "type": "number", "label": "Weight", "unit": "kg",
+                            "required": False,
+                        },
+                        {
+                            "id": "height", "field_id": "height",
+                            "type": "number", "label": "Height", "unit": "cm",
+                            "required": False,
+                        },
+                        {
+                            "id": "bp", "field_id": "bp",
+                            "type": "text", "label": "Blood Pressure",
+                            "required": False,
+                        },
+                        {
+                            "id": "hr", "field_id": "hr",
+                            "type": "number", "label": "Heart Rate", "unit": "/min",
+                            "required": False,
+                        },
+                        {
+                            "id": "spo2", "field_id": "spo2",
+                            "type": "number", "label": "SpO2", "unit": "%",
+                            "required": False,
+                        },
+                        {
+                            "id": "mallampati", "field_id": "mallampati",
+                            "type": "radio",
+                            "label": "Mallampati Classification",
+                            "required": False,
+                            "options": [
+                                {"label": "Class I",   "value": "class_i"},
+                                {"label": "Class II",  "value": "class_ii"},
+                                {"label": "Class III", "value": "class_iii"},
+                                {"label": "Class IV",  "value": "class_iv"},
+                            ],
+                        },
+                        {
+                            "id": "mouth_opening", "field_id": "mouth_opening",
+                            "type": "radio",
+                            "label": "Mouth Opening",
+                            "required": False,
+                            "options": [
+                                {"label": ">3 fingers",   "value": ">3_fingers"},
+                                {"label": "2–3 fingers",  "value": "2-3_fingers"},
+                                {"label": "<2 fingers",   "value": "<2_fingers"},
+                            ],
+                        },
+                        {
+                            "id": "neck_mobility", "field_id": "neck_mobility",
+                            "type": "radio",
+                            "label": "Neck Mobility",
+                            "required": False,
+                            "options": [
+                                {"label": "Full",       "value": "full"},
+                                {"label": "Restricted", "value": "restricted"},
+                            ],
+                        },
+                        {
+                            "id": "cardiovascular", "field_id": "cardiovascular",
+                            "type": "textarea",
+                            "label": "Cardiovascular Findings",
+                            "placeholder": "CVS findings",
+                            "required": False,
+                        },
+                        {
+                            "id": "respiratory", "field_id": "respiratory",
+                            "type": "textarea",
+                            "label": "Respiratory Findings",
+                            "placeholder": "RS findings",
+                            "required": False,
+                        },
+                        {
+                            "id": "other_findings", "field_id": "other_findings",
+                            "type": "textarea",
+                            "label": "Other Findings",
+                            "required": False,
+                        },
+                    ],
+                },
+                {
+                    "id": "investigations",
+                    "title": "Investigations",
+                    "fields": [
+                        {
+                            "id": "hb", "field_id": "hb",
+                            "type": "number", "label": "Haemoglobin", "unit": "g/dL",
+                            "required": False,
+                            "ref_range": {"normal_low": 12, "normal_high": 17},
+                        },
+                        {
+                            "id": "wbc", "field_id": "wbc",
+                            "type": "number", "label": "WBC Count", "unit": "×10³/μL",
+                            "required": False,
+                        },
+                        {
+                            "id": "platelets", "field_id": "platelets",
+                            "type": "number", "label": "Platelets", "unit": "×10³/μL",
+                            "required": False,
+                        },
+                        {
+                            "id": "sodium", "field_id": "sodium",
+                            "type": "number", "label": "Sodium", "unit": "mEq/L",
+                            "required": False,
+                            "ref_range": {"normal_low": 135, "normal_high": 145},
+                        },
+                        {
+                            "id": "potassium", "field_id": "potassium",
+                            "type": "number", "label": "Potassium", "unit": "mEq/L",
+                            "required": False,
+                            "ref_range": {"critical_low": 2.5, "normal_low": 3.5, "normal_high": 5.0, "critical_high": 6.5},
+                        },
+                        {
+                            "id": "creatinine", "field_id": "creatinine",
+                            "type": "number", "label": "Creatinine", "unit": "mg/dL",
+                            "required": False,
+                        },
+                        {
+                            "id": "ecg_findings", "field_id": "ecg_findings",
+                            "type": "textarea", "label": "ECG Findings",
+                            "required": False,
+                        },
+                        {
+                            "id": "xray_findings", "field_id": "xray_findings",
+                            "type": "textarea", "label": "X-Ray Findings",
+                            "required": False,
+                        },
+                        {
+                            "id": "other_investigations", "field_id": "other_investigations",
+                            "type": "textarea", "label": "Other Investigations",
+                            "required": False,
+                        },
+                    ],
+                },
+                {
+                    "id": "risk_assessment",
+                    "title": "Risk Assessment",
+                    "fields": [
+                        {
+                            "id": "asa_grade", "field_id": "asa_grade",
+                            "type": "radio",
+                            "label": "ASA Physical Status Grade",
+                            "required": False,
+                            "options": [
+                                {"label": "I — Normal healthy",                 "value": "asa_i"},
+                                {"label": "II — Mild systemic disease",         "value": "asa_ii"},
+                                {"label": "III — Severe systemic disease",      "value": "asa_iii"},
+                                {"label": "IV — Severe life-threatening",       "value": "asa_iv"},
+                                {"label": "V — Moribund",                       "value": "asa_v"},
+                                {"label": "VI — Brain dead",                    "value": "asa_vi"},
+                            ],
+                        },
+                        {
+                            "id": "risk_factors", "field_id": "risk_factors",
+                            "type": "textarea",
+                            "label": "Risk Factors",
+                            "required": False,
+                        },
+                        {
+                            "id": "anaesthesia_plan", "field_id": "anaesthesia_plan",
+                            "type": "textarea",
+                            "label": "Anaesthesia Plan",
+                            "required": False,
+                        },
+                        {
+                            "id": "pre_op_orders", "field_id": "pre_op_orders",
+                            "type": "textarea",
+                            "label": "Pre-operative Orders",
+                            "required": False,
+                        },
+                        {
+                            "id": "anaesthetist_signature", "field_id": "anaesthetist_signature",
+                            "type": "signature",
+                            "label": "Anaesthetist Signature",
+                            "required": True,
+                        },
+                    ],
+                },
+            ]
+        },
+    },
+
+    # ─────────────────────────────────────────────────────────────────────────────
+    # 12. Wound & Pressure Injury Assessment
+    # ─────────────────────────────────────────────────────────────────────────────
+    {
+        "title": "Wound & Pressure Injury Assessment",
+        "description": "Comprehensive wound and pressure injury assessment tool with measurements, bed condition, and management planning.",
+        "category": "general",
+        "icon": "🩹",
+        "is_iview_enabled": True,
+        "iview_config": {
+            "time_band": "24h",
+            "row_config": [
+                {"field_id": "wound_area",        "label": "Wound Area",          "unit": "cm²"},
+                {"field_id": "wound_depth",       "label": "Wound Depth",         "unit": "cm"},
+                {"field_id": "granulation_percent","label": "Granulation",         "unit": "%"},
+                {"field_id": "exudate_amount",    "label": "Exudate",             "unit": ""},
+                {"field_id": "pain_score",        "label": "Pain Score",          "unit": "/10"},
+            ],
+        },
+        "alert_rules": [],
+        "scoring_config": None,
+        "schema": {
+            "sections": [
+                {
+                    "id": "wound_details",
+                    "title": "Wound Details",
+                    "fields": [
+                        {
+                            "id": "wound_location", "field_id": "wound_location",
+                            "type": "body_map",
+                            "label": "Wound Location",
+                            "required": False,
+                        },
+                        {
+                            "id": "wound_type", "field_id": "wound_type",
+                            "type": "radio",
+                            "label": "Wound Type",
+                            "required": False,
+                            "options": [
+                                {"label": "Pressure injury", "value": "Pressure injury"},
+                                {"label": "Surgical",        "value": "surgical"},
+                                {"label": "Traumatic",       "value": "traumatic"},
+                                {"label": "Diabetic",        "value": "diabetic"},
+                                {"label": "Venous",          "value": "venous"},
+                                {"label": "Arterial",        "value": "arterial"},
+                                {"label": "Other",           "value": "other"},
+                            ],
+                        },
+                        {
+                            "id": "wound_stage", "field_id": "wound_stage",
+                            "type": "dropdown",
+                            "label": "Pressure Injury Stage",
+                            "required": False,
+                            "conditions": [{"field_id": "wound_type", "operator": "equals", "value": "Pressure injury"}],
+                            "options": [
+                                {"label": "Stage 1",          "value": "stage_1"},
+                                {"label": "Stage 2",          "value": "stage_2"},
+                                {"label": "Stage 3",          "value": "stage_3"},
+                                {"label": "Stage 4",          "value": "stage_4"},
+                                {"label": "Unstageable",      "value": "unstageable"},
+                                {"label": "Deep tissue injury","value": "deep_tissue"},
+                            ],
+                        },
+                        {
+                            "id": "wound_length", "field_id": "wound_length",
+                            "type": "number", "label": "Wound Length", "unit": "cm",
+                            "decimal_places": 1,
+                            "required": False,
+                        },
+                        {
+                            "id": "wound_width", "field_id": "wound_width",
+                            "type": "number", "label": "Wound Width", "unit": "cm",
+                            "decimal_places": 1,
+                            "required": False,
+                        },
+                        {
+                            "id": "wound_depth", "field_id": "wound_depth",
+                            "type": "number", "label": "Wound Depth", "unit": "cm",
+                            "decimal_places": 1,
+                            "required": False,
+                        },
+                        {
+                            "id": "wound_area", "field_id": "wound_area",
+                            "type": "calculated",
+                            "label": "Wound Area",
+                            "unit": "cm²",
+                            "formula": "{wound_length} * {wound_width}",
+                            "decimal_places": 2,
+                        },
+                    ],
+                },
+                {
+                    "id": "wound_assessment",
+                    "title": "Wound Assessment",
+                    "fields": [
+                        {
+                            "id": "wound_bed", "field_id": "wound_bed",
+                            "type": "checkbox",
+                            "label": "Wound Bed (select all present)",
+                            "required": False,
+                            "options": [
+                                {"label": "Granulation",      "value": "granulation"},
+                                {"label": "Slough",           "value": "slough"},
+                                {"label": "Eschar",           "value": "eschar"},
+                                {"label": "Epithelialisation","value": "epithelialisation"},
+                                {"label": "Necrotic",         "value": "necrotic"},
+                            ],
+                        },
+                        {
+                            "id": "granulation_percent", "field_id": "granulation_percent",
+                            "type": "number",
+                            "label": "Granulation Tissue (%)",
+                            "unit": "%",
+                            "min": 0, "max": 100,
+                            "required": False,
+                        },
+                        {
+                            "id": "exudate_amount", "field_id": "exudate_amount",
+                            "type": "radio",
+                            "label": "Exudate Amount",
+                            "required": False,
+                            "options": [
+                                {"label": "None",     "value": "none"},
+                                {"label": "Low",      "value": "low"},
+                                {"label": "Moderate", "value": "moderate"},
+                                {"label": "Heavy",    "value": "heavy"},
+                            ],
+                        },
+                        {
+                            "id": "exudate_type", "field_id": "exudate_type",
+                            "type": "radio",
+                            "label": "Exudate Type",
+                            "required": False,
+                            "options": [
+                                {"label": "Serous",          "value": "serous"},
+                                {"label": "Serosanguineous", "value": "serosanguineous"},
+                                {"label": "Sanguineous",     "value": "sanguineous"},
+                                {"label": "Purulent",        "value": "purulent"},
+                            ],
+                        },
+                        {
+                            "id": "odour", "field_id": "odour",
+                            "type": "radio",
+                            "label": "Wound Odour",
+                            "required": False,
+                            "options": [
+                                {"label": "None",     "value": "none"},
+                                {"label": "Mild",     "value": "mild"},
+                                {"label": "Moderate", "value": "moderate"},
+                                {"label": "Strong",   "value": "strong"},
+                            ],
+                        },
+                        {
+                            "id": "periwound_skin", "field_id": "periwound_skin",
+                            "type": "checkbox",
+                            "label": "Peri-wound Skin",
+                            "required": False,
+                            "options": [
+                                {"label": "Intact",      "value": "intact"},
+                                {"label": "Macerated",   "value": "macerated"},
+                                {"label": "Erythema",    "value": "erythema"},
+                                {"label": "Callus",      "value": "callus"},
+                                {"label": "Oedema",      "value": "oedema"},
+                                {"label": "Undermining", "value": "undermining"},
+                            ],
+                        },
+                        {
+                            "id": "pain_score", "field_id": "pain_score",
+                            "type": "scale",
+                            "label": "Wound Pain Score",
+                            "min": 0, "max": 10,
+                            "left_label": "No Pain",
+                            "right_label": "Worst Pain",
+                            "scale_style": "nrs",
+                            "required": False,
+                        },
+                    ],
+                },
+                {
+                    "id": "management",
+                    "title": "Management",
+                    "fields": [
+                        {
+                            "id": "dressing_type", "field_id": "dressing_type",
+                            "type": "text",
+                            "label": "Dressing Type Used",
+                            "required": False,
+                        },
+                        {
+                            "id": "dressing_changed_by", "field_id": "dressing_changed_by",
+                            "type": "text",
+                            "label": "Dressing Changed By",
+                            "required": False,
+                        },
+                        {
+                            "id": "next_review_date", "field_id": "next_review_date",
+                            "type": "date",
+                            "label": "Next Review Date",
+                            "required": False,
+                        },
+                        {
+                            "id": "wound_photo", "field_id": "wound_photo",
+                            "type": "photo",
+                            "label": "Wound Photo",
+                            "required": False,
+                        },
+                        {
+                            "id": "clinical_notes", "field_id": "clinical_notes",
+                            "type": "textarea",
+                            "label": "Clinical Notes",
+                            "required": False,
+                        },
+                        {
+                            "id": "wound_improving", "field_id": "wound_improving",
+                            "type": "radio",
+                            "label": "Is Wound Improving?",
+                            "required": False,
+                            "options": [
+                                {"label": "Yes",       "value": "yes"},
+                                {"label": "No",        "value": "no"},
+                                {"label": "Unchanged", "value": "unchanged"},
+                            ],
+                        },
+                    ],
+                },
+            ]
+        },
+    },
+]
+
+
+def seed():
+    db = Session()
+    try:
+        seeded = 0
+        for tpl in TEMPLATES:
+            existing = db.query(AssessmentForm).filter_by(title=tpl['title'], is_template=True).first()
+            if existing:
+                print(f"  [skip] {tpl['title']}")
+                continue
+            form = AssessmentForm(
+                title=tpl['title'],
+                description=tpl.get('description', ''),
+                category=tpl.get('category', 'general'),
+                icon=tpl.get('icon'),
+                schema=tpl['schema'],
+                scoring_config=tpl.get('scoring_config'),
+                iview_config=tpl.get('iview_config'),
+                alert_rules=tpl.get('alert_rules', []),
+                is_template=True,
+                is_iview_enabled=tpl.get('is_iview_enabled', False),
+                requires_cosign=tpl.get('requires_cosign', False),
+                status='published',
+                version=1,
+                published_at=datetime.utcnow(),
+            )
+            db.add(form)
+            db.flush()
+            db.add(AssessmentFormVersion(
+                form_id=form.id,
+                version=1,
+                schema=tpl['schema'],
+                scoring_config=tpl.get('scoring_config'),
+                published_at=datetime.utcnow(),
+            ))
+            db.add(FormPool(form_id=form.id, clinic_id=None, is_active=True))
+            seeded += 1
+            print(f"  [seeded] {tpl['title']}")
+        db.commit()
+        print(f'[forms] Seeded {seeded} templates.')
+    except Exception as e:
+        db.rollback()
+        print(f'[forms] Seed failed: {e}')
+        import traceback; traceback.print_exc()
+    finally:
+        db.close()
+
+
+if __name__ == '__main__':
+    seed()

@@ -131,6 +131,8 @@ except Exception as e:
     print(f'[startup] Safe column additions failed: {e}')
 "
 
+python seed_forms.py || echo "[startup] Form template seed failed (non-fatal)"
+
 echo "[startup] Syncing database schema..."
 alembic upgrade head || echo "[startup] Migration failed — continuing with existing schema"
 
