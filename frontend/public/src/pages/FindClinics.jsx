@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   Search, MapPin, Users, ChevronRight, Building2,
-  Stethoscope, ArrowLeft, X, Star
+  Stethoscope, ArrowLeft, X, Star, Clock, Wifi, WifiOff
 } from 'lucide-react'
 import { publicApi } from '../api/client'
 import BrandLogo from '../components/BrandLogo'
@@ -47,6 +47,118 @@ function StarRating({ rating = 0, max = 5 }) {
           style={{ fill: i < rating ? '#F5821E' : '#E5E7EB', color: i < rating ? '#F5821E' : '#E5E7EB' }}
         />
       ))}
+    </div>
+  )
+}
+
+function DoctorCard({ doctor }) {
+  const isOnline = doctor.is_online || doctor.telehealth_available
+
+  const handleBook = () => {
+    const bookUrl = `${PATIENT_URL}/appointments?doctor_id=${doctor.id}&doctor_name=${encodeURIComponent(doctor.name)}&specialty=${encodeURIComponent(doctor.specialty || '')}`
+    window.open(bookUrl, '_blank')
+  }
+
+  return (
+    <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-5 hover:shadow-lg transition-all">
+      <div className="flex items-start gap-4">
+        {/* Avatar */}
+        <div className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 text-white font-bold text-lg"
+          style={{ background: '#0F2557' }}>
+          {doctor.photo_url
+            ? <img src={doctor.photo_url} alt={doctor.name} className="w-14 h-14 rounded-2xl object-cover" />
+            : (doctor.name || 'D').charAt(0).toUpperCase()
+          }
+        </div>
+
+        <div className="flex-1 min-w-0">
+          {/* Name */}
+          <h3 className="font-bold text-lg leading-tight" style={{ color: '#0F2557' }}>
+            {doctor.name}
+          </h3>
+
+          {/* Specialty badge */}
+          {doctor.specialty && (
+            <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-semibold"
+              style={{ background: '#CC141415', color: '#CC1414' }}>
+              {doctor.specialty}
+            </span>
+          )}
+
+          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+            {/* Experience */}
+            {(doctor.experience_years !== undefined && doctor.experience_years !== null) && (
+              <div className="flex items-center gap-1 text-gray-500 text-xs">
+                <Clock className="w-3 h-3 flex-shrink-0" />
+                <span>{doctor.experience_years} yrs exp</span>
+              </div>
+            )}
+
+            {/* City */}
+            {(doctor.city || doctor.location) && (
+              <div className="flex items-center gap-1 text-gray-500 text-xs">
+                <MapPin className="w-3 h-3 flex-shrink-0" style={{ color: '#CC1414' }} />
+                <span className="truncate">{doctor.city || doctor.location}</span>
+              </div>
+            )}
+
+            {/* Health center */}
+            {(doctor.clinic_name || doctor.health_center_name) && (
+              <div className="flex items-center gap-1 text-gray-500 text-xs">
+                <Building2 className="w-3 h-3 flex-shrink-0" style={{ color: '#0F2557' }} />
+                <span className="truncate">{doctor.clinic_name || doctor.health_center_name}</span>
+              </div>
+            )}
+
+            {/* Working hours */}
+            {doctor.working_hours && (
+              <div className="flex items-center gap-1 text-gray-500 text-xs">
+                <Clock className="w-3 h-3 flex-shrink-0 text-gray-400" />
+                <span>{doctor.working_hours}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Online/Offline badge */}
+          <div className="mt-2">
+            {isOnline ? (
+              <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-green-50 text-green-700">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span> Available Online
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
+                <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span> In-Person Only
+              </span>
+            )}
+          </div>
+
+          {doctor.rating > 0 && (
+            <div className="mt-1.5">
+              <StarRating rating={Math.round(doctor.rating)} />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center gap-3 mt-4 pt-3 border-t border-gray-100">
+        <Link
+          to={`/clinics/${doctor.slug || doctor.id}`}
+          className="flex-1 text-center text-sm font-semibold py-2 rounded-xl border-2 transition-all"
+          style={{ borderColor: '#0F2557', color: '#0F2557' }}
+        >
+          View Profile
+        </Link>
+        <button
+          onClick={handleBook}
+          className="flex-1 text-sm font-semibold py-2 rounded-xl text-white transition-all"
+          style={{ background: '#CC1414' }}
+          onMouseEnter={e => e.currentTarget.style.background = '#b01010'}
+          onMouseLeave={e => e.currentTarget.style.background = '#CC1414'}
+        >
+          Book Appointment
+        </button>
+      </div>
     </div>
   )
 }
@@ -143,18 +255,26 @@ function CitySearch({ value, onChange, cities }) {
   )
 }
 
+// Determine whether an item is a doctor (vs a clinic) based on available fields
+function isDoctor(item) {
+  return !!(item.specialty && (item.experience_years !== undefined || item.qualification || item.mci_verified))
+}
+
 export default function FindClinics() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const [clinics, setClinics] = useState([])
+  const [allResults, setAllResults] = useState([])
   const [cities, setCities] = useState([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const [fetchFailed, setFetchFailed] = useState(false)
 
   const [filters, setFilters] = useState({
     q: searchParams.get('q') || '',
     city: searchParams.get('city') || '',
     specialty: searchParams.get('specialty') || '',
   })
+
+  // Live search query — updated on every keystroke, not just on form submit
+  const [liveQ, setLiveQ] = useState(filters.q)
 
   useEffect(() => {
     publicApi.getCities().then(data => {
@@ -164,39 +284,68 @@ export default function FindClinics() {
     })
   }, [])
 
-  const fetchClinics = useCallback(async (params) => {
+  const fetchResults = useCallback(async (params) => {
     setLoading(true)
-    setError('')
+    setFetchFailed(false)
     try {
       const cleanParams = Object.fromEntries(Object.entries(params).filter(([, v]) => v))
       const data = await publicApi.getClinics(cleanParams)
-      setClinics(Array.isArray(data) ? data : data.clinics || data.results || [])
-    } catch (err) {
-      setError(err.message)
-      setClinics([])
+      setAllResults(Array.isArray(data) ? data : data.clinics || data.results || [])
+    } catch {
+      setFetchFailed(true)
+      setAllResults([])
     } finally {
       setLoading(false)
     }
   }, [])
 
-  useEffect(() => { fetchClinics(filters) }, []) // eslint-disable-line
+  useEffect(() => { fetchResults({}) }, []) // eslint-disable-line
+
+  // Client-side filter applied on every keystroke
+  const displayed = useMemo(() => {
+    const q = liveQ.trim().toLowerCase()
+    const city = filters.city.trim().toLowerCase()
+    const specialty = filters.specialty.trim().toLowerCase()
+
+    return allResults.filter(item => {
+      const name = (item.name || '').toLowerCase()
+      const itemSpecialty = (item.specialty || '').toLowerCase()
+      const itemCity = (item.city || item.location || '').toLowerCase()
+      const clinicName = (item.clinic_name || item.health_center_name || '').toLowerCase()
+
+      const matchesQ = !q || name.includes(q) || itemSpecialty.includes(q) || itemCity.includes(q) || clinicName.includes(q)
+      const matchesCity = !city || itemCity.includes(city)
+      const matchesSpecialty = !specialty || itemSpecialty.includes(specialty)
+
+      return matchesQ && matchesCity && matchesSpecialty
+    })
+  }, [allResults, liveQ, filters.city, filters.specialty])
 
   const handleSearch = (e) => {
     e.preventDefault()
     const params = Object.fromEntries(Object.entries(filters).filter(([, v]) => v))
     setSearchParams(params)
-    fetchClinics(filters)
+    setLiveQ(filters.q)
+    // Only refetch if we want server-side filtering too; for now just update liveQ
   }
 
   const clearFilter = (key) => {
     const newFilters = { ...filters, [key]: '' }
     setFilters(newFilters)
+    if (key === 'q') setLiveQ('')
     const params = Object.fromEntries(Object.entries(newFilters).filter(([, v]) => v))
     setSearchParams(params)
-    fetchClinics(newFilters)
   }
 
   const activeFilters = Object.entries(filters).filter(([, v]) => v)
+
+  const comingSoonState = (
+    <div className="text-center py-20">
+      <div className="text-5xl mb-4">🏥</div>
+      <h3 className="text-xl font-bold text-gray-700 mb-2">Doctors Coming Soon</h3>
+      <p className="text-gray-500">We're onboarding verified doctors across India. Check back soon!</p>
+    </div>
+  )
 
   return (
     <div className="min-h-screen" style={{ background: '#F0F4F8' }}>
@@ -221,8 +370,11 @@ export default function FindClinics() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 type="text"
-                value={filters.q}
-                onChange={e => setFilters(f => ({ ...f, q: e.target.value }))}
+                value={liveQ}
+                onChange={e => {
+                  setLiveQ(e.target.value)
+                  setFilters(f => ({ ...f, q: e.target.value }))
+                }}
                 placeholder="Doctor name, specialty, clinic..."
                 className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 transition-all"
                 style={{ '--tw-ring-color': '#0F2557' }}
@@ -276,35 +428,22 @@ export default function FindClinics() {
             <div className="w-10 h-10 border-4 border-t-transparent rounded-full animate-spin mb-4" style={{ borderColor: '#0F2557', borderTopColor: 'transparent' }} />
             <p className="text-gray-500">Searching clinics...</p>
           </div>
-        ) : error ? (
-          <div className="text-center py-24">
-            <Building2 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500 text-lg mb-2">Could not load clinics</p>
-            <p className="text-gray-400 text-sm mb-6">{error}</p>
-            <button
-              onClick={() => fetchClinics(filters)}
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-white text-sm"
-              style={{ background: '#CC1414' }}
-            >
-              Try Again
-            </button>
-          </div>
-        ) : clinics.length === 0 ? (
-          <div className="text-center py-24">
-            <Search className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500 text-lg mb-2">No clinics found</p>
-            <p className="text-gray-400 text-sm">Try adjusting your search filters</p>
-          </div>
+        ) : fetchFailed || allResults.length === 0 ? (
+          comingSoonState
+        ) : displayed.length === 0 ? (
+          comingSoonState
         ) : (
           <>
             <p className="text-gray-500 text-sm mb-4 font-medium">
-              <span style={{ color: '#0F2557', fontWeight: 700 }}>{clinics.length}</span>{' '}
-              clinic{clinics.length !== 1 ? 's' : ''} found
+              <span style={{ color: '#0F2557', fontWeight: 700 }}>{displayed.length}</span>{' '}
+              result{displayed.length !== 1 ? 's' : ''} found
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {clinics.map(clinic => (
-                <ClinicCard key={clinic.id || clinic.slug} clinic={clinic} />
-              ))}
+              {displayed.map(item =>
+                isDoctor(item)
+                  ? <DoctorCard key={item.id || item.slug} doctor={item} />
+                  : <ClinicCard key={item.id || item.slug} clinic={item} />
+              )}
             </div>
           </>
         )}

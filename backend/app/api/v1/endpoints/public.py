@@ -12,7 +12,7 @@ from datetime import date, datetime, timedelta
 from app.db.session import get_db
 from app.models.models import (
     Clinic, Branch, Staff, DoctorProfile, DoctorSchedule,
-    Appointment, OnlineBooking
+    Appointment, OnlineBooking, Feedback
 )
 from app.schemas.schemas import OnlineBookingCreate, OnlineBookingOut
 from app.core.security import hash_password
@@ -544,6 +544,30 @@ def register_clinic(body: dict, db: Session = Depends(get_db)):
         "login_email": admin_email,
         "message": "Registration successful! Your clinic is pending approval. Login at provider.bharatcliniq.com once approved."
     }
+
+
+@router.post("/feedback")
+def submit_feedback(body: dict, db: Session = Depends(get_db)):
+    """Submit platform feedback — no auth required."""
+    name = (body.get("name") or "").strip()
+    message = (body.get("message") or "").strip()
+    if not name:
+        raise HTTPException(400, "name is required")
+    if not message:
+        raise HTTPException(400, "message is required")
+    feedback_type = body.get("type", "general")
+    if feedback_type not in ("suggestion", "bug", "general"):
+        feedback_type = "general"
+    entry = Feedback(
+        name=name,
+        email=(body.get("email") or "").strip() or None,
+        message=message,
+        type=feedback_type,
+    )
+    db.add(entry)
+    db.commit()
+    db.refresh(entry)
+    return {"success": True, "id": entry.id}
 
 
 @router.get("/branding/{clinic_id}")

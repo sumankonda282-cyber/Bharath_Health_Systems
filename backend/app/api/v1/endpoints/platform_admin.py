@@ -5,7 +5,7 @@ from typing import Optional
 from datetime import datetime, date, timedelta
 from app.db.session import get_db
 from app.core.security import get_current_platform_admin, hash_password
-from app.models.models import Clinic, Branch, Staff, Patient, Appointment, PlatformAdmin, AuditLog, Invoice
+from app.models.models import Clinic, Branch, Staff, Patient, Appointment, PlatformAdmin, AuditLog, Invoice, Feedback
 
 import re
 import secrets
@@ -782,6 +782,48 @@ def platform_bhid_lookup(
         })
 
     return {"bh_id": bh_id.upper(), "records": result, "total": len(result)}
+
+
+@router.get("/feedback")
+def get_unread_feedback(
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    """Return unread feedback entries, newest first, up to 50."""
+    entries = (
+        db.query(Feedback)
+        .filter(Feedback.is_read == False)
+        .order_by(Feedback.created_at.desc())
+        .limit(50)
+        .all()
+    )
+    return [
+        {
+            "id":         e.id,
+            "name":       e.name,
+            "email":      e.email,
+            "message":    e.message,
+            "type":       e.type,
+            "is_read":    e.is_read,
+            "created_at": str(e.created_at),
+        }
+        for e in entries
+    ]
+
+
+@router.post("/feedback/{feedback_id}/read")
+def mark_feedback_read(
+    feedback_id: int,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    """Mark a feedback entry as read."""
+    entry = db.query(Feedback).filter(Feedback.id == feedback_id).first()
+    if not entry:
+        raise HTTPException(404, "Feedback not found")
+    entry.is_read = True
+    db.commit()
+    return {"success": True}
 
 
 @router.get("/clinics/{clinic_id}/staff")

@@ -121,6 +121,7 @@ safe_cols = [
     \"CREATE TABLE IF NOT EXISTS form_alerts (id SERIAL PRIMARY KEY, submission_id INTEGER REFERENCES form_submissions(id) NOT NULL, clinic_id INTEGER REFERENCES clinics(id) NOT NULL, patient_id INTEGER REFERENCES patients(id) NOT NULL, field_id VARCHAR(100) NOT NULL, field_label VARCHAR(300), value VARCHAR(500), severity VARCHAR(20), message TEXT, notified_staff JSONB, acknowledged_by INTEGER REFERENCES staff(id), acknowledged_at TIMESTAMP, created_at TIMESTAMP DEFAULT NOW())\",
     \"CREATE TABLE IF NOT EXISTS iview_flowsheets (id SERIAL PRIMARY KEY, form_id INTEGER REFERENCES assessment_forms(id) NOT NULL UNIQUE, title VARCHAR(300), time_band VARCHAR(10) DEFAULT \'4h\', row_config JSONB, clinic_id INTEGER REFERENCES clinics(id), created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW())\",
     \"CREATE TABLE IF NOT EXISTS form_cosigns (id SERIAL PRIMARY KEY, submission_id INTEGER REFERENCES form_submissions(id) NOT NULL, requested_by INTEGER REFERENCES staff(id) NOT NULL, requested_from INTEGER REFERENCES staff(id) NOT NULL, status VARCHAR(20) DEFAULT \'pending\', note TEXT, responded_at TIMESTAMP, created_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE TABLE IF NOT EXISTS feedback (id SERIAL PRIMARY KEY, name VARCHAR NOT NULL, email VARCHAR, message TEXT NOT NULL, type VARCHAR DEFAULT 'general', is_read BOOLEAN DEFAULT FALSE, created_at TIMESTAMP DEFAULT NOW())\",
 ]
 try:
     with engine.begin() as conn:

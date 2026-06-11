@@ -124,6 +124,10 @@ class DoctorProfile(Base):
     telehealth_fee     = Column(Numeric(10, 2), nullable=True)
     telehealth_slots   = Column(JSON, nullable=True)
     input_mode         = Column(String(20), default='type')   # type | voice | handwriting
+    achievements       = Column(JSON, nullable=True)
+    working_hours      = Column(JSON, nullable=True)
+    is_online          = Column(Boolean, default=False)
+    qualifications_list = Column(JSON, nullable=True)  # list of qualification strings
     created_at         = Column(DateTime, server_default=func.now())
 
     staff        = relationship("Staff", back_populates="doctor_profile")
@@ -1452,3 +1456,14 @@ class FormCoSign(Base):
     note            = Column(Text)
     responded_at    = Column(DateTime)
     created_at      = Column(DateTime, default=datetime.utcnow)
+
+
+class Feedback(Base):
+    __tablename__ = "feedback"
+    id         = Column(Integer, primary_key=True)
+    name       = Column(String, nullable=False)
+    email      = Column(String, nullable=True)
+    message    = Column(Text, nullable=False)
+    type       = Column(String, default="general")
+    is_read    = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
