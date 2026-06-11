@@ -169,6 +169,30 @@ def portal_appointments(current=Depends(get_current_patient), db: Session = Depe
     return {"appointments": result}
 
 
+@router.post("/appointments/{appointment_id}/join")
+async def portal_join_telehealth(
+    appointment_id: int,
+    current=Depends(get_current_patient),
+    db: Session = Depends(get_db),
+):
+    """Patient joins their telehealth visit — gated by session state machine."""
+    from app.models.models import Appointment
+    from app.api.v1.endpoints.telehealth import issue_join
+
+    patient_ids = [
+        p.id for p in db.query(Patient).filter(Patient.portal_user_id == current.id).all()
+    ]
+    if not patient_ids:
+        raise HTTPException(404, "Appointment not found")
+    appt = db.query(Appointment).filter(
+        Appointment.id == appointment_id,
+        Appointment.patient_id.in_(patient_ids),
+    ).first()
+    if not appt:
+        raise HTTPException(404, "Appointment not found")
+    return await issue_join(db, appt, role="patient", actor_id=current.id)
+
+
 @router.post("/book")
 def portal_book_appointment(
     body: dict,

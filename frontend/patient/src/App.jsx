@@ -9,6 +9,8 @@ import Prescriptions from './pages/Prescriptions'
 import LabResults from './pages/LabResults'
 import Bills from './pages/Bills'
 import Timeline from './pages/Timeline'
+import Telehealth from './pages/Telehealth'
+import TelehealthCall from './pages/TelehealthCall'
 
 function Spinner() {
   return <div className="flex items-center justify-center h-screen"><div className="w-8 h-8 border-2 border-teal-200 border-t-teal-600 rounded-full animate-spin" /></div>
@@ -34,7 +36,13 @@ function AppRoutes() {
         <Route path="/lab-results"   element={<LabResults />} />
         <Route path="/bills"         element={<Bills />} />
         <Route path="/timeline"      element={<Timeline />} />
+        <Route path="/telehealth"    element={<Telehealth />} />
       </Route>
+
+      {/* Full-screen call — outside Layout */}
+      <Route path="/telehealth/call/:appointmentId"
+        element={<Guard><TelehealthCall /></Guard>} />
+
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

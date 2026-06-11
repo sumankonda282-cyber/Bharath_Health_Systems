@@ -32,6 +32,8 @@ const IViewFlowsheet = lazy(() => import('./pages/forms/iViewFlowsheet'))
 const FormTaskList   = lazy(() => import('./pages/forms/FormTaskList'))
 const FormFiller     = lazy(() => import('./pages/forms/FormFiller'))
 const SubmissionViewer = lazy(() => import('./pages/forms/SubmissionViewer'))
+const TelehealthDesk = lazy(() => import('./pages/telehealth/TelehealthDesk'))
+const TelehealthCall = lazy(() => import('./pages/telehealth/TelehealthCall'))
 
 function AppRoutes() {
   const { user, loading } = useAuth()
@@ -77,7 +79,12 @@ function AppRoutes() {
         <Route path="/forms"                 element={<Suspense fallback={<PageLoader />}><FormTaskList /></Suspense>} />
         <Route path="/forms/fill/:assignmentId" element={<Suspense fallback={<PageLoader />}><FormFiller /></Suspense>} />
         <Route path="/forms/submission/:id"  element={<Suspense fallback={<PageLoader />}><SubmissionViewer /></Suspense>} />
+        <Route path="/telehealth"   element={<Suspense fallback={<PageLoader />}><TelehealthDesk /></Suspense>} />
       </Route>
+
+      {/* Full-screen call page — outside Layout so video fills the whole viewport */}
+      <Route path="/telehealth/call/:appointmentId"
+        element={user ? <Suspense fallback={<PageLoader />}><TelehealthCall /></Suspense> : <Navigate to="/login" replace />} />
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>

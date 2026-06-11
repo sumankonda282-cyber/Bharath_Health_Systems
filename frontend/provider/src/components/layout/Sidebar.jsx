@@ -5,7 +5,7 @@ import {
   LayoutDashboard, Users, Calendar, Stethoscope, Pill,
   FlaskConical, Scan, Receipt, BarChart3, Send, Settings,
   ShieldCheck, LogOut, ChevronRight, Building2, LayoutGrid, BedDouble, Activity, ClipboardList,
-  UserCircle
+  UserCircle, Video
 } from 'lucide-react'
 import BrandLogo from '../BrandLogo'
 import ProfileDrawer from './ProfileDrawer'
@@ -15,6 +15,7 @@ const ALL_NAV = [
   { to: '/patients',     label: 'Patients',     icon: Users,           roles: ['clinic_admin','doctor','receptionist'] },
   { to: '/appointments', label: 'Appointments', icon: Calendar,        roles: ['clinic_admin','doctor','receptionist'] },
   { to: '/doctor-desk',  label: 'Doctor Desk',  icon: Stethoscope,     roles: ['doctor','clinic_admin'] },
+  { to: '/telehealth',   label: 'Telehealth',   icon: Video,           roles: ['doctor','clinic_admin'] },
   { to: '/inpatient',   label: 'Inpatient Desk', icon: BedDouble,     roles: ['doctor','clinic_admin'], hospitalOnly: true },
   { to: '/forms/iview', label: 'iView',          icon: Activity,      roles: ['doctor','nurse','clinic_admin'] },
   { to: '/forms',       label: 'Assessments',   icon: ClipboardList, roles: ['doctor','nurse','clinic_admin'] },

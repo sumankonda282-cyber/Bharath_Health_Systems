@@ -42,6 +42,9 @@ class Settings(BaseSettings):
     CLOUDINARY_API_KEY: str = ""
     CLOUDINARY_API_SECRET: str = ""
 
+    DAILY_API_KEY: str = ""
+    DAILY_DOMAIN: str = "bharatcliniq.daily.co"
+
     @property
     def cors_origins_list(self) -> List[str]:
         defaults = [

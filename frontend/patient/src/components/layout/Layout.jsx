@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { NavLink, useNavigate, Outlet } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
-import { LayoutDashboard, Calendar, Pill, FlaskConical, Receipt, LogOut, Menu, Clock, Smartphone } from 'lucide-react'
+import { LayoutDashboard, Calendar, Pill, FlaskConical, Receipt, LogOut, Menu, Clock, Smartphone, Video } from 'lucide-react'
 import BrandLogo from '../BrandLogo'
 import InstallPrompt, { useInstallState, InstallModal } from '../InstallPrompt'
 
 const NAV = [
   { to: '/',              label: 'Dashboard',    icon: LayoutDashboard, end: true },
   { to: '/appointments',  label: 'Appointments', icon: Calendar },
+  { to: '/telehealth',    label: 'Telehealth',   icon: Video },
   { to: '/prescriptions', label: 'Prescriptions',icon: Pill },
   { to: '/lab-results',   label: 'Lab Results',  icon: FlaskConical },
   { to: '/bills',         label: 'Bills',        icon: Receipt },

@@ -149,6 +149,12 @@ safe_cols = [
     \"ALTER TABLE staff ADD COLUMN IF NOT EXISTS secondary_roles JSONB DEFAULT '[]'\",
     \"ALTER TABLE staff ADD COLUMN IF NOT EXISTS scheduled_removal_date DATE\",
     \"ALTER TABLE staff ADD COLUMN IF NOT EXISTS removal_reason VARCHAR(200)\",
+    \"CREATE TABLE IF NOT EXISTS telehealth_sessions (id SERIAL PRIMARY KEY, appointment_id INTEGER UNIQUE NOT NULL REFERENCES appointments(id), clinic_id INTEGER NOT NULL REFERENCES clinics(id), room_name VARCHAR(100) NOT NULL, state VARCHAR(30) NOT NULL DEFAULT 'scheduled', slot_start TIMESTAMP NOT NULL, slot_end TIMESTAMP NOT NULL, room_expires_at TIMESTAMP, doctor_first_joined_at TIMESTAMP, patient_first_joined_at TIMESTAMP, completed_at TIMESTAMP, completed_by INTEGER REFERENCES staff(id), reopen_count INTEGER DEFAULT 0, reopened_until TIMESTAMP, created_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE TABLE IF NOT EXISTS telehealth_session_events (id SERIAL PRIMARY KEY, session_id INTEGER NOT NULL REFERENCES telehealth_sessions(id), event_type VARCHAR(50) NOT NULL, actor_type VARCHAR(20), actor_id INTEGER, payload JSONB, created_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE INDEX IF NOT EXISTS idx_telehealth_sessions_appt ON telehealth_sessions(appointment_id)\",
+    \"CREATE INDEX IF NOT EXISTS idx_telehealth_sessions_clinic_state ON telehealth_sessions(clinic_id, state)\",
+    \"ALTER TABLE appointments ADD COLUMN IF NOT EXISTS telehealth_joined_at TIMESTAMP\",
+    \"ALTER TABLE appointments ADD COLUMN IF NOT EXISTS telehealth_room VARCHAR(120)\",
 ]
 try:
     with engine.begin() as conn:
