@@ -130,10 +130,10 @@ function Footer() {
 const FEATURES = [
   { icon: Calendar, title: 'Online Appointments', desc: 'Patients book slots 24/7. Automated reminders reduce no-shows by 60%.', color: '#CC1414' },
   { icon: FileText, title: 'Digital EMR', desc: 'Paperless electronic medical records. Secure, searchable patient history.', color: '#0F2557' },
-  { icon: Pill, title: 'Pharmacy Module', desc: 'Integrated dispensing, inventory alerts, and prescription tracking.', color: '#F5821E', comingSoon: true },
+  { icon: Pill, title: 'Pharmacy Module', desc: 'Integrated dispensing, inventory alerts, and prescription tracking.', color: '#F5821E' },
   { icon: FlaskConical, title: 'Lab Integration', desc: 'Order tests, receive reports digitally, share with patients instantly.', color: '#138808' },
-  { icon: ReceiptText, title: 'Smart Billing', desc: 'GST-ready invoicing, insurance claims, and UPI/card payments.', color: '#7C3AED', comingSoon: true },
-  { icon: BarChart3, title: 'Analytics Dashboard', desc: 'Revenue trends, patient flow, and performance insights at a glance.', color: '#0891B2', comingSoon: true },
+  { icon: ReceiptText, title: 'Smart Billing', desc: 'GST-ready invoicing, insurance claims, and UPI/card payments.', color: '#7C3AED' },
+  { icon: BarChart3, title: 'Analytics Dashboard', desc: 'Revenue trends, patient flow, and performance insights at a glance.', color: '#0891B2' },
 ]
 
 const TESTIMONIALS = [
