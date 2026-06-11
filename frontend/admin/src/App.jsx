@@ -15,6 +15,7 @@ import Subscriptions from './pages/Subscriptions'
 import HospitalSettings from './pages/HospitalSettings'
 import FormBuilder from './pages/FormBuilder'
 import FormPool from './pages/FormPool'
+import FormPreview from './pages/FormPreview'
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth()
@@ -44,6 +45,8 @@ export default function App() {
           <Route path="forms"             element={<FormPool />} />
           <Route path="forms/builder"     element={<FormBuilder />} />
           <Route path="forms/builder/:id" element={<FormBuilder />} />
+          <Route path="forms/preview/:id" element={<FormPreview />} />
+          <Route path="forms/preview"     element={<FormPreview />} />
         </Route>
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
