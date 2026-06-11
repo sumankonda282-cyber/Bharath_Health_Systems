@@ -98,7 +98,7 @@ function BookingCard({ booking }) {
           <div className="flex items-center gap-3">
             <Building2 className="w-5 h-5 text-[#0F2557] flex-shrink-0" />
             <div>
-              <p className="text-xs text-gray-400">Clinic</p>
+              <p className="text-xs text-gray-400">Health Center</p>
               <p className="font-semibold text-gray-900">{booking.clinic_name}</p>
               {booking.clinic_address && <p className="text-xs text-gray-500">{booking.clinic_address}</p>}
             </div>
@@ -137,13 +137,13 @@ function BookingCard({ booking }) {
       {status === 'confirmed' && (
         <div className="mt-4 bg-green-600 text-white rounded-xl p-4 text-sm">
           <p className="font-semibold mb-1">Instructions for your visit</p>
-          <p className="text-green-100">Please arrive 10 minutes early. Bring a valid ID and this confirmation code. The clinic will confirm your appointment.</p>
+          <p className="text-green-100">Please arrive 10 minutes early. Bring a valid ID and this confirmation code. The health center will confirm your appointment.</p>
         </div>
       )}
       {status === 'cancelled' && (
         <div className="mt-4 bg-red-50 border border-red-200 text-red-700 rounded-xl p-4 text-sm">
           <p className="font-semibold mb-1">This appointment has been cancelled</p>
-          <p>Please contact the clinic or book a new appointment.</p>
+          <p>Please contact the health center or book a new appointment.</p>
         </div>
       )}
     </div>
@@ -230,7 +230,7 @@ export default function BookingStatus() {
           <div>
             <BookingCard booking={booking} />
             <div className="flex gap-3 mt-6 justify-center">
-              <Link to="/clinics" className="btn-outline">Find More Clinics</Link>
+              <Link to="/clinics" className="btn-outline">Find More Doctors</Link>
               <Link to="/book" className="btn-primary">Book Another</Link>
             </div>
           </div>

@@ -21,12 +21,12 @@ function Navbar() {
           <Link to="/"><BrandLogo size="md" /></Link>
 
           <div className="hidden md:flex items-center gap-8">
-            <Link to="/clinics" className="text-gray-600 hover:text-[#0F2557] font-medium transition-colors text-sm">Find Clinics</Link>
+            <Link to="/clinics" className="text-gray-600 hover:text-[#0F2557] font-medium transition-colors text-sm">Find Doctors</Link>
             <Link to="/telehealth" className="text-gray-600 hover:text-[#0F2557] font-medium transition-colors text-sm flex items-center gap-1">
               <Video className="w-3.5 h-3.5" style={{ color: '#F5821E' }} />Telehealth
             </Link>
             <Link to="/booking/check" className="text-gray-600 hover:text-[#0F2557] font-medium transition-colors text-sm">My Booking</Link>
-            <Link to="/register" className="text-gray-600 hover:text-[#0F2557] font-medium transition-colors text-sm">Register Clinic</Link>
+            <Link to="/register" className="text-gray-600 hover:text-[#0F2557] font-medium transition-colors text-sm">Register Health Center</Link>
           </div>
 
           <div className="hidden md:flex items-center gap-3">
@@ -57,9 +57,9 @@ function Navbar() {
 
         {open && (
           <div className="md:hidden pb-4 pt-2 flex flex-col gap-2 border-t border-gray-100">
-            <Link to="/clinics" className="text-gray-600 font-medium px-2 py-2 text-sm" onClick={() => setOpen(false)}>Find Clinics</Link>
+            <Link to="/clinics" className="text-gray-600 font-medium px-2 py-2 text-sm" onClick={() => setOpen(false)}>Find Doctors</Link>
             <Link to="/booking/check" className="text-gray-600 font-medium px-2 py-2 text-sm" onClick={() => setOpen(false)}>My Booking</Link>
-            <Link to="/register" className="text-gray-600 font-medium px-2 py-2 text-sm" onClick={() => setOpen(false)}>Register Clinic</Link>
+            <Link to="/register" className="text-gray-600 font-medium px-2 py-2 text-sm" onClick={() => setOpen(false)}>Register Health Center</Link>
             <div className="flex gap-2 mt-1">
               <a href={PROVIDER_URL} className="flex-1 text-center py-2 rounded-xl border-2 font-semibold text-sm" style={{ borderColor: '#0F2557', color: '#0F2557' }}>Provider Login</a>
               <a href={PATIENT_URL} className="flex-1 text-center py-2 rounded-xl font-semibold text-sm text-white" style={{ background: '#CC1414' }}>My Health Portal</a>
@@ -88,16 +88,16 @@ function Footer() {
           <div>
             <h4 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">For Patients</h4>
             <ul className="space-y-2.5 text-sm">
-              <li><Link to="/clinics" className="hover:text-white transition-colors">Find Clinics</Link></li>
+              <li><Link to="/clinics" className="hover:text-white transition-colors">Find Doctors</Link></li>
               <li><Link to="/book" className="hover:text-white transition-colors">Book Appointment</Link></li>
               <li><Link to="/booking/check" className="hover:text-white transition-colors">Check Booking Status</Link></li>
               <li><a href={PATIENT_URL} className="hover:text-white transition-colors">My Health Portal</a></li>
             </ul>
           </div>
           <div>
-            <h4 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">For Clinics</h4>
+            <h4 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">For Health Centers</h4>
             <ul className="space-y-2.5 text-sm">
-              <li><Link to="/register" className="hover:text-white transition-colors">Register Your Clinic</Link></li>
+              <li><Link to="/register" className="hover:text-white transition-colors">Register Your Health Center</Link></li>
               <li><a href={PROVIDER_URL} className="hover:text-white transition-colors">Provider Dashboard</a></li>
               <li><a href="#features" className="hover:text-white transition-colors">Features</a></li>
               <li><a href="#how-it-works" className="hover:text-white transition-colors">How It Works</a></li>
@@ -253,7 +253,7 @@ export default function HomePage() {
           <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium mb-8"
             style={{ background: 'rgba(245,130,30,0.2)', color: '#F5821E', border: '1px solid rgba(245,130,30,0.3)' }}>
             <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-            Trusted by {stats ? `${stats.clinics.toLocaleString('en-IN')}+` : '—'} clinics across India
+            Trusted by {stats ? `${stats.clinics.toLocaleString('en-IN')}+` : '—'} health centers across India
           </div>
 
           <h1 className="text-4xl md:text-6xl font-extrabold leading-tight mb-6" style={{ letterSpacing: '-0.02em' }}>
@@ -288,7 +288,7 @@ export default function HomePage() {
               onMouseEnter={e => e.currentTarget.style.background = '#b01010'}
               onMouseLeave={e => e.currentTarget.style.background = '#CC1414'}
             >
-              Find a Clinic
+              Find a Doctor
             </button>
           </form>
 
@@ -297,7 +297,7 @@ export default function HomePage() {
               className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm transition-all"
               style={{ background: 'rgba(255,255,255,0.12)', color: 'white', border: '1px solid rgba(255,255,255,0.25)' }}
             >
-              Register Your Clinic <ArrowRight className="w-4 h-4" />
+              Register Your Health Center <ArrowRight className="w-4 h-4" />
             </Link>
             <a href={PATIENT_URL}
               className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm transition-all"
@@ -314,7 +314,7 @@ export default function HomePage() {
         <div className="max-w-5xl mx-auto px-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
             {[
-              { label: 'Registered Clinics', value: stats ? stats.clinics : null, icon: Building2, color: '#CC1414' },
+              { label: 'Health Centers', value: stats ? stats.clinics : null, icon: Building2, color: '#CC1414' },
               { label: 'Verified Doctors', value: stats ? stats.doctors : null, icon: Users, color: '#0F2557' },
               { label: 'Appointments Booked', value: stats ? stats.bookings : null, icon: Calendar, color: '#F5821E' },
               { label: 'Cities Covered', value: stats ? stats.cities : null, icon: MapPin, color: '#138808' },
@@ -343,9 +343,9 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-14">
             <h2 className="text-3xl md:text-4xl font-extrabold" style={{ color: '#0F2557' }}>
-              Everything your clinic needs
+              Everything your health center needs
             </h2>
-            <p className="text-lg text-gray-500 mt-3">One platform to manage your entire clinic operations</p>
+            <p className="text-lg text-gray-500 mt-3">One platform to manage your entire health center operations</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {FEATURES.map(({ icon: Icon, title, desc, color }) => (
@@ -384,9 +384,9 @@ export default function HomePage() {
               </div>
               <div className="space-y-6">
                 {[
-                  { step: '01', title: 'Search a Clinic', desc: 'Browse clinics by city, specialty, or doctor name. Read profiles and check availability.' },
+                  { step: '01', title: 'Search a Doctor', desc: 'Browse doctors by city, specialty, or name. Read profiles and check availability.' },
                   { step: '02', title: 'Book an Appointment', desc: 'Select your preferred doctor, date, and time slot. Fill in basic patient details.' },
-                  { step: '03', title: 'Visit & Get Treated', desc: 'Show your confirmation code at the clinic. Your medical history is ready digitally.' },
+                  { step: '03', title: 'Visit & Get Treated', desc: 'Show your confirmation code at the health center. Your medical history is ready digitally.' },
                 ].map(item => (
                   <div key={item.step} className="flex gap-5">
                     <div className="w-12 h-12 text-white rounded-xl flex items-center justify-center font-bold text-sm flex-shrink-0"
@@ -406,11 +406,11 @@ export default function HomePage() {
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: '#0F255715' }}>
                   <Building2 className="w-5 h-5" style={{ color: '#0F2557' }} />
                 </div>
-                <h3 className="text-2xl font-bold" style={{ color: '#0F2557' }}>For Clinics</h3>
+                <h3 className="text-2xl font-bold" style={{ color: '#0F2557' }}>For Health Centers</h3>
               </div>
               <div className="space-y-6">
                 {[
-                  { step: '01', title: 'Register Your Clinic', desc: 'Fill in clinic and doctor details. Submit for approval. We verify within 24 hours.' },
+                  { step: '01', title: 'Register Your Health Center', desc: 'Fill in health center and doctor details. Submit for approval. We verify within 24 hours.' },
                   { step: '02', title: 'Set Up Your Profile', desc: 'Add doctors, configure time slots, set consultation fees, and upload logo.' },
                   { step: '03', title: 'Start Accepting Bookings', desc: 'Go live on BHaratCliniq. Manage appointments, EMR, billing — all from one dashboard.' },
                 ].map(item => (
@@ -526,9 +526,9 @@ export default function HomePage() {
               <Shield className="w-8 h-8" style={{ color: '#F5821E' }} />
             </div>
           </div>
-          <h2 className="text-3xl font-extrabold mb-4">Ready to modernize your clinic?</h2>
+          <h2 className="text-3xl font-extrabold mb-4">Ready to modernize your health center?</h2>
           <p className="text-blue-200 mb-8 text-lg leading-relaxed">
-            Join clinics already on BHaratCliniq. Registration is free. Go live in 24 hours.
+            Join health centers already on BHaratCliniq. Registration is free. Go live in 24 hours.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/register"
@@ -537,13 +537,13 @@ export default function HomePage() {
               onMouseEnter={e => e.currentTarget.style.background = '#b01010'}
               onMouseLeave={e => e.currentTarget.style.background = '#CC1414'}
             >
-              Register Your Clinic <ArrowRight className="w-4 h-4" />
+              Register Your Health Center <ArrowRight className="w-4 h-4" />
             </Link>
             <Link to="/clinics"
               className="inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl font-semibold text-sm transition-all"
               style={{ background: 'rgba(255,255,255,0.12)', color: 'white', border: '1px solid rgba(255,255,255,0.25)' }}
             >
-              Browse Clinics
+              Browse Doctors
             </Link>
           </div>
         </div>
