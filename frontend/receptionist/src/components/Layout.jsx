@@ -181,6 +181,12 @@ export default function Layout() {
           <div className="md:hidden"><BrandLogo size="sm" /></div>
           <span className="md:hidden text-xs font-semibold ml-1" style={{ color: '#F5821E' }}>{isManager ? 'Manager' : 'Reception'}</span>
 
+          {user?.clinic_name && (
+            <span className="hidden md:block text-xs text-gray-400 font-medium truncate max-w-[180px]">
+              {user.clinic_name}
+            </span>
+          )}
+
           <div className="flex-1" />
 
           <button
