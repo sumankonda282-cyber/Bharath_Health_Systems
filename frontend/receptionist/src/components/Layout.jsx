@@ -6,7 +6,7 @@ import { NavLink, Outlet } from 'react-router-dom'
 import {
   CreditCard, LayoutDashboard, LogOut, Users,
   Menu, X, Settings, BedDouble, LayoutGrid, Banknote, Wrench, HelpCircle,
-  CalendarRange, UserCircle2, Plane, LayoutTemplate, Send, Monitor,
+  CalendarRange, UserCircle2, Plane, LayoutTemplate, Send, Monitor, RefreshCw,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import BrandLogo from './BrandLogo'
@@ -182,6 +182,12 @@ export default function Layout() {
           <span className="md:hidden text-xs font-semibold ml-1" style={{ color: '#F5821E' }}>{isManager ? 'Manager' : 'Reception'}</span>
 
           <div className="flex-1" />
+
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent('bharatcliniq:refresh'))}
+            className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700" title="Refresh data">
+            <RefreshCw size={16} />
+          </button>
 
           <button onClick={() => setHelpOpen(true)}
             className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700" title="Help & Support">

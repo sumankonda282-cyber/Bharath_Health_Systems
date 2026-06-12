@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { Navigate } from 'react-router-dom'
 import { ShieldCheck, Loader2, Building2, BarChart3, ClipboardList, Eye, EyeOff, AlertCircle } from 'lucide-react'
+import BrandLogo from '../components/BrandLogo'
 
 export default function Login() {
   const { user, login } = useAuth()
@@ -36,8 +37,8 @@ export default function Login() {
         style={{ background: 'linear-gradient(145deg, #0F2557 0%, #1a3a7a 100%)' }}
       >
         <div>
-          <div className="text-2xl font-extrabold tracking-tight">BHarath Health</div>
-          <div className="text-xs font-semibold mt-1 tracking-widest uppercase" style={{ color: '#F5821E' }}>
+          <BrandLogo size="md" />
+          <div className="text-xs font-semibold mt-2 tracking-widest uppercase" style={{ color: '#F5821E' }}>
             Super Admin Portal
           </div>
         </div>
@@ -71,12 +72,8 @@ export default function Login() {
         <div className="w-full max-w-md">
           {/* Mobile logo */}
           <div className="flex flex-col items-center mb-8 lg:hidden">
-            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-3"
-              style={{ background: 'rgba(15,37,87,0.4)', border: '1px solid rgba(255,255,255,0.1)' }}>
-              <ShieldCheck size={28} style={{ color: '#F5821E' }} />
-            </div>
-            <div className="text-xl font-extrabold text-white">BHarath Health</div>
-            <div className="text-xs font-semibold tracking-widest uppercase mt-1" style={{ color: '#F5821E' }}>
+            <BrandLogo size="md" />
+            <div className="text-xs font-semibold tracking-widest uppercase mt-2" style={{ color: '#F5821E' }}>
               Super Admin Portal
             </div>
           </div>
