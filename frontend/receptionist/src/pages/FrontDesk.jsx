@@ -57,10 +57,19 @@ const VISIT_TYPE_LABELS = {
 }
 
 const TRIAGE_LEVELS = [
-  { value: 'normal', label: 'Normal', dot: 'bg-green-400', text: 'text-green-700' },
-  { value: 'moderate', label: 'Moderate', dot: 'bg-yellow-400', text: 'text-yellow-700' },
-  { value: 'urgent', label: 'Urgent', dot: 'bg-red-500', text: 'text-red-700' },
+  { value: 'normal',   label: 'Normal',   dot: 'bg-green-400',  text: 'text-green-700',  color: '#4ADE80' },
+  { value: 'moderate', label: 'Moderate', dot: 'bg-yellow-400', text: 'text-yellow-700', color: '#FBBF24' },
+  { value: 'urgent',   label: 'Urgent',   dot: 'bg-red-500',    text: 'text-red-700',    color: '#F87171' },
 ]
+
+const STATUS_ROW_COLOR = {
+  waiting: '#F59E0B', in_progress: '#7C3AED', scheduled: '#3B82F6',
+  completed: '#16A34A', no_show: '#EF4444', cancelled: '#9CA3AF',
+}
+const STATUS_ROW_BG = {
+  waiting: 'rgba(245,158,11,0.04)', in_progress: 'rgba(124,58,237,0.04)',
+  scheduled: 'rgba(59,130,246,0.02)',
+}
 
 const DESK_PINS_KEY = 'recep_desk_pins'
 
@@ -477,7 +486,7 @@ function DeskCard({ appt, triageLevel, onRemove, onTriageChange, onSaveScreening
   const triageObj = TRIAGE_LEVELS.find(t => t.value === (triageLevel || 'normal')) || TRIAGE_LEVELS[0]
 
   return (
-    <div className="card flex flex-col min-w-[300px] max-w-[380px] flex-shrink-0 relative">
+    <div className="card flex flex-col min-w-[300px] max-w-[380px] flex-shrink-0 relative" style={{ borderTop: `3px solid ${triageObj.color}` }}>
       {/* Remove button */}
       <button
         onClick={() => onRemove(appt.id)}
@@ -675,7 +684,7 @@ export default function FrontDesk() {
   const [filterVisitType, setFilterVisitType] = useState('')
 
   // Section C state
-  const [searchExpanded, setSearchExpanded] = useState(false)
+  const [searchExpanded, setSearchExpanded] = useState(true)
   const [searchText, setSearchText] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [searchLoading, setSearchLoading] = useState(false)
@@ -813,6 +822,11 @@ export default function FrontDesk() {
   }, [todayApptForPatient, pinAppt])
 
   // ── Filtered queue ────────────────────────────────────────────────────────────
+  const scheduledCount  = appts.filter(a => a.status === 'scheduled').length
+  const waitingCount    = appts.filter(a => a.status === 'waiting').length
+  const inProgressCount = appts.filter(a => a.status === 'in_progress').length
+  const completedCount  = appts.filter(a => a.status === 'completed').length
+
   const doctorNames = [...new Set(appts.map(a => a.doctor_name).filter(Boolean))].sort()
   const hasFilters = filterStatus || filterDoctor || filterVisitType
 
@@ -834,7 +848,7 @@ export default function FrontDesk() {
 
   // ── Render ────────────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Page header */}
       <div className="page-header">
         <h1 className="page-title">Front Desk</h1>
@@ -848,24 +862,62 @@ export default function FrontDesk() {
         </div>
       </div>
 
+      {/* Live stats bar */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: 'Scheduled',       count: scheduledCount,  color: '#3B82F6', bg: '#EFF6FF' },
+          { label: 'Waiting',         count: waitingCount,    color: '#F59E0B', bg: '#FFFBEB' },
+          { label: 'In Consultation', count: inProgressCount, color: '#7C3AED', bg: '#F5F3FF' },
+          { label: 'Completed',       count: completedCount,  color: '#16A34A', bg: '#F0FDF4' },
+        ].map(p => (
+          <div key={p.label} className="card px-4 py-3 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: p.bg }}>
+              <div className="w-3 h-3 rounded-full" style={{ background: p.color }} />
+            </div>
+            <div>
+              <div className="text-2xl font-extrabold leading-none" style={{ color: p.color }}>{p.count}</div>
+              <div className="text-xs text-gray-500 mt-0.5 leading-tight">{p.label}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
       {/* ═══════════════════════════════════════════════════════════════════════ */}
       {/* SECTION A — MY DESK                                                    */}
       {/* ═══════════════════════════════════════════════════════════════════════ */}
       <section>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-bold" style={{ color: '#0F2557' }}>My Desk</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-bold" style={{ color: '#0F2557' }}>My Desk</h2>
+            {pinnedAppts.length > 0 && (
+              <span className="text-xs font-bold text-white px-2 py-0.5 rounded-full" style={{ background: '#F5821E' }}>
+                {pinnedAppts.length}
+              </span>
+            )}
+          </div>
           <button
             onClick={() => { setDeskSearchModal(true); setDeskSearchText(''); setDeskSearchResults([]) }}
-            className="btn-secondary text-sm"
+            className="btn-primary text-sm"
           >
-            <Plus size={15} />Add to Desk
+            <Plus size={15} />Add Patient
           </button>
         </div>
 
         {pinnedAppts.length === 0 ? (
-          <div className="card p-8 text-center text-gray-400">
-            <User size={32} className="mx-auto mb-3 opacity-30" />
-            <p className="text-sm">Your desk is empty — add patients from the queue below or search above</p>
+          <div className="border-2 border-dashed border-gray-200 rounded-2xl p-10 text-center bg-white">
+            <div className="w-14 h-14 mx-auto mb-4 rounded-2xl flex items-center justify-center" style={{ background: '#EFF6FF' }}>
+              <User size={26} style={{ color: '#93C5FD' }} />
+            </div>
+            <p className="font-semibold text-gray-600 mb-1">Your desk is empty</p>
+            <p className="text-sm text-gray-400 mb-5 leading-relaxed max-w-xs mx-auto">
+              Pin active patients here for quick access to vitals, triage, and status updates during their visit.
+            </p>
+            <button
+              onClick={() => { setDeskSearchModal(true); setDeskSearchText(''); setDeskSearchResults([]) }}
+              className="btn-primary text-sm"
+            >
+              <Plus size={14} />Add Patient to Desk
+            </button>
           </div>
         ) : (
           <div className="flex gap-4 overflow-x-auto pb-2 -mx-1 px-1">
@@ -890,13 +942,13 @@ export default function FrontDesk() {
       {/* ═══════════════════════════════════════════════════════════════════════ */}
       <section>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-bold" style={{ color: '#0F2557' }}>Today's Queue</h2>
           <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-400">{appts.length} appointments</span>
-            <button onClick={() => loadQueue()} className="btn-secondary text-sm p-2" title="Refresh">
-              <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
-            </button>
+            <h2 className="text-lg font-bold" style={{ color: '#0F2557' }}>Today's Queue</h2>
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{appts.length}</span>
           </div>
+          <button onClick={() => loadQueue()} className="btn-secondary text-sm p-1.5" title="Refresh">
+            <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
+          </button>
         </div>
 
         {/* Filters */}
@@ -962,9 +1014,12 @@ export default function FrontDesk() {
               </button>
             </div>
           ) : sortedAppts.length === 0 ? (
-            <div className="p-10 text-center text-gray-400">
-              <Calendar size={32} className="mx-auto mb-2 opacity-30" />
-              <p>{appts.length === 0 ? 'No appointments today' : 'No appointments match filters'}</p>
+            <div className="p-12 text-center">
+              <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-gray-50 flex items-center justify-center">
+                <Calendar size={26} className="text-gray-300" />
+              </div>
+              <p className="font-semibold text-gray-400 mb-1">{appts.length === 0 ? 'No appointments today' : 'No appointments match filters'}</p>
+              {appts.length === 0 && <p className="text-sm text-gray-300">Appointments booked for today will appear here</p>}
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -985,9 +1040,15 @@ export default function FrontDesk() {
                     const isTelehealth = a.mode === 'telehealth' || a.visit_type === 'telehealth'
                     const isPinned = pinnedIds.includes(a.id)
                     return (
-                      <tr key={a.id} className="tr-hover">
+                      <tr key={a.id} className="tr-hover"
+                        style={{
+                          boxShadow: `inset 3px 0 0 ${STATUS_ROW_COLOR[a.status] || '#E5E7EB'}`,
+                          background: STATUS_ROW_BG[a.status] || 'transparent',
+                        }}>
                         <td className="td">
-                          <span className="font-bold" style={{ color: '#0F2557' }}>#{a.token_number || a.id}</span>
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0" style={{ background: '#EEF2FF', color: '#0F2557' }}>
+                            {a.token_number || a.id}
+                          </div>
                         </td>
                         <td className="td">
                           <div className="font-medium text-gray-900">{a.patient_name || '—'}</div>
@@ -1070,25 +1131,24 @@ export default function FrontDesk() {
       {/* SECTION C — PATIENT SEARCH                                             */}
       {/* ═══════════════════════════════════════════════════════════════════════ */}
       <section className="card overflow-hidden">
-        {/* Collapsible header */}
-        <button
-          onClick={() => setSearchExpanded(e => !e)}
-          className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors"
-        >
-          <div className="flex items-center gap-2 font-bold text-base" style={{ color: '#0F2557' }}>
+        {/* Section header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
+          <button
+            onClick={() => setSearchExpanded(e => !e)}
+            className="flex items-center gap-2 font-bold text-base hover:opacity-70 transition-opacity"
+            style={{ color: '#0F2557' }}
+          >
             <Search size={18} />
             Patient Search
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={e => { e.stopPropagation(); setShowRegister(true) }}
-              className="btn-primary text-sm"
-            >
-              <Plus size={14} />Register New Patient
-            </button>
-            {searchExpanded ? <ChevronUp size={18} className="text-gray-400" /> : <ChevronDown size={18} className="text-gray-400" />}
-          </div>
-        </button>
+            {searchExpanded ? <ChevronUp size={16} className="text-gray-400 ml-1" /> : <ChevronDown size={16} className="text-gray-400 ml-1" />}
+          </button>
+          <button
+            onClick={() => setShowRegister(true)}
+            className="btn-primary text-sm"
+          >
+            <Plus size={14} />Register New Patient
+          </button>
+        </div>
 
         {searchExpanded && (
           <div className="border-t border-gray-100 p-5">
