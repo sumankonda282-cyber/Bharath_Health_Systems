@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { publicApi } from '../api/client'
 import Navbar from '../components/Navbar'
+import BrandLogo from '../components/BrandLogo'
 import { STAFF_URL, PATIENT_URL, CARECHART_URL, PHARMACY_URL, LAB_URL, IMAGING_URL } from '../constants/urls'
 
 function Footer() {
