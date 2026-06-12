@@ -1,9 +1,7 @@
 import { Link } from 'react-router-dom'
 import { ChevronRight } from 'lucide-react'
 import BrandLogo from './BrandLogo'
-
-const PROVIDER_URL = import.meta.env.VITE_PROVIDER_URL || 'https://provider.bharathhealthsystems.com'
-const PATIENT_URL  = import.meta.env.VITE_PATIENT_URL  || 'https://patient.bharathhealthsystems.com'
+import { STAFF_URL, PATIENT_URL, CARECHART_URL, PHARMACY_URL, LAB_URL, IMAGING_URL } from '../constants/urls'
 
 export default function Footer() {
   return (
@@ -52,11 +50,11 @@ export default function Footer() {
             <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: '#0F2557' }}>For Health Centers</h3>
             <div className="space-y-2">
               {[
-                { label: 'Provider Login (CareChart EMR)', href: PROVIDER_URL },
-                { label: 'Staff Management', href: PROVIDER_URL + '/staff' },
-                { label: 'Pharmacy Module', href: PROVIDER_URL + '/pharmacy' },
-                { label: 'Diagnostics Lab', href: PROVIDER_URL + '/lab' },
-                { label: 'Imaging Center', href: PROVIDER_URL + '/imaging' },
+                { label: 'Provider Login (CareChart EMR)', href: CARECHART_URL },
+                { label: 'Staff Management', href: STAFF_URL },
+                { label: 'Pharmacy Module', href: PHARMACY_URL },
+                { label: 'Diagnostics Lab', href: LAB_URL },
+                { label: 'Imaging Center', href: IMAGING_URL },
                 { label: 'Register Health Center', to: '/register' },
               ].map(item => (
                 <div key={item.label}>

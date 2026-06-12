@@ -1,38 +1,17 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  Video, Star, MapPin, Stethoscope, ArrowLeft,
+  Video, MapPin, Stethoscope, ArrowLeft,
   Clock, CheckCircle, Shield, Smartphone, Search, Calendar, X
 } from 'lucide-react'
 import { publicApi } from '../api/client'
-import BrandLogo from '../components/BrandLogo'
-
-const PROVIDER_URL = import.meta.env.VITE_PROVIDER_URL || 'https://provider.bharathhealthsystems.com'
-const PATIENT_URL  = import.meta.env.VITE_PATIENT_URL  || 'https://patient.bharathhealthsystems.com'
+import Navbar from '../components/Navbar'
+import { PATIENT_URL } from '../constants/urls'
 
 const SPECIALTIES = [
   'General Medicine', 'Cardiology', 'Dermatology', 'Pediatrics',
   'Orthopedics', 'Gynecology', 'Psychiatry', 'ENT',
 ]
-
-function Navbar() {
-  return (
-    <nav className="bg-white shadow-sm sticky top-0 z-50 border-b border-gray-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
-        <Link to="/"><BrandLogo size="md" /></Link>
-        <div className="hidden md:flex items-center gap-6">
-          <Link to="/clinics" className="text-sm font-medium text-gray-600 hover:text-[#0F2557]">Find Doctors</Link>
-          <Link to="/telehealth" className="text-sm font-semibold" style={{ color: '#F5821E' }}>Telehealth</Link>
-          <Link to="/register" className="text-sm font-medium text-gray-600 hover:text-[#0F2557]">Register Health Center</Link>
-        </div>
-        <div className="flex items-center gap-3">
-          <a href={PROVIDER_URL} target="_blank" rel="noopener noreferrer" className="hidden md:block px-4 py-2 rounded-xl border-2 font-semibold text-sm" style={{ borderColor:'#0F2557', color:'#0F2557' }}>Provider Login</a>
-          <a href={PATIENT_URL} target="_blank" rel="noopener noreferrer" className="px-4 py-2 rounded-xl font-semibold text-sm text-white" style={{ background:'#CC1414' }}>My Health Portal</a>
-        </div>
-      </div>
-    </nav>
-  )
-}
 
 function DoctorCard({ doctor }) {
   return (

@@ -2,22 +2,9 @@ import { useState, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { Building2, ChevronRight, Check, CheckCircle, ArrowLeft, Mail, Phone, Upload, X } from 'lucide-react'
 import { publicApi } from '../api/client'
-import BrandLogo from '../components/BrandLogo'
+import Navbar from '../components/Navbar'
 
-function Navbar() {
-  return (
-    <nav className="bg-white shadow-sm sticky top-0 z-50 border-b border-gray-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          <Link to="/"><BrandLogo size="md" /></Link>
-          <Link to="/clinics" className="text-gray-600 hover:text-gray-900 font-medium text-sm hidden md:block">Find Clinics</Link>
-        </div>
-      </div>
-    </nav>
-  )
-}
-
-const STEPS = ['Clinic Details', 'Doctor Details', 'Review & Submit']
+const STEPS = ['Health Center Details', 'Doctor Details', 'Review & Submit']
 
 const CLINIC_TYPES = [
   'General / Primary Care',
@@ -102,8 +89,8 @@ function Step1({ data, onChange, onNext }) {
 
   const validate = () => {
     const e = {}
-    if (!data.clinic_name?.trim()) e.clinic_name = 'Clinic name is required'
-    if (!data.specialty) e.specialty = 'Clinic type is required'
+    if (!data.clinic_name?.trim()) e.clinic_name = 'Health center name is required'
+    if (!data.specialty) e.specialty = 'Health center type is required'
     if (!data.city?.trim()) e.city = 'City is required'
     if (!data.state) e.state = 'State is required'
     if (!data.phone?.trim() || !/^[6-9]\d{9}$/.test(data.phone)) e.phone = 'Valid 10-digit phone required'
@@ -122,15 +109,15 @@ function Step1({ data, onChange, onNext }) {
 
   return (
     <div>
-      <h2 className="text-xl font-bold mb-1" style={{ color: '#0F2557' }}>Clinic Details</h2>
-      <p className="text-gray-500 text-sm mb-6">Tell us about your clinic</p>
+      <h2 className="text-xl font-bold mb-1" style={{ color: '#0F2557' }}>Health Center Details</h2>
+      <p className="text-gray-500 text-sm mb-6">Tell us about your health center</p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Field label="Clinic Name" required error={errors.clinic_name}>
+        <Field label="Health Center Name" required error={errors.clinic_name}>
           <input type="text" {...inp('clinic_name')} placeholder="e.g. City Care Clinic" />
         </Field>
-        <Field label="Clinic Type" required error={errors.specialty}>
+        <Field label="Health Center Type" required error={errors.specialty}>
           <select {...inp('specialty')}>
-            <option value="">Select clinic type</option>
+            <option value="">Select health center type</option>
             {CLINIC_TYPES.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </Field>
@@ -143,10 +130,10 @@ function Step1({ data, onChange, onNext }) {
             {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </Field>
-        <Field label="Clinic Phone" required error={errors.phone}>
+        <Field label="Health Center Phone" required error={errors.phone}>
           <input type="tel" {...inp('phone')} maxLength={10} placeholder="10-digit number" />
         </Field>
-        <Field label="Clinic Email" required error={errors.email}>
+        <Field label="Health Center Email" required error={errors.email}>
           <input type="email" {...inp('email')} placeholder="clinic@example.com" />
         </Field>
         <div className="md:col-span-2">
@@ -201,7 +188,7 @@ function Step2({ data, onChange, onNext, onBack }) {
       <div className="mb-5 rounded-xl p-3 text-xs flex gap-3 items-start" style={{ background: '#0F255510', border: '1px solid #0F255530' }}>
         <span className="text-lg mt-0.5">🔐</span>
         <p style={{ color: '#0F2557' }}>
-          No password needed now. Once your clinic is approved, your <strong>username and temporary password</strong> will be sent to the email and phone number you provide below.
+          No password needed now. Once your health center is approved, your <strong>username and temporary password</strong> will be sent to the email and phone number you provide below.
         </p>
       </div>
 
@@ -280,12 +267,12 @@ function Step2({ data, onChange, onNext, onBack }) {
 // ── Step 3: Review & Submit ───────────────────────────────────────────────────
 function Step3({ data, onBack, onSubmit, submitting, error }) {
   const rows = [
-    { label: 'Clinic Name',      value: data.clinic_name },
-    { label: 'Clinic Type',      value: data.specialty },
-    { label: 'City',             value: data.city },
-    { label: 'State',            value: data.state },
-    { label: 'Clinic Phone',     value: data.phone },
-    { label: 'Clinic Email',     value: data.email },
+    { label: 'Health Center Name', value: data.clinic_name },
+    { label: 'Health Center Type', value: data.specialty },
+    { label: 'City',               value: data.city },
+    { label: 'State',              value: data.state },
+    { label: 'Phone',              value: data.phone },
+    { label: 'Email',              value: data.email },
     { label: 'Address',          value: data.address },
     { label: 'Doctor Name',      value: data.doctor_name },
     { label: 'Doctor Email',     value: data.doctor_email },
@@ -359,7 +346,7 @@ function SuccessScreen() {
         style={{ background: '#0F255508', border: '1px solid #0F255520' }}>
         <h3 className="font-semibold" style={{ color: '#0F2557' }}>What happens next?</h3>
         {[
-          'Our team verifies your clinic and doctor credentials',
+          'Our team verifies your health center and doctor credentials',
           'You receive a username + one-time password via email and SMS',
           'Log in and set your permanent password to get started',
         ].map((step, i) => (
@@ -374,7 +361,7 @@ function SuccessScreen() {
         <Link to="/" className="inline-flex items-center justify-center gap-2 px-6 py-3 border-2 rounded-xl font-semibold text-sm"
           style={{ borderColor: '#0F2557', color: '#0F2557' }}>Go to Homepage</Link>
         <Link to="/clinics" className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm text-white"
-          style={{ background: '#CC1414' }}>Browse Clinics</Link>
+          style={{ background: '#CC1414' }}>Find Doctors</Link>
       </div>
     </div>
   )
@@ -433,8 +420,8 @@ export default function RegisterClinic() {
             <Link to="/" className="inline-flex items-center gap-1 text-blue-200 hover:text-white text-sm mb-3">
               <ArrowLeft className="w-4 h-4" /> Back to Home
             </Link>
-            <h1 className="text-2xl font-extrabold">Register Your Clinic</h1>
-            <p className="text-blue-200 text-sm mt-1">Join India's fastest-growing digital clinic platform. Free to register.</p>
+            <h1 className="text-2xl font-extrabold">Register Your Health Center</h1>
+            <p className="text-blue-200 text-sm mt-1">Join India's fastest-growing digital health platform. Free to register.</p>
           </div>
         </div>
       )}

@@ -7,8 +7,7 @@ import {
 } from 'lucide-react'
 import { publicApi } from '../api/client'
 import Navbar from '../components/Navbar'
-
-const PATIENT_URL = import.meta.env.VITE_PATIENT_URL || 'https://patient.bharathhealthsystems.com'
+import { PATIENT_URL } from '../constants/urls'
 
 const STEPS = ['Select Doctor', 'Choose Slot', 'Patient Details', 'Confirmation']
 

@@ -5,31 +5,7 @@ import {
   Stethoscope, ArrowLeft, X, Star, Clock, Wifi, WifiOff, Calendar
 } from 'lucide-react'
 import { publicApi } from '../api/client'
-import BrandLogo from '../components/BrandLogo'
-
-const PROVIDER_URL = import.meta.env.VITE_PROVIDER_URL || 'https://provider.bharathhealthsystems.com'
-const PATIENT_URL  = import.meta.env.VITE_PATIENT_URL  || 'https://patient.bharathhealthsystems.com'
-
-function Navbar() {
-  return (
-    <nav className="bg-white shadow-sm sticky top-0 z-50 border-b border-gray-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          <Link to="/"><BrandLogo size="md" /></Link>
-          <div className="hidden md:flex items-center gap-6">
-            <Link to="/clinics" className="font-semibold text-sm" style={{ color: '#CC1414' }}>Find Doctors</Link>
-            <Link to="/booking/check" className="text-gray-600 hover:text-gray-900 font-medium text-sm transition-colors">My Booking</Link>
-            <Link to="/register" className="text-gray-600 hover:text-gray-900 font-medium text-sm transition-colors">Register Health Center</Link>
-          </div>
-          <div className="hidden md:flex items-center gap-3">
-            <a href={PROVIDER_URL} className="px-4 py-2 rounded-xl border-2 font-semibold text-sm transition-all" style={{ borderColor: '#0F2557', color: '#0F2557' }}>Provider Login</a>
-            <a href={PATIENT_URL} className="px-4 py-2 rounded-xl font-semibold text-sm text-white transition-all" style={{ background: '#CC1414' }}>My Health Portal</a>
-          </div>
-        </div>
-      </div>
-    </nav>
-  )
-}
+import Navbar from '../components/Navbar'
 
 const SPECIALTIES = [
   'General Medicine', 'Cardiology', 'Dermatology', 'Pediatrics',
