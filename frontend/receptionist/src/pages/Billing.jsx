@@ -352,60 +352,114 @@ function WaiverModal({ invoiceTotal, onClose, onSave, saving }) {
   )
 }
 
-// ─── Payment Modal ────────────────────────────────────────────────────────────
+// ─── Payment Modal (split-payment) ───────────────────────────────────────────
 
 function PaymentModal({ balanceAmount, onClose, onSave, saving }) {
-  const [form, setForm] = useState({
-    amount: balanceAmount > 0 ? balanceAmount.toFixed(2) : '',
-    method: 'cash',
-    reference: '',
-    notes: '',
-  })
-  const setF = (k, v) => setForm(p => ({ ...p, [k]: v }))
+  const [splits, setSplits] = useState([
+    { method: 'cash', amount: balanceAmount > 0 ? balanceAmount.toFixed(2) : '', reference: '' },
+  ])
+
+  const addSplit   = () => setSplits(p => [...p, { method: 'upi', amount: '', reference: '' }])
+  const removeSplit = (i) => setSplits(p => p.filter((_, idx) => idx !== i))
+  const updateSplit = (i, k, v) => setSplits(p => p.map((s, idx) => idx === i ? { ...s, [k]: v } : s))
+
+  const totalPaying = splits.reduce((sum, s) => sum + (+s.amount || 0), 0)
+  const remaining   = +(balanceAmount - totalPaying).toFixed(2)
+
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-4">
           <h3 className="font-bold text-gray-800">Collect Payment</h3>
           <button onClick={onClose}><X size={18} className="text-gray-400" /></button>
         </div>
+
+        {balanceAmount > 0 && (
+          <div className="flex justify-between items-center px-4 py-2.5 rounded-xl mb-4 text-sm" style={{ background: '#0F2557' }}>
+            <span className="text-blue-200">Balance Due</span>
+            <span className="font-bold text-white text-base">{fmt(balanceAmount)}</span>
+          </div>
+        )}
+
         <div className="space-y-3">
-          <div>
-            <label className="label">Amount (₹) *</label>
-            <input type="number" className="input" value={form.amount} onChange={e => setF('amount', e.target.value)} placeholder="Enter amount" />
-            {balanceAmount > 0 && <p className="text-xs text-gray-400 mt-1">Balance due: {fmt(balanceAmount)}</p>}
-          </div>
-          <div>
-            <label className="label">Payment Method *</label>
-            <div className="grid grid-cols-2 gap-2">
-              {PAYMENT_METHODS.map(({ value, label, Icon }) => (
-                <button
-                  key={value}
-                  onClick={() => setF('method', value)}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-medium transition-colors ${form.method === value ? 'border-orange-400 bg-orange-50 text-orange-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
-                >
-                  <Icon size={14} />{label}
+          {splits.map((split, i) => (
+            <div key={i} className="border border-gray-100 rounded-xl p-3 space-y-2.5 relative bg-gray-50">
+              {splits.length > 1 && (
+                <button onClick={() => removeSplit(i)} className="absolute top-2.5 right-2.5 p-0.5 text-gray-300 hover:text-red-400 rounded">
+                  <X size={14} />
                 </button>
-              ))}
+              )}
+              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Split {splits.length > 1 ? i + 1 : ''} — Payment Method
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                {PAYMENT_METHODS.slice(0, 6).map(({ value, label, Icon }) => (
+                  <button
+                    key={value}
+                    onClick={() => updateSplit(i, 'method', value)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors ${split.method === value ? 'border-orange-400 bg-orange-50 text-orange-700' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'}`}
+                  >
+                    <Icon size={12} />{label}
+                  </button>
+                ))}
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="label">Amount (₹)</label>
+                  <input
+                    type="number"
+                    className="input"
+                    value={split.amount}
+                    onChange={e => updateSplit(i, 'amount', e.target.value)}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <label className="label">Reference</label>
+                  <input
+                    className="input"
+                    value={split.reference}
+                    onChange={e => updateSplit(i, 'reference', e.target.value)}
+                    placeholder="UPI / card last 4"
+                  />
+                </div>
+              </div>
             </div>
-          </div>
-          <div>
-            <label className="label">Reference (UPI txn / card last 4 / cheque no)</label>
-            <input className="input" value={form.reference} onChange={e => setF('reference', e.target.value)} placeholder="Optional" />
-          </div>
-          <div>
-            <label className="label">Notes</label>
-            <input className="input" value={form.notes} onChange={e => setF('notes', e.target.value)} placeholder="Optional" />
-          </div>
+          ))}
         </div>
+
+        <button
+          onClick={addSplit}
+          className="mt-3 flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 font-medium"
+        >
+          <Plus size={14} />Add another payment method
+        </button>
+
+        {splits.length > 1 && (
+          <div className="mt-3 p-3 rounded-xl border border-gray-100 space-y-1.5 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-500">Total Paying</span>
+              <span className="font-semibold">{fmt(totalPaying)}</span>
+            </div>
+            {balanceAmount > 0 && (
+              <div className="flex justify-between">
+                <span className="text-gray-500">Remaining Balance</span>
+                <span className={`font-semibold ${remaining > 0 ? 'text-red-600' : remaining < 0 ? 'text-amber-600' : 'text-green-600'}`}>
+                  {remaining < 0 ? `+${fmt(Math.abs(remaining))} excess` : remaining === 0 ? '✓ Cleared' : fmt(remaining)}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="flex gap-2 mt-4">
           <button
-            onClick={() => onSave(form)}
-            disabled={saving || !form.amount || +form.amount <= 0}
+            onClick={() => onSave(splits)}
+            disabled={saving || splits.every(s => !s.amount || +s.amount <= 0)}
             className="btn-primary flex-1 justify-center"
           >
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-            Record Payment
+            Record Payment{splits.length > 1 ? 's' : ''}
           </button>
           <button onClick={onClose} className="btn-secondary">Cancel</button>
         </div>
@@ -575,6 +629,9 @@ function BillingDetail({ invoice: listInvoice, onBack, onReloadList }) {
   const [showClaim, setShowClaim]     = useState(false)
   const [editClaim, setEditClaim]     = useState(null)
 
+  // Past visits
+  const [pastInvoices, setPastInvoices] = useState([])
+
   const notify = (msg, type = 'success') => setToast({ msg, type })
 
   const appointmentId = listInvoice?.appointment_id
@@ -591,7 +648,17 @@ function BillingDetail({ invoice: listInvoice, onBack, onReloadList }) {
     } finally { setLoading(false) }
   }, [appointmentId, hasAppointment])
 
-  useEffect(() => { setData(null); setLoading(true); setTab('charges'); load() }, [load])
+  useEffect(() => { setData(null); setLoading(true); setTab('charges'); setPastInvoices([]); load() }, [load])
+
+  useEffect(() => {
+    if (!data?.patient?.id) return
+    api.get('/billing/invoices', { params: { patient_id: data.patient.id, limit: 20 } })
+      .then(r => {
+        const all = Array.isArray(r) ? r : []
+        setPastInvoices(all.filter(inv => inv.id !== data?.invoice?.id))
+      })
+      .catch(() => setPastInvoices([]))
+  }, [data?.patient?.id, data?.invoice?.id])
 
   const ensureInvoice = async () => {
     if (data?.invoice) return data.invoice.id
@@ -649,12 +716,17 @@ function BillingDetail({ invoice: listInvoice, onBack, onReloadList }) {
     finally { setSaving(false) }
   }
 
-  // Payment
-  const handlePayment = async (form) => {
+  // Payment — supports multiple splits
+  const handlePayment = async (splits) => {
     setSaving(true)
     try {
       const invId = await ensureInvoice()
-      await api.post(`/clinic/billing/invoice/${invId}/payment`, form)
+      const toRecord = splits.filter(s => +s.amount > 0)
+      for (const s of toRecord) {
+        await api.post(`/clinic/billing/invoice/${invId}/payment`, {
+          amount: +s.amount, method: s.method, reference: s.reference || '',
+        })
+      }
       notify('Payment recorded'); setShowPayment(false); load(); onReloadList()
     } catch (e) { notify(e.message || 'Error', 'error') }
     finally { setSaving(false) }
@@ -791,6 +863,47 @@ function BillingDetail({ invoice: listInvoice, onBack, onReloadList }) {
         </div>
       </div>
 
+      {/* ── Due + Pay Now — top strip ── */}
+      {inv && (
+        <div className="mx-4 mt-3 flex flex-wrap items-center justify-between gap-3 px-4 py-3 rounded-xl flex-shrink-0"
+          style={{ background: balance > 0 ? '#FFF7ED' : '#F0FDF4', border: `1px solid ${balance > 0 ? '#FED7AA' : '#BBF7D0'}` }}>
+          <div className="flex flex-wrap gap-4 text-sm">
+            <span>
+              <span className="text-gray-500">Total </span>
+              <span className="font-bold" style={{ color: '#0F2557' }}>{fmt(inv.total || 0)}</span>
+            </span>
+            {(+inv.amount_paid || 0) > 0 && (
+              <span>
+                <span className="text-gray-500">Paid </span>
+                <span className="font-semibold text-green-600">{fmt(inv.amount_paid)}</span>
+              </span>
+            )}
+            {(+inv.discount || 0) > 0 && (
+              <span>
+                <span className="text-gray-500">Waiver </span>
+                <span className="font-semibold text-red-500">-{fmt(inv.discount)}</span>
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            {balance > 0
+              ? <span className="text-base font-extrabold text-red-600">Due {fmt(balance)}</span>
+              : <span className="text-sm font-bold text-green-600 flex items-center gap-1"><CheckCircle size={14} />Fully Paid</span>
+            }
+            {balance > 0 && (
+              <button onClick={() => setShowPayment(true)} className="btn-primary text-sm py-1.5 px-4 flex items-center gap-1.5">
+                Pay Now
+              </button>
+            )}
+            {inv && balance > 0 && (
+              <button onClick={() => setShowWaiver(true)} className="btn-secondary text-sm py-1.5 px-3">
+                Waiver
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Override alert */}
       {pendingOverrides.length > 0 && (
         <div className="mx-4 mt-3 border border-amber-200 bg-amber-50 rounded-xl p-3 flex-shrink-0">
@@ -819,11 +932,12 @@ function BillingDetail({ invoice: listInvoice, onBack, onReloadList }) {
       )}
 
       {/* Tabs */}
-      <div className="flex gap-0 px-4 mt-3 border-b border-gray-200 flex-shrink-0">
+      <div className="flex gap-0 px-4 mt-3 border-b border-gray-200 flex-shrink-0 overflow-x-auto">
         {[
           { key: 'charges',  label: 'Charges' + (pendingOverrides.length ? ` (${pendingOverrides.length})` : '') },
           { key: 'schemes',  label: 'Schemes' + (claims.length ? ` (${claims.length})` : '') },
           { key: 'payments', label: 'Payments' + (payments.length ? ` (${payments.length})` : '') },
+          { key: 'past',     label: 'Past Visits' + (pastInvoices.length ? ` (${pastInvoices.length})` : '') },
         ].map(t => (
           <button
             key={t.key}
@@ -1035,33 +1149,53 @@ function BillingDetail({ invoice: listInvoice, onBack, onReloadList }) {
             )}
           </>
         )}
+
+        {/* ── PAST VISITS TAB ── */}
+        {tab === 'past' && (
+          <>
+            {pastInvoices.length === 0 ? (
+              <div className="card p-8 text-center text-gray-400 text-sm">No previous invoices found for this patient</div>
+            ) : (
+              <div className="card overflow-hidden divide-y divide-gray-50">
+                {pastInvoices.map(inv => {
+                  const bal = Math.max(0, (+inv.total_amount || 0) - (+inv.amount_paid || 0))
+                  return (
+                    <div key={inv.id} className="px-4 py-3 hover:bg-gray-50 transition-colors">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="text-sm font-medium text-gray-800">
+                            #{inv.invoice_number || inv.id}
+                          </div>
+                          <div className="text-xs text-gray-400 mt-0.5">{fmtDate(inv.created_at)}</div>
+                        </div>
+                        <span className={`badge ${statusChip(inv.status)} capitalize`}>{inv.status}</span>
+                      </div>
+                      <div className="flex items-center justify-between mt-2 text-xs">
+                        <span className="text-gray-500">Total <span className="font-semibold text-gray-700">{fmt(inv.total_amount)}</span></span>
+                        <span className="text-gray-500">Paid <span className="font-semibold text-green-600">{fmt(inv.amount_paid)}</span></span>
+                        {bal > 0
+                          ? <span className="font-semibold text-red-600">Bal {fmt(bal)}</span>
+                          : <span className="text-green-600 flex items-center gap-0.5"><CheckCircle size={10} />Cleared</span>
+                        }
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </>
+        )}
       </div>
 
-      {/* Sticky summary bar */}
-      <div className="flex-shrink-0 border-t border-gray-200 bg-white shadow-[0_-4px_16px_rgba(0,0,0,0.06)] px-4 py-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap gap-3 text-xs">
-            <span><span className="text-gray-500">Subtotal </span><span className="font-semibold">{fmt(inv?.subtotal || 0)}</span></span>
-            {(+inv?.discount || 0) > 0 && <span><span className="text-gray-500">Waiver </span><span className="font-semibold text-red-500">-{fmt(inv.discount)}</span></span>}
-            {(+inv?.gst_amount || 0) > 0 && <span><span className="text-gray-500">GST </span><span className="font-semibold">{fmt(inv.gst_amount)}</span></span>}
-            {schemeCoverage > 0 && <span><span className="text-gray-500">Scheme </span><span className="font-semibold text-blue-600">-{fmt(schemeCoverage)}</span></span>}
-            <span><span className="text-gray-500">Total </span><span className="font-bold text-base" style={{ color: '#0F2557' }}>{fmt(inv?.total || 0)}</span></span>
-            {(+inv?.amount_paid || 0) > 0 && <span><span className="text-gray-500">Collected </span><span className="font-semibold text-green-600">{fmt(inv.amount_paid)}</span></span>}
-          </div>
-          <div className="flex items-center gap-2">
-            {balance > 0 && <span className="text-sm font-bold text-red-600">Balance {fmt(balance)}</span>}
-            {inv?.status === 'paid' && <span className="text-sm font-bold text-green-600 flex items-center gap-1"><CheckCircle size={13} />Paid</span>}
-            {balance > 0 && (
-              <button onClick={() => { setTab('payments'); setShowPayment(true) }} className="btn-primary text-xs py-1.5 px-3">
-                Collect Payment
-              </button>
-            )}
-            {inv && (
-              <button onClick={() => { setTab('charges'); setShowWaiver(true) }} className="btn-secondary text-xs py-1.5 px-3">
-                Waiver
-              </button>
-            )}
-          </div>
+      {/* Sticky breakdown bar */}
+      <div className="flex-shrink-0 border-t border-gray-200 bg-white px-4 py-2.5">
+        <div className="flex flex-wrap gap-3 text-xs text-gray-500">
+          <span>Subtotal <span className="font-semibold text-gray-700">{fmt(inv?.subtotal || 0)}</span></span>
+          {(+inv?.discount || 0) > 0 && <span>Waiver <span className="font-semibold text-red-500">-{fmt(inv.discount)}</span></span>}
+          {(+inv?.gst_amount || 0) > 0 && <span>GST <span className="font-semibold text-gray-700">{fmt(inv.gst_amount)}</span></span>}
+          {schemeCoverage > 0 && <span>Scheme <span className="font-semibold text-blue-600">-{fmt(schemeCoverage)}</span></span>}
+          <span>Total <span className="font-bold" style={{ color: '#0F2557' }}>{fmt(inv?.total || 0)}</span></span>
+          {(+inv?.amount_paid || 0) > 0 && <span>Collected <span className="font-semibold text-green-600">{fmt(inv.amount_paid)}</span></span>}
         </div>
       </div>
 
