@@ -7,6 +7,8 @@ import Appointments from './pages/Appointments'
 import Patients from './pages/Patients'
 import Billing from './pages/Billing'
 import Queue from './pages/Queue'
+import Operations from './pages/Operations'
+import PatientBilling from './pages/PatientBilling'
 import StaffManagement from './pages/StaffManagement'
 import SetPassword from './pages/SetPassword'
 import AccountSettings from './pages/AccountSettings'
@@ -59,6 +61,8 @@ function AppRoutes() {
 
       <Route element={user ? <Layout /> : <Navigate to="/login" replace />}>
         <Route index element={<Dashboard />} />
+        <Route path="operations" element={<Operations />} />
+        <Route path="operations/:appointmentId" element={<PatientBilling />} />
         <Route path="appointments" element={<Appointments />} />
         <Route path="telehealth"   element={<Telehealth />} />
         <Route path="patients" element={<Patients />} />

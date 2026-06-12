@@ -12,12 +12,9 @@ import BrandLogo from './BrandLogo'
 import api from '../api/client'
 
 const BASE_NAV = [
-  { to: '/',             icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/appointments', icon: CalendarDays,    label: 'Appointments' },
-  { to: '/telehealth',   icon: Video,          label: 'Telehealth' },
-  { to: '/patients',     icon: Users,           label: 'Patients' },
-  { to: '/billing',      icon: CreditCard,      label: 'Billing' },
-  { to: '/queue',        icon: ClipboardList,   label: 'Queue' },
+  { to: '/',            icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/operations',  icon: LayoutGrid,      label: 'Operations' },
+  { to: '/patients',    icon: Users,           label: 'Patients' },
 ]
 const HOSPITAL_NAV = [
   { to: '/admissions',        icon: BedDouble,   label: 'Admissions' },

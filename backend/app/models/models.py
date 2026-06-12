@@ -1702,6 +1702,68 @@ class SchedulerSettings(Base):
     updated_at          = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
+class InsuranceClaim(Base):
+    __tablename__ = "insurance_claims"
+    id                    = Column(Integer, primary_key=True, index=True)
+    clinic_id             = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    invoice_id            = Column(Integer, ForeignKey("invoices.id"), nullable=True)
+    appointment_id        = Column(Integer, ForeignKey("appointments.id"), nullable=True)
+    patient_id            = Column(Integer, ForeignKey("patients.id"), nullable=False)
+    scheme_category       = Column(String(30), nullable=False)   # central_govt|state_govt|esic|cghs|echs|private|other
+    scheme_name           = Column(String(200), nullable=False)  # free text e.g. "Aarogya Sree"
+    card_number           = Column(String(100), nullable=True)
+    policy_holder_name    = Column(String(200), nullable=True)
+    tpa_name              = Column(String(200), nullable=True)
+    pre_auth_ref          = Column(String(100), nullable=True)
+    pre_auth_amount       = Column(Numeric(10, 2), nullable=True)
+    pre_auth_status       = Column(String(30), nullable=True)    # pending|approved|partial|rejected
+    pre_auth_submitted_at = Column(DateTime, nullable=True)
+    pre_auth_decided_at   = Column(DateTime, nullable=True)
+    pre_auth_notes        = Column(Text, nullable=True)
+    claim_ref             = Column(String(100), nullable=True)
+    claimed_amount        = Column(Numeric(10, 2), nullable=True)
+    approved_amount       = Column(Numeric(10, 2), nullable=True)
+    claim_status          = Column(String(30), default="draft")  # draft|submitted|approved|partial|rejected|paid
+    claim_submitted_at    = Column(DateTime, nullable=True)
+    claim_decided_at      = Column(DateTime, nullable=True)
+    claim_notes           = Column(Text, nullable=True)
+    created_by            = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    created_at            = Column(DateTime, server_default=func.now())
+    updated_at            = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class BillingOverrideRequest(Base):
+    __tablename__ = "billing_override_requests"
+    id             = Column(Integer, primary_key=True, index=True)
+    clinic_id      = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    invoice_id     = Column(Integer, ForeignKey("invoices.id"), nullable=True)
+    appointment_id = Column(Integer, ForeignKey("appointments.id"), nullable=True)
+    patient_id     = Column(Integer, ForeignKey("patients.id"), nullable=False)
+    from_module    = Column(String(50), nullable=False)   # pharmacy|lab|imaging|reception|doctor|other
+    requested_by   = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    items          = Column(JSON, nullable=False)         # [{description, item_type, qty, unit_price, total}]
+    total_amount   = Column(Numeric(10, 2), nullable=False)
+    notes          = Column(Text, nullable=True)
+    status         = Column(String(20), default="pending")  # pending|approved|rejected
+    reviewed_by    = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    review_notes   = Column(Text, nullable=True)
+    reviewed_at    = Column(DateTime, nullable=True)
+    created_at     = Column(DateTime, server_default=func.now())
+
+
+class InvoicePayment(Base):
+    __tablename__ = "invoice_payments"
+    id          = Column(Integer, primary_key=True, index=True)
+    invoice_id  = Column(Integer, ForeignKey("invoices.id"), nullable=False)
+    clinic_id   = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    amount      = Column(Numeric(10, 2), nullable=False)
+    method      = Column(String(50), nullable=False)   # cash|upi|card|cheque|neft|insurance|govt_scheme|other
+    reference   = Column(String(200), nullable=True)   # UPI txn ID, card last 4, cheque no, etc.
+    notes       = Column(Text, nullable=True)
+    received_by = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    received_at = Column(DateTime, server_default=func.now())
+
+
 class Feedback(Base):
     __tablename__ = "feedback"
     id         = Column(Integer, primary_key=True, index=True)
