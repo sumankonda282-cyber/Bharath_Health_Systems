@@ -36,6 +36,7 @@ from app.api.v1.endpoints.payments import router as payments_router
 from app.api.v1.endpoints.telehealth import router as telehealth_router
 from app.api.v1.endpoints.clinic_billing import router as clinic_billing_router
 from app.api.v1.endpoints.form_templates import router as forms_router
+from app.api.v1.endpoints.terminology import router as terminology_router
 from app.api.v1.endpoints.scheduler import router as scheduler_router
 
 app = FastAPI(
@@ -128,6 +129,7 @@ app.include_router(telehealth_router, prefix=PREFIX)
 app.include_router(scheduler_router, prefix=PREFIX)
 app.include_router(clinic_billing_router, prefix=PREFIX)
 app.include_router(forms_router, prefix=PREFIX)
+app.include_router(terminology_router, prefix=PREFIX)
 
 # -----------------------------
 # Static Uploads

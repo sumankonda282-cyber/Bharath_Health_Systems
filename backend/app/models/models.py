@@ -1799,3 +1799,70 @@ class FormResponse(Base):
     filled_by      = Column(Integer, ForeignKey("staff.id"), nullable=True)
     filled_at      = Column(DateTime, server_default=func.now())
     updated_at     = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+# ─── Medical Terminology Library (dynamic — replaces all hardcoded disease/symptom lists) ───
+
+class MedicalTerm(Base):
+    __tablename__ = "medical_terms"
+    id         = Column(Integer, primary_key=True, index=True)
+    system     = Column(String(80), default="http://hl7.org/fhir/sid/icd-10")  # FHIR system URI
+    code       = Column(String(20), nullable=True, index=True)                  # ICD-10 / SNOMED code
+    display    = Column(String(300), nullable=False)
+    category   = Column(String(30), default="condition")  # condition|symptom|allergy
+    specialty  = Column(String(60), nullable=True, index=True)
+    synonyms   = Column(Text, nullable=True)               # pipe-separated search aliases
+    tier       = Column(String(20), default="curated")     # curated|reference (full ICD-10 dump)
+    group_label = Column(String(60), nullable=True)        # for allergens: Antibiotic/Food/...
+    clinic_id  = Column(Integer, ForeignKey("clinics.id"), nullable=True)  # NULL = platform-global
+    is_active  = Column(Boolean, default=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class Drug(Base):
+    __tablename__ = "drugs"
+    id         = Column(Integer, primary_key=True, index=True)
+    generic    = Column(String(200), nullable=False, index=True)
+    atc        = Column(String(10), nullable=True, index=True)
+    drug_class = Column(String(150), nullable=True)
+    routes     = Column(String(150), nullable=True)   # pipe-separated
+    brands     = Column(Text, nullable=True)          # pipe-separated Indian brands
+    rx_only    = Column(Boolean, default=True)
+    clinic_id  = Column(Integer, ForeignKey("clinics.id"), nullable=True)
+    is_active  = Column(Boolean, default=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class DrugInteraction(Base):
+    __tablename__ = "drug_interactions"
+    id         = Column(Integer, primary_key=True, index=True)
+    drug_a     = Column(String(200), nullable=False, index=True)
+    drug_b     = Column(String(200), nullable=False, index=True)
+    severity   = Column(String(20), nullable=False)   # contraindicated|serious|moderate
+    effect     = Column(Text, nullable=True)
+    management = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class DrugDoseRange(Base):
+    __tablename__ = "drug_dose_ranges"
+    id            = Column(Integer, primary_key=True, index=True)
+    generic       = Column(String(200), nullable=False, index=True)
+    route         = Column(String(40), default="oral")
+    population    = Column(String(20), default="adult")
+    max_single_mg = Column(Numeric(12, 3), nullable=True)
+    max_daily_mg  = Column(Numeric(12, 3), nullable=True)
+    unit          = Column(String(10), default="mg")
+    note          = Column(Text, nullable=True)
+    created_at    = Column(DateTime, server_default=func.now())
+
+
+class DrugContraindication(Base):
+    __tablename__ = "drug_contraindications"
+    id           = Column(Integer, primary_key=True, index=True)
+    generic      = Column(String(200), nullable=False, index=True)
+    icd10_prefix = Column(String(10), nullable=False, index=True)
+    condition    = Column(String(200), nullable=True)
+    severity     = Column(String(20), default="serious")  # contraindicated|serious
+    reason       = Column(Text, nullable=True)
+    created_at   = Column(DateTime, server_default=func.now())

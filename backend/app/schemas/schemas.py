@@ -249,6 +249,9 @@ class AppointmentCreate(BaseModel):
     appointment_time: str
     reason: Optional[str] = None
     mode: str = "offline"
+    visit_type: Optional[str] = "fresh"
+    fee: Optional[Decimal] = None
+    triage_complaint: Optional[str] = None
 
 
 class AppointmentUpdate(BaseModel):
@@ -256,6 +259,11 @@ class AppointmentUpdate(BaseModel):
     appointment_time: Optional[str] = None
     status: Optional[str] = None
     notes: Optional[str] = None
+    doctor_id: Optional[int] = None
+    mode: Optional[str] = None
+    visit_type: Optional[str] = None
+    fee: Optional[Decimal] = None
+    reason: Optional[str] = None
 
 
 class AppointmentOut(BaseModel):
@@ -269,9 +277,15 @@ class AppointmentOut(BaseModel):
     mode: str
     reason: Optional[str] = None
     notes: Optional[str] = None
+    visit_type: Optional[str] = None
+    fee: Optional[Decimal] = None
     created_at: datetime
     patient_name: Optional[str] = None
     doctor_name: Optional[str] = None
+    bh_id: Optional[str] = None
+    clinic_patient_id: Optional[str] = None
+    age: Optional[int] = None
+    gender: Optional[str] = None
 
     class Config:
         from_attributes = True

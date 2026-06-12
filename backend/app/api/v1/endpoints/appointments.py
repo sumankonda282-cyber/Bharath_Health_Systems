@@ -75,6 +75,8 @@ def list_appointments(
     patient_id: Optional[int] = None,
     appointment_date: Optional[dt] = None,
     date: Optional[dt] = None,
+    date_from: Optional[dt] = None,
+    date_to: Optional[dt] = None,
     status: Optional[str] = None,
     skip: int = 0,
     limit: int = 100,
@@ -98,16 +100,30 @@ def list_appointments(
         q = q.filter(Appointment.patient_id == patient_id)
     if filter_date:
         q = q.filter(Appointment.appointment_date == filter_date)
+    if date_from:
+        q = q.filter(Appointment.appointment_date >= date_from)
+    if date_to:
+        q = q.filter(Appointment.appointment_date <= date_to)
     if status:
         q = q.filter(Appointment.status == status)
     appts = q.order_by(Appointment.appointment_date, Appointment.token_number).offset(skip).limit(limit).all()
 
-    # Enrich with patient/doctor names
+    # Enrich with patient/doctor names and demographics
     result = []
     for a in appts:
         out = AppointmentOut.model_validate(a)
-        out.patient_name = a.patient.full_name if a.patient else None
-        out.doctor_name = a.doctor.staff.full_name if a.doctor and a.doctor.staff else None
+        if a.patient:
+            out.patient_name = a.patient.full_name
+            out.bh_id = a.patient.bh_id
+            out.clinic_patient_id = a.patient.clinic_patient_id
+            out.gender = a.patient.gender
+            if a.patient.date_of_birth:
+                from datetime import date as _date
+                dob = a.patient.date_of_birth
+                today = _date.today()
+                out.age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+        if a.doctor and a.doctor.staff:
+            out.doctor_name = a.doctor.staff.full_name
         result.append(out)
     return result
 
@@ -124,7 +140,16 @@ def update_appointment(
     ).first()
     if not appt:
         raise HTTPException(status_code=404, detail="Appointment not found")
-    for k, v in payload.model_dump(exclude_unset=True).items():
+    data = payload.model_dump(exclude_unset=True)
+    # doctor_id may arrive as staff_id — resolve to DoctorProfile like create does
+    if data.get("doctor_id"):
+        dp = db.query(DoctorProfile).filter(DoctorProfile.staff_id == data["doctor_id"]).first()
+        if not dp:
+            dp = db.query(DoctorProfile).filter(DoctorProfile.id == data["doctor_id"]).first()
+        if dp:
+            data["doctor_id"] = dp.id
+            appt.doctor_name = dp.staff.full_name if dp.staff else appt.doctor_name
+    for k, v in data.items():
         setattr(appt, k, v)
     db.commit()
     db.refresh(appt)

@@ -92,7 +92,8 @@ def list_patients(
         q = q.filter(
             Patient.full_name.ilike(f"%{search}%") |
             Patient.mobile.ilike(f"%{search}%") |
-            Patient.clinic_patient_id.ilike(f"%{search}%")
+            Patient.clinic_patient_id.ilike(f"%{search}%") |
+            Patient.bh_id.ilike(f"%{search}%")
         )
     if gender:
         q = q.filter(Patient.gender == gender)

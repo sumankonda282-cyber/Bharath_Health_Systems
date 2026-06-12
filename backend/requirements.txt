@@ -16,3 +16,5 @@ Pillow==10.4.0
 email-validator==2.3.0
 pydantic-core==2.18.2
 slowapi==0.1.9
+
+simple-icd-10==2.1.1

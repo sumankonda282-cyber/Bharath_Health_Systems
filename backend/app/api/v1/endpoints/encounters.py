@@ -199,15 +199,34 @@ def get_tags(
     saved_names = {t.tag_name.lower() for t in saved}
 
     # Get doctor's specialty for suggestions
-    specialty = None
+    raw_specialty = None
     if current.role == "doctor" and current.doctor_profile:
-        specialty = (current.doctor_profile.specialty or "").lower().replace(" ", "_")
+        raw_specialty = current.doctor_profile.specialty
 
+    # Dynamic source: medical_terms library; hardcoded dict is fallback only
     suggestions = []
-    if specialty and specialty in SPECIALTY_TAGS:
-        for s in SPECIALTY_TAGS[specialty]:
-            if s["tag"].lower() not in saved_names:
-                suggestions.append(s)
+    if raw_specialty:
+        from sqlalchemy import text as _text
+        from app.api.v1.endpoints.terminology import normalize_specialty
+        canonical = normalize_specialty(raw_specialty)
+        try:
+            rows = db.execute(_text(
+                "SELECT display, code FROM medical_terms "
+                "WHERE is_active AND tier='curated' AND category='condition' "
+                "AND specialty = :sp AND (clinic_id IS NULL OR clinic_id = :clinic) "
+                "ORDER BY length(display) LIMIT 12"
+            ), {"sp": canonical, "clinic": current.clinic_id}).fetchall()
+            suggestions = [
+                {"tag": r.display, "icd10": r.code}
+                for r in rows if r.display.lower() not in saved_names
+            ]
+        except Exception:
+            db.rollback()
+        if not suggestions:
+            legacy_key = (raw_specialty or "").lower().replace(" ", "_")
+            for s in SPECIALTY_TAGS.get(canonical, SPECIALTY_TAGS.get(legacy_key, [])):
+                if s["tag"].lower() not in saved_names:
+                    suggestions.append(s)
 
     return {
         "saved": [{"id": t.id, "tag_name": t.tag_name, "icd10_code": t.icd10_code} for t in saved],
