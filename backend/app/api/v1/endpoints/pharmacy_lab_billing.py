@@ -569,6 +569,7 @@ def list_invoices(
         result.append({
             "id": inv.id,
             "invoice_number": inv.invoice_number,
+            "appointment_id": inv.appointment_id,
             "patient_id": inv.patient_id,
             "patient_name": patient.full_name if patient else (inv.customer_name or "Walk-in"),
             "customer_name": inv.customer_name,
@@ -623,6 +624,7 @@ def get_invoice(inv_id: int, db: Session = Depends(get_db), current: Staff = Dep
     return {
         "id": inv.id,
         "invoice_number": inv.invoice_number,
+        "appointment_id": inv.appointment_id,
         "patient_id": inv.patient_id,
         "patient_name": patient.full_name if patient else None,
         "patient_mobile": patient.mobile if patient else None,
