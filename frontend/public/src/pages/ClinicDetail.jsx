@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
-import { Link, useParams, useNavigate } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import {
   MapPin, Phone, Mail, Stethoscope, Clock,
-  User, ArrowLeft, Building2, Calendar,
-  BadgeCheck, IndianRupee, GraduationCap, Globe, Languages
+  User, ArrowLeft, Building2, ChevronRight,
+  BadgeCheck, Shield, Video
 } from 'lucide-react'
 import { publicApi } from '../api/client'
 import Navbar from '../components/Navbar'
@@ -383,10 +383,39 @@ export default function ClinicDetail() {
             <p className="text-gray-500">No doctors listed yet</p>
           </div>
         ) : (
-          <div className="space-y-6">
-            {doctors.map(doctor => (
-              <DoctorProfile key={doctor.id} doctor={doctor} clinic={clinic} />
-            ))}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {doctors.map(doctor => {
+              const displayName = /^dr\.?\s/i.test(doctor.name) ? doctor.name : `Dr. ${doctor.name}`
+              return (
+                <div key={doctor.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex flex-col gap-4">
+                  <div className="flex items-start gap-4">
+                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 font-bold text-white text-lg"
+                      style={{ background: '#0F2557' }}>
+                      {(doctor.name || 'D').charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-base" style={{ color: '#0F2557' }}>{displayName}</h3>
+                      {doctor.specialty && (
+                        <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-semibold" style={{ background: '#CC141415', color: '#CC1414' }}>{doctor.specialty}</span>
+                      )}
+                      <div className="flex flex-wrap gap-x-3 mt-2 text-xs text-gray-500">
+                        {doctor.experience_years > 0 && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{doctor.experience_years} yrs exp</span>}
+                        {doctor.fee > 0 && <span className="flex items-center gap-1 font-semibold" style={{ color: '#0F2557' }}>₹{doctor.fee}</span>}
+                      </div>
+                      <div className="flex gap-2 mt-2">
+                        {doctor.mci_verified && <span className="flex items-center gap-1 text-xs text-green-700"><Shield className="w-3 h-3" />MCI</span>}
+                        {doctor.telehealth_enabled && <span className="flex items-center gap-1 text-xs text-orange-500"><Video className="w-3 h-3" />Telehealth</span>}
+                      </div>
+                    </div>
+                  </div>
+                  <Link to={`/doctor/${doctor.id}`}
+                    className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl font-semibold text-sm text-white transition-opacity hover:opacity-90"
+                    style={{ background: '#CC1414' }}>
+                    View Profile & Book <ChevronRight className="w-4 h-4" />
+                  </Link>
+                </div>
+              )
+            })}
           </div>
         )}
 

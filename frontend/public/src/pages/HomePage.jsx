@@ -10,8 +10,8 @@ import {
 import { publicApi } from '../api/client'
 import BrandLogo from '../components/BrandLogo'
 
-const PROVIDER_URL = import.meta.env.VITE_PROVIDER_URL || 'https://bharatcliniq-provider.vercel.app'
-const PATIENT_URL  = import.meta.env.VITE_PATIENT_URL  || 'https://bharatcliniq-patient.vercel.app'
+const PROVIDER_URL = import.meta.env.VITE_PROVIDER_URL || 'https://provider.bharathhealthsystems.com'
+const PATIENT_URL  = import.meta.env.VITE_PATIENT_URL  || 'https://patient.bharathhealthsystems.com'
 
 function Navbar() {
   const [open, setOpen] = useState(false)
@@ -91,24 +91,25 @@ function Footer() {
             <ul className="space-y-2.5 text-sm">
               <li><Link to="/clinics" className="hover:text-white transition-colors">Find Doctors</Link></li>
               <li><Link to="/book" className="hover:text-white transition-colors">Book Appointment</Link></li>
+              <li><Link to="/telehealth" className="hover:text-white transition-colors">Telehealth</Link></li>
               <li><Link to="/booking/check" className="hover:text-white transition-colors">Check Booking Status</Link></li>
-              <li><a href={PATIENT_URL} className="hover:text-white transition-colors">My Health Portal</a></li>
+              <li><a href={PATIENT_URL} target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">My Health Portal</a></li>
             </ul>
           </div>
           <div>
             <h4 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">For Health Centers</h4>
             <ul className="space-y-2.5 text-sm">
-              <li><Link to="/register" className="hover:text-white transition-colors">Register Your Health Center</Link></li>
-              <li><a href={PROVIDER_URL} className="hover:text-white transition-colors">Provider Dashboard</a></li>
-              <li><a href="#features" className="hover:text-white transition-colors">Features</a></li>
-              <li><a href="#how-it-works" className="hover:text-white transition-colors">How It Works</a></li>
+              <li><Link to="/register" className="hover:text-white transition-colors">Register Health Center</Link></li>
+              <li><a href={PROVIDER_URL} target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Provider Login (CareChart)</a></li>
+              <li><a href={PROVIDER_URL + '/pharmacy'} target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Pharmacy Module</a></li>
+              <li><a href={PROVIDER_URL + '/lab'} target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Diagnostics Lab</a></li>
+              <li><a href={PROVIDER_URL + '/imaging'} target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Imaging Center</a></li>
             </ul>
           </div>
           <div>
             <h4 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">Contact</h4>
             <ul className="space-y-2.5 text-sm">
-              <li>support@bharatcliniq.com</li>
-              <li>1800-XXX-XXXX (Toll Free)</li>
+              <li><a href="mailto:support@bharathhealthsystems.com" className="hover:text-white transition-colors">support@bharathhealthsystems.com</a></li>
               <li>Mon–Sat, 9am–6pm IST</li>
             </ul>
             <div className="border-t border-blue-800 mt-6 pt-4 text-xs text-blue-400">
@@ -600,73 +601,6 @@ export default function HomePage() {
                       <div className="text-white font-semibold text-sm">{item.title}</div>
                       <div className="text-blue-200 text-xs">{item.desc}</div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Quick Links */}
-      <section className="py-16 px-4 bg-white border-t border-gray-100">
-        <div className="max-w-5xl mx-auto">
-          <h2 className="text-2xl font-extrabold text-center mb-10" style={{ color: '#0F2557' }}>Quick Links</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* For Patients */}
-            <div>
-              <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: '#CC1414' }}>For Patients</h3>
-              <div className="space-y-2">
-                {[
-                  { label: 'Find Doctors', to: '/clinics' },
-                  { label: 'My Booking', to: '/booking/check' },
-                  { label: 'My Health Portal', href: PATIENT_URL },
-                  { label: 'Telehealth Consultation', to: '/telehealth' },
-                ].map(item => (
-                  <div key={item.label}>
-                    {item.href ? (
-                      <a href={item.href} target="_blank" rel="noopener noreferrer"
-                        className="flex items-center gap-2 text-sm text-gray-600 hover:text-[#CC1414] transition-colors py-1 group">
-                        <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-[#CC1414] transition-colors" />
-                        {item.label}
-                      </a>
-                    ) : (
-                      <Link to={item.to}
-                        className="flex items-center gap-2 text-sm text-gray-600 hover:text-[#CC1414] transition-colors py-1 group">
-                        <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-[#CC1414] transition-colors" />
-                        {item.label}
-                      </Link>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-            {/* For Health Centers */}
-            <div>
-              <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: '#0F2557' }}>For Health Centers</h3>
-              <div className="space-y-2">
-                {[
-                  { label: 'Provider Login (CareChart EMR)', href: PROVIDER_URL },
-                  { label: 'Staff Management', href: PROVIDER_URL + '/staff' },
-                  { label: 'Pharmacy Module', href: PROVIDER_URL + '/pharmacy' },
-                  { label: 'Diagnostics Lab', href: PROVIDER_URL + '/lab' },
-                  { label: 'Imaging Center', href: PROVIDER_URL + '/imaging' },
-                  { label: 'Register Health Center', to: '/register' },
-                ].map(item => (
-                  <div key={item.label}>
-                    {item.href ? (
-                      <a href={item.href} target="_blank" rel="noopener noreferrer"
-                        className="flex items-center gap-2 text-sm text-gray-600 hover:text-[#0F2557] transition-colors py-1 group">
-                        <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-[#0F2557] transition-colors" />
-                        {item.label}
-                      </a>
-                    ) : (
-                      <Link to={item.to}
-                        className="flex items-center gap-2 text-sm text-gray-600 hover:text-[#0F2557] transition-colors py-1 group">
-                        <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-[#0F2557] transition-colors" />
-                        {item.label}
-                      </Link>
-                    )}
                   </div>
                 ))}
               </div>

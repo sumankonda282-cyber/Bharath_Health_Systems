@@ -9,7 +9,7 @@ import {
 import { publicApi } from '../api/client'
 import Navbar from '../components/Navbar'
 
-const PATIENT_URL = import.meta.env.VITE_PATIENT_URL || 'https://bharatcliniq-patient.vercel.app'
+const PATIENT_URL = import.meta.env.VITE_PATIENT_URL || 'https://patient.bharathhealthsystems.com'
 const PLATFORM_FEE = 29
 
 // ── Booking Steps ─────────────────────────────────────────────────────────────
@@ -52,7 +52,7 @@ function SlotStep({ doctor, onNext }) {
     setLoading(true); setError(''); setSlots([]); setSelected(null)
     publicApi.getDoctorSlots(doctor.id, d, doctor.clinic?.default_branch_id)
       .then(r => setSlots(Array.isArray(r) ? r : r.slots || []))
-      .catch(() => setError('Could not load slots. Try another date.'))
+      .catch(() => setError('No slots configured for this date. Try another date or call the clinic to book.'))
       .finally(() => setLoading(false))
   }
 
@@ -90,6 +90,10 @@ function SlotStep({ doctor, onNext }) {
             })}
           </div>
         </div>
+      )}
+
+      {slots.length > 0 && (
+        <p className="text-xs text-gray-400 mt-3">Session duration per slot is set by the doctor</p>
       )}
 
       {!loading && slots.length === 0 && !error && (
@@ -310,7 +314,7 @@ function DoctorPanel({ doctor, slotData }) {
             : (doctor.name || 'D').charAt(0)}
         </div>
         <div>
-          <h3 className="font-bold text-base leading-tight" style={{ color: '#0F2557' }}>Dr. {doctor.name}</h3>
+          <h3 className="font-bold text-base leading-tight" style={{ color: '#0F2557' }}>{/^dr\.?\s/i.test(doctor.name) ? doctor.name : `Dr. ${doctor.name}`}</h3>
           <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-semibold" style={{ background: '#CC141415', color: '#CC1414' }}>{doctor.specialty}</span>
           {doctor.mci_verified && (
             <div className="flex items-center gap-1 mt-1.5">
@@ -453,7 +457,7 @@ export default function DoctorProfilePage() {
                       : (doctor.name || 'D').charAt(0)}
                   </div>
                   <div className="flex-1">
-                    <h1 className="text-2xl font-bold mb-1" style={{ color: '#0F2557' }}>Dr. {doctor.name}</h1>
+                    <h1 className="text-2xl font-bold mb-1" style={{ color: '#0F2557' }}>{/^dr\.?\s/i.test(doctor.name) ? doctor.name : `Dr. ${doctor.name}`}</h1>
                     <span className="inline-block px-3 py-1 rounded-full text-sm font-semibold mb-2" style={{ background: '#CC141415', color: '#CC1414' }}>{doctor.specialty}</span>
                     <div className="flex flex-wrap gap-3 text-sm text-gray-500">
                       {doctor.qualification && <span>{doctor.qualification}</span>}
@@ -541,10 +545,35 @@ export default function DoctorProfilePage() {
             )}
           </div>
 
-          {/* RIGHT: Sticky doctor panel (always visible during booking) */}
-          <div className="lg:col-span-1">
-            <DoctorPanel doctor={doctor} slotData={booking ? slotData : null} />
-          </div>
+          {/* RIGHT: shown only during booking flow */}
+          {booking && (
+            <div className="lg:col-span-1">
+              <DoctorPanel doctor={doctor} slotData={slotData} />
+            </div>
+          )}
+
+          {/* RIGHT: simple action card on profile view */}
+          {!booking && (
+            <div className="lg:col-span-1">
+              <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-5 sticky top-20">
+                <div className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">Consultation Fee</div>
+                <div className="text-2xl font-bold mb-4" style={{ color: '#0F2557' }}>₹{(doctor.fee || 0).toLocaleString('en-IN')}</div>
+                {doctor.telehealth_enabled && doctor.telehealth_fee && (
+                  <div className="mb-4 p-3 rounded-xl" style={{ background: '#F5821E10' }}>
+                    <div className="text-xs font-semibold uppercase tracking-wide text-orange-400 mb-0.5">Telehealth Fee</div>
+                    <div className="text-lg font-bold text-orange-500">₹{doctor.telehealth_fee.toLocaleString('en-IN')}</div>
+                    <div className="text-xs text-orange-400 mt-0.5">Video consultation</div>
+                  </div>
+                )}
+                <button onClick={() => setBooking(true)}
+                  className="w-full py-3 rounded-xl font-bold text-white text-sm hover:opacity-90 transition-opacity"
+                  style={{ background: '#CC1414' }}>
+                  Book Appointment
+                </button>
+                <p className="text-xs text-gray-400 text-center mt-3">No payment until confirmation</p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

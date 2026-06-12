@@ -8,7 +8,7 @@ import {
 import { publicApi } from '../api/client'
 import Navbar from '../components/Navbar'
 
-const PATIENT_URL = import.meta.env.VITE_PATIENT_URL || 'https://bharatcliniq-patient.vercel.app'
+const PATIENT_URL = import.meta.env.VITE_PATIENT_URL || 'https://patient.bharathhealthsystems.com'
 
 const STEPS = ['Select Doctor', 'Choose Slot', 'Patient Details', 'Confirmation']
 
