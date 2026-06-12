@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   Search, MapPin, Users, ChevronRight, Building2,
-  Stethoscope, ArrowLeft, X, Star, Clock, Wifi, WifiOff
+  Stethoscope, ArrowLeft, X, Star, Clock, Wifi, WifiOff, Calendar
 } from 'lucide-react'
 import { publicApi } from '../api/client'
 import BrandLogo from '../components/BrandLogo'
@@ -349,6 +349,7 @@ export default function FindClinics() {
     city: searchParams.get('city') || '',
     specialty: searchParams.get('specialty') || '',
   })
+  const [availableDate, setAvailableDate] = useState('')
 
   // Live search query — updated on every keystroke, not just on form submit
   const [liveQ, setLiveQ] = useState(filters.q)
@@ -417,9 +418,17 @@ export default function FindClinics() {
   const handleSearch = (e) => {
     e.preventDefault()
     const params = Object.fromEntries(Object.entries(filters).filter(([, v]) => v))
+    if (availableDate) params.available_date = availableDate
     setSearchParams(params)
     setLiveQ(filters.q)
-    // Only refetch if we want server-side filtering too; for now just update liveQ
+    fetchResults({ ...params })
+  }
+
+  const handleDateChange = (d) => {
+    setAvailableDate(d)
+    const params = Object.fromEntries(Object.entries(filters).filter(([, v]) => v))
+    if (d) params.available_date = d
+    fetchResults(params)
   }
 
   const handleSuggestionSelect = (value, field) => {
@@ -509,6 +518,26 @@ export default function FindClinics() {
                 <SearchSuggestions query={liveQ} doctors={allDoctors} onSelect={handleSuggestionSelect} />
               )}
             </div>
+            {/* Date availability picker */}
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none z-10" />
+              <input
+                type="date"
+                value={availableDate}
+                min={new Date().toISOString().split('T')[0]}
+                onChange={e => handleDateChange(e.target.value)}
+                className="pl-9 pr-8 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 bg-white w-full md:w-44 transition-all"
+                style={{ '--tw-ring-color': '#0F2557', colorScheme: 'light' }}
+                title="Filter by available date"
+              />
+              {availableDate && (
+                <button type="button" onClick={() => handleDateChange('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 transition-colors">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
             <CitySearch
               value={filters.city}
               onChange={val => setFilters(f => ({ ...f, city: val }))}
@@ -536,7 +565,7 @@ export default function FindClinics() {
         </form>
 
         {/* Active Filters */}
-        {activeFilters.length > 0 && (
+        {(activeFilters.length > 0 || availableDate) && (
           <div className="flex flex-wrap gap-2 mb-6">
             {activeFilters.map(([key, val]) => (
               <span key={key}
@@ -548,6 +577,16 @@ export default function FindClinics() {
                 </button>
               </span>
             ))}
+            {availableDate && (
+              <span className="inline-flex items-center gap-1.5 text-sm px-3 py-1 rounded-full font-medium"
+                style={{ background: '#CC141415', color: '#CC1414' }}>
+                <Calendar className="w-3.5 h-3.5" />
+                Available {new Date(availableDate + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
+                <button onClick={() => handleDateChange('')} className="hover:opacity-70">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </span>
+            )}
           </div>
         )}
 

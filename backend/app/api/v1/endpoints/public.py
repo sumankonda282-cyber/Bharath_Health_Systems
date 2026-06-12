@@ -41,13 +41,14 @@ def search_clinics(
     city: Optional[str] = None,
     specialty: Optional[str] = None,
     search: Optional[str] = None,
-    q: Optional[str] = None,       # alias for search
+    q: Optional[str] = None,
+    available_date: Optional[date] = None,
     skip: int = 0,
     limit: int = 20,
     db: Session = Depends(get_db),
 ):
     """Search verified active clinics - shown on public website."""
-    keyword = search or q  # q is URL alias for search
+    keyword = search or q
     stmt = db.query(Clinic).filter(
         Clinic.is_active == True,
         Clinic.is_verified == True,
@@ -62,13 +63,31 @@ def search_clinics(
             Clinic.specialty.ilike(f"%{keyword}%")
         )
     clinics = stmt.offset(skip).limit(limit).all()
+
+    # Day-of-week filter when available_date provided
+    day_name = available_date.strftime("%A").lower() if available_date else None
+
     result = []
     for c in clinics:
-        # Get doctors for this clinic
         from app.models.models import DoctorProfile as DP, Staff as ST
-        doctors = db.query(DP).join(ST, DP.staff_id == ST.id).filter(
+        doctors_q = db.query(DP).join(ST, DP.staff_id == ST.id).filter(
             ST.clinic_id == c.id, ST.is_active == True
-        ).all()
+        )
+        doctors = doctors_q.all()
+
+        if day_name:
+            # Keep only doctors who have a schedule on that day of week
+            available_ids = {
+                row[0] for row in db.query(DoctorSchedule.doctor_id).filter(
+                    DoctorSchedule.doctor_id.in_([d.id for d in doctors]),
+                    DoctorSchedule.day_of_week == day_name,
+                    DoctorSchedule.is_active == True,
+                ).all()
+            }
+            doctors = [d for d in doctors if d.id in available_ids]
+            if not doctors:
+                continue  # skip clinic entirely if no available doctors that day
+
         result.append({
             "id":          c.id,
             "name":        c.name,
@@ -83,13 +102,14 @@ def search_clinics(
             "address":     c.address,
             "doctor_count": len(doctors),
             "doctors": [{
-                "id":             d.id,
-                "name":           d.staff.full_name if d.staff else "Doctor",
-                "specialty":      d.specialty,
-                "qualification":  d.qualification,
+                "id":               d.id,
+                "name":             d.staff.full_name if d.staff else "Doctor",
+                "specialty":        d.specialty,
+                "qualification":    d.qualification,
                 "experience_years": d.experience_years,
-                "fee":            float(d.consultation_fee) if d.consultation_fee else 0,
+                "fee":              float(d.consultation_fee) if d.consultation_fee else 0,
                 "telehealth_enabled": d.telehealth_enabled or False,
+                "available_day":    day_name,
             } for d in doctors[:5]],
         })
     return result
@@ -438,6 +458,7 @@ def get_doctor_public(doctor_profile_id: int, db: Session = Depends(get_db)):
 def get_telehealth_doctors(
     city: Optional[str] = None,
     specialty: Optional[str] = None,
+    available_date: Optional[date] = None,
     limit: int = 20,
     db: Session = Depends(get_db),
 ):
@@ -458,6 +479,15 @@ def get_telehealth_doctors(
         q = q.filter(Clinic.city.ilike(f"%{city}%"))
     if specialty:
         q = q.filter(DoctorProfile.specialty.ilike(f"%{specialty}%"))
+    if available_date:
+        day_name = available_date.strftime("%A").lower()
+        available_ids = {
+            row[0] for row in db.query(DoctorSchedule.doctor_id).filter(
+                DoctorSchedule.day_of_week == day_name,
+                DoctorSchedule.is_active == True,
+            ).all()
+        }
+        q = q.filter(DoctorProfile.id.in_(available_ids))
     rows = q.limit(limit).all()
     return [
         {

@@ -49,6 +49,7 @@ export const publicApi = {
 
   // Telehealth
   getTelehealthDoctors: (params) => api.get('/public/telehealth-doctors', { params }),
+  // available_date: 'YYYY-MM-DD' — filters both to doctors with schedules on that day
 }
 
 export default api
