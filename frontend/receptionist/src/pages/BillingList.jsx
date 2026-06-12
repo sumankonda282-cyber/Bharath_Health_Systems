@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api/client'
-import { Search, FileText, Loader2, CheckCircle, RefreshCw, ChevronRight } from 'lucide-react'
+import { Search, FileText, Loader2, CheckCircle, ChevronRight } from 'lucide-react'
 
 const fmt = n => `₹${(+n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
 
@@ -83,14 +83,9 @@ export default function BillingList() {
     <div className="p-4 md:p-6 max-w-6xl mx-auto">
 
       {/* Header */}
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Billing</h1>
-          <p className="text-sm text-gray-400 mt-0.5">{filtered.length} invoice{filtered.length !== 1 ? 's' : ''}</p>
-        </div>
-        <button onClick={load} className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700" title="Refresh">
-          <RefreshCw size={16} />
-        </button>
+      <div className="mb-5">
+        <h1 className="text-2xl font-bold text-gray-900">Billing</h1>
+        <p className="text-sm text-gray-400 mt-0.5">{filtered.length} invoice{filtered.length !== 1 ? 's' : ''}</p>
       </div>
 
       {/* Summary */}
