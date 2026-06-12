@@ -1772,3 +1772,30 @@ class Feedback(Base):
     message    = Column(Text, nullable=False)
     type       = Column(String(50), nullable=True)
     created_at = Column(DateTime, server_default=func.now())
+
+
+class FormTemplate(Base):
+    __tablename__ = "form_templates"
+    id                 = Column(Integer, primary_key=True, index=True)
+    clinic_id          = Column(Integer, ForeignKey("clinics.id", ondelete="CASCADE"), nullable=True)
+    name               = Column(String(200), nullable=False)
+    category           = Column(String(100), nullable=True)
+    description        = Column(Text, nullable=True)
+    schema             = Column(JSON, default=list)
+    estimated_minutes  = Column(Integer, default=2)
+    is_active          = Column(Boolean, default=True)
+    is_global          = Column(Boolean, default=False)  # True = available to all clinics
+    created_at         = Column(DateTime, server_default=func.now())
+    updated_at         = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class FormResponse(Base):
+    __tablename__ = "form_responses"
+    id             = Column(Integer, primary_key=True, index=True)
+    template_id    = Column(Integer, ForeignKey("form_templates.id"), nullable=False)
+    appointment_id = Column(Integer, ForeignKey("appointments.id", ondelete="CASCADE"), nullable=True)
+    patient_id     = Column(Integer, ForeignKey("patients.id"), nullable=True)
+    data           = Column(JSON, default=dict)
+    filled_by      = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    filled_at      = Column(DateTime, server_default=func.now())
+    updated_at     = Column(DateTime, server_default=func.now(), onupdate=func.now())
