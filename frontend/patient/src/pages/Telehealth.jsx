@@ -32,7 +32,7 @@ export default function Telehealth() {
   useEffect(() => {
     api.get('/portal/appointments', { params: { limit: 100 } })
       .then(data => {
-        const list = Array.isArray(data) ? data : (data.items || data.results || [])
+        const list = Array.isArray(data) ? data : (data.appointments || data.items || data.results || [])
         setAppts(list.filter(a => a.mode === 'telehealth' && ['pending','confirmed','in_progress','completed'].includes(a.status)))
       })
       .catch(err => setError(err.message))
@@ -55,16 +55,6 @@ export default function Telehealth() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: '#0F255715' }}>
-          <Video size={20} style={{ color: '#0F2557' }} />
-        </div>
-        <div>
-          <h1 className="text-xl font-bold" style={{ color: '#0F2557' }}>Video Consultations</h1>
-          <p className="text-sm text-gray-500">Your telehealth appointments</p>
-        </div>
-      </div>
-
       {/* How it works */}
       <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 mb-6">
         <p className="text-xs font-bold text-blue-700 uppercase tracking-wide mb-2">How it works</p>
@@ -106,8 +96,8 @@ export default function Telehealth() {
                   <StatusBadge state={a.telehealth_state || (a.status === 'in_progress' ? 'in_progress' : 'scheduled')} />
                 </div>
                 <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
-                  <span className="flex items-center gap-1"><Calendar size={11} />{a.appointment_date}</span>
-                  <span className="flex items-center gap-1"><Clock size={11} />{a.appointment_time || '—'}</span>
+                  <span className="flex items-center gap-1"><Calendar size={11} />{a.date}</span>
+                  <span className="flex items-center gap-1"><Clock size={11} />{a.time || '—'}</span>
                 </div>
               </div>
               <div className="flex-shrink-0">

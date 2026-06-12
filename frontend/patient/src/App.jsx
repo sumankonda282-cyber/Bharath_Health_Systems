@@ -11,6 +11,8 @@ import Bills from './pages/Bills'
 import ClinicalHistory from './pages/ClinicalHistory'
 import Telehealth from './pages/Telehealth'
 import TelehealthCall from './pages/TelehealthCall'
+import BookAppointmentPage from './pages/BookAppointmentPage'
+import Settings from './pages/Settings'
 
 function Spinner() {
   return <div className="flex items-center justify-center h-screen"><div className="w-8 h-8 border-2 rounded-full animate-spin" style={{ borderColor: '#c7d2e5', borderTopColor: '#0F2557' }} /></div>
@@ -32,6 +34,8 @@ function AppRoutes() {
       <Route element={<Guard><Layout /></Guard>}>
         <Route path="/"              element={<Dashboard />} />
         <Route path="/appointments"  element={<Appointments />} />
+        <Route path="/appointments/book" element={<BookAppointmentPage />} />
+        <Route path="/settings"      element={<Settings />} />
         <Route path="/prescriptions" element={<Prescriptions />} />
         <Route path="/lab-results"   element={<LabResults />} />
         <Route path="/bills"         element={<Bills />} />

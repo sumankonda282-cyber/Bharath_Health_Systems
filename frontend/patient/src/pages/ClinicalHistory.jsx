@@ -176,10 +176,6 @@ export default function ClinicalHistory() {
 
   return (
     <div className="max-w-4xl mx-auto">
-      <div className="page-header">
-        <h1 className="page-title">Clinical History</h1>
-      </div>
-
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-2 mb-5">
         <div className="relative">
