@@ -608,25 +608,69 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Coming Soon Strip */}
-      <section className="py-10 px-4 bg-white border-t border-b border-gray-100">
-        <div className="max-w-4xl mx-auto text-center">
-          <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-4">Also Coming Soon</p>
-          <div className="flex flex-wrap justify-center gap-6">
-            {[
-              { name: 'Pharmacy', icon: '💊', desc: 'Standalone pharmacy management' },
-              { name: 'Diagnostics Lab', icon: '🔬', desc: 'Lab orders, reports & billing' },
-              { name: 'Imaging Center', icon: '🩻', desc: 'Radiology & imaging workflows' },
-            ].map(item => (
-              <div key={item.name} className="flex items-center gap-3 px-6 py-3 rounded-2xl border border-dashed border-gray-300 bg-gray-50">
-                <span className="text-2xl">{item.icon}</span>
-                <div className="text-left">
-                  <div className="font-semibold text-gray-700 text-sm">{item.name}</div>
-                  <div className="text-xs text-gray-400">{item.desc}</div>
-                </div>
-                <span className="ml-2 text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: '#F5821E22', color: '#F5821E' }}>Soon</span>
+      {/* Quick Links */}
+      <section className="py-16 px-4 bg-white border-t border-gray-100">
+        <div className="max-w-5xl mx-auto">
+          <h2 className="text-2xl font-extrabold text-center mb-10" style={{ color: '#0F2557' }}>Quick Links</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* For Patients */}
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: '#CC1414' }}>For Patients</h3>
+              <div className="space-y-2">
+                {[
+                  { label: 'Find Doctors', to: '/clinics' },
+                  { label: 'My Booking', to: '/booking/check' },
+                  { label: 'My Health Portal', href: PATIENT_URL },
+                  { label: 'Telehealth Consultation', to: '/telehealth' },
+                ].map(item => (
+                  <div key={item.label}>
+                    {item.href ? (
+                      <a href={item.href} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-2 text-sm text-gray-600 hover:text-[#CC1414] transition-colors py-1 group">
+                        <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-[#CC1414] transition-colors" />
+                        {item.label}
+                      </a>
+                    ) : (
+                      <Link to={item.to}
+                        className="flex items-center gap-2 text-sm text-gray-600 hover:text-[#CC1414] transition-colors py-1 group">
+                        <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-[#CC1414] transition-colors" />
+                        {item.label}
+                      </Link>
+                    )}
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
+            {/* For Health Centers */}
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: '#0F2557' }}>For Health Centers</h3>
+              <div className="space-y-2">
+                {[
+                  { label: 'Provider Login (CareChart EMR)', href: PROVIDER_URL },
+                  { label: 'Staff Management', href: PROVIDER_URL + '/staff' },
+                  { label: 'Pharmacy Module', href: PROVIDER_URL + '/pharmacy' },
+                  { label: 'Diagnostics Lab', href: PROVIDER_URL + '/lab' },
+                  { label: 'Imaging Center', href: PROVIDER_URL + '/imaging' },
+                  { label: 'Register Health Center', to: '/register' },
+                ].map(item => (
+                  <div key={item.label}>
+                    {item.href ? (
+                      <a href={item.href} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-2 text-sm text-gray-600 hover:text-[#0F2557] transition-colors py-1 group">
+                        <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-[#0F2557] transition-colors" />
+                        {item.label}
+                      </a>
+                    ) : (
+                      <Link to={item.to}
+                        className="flex items-center gap-2 text-sm text-gray-600 hover:text-[#0F2557] transition-colors py-1 group">
+                        <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-[#0F2557] transition-colors" />
+                        {item.label}
+                      </Link>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </section>

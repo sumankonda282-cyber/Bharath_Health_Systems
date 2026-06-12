@@ -26,8 +26,8 @@ function Navbar() {
           <Link to="/register" className="text-sm font-medium text-gray-600 hover:text-[#0F2557]">Register Health Center</Link>
         </div>
         <div className="flex items-center gap-3">
-          <a href={PROVIDER_URL} className="hidden md:block px-4 py-2 rounded-xl border-2 font-semibold text-sm" style={{ borderColor:'#0F2557', color:'#0F2557' }}>Provider Login</a>
-          <a href={PATIENT_URL} className="px-4 py-2 rounded-xl font-semibold text-sm text-white" style={{ background:'#CC1414' }}>My Health Portal</a>
+          <a href={PROVIDER_URL} target="_blank" rel="noopener noreferrer" className="hidden md:block px-4 py-2 rounded-xl border-2 font-semibold text-sm" style={{ borderColor:'#0F2557', color:'#0F2557' }}>Provider Login</a>
+          <a href={PATIENT_URL} target="_blank" rel="noopener noreferrer" className="px-4 py-2 rounded-xl font-semibold text-sm text-white" style={{ background:'#CC1414' }}>My Health Portal</a>
         </div>
       </div>
     </nav>
@@ -37,7 +37,7 @@ function Navbar() {
 function DoctorCard({ doctor }) {
   return (
     <Link
-      to={`/clinics/${doctor.clinic_slug}`}
+      to={`/doctor/${doctor.doctor_profile_id}`}
       className="bg-white rounded-2xl shadow-md border border-gray-100 p-5 hover:shadow-lg transition-all group block"
     >
       <div className="flex items-start gap-4">

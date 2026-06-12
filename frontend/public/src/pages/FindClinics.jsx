@@ -35,7 +35,93 @@ const SPECIALTIES = [
   'General Medicine', 'Cardiology', 'Dermatology', 'Pediatrics',
   'Orthopedics', 'Gynecology', 'Neurology', 'Ophthalmology',
   'ENT', 'Psychiatry', 'Dentistry', 'Ayurveda',
+  'General Surgery', 'Internal Medicine', 'Physiotherapy',
+  'Cosmetology', 'Oncology', 'Urology', 'Nephrology',
 ]
+
+const CONDITIONS = [
+  { term: 'dermatitis', specialty: 'Dermatology' },
+  { term: 'eczema', specialty: 'Dermatology' },
+  { term: 'acne', specialty: 'Dermatology' },
+  { term: 'diabetes', specialty: 'General Medicine' },
+  { term: 'hypertension', specialty: 'Cardiology' },
+  { term: 'heart disease', specialty: 'Cardiology' },
+  { term: 'asthma', specialty: 'General Medicine' },
+  { term: 'arthritis', specialty: 'Orthopedics' },
+  { term: 'back pain', specialty: 'Orthopedics' },
+  { term: 'joint pain', specialty: 'Orthopedics' },
+  { term: 'fever', specialty: 'General Medicine' },
+  { term: 'cold', specialty: 'General Medicine' },
+  { term: 'depression', specialty: 'Psychiatry' },
+  { term: 'anxiety', specialty: 'Psychiatry' },
+  { term: 'thyroid', specialty: 'Internal Medicine' },
+  { term: 'kidney', specialty: 'Nephrology' },
+  { term: 'eye', specialty: 'Ophthalmology' },
+  { term: 'ear', specialty: 'ENT' },
+  { term: 'skin', specialty: 'Dermatology' },
+  { term: 'child', specialty: 'Pediatrics' },
+]
+
+function SearchSuggestions({ query, doctors, onSelect }) {
+  if (!query || query.length < 2) return null
+  const q = query.toLowerCase()
+
+  const matchedSpecialties = SPECIALTIES.filter(s => s.toLowerCase().includes(q)).slice(0, 3)
+  const matchedConditions = CONDITIONS.filter(c => c.term.includes(q)).slice(0, 3)
+  const matchedDoctors = doctors.filter(d =>
+    (d.name || '').toLowerCase().includes(q) ||
+    (d.specialty || '').toLowerCase().includes(q)
+  ).slice(0, 4)
+
+  if (!matchedSpecialties.length && !matchedConditions.length && !matchedDoctors.length) return null
+
+  return (
+    <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl z-50 overflow-hidden">
+      {matchedSpecialties.length > 0 && (
+        <div>
+          <div className="px-4 pt-3 pb-1 text-xs font-bold uppercase tracking-wide text-gray-400">Specialties</div>
+          {matchedSpecialties.map(s => (
+            <button key={s} onMouseDown={() => onSelect(s, 'specialty')}
+              className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-blue-50 text-left transition-colors">
+              <Stethoscope className="w-4 h-4 flex-shrink-0" style={{ color: '#CC1414' }} />
+              <span className="text-sm font-medium text-gray-800">{s}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {matchedConditions.length > 0 && (
+        <div className={matchedSpecialties.length ? 'border-t border-gray-100' : ''}>
+          <div className="px-4 pt-3 pb-1 text-xs font-bold uppercase tracking-wide text-gray-400">Conditions</div>
+          {matchedConditions.map(c => (
+            <button key={c.term} onMouseDown={() => onSelect(c.term, 'q')}
+              className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-blue-50 text-left transition-colors">
+              <Search className="w-4 h-4 flex-shrink-0 text-gray-400" />
+              <span className="text-sm text-gray-700">{c.term}</span>
+              <span className="ml-auto text-xs text-gray-400">{c.specialty}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {matchedDoctors.length > 0 && (
+        <div className={(matchedSpecialties.length || matchedConditions.length) ? 'border-t border-gray-100' : ''}>
+          <div className="px-4 pt-3 pb-1 text-xs font-bold uppercase tracking-wide text-gray-400">Doctors</div>
+          {matchedDoctors.map(d => (
+            <button key={d.id} onMouseDown={() => onSelect(d.name, 'q')}
+              className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-blue-50 text-left transition-colors">
+              <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0" style={{ background: '#0F2557' }}>
+                {(d.name || 'D').charAt(0)}
+              </div>
+              <div>
+                <div className="text-sm font-medium text-gray-800">{d.name}</div>
+                <div className="text-xs text-gray-400">{d.specialty} · {d.city}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 function StarRating({ rating = 0, max = 5 }) {
   return (
@@ -138,14 +224,14 @@ function DoctorCard({ doctor }) {
       {/* Actions */}
       <div className="flex items-center gap-3 mt-4 pt-3 border-t border-gray-100">
         <Link
-          to={`/clinics/${doctor.clinic_slug || doctor.slug || doctor.id}`}
+          to={`/doctor/${doctor.id}`}
           className="flex-1 text-center text-sm font-semibold py-2 rounded-xl border-2 transition-all"
           style={{ borderColor: '#0F2557', color: '#0F2557' }}
         >
           View Profile
         </Link>
         <Link
-          to={doctor.clinic_slug ? `/book?clinic=${doctor.clinic_slug}&doctor=${doctor.id}` : '/book'}
+          to={`/doctor/${doctor.id}`}
           className="flex-1 text-center text-sm font-semibold py-2 rounded-xl text-white transition-all"
           style={{ background: '#CC1414' }}
           onMouseEnter={e => e.currentTarget.style.background = '#b01010'}
@@ -266,6 +352,8 @@ export default function FindClinics() {
 
   // Live search query — updated on every keystroke, not just on form submit
   const [liveQ, setLiveQ] = useState(filters.q)
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const searchRef = useRef(null)
 
   useEffect(() => {
     publicApi.getCities().then(data => {
@@ -334,6 +422,17 @@ export default function FindClinics() {
     // Only refetch if we want server-side filtering too; for now just update liveQ
   }
 
+  const handleSuggestionSelect = (value, field) => {
+    setShowSuggestions(false)
+    if (field === 'specialty') {
+      setFilters(f => ({ ...f, specialty: value, q: '' }))
+      setLiveQ('')
+    } else {
+      setLiveQ(value)
+      setFilters(f => ({ ...f, q: value }))
+    }
+  }
+
   const clearFilter = (key) => {
     const newFilters = { ...filters, [key]: '' }
     setFilters(newFilters)
@@ -390,19 +489,25 @@ export default function FindClinics() {
         {/* Search & Filter Bar */}
         <form onSubmit={handleSearch} className="bg-white rounded-2xl shadow-md border border-gray-100 p-4 mb-6">
           <div className="flex flex-col md:flex-row gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <div className="relative flex-1" ref={searchRef}>
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
               <input
                 type="text"
                 value={liveQ}
                 onChange={e => {
                   setLiveQ(e.target.value)
                   setFilters(f => ({ ...f, q: e.target.value }))
+                  setShowSuggestions(true)
                 }}
-                placeholder="Doctor name, specialty, clinic..."
+                onFocus={() => setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                placeholder="Doctor name, specialty, condition..."
                 className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 transition-all"
                 style={{ '--tw-ring-color': '#0F2557' }}
               />
+              {showSuggestions && (
+                <SearchSuggestions query={liveQ} doctors={allDoctors} onSelect={handleSuggestionSelect} />
+              )}
             </div>
             <CitySearch
               value={filters.city}

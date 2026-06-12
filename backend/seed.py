@@ -130,7 +130,7 @@ def _seed_critical(db):
             qualification="MBBS, MD (Internal Medicine)", mci_number="AP-MED-12345",
             experience_years=8, consultation_fee=500,
             bio="Dr. Priya Sharma is an experienced general physician.",
-            languages=["English", "Telugu", "Hindi"],
+            languages="English, Telugu, Hindi",
             accepts_online_booking=True, avg_consultation_minutes=15,
             telehealth_enabled=True, telehealth_fee=400,
             mci_verified=True,
@@ -148,7 +148,7 @@ def _seed_critical(db):
             qualification="MBBS, MD, DM (Cardiology)", mci_number="AP-MED-67890",
             experience_years=12, consultation_fee=800,
             bio="Dr. Rajan Mehta is a senior cardiologist.",
-            languages=["English", "Telugu", "Hindi"],
+            languages="English, Telugu, Hindi",
             accepts_online_booking=True, avg_consultation_minutes=20,
             telehealth_enabled=True, telehealth_fee=600,
             mci_verified=True,
@@ -160,6 +160,22 @@ def _seed_critical(db):
             dp2.telehealth_fee = 600
             dp2.mci_verified = True
 
+    db.commit()
+
+    # Add Mon–Sat schedules for Apollo demo doctors
+    days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
+    for doc in [doctor1, doctor2]:
+        if not doc:
+            continue
+        dp = db.query(DoctorProfile).filter_by(staff_id=doc.id).first()
+        if not dp:
+            continue
+        for day in days:
+            if not db.query(DoctorSchedule).filter_by(doctor_id=dp.id, day_of_week=day).first():
+                db.add(DoctorSchedule(doctor_id=dp.id, branch_id=branch_main.id, day_of_week=day,
+                                      start_time="09:00", end_time="12:00", slot_minutes=30, max_patients=6))
+                db.add(DoctorSchedule(doctor_id=dp.id, branch_id=branch_main.id, day_of_week=day,
+                                      start_time="16:00", end_time="19:00", slot_minutes=30, max_patients=6))
     db.commit()
 
     # ── Additional sample clinics for testing ─────────────────────────
@@ -303,7 +319,7 @@ def _seed_sample_clinics(db):
                 db.flush()
 
             if not _exists(db, DoctorProfile, staff_id=staff.id):
-                db.add(DoctorProfile(
+                dp = DoctorProfile(
                     staff_id=staff.id,
                     clinic_id=clinic.id,
                     specialty=dd["specialty"],
@@ -317,11 +333,23 @@ def _seed_sample_clinics(db):
                     mci_verified=True,
                     languages="English, Hindi",
                     bio=f"{dd['name']} is a specialist with {dd['experience_years']} years of experience.",
-                ))
+                )
+                db.add(dp)
+                db.flush()
             else:
                 dp = db.query(DoctorProfile).filter_by(staff_id=staff.id).first()
                 dp.telehealth_enabled = True
                 dp.mci_verified = True
+                db.flush()
+
+            # Add Mon–Sat schedules for online booking slots (morning + evening)
+            days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
+            for day in days:
+                if not db.query(DoctorSchedule).filter_by(doctor_id=dp.id, day_of_week=day).first():
+                    db.add(DoctorSchedule(doctor_id=dp.id, branch_id=branch.id, day_of_week=day,
+                                          start_time="09:00", end_time="12:00", slot_minutes=30, max_patients=6))
+                    db.add(DoctorSchedule(doctor_id=dp.id, branch_id=branch.id, day_of_week=day,
+                                          start_time="16:00", end_time="19:00", slot_minutes=30, max_patients=6))
 
         db.commit()
 

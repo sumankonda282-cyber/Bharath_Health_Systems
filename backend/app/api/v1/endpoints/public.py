@@ -392,6 +392,48 @@ def platform_stats(db: Session = Depends(get_db)):
     }
 
 
+@router.get("/doctors/{doctor_profile_id}")
+def get_doctor_public(doctor_profile_id: int, db: Session = Depends(get_db)):
+    """Public doctor profile page."""
+    row = (
+        db.query(DoctorProfile, Staff, Clinic)
+        .join(Staff, DoctorProfile.staff_id == Staff.id)
+        .join(Clinic, DoctorProfile.clinic_id == Clinic.id)
+        .filter(DoctorProfile.id == doctor_profile_id)
+        .first()
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Doctor not found")
+    dp, s, c = row
+    branches = db.query(Branch).filter(Branch.clinic_id == c.id, Branch.is_active == True).all()
+    return {
+        "id": dp.id,
+        "staff_id": s.id,
+        "name": s.full_name,
+        "specialty": dp.specialty,
+        "qualification": dp.qualification,
+        "experience_years": dp.experience_years,
+        "fee": float(dp.consultation_fee) if dp.consultation_fee else 0,
+        "bio": dp.bio,
+        "languages": dp.languages,
+        "mci_verified": dp.mci_verified,
+        "telehealth_enabled": dp.telehealth_enabled,
+        "telehealth_fee": float(dp.telehealth_fee) if dp.telehealth_fee else None,
+        "photo_url": s.photo_url if hasattr(s, 'photo_url') else None,
+        "clinic": {
+            "id": c.id,
+            "name": c.name,
+            "slug": c.slug,
+            "specialty": c.specialty,
+            "city": c.city,
+            "state": c.state,
+            "address": c.address,
+            "phone": c.phone,
+            "default_branch_id": branches[0].id if branches else None,
+        }
+    }
+
+
 @router.get("/telehealth-doctors")
 def get_telehealth_doctors(
     city: Optional[str] = None,
