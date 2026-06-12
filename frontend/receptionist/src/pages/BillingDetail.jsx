@@ -59,16 +59,36 @@ function Toast({ msg, type = 'success', onClose }) {
   )
 }
 
-// ── Payment Modal (split payments) ────────────────────────────────────────────
+// ── Payment Modal (split payments + cash denomination) ────────────────────────
+
+const DENOMS = [2000, 500, 200, 100, 50, 20, 10, 5, 2, 1]
+
+const mkSplit = (method, amount) => ({ method, amount, reference: '', showDenom: false, denoms: {} })
 
 function PaymentModal({ balanceAmount, onClose, onSave, saving }) {
   const [splits, setSplits] = useState([
-    { method: 'cash', amount: balanceAmount > 0 ? balanceAmount.toFixed(2) : '', reference: '' },
+    mkSplit('cash', balanceAmount > 0 ? balanceAmount.toFixed(2) : ''),
   ])
 
-  const addSplit    = () => setSplits(p => [...p, { method: 'upi', amount: '', reference: '' }])
+  const addSplit    = () => setSplits(p => [...p, mkSplit('upi', '')])
   const removeSplit = i => setSplits(p => p.filter((_, idx) => idx !== i))
   const update      = (i, k, v) => setSplits(p => p.map((s, idx) => idx === i ? { ...s, [k]: v } : s))
+
+  const updateDenom = (i, denom, count) => {
+    setSplits(p => p.map((s, idx) => {
+      if (idx !== i) return s
+      const newDenoms  = { ...s.denoms, [denom]: parseInt(count) || 0 }
+      const denomTotal = DENOMS.reduce((sum, d) => sum + (newDenoms[d] || 0) * d, 0)
+      return { ...s, denoms: newDenoms, amount: denomTotal > 0 ? String(denomTotal) : s.amount }
+    }))
+  }
+
+  const fillExact = (i) => {
+    const othersPaid = splits.reduce((s, x, idx) => idx !== i ? s + (+x.amount || 0) : s, 0)
+    const exact = Math.max(0, balanceAmount - othersPaid)
+    update(i, 'amount', exact.toFixed(2))
+    navigator.clipboard?.writeText(exact.toFixed(2)).catch(() => {})
+  }
 
   const totalPaying = splits.reduce((s, x) => s + (+x.amount || 0), 0)
   const remaining   = +(balanceAmount - totalPaying).toFixed(2)
@@ -89,39 +109,108 @@ function PaymentModal({ balanceAmount, onClose, onSave, saving }) {
         )}
 
         <div className="space-y-3">
-          {splits.map((split, i) => (
-            <div key={i} className="border border-gray-100 rounded-xl p-3 space-y-2.5 bg-gray-50 relative">
-              {splits.length > 1 && (
-                <button onClick={() => removeSplit(i)}
-                  className="absolute top-2.5 right-2.5 p-0.5 text-gray-300 hover:text-red-400 rounded">
-                  <X size={14} />
-                </button>
-              )}
-              <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                Payment {splits.length > 1 ? i + 1 : ''} — Method
-              </div>
-              <div className="grid grid-cols-2 gap-1.5">
-                {PAYMENT_METHODS.map(({ value, label, Icon }) => (
-                  <button key={value} onClick={() => update(i, 'method', value)}
-                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors ${split.method === value ? 'border-orange-400 bg-orange-50 text-orange-700' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'}`}>
-                    <Icon size={12} />{label}
+          {splits.map((split, i) => {
+            const denomTotal = DENOMS.reduce((s, d) => s + (split.denoms[d] || 0) * d, 0)
+            const change     = denomTotal - (+split.amount || 0)
+            return (
+              <div key={i} className="border border-gray-100 rounded-xl p-3 space-y-2.5 bg-gray-50 relative">
+                {splits.length > 1 && (
+                  <button onClick={() => removeSplit(i)}
+                    className="absolute top-2.5 right-2.5 p-0.5 text-gray-300 hover:text-red-400 rounded">
+                    <X size={14} />
                   </button>
-                ))}
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="label">Amount (₹)</label>
-                  <input type="number" className="input" value={split.amount}
-                    onChange={e => update(i, 'amount', e.target.value)} placeholder="0.00" />
+                )}
+                <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                  Payment {splits.length > 1 ? i + 1 : ''} — Method
                 </div>
-                <div>
-                  <label className="label">Reference</label>
-                  <input className="input" value={split.reference}
-                    onChange={e => update(i, 'reference', e.target.value)} placeholder="UPI txn / card last 4" />
+
+                {/* Method selector */}
+                <div className="grid grid-cols-2 gap-1.5">
+                  {PAYMENT_METHODS.map(({ value, label, Icon }) => (
+                    <button key={value} onClick={() => update(i, 'method', value)}
+                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors ${split.method === value ? 'border-orange-400 bg-orange-50 text-orange-700' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'}`}>
+                      <Icon size={12} />{label}
+                    </button>
+                  ))}
                 </div>
+
+                {/* Amount + reference */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="label">Amount (₹)</label>
+                    <div className="flex gap-1">
+                      <input type="number" className="input flex-1 min-w-0" value={split.amount}
+                        onChange={e => update(i, 'amount', e.target.value)} placeholder="0.00" />
+                      {balanceAmount > 0 && (
+                        <button onClick={() => fillExact(i)} title="Fill exact due & copy to clipboard"
+                          className="px-2.5 py-1 rounded-lg border border-blue-200 bg-blue-50 text-blue-600 text-xs font-semibold hover:bg-blue-100 flex-shrink-0 whitespace-nowrap">
+                          Fill
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="label">Reference</label>
+                    <input className="input" value={split.reference}
+                      onChange={e => update(i, 'reference', e.target.value)}
+                      placeholder={split.method === 'upi' ? 'UPI txn ID' : split.method === 'card' ? 'Last 4 digits' : 'Optional'} />
+                  </div>
+                </div>
+
+                {/* Cash denomination — optional, only for cash */}
+                {split.method === 'cash' && (
+                  <div>
+                    <button onClick={() => update(i, 'showDenom', !split.showDenom)}
+                      className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 font-medium">
+                      <span>{split.showDenom ? '▾' : '▸'}</span>
+                      Denomination breakdown (optional)
+                    </button>
+
+                    {split.showDenom && (
+                      <div className="mt-2 border border-gray-100 rounded-xl overflow-hidden bg-white">
+                        <div className="divide-y divide-gray-50">
+                          {DENOMS.map(d => (
+                            <div key={d} className="flex items-center gap-3 px-3 py-2">
+                              <span className="text-xs font-semibold text-gray-500 w-12 flex-shrink-0">₹{d}</span>
+                              <span className="text-xs text-gray-400">×</span>
+                              <input
+                                type="number" min={0}
+                                value={split.denoms[d] || ''}
+                                onChange={e => updateDenom(i, d, e.target.value)}
+                                className="w-16 text-xs text-center border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-200 bg-gray-50"
+                                placeholder="0"
+                              />
+                              <span className="text-xs text-gray-400 ml-auto min-w-[60px] text-right">
+                                {(split.denoms[d] || 0) > 0
+                                  ? <span className="font-medium text-gray-600">= ₹{((split.denoms[d] || 0) * d).toLocaleString('en-IN')}</span>
+                                  : '—'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Denomination totals */}
+                        <div className="border-t border-gray-100 px-3 py-2 flex justify-between text-xs bg-gray-50">
+                          <span className="text-gray-500 font-medium">Cash Collected</span>
+                          <span className="font-bold text-gray-700">{fmt(denomTotal)}</span>
+                        </div>
+                        {denomTotal > 0 && change !== 0 && (
+                          <div className={`px-3 py-2 flex justify-between text-xs border-t ${change > 0 ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'}`}>
+                            <span className={`font-medium ${change > 0 ? 'text-green-700' : 'text-red-600'}`}>
+                              {change > 0 ? '↩ Change to Return' : '⚠ Short by'}
+                            </span>
+                            <span className={`font-bold ${change > 0 ? 'text-green-700' : 'text-red-600'}`}>
+                              {fmt(Math.abs(change))}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
 
         <button onClick={addSplit}
