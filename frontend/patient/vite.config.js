@@ -9,8 +9,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico'],
       manifest: {
-        name: 'BHaratCliniq Health',
-        short_name: 'My Health',
+        name: 'BHarath Health',
+        short_name: 'BHarath Health',
         description: 'Your personal health portal',
         theme_color: '#0F2557',
         background_color: '#ffffff',

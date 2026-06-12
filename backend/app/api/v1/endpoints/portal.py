@@ -169,6 +169,107 @@ def portal_appointments(current=Depends(get_current_patient), db: Session = Depe
     return {"appointments": result}
 
 
+@router.get("/clinical-history")
+def portal_clinical_history(current=Depends(get_current_patient), db: Session = Depends(get_db)):
+    """Full clinical record of every completed visit — SOAP notes, vitals,
+    tests, prescriptions — one call, chronological, newest first."""
+    from app.models.models import (
+        Appointment, DoctorProfile, Clinic, SoapNote, Vitals,
+        Prescription, PrescriptionItem, LabOrder,
+    )
+    patient_ids = [
+        p.id for p in db.query(Patient).filter(Patient.portal_user_id == current.id).all()
+    ]
+    if not patient_ids:
+        return {"visits": []}
+
+    appts = db.query(Appointment).filter(
+        Appointment.patient_id.in_(patient_ids)
+    ).order_by(Appointment.appointment_date.desc()).limit(200).all()
+
+    visits = []
+    for a in appts:
+        doc = db.query(DoctorProfile).filter(DoctorProfile.id == a.doctor_id).first()
+        clinic = db.query(Clinic).filter(Clinic.id == a.clinic_id).first()
+        soap = db.query(SoapNote).filter(SoapNote.appointment_id == a.id).first()
+        vit = db.query(Vitals).filter(Vitals.appointment_id == a.id).first()
+
+        vitals = None
+        if vit:
+            vitals = {
+                "bp": f"{vit.blood_pressure_systolic}/{vit.blood_pressure_diastolic}"
+                      if vit.blood_pressure_systolic and vit.blood_pressure_diastolic else None,
+                "pulse": vit.pulse_rate,
+                "temperature": float(vit.temperature) if vit.temperature else None,
+                "weight_kg": float(vit.weight_kg) if vit.weight_kg else None,
+                "height_cm": float(vit.height_cm) if vit.height_cm else None,
+                "spo2": vit.oxygen_saturation,
+                "blood_sugar": float(vit.blood_sugar) if vit.blood_sugar else None,
+            }
+            if not any(vitals.values()):
+                vitals = None
+
+        medications = []
+        rxs = db.query(Prescription).filter(Prescription.appointment_id == a.id).all()
+        for rx in rxs:
+            for item in db.query(PrescriptionItem).filter(
+                PrescriptionItem.prescription_id == rx.id
+            ).all():
+                medications.append({
+                    "name": item.medicine_name or (item.medicine.name if item.medicine else "Medicine"),
+                    "dosage": item.dosage,
+                    "frequency": item.frequency,
+                    "duration": item.duration,
+                    "instructions": item.instructions,
+                })
+
+        tests = []
+        for order in db.query(LabOrder).filter(LabOrder.appointment_id == a.id).all():
+            tests.append({
+                "order_id": order.order_id,
+                "test_names": order.test_names or [],
+                "status": order.status,
+                "clinical_notes": order.clinical_notes,
+            })
+
+        note = None
+        if soap:
+            note = {
+                "reason_for_visit": soap.reason_for_visit,
+                "complaints": soap.patient_complaints or soap.subjective,
+                "past_history": soap.past_history,
+                "examination": soap.objective,
+                "investigations": soap.investigations_findings,
+                "assessment": soap.discharge_assessment or soap.assessment,
+                "medications_text": soap.medications_prescribed,
+                "plan_counselling": soap.cautions_followup or soap.plan,
+                "follow_up_days": soap.follow_up_days,
+            }
+            if not any(v for v in note.values()):
+                note = None
+
+        visits.append({
+            "appointment_id": a.id,
+            "date": str(a.appointment_date),
+            "time": a.appointment_time,
+            "status": str(a.status) if a.status else None,
+            "mode": a.mode or "offline",
+            "visit_type": a.visit_type,
+            "reason": a.reason,
+            "doctor_name": doc.staff.full_name if doc and doc.staff else "Unknown",
+            "doctor_specialty": doc.specialty if doc else None,
+            "clinic_name": clinic.name if clinic else "Unknown",
+            "clinic_city": clinic.city if clinic else None,
+            "vitals": vitals,
+            "note": note,
+            "medications": medications,
+            "tests": tests,
+            "has_documentation": bool(note or vitals or medications or tests),
+        })
+
+    return {"visits": visits}
+
+
 @router.post("/appointments/{appointment_id}/join")
 async def portal_join_telehealth(
     appointment_id: int,

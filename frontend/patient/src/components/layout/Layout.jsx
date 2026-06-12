@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { NavLink, useNavigate, Outlet } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
-import { LayoutDashboard, Calendar, Pill, FlaskConical, Receipt, LogOut, Menu, Clock, Smartphone, Video } from 'lucide-react'
+import { LayoutDashboard, Calendar, Pill, FlaskConical, Receipt, LogOut, Menu, FileText, Smartphone, Video } from 'lucide-react'
 import BrandLogo from '../BrandLogo'
 import InstallPrompt, { useInstallState, InstallModal } from '../InstallPrompt'
 
@@ -12,7 +12,7 @@ const NAV = [
   { to: '/prescriptions', label: 'Prescriptions',icon: Pill },
   { to: '/lab-results',   label: 'Lab Results',  icon: FlaskConical },
   { to: '/bills',         label: 'Bills',        icon: Receipt },
-  { to: '/timeline',      label: 'Timeline',     icon: Clock },
+  { to: '/history',       label: 'Clinical History', icon: FileText },
 ]
 
 export default function Layout() {
@@ -21,7 +21,7 @@ export default function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [showInstallModal, setShowInstallModal] = useState(false)
   const [installing, setInstalling] = useState(false)
-  const { canInstall, isIos, installed, install } = useInstallState('BH Health')
+  const { canInstall, isIos, installed, install } = useInstallState('BHarath Health')
 
   const handleInstall = async () => {
     setInstalling(true)
@@ -40,7 +40,7 @@ export default function Layout() {
     <div className="flex flex-col h-full" style={{ background: '#0F2557' }}>
       {/* Logo */}
       <div className="px-5 py-4 border-b" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
-        <BrandLogo size="sm" />
+        <BrandLogo size="sm" light />
         <div className="text-xs font-semibold mt-1.5 tracking-widest uppercase" style={{ color: '#F5821E' }}>
           Patient Portal
         </div>
@@ -162,10 +162,10 @@ export default function Layout() {
           <Outlet />
         </main>
       </div>
-      <InstallPrompt appName="BH Health" />
+      <InstallPrompt appName="BHarath Health" />
       {showInstallModal && (
         <InstallModal
-          appName="BH Health"
+          appName="BHarath Health"
           isIos={isIos}
           installing={installing}
           onInstall={handleInstall}

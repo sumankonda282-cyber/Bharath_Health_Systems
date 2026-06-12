@@ -8,12 +8,12 @@ import Appointments from './pages/Appointments'
 import Prescriptions from './pages/Prescriptions'
 import LabResults from './pages/LabResults'
 import Bills from './pages/Bills'
-import Timeline from './pages/Timeline'
+import ClinicalHistory from './pages/ClinicalHistory'
 import Telehealth from './pages/Telehealth'
 import TelehealthCall from './pages/TelehealthCall'
 
 function Spinner() {
-  return <div className="flex items-center justify-center h-screen"><div className="w-8 h-8 border-2 border-teal-200 border-t-teal-600 rounded-full animate-spin" /></div>
+  return <div className="flex items-center justify-center h-screen"><div className="w-8 h-8 border-2 rounded-full animate-spin" style={{ borderColor: '#c7d2e5', borderTopColor: '#0F2557' }} /></div>
 }
 
 function Guard({ children }) {
@@ -35,7 +35,8 @@ function AppRoutes() {
         <Route path="/prescriptions" element={<Prescriptions />} />
         <Route path="/lab-results"   element={<LabResults />} />
         <Route path="/bills"         element={<Bills />} />
-        <Route path="/timeline"      element={<Timeline />} />
+        <Route path="/history"       element={<ClinicalHistory />} />
+        <Route path="/timeline"      element={<Navigate to="/history" replace />} />
         <Route path="/telehealth"    element={<Telehealth />} />
       </Route>
 
