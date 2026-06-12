@@ -126,7 +126,8 @@ export default function Appointments() {
 
   return (
     <div className="space-y-5">
-      {/* Action bar */}
+      {/* Action bar — hidden when there's nothing to filter; empty state owns the Book button */}
+      {!(!loading && appts.length === 0) && (
       <div className="flex items-center justify-between gap-3">
         {/* Tabs */}
         <div className="flex bg-white rounded-xl border border-gray-200 p-1 gap-0.5 overflow-x-auto">
@@ -146,6 +147,7 @@ export default function Appointments() {
           <Plus size={15} /> Book Appointment
         </button>
       </div>
+      )}
 
       {/* Content */}
       {loading ? (
