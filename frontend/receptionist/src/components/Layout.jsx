@@ -3,27 +3,37 @@ import HelpWidget from './HelpWidget'
 import { useState, useEffect } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import {
-  CalendarDays, Users, CreditCard, LayoutDashboard, LogOut,
-  ClipboardList, Menu, X, Settings, BedDouble, LayoutGrid, Banknote, Wrench, HelpCircle, Video,
-  CalendarRange, UserCircle2, Plane, LayoutTemplate, Send, Lock, Loader2,
+  CreditCard, LayoutDashboard, LogOut, Users,
+  Menu, X, Settings, BedDouble, LayoutGrid, Banknote, Wrench, HelpCircle,
+  CalendarRange, UserCircle2, Plane, LayoutTemplate, Send, Lock, Loader2, Monitor,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import BrandLogo from './BrandLogo'
 import api from '../api/client'
 
-const BASE_NAV = [
+// Manager/Admin nav (unchanged from original)
+const MANAGER_BASE_NAV = [
   { to: '/',            icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/operations',  icon: LayoutGrid,      label: 'Operations' },
   { to: '/patients',    icon: Users,           label: 'Patients' },
 ]
+const MANAGER_NAV = [
+  { to: '/staff',       icon: Settings, label: 'Manage Staff' },
+  { to: '/maintenance', icon: Wrench,   label: 'Maintenance' },
+]
+
+// Receptionist nav
+const RECEP_NAV = [
+  { to: '/',            icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/front-desk',  icon: Monitor,         label: 'Front Desk' },
+  { to: '/billing',     icon: CreditCard,      label: 'Billing' },
+]
+
+// Hospital-only items (shown for both roles when org_type === 'hospital')
 const HOSPITAL_NAV = [
   { to: '/admissions',        icon: BedDouble,   label: 'Admissions' },
   { to: '/bed-board',         icon: LayoutGrid,  label: 'Bed Board' },
   { to: '/inpatient-billing', icon: Banknote,    label: 'IPD Billing' },
-]
-const MANAGER_NAV = [
-  { to: '/staff',       icon: Settings, label: 'Manage Staff' },
-  { to: '/maintenance', icon: Wrench,   label: 'Maintenance' },
 ]
 const SCHEDULER_NAV = [
   { to: '/scheduler',           icon: CalendarRange,   label: 'Schedule Board' },
@@ -54,19 +64,16 @@ export default function Layout() {
   const [pwForm, setPwForm]       = useState({ current: '', next: '' })
   const [pwSaving, setPwSaving]   = useState(false)
   const [pwErr, setPwErr]         = useState('')
-  const isManager = user?.role === 'clinic_manager'
-  const isAdmin = user?.role === 'clinic_admin'
-  const isScheduler = isManager || isAdmin
+  const isManager = ['clinic_manager', 'clinic_admin'].includes(user?.role)
+  const isScheduler = isManager
   const isHospital = user?.org_type === 'hospital'
-  const NAV = [
-    ...BASE_NAV,
-    ...(isHospital ? HOSPITAL_NAV : []),
-    ...(isManager ? MANAGER_NAV : []),
-  ]
+  const NAV = isManager
+    ? [...MANAGER_BASE_NAV, ...(isHospital ? HOSPITAL_NAV : []), ...MANAGER_NAV]
+    : [...RECEP_NAV, ...(isHospital ? HOSPITAL_NAV : [])]
 
   useEffect(() => {
     if (!isManager) return
-    const fetch = () => api.get('/maintenance/requests/badge').then(r => setMaintBadge(r.data?.count || 0)).catch(() => {})
+    const fetch = () => api.get('/maintenance/requests/badge').then(r => setMaintBadge(r?.count || 0)).catch(() => {})
     fetch()
     const id = setInterval(fetch, 60000)
     return () => clearInterval(id)
@@ -179,7 +186,7 @@ export default function Layout() {
             <Menu size={22} />
           </button>
           <div className="md:hidden"><BrandLogo size="sm" /></div>
-          <span className="md:hidden text-xs font-semibold ml-1" style={{ color: '#F5821E' }}>Reception</span>
+          <span className="md:hidden text-xs font-semibold ml-1" style={{ color: '#F5821E' }}>{isManager ? 'Manager' : 'Reception'}</span>
           <div className="flex-1" />
           <button onClick={() => setHelpOpen(true)} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700" title="Help & Support">
             <HelpCircle size={16} />

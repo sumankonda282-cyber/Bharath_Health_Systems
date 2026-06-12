@@ -201,6 +201,8 @@ def staff_me(current=Depends(get_current_staff), db: Session = Depends(get_db)):
         "clinic_verified": clinic.is_verified if clinic else False,
         "clinic_plan":  str(clinic.subscription_plan) if clinic else "free",
         "force_reset":  current.is_first_login is True,
+        "org_type":     clinic.org_type if clinic else "clinic",
+        "modules":      (clinic.modules or []) if clinic else [],
     }
 
 

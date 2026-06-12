@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard'
 import Appointments from './pages/Appointments'
 import Patients from './pages/Patients'
 import Billing from './pages/Billing'
+import FrontDesk from './pages/FrontDesk'
 import Queue from './pages/Queue'
 import Operations from './pages/Operations'
 import PatientBilling from './pages/PatientBilling'
@@ -63,6 +64,7 @@ function AppRoutes() {
         <Route index element={<Dashboard />} />
         <Route path="operations" element={<Operations />} />
         <Route path="operations/:appointmentId" element={<PatientBilling />} />
+        <Route path="front-desk" element={<FrontDesk />} />
         <Route path="appointments" element={<Appointments />} />
         <Route path="telehealth"   element={<Telehealth />} />
         <Route path="patients" element={<Patients />} />
