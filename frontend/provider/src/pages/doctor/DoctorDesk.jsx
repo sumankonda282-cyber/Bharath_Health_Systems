@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { doctorApi } from '../../api'
+import { doctorApi, appointmentsApi } from '../../api'
 import { PageLoader } from '../../components/ui/Spinner'
 import { Stethoscope, Clock, CheckCircle, Calendar, Video, ClipboardList, Play } from 'lucide-react'
 import { format } from 'date-fns'
@@ -119,10 +119,11 @@ export default function DoctorDesk() {
     e.stopPropagation()
     setStartingId(appt.id)
     try {
-      await doctorApi.updateAppointment(appt.id, { status: 'in_progress' })
-      setQueue(q => q.map(a => a.id === appt.id ? { ...a, status: 'in_progress' } : a))
+      await appointmentsApi.update(appt.id, { status: 'in_progress' })
+      navigate(`/encounter/${appt.id}`)
     } catch {
-      alert('Could not update status. Please try again.')
+      // Still navigate even if status update fails
+      navigate(`/encounter/${appt.id}`)
     } finally {
       setStartingId(null)
     }
@@ -132,20 +133,15 @@ export default function DoctorDesk() {
 
   return (
     <div>
-      <div className="page-header">
-        <div className="flex items-center gap-3">
-          <input type="date" className="input w-44" value={date} onChange={e => setDate(e.target.value)} />
-        </div>
-      </div>
-
-      {/* Compact stat cards — 3 columns on all screens */}
-      <div className="grid grid-cols-3 gap-3 mb-4">
+      {/* Date + stat cards in one row */}
+      <div className="flex items-center gap-3 mb-4">
+        <input type="date" className="input w-40 py-1.5 text-sm flex-shrink-0" value={date} onChange={e => setDate(e.target.value)} />
         {[
           { label: 'Waiting',     count: waiting.length, bg: 'bg-yellow-100', fg: 'text-yellow-600', Icon: Clock },
           { label: 'In Progress', count: inProg.length,  bg: 'bg-purple-100', fg: 'text-purple-600', Icon: Stethoscope },
           { label: 'Completed',   count: done.length,    bg: 'bg-green-100',  fg: 'text-green-600',  Icon: CheckCircle },
         ].map(({ label, count, bg, fg, Icon }) => (
-          <div key={label} className="card p-3 flex items-center gap-2">
+          <div key={label} className="card p-3 flex items-center gap-2 flex-1">
             <div className={`w-8 h-8 ${bg} rounded-lg flex items-center justify-center flex-shrink-0`}>
               <Icon size={15} className={fg} />
             </div>
