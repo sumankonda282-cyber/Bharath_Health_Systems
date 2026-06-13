@@ -3,7 +3,7 @@ import { appointmentsApi, patientsApi, clinicApi } from '../../api'
 import { cachedFetch, TTL } from '../../utils/cache'
 import { PageLoader } from '../../components/ui/Spinner'
 import Modal from '../../components/ui/Modal'
-import { Plus, Calendar, Search, RefreshCw, UserPlus } from 'lucide-react'
+import { Plus, Calendar, Search, RefreshCw, UserPlus, Globe, CheckCircle, X } from 'lucide-react'
 import { format } from 'date-fns'
 import { useSearchParams } from 'react-router-dom'
 import { Link } from 'react-router-dom'
@@ -17,6 +17,7 @@ export default function Appointments() {
   const [searchParams] = useSearchParams()
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'))
   const [appointments, setAppointments] = useState([])
+  const [onlineBookings, setOnlineBookings] = useState([])
   const [loading, setLoading] = useState(true)
   const [showWalkin, setShowWalkin] = useState(searchParams.get('walkin') === '1')
   const [doctors, setDoctors] = useState([])
@@ -27,11 +28,20 @@ export default function Appointments() {
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [actioningId, setActioningId] = useState(null)
 
   const loadAppts = () => {
     setLoading(true)
-    appointmentsApi.list({ appointment_date: date, limit: 100 })
-      .then(r => setAppointments(Array.isArray(r) ? r : []))
+    Promise.all([
+      appointmentsApi.list({ appointment_date: date, limit: 100 }),
+      appointmentsApi.listOnlineBookings({ status: 'pending', date }),
+    ])
+      .then(([appts, bookings]) => {
+        setAppointments(Array.isArray(appts) ? appts : [])
+        // Filter online bookings for the selected date
+        const allBookings = Array.isArray(bookings) ? bookings : []
+        setOnlineBookings(allBookings.filter(b => b.booking_date === date))
+      })
       .finally(() => setLoading(false))
   }
 
@@ -72,6 +82,22 @@ export default function Appointments() {
     }
   }
 
+  const handleConfirmBooking = async (id) => {
+    setActioningId(id)
+    try {
+      await appointmentsApi.confirmBooking(id)
+      loadAppts()
+    } catch { /* silent */ } finally { setActioningId(null) }
+  }
+
+  const handleCancelBooking = async (id) => {
+    setActioningId(id)
+    try {
+      await appointmentsApi.cancelBooking(id)
+      loadAppts()
+    } catch { /* silent */ } finally { setActioningId(null) }
+  }
+
   const statusNext = { pending: 'confirmed', confirmed: 'in_progress', in_progress: 'completed' }
 
   return (
@@ -97,8 +123,62 @@ export default function Appointments() {
         />
         <div className="text-sm text-gray-500">
           {appointments.length} appointments · {appointments.filter(a => a.status === 'completed').length} completed
+          {onlineBookings.length > 0 && (
+            <span className="ml-3 inline-flex items-center gap-1 text-amber-600 font-medium">
+              <Globe size={13} /> {onlineBookings.length} online booking{onlineBookings.length !== 1 ? 's' : ''} pending
+            </span>
+          )}
         </div>
       </div>
+
+      {/* Online Bookings — pending confirmation */}
+      {!loading && onlineBookings.length > 0 && (
+        <div className="card mb-4 overflow-hidden">
+          <div className="px-5 py-3 border-b border-amber-100 flex items-center gap-2"
+            style={{ background: '#fffbeb' }}>
+            <Globe size={15} className="text-amber-600" />
+            <span className="text-sm font-semibold text-amber-700">
+              Online Bookings — Awaiting Confirmation ({onlineBookings.length})
+            </span>
+          </div>
+          <div className="divide-y divide-gray-100">
+            {onlineBookings.map(b => (
+              <div key={b.id} className="flex items-center justify-between px-5 py-3 hover:bg-amber-50/40">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0 font-bold text-amber-700 text-sm">
+                    {(b.patient_name || 'P').charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <div className="font-medium text-sm text-gray-900">{b.patient_name || '—'}</div>
+                    <div className="text-xs text-gray-400">
+                      {b.booking_time} · {b.doctor_name || 'Doctor not assigned'}
+                      {b.patient_mobile && ` · ${b.patient_mobile}`}
+                    </div>
+                    {b.reason && <div className="text-xs text-gray-400 italic">{b.reason}</div>}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className="text-xs text-gray-400 font-mono">{b.confirmation_code}</span>
+                  <button
+                    onClick={() => handleConfirmBooking(b.id)}
+                    disabled={actioningId === b.id}
+                    className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-green-100 text-green-700 font-semibold hover:bg-green-200 disabled:opacity-50 transition-colors"
+                  >
+                    <CheckCircle size={12} /> Confirm
+                  </button>
+                  <button
+                    onClick={() => handleCancelBooking(b.id)}
+                    disabled={actioningId === b.id}
+                    className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-red-50 text-red-600 font-semibold hover:bg-red-100 disabled:opacity-50 transition-colors"
+                  >
+                    <X size={12} /> Cancel
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Queue */}
       <div className="card">
