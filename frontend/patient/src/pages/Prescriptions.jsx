@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import api from '../api/client'
-import { cachedFetch } from '../utils/cache'
-import { Pill, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react'
+import { cachedFetch, cacheClear } from '../utils/cache'
+import { Pill, ChevronDown, ChevronUp, AlertCircle, FlaskConical } from 'lucide-react'
 
 const isActive = (drug) => {
   const d = new Date(drug.rx_date)
@@ -86,6 +86,18 @@ export default function Prescriptions() {
   const [prescriptions, setPrescriptions] = useState([])
   const [loading, setLoading] = useState(true)
   const [expandedKey, setExpandedKey] = useState(null)
+  const [seeding, setSeeding] = useState(false)
+
+  const seedDemo = async () => {
+    setSeeding(true)
+    try {
+      await api.post('/portal/seed-demo')
+      await cacheClear()
+      window.location.reload()
+    } catch (e) {
+      alert(e.message || 'Seed failed')
+    } finally { setSeeding(false) }
+  }
 
   // Controls
   const [view, setView] = useState('all') // 'active' | 'all' | 'past'
@@ -133,24 +145,10 @@ export default function Prescriptions() {
     return drugs
   }, [allDrugs, view, sort, filterClinic, filterDoctor])
 
-  if (loading) {
-    return <div className="card p-10 text-center text-gray-400 text-sm">Loading…</div>
-  }
-
-  if (allDrugs.length === 0) {
-    return (
-      <div className="card p-12 text-center text-gray-400">
-        <Pill size={40} className="mx-auto mb-3 opacity-30" />
-        <p className="font-medium">No prescriptions on record</p>
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-4">
-      {/* Controls */}
+      {/* Controls — always visible */}
       <div className="flex flex-wrap gap-3 items-center">
-        {/* Toggle */}
         <div className="flex bg-gray-100 rounded-xl p-1 gap-1">
           {[['active', 'Active'], ['all', 'All'], ['past', 'Past']].map(([v, label]) => (
             <button key={v} onClick={() => setView(v)}
@@ -160,28 +158,38 @@ export default function Prescriptions() {
             </button>
           ))}
         </div>
-
-        {/* Sort */}
         <select value={sort} onChange={e => setSort(e.target.value)} className="input sm:w-44">
           <option value="latest">Latest first</option>
           <option value="oldest">Oldest first</option>
           <option value="az">A–Z by drug name</option>
         </select>
-
-        {/* Clinic filter */}
-        <select value={filterClinic} onChange={e => setFilterClinic(e.target.value)} className="input sm:w-48">
-          <option value="">All Health Centers</option>
-          {clinics.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
-
-        {/* Doctor filter */}
-        <select value={filterDoctor} onChange={e => setFilterDoctor(e.target.value)} className="input sm:w-44">
-          <option value="">All Doctors</option>
-          {doctors.map(d => <option key={d} value={d}>{d}</option>)}
-        </select>
+        {clinics.length > 0 && (
+          <select value={filterClinic} onChange={e => setFilterClinic(e.target.value)} className="input sm:w-48">
+            <option value="">All Health Centers</option>
+            {clinics.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        )}
+        {doctors.length > 0 && (
+          <select value={filterDoctor} onChange={e => setFilterDoctor(e.target.value)} className="input sm:w-44">
+            <option value="">All Doctors</option>
+            {doctors.map(d => <option key={d} value={d}>{d}</option>)}
+          </select>
+        )}
       </div>
 
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="card p-10 text-center text-gray-400 text-sm">Loading…</div>
+      ) : allDrugs.length === 0 ? (
+        <div className="card p-12 text-center text-gray-400">
+          <Pill size={40} className="mx-auto mb-3 opacity-30" />
+          <p className="font-medium">No prescriptions on record</p>
+          <p className="text-sm mt-1 text-gray-300">Medications prescribed at your visits will appear here</p>
+          <button onClick={seedDemo} disabled={seeding}
+            className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border border-dashed border-gray-300 text-gray-400 hover:border-orange-300 hover:text-orange-500 transition-colors disabled:opacity-50">
+            {seeding ? 'Loading…' : '⚗ Load demo data'}
+          </button>
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="card p-10 text-center text-gray-400 text-sm">No medications match the current filters.</div>
       ) : (
         <div className="card overflow-hidden">
@@ -201,9 +209,7 @@ export default function Prescriptions() {
                 {filtered.map((drug, i) => {
                   const key = `${drug.rx_id}-${i}`
                   return (
-                    <DrugRow
-                      key={key}
-                      drug={drug}
+                    <DrugRow key={key} drug={drug}
                       expanded={expandedKey === key}
                       onToggle={() => setExpandedKey(expandedKey === key ? null : key)}
                     />

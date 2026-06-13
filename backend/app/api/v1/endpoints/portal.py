@@ -641,3 +641,136 @@ def portal_drug_counselling(
         .all()
     )
     return {"generic": generic, "tips": [r.tip for r in rows]}
+
+@router.post("/seed-demo")
+def seed_demo_data(current: PatientUser = Depends(get_current_patient), db: Session = Depends(get_db)):
+    """Seed demo prescriptions and lab results for the current patient (for review/testing only)."""
+    from app.models.models import (
+        Patient, Prescription, PrescriptionItem, LabOrder, LabResult,
+        Appointment, Clinic, DoctorProfile, Staff
+    )
+    from datetime import date, timedelta
+    import random, string
+
+    patients = db.query(Patient).filter(Patient.portal_user_id == current.id).all()
+    if not patients:
+        raise HTTPException(status_code=404, detail="No linked patient profile found")
+    patient = patients[0]
+
+    clinic = db.query(Clinic).first()
+    if not clinic:
+        raise HTTPException(status_code=404, detail="No clinic found in system")
+    doc = db.query(DoctorProfile).join(Staff).first()
+
+    today = date.today()
+
+    # --- Seed 3 prescriptions ---
+    rx_data = [
+        {
+            "date_offset": 0,
+            "notes": "Hypertension management",
+            "items": [
+                {"medicine_name": "Amlodipine", "dosage": "5 mg", "frequency": "Once daily", "duration": "30 days", "instructions": "Take in the morning"},
+                {"medicine_name": "Telmisartan", "dosage": "40 mg", "frequency": "Once daily", "duration": "30 days", "instructions": "Take with or without food"},
+            ]
+        },
+        {
+            "date_offset": -45,
+            "notes": "Upper respiratory infection",
+            "items": [
+                {"medicine_name": "Amoxicillin", "dosage": "500 mg", "frequency": "Thrice daily", "duration": "7 days", "instructions": "Complete full course"},
+                {"medicine_name": "Cetirizine", "dosage": "10 mg", "frequency": "Once daily at night", "duration": "5 days", "instructions": "May cause drowsiness"},
+                {"medicine_name": "Paracetamol", "dosage": "650 mg", "frequency": "As needed (max 4/day)", "duration": "5 days", "instructions": "For fever/pain relief"},
+            ]
+        },
+        {
+            "date_offset": -120,
+            "notes": "Vitamin deficiency",
+            "items": [
+                {"medicine_name": "Vitamin D3", "dosage": "60,000 IU", "frequency": "Once weekly", "duration": "8 weeks", "instructions": "Take after meals with milk"},
+                {"medicine_name": "Methylcobalamin", "dosage": "500 mcg", "frequency": "Twice daily", "duration": "60 days", "instructions": "Take with meals"},
+            ]
+        },
+    ]
+
+    from datetime import datetime as _dt
+    created_rx = 0
+    for rx in rx_data:
+        rx_date = _dt.combine(today + timedelta(days=rx["date_offset"]), _dt.min.time())
+        p = Prescription(
+            clinic_id=clinic.id,
+            patient_id=patient.id,
+            prescribed_by=doc.staff.id if doc else None,
+            status="dispensed",
+            notes=rx["notes"],
+            created_at=rx_date,
+        )
+        db.add(p)
+        db.flush()
+        for item in rx["items"]:
+            db.add(PrescriptionItem(
+                prescription_id=p.id,
+                medicine_name=item["medicine_name"],
+                dosage=item["dosage"],
+                frequency=item["frequency"],
+                duration=item["duration"],
+                instructions=item["instructions"],
+            ))
+        created_rx += 1
+
+    # --- Seed 2 lab orders with results ---
+    lab_data = [
+        {
+            "order_id": "LO-DEMO-001",
+            "date_offset": -10,
+            "test_names": ["Complete Blood Picture (CBP)"],
+            "observations": [
+                {"test_name": "Haemoglobin (Hb)", "value": "11.2", "unit": "g/dL", "ref_range": "12.0–16.0", "flag": "L"},
+                {"test_name": "WBC Count", "value": "8200", "unit": "cells/μL", "ref_range": "4000–11000", "flag": "N"},
+                {"test_name": "Platelet Count", "value": "210000", "unit": "cells/μL", "ref_range": "150000–400000", "flag": "N"},
+                {"test_name": "RBC Count", "value": "3.8", "unit": "million/μL", "ref_range": "4.0–5.5", "flag": "L"},
+            ],
+            "interpretation": "Mild anaemia noted. Haemoglobin and RBC count are below normal range. Suggest iron studies and dietary review.",
+        },
+        {
+            "order_id": "LO-DEMO-002",
+            "date_offset": -10,
+            "test_names": ["Lipid Profile"],
+            "observations": [
+                {"test_name": "Total Cholesterol", "value": "210", "unit": "mg/dL", "ref_range": "<200", "flag": "H"},
+                {"test_name": "LDL Cholesterol", "value": "138", "unit": "mg/dL", "ref_range": "<100", "flag": "H"},
+                {"test_name": "HDL Cholesterol", "value": "48", "unit": "mg/dL", "ref_range": ">50", "flag": "L"},
+                {"test_name": "Triglycerides", "value": "145", "unit": "mg/dL", "ref_range": "<150", "flag": "N"},
+            ],
+            "interpretation": "Borderline high cholesterol with elevated LDL. Lifestyle modification and dietary changes recommended. Consider statin therapy if no improvement in 3 months.",
+        },
+    ]
+
+    from datetime import datetime as dt_
+    created_lab = 0
+    for lab in lab_data:
+        lab_date = today + timedelta(days=lab["date_offset"])
+        lab_dt = dt_.combine(lab_date, dt_.min.time())
+        lo = LabOrder(
+            order_id=lab["order_id"],
+            patient_id=patient.id,
+            clinic_id=clinic.id,
+            ordered_by=doc.staff.id if doc else None,
+            test_names=lab["test_names"],
+            status="signed",
+            created_at=lab_dt,
+        )
+        db.add(lo)
+        db.flush()
+        result = LabResult(
+            order_id=lo.id,
+            observations=lab["observations"],
+            interpretation=lab["interpretation"],
+            signed_at=lab_dt,
+            status="signed",
+        )
+        db.add(result)
+        created_lab += 1
+
+    db.commit()
+    return {"seeded": True, "prescriptions": created_rx, "lab_orders": created_lab}
