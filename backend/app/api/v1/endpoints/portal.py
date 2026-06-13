@@ -434,25 +434,45 @@ def portal_prescriptions(current=Depends(get_current_patient), db: Session = Dep
 
 @router.get("/bills")
 def portal_bills(current=Depends(get_current_patient), db: Session = Depends(get_db)):
-    from app.models.models import Invoice, Clinic
+    from app.models.models import Invoice, Clinic, Appointment, DoctorProfile, Staff
     patients = db.query(Patient).filter(Patient.portal_user_id == current.id).all()
     patient_ids = [p.id for p in patients]
     if not patient_ids:
         return {"bills": []}
     invoices = db.query(Invoice).filter(
         Invoice.patient_id.in_(patient_ids)
-    ).order_by(Invoice.created_at.desc()).limit(30).all()
+    ).order_by(Invoice.created_at.desc()).limit(50).all()
     result = []
     for inv in invoices:
         clinic = db.query(Clinic).filter(Clinic.id == inv.clinic_id).first()
-        items = [{"description": i.description, "amount": float(i.total)} for i in inv.items]
+        # resolve doctor from linked appointment
+        doctor_name = None
+        if inv.appointment_id:
+            appt = db.query(Appointment).filter(Appointment.id == inv.appointment_id).first()
+            if appt and appt.doctor_id:
+                doc = db.query(DoctorProfile).filter(DoctorProfile.id == appt.doctor_id).first()
+                if doc and doc.staff:
+                    doctor_name = doc.staff.full_name
+        items = [
+            {
+                "description": i.description or "—",
+                "item_type": i.item_type,
+                "quantity": i.quantity,
+                "unit_price": float(i.unit_price or 0),
+                "discount": float(i.discount_amount or 0),
+                "amount": float(i.total or 0),
+            }
+            for i in inv.items
+        ]
         result.append({
             "id": inv.id,
             "invoice_number": inv.invoice_number,
             "date": str(inv.created_at.date()) if inv.created_at else None,
             "clinic_name": clinic.name if clinic else "Unknown",
-            "total": float(inv.total),
-            "amount_paid": float(inv.amount_paid),
+            "doctor_name": doctor_name,
+            "total": float(inv.total or 0),
+            "amount_paid": float(inv.amount_paid or 0),
+            "amount_due": float((inv.total or 0) - (inv.amount_paid or 0)),
             "status": str(inv.status) if inv.status else "pending",
             "payment_method": inv.payment_method,
             "items": items,
@@ -772,5 +792,79 @@ def seed_demo_data(current: PatientUser = Depends(get_current_patient), db: Sess
         db.add(result)
         created_lab += 1
 
+    # --- Seed 3 invoices ---
+    from app.models.models import Invoice, InvoiceItem
+    bill_data = [
+        {
+            "date_offset": -3,
+            "invoice_number": "INV-DEMO-001",
+            "status": "paid",
+            "payment_method": "UPI",
+            "total": 1200.0,
+            "amount_paid": 1200.0,
+            "items": [
+                {"description": "Consultation Fee", "item_type": "consultation", "quantity": 1, "unit_price": 800.0, "total": 800.0},
+                {"description": "ECG", "item_type": "procedure", "quantity": 1, "unit_price": 250.0, "total": 250.0},
+                {"description": "Blood Pressure Monitoring", "item_type": "procedure", "quantity": 1, "unit_price": 150.0, "total": 150.0},
+            ],
+        },
+        {
+            "date_offset": -48,
+            "invoice_number": "INV-DEMO-002",
+            "status": "partial",
+            "payment_method": "Cash",
+            "total": 2850.0,
+            "amount_paid": 1500.0,
+            "items": [
+                {"description": "Consultation Fee", "item_type": "consultation", "quantity": 1, "unit_price": 800.0, "total": 800.0},
+                {"description": "Complete Blood Picture (CBP)", "item_type": "lab", "quantity": 1, "unit_price": 450.0, "total": 450.0},
+                {"description": "Lipid Profile", "item_type": "lab", "quantity": 1, "unit_price": 700.0, "total": 700.0},
+                {"description": "Amoxicillin 500mg (10 tabs)", "item_type": "medicine", "quantity": 10, "unit_price": 12.0, "total": 120.0},
+                {"description": "Cetirizine 10mg (10 tabs)", "item_type": "medicine", "quantity": 10, "unit_price": 8.0, "total": 80.0},
+                {"description": "Paracetamol 650mg (10 tabs)", "item_type": "medicine", "quantity": 10, "unit_price": 7.0, "total": 70.0},
+                {"description": "Nursing charges", "item_type": "other", "quantity": 1, "unit_price": 630.0, "total": 630.0},
+            ],
+        },
+        {
+            "date_offset": -123,
+            "invoice_number": "INV-DEMO-003",
+            "status": "pending",
+            "payment_method": None,
+            "total": 650.0,
+            "amount_paid": 0.0,
+            "items": [
+                {"description": "Consultation Fee", "item_type": "consultation", "quantity": 1, "unit_price": 500.0, "total": 500.0},
+                {"description": "Vitamin D3 60000 IU (8 caps)", "item_type": "medicine", "quantity": 8, "unit_price": 18.75, "total": 150.0},
+            ],
+        },
+    ]
+
+    created_bills = 0
+    for bill in bill_data:
+        bill_dt = _dt.combine(today + timedelta(days=bill["date_offset"]), _dt.min.time())
+        inv = Invoice(
+            clinic_id=clinic.id,
+            patient_id=patient.id,
+            invoice_number=bill["invoice_number"],
+            status=bill["status"],
+            payment_method=bill["payment_method"],
+            total=bill["total"],
+            amount_paid=bill["amount_paid"],
+            created_at=bill_dt,
+            paid_at=bill_dt if bill["status"] == "paid" else None,
+        )
+        db.add(inv)
+        db.flush()
+        for it in bill["items"]:
+            db.add(InvoiceItem(
+                invoice_id=inv.id,
+                description=it["description"],
+                item_type=it["item_type"],
+                quantity=it["quantity"],
+                unit_price=it["unit_price"],
+                total=it["total"],
+            ))
+        created_bills += 1
+
     db.commit()
-    return {"seeded": True, "prescriptions": created_rx, "lab_orders": created_lab}
+    return {"seeded": True, "prescriptions": created_rx, "lab_orders": created_lab, "bills": created_bills}
