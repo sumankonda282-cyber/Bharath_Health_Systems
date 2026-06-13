@@ -36,7 +36,7 @@ function getTitle(pathname) {
   return 'BharatCliniq'
 }
 
-export default function TopBar({ onMenuClick }) {
+export default function TopBar({ onMenuClick, onRefresh }) {
   const { user, logout } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
@@ -75,9 +75,9 @@ export default function TopBar({ onMenuClick }) {
         {/* Right: refresh + help + profile */}
         <div className="flex items-center gap-2">
           <button
-            onClick={() => window.location.reload()}
+            onClick={onRefresh}
             className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
-            title="Refresh page"
+            title="Refresh page data"
           >
             <RefreshCw size={17} />
           </button>
@@ -126,9 +126,10 @@ export default function TopBar({ onMenuClick }) {
                   <Clock size={15} className="text-gray-400" /> My Shift
                 </button>
                 <button
+                  onClick={() => { setDropOpen(false); setProfileOpen(true) }}
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                 >
-                  <Globe size={15} className="text-gray-400" /> Language
+                  <Globe size={15} className="text-gray-400" /> Languages Known
                 </button>
                 <button
                   onClick={() => { setDropOpen(false); navigate('/admin') }}
