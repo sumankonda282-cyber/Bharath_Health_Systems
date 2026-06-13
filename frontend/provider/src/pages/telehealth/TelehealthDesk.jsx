@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Video, Clock, CheckCircle2, XCircle, Loader2, RefreshCw, AlertTriangle, User } from 'lucide-react'
+import { doctorApi } from '../../api'
+import { Video, Clock, CheckCircle2, XCircle, Loader2, RefreshCw, AlertTriangle, X } from 'lucide-react'
 import api from '../../api/client'
 
 function todayIST() {
@@ -16,6 +16,12 @@ const STATE_META = {
   expired:     { label: 'Expired',     color: '#dc2626', bg: '#fee2e2' },
 }
 
+const SIZE_PRESETS = {
+  small:      { label: 'S', cls: 'fixed bottom-4 right-4 w-72 h-48 z-50' },
+  medium:     { label: 'M', cls: 'fixed bottom-4 right-4 w-96 h-64 z-50' },
+  fullscreen: { label: '⛶', cls: 'fixed inset-0 w-full h-full z-50' },
+}
+
 function StatusBadge({ state }) {
   const m = STATE_META[state] || STATE_META.scheduled
   return (
@@ -27,12 +33,64 @@ function StatusBadge({ state }) {
   )
 }
 
+function VideoWidget({ session, onClose }) {
+  const [size, setSize] = useState('small')
+  const preset = SIZE_PRESETS[size]
+
+  return (
+    <div className={`${preset.cls} bg-gray-900 rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-gray-700`}>
+      {/* Toolbar */}
+      <div className="flex items-center justify-between px-3 py-2 bg-gray-800 flex-shrink-0">
+        <div className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+          <span className="text-xs text-gray-300 font-medium truncate max-w-40">
+            {session.appt?.patient_name || 'Telehealth Call'}
+          </span>
+        </div>
+        <div className="flex items-center gap-1">
+          {/* Size toggles */}
+          {Object.entries(SIZE_PRESETS).map(([key, p]) => (
+            <button
+              key={key}
+              onClick={() => setSize(key)}
+              title={key}
+              className={`w-6 h-6 rounded text-xs font-bold flex items-center justify-center transition-colors ${size === key ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-700 hover:text-white'}`}
+            >
+              {p.label}
+            </button>
+          ))}
+          <button onClick={onClose} className="w-6 h-6 rounded text-gray-400 hover:bg-red-600 hover:text-white flex items-center justify-center ml-1 transition-colors">
+            <X size={12} />
+          </button>
+        </div>
+      </div>
+
+      {/* Video content */}
+      <div className="flex-1 min-h-0">
+        {session.url ? (
+          <iframe
+            src={session.url}
+            title="Telehealth Video Call"
+            allow="camera; microphone; display-capture; fullscreen"
+            className="w-full h-full border-0"
+          />
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center text-gray-500 gap-2">
+            <Video size={28} className="opacity-40" />
+            <span className="text-xs">Video session starting…</span>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function TelehealthDesk() {
-  const navigate = useNavigate()
   const [appts, setAppts] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [joiningId, setJoiningId] = useState(null)
+  const [activeSession, setActiveSession] = useState(null) // { url, appt }
 
   const load = () => {
     setLoading(true)
@@ -50,8 +108,8 @@ export default function TelehealthDesk() {
   const join = async (appt) => {
     setJoiningId(appt.id)
     try {
-      const data = await api.post(`/telehealth/appointments/${appt.id}/join`)
-      navigate(`/telehealth/call/${appt.id}`, { state: { joinData: data, appt } })
+      const data = await doctorApi.joinTelehealth(appt.id)
+      setActiveSession({ url: data?.url || null, appt })
     } catch (e) {
       alert(e.message || 'Could not join. Check the appointment time window.')
     } finally {
@@ -64,13 +122,8 @@ export default function TelehealthDesk() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6 gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Video size={22} className="text-blue-600" /> Telehealth
-          </h1>
-          <p className="text-sm text-gray-500 mt-1">Today's video consultations</p>
-        </div>
+      {/* Refresh bar — no page title, TopBar handles it */}
+      <div className="flex items-center justify-end mb-6">
         <button onClick={load} className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50">
           <RefreshCw size={14} /> Refresh
         </button>
@@ -137,7 +190,7 @@ export default function TelehealthDesk() {
                       >
                         {joiningId === a.id
                           ? <><Loader2 size={14} className="animate-spin" /> Joining…</>
-                          : <><Video size={14} /> Join Call</>}
+                          : <><Video size={14} /> Join</>}
                       </button>
                     ) : a.status === 'completed' ? (
                       <span className="flex items-center gap-1 text-xs text-gray-400"><CheckCircle2 size={14} /> Done</span>
@@ -150,6 +203,11 @@ export default function TelehealthDesk() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {/* Floating video widget */}
+      {activeSession && (
+        <VideoWidget session={activeSession} onClose={() => setActiveSession(null)} />
       )}
     </div>
   )

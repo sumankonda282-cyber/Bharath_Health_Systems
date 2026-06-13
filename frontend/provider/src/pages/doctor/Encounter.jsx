@@ -629,10 +629,10 @@ export default function PatientChart() {
       )}
 
       {/* ── Content + Right panel container ── */}
-      <div className="flex relative">
+      <div className="flex gap-4 min-h-0 flex-1 px-4 md:px-6 py-5">
 
         {/* ── Main chart (left, scrollable) ── */}
-        <div className="flex-1 px-4 md:px-6 py-5 space-y-4 min-w-0">
+        <div className="flex-1 min-w-0 overflow-y-auto pb-20 space-y-4">
 
           {/* Header row */}
           <div className="flex items-center justify-between gap-3">
@@ -987,26 +987,80 @@ export default function PatientChart() {
           <div className="h-8" /> {/* bottom breathing room */}
         </div>
 
-        {/* ═══ Right Panel (contextual overlay) ═══ */}
-        {activePanel && (
-          <div className="hidden md:flex fixed right-4 top-36 w-80 bg-white border border-gray-200 rounded-2xl shadow-2xl z-40 flex-col max-h-[calc(100vh-10rem)] overflow-hidden">
+        {/* ═══ Right Sidebar — Assessment Tools (always visible on md+) ═══ */}
+        <div className="hidden md:flex w-72 shrink-0 flex-col gap-3 overflow-y-auto pb-20">
 
-            {/* Panel header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50 rounded-t-2xl shrink-0">
-              <span className="text-sm font-semibold text-gray-700">
-                {activePanel === 'symptoms'    && 'Assessment Forms'}
-                {activePanel === 'assessment'  && 'Assessment Forms'}
-                {activePanel === 'orders'      && 'Add Orders'}
-                {activePanel === 'medications' && 'Add Medication'}
-                {activePanel === 'plan'        && 'Plan Templates'}
-              </span>
-              <button type="button" onClick={() => setActivePanel(null)}
-                className="text-gray-400 hover:text-gray-700 p-1 rounded-lg hover:bg-gray-200">
-                <X size={14} />
+          {/* ── Assessment Tools section ── */}
+          <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+            <div className="px-4 py-3 border-b bg-gray-50">
+              <h3 className="text-sm font-semibold text-gray-700">Assessment Tools</h3>
+              <p className="text-xs text-gray-400 mt-0.5">Suggested forms for this visit</p>
+            </div>
+            <div className="p-3 space-y-1.5">
+              {[
+                { name: 'PHQ-9 Depression Scale',    desc: 'Mood & depression screening' },
+                { name: 'GAD-7 Anxiety Scale',        desc: 'Generalised anxiety assessment' },
+                { name: 'Pain Assessment (NRS 0–10)', desc: 'Numeric pain rating scale' },
+                { name: 'GCS Score',                  desc: 'Neurological assessment' },
+                { name: 'Vitals Extended',            desc: 'Detailed vitals & anthropometry' },
+              ].map((f, i) => (
+                <button key={i} type="button" onClick={() => navigate('/forms')}
+                  className="w-full text-left px-3 py-2.5 bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-200 rounded-xl transition-all group">
+                  <div className="text-sm font-medium text-gray-700 group-hover:text-blue-700">{f.name}</div>
+                  <div className="text-xs text-gray-400 mt-0.5">{f.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Quick Actions ── */}
+          <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+            <div className="px-4 py-3 border-b bg-gray-50">
+              <h3 className="text-sm font-semibold text-gray-700">Quick Actions</h3>
+            </div>
+            <div className="p-3 space-y-1.5">
+              <button type="button"
+                onClick={() => setActivePanel(p => p === 'orders' ? null : 'orders')}
+                className={`w-full text-left px-3 py-2.5 border rounded-xl transition-all flex items-center gap-2 text-sm font-medium ${
+                  activePanel === 'orders'
+                    ? 'bg-blue-50 border-blue-200 text-blue-700'
+                    : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700'
+                }`}>
+                <FlaskConical size={14} className="shrink-0" />
+                Add Lab Order
+              </button>
+              <button type="button"
+                onClick={() => setActivePanel(p => p === 'medications' ? null : 'medications')}
+                className={`w-full text-left px-3 py-2.5 border rounded-xl transition-all flex items-center gap-2 text-sm font-medium ${
+                  activePanel === 'medications'
+                    ? 'bg-blue-50 border-blue-200 text-blue-700'
+                    : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700'
+                }`}>
+                <Pill size={14} className="shrink-0" />
+                Add Medication
               </button>
             </div>
+          </div>
 
-            <div className="overflow-y-auto flex-1 p-4 space-y-4">
+          {/* ── Contextual slide-in panel within sidebar ── */}
+          {activePanel && (
+            <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+              {/* Panel header */}
+              <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50 shrink-0">
+                <span className="text-sm font-semibold text-gray-700">
+                  {activePanel === 'symptoms'    && 'Assessment Forms'}
+                  {activePanel === 'assessment'  && 'Assessment Forms'}
+                  {activePanel === 'orders'      && 'Add Orders'}
+                  {activePanel === 'medications' && 'Add Medication'}
+                  {activePanel === 'plan'        && 'Plan Templates'}
+                </span>
+                <button type="button" onClick={() => setActivePanel(null)}
+                  className="text-gray-400 hover:text-gray-700 p-1 rounded-lg hover:bg-gray-200">
+                  <X size={14} />
+                </button>
+              </div>
+
+              <div className="p-4 space-y-4">
 
               {/* ── FORMS panel (symptoms / assessment) ── */}
               {(activePanel === 'symptoms' || activePanel === 'assessment') && (
@@ -1271,9 +1325,11 @@ export default function PatientChart() {
                 </div>
               )}
 
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
+
       </div>
 
       {/* ── Admission Modal ── */}
