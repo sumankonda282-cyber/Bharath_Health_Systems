@@ -386,6 +386,9 @@ export default function PatientChart() {
   // ── Plan
   const [followupDays, setFollowupDays] = useState('30')
 
+  // ── Form pool for Assessment Tools sidebar
+  const [formPool, setFormPool] = useState([])
+
   // ── Right panel state
   const [activePanel, setActivePanel] = useState(null)
   // 'symptoms' | 'assessment' | 'orders' | 'medications' | 'plan'
@@ -406,6 +409,13 @@ export default function PatientChart() {
     food: 'Before food', counselling: [],
   })
   const [counsellingTips, setCounsellingTips] = useState([])
+
+  // ── Load form pool for Assessment Tools sidebar
+  useEffect(() => {
+    api.get('/provider/forms/pool')
+      .then(r => setFormPool(Array.isArray(r) ? r : (r?.data?.forms || r?.data?.forms || r?.data || r?.forms || [])))
+      .catch(() => {})
+  }, [])
 
   // ── Load encounter
   useEffect(() => {
@@ -997,19 +1007,34 @@ export default function PatientChart() {
               <p className="text-xs text-gray-400 mt-0.5">Suggested forms for this visit</p>
             </div>
             <div className="p-3 space-y-1.5">
-              {[
-                { name: 'PHQ-9 Depression Scale',    desc: 'Mood & depression screening' },
-                { name: 'GAD-7 Anxiety Scale',        desc: 'Generalised anxiety assessment' },
-                { name: 'Pain Assessment (NRS 0–10)', desc: 'Numeric pain rating scale' },
-                { name: 'GCS Score',                  desc: 'Neurological assessment' },
-                { name: 'Vitals Extended',            desc: 'Detailed vitals & anthropometry' },
-              ].map((f, i) => (
-                <button key={i} type="button" onClick={() => navigate('/forms')}
-                  className="w-full text-left px-3 py-2.5 bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-200 rounded-xl transition-all group">
-                  <div className="text-sm font-medium text-gray-700 group-hover:text-blue-700">{f.name}</div>
-                  <div className="text-xs text-gray-400 mt-0.5">{f.desc}</div>
-                </button>
-              ))}
+              {(() => {
+                const favIds = (() => { try { return JSON.parse(localStorage.getItem('favorited_forms') || '[]') } catch { return [] } })()
+                const sorted = [...formPool].sort((a, b) => {
+                  const aF = favIds.includes(a.id) ? 0 : 1
+                  const bF = favIds.includes(b.id) ? 0 : 1
+                  return aF - bF
+                }).slice(0, 6)
+                return sorted.length > 0 ? sorted.map(f => (
+                  <button key={f.id} type="button"
+                    onClick={() => navigate(`/forms/fill/${f.id}?patient_id=${patient?.id}&appointment_id=${id}`)}
+                    className="w-full text-left px-3 py-2.5 bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-200 rounded-xl transition-all group">
+                    <div className="flex items-center gap-1.5">
+                      {favIds.includes(f.id) && <span className="text-yellow-500 text-xs">★</span>}
+                      <div className="text-sm font-medium text-gray-700 group-hover:text-blue-700 truncate">{f.name}</div>
+                    </div>
+                    {f.description && <div className="text-xs text-gray-400 mt-0.5 truncate">{f.description}</div>}
+                  </button>
+                )) : (
+                  <p className="text-xs text-gray-400 py-2 text-center">No forms available</p>
+                )
+              })()}
+              <button
+                type="button"
+                onClick={() => navigate('/forms')}
+                className="w-full text-center text-xs text-[#0F2557] hover:underline pt-1"
+              >
+                Browse Library →
+              </button>
             </div>
           </div>
 

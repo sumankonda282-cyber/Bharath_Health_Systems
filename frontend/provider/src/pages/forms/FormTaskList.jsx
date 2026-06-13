@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import {
   ClipboardList, Clock, AlertTriangle, CheckCircle2, RefreshCw,
-  ChevronRight, Activity, User, Calendar, BarChart2, Loader2
+  ChevronRight, Activity, User, Calendar, BarChart2, Loader2, Star, BookOpen
 } from 'lucide-react'
 import api from '../../api/client'
 
@@ -23,6 +23,8 @@ const PRIORITY_COLORS = {
   urgent: 'bg-orange-100 text-orange-700',
   routine: 'bg-gray-100 text-gray-600',
 }
+
+const LIBRARY_CATEGORIES = ['All', 'Vitals', 'Mental Health', 'Pain', 'Nursing', 'General']
 
 function getDueCountdown(dueAt) {
   if (!dueAt) return null
@@ -164,6 +166,133 @@ function EmptyState({ tab }) {
   )
 }
 
+function FormLibrary({ patientId }) {
+  const navigate = useNavigate()
+  const [pool, setPool] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [categoryFilter, setCategoryFilter] = useState('All')
+  const [favIds, setFavIds] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('favorited_forms') || '[]') } catch { return [] }
+  })
+
+  useEffect(() => {
+    api.get('/provider/forms/pool')
+      .then(r => setPool(Array.isArray(r) ? r : (r?.data?.forms || r?.data || r?.forms || [])))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
+  const toggleFav = (id) => {
+    setFavIds(prev => {
+      const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+      localStorage.setItem('favorited_forms', JSON.stringify(next))
+      return next
+    })
+  }
+
+  const categoryMatch = (form) => {
+    if (categoryFilter === 'All') return true
+    const cat = (form.category || '').toLowerCase()
+    if (categoryFilter === 'Mental Health') return cat === 'mental' || cat === 'mental health'
+    return cat === categoryFilter.toLowerCase()
+  }
+
+  const filtered = pool
+    .filter(categoryMatch)
+    .sort((a, b) => {
+      const aFav = favIds.includes(a.id) ? 0 : 1
+      const bFav = favIds.includes(b.id) ? 0 : 1
+      return aFav - bFav
+    })
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 size={32} className="animate-spin text-[#0F2557]" />
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      {/* Category filter chips */}
+      <div className="flex flex-wrap gap-2 mb-6">
+        {LIBRARY_CATEGORIES.map(cat => (
+          <button
+            key={cat}
+            onClick={() => setCategoryFilter(cat)}
+            className={`px-3 py-1.5 rounded-full text-sm font-medium border transition ${
+              categoryFilter === cat
+                ? 'bg-[#0F2557] text-white border-[#0F2557]'
+                : 'bg-white text-gray-600 border-gray-200 hover:border-[#0F2557] hover:text-[#0F2557]'
+            }`}
+          >
+            {cat}
+          </button>
+        ))}
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 gap-3">
+          <BookOpen size={40} className="text-gray-300" />
+          <p className="text-sm text-gray-400">No forms found in this category.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {filtered.map(form => {
+            const isFav = favIds.includes(form.id)
+            return (
+              <div key={form.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-shadow flex flex-col gap-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                      <h3 className="text-sm font-bold text-[#0F2557]">{form.name || form.title}</h3>
+                      <CategoryBadge category={form.category} />
+                    </div>
+                    {form.description && (
+                      <p className="text-xs text-gray-500 mt-1 line-clamp-2">{form.description}</p>
+                    )}
+                    {form.estimated_minutes && (
+                      <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
+                        <Clock size={11} />
+                        ~{form.estimated_minutes} min
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 mt-auto">
+                  <button
+                    onClick={() => toggleFav(form.id)}
+                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition ${
+                      isFav
+                        ? 'bg-yellow-50 border-yellow-300 text-yellow-700 hover:bg-yellow-100'
+                        : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-yellow-50 hover:border-yellow-300 hover:text-yellow-700'
+                    }`}
+                    title={isFav ? 'Remove from favorites' : 'Add to favorites'}
+                  >
+                    <Star size={13} fill={isFav ? 'currentColor' : 'none'} />
+                    {isFav ? 'Favorited' : 'Favorite'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      const qs = patientId ? `?patient_id=${patientId}` : ''
+                      navigate(`/forms/fill/${form.id}${qs}`)
+                    }}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#F5821E] text-white text-xs font-semibold hover:bg-orange-600 transition ml-auto"
+                  >
+                    Assign to Patient
+                    <ChevronRight size={13} />
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function FormTaskList() {
   const [searchParams] = useSearchParams()
   const patientId = searchParams.get('patient_id')
@@ -173,6 +302,7 @@ export default function FormTaskList() {
   const [error, setError] = useState(null)
   const [activeTab, setActiveTab] = useState('All')
   const [lastRefresh, setLastRefresh] = useState(null)
+  const [mainTab, setMainTab] = useState('queue') // 'queue' | 'library'
 
   const fetchAssignments = useCallback(async () => {
     try {
@@ -227,73 +357,107 @@ export default function FormTaskList() {
                 : "Today's clinic worklist"}
             </p>
           </div>
+          {mainTab === 'queue' && (
+            <button
+              onClick={fetchAssignments}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-white transition"
+            >
+              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+              Refresh
+            </button>
+          )}
+        </div>
+
+        {/* Main tab switcher: My Queue / Form Library */}
+        <div className="flex gap-1 bg-white rounded-xl border border-gray-100 p-1 mb-6">
           <button
-            onClick={fetchAssignments}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-white transition"
+            onClick={() => setMainTab('queue')}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition ${
+              mainTab === 'queue'
+                ? 'bg-[#0F2557] text-white shadow-sm'
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+            }`}
           >
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-            Refresh
+            <ClipboardList size={14} />
+            My Queue
+          </button>
+          <button
+            onClick={() => setMainTab('library')}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition ${
+              mainTab === 'library'
+                ? 'bg-[#0F2557] text-white shadow-sm'
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            <BookOpen size={14} />
+            Form Library
           </button>
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-1 bg-white rounded-xl border border-gray-100 p-1 mb-6 overflow-x-auto">
-          {TABS.map(tab => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition ${
-                activeTab === tab
-                  ? 'bg-[#0F2557] text-white shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              {tab}
-              {tab !== 'All' && (
-                <span className={`ml-1.5 text-xs ${activeTab === tab ? 'text-white/70' : 'text-gray-400'}`}>
-                  ({assignments.filter(a => {
-                    if (tab === 'Pending') return a.status === 'pending'
-                    if (tab === 'In Progress') return a.status === 'in_progress'
-                    if (tab === 'Completed') return a.status === 'completed'
-                    if (tab === 'Overdue') return a.status === 'overdue' || (a.due_at && a.status !== 'completed' && new Date(a.due_at) < new Date())
-                    return false
-                  }).length})
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-
-        {/* Content */}
-        {error && (
-          <div className="mb-4 p-4 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700 flex items-center gap-2">
-            <AlertTriangle size={16} />
-            {error}
-          </div>
-        )}
-
-        {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 size={32} className="animate-spin text-[#0F2557]" />
-          </div>
-        ) : filtered.length === 0 ? (
-          <EmptyState tab={activeTab} />
+        {mainTab === 'library' ? (
+          <FormLibrary patientId={patientId} />
         ) : (
-          <div className="flex flex-col gap-3">
-            {filtered.map(a => (
-              <AssignmentCard
-                key={a.id}
-                assignment={a}
-                worklist={!patientId}
-              />
-            ))}
-          </div>
-        )}
+          <>
+            {/* Status Tabs */}
+            <div className="flex gap-1 bg-white rounded-xl border border-gray-100 p-1 mb-6 overflow-x-auto">
+              {TABS.map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition ${
+                    activeTab === tab
+                      ? 'bg-[#0F2557] text-white shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  {tab}
+                  {tab !== 'All' && (
+                    <span className={`ml-1.5 text-xs ${activeTab === tab ? 'text-white/70' : 'text-gray-400'}`}>
+                      ({assignments.filter(a => {
+                        if (tab === 'Pending') return a.status === 'pending'
+                        if (tab === 'In Progress') return a.status === 'in_progress'
+                        if (tab === 'Completed') return a.status === 'completed'
+                        if (tab === 'Overdue') return a.status === 'overdue' || (a.due_at && a.status !== 'completed' && new Date(a.due_at) < new Date())
+                        return false
+                      }).length})
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
 
-        {lastRefresh && (
-          <p className="text-center text-xs text-gray-400 mt-6">
-            Last updated {lastRefresh.toLocaleTimeString()}
-          </p>
+            {/* Content */}
+            {error && (
+              <div className="mb-4 p-4 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700 flex items-center gap-2">
+                <AlertTriangle size={16} />
+                {error}
+              </div>
+            )}
+
+            {loading ? (
+              <div className="flex items-center justify-center py-20">
+                <Loader2 size={32} className="animate-spin text-[#0F2557]" />
+              </div>
+            ) : filtered.length === 0 ? (
+              <EmptyState tab={activeTab} />
+            ) : (
+              <div className="flex flex-col gap-3">
+                {filtered.map(a => (
+                  <AssignmentCard
+                    key={a.id}
+                    assignment={a}
+                    worklist={!patientId}
+                  />
+                ))}
+              </div>
+            )}
+
+            {lastRefresh && (
+              <p className="text-center text-xs text-gray-400 mt-6">
+                Last updated {lastRefresh.toLocaleTimeString()}
+              </p>
+            )}
+          </>
         )}
       </div>
     </div>
