@@ -460,7 +460,7 @@ export default function PatientDetail() {
         <div className="flex items-center gap-3">
           <button onClick={() => navigate('/patients')} className="btn-secondary p-2"><ArrowLeft size={16} /></button>
           <div>
-            <h1 className="page-title">{d.full_name}</h1>
+            <p className="font-semibold text-gray-900">{d.full_name}</p>
             <p className="text-sm text-gray-500 font-mono">{d.clinic_patient_id}</p>
           </div>
         </div>

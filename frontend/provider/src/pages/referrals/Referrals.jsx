@@ -340,7 +340,6 @@ export default function Referrals() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">Referrals</h1>
         <button onClick={() => setShowNew(true)} className="btn-primary"><Plus size={16} />New Referral</button>
       </div>
 

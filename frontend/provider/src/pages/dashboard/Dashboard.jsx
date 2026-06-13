@@ -51,7 +51,7 @@ export default function Dashboard() {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Good morning, {user?.full_name} 👋</h1>
+          <p className="text-lg font-semibold" style={{ color: '#0F2557' }}>Good morning, {user?.full_name} 👋</p>
           <p className="text-sm text-gray-500 mt-0.5">{format(new Date(), 'EEEE, MMMM d, yyyy')}</p>
         </div>
         <Link to="/appointments" className="btn-primary">

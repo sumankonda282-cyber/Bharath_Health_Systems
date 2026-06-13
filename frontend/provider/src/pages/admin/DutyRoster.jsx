@@ -151,7 +151,6 @@ export default function DutyRoster() {
         <div className="flex items-center gap-3">
           <CalendarDays size={26} style={{ color: '#0F2557', flexShrink: 0 }} />
           <div>
-            <h1 className="page-title">Duty Roster</h1>
             <p className="text-sm text-gray-500 mt-0.5">Weekly schedule grid — click any cell to add or edit</p>
           </div>
         </div>

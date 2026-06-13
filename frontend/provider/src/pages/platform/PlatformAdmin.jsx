@@ -80,7 +80,6 @@ export default function PlatformAdmin() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">Platform Administration</h1>
         <div className="badge badge-purple">BHarath Health Super Admin</div>
       </div>
 

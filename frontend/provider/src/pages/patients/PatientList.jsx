@@ -236,7 +236,6 @@ export default function PatientList() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">Patients</h1>
         <Link to="/patients/new" className="btn-primary">
           <Plus size={16} />Register Patient
         </Link>

@@ -103,7 +103,6 @@ export default function Appointments() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">Appointments</h1>
         <div className="flex gap-2">
           <button onClick={loadAppts} className="btn-secondary p-2"><RefreshCw size={15} /></button>
           <button onClick={() => setShowWalkin(true)} className="btn-primary">

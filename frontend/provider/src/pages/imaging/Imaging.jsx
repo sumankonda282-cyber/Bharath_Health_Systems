@@ -58,7 +58,6 @@ export default function Imaging() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">Imaging / Radiology</h1>
         <button onClick={() => setShowNew(true)} className="btn-primary"><Plus size={16} />New Order</button>
       </div>
 
