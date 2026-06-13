@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
@@ -10,10 +10,92 @@ import {
 const today = new Date().toISOString().split('T')[0]
 
 const SPECIALTIES = [
-  'All Specialties', 'General Medicine', 'Cardiology', 'Dermatology',
+  'General Medicine', 'Cardiology', 'Dermatology',
   'Pediatrics', 'Orthopedics', 'Gynecology', 'Psychiatry', 'ENT',
   'Neurology', 'Ophthalmology', 'Dentistry',
 ]
+
+// ── Reusable autocomplete combobox ────────────────────────────────────────────
+function Combobox({ value, onChange, suggestions, placeholder, icon: Icon, onClear }) {
+  const [open, setOpen] = useState(false)
+  const [input, setInput] = useState(value || '')
+  const ref = useRef(null)
+
+  // Keep input in sync when value is cleared externally
+  useEffect(() => { if (!value) setInput('') }, [value])
+
+  useEffect(() => {
+    const h = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [])
+
+  const matches = useMemo(() => {
+    const q = input.trim().toLowerCase()
+    if (!q) return suggestions.slice(0, 8)
+    return suggestions.filter(s => s.toLowerCase().includes(q)).slice(0, 8)
+  }, [input, suggestions])
+
+  const handleInput = e => {
+    setInput(e.target.value)
+    onChange(e.target.value)
+    setOpen(true)
+  }
+
+  const handleSelect = s => {
+    setInput(s)
+    onChange(s)
+    setOpen(false)
+  }
+
+  const handleClear = () => {
+    setInput('')
+    onChange('')
+    onClear?.()
+    setOpen(false)
+  }
+
+  return (
+    <div className="relative" ref={ref}>
+      <div className="relative">
+        {Icon && <Icon size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />}
+        <input
+          value={input}
+          onChange={handleInput}
+          onFocus={() => setOpen(true)}
+          placeholder={placeholder}
+          className="input pl-9 pr-8 w-full"
+        />
+        {input && (
+          <button onClick={handleClear}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 transition-colors">
+            <X size={13} />
+          </button>
+        )}
+      </div>
+      {open && matches.length > 0 && (
+        <div className="absolute left-0 top-full mt-1 w-full bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden">
+          {matches.map(s => {
+            const q = input.trim().toLowerCase()
+            const idx = q ? s.toLowerCase().indexOf(q) : -1
+            return (
+              <button key={s} onMouseDown={() => handleSelect(s)}
+                className="w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 transition-colors flex items-center gap-2">
+                {idx >= 0 ? (
+                  <span>
+                    {s.slice(0, idx)}
+                    <span className="font-bold" style={{ color: '#0F2557' }}>{s.slice(idx, idx + q.length)}</span>
+                    {s.slice(idx + q.length)}
+                  </span>
+                ) : s}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
 
 function DoctorCard({ doctor, onSelect }) {
   return (
@@ -269,8 +351,10 @@ export default function BookAppointmentPage() {
   const [allDoctors, setAllDoctors] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [specialty, setSpecialty] = useState('All Specialties')
-  const [cityFilter, setCityFilter] = useState('All Cities')
+  const [specialty, setSpecialty] = useState('')
+  const [cityFilter, setCityFilter] = useState('')
+  const [searchOpen, setSearchOpen] = useState(false)
+  const searchRef = useRef(null)
   const [pastDoctors, setPastDoctors] = useState([])
   const [booked, setBooked] = useState(false)
 
@@ -310,18 +394,39 @@ export default function BookAppointmentPage() {
   }, []) // eslint-disable-line
 
   const cities = useMemo(() =>
-    ['All Cities', ...new Set(allDoctors.map(d => d.city).filter(Boolean))],
+    [...new Set(allDoctors.map(d => d.city).filter(Boolean))].sort(),
     [allDoctors]
   )
 
+  const allSpecialties = useMemo(() =>
+    [...new Set([...SPECIALTIES, ...allDoctors.map(d => d.specialty).filter(Boolean)])].sort(),
+    [allDoctors]
+  )
+
+  // Search suggestions: doctor names + specialties + health centers + cities
+  const searchSuggestions = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q || q.length < 1) return []
+    const hits = new Set()
+    allDoctors.forEach(d => {
+      const fullName = /^dr\.?\s/i.test(d.name || '') ? d.name : `Dr. ${d.name}`
+      if (fullName?.toLowerCase().includes(q)) hits.add(fullName)
+      if (d.specialty?.toLowerCase().includes(q)) hits.add(d.specialty)
+      if (d.clinic_name?.toLowerCase().includes(q)) hits.add(d.clinic_name)
+      if (d.city?.toLowerCase().includes(q)) hits.add(d.city)
+    })
+    return [...hits].slice(0, 8)
+  }, [allDoctors, search])
+
   const filtered = useMemo(() => {
     let list = allDoctors
-    if (specialty !== 'All Specialties') list = list.filter(d => d.specialty === specialty)
-    if (cityFilter !== 'All Cities') list = list.filter(d => d.city === cityFilter)
+    if (specialty) list = list.filter(d => d.specialty?.toLowerCase().includes(specialty.toLowerCase()))
+    if (cityFilter) list = list.filter(d => d.city?.toLowerCase().includes(cityFilter.toLowerCase()))
     if (search.trim()) {
       const q = search.toLowerCase()
       list = list.filter(d =>
         d.name?.toLowerCase().includes(q) ||
+        (`Dr. ${d.name}`).toLowerCase().includes(q) ||
         d.specialty?.toLowerCase().includes(q) ||
         d.clinic_name?.toLowerCase().includes(q) ||
         d.city?.toLowerCase().includes(q)
@@ -329,6 +434,8 @@ export default function BookAppointmentPage() {
     }
     return list
   }, [allDoctors, search, specialty, cityFilter])
+
+  const hasFilters = search || specialty || cityFilter
 
   // Doctor selected — show slot picker
   if (doctor) {
@@ -387,30 +494,74 @@ export default function BookAppointmentPage() {
           Find a Doctor
         </h2>
         <div className="flex flex-col sm:flex-row gap-3 mb-4">
-          <div className="relative flex-1">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input value={search} onChange={e => setSearch(e.target.value)}
+          {/* Main search with inline suggestions */}
+          <div className="relative flex-1" ref={searchRef}>
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 z-10 pointer-events-none" />
+            <input
+              value={search}
+              onChange={e => { setSearch(e.target.value); setSearchOpen(true) }}
+              onFocus={() => setSearchOpen(true)}
+              onBlur={() => setTimeout(() => setSearchOpen(false), 150)}
               placeholder="Doctor name, specialty, health center, city…"
-              className="input pl-9" />
+              className="input pl-9 pr-8 w-full"
+            />
+            {search && (
+              <button onClick={() => { setSearch(''); setSearchOpen(false) }}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500">
+                <X size={13} />
+              </button>
+            )}
+            {searchOpen && searchSuggestions.length > 0 && (
+              <div className="absolute left-0 top-full mt-1 w-full bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden">
+                {searchSuggestions.map(s => {
+                  const q = search.trim().toLowerCase()
+                  const idx = s.toLowerCase().indexOf(q)
+                  return (
+                    <button key={s}
+                      onMouseDown={() => { setSearch(s); setSearchOpen(false) }}
+                      className="w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 transition-colors">
+                      {idx >= 0 ? (
+                        <>
+                          {s.slice(0, idx)}
+                          <span className="font-bold" style={{ color: '#0F2557' }}>{s.slice(idx, idx + q.length)}</span>
+                          {s.slice(idx + q.length)}
+                        </>
+                      ) : s}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
           </div>
-          <div className="relative">
-            <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-            <select value={specialty} onChange={e => setSpecialty(e.target.value)}
-              className="input pl-9 sm:w-48">
-              {SPECIALTIES.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
+
+          {/* Specialty autocomplete */}
+          <div className="sm:w-48">
+            <Combobox
+              value={specialty}
+              onChange={setSpecialty}
+              suggestions={allSpecialties}
+              placeholder="All Specialties"
+              icon={Filter}
+              onClear={() => setSpecialty('')}
+            />
           </div>
-          <div className="relative">
-            <MapPin size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-            <select value={cityFilter} onChange={e => setCityFilter(e.target.value)}
-              className="input pl-9 sm:w-40">
-              {cities.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
+
+          {/* City autocomplete */}
+          <div className="sm:w-40">
+            <Combobox
+              value={cityFilter}
+              onChange={setCityFilter}
+              suggestions={cities}
+              placeholder="All Cities"
+              icon={MapPin}
+              onClear={() => setCityFilter('')}
+            />
           </div>
-          {(search || specialty !== 'All Specialties' || cityFilter !== 'All Cities') && (
-            <button onClick={() => { setSearch(''); setSpecialty('All Specialties'); setCityFilter('All Cities') }}
-              className="inline-flex items-center gap-1 px-3 py-2 rounded-xl text-sm text-gray-500 hover:bg-gray-100 transition-colors">
-              <X size={14} /> Clear
+
+          {hasFilters && (
+            <button onClick={() => { setSearch(''); setSpecialty(''); setCityFilter('') }}
+              className="inline-flex items-center gap-1 px-3 py-2 rounded-xl text-sm text-gray-500 hover:bg-gray-100 transition-colors flex-shrink-0">
+              <X size={14} /> Clear all
             </button>
           )}
         </div>
