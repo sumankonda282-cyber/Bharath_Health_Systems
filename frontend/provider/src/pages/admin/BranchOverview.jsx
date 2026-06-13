@@ -136,8 +136,7 @@ export default function BranchOverview() {
       {/* Header */}
       <div className="page-header">
         <div>
-          <h1 className="page-title">Branch Overview</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
+          <p className="text-sm text-gray-500">
             {format(new Date(), 'EEEE, MMMM d, yyyy')} &bull; {branches.length} branch{branches.length !== 1 ? 'es' : ''}
           </p>
         </div>

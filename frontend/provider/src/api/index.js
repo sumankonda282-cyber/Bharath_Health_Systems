@@ -27,8 +27,8 @@ export const clinicApi = {
   getDoctors:      () => api.get('/clinic/doctors'),
   getSubscription: () => api.get('/clinic/subscription'),
   getRevenue:      (month) => api.get('/clinic/revenue', { params: { month } }),
-  getOnlineBookings: (status) => api.get('/clinic/online-bookings', { params: status ? { status } : {} }),
-  updateBooking:   (id, data) => api.put(`/clinic/online-bookings/${id}`, data),
+  getOnlineBookings: (status) => api.get('/appointments/online-bookings', { params: status ? { status } : {} }),
+  updateBooking:   (id, data) => api.put(`/appointments/online-bookings/${id}`, data),
   setSchedule:       (doctorId, data) => api.post(`/clinic/doctors/${doctorId}/schedule`, data),
   getSchedules:      (doctorId) => api.get(`/clinic/doctors/${doctorId}/schedules`),
   updateTelehealth:  (profileId, data) => api.put(`/clinic/doctors/${profileId}/telehealth`, data),
@@ -60,10 +60,13 @@ export const encountersApi = {
 
 // ── Appointments ──────────────────────────────────────────────────
 export const appointmentsApi = {
-  list:       (params) => api.get('/appointments', { params }),
-  create:     (data) => api.post('/appointments', data),
-  update:     (id, data) => api.put(`/appointments/${id}`, data),
-  addVitals:  (data) => api.post('/appointments/vitals', data),
+  list:                (params) => api.get('/appointments', { params }),
+  create:              (data) => api.post('/appointments', data),
+  update:              (id, data) => api.put(`/appointments/${id}`, data),
+  addVitals:           (data) => api.post('/appointments/vitals', data),
+  listOnlineBookings:  (params) => api.get('/appointments/online-bookings', { params }),
+  confirmBooking:      (id) => api.post(`/appointments/online-bookings/${id}/confirm`),
+  cancelBooking:       (id) => api.post(`/appointments/online-bookings/${id}/cancel`),
 }
 
 // ── Doctor Desk ───────────────────────────────────────────────────

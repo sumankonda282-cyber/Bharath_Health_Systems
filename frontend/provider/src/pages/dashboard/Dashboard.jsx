@@ -51,7 +51,7 @@ export default function Dashboard() {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Good morning, {user?.full_name} 👋</h1>
+          <p className="text-lg font-semibold" style={{ color: '#0F2557' }}>Good morning, {user?.full_name} 👋</p>
           <p className="text-sm text-gray-500 mt-0.5">{format(new Date(), 'EEEE, MMMM d, yyyy')}</p>
         </div>
         <Link to="/appointments" className="btn-primary">
@@ -62,11 +62,15 @@ export default function Dashboard() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Today's Appointments" value={stats?.todayAppts} icon={Calendar} color="blue" />
-        <StatCard label="Waiting" value={stats?.waiting} icon={Clock} color="orange" />
-        <StatCard label="Completed" value={stats?.completed} icon={CheckCircle} color="green" />
+        <StatCard label="Today's Appointments" value={stats?.todayAppts} icon={Calendar} color="blue"
+          to={`/appointments?date=${today}`} />
+        <StatCard label="Waiting" value={stats?.waiting} icon={Clock} color="orange"
+          to={`/appointments?date=${today}&status=pending`} />
+        <StatCard label="Completed" value={stats?.completed} icon={CheckCircle} color="green"
+          to={`/appointments?date=${today}&status=completed`} />
         <StatCard label="Plan" value={user?.clinic_plan?.toUpperCase() || 'FREE'} icon={Activity} color="purple"
-          sub={user?.clinic_verified ? '✓ Verified' : '⚠ Pending verification'} />
+          sub={user?.clinic_verified ? '✓ Verified' : '⚠ Pending verification'}
+          to="/admin" />
       </div>
 
       {/* Today's Queue */}

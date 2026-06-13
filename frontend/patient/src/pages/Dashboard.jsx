@@ -1,10 +1,105 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../api/client'
 import { cachedFetch } from '../utils/cache'
-import { Calendar, Pill, Heart, CheckCircle, Users } from 'lucide-react'
+import { Calendar, Pill, Heart, CheckCircle, Users, ShieldCheck, RefreshCw, Copy, Check } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import logoImg from '../assets/logo.png'
+
+function HistoryPinSection() {
+  const [pin, setPin] = useState(null)
+  const [expiresAt, setExpiresAt] = useState(null)
+  const [secondsLeft, setSecondsLeft] = useState(0)
+  const [loading, setLoading] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const timerRef = useRef(null)
+
+  const startCountdown = (expiry) => {
+    clearInterval(timerRef.current)
+    timerRef.current = setInterval(() => {
+      const secs = Math.max(0, Math.round((new Date(expiry) - Date.now()) / 1000))
+      setSecondsLeft(secs)
+      if (secs === 0) clearInterval(timerRef.current)
+    }, 1000)
+  }
+
+  const generate = async () => {
+    setLoading(true)
+    try {
+      const res = await api.post('/portal/pin/generate')
+      const data = res?.data || res
+      setPin(data.pin)
+      setExpiresAt(data.expires_at)
+      startCountdown(data.expires_at)
+    } catch { /* silent */ } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    api.get('/portal/pin').then(res => {
+      const data = res?.data || res
+      if (data?.pin && data?.expires_at && new Date(data.expires_at) > new Date()) {
+        setPin(data.pin)
+        setExpiresAt(data.expires_at)
+        startCountdown(data.expires_at)
+      }
+    }).catch(() => {})
+    return () => clearInterval(timerRef.current)
+  }, [])
+
+  const expired = secondsLeft === 0 && pin
+  const mins = Math.floor(secondsLeft / 60)
+  const secs = secondsLeft % 60
+
+  return (
+    <div className="mt-5 pt-4 border-t border-white/10">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <ShieldCheck size={14} style={{ color: '#fbbf24' }} />
+          <span className="text-xs font-semibold" style={{ color: '#93c5fd' }}>Clinical History Access PIN</span>
+        </div>
+        <button
+          onClick={generate}
+          disabled={loading}
+          className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-opacity disabled:opacity-50"
+          style={{ background: 'rgba(245,130,30,0.2)', color: '#fbbf24' }}
+        >
+          <RefreshCw size={11} className={loading ? 'animate-spin' : ''} />
+          {pin ? 'New PIN' : 'Generate PIN'}
+        </button>
+      </div>
+
+      {pin && !expired ? (
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-3xl font-extrabold tracking-[0.25em] font-mono" style={{ color: '#F5821E' }}>
+              {pin}
+            </span>
+            <button
+              onClick={() => { navigator.clipboard.writeText(pin); setCopied(true); setTimeout(() => setCopied(false), 1500) }}
+              className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+            >
+              {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} style={{ color: '#93c5fd' }} />}
+            </button>
+          </div>
+          <div className="text-right">
+            <div className="text-xs font-mono font-semibold" style={{ color: secondsLeft < 300 ? '#f87171' : '#86efac' }}>
+              {mins}:{String(secs).padStart(2, '0')}
+            </div>
+            <div className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>remaining</div>
+          </div>
+        </div>
+      ) : pin && expired ? (
+        <p className="text-xs" style={{ color: '#f87171' }}>PIN expired — generate a new one to share.</p>
+      ) : (
+        <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
+          Share this PIN + your BHID with a doctor at another clinic to grant temporary access to your history.
+        </p>
+      )}
+    </div>
+  )
+}
 
 const STATUS_COLORS = {
   pending: 'badge-yellow', confirmed: 'badge-blue', completed: 'badge-green',
@@ -79,6 +174,8 @@ export default function Dashboard() {
               <div className="text-xl font-bold">{user?.linked_clinics || 0}</div>
             </div>
           </div>
+
+          <HistoryPinSection />
         </div>
       </div>
 

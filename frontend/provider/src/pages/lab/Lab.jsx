@@ -56,7 +56,6 @@ export default function Lab() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">Laboratory</h1>
       </div>
 
       {/* Filter tabs */}

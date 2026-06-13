@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import Sidebar from './Sidebar'
+import TopBar from './TopBar'
 import { Outlet } from 'react-router-dom'
-import { Menu } from 'lucide-react'
-import BrandLogo from '../BrandLogo'
 import ChatWidget from '../ChatWidget'
 
 export default function Layout() {
@@ -27,18 +26,13 @@ export default function Layout() {
         <Sidebar />
       </div>
 
-      <main className="flex-1 md:ml-60 overflow-y-auto">
-        {/* Mobile top bar */}
-        <div className="md:hidden flex items-center gap-3 px-4 py-3 border-b border-gray-200 bg-white sticky top-0 z-30">
-          <button onClick={() => setOpen(true)} className="p-1.5 rounded-lg text-gray-600 hover:bg-gray-100">
-            <Menu size={22} />
-          </button>
-          <BrandLogo size="sm" />
-        </div>
-        <div className="p-4 md:p-6 min-h-full max-w-screen-xl">
+      <main className="flex-1 md:ml-60 overflow-y-auto flex flex-col">
+        <TopBar onMenuClick={() => setOpen(true)} />
+        <div className="p-4 md:p-6 flex-1">
           <Outlet />
         </div>
       </main>
+
       <ChatWidget />
     </div>
   )

@@ -194,6 +194,9 @@ export default function PatientList() {
   const [patients, setPatients]     = useState([])
   const [todayAppts, setTodayAppts] = useState({}) // patientId → status
   const [search, setSearch]         = useState('')
+  const [genderFilter, setGenderFilter] = useState('')
+  const [ageFilter, setAgeFilter]       = useState('')
+  const [apptFilter, setApptFilter]     = useState('')
   const [loading, setLoading]       = useState(true)
   const navigate = useNavigate()
 
@@ -233,29 +236,87 @@ export default function PatientList() {
     setPatients(ps => ps.map(p => p.id === patientId ? { ...p, tags } : p))
   }
 
+  const ageInRange = (age) => {
+    if (!ageFilter) return true
+    if (ageFilter === '0-12')  return age >= 0 && age <= 12
+    if (ageFilter === '13-17') return age >= 13 && age <= 17
+    if (ageFilter === '18-40') return age >= 18 && age <= 40
+    if (ageFilter === '41-60') return age >= 41 && age <= 60
+    if (ageFilter === '60+')   return age > 60
+    return true
+  }
+
+  const filtered = patients.filter(p => {
+    if (genderFilter && p.gender?.toLowerCase() !== genderFilter) return false
+    if (ageFilter && !ageInRange(p.age)) return false
+    if (apptFilter) {
+      const s = todayAppts[p.id]
+      if (apptFilter === 'none' && s) return false
+      if (apptFilter !== 'none' && s !== apptFilter) return false
+    }
+    return true
+  })
+
+  const activeFilters = [genderFilter, ageFilter, apptFilter].filter(Boolean).length
+
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">Patients</h1>
         <Link to="/patients/new" className="btn-primary">
           <Plus size={16} />Register Patient
         </Link>
       </div>
 
       <div className="card">
-        <div className="p-4 border-b border-gray-100">
-          <div className="relative">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              className="input pl-9"
-              placeholder="Search by name or clinic ID…"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
+        {/* Search + Filters */}
+        <div className="p-4 border-b border-gray-100 space-y-3">
+          <div className="flex gap-3 flex-wrap items-center">
+            <div className="relative flex-1 min-w-48">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                className="input pl-9"
+                placeholder="Search by name or clinic ID…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+            </div>
+            <select className="input w-36" value={genderFilter} onChange={e => setGenderFilter(e.target.value)}>
+              <option value="">All Genders</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="other">Other</option>
+            </select>
+            <select className="input w-36" value={ageFilter} onChange={e => setAgeFilter(e.target.value)}>
+              <option value="">All Ages</option>
+              <option value="0-12">Child (0–12)</option>
+              <option value="13-17">Teen (13–17)</option>
+              <option value="18-40">Adult (18–40)</option>
+              <option value="41-60">Middle-aged (41–60)</option>
+              <option value="60+">Senior (60+)</option>
+            </select>
+            <select className="input w-44" value={apptFilter} onChange={e => setApptFilter(e.target.value)}>
+              <option value="">All — Today's Status</option>
+              <option value="pending">Today: Pending</option>
+              <option value="confirmed">Today: Confirmed</option>
+              <option value="in_progress">Today: In Progress</option>
+              <option value="completed">Today: Completed</option>
+              <option value="none">No appointment today</option>
+            </select>
+            {activeFilters > 0 && (
+              <button
+                onClick={() => { setGenderFilter(''); setAgeFilter(''); setApptFilter('') }}
+                className="flex items-center gap-1 text-xs text-gray-500 hover:text-red-600 px-2 py-1.5"
+              >
+                <X size={13} /> Clear filters ({activeFilters})
+              </button>
+            )}
           </div>
+          {(genderFilter || ageFilter || apptFilter) && (
+            <p className="text-xs text-gray-400">{filtered.length} of {patients.length} patients shown</p>
+          )}
         </div>
 
-        {loading ? <PageLoader /> : patients.length === 0 ? (
+        {loading ? <PageLoader /> : filtered.length === 0 ? (
           <div className="p-10 text-center text-gray-400">
             <User size={36} className="mx-auto mb-2 opacity-30" />
             <p>No patients found</p>
@@ -276,7 +337,7 @@ export default function PatientList() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {patients.map(p => {
+                {filtered.map(p => {
                   const age = p.date_of_birth
                     ? Math.floor((Date.now() - new Date(p.date_of_birth)) / (365.25 * 24 * 60 * 60 * 1000))
                     : null

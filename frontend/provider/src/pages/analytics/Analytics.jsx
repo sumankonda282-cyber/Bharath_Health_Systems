@@ -24,7 +24,6 @@ export default function Analytics() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">Revenue Analytics</h1>
         <input type="month" className="input w-44" value={month} onChange={e => setMonth(e.target.value)} />
       </div>
 

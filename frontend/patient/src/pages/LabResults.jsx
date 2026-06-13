@@ -183,9 +183,7 @@ export default function LabResults() {
   const Icon = tab === 'lab' ? FlaskConical : ScanLine
 
   return (
-    <div className="max-w-3xl space-y-4">
-      <h1 className="text-2xl font-extrabold" style={{ color: '#0F2557' }}>Test Results</h1>
-
+    <div className="space-y-4">
       <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
         {[['lab', 'Lab Results', FlaskConical], ['imaging', 'Imaging Reports', ScanLine]].map(([k, label, Ic]) => (
           <button

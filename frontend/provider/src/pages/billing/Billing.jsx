@@ -93,7 +93,6 @@ export default function Billing() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">Billing</h1>
         <button onClick={() => setShowNew(true)} className="btn-primary"><Plus size={16} />New Invoice</button>
       </div>
 

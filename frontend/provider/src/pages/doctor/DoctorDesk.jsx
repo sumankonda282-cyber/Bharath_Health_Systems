@@ -98,7 +98,6 @@ export default function DoctorDesk() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">Doctor Desk</h1>
         <div className="flex items-center gap-3">
           <input type="date" className="input w-44" value={date} onChange={e => setDate(e.target.value)} />
         </div>

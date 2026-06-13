@@ -39,7 +39,6 @@ export default function PatientNew() {
           <button onClick={() => navigate('/patients')} className="btn-secondary p-2">
             <ArrowLeft size={16} />
           </button>
-          <h1 className="page-title">Register New Patient</h1>
         </div>
       </div>
 

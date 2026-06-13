@@ -3,7 +3,7 @@ import { appointmentsApi, patientsApi, clinicApi } from '../../api'
 import { cachedFetch, TTL } from '../../utils/cache'
 import { PageLoader } from '../../components/ui/Spinner'
 import Modal from '../../components/ui/Modal'
-import { Plus, Calendar, Search, RefreshCw, UserPlus } from 'lucide-react'
+import { Plus, Calendar, UserPlus, Globe, CheckCircle, X } from 'lucide-react'
 import { format } from 'date-fns'
 import { useSearchParams } from 'react-router-dom'
 import { Link } from 'react-router-dom'
@@ -13,10 +13,14 @@ const STATUS_COLORS = {
   in_progress: 'badge-purple', completed: 'badge-green', cancelled: 'badge-gray',
 }
 
+const ALL_STATUSES = ['pending', 'confirmed', 'in_progress', 'completed', 'cancelled']
+
 export default function Appointments() {
   const [searchParams] = useSearchParams()
-  const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'))
+  const [date, setDate] = useState(searchParams.get('date') || format(new Date(), 'yyyy-MM-dd'))
+  const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || '')
   const [appointments, setAppointments] = useState([])
+  const [onlineBookings, setOnlineBookings] = useState([])
   const [loading, setLoading] = useState(true)
   const [showWalkin, setShowWalkin] = useState(searchParams.get('walkin') === '1')
   const [doctors, setDoctors] = useState([])
@@ -27,11 +31,20 @@ export default function Appointments() {
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [actioningId, setActioningId] = useState(null)
 
   const loadAppts = () => {
     setLoading(true)
-    appointmentsApi.list({ appointment_date: date, limit: 100 })
-      .then(r => setAppointments(Array.isArray(r) ? r : []))
+    Promise.all([
+      appointmentsApi.list({ appointment_date: date, limit: 100 }),
+      appointmentsApi.listOnlineBookings({ status: 'pending', date }),
+    ])
+      .then(([appts, bookings]) => {
+        setAppointments(Array.isArray(appts) ? appts : [])
+        // Filter online bookings for the selected date
+        const allBookings = Array.isArray(bookings) ? bookings : []
+        setOnlineBookings(allBookings.filter(b => b.booking_date === date))
+      })
       .finally(() => setLoading(false))
   }
 
@@ -72,42 +85,128 @@ export default function Appointments() {
     }
   }
 
+  const handleConfirmBooking = async (id) => {
+    setActioningId(id)
+    try {
+      await appointmentsApi.confirmBooking(id)
+      loadAppts()
+    } catch { /* silent */ } finally { setActioningId(null) }
+  }
+
+  const handleCancelBooking = async (id) => {
+    setActioningId(id)
+    try {
+      await appointmentsApi.cancelBooking(id)
+      loadAppts()
+    } catch { /* silent */ } finally { setActioningId(null) }
+  }
+
   const statusNext = { pending: 'confirmed', confirmed: 'in_progress', in_progress: 'completed' }
 
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">Appointments</h1>
         <div className="flex gap-2">
-          <button onClick={loadAppts} className="btn-secondary p-2"><RefreshCw size={15} /></button>
           <button onClick={() => setShowWalkin(true)} className="btn-primary">
             <UserPlus size={16} />Walk-in
           </button>
         </div>
       </div>
 
-      {/* Date picker */}
-      <div className="card p-4 mb-4 flex items-center gap-4">
-        <Calendar size={18} className="text-gray-400" />
-        <input
-          type="date"
-          className="input w-44"
-          value={date}
-          onChange={e => setDate(e.target.value)}
-        />
-        <div className="text-sm text-gray-500">
-          {appointments.length} appointments · {appointments.filter(a => a.status === 'completed').length} completed
+      {/* Filters bar */}
+      <div className="card p-4 mb-4 flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2">
+          <Calendar size={16} className="text-gray-400" />
+          <input
+            type="date"
+            className="input w-44"
+            value={date}
+            onChange={e => setDate(e.target.value)}
+          />
+        </div>
+        <div className="flex gap-1 flex-wrap">
+          <button
+            onClick={() => setStatusFilter('')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${!statusFilter ? 'text-white border-transparent' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}
+            style={!statusFilter ? { background: '#0F2557' } : {}}
+          >All</button>
+          {ALL_STATUSES.map(s => (
+            <button key={s} onClick={() => setStatusFilter(statusFilter === s ? '' : s)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors capitalize ${statusFilter === s ? 'text-white border-transparent' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}
+              style={statusFilter === s ? { background: '#CC1414' } : {}}
+            >{s.replace('_', ' ')}</button>
+          ))}
+        </div>
+        <div className="text-xs text-gray-400 ml-auto">
+          {appointments.length} total
+          {onlineBookings.length > 0 && (
+            <span className="ml-2 inline-flex items-center gap-1 text-amber-600 font-medium">
+              <Globe size={11} /> {onlineBookings.length} pending online
+            </span>
+          )}
         </div>
       </div>
 
+      {/* Online Bookings — pending confirmation */}
+      {!loading && onlineBookings.length > 0 && (
+        <div className="card mb-4 overflow-hidden">
+          <div className="px-5 py-3 border-b border-amber-100 flex items-center gap-2"
+            style={{ background: '#fffbeb' }}>
+            <Globe size={15} className="text-amber-600" />
+            <span className="text-sm font-semibold text-amber-700">
+              Online Bookings — Awaiting Confirmation ({onlineBookings.length})
+            </span>
+          </div>
+          <div className="divide-y divide-gray-100">
+            {onlineBookings.map(b => (
+              <div key={b.id} className="flex items-center justify-between px-5 py-3 hover:bg-amber-50/40">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0 font-bold text-amber-700 text-sm">
+                    {(b.patient_name || 'P').charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <div className="font-medium text-sm text-gray-900">{b.patient_name || '—'}</div>
+                    <div className="text-xs text-gray-400">
+                      {b.booking_time} · {b.doctor_name || 'Doctor not assigned'}
+                      {b.patient_mobile && ` · ${b.patient_mobile}`}
+                    </div>
+                    {b.reason && <div className="text-xs text-gray-400 italic">{b.reason}</div>}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className="text-xs text-gray-400 font-mono">{b.confirmation_code}</span>
+                  <button
+                    onClick={() => handleConfirmBooking(b.id)}
+                    disabled={actioningId === b.id}
+                    className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-green-100 text-green-700 font-semibold hover:bg-green-200 disabled:opacity-50 transition-colors"
+                  >
+                    <CheckCircle size={12} /> Confirm
+                  </button>
+                  <button
+                    onClick={() => handleCancelBooking(b.id)}
+                    disabled={actioningId === b.id}
+                    className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-red-50 text-red-600 font-semibold hover:bg-red-100 disabled:opacity-50 transition-colors"
+                  >
+                    <X size={12} /> Cancel
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Queue */}
       <div className="card">
-        {loading ? <PageLoader /> : appointments.length === 0 ? (
-          <div className="p-10 text-center text-gray-400">
-            <Calendar size={36} className="mx-auto mb-2 opacity-30" />
-            <p>No appointments for this date</p>
-          </div>
-        ) : (
+        {loading ? <PageLoader /> : (() => {
+          const visible = statusFilter ? appointments.filter(a => a.status === statusFilter) : appointments
+          if (visible.length === 0) return (
+            <div className="p-10 text-center text-gray-400">
+              <Calendar size={36} className="mx-auto mb-2 opacity-30" />
+              <p>{statusFilter ? `No ${statusFilter.replace('_',' ')} appointments` : 'No appointments for this date'}</p>
+            </div>
+          )
+          return (
           <div className="table-wrapper rounded-xl border-0">
             <table className="table">
               <thead>
@@ -122,7 +221,7 @@ export default function Appointments() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {appointments.map(a => (
+                {visible.map(a => (
                   <tr key={a.id} className="tr-hover">
                     <td className="td font-bold text-blue-600">#{a.token_number || a.id}</td>
                     <td className="td">
@@ -157,7 +256,7 @@ export default function Appointments() {
               </tbody>
             </table>
           </div>
-        )}
+        )})()}
       </div>
 
       {/* Walk-in Modal */}

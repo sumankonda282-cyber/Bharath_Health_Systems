@@ -17,9 +17,7 @@ export default function Prescriptions() {
   }, [])
 
   return (
-    <div className="max-w-3xl space-y-4">
-      <h1 className="text-2xl font-extrabold" style={{ color: '#0F2557' }}>My Prescriptions</h1>
-
+    <div className="space-y-4">
       {loading ? (
         <div className="card p-10 text-center text-gray-400 text-sm">Loading…</div>
       ) : prescriptions.length === 0 ? (

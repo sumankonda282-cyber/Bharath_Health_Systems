@@ -166,7 +166,6 @@ export default function InpatientDesk() {
         <div className="flex items-center gap-3">
           <BedDouble size={22} style={{ color: '#0F2557' }} />
           <div>
-            <h1 className="page-title">Inpatient Desk</h1>
             <p className="text-sm text-gray-500">
               {loading ? 'Loading…' : (
                 <span>

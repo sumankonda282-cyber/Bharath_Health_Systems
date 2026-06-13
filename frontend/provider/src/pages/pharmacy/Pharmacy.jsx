@@ -55,7 +55,6 @@ export default function Pharmacy() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">Pharmacy</h1>
         <button onClick={() => setShowAddMed(true)} className="btn-primary"><Plus size={16} />Add Medicine</button>
       </div>
 

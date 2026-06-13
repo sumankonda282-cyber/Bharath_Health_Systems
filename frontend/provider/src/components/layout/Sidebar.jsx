@@ -1,14 +1,11 @@
-import { useState } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import {
   LayoutDashboard, Users, Calendar, Stethoscope, Pill,
   FlaskConical, Scan, Receipt, BarChart3, Send, Settings,
-  ShieldCheck, LogOut, ChevronRight, Building2, LayoutGrid, BedDouble, Activity, ClipboardList,
-  UserCircle, Video
+  ShieldCheck, ChevronRight, Building2, LayoutGrid, BedDouble, Activity, ClipboardList, Video
 } from 'lucide-react'
 import BrandLogo from '../BrandLogo'
-import ProfileDrawer from './ProfileDrawer'
 
 const ALL_NAV = [
   { to: '/dashboard',    label: 'Dashboard',   icon: LayoutDashboard, roles: ['clinic_admin','doctor','receptionist','pharmacist','lab_tech','imaging_tech'] },
@@ -34,9 +31,7 @@ const ALL_NAV = [
 const API_BASE = import.meta.env.VITE_API_URL || 'https://bharatcliniq-api.onrender.com'
 
 export default function Sidebar({ onClose }) {
-  const { user, branding, logout, isPlatformAdmin } = useAuth()
-  const navigate = useNavigate()
-  const [profileOpen, setProfileOpen] = useState(false)
+  const { user, branding, isPlatformAdmin } = useAuth()
 
   const visible = ALL_NAV.filter(item => {
     if (item.userType === 'platform_admin') return isPlatformAdmin
@@ -45,12 +40,6 @@ export default function Sidebar({ onClose }) {
     if (item.hospitalOnly && user?.org_type !== 'hospital') return false
     return true
   })
-
-  const handleLogout = () => { logout(); navigate('/login') }
-
-  const initials = user?.full_name
-    ? user.full_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
-    : 'U'
 
   return (
     <aside
@@ -72,22 +61,16 @@ export default function Sidebar({ onClose }) {
           <BrandLogo size="sm" light />
         )}
         <div className="text-xs font-semibold mt-1.5 tracking-wider uppercase" style={{ color: '#F5821E' }}>
-          Doctor Portal
+          Provider Portal
         </div>
-      </div>
-
-      {/* Clinic info */}
-      {user?.clinic_name && (
-        <div className="px-4 py-3 border-b border-white/10">
-          <div className="flex items-center gap-2 text-xs text-blue-300">
-            <Building2 size={12} />
-            <span className="truncate">{user.clinic_name}</span>
+        {user?.clinic_name && (
+          <div className="flex items-center gap-1.5 mt-1" >
+            <Building2 size={11} style={{ color: '#93c5fd' }} className="flex-shrink-0" />
+            <span className="text-xs text-blue-300 truncate">{user.clinic_name}</span>
+            {!user.clinic_verified && <span className="text-xs ml-1" style={{ color: '#F5821E' }}>⚠</span>}
           </div>
-          {!user.clinic_verified && (
-            <div className="mt-1 text-xs" style={{ color: '#F5821E' }}>⚠ Pending verification</div>
-          )}
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-3 px-2">
@@ -112,36 +95,6 @@ export default function Sidebar({ onClose }) {
         ))}
       </nav>
 
-      {/* User info + logout */}
-      <div className="border-t border-white/10 p-4">
-        <button
-          onClick={() => setProfileOpen(true)}
-          className="flex items-center gap-3 mb-3 w-full text-left group"
-        >
-          <div
-            className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0 group-hover:opacity-80 transition-opacity"
-            style={{ background: '#F5821E' }}
-          >
-            {initials}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-semibold text-white truncate">{user?.full_name}</div>
-            <div className="text-xs text-blue-300 capitalize flex items-center gap-1">
-              {user?.role?.replace(/_/g, ' ')}
-              <UserCircle size={10} className="opacity-60" />
-            </div>
-          </div>
-        </button>
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-2 text-xs text-blue-300 hover:text-red-400 transition-colors w-full"
-        >
-          <LogOut size={14} />
-          Sign out
-        </button>
-      </div>
-
-      <ProfileDrawer open={profileOpen} onClose={() => setProfileOpen(false)} />
     </aside>
   )
 }

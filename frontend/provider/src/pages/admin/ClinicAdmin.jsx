@@ -304,7 +304,6 @@ export default function ClinicAdmin() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">Clinic Administration</h1>
       </div>
 
       {saveSuccess && (
