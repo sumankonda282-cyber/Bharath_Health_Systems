@@ -3,7 +3,7 @@ import { appointmentsApi, patientsApi, clinicApi } from '../../api'
 import { cachedFetch, TTL } from '../../utils/cache'
 import { PageLoader } from '../../components/ui/Spinner'
 import Modal from '../../components/ui/Modal'
-import { Plus, Calendar, Search, RefreshCw, UserPlus, Globe, CheckCircle, X } from 'lucide-react'
+import { Plus, Calendar, UserPlus, Globe, CheckCircle, X } from 'lucide-react'
 import { format } from 'date-fns'
 import { useSearchParams } from 'react-router-dom'
 import { Link } from 'react-router-dom'
@@ -13,9 +13,12 @@ const STATUS_COLORS = {
   in_progress: 'badge-purple', completed: 'badge-green', cancelled: 'badge-gray',
 }
 
+const ALL_STATUSES = ['pending', 'confirmed', 'in_progress', 'completed', 'cancelled']
+
 export default function Appointments() {
   const [searchParams] = useSearchParams()
-  const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'))
+  const [date, setDate] = useState(searchParams.get('date') || format(new Date(), 'yyyy-MM-dd'))
+  const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || '')
   const [appointments, setAppointments] = useState([])
   const [onlineBookings, setOnlineBookings] = useState([])
   const [loading, setLoading] = useState(true)
@@ -104,27 +107,41 @@ export default function Appointments() {
     <div>
       <div className="page-header">
         <div className="flex gap-2">
-          <button onClick={loadAppts} className="btn-secondary p-2"><RefreshCw size={15} /></button>
           <button onClick={() => setShowWalkin(true)} className="btn-primary">
             <UserPlus size={16} />Walk-in
           </button>
         </div>
       </div>
 
-      {/* Date picker */}
-      <div className="card p-4 mb-4 flex items-center gap-4">
-        <Calendar size={18} className="text-gray-400" />
-        <input
-          type="date"
-          className="input w-44"
-          value={date}
-          onChange={e => setDate(e.target.value)}
-        />
-        <div className="text-sm text-gray-500">
-          {appointments.length} appointments · {appointments.filter(a => a.status === 'completed').length} completed
+      {/* Filters bar */}
+      <div className="card p-4 mb-4 flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2">
+          <Calendar size={16} className="text-gray-400" />
+          <input
+            type="date"
+            className="input w-44"
+            value={date}
+            onChange={e => setDate(e.target.value)}
+          />
+        </div>
+        <div className="flex gap-1 flex-wrap">
+          <button
+            onClick={() => setStatusFilter('')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${!statusFilter ? 'text-white border-transparent' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}
+            style={!statusFilter ? { background: '#0F2557' } : {}}
+          >All</button>
+          {ALL_STATUSES.map(s => (
+            <button key={s} onClick={() => setStatusFilter(statusFilter === s ? '' : s)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors capitalize ${statusFilter === s ? 'text-white border-transparent' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}
+              style={statusFilter === s ? { background: '#CC1414' } : {}}
+            >{s.replace('_', ' ')}</button>
+          ))}
+        </div>
+        <div className="text-xs text-gray-400 ml-auto">
+          {appointments.length} total
           {onlineBookings.length > 0 && (
-            <span className="ml-3 inline-flex items-center gap-1 text-amber-600 font-medium">
-              <Globe size={13} /> {onlineBookings.length} online booking{onlineBookings.length !== 1 ? 's' : ''} pending
+            <span className="ml-2 inline-flex items-center gap-1 text-amber-600 font-medium">
+              <Globe size={11} /> {onlineBookings.length} pending online
             </span>
           )}
         </div>
@@ -181,12 +198,15 @@ export default function Appointments() {
 
       {/* Queue */}
       <div className="card">
-        {loading ? <PageLoader /> : appointments.length === 0 ? (
-          <div className="p-10 text-center text-gray-400">
-            <Calendar size={36} className="mx-auto mb-2 opacity-30" />
-            <p>No appointments for this date</p>
-          </div>
-        ) : (
+        {loading ? <PageLoader /> : (() => {
+          const visible = statusFilter ? appointments.filter(a => a.status === statusFilter) : appointments
+          if (visible.length === 0) return (
+            <div className="p-10 text-center text-gray-400">
+              <Calendar size={36} className="mx-auto mb-2 opacity-30" />
+              <p>{statusFilter ? `No ${statusFilter.replace('_',' ')} appointments` : 'No appointments for this date'}</p>
+            </div>
+          )
+          return (
           <div className="table-wrapper rounded-xl border-0">
             <table className="table">
               <thead>
@@ -201,7 +221,7 @@ export default function Appointments() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {appointments.map(a => (
+                {visible.map(a => (
                   <tr key={a.id} className="tr-hover">
                     <td className="td font-bold text-blue-600">#{a.token_number || a.id}</td>
                     <td className="td">
@@ -236,7 +256,7 @@ export default function Appointments() {
               </tbody>
             </table>
           </div>
-        )}
+        )})()}
       </div>
 
       {/* Walk-in Modal */}

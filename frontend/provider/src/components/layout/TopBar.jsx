@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
-import { Menu, HelpCircle, User, LogOut, Settings, Globe, ChevronDown } from 'lucide-react'
+import { Menu, HelpCircle, User, LogOut, Settings, Globe, ChevronDown, RefreshCw, Clock } from 'lucide-react'
 import ProfileDrawer from './ProfileDrawer'
 
 const ROUTE_TITLES = [
@@ -72,8 +72,15 @@ export default function TopBar({ onMenuClick }) {
           <h1 className="text-base md:text-lg font-bold" style={{ color: '#0F2557' }}>{title}</h1>
         </div>
 
-        {/* Right: help + profile */}
+        {/* Right: refresh + help + profile */}
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => window.location.reload()}
+            className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+            title="Refresh page"
+          >
+            <RefreshCw size={17} />
+          </button>
           <button
             className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
             title="Help"
@@ -111,6 +118,12 @@ export default function TopBar({ onMenuClick }) {
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                 >
                   <User size={15} className="text-gray-400" /> My Profile
+                </button>
+                <button
+                  onClick={() => { setDropOpen(false); setProfileOpen(true) }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <Clock size={15} className="text-gray-400" /> My Shift
                 </button>
                 <button
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
