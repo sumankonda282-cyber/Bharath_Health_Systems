@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
-  Search, X, Check, Loader2, RefreshCw, Clock, Calendar, AlertTriangle,
+  Search, X, Check, Loader2, Clock, Calendar, AlertTriangle,
   ChevronRight, UserPlus, CalendarPlus, Pin, PinOff, Pencil, CalendarRange,
   Footprints, Phone, Globe, Video,
 } from 'lucide-react'
@@ -293,10 +293,6 @@ export default function FrontDesk() {
           )
         })}
 
-        {/* Refresh */}
-        <button onClick={() => loadQueue()} className="ml-auto p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-500 flex-shrink-0" title="Refresh queue">
-          <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
-        </button>
       </div>
 
       {/* ── Pinned Doctor Quick-filters ── */}
