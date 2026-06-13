@@ -215,7 +215,7 @@ export default function Layout() {
 
         {/* Main content */}
         <main className="flex-1 overflow-y-auto">
-          <div className="max-w-5xl mx-auto px-4 lg:px-6 py-6">
+          <div className="px-4 lg:px-6 py-5">
             <Outlet />
           </div>
         </main>
