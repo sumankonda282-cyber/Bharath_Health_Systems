@@ -28,9 +28,9 @@ export default function IViewSelector() {
     const fetchForms = async () => {
       setLoading(true); setError(null)
       try {
-        const res = await api.get('/forms/templates', { params: { limit: 100 } })
+        const res = await api.get('/provider/forms/pool')
         const all = Array.isArray(res) ? res : (res?.items || res?.data || [])
-        setForms(all)
+        setForms(all.filter(f => f.is_iview_enabled === true))
       } catch (ex) {
         const detail = ex?.response?.data?.detail
         setError(typeof detail === 'string' ? detail : ex.message || 'Failed to load forms')

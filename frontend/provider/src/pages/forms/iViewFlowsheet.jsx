@@ -544,10 +544,12 @@ function CellEditor({ fieldId, columnTime, rowLabel, unit, onSave, onCancel, for
     if (!value.trim()) return
     setSaving(true); setErr('')
     try {
-      await api.post('/forms/responses', {
-        template_id: parseInt(formId),
-        patient_id: patientId ? parseInt(patientId) : null,
-        data: { [fieldId]: value, charted_at: new Date(chartAt).toISOString() },
+      await api.post('/provider/forms/submit', {
+        form_id: formId,
+        patient_id: patientId,
+        admission_id: admissionId,
+        charted_at: new Date(chartAt).toISOString(),
+        data: { [fieldId]: value },
       })
       onSave()
     } catch (ex) {
@@ -736,42 +738,15 @@ export default function IViewFlowsheet() {
   const fetchData = useCallback(async (band) => {
     setLoading(true); setError(null)
     try {
-      // Load template schema + responses using real endpoints
-      const [tpl, responses] = await Promise.all([
-        api.get(`/forms/templates/${formId}`),
-        patientId
-          ? api.get('/forms/responses', { params: { patient_id: patientId } })
-          : Promise.resolve([]),
-      ])
-
-      // Build flowsheet config from template schema
-      const schema = tpl?.schema || {}
-      const fields = schema.fields || schema.items || []
-      const rowConfig = fields.map((f, i) => ({
-        field_id: f.id || f.key || `field_${i}`,
-        label: f.label || f.name || f.id || `Field ${i + 1}`,
-        unit: f.unit || '',
-        group: f.group || f.section || 'General',
-        ref_range: f.ref_range || f.refRange || null,
-      }))
-
-      const cfg = {
-        id: tpl.id,
-        title: tpl.name,
-        patient_name: '',
-        row_config: rowConfig,
-      }
-
-      // Convert responses to iView entries format
-      const responseList = Array.isArray(responses) ? responses : (responses?.data || [])
-      const templateResponses = responseList.filter(r => r.template_id === parseInt(formId))
-      const ents = templateResponses.map(r => ({
-        id: r.id,
-        charted_at: r.filled_at || new Date().toISOString(),
-        submitted_by_name: r.filled_by_name || '',
-        data: r.data || {},
-      }))
-
+      const res = await api.get(`/provider/forms/iview/${formId}`, {
+        params: {
+          patient_id: patientId,
+          admission_id: admissionId,
+          band: band || timeBand,
+        },
+      })
+      const cfg = res?.flowsheet_config || res?.config || res
+      const ents = res?.entries || []
       setConfig(cfg)
       setEntries(ents)
       setColumns(buildColumns(ents, band || timeBand))
