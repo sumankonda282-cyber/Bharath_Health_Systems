@@ -35,7 +35,7 @@ export default function Layout() {
 
       <main className="flex-1 min-w-0 overflow-y-auto flex flex-col">
         <TopBar onMenuClick={() => setOpen(true)} onRefresh={handleRefresh} />
-        <div key={refreshKey} className="p-4 md:p-6 flex-1">
+        <div key={refreshKey} className="p-3 md:p-5 flex-1">
           <Outlet />
         </div>
       </main>

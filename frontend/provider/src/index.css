@@ -56,7 +56,7 @@
   .badge-purple { @apply badge bg-purple-100 text-purple-800; }
 
   /* Page layout */
-  .page-header { @apply flex items-center justify-between mb-6; }
+  .page-header { @apply flex items-center justify-between mb-3; }
   .page-title  { @apply text-2xl font-bold; color: var(--navy); }
 
   /* Tables */

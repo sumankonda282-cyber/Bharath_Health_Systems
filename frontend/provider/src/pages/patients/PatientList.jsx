@@ -261,16 +261,14 @@ export default function PatientList() {
 
   return (
     <div>
-      <div className="page-header">
-        <Link to="/patients/new" className="btn-primary">
-          <Plus size={16} />Register Patient
-        </Link>
-      </div>
-
       <div className="card">
         {/* Search + Filters */}
-        <div className="p-4 border-b border-gray-100 space-y-3">
-          <div className="flex gap-3 flex-wrap items-center">
+        <div className="p-3 border-b border-gray-100 space-y-3">
+          <div className="flex gap-2 flex-wrap items-center">
+            <Link to="/patients/new" className="btn-primary py-1.5 text-sm flex-shrink-0">
+              <Plus size={15} />Register Patient
+            </Link>
+            <div className="w-px h-6 bg-gray-200 hidden sm:block" />
             <div className="relative flex-1 min-w-48">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input

@@ -32,6 +32,7 @@ export default function Appointments() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [actioningId, setActioningId] = useState(null)
+  const [confirmError, setConfirmError] = useState('')
 
   const loadAppts = () => {
     setLoading(true)
@@ -87,10 +88,13 @@ export default function Appointments() {
 
   const handleConfirmBooking = async (id) => {
     setActioningId(id)
+    setConfirmError('')
     try {
       await appointmentsApi.confirmBooking(id)
       loadAppts()
-    } catch { /* silent */ } finally { setActioningId(null) }
+    } catch (err) {
+      setConfirmError(err.message || 'Failed to confirm booking')
+    } finally { setActioningId(null) }
   }
 
   const handleCancelBooking = async (id) => {
@@ -105,47 +109,43 @@ export default function Appointments() {
 
   return (
     <div>
-      <div className="page-header">
-        <div className="flex gap-2">
-          <button onClick={() => setShowWalkin(true)} className="btn-primary">
-            <UserPlus size={16} />Walk-in
-          </button>
-        </div>
-      </div>
-
-      {/* Filters bar */}
-      <div className="card p-4 mb-4 flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2">
-          <Calendar size={16} className="text-gray-400" />
-          <input
-            type="date"
-            className="input w-44"
-            value={date}
-            onChange={e => setDate(e.target.value)}
-          />
+      {/* Filters + Walk-in in one bar */}
+      <div className="card p-3 mb-4 flex flex-wrap items-center gap-2">
+        <button onClick={() => setShowWalkin(true)} className="btn-primary py-1.5 text-sm flex-shrink-0">
+          <UserPlus size={15} />Walk-in
+        </button>
+        <div className="w-px h-6 bg-gray-200 mx-1 hidden sm:block" />
+        <div className="flex items-center gap-1.5">
+          <Calendar size={14} className="text-gray-400 flex-shrink-0" />
+          <input type="date" className="input w-40 py-1.5 text-sm" value={date} onChange={e => setDate(e.target.value)} />
         </div>
         <div className="flex gap-1 flex-wrap">
-          <button
-            onClick={() => setStatusFilter('')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${!statusFilter ? 'text-white border-transparent' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}
-            style={!statusFilter ? { background: '#0F2557' } : {}}
-          >All</button>
+          <button onClick={() => setStatusFilter('')}
+            className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${!statusFilter ? 'text-white border-transparent' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}
+            style={!statusFilter ? { background: '#0F2557' } : {}}>All</button>
           {ALL_STATUSES.map(s => (
             <button key={s} onClick={() => setStatusFilter(statusFilter === s ? '' : s)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors capitalize ${statusFilter === s ? 'text-white border-transparent' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors capitalize ${statusFilter === s ? 'text-white border-transparent' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}
               style={statusFilter === s ? { background: '#CC1414' } : {}}
             >{s.replace('_', ' ')}</button>
           ))}
         </div>
-        <div className="text-xs text-gray-400 ml-auto">
+        <div className="flex items-center gap-2 ml-auto text-xs text-gray-400">
           {appointments.length} total
           {onlineBookings.length > 0 && (
-            <span className="ml-2 inline-flex items-center gap-1 text-amber-600 font-medium">
+            <span className="inline-flex items-center gap-1 text-amber-600 font-semibold">
               <Globe size={11} /> {onlineBookings.length} pending online
             </span>
           )}
         </div>
       </div>
+
+      {confirmError && (
+        <div className="mb-3 px-4 py-2.5 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 flex items-center justify-between">
+          <span>⚠ Confirm failed: {confirmError}</span>
+          <button onClick={() => setConfirmError('')} className="text-red-400 hover:text-red-600 ml-3">✕</button>
+        </div>
+      )}
 
       {/* Online Bookings — pending confirmation */}
       {!loading && onlineBookings.length > 0 && (
