@@ -1,14 +1,31 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { doctorApi } from '../../api'
 import { PageLoader } from '../../components/ui/Spinner'
-import { Stethoscope, Clock, CheckCircle, ChevronRight, Calendar, Video, ClipboardList } from 'lucide-react'
+import { Stethoscope, Clock, CheckCircle, Calendar, Video, ClipboardList, Play } from 'lucide-react'
 import { format } from 'date-fns'
-import { Link } from 'react-router-dom'
 import QuickAssign from '../forms/QuickAssign'
 
 const STATUS_COLORS = {
   pending: 'badge-yellow', confirmed: 'badge-blue',
   in_progress: 'badge-purple', completed: 'badge-green',
+}
+
+const LIVE_STATUSES = ['pending', 'confirmed', 'in_progress']
+
+const FILTER_PILLS = [
+  { key: 'live',        label: 'Live' },
+  { key: 'all',         label: 'All' },
+  { key: 'pending',     label: 'Pending' },
+  { key: 'confirmed',   label: 'Confirmed' },
+  { key: 'in_progress', label: 'In Progress' },
+  { key: 'completed',   label: 'Completed' },
+]
+
+function filterQueue(queue, filter) {
+  if (filter === 'live') return queue.filter(a => LIVE_STATUSES.includes(a.status))
+  if (filter === 'all')  return queue
+  return queue.filter(a => a.status === filter)
 }
 
 function TelehealthConsentModal({ appt, onClose }) {
@@ -71,12 +88,14 @@ function TelehealthConsentModal({ appt, onClose }) {
 
 export default function DoctorDesk() {
   const today = format(new Date(), 'yyyy-MM-dd')
+  const navigate = useNavigate()
   const [queue, setQueue] = useState([])
   const [loading, setLoading] = useState(true)
   const [date, setDate] = useState(today)
   const [telehealthAppt, setTelehealthAppt] = useState(null)
   const [assignTarget, setAssignTarget] = useState(null)
-  const [statusFilter, setStatusFilter] = useState(null) // null = all
+  const [filter, setFilter] = useState('live')
+  const [startingId, setStartingId] = useState(null)
 
   useEffect(() => {
     const fetch = () => {
@@ -92,9 +111,24 @@ export default function DoctorDesk() {
     }
   }, [date])
 
-  const waiting  = queue.filter(a => ['pending', 'confirmed'].includes(a.status))
-  const inProg   = queue.filter(a => a.status === 'in_progress')
-  const done     = queue.filter(a => a.status === 'completed')
+  const waiting = queue.filter(a => ['pending', 'confirmed'].includes(a.status))
+  const inProg  = queue.filter(a => a.status === 'in_progress')
+  const done    = queue.filter(a => a.status === 'completed')
+
+  const handleStart = async (e, appt) => {
+    e.stopPropagation()
+    setStartingId(appt.id)
+    try {
+      await doctorApi.updateAppointment(appt.id, { status: 'in_progress' })
+      setQueue(q => q.map(a => a.id === appt.id ? { ...a, status: 'in_progress' } : a))
+    } catch {
+      alert('Could not update status. Please try again.')
+    } finally {
+      setStartingId(null)
+    }
+  }
+
+  const filtered = filterQueue(queue, filter)
 
   return (
     <div>
@@ -104,96 +138,173 @@ export default function DoctorDesk() {
         </div>
       </div>
 
-      {/* Summary — clickable filters */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      {/* Compact stat cards — 3 columns on all screens */}
+      <div className="grid grid-cols-3 gap-3 mb-4">
         {[
-          { key: 'waiting', label: 'Waiting', count: waiting.length, bg: 'bg-yellow-100', fg: 'text-yellow-600', ring: '#ca8a04', Icon: Clock, statuses: ['pending','confirmed'] },
-          { key: 'in_progress', label: 'In Progress', count: inProg.length, bg: 'bg-purple-100', fg: 'text-purple-600', ring: '#7c3aed', Icon: Stethoscope, statuses: ['in_progress'] },
-          { key: 'completed', label: 'Completed', count: done.length, bg: 'bg-green-100', fg: 'text-green-600', ring: '#16a34a', Icon: CheckCircle, statuses: ['completed'] },
-        ].map(({ key, label, count, bg, fg, ring, Icon, statuses }) => {
-          const active = statusFilter === key
-          return (
-            <button key={key} onClick={() => setStatusFilter(active ? null : key)}
-              className="card p-4 flex items-center gap-3 transition-all text-left hover:shadow-md"
-              style={active ? { outline: `2px solid ${ring}`, outlineOffset: 2 } : {}}>
-              <div className={`w-10 h-10 ${bg} rounded-xl flex items-center justify-center`}>
-                <Icon size={18} className={fg} />
-              </div>
-              <div>
-                <div className="text-xl font-bold">{count}</div>
-                <div className="text-xs text-gray-500">{label}{active ? ' (filtered)' : ''}</div>
-              </div>
-            </button>
-          )
-        })}
+          { label: 'Waiting',     count: waiting.length, bg: 'bg-yellow-100', fg: 'text-yellow-600', Icon: Clock },
+          { label: 'In Progress', count: inProg.length,  bg: 'bg-purple-100', fg: 'text-purple-600', Icon: Stethoscope },
+          { label: 'Completed',   count: done.length,    bg: 'bg-green-100',  fg: 'text-green-600',  Icon: CheckCircle },
+        ].map(({ label, count, bg, fg, Icon }) => (
+          <div key={label} className="card p-3 flex items-center gap-2">
+            <div className={`w-8 h-8 ${bg} rounded-lg flex items-center justify-center flex-shrink-0`}>
+              <Icon size={15} className={fg} />
+            </div>
+            <div>
+              <div className="text-lg font-bold leading-none">{count}</div>
+              <div className="text-xs text-gray-500 mt-0.5">{label}</div>
+            </div>
+          </div>
+        ))}
       </div>
 
-      {loading ? <PageLoader /> : queue.length === 0 ? (
-        <div className="card p-10 text-center text-gray-400">
-          <Calendar size={36} className="mx-auto mb-2 opacity-30" />
-          <p>No patients in queue for {date}</p>
+      {/* Filter + table in one card */}
+      <div className="card overflow-hidden">
+        {/* Filter pill row */}
+        <div className="flex items-center gap-1.5 px-3 py-2 border-b border-gray-100 flex-wrap">
+          {FILTER_PILLS.map(p => (
+            <button
+              key={p.key}
+              onClick={() => setFilter(p.key)}
+              className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+                filter === p.key
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {p.label}
+              {p.key === 'live' && (
+                <span className="ml-1 inline-block w-1.5 h-1.5 rounded-full bg-green-400 align-middle" />
+              )}
+            </button>
+          ))}
         </div>
-      ) : (
-        <>
-          <div className="space-y-3">
-            {(statusFilter
-              ? queue.filter(a =>
-                  statusFilter === 'waiting' ? ['pending','confirmed'].includes(a.status) :
-                  statusFilter === 'in_progress' ? a.status === 'in_progress' :
-                  statusFilter === 'completed' ? a.status === 'completed' : true
-                )
-              : queue
-            ).map(appt => (
-              <div key={appt.id} className="card p-4 flex items-center gap-4 hover:border-blue-300 hover:shadow-md transition-all">
-                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-bold text-sm flex-shrink-0">
-                  #{appt.token_number || appt.id}
-                </div>
-                <Link to={`/encounter/${appt.id}`} className="flex-1 min-w-0">
-                  <div className="font-semibold text-gray-900 flex items-center gap-2">
-                    {appt.patient_name}
-                    {appt.mode === 'telehealth' && (
-                      <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full text-white" style={{ background: '#0F2557' }}>
-                        <Video size={10} /> Virtual
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-sm text-gray-500">{appt.reason || 'No reason specified'}</div>
-                  <div className="text-xs text-gray-400 mt-0.5">{appt.appointment_time}</div>
-                </Link>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className={STATUS_COLORS[appt.status] || 'badge-gray'}>{appt.status.replace('_', ' ')}</span>
-                  <button
-                    onClick={() => setAssignTarget({ patientId: appt.patient_id, appointmentId: appt.id })}
-                    className="text-xs px-2 py-1 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 flex items-center gap-1">
-                    <ClipboardList size={11} /> Assign Form
-                  </button>
-                  {appt.mode === 'telehealth' && ['pending', 'confirmed', 'in_progress'].includes(appt.status) && (
-                    <button
-                      onClick={() => setTelehealthAppt(appt)}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-white"
-                      style={{ background: '#F5821E' }}
-                    >
-                      <Video size={12} /> Join
-                    </button>
-                  )}
-                  <Link to={`/encounter/${appt.id}`}><ChevronRight size={16} className="text-gray-400" /></Link>
-                </div>
-              </div>
-            ))}
+
+        {loading ? (
+          <div className="p-8"><PageLoader /></div>
+        ) : filtered.length === 0 ? (
+          <div className="p-10 text-center text-gray-400">
+            <Calendar size={32} className="mx-auto mb-2 opacity-30" />
+            <p className="text-sm">No patients for this filter on {date}</p>
           </div>
-          {telehealthAppt && (
-            <TelehealthConsentModal appt={telehealthAppt} onClose={() => setTelehealthAppt(null)} />
-          )}
-          {assignTarget && (
-            <QuickAssign
-              patientId={assignTarget.patientId}
-              appointmentId={assignTarget.appointmentId}
-              admissionId={null}
-              onClose={() => setAssignTarget(null)}
-              onAssigned={() => setAssignTarget(null)}
-            />
-          )}
-        </>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="table w-full text-sm">
+              <thead>
+                <tr>
+                  <th className="th w-10 text-center">#</th>
+                  <th className="th">Patient</th>
+                  <th className="th w-16 text-center">Age/Sex</th>
+                  <th className="th w-20 text-center">Time</th>
+                  <th className="th w-24 text-center">Status</th>
+                  <th className="th w-32 text-right pr-3">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(appt => (
+                  <tr
+                    key={appt.id}
+                    className="tr-hover cursor-pointer"
+                    onClick={() => navigate(`/encounter/${appt.id}`)}
+                  >
+                    <td className="td text-center font-semibold text-gray-500">
+                      {appt.token_number || appt.id}
+                    </td>
+                    <td className="td">
+                      <div className="font-semibold text-gray-900 flex items-center gap-1.5">
+                        {appt.patient_name}
+                        {appt.mode === 'telehealth' && (
+                          <Video size={13} className="text-green-500 flex-shrink-0" title="Telehealth" />
+                        )}
+                      </div>
+                      {appt.reason && (
+                        <div className="text-xs text-gray-400 truncate max-w-xs">{appt.reason}</div>
+                      )}
+                    </td>
+                    <td className="td text-center text-gray-600">
+                      {appt.age != null && appt.gender
+                        ? `${appt.age}${appt.gender.charAt(0).toUpperCase()}`
+                        : appt.age ?? '—'}
+                    </td>
+                    <td className="td text-center text-gray-600 whitespace-nowrap">
+                      {appt.appointment_time ?? '—'}
+                    </td>
+                    <td className="td text-center">
+                      <span className={STATUS_COLORS[appt.status] || 'badge-gray'}>
+                        {appt.status.replace('_', ' ')}
+                      </span>
+                    </td>
+                    <td className="td text-right pr-3">
+                      <div className="flex items-center justify-end gap-1.5" onClick={e => e.stopPropagation()}>
+                        {/* Assign form */}
+                        <button
+                          title="Assign Form"
+                          onClick={e => { e.stopPropagation(); setAssignTarget({ patientId: appt.patient_id, appointmentId: appt.id }) }}
+                          className="p-1 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+                        >
+                          <ClipboardList size={13} />
+                        </button>
+
+                        {/* Telehealth join */}
+                        {appt.mode === 'telehealth' && LIVE_STATUSES.includes(appt.status) && (
+                          <button
+                            title="Join Telehealth"
+                            onClick={e => { e.stopPropagation(); setTelehealthAppt(appt) }}
+                            className="p-1 rounded text-green-600 hover:bg-green-50"
+                          >
+                            <Video size={13} />
+                          </button>
+                        )}
+
+                        {/* Primary action */}
+                        {(appt.status === 'pending' || appt.status === 'confirmed') && (
+                          <button
+                            onClick={e => handleStart(e, appt)}
+                            disabled={startingId === appt.id}
+                            className="btn-primary flex items-center gap-1 px-2 py-1 text-xs rounded disabled:opacity-50"
+                          >
+                            {startingId === appt.id
+                              ? <span className="w-3 h-3 border border-white/40 border-t-white rounded-full animate-spin" />
+                              : <Play size={11} />}
+                            Start
+                          </button>
+                        )}
+                        {appt.status === 'in_progress' && (
+                          <button
+                            onClick={e => { e.stopPropagation(); navigate(`/encounter/${appt.id}`) }}
+                            className="btn-primary flex items-center gap-1 px-2 py-1 text-xs rounded"
+                          >
+                            <ClipboardList size={11} /> Chart
+                          </button>
+                        )}
+                        {appt.status === 'completed' && (
+                          <button
+                            onClick={e => { e.stopPropagation(); navigate(`/encounter/${appt.id}`) }}
+                            className="text-xs px-2 py-1 rounded border border-gray-200 text-gray-600 hover:bg-gray-50"
+                          >
+                            View
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {telehealthAppt && (
+        <TelehealthConsentModal appt={telehealthAppt} onClose={() => setTelehealthAppt(null)} />
+      )}
+      {assignTarget && (
+        <QuickAssign
+          patientId={assignTarget.patientId}
+          appointmentId={assignTarget.appointmentId}
+          admissionId={null}
+          onClose={() => setAssignTarget(null)}
+          onAssigned={() => setAssignTarget(null)}
+        />
       )}
     </div>
   )
