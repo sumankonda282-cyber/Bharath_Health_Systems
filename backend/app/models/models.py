@@ -1895,6 +1895,15 @@ class DrugContraindication(Base):
     created_at   = Column(DateTime, server_default=func.now())
 
 
+class DrugCounselling(Base):
+    __tablename__ = "drug_counselling"
+    id         = Column(Integer, primary_key=True, index=True)
+    generic    = Column(String(200), nullable=False, index=True)
+    tip        = Column(Text, nullable=False)
+    sort_order = Column(Integer, default=0)
+    created_at = Column(DateTime, server_default=func.now())
+
+
 # ── Visitor Desk ───────────────────────────────────────────────────────────────
 
 class VisitorPolicy(Base):

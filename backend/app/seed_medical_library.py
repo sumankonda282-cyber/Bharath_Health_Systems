@@ -201,6 +201,20 @@ def seed_drug_data():
         ))
     except ImportError as e:
         print(f"[medlib] contraindications seed missing: {e}")
+    try:
+        from app.seed_data.drug_counselling import DRUG_COUNSELLING
+        rows = []
+        for entry in DRUG_COUNSELLING:
+            for i, tip in enumerate(entry["tips"]):
+                rows.append({"generic": entry["generic"][:200], "tip": tip, "sort_order": i})
+        loaders.append((
+            "drug_counselling", rows, 50,
+            "INSERT INTO drug_counselling (generic, tip, sort_order) "
+            "VALUES (:generic, :tip, :sort_order)",
+            lambda d: d,
+        ))
+    except ImportError as e:
+        print(f"[medlib] drug counselling seed missing: {e}")
 
     for table, items, floor, sql, mapper in loaders:
         with engine.begin() as conn:

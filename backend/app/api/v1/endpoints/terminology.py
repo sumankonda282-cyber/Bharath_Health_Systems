@@ -14,7 +14,7 @@ from typing import Optional, List
 
 from app.db.session import get_db
 from app.core.security import get_current_staff
-from app.models.models import Staff, DoctorProfile, Drug, DrugInteraction, DrugDoseRange, DrugContraindication
+from app.models.models import Staff, DoctorProfile, Drug, DrugInteraction, DrugDoseRange, DrugContraindication, DrugCounselling
 
 router = APIRouter(prefix="/terminology", tags=["terminology"])
 
@@ -174,6 +174,22 @@ def search_drugs(
         "id": d.id, "generic": d.generic, "atc": d.atc, "drug_class": d.drug_class,
         "routes": d.routes, "brands": d.brands, "rx_only": d.rx_only,
     } for d in rows]
+
+
+@router.get("/drugs/counselling")
+def get_drug_counselling(
+    generic: str = Query(..., min_length=2),
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Return patient counselling tips for a drug by generic name (case-insensitive)."""
+    rows = (
+        db.query(DrugCounselling)
+        .filter(DrugCounselling.generic.ilike(generic.strip()))
+        .order_by(DrugCounselling.sort_order)
+        .all()
+    )
+    return {"generic": generic, "tips": [r.tip for r in rows]}
 
 
 # ── Clinical Decision Support ────────────────────────────────────────────────
