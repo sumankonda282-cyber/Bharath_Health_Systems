@@ -92,7 +92,7 @@ def list_appointments(
     ).filter(Appointment.clinic_id == current.clinic_id)
     if branch_id:
         q = q.filter(Appointment.branch_id == branch_id)
-    elif current.branch_id:
+    elif current.branch_id and current.role not in ('receptionist', 'clinic_admin'):
         q = q.filter(Appointment.branch_id == current.branch_id)
     if doctor_id:
         q = q.filter(Appointment.doctor_id == doctor_id)
