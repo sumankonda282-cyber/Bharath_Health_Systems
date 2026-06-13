@@ -1327,7 +1327,6 @@ export default function PatientChart() {
 
               </div>
             </div>
-          </div>
           )}
         </div>
 
