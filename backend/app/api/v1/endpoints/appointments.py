@@ -93,7 +93,9 @@ def list_appointments(
     if branch_id:
         q = q.filter(Appointment.branch_id == branch_id)
     elif current.branch_id and current.role not in ('receptionist', 'clinic_admin'):
+        # Only filter by staff's branch if they actually have one assigned
         q = q.filter(Appointment.branch_id == current.branch_id)
+    # else: no branch filter — show all clinic appointments (single-branch or no-branch clinics)
     if doctor_id:
         q = q.filter(Appointment.doctor_id == doctor_id)
     if patient_id:
