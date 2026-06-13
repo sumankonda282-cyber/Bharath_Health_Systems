@@ -3,9 +3,16 @@ import Sidebar from './Sidebar'
 import TopBar from './TopBar'
 import { Outlet } from 'react-router-dom'
 import ChatWidget from '../ChatWidget'
+import { cacheClear } from '../../utils/cache'
 
 export default function Layout() {
   const [open, setOpen] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  const handleRefresh = () => {
+    cacheClear()
+    setRefreshKey(k => k + 1)
+  }
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: '#F0F4F8' }}>
@@ -22,13 +29,13 @@ export default function Layout() {
       </div>
 
       {/* Desktop sidebar */}
-      <div className="hidden md:block">
+      <div className="hidden md:block flex-shrink-0">
         <Sidebar />
       </div>
 
-      <main className="flex-1 md:ml-60 overflow-y-auto flex flex-col">
-        <TopBar onMenuClick={() => setOpen(true)} />
-        <div className="p-4 md:p-6 flex-1">
+      <main className="flex-1 min-w-0 overflow-y-auto flex flex-col">
+        <TopBar onMenuClick={() => setOpen(true)} onRefresh={handleRefresh} />
+        <div key={refreshKey} className="p-4 md:p-6 flex-1">
           <Outlet />
         </div>
       </main>
