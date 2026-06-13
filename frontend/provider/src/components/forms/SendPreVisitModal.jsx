@@ -32,7 +32,7 @@ export default function SendPreVisitModal({ patientId, appointmentId, clinicId, 
     if (!selected) return
     setSending(true)
     try {
-      const PUBLIC_BASE = import.meta.env.VITE_PUBLIC_URL || 'https://bharatcliniq.com'
+      const PUBLIC_BASE = import.meta.env.VITE_PUBLIC_URL || 'https://www.bharathhealthsystems.com'
       const res = await api.post('/provider/forms/previsit/send', {
         form_id: selected.id,
         patient_id: patientId,

@@ -69,8 +69,9 @@ function AppRoutes() {
         <Route path="/billing"      element={<Suspense fallback={<PageLoader />}><Billing /></Suspense>} />
         <Route path="/analytics"    element={<Suspense fallback={<PageLoader />}><Analytics /></Suspense>} />
         <Route path="/referrals"    element={<Suspense fallback={<PageLoader />}><Referrals /></Suspense>} />
-        <Route path="/admin"           element={<Suspense fallback={<PageLoader />}><ClinicAdmin /></Suspense>} />
-        <Route path="/inpatient-admin" element={<Suspense fallback={<PageLoader />}><InpatientAdmin /></Suspense>} />
+        <Route path="/admin"            element={<Suspense fallback={<PageLoader />}><ClinicAdmin /></Suspense>} />
+        <Route path="/branch-overview"  element={<Suspense fallback={<PageLoader />}><BranchOverview /></Suspense>} />
+        <Route path="/inpatient-admin"  element={<Suspense fallback={<PageLoader />}><InpatientAdmin /></Suspense>} />
         <Route path="/inpatient" element={<Suspense fallback={<PageLoader />}><InpatientDesk /></Suspense>} />
         <Route path="/inpatient/admission/:admissionId" element={<Suspense fallback={<PageLoader />}><AdmissionChart /></Suspense>} />
         <Route path="/platform"        element={<Suspense fallback={<PageLoader />}><PlatformAdmin /></Suspense>} />
