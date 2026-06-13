@@ -497,7 +497,7 @@ export default function Appointments() {
                       {visible.map(a => {
                         const actions = getActionLabel(a)
                         const ageGender = [
-                          a.patient_age ? `${a.patient_age}${a.patient_gender ? a.patient_gender.charAt(0).toUpperCase() : ''}` : null
+                          a.age ? `${a.age}${a.gender ? a.gender.charAt(0).toUpperCase() : ''}` : null
                         ].filter(Boolean).join('')
                         return (
                           <tr key={a.id} className="tr-hover">
