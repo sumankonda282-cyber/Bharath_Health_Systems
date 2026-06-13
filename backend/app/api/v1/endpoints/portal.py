@@ -419,7 +419,7 @@ def portal_prescriptions(current=Depends(get_current_patient), db: Session = Dep
     for rx in prescriptions:
         doc = db.query(DoctorProfile).filter(DoctorProfile.id == rx.prescribed_by).first() if rx.prescribed_by else None
         clinic = db.query(Clinic).filter(Clinic.id == rx.clinic_id).first()
-        items = [{"drug": i.medicine_name, "dose": i.dosage, "frequency": i.frequency,
+        items = [{"medicine_name": i.medicine_name, "dosage": i.dosage, "frequency": i.frequency,
                   "duration": i.duration, "instructions": i.instructions} for i in rx.items]
         result.append({
             "id": rx.id,

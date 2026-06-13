@@ -97,7 +97,7 @@ export default function Prescriptions() {
     cachedFetch(
       'prescriptions',
       () => api.get('/portal/prescriptions'),
-      r => { setPrescriptions(r.data?.prescriptions || r.data || r?.prescriptions || []); setLoading(false) }
+      r => { setPrescriptions(r?.prescriptions || r?.data?.prescriptions || []); setLoading(false) }
     ).catch(() => setLoading(false))
   }, [])
 
