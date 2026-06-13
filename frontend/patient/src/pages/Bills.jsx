@@ -21,9 +21,7 @@ export default function Bills() {
   const totalDue = bills.filter(b => b.status === 'pending').reduce((s, b) => s + parseFloat(b.total || 0), 0)
 
   return (
-    <div className="max-w-3xl space-y-5">
-      <h1 className="text-2xl font-extrabold" style={{ color: '#0F2557' }}>My Bills</h1>
-
+    <div className="space-y-5">
       {/* Summary cards */}
       {bills.length > 0 && (
         <div className="grid grid-cols-2 gap-4">

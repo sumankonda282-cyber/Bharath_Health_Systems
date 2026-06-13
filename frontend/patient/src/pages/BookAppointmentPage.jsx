@@ -91,7 +91,7 @@ function SlotPicker({ doctor, onBack, onBooked }) {
   const fmtDate = (d) => new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
 
   return (
-    <div className="max-w-xl mx-auto">
+    <div>
       {/* Doctor summary */}
       <div className="card p-4 flex items-center gap-4 mb-6">
         <div className="w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-white text-lg flex-shrink-0"
