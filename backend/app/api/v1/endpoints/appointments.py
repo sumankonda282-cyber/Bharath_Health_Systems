@@ -246,10 +246,6 @@ def confirm_online_booking(
     if portal_user and not booking.patient_user_id:
         booking.patient_user_id = portal_user.id
 
-    conf_doc_profile = db.query(DoctorProfile).filter(DoctorProfile.id == booking.doctor_id).first()
-    conf_patient_name = conf_patient.full_name if conf_patient else booking.patient_name or ""
-    conf_doctor_name = conf_doc_profile.staff.full_name if conf_doc_profile and conf_doc_profile.staff else ""
-
     token = _next_token(db, booking.doctor_id, booking.booking_date, booking.branch_id)
     appt = Appointment(
         clinic_id=current.clinic_id,
@@ -263,8 +259,6 @@ def confirm_online_booking(
         mode='online',
         reason=booking.reason,
         online_booking_id=booking.id,
-        patient_name=conf_patient_name,
-        doctor_name=conf_doctor_name,
     )
     db.add(appt)
     booking.status = "confirmed"
