@@ -1828,6 +1828,140 @@ class FormResponse(Base):
     updated_at     = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
+# ─── Assessment Forms (PowerForms) ───────────────────────────────────────────
+
+class AssessmentForm(Base):
+    __tablename__ = "assessment_forms"
+    id                 = Column(Integer, primary_key=True, index=True)
+    title              = Column(String(300), nullable=False)
+    description        = Column(Text, nullable=True)
+    category           = Column(String(100), default="general", index=True)
+    subcategory        = Column(String(100), nullable=True)
+    icon               = Column(String(100), nullable=True)
+    schema             = Column(JSON, default=dict)
+    scoring_config     = Column(JSON, nullable=True)
+    iview_config       = Column(JSON, nullable=True)
+    alert_rules        = Column(JSON, nullable=True)
+    translations       = Column(JSON, nullable=True)
+    status             = Column(String(20), default="draft", index=True)  # draft|published|retired
+    version            = Column(Integer, default=1)
+    is_template        = Column(Boolean, default=False)
+    is_iview_enabled   = Column(Boolean, default=False)
+    requires_cosign    = Column(Boolean, default=False)
+    time_limit_minutes = Column(Integer, nullable=True)
+    created_by         = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    created_by_admin   = Column(Integer, nullable=True)
+    clinic_id          = Column(Integer, ForeignKey("clinics.id"), nullable=True)
+    parent_form_id     = Column(Integer, nullable=True)
+    published_at       = Column(DateTime, nullable=True)
+    retired_at         = Column(DateTime, nullable=True)
+    created_at         = Column(DateTime, server_default=func.now())
+    updated_at         = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class AssessmentFormVersion(Base):
+    __tablename__ = "assessment_form_versions"
+    id             = Column(Integer, primary_key=True, index=True)
+    form_id        = Column(Integer, ForeignKey("assessment_forms.id", ondelete="CASCADE"), nullable=False, index=True)
+    version        = Column(Integer, nullable=False)
+    schema         = Column(JSON, default=dict)
+    scoring_config = Column(JSON, nullable=True)
+    published_by   = Column(Integer, nullable=True)
+    published_at   = Column(DateTime, nullable=True)
+    created_at     = Column(DateTime, server_default=func.now())
+
+
+class FormPool(Base):
+    __tablename__ = "form_pool"
+    id          = Column(Integer, primary_key=True, index=True)
+    form_id     = Column(Integer, ForeignKey("assessment_forms.id", ondelete="CASCADE"), nullable=False, index=True)
+    clinic_id   = Column(Integer, ForeignKey("clinics.id"), nullable=True, index=True)
+    assigned_by = Column(Integer, nullable=True)
+    assigned_at = Column(DateTime, server_default=func.now())
+    is_active   = Column(Boolean, default=True)
+
+
+class FormAssignment(Base):
+    __tablename__ = "form_assignments"
+    id               = Column(Integer, primary_key=True, index=True)
+    form_id          = Column(Integer, ForeignKey("assessment_forms.id", ondelete="CASCADE"), nullable=False, index=True)
+    form_version     = Column(Integer, default=1)
+    clinic_id        = Column(Integer, ForeignKey("clinics.id"), nullable=False, index=True)
+    patient_id       = Column(Integer, ForeignKey("patients.id", ondelete="CASCADE"), nullable=False, index=True)
+    appointment_id   = Column(Integer, ForeignKey("appointments.id", ondelete="SET NULL"), nullable=True)
+    admission_id     = Column(Integer, nullable=True)
+    assigned_by      = Column(Integer, nullable=False)
+    assigned_to_role = Column(String(50), nullable=True)
+    due_at           = Column(DateTime, nullable=True)
+    status           = Column(String(20), default="pending", index=True)  # pending|completed|expired|cancelled
+    priority         = Column(String(20), default="routine")
+    notes            = Column(Text, nullable=True)
+    assigned_at      = Column(DateTime, server_default=func.now())
+    completed_at     = Column(DateTime, nullable=True)
+
+
+class FormSubmission(Base):
+    __tablename__ = "form_submissions"
+    id             = Column(Integer, primary_key=True, index=True)
+    form_id        = Column(Integer, ForeignKey("assessment_forms.id", ondelete="CASCADE"), nullable=False, index=True)
+    form_version   = Column(Integer, default=1)
+    assignment_id  = Column(Integer, ForeignKey("form_assignments.id", ondelete="SET NULL"), nullable=True)
+    clinic_id      = Column(Integer, ForeignKey("clinics.id"), nullable=False, index=True)
+    patient_id     = Column(Integer, ForeignKey("patients.id", ondelete="CASCADE"), nullable=False, index=True)
+    appointment_id = Column(Integer, ForeignKey("appointments.id", ondelete="SET NULL"), nullable=True)
+    admission_id   = Column(Integer, nullable=True)
+    submitted_by   = Column(Integer, nullable=False)
+    cosigned_by    = Column(Integer, nullable=True)
+    cosigned_at    = Column(DateTime, nullable=True)
+    data           = Column(JSON, default=dict)
+    scores         = Column(JSON, nullable=True)
+    alerts_fired   = Column(JSON, default=list)
+    is_draft       = Column(Boolean, default=False)
+    submitted_at   = Column(DateTime, nullable=True)
+    charted_at     = Column(DateTime, nullable=True)
+    source         = Column(String(30), default="provider")  # provider|patient|kiosk
+    created_at     = Column(DateTime, server_default=func.now())
+
+
+class FormAlert(Base):
+    __tablename__ = "form_alerts"
+    id              = Column(Integer, primary_key=True, index=True)
+    submission_id   = Column(Integer, ForeignKey("form_submissions.id", ondelete="CASCADE"), nullable=False, index=True)
+    clinic_id       = Column(Integer, ForeignKey("clinics.id"), nullable=False, index=True)
+    patient_id      = Column(Integer, ForeignKey("patients.id", ondelete="CASCADE"), nullable=False, index=True)
+    field_id        = Column(String(100), nullable=True)
+    field_label     = Column(String(200), nullable=True)
+    value           = Column(String(200), nullable=True)
+    severity        = Column(String(20), default="warning")  # critical|high|warning
+    message         = Column(Text, nullable=True)
+    notified_staff  = Column(JSON, default=list)
+    acknowledged_by = Column(Integer, nullable=True)
+    acknowledged_at = Column(DateTime, nullable=True)
+    created_at      = Column(DateTime, server_default=func.now())
+
+
+class FormCoSign(Base):
+    __tablename__ = "form_cosigns"
+    id             = Column(Integer, primary_key=True, index=True)
+    submission_id  = Column(Integer, ForeignKey("form_submissions.id", ondelete="CASCADE"), nullable=False, index=True)
+    requested_by   = Column(Integer, nullable=False)
+    requested_from = Column(Integer, nullable=False)
+    status         = Column(String(20), default="pending")  # pending|approved|rejected
+    note           = Column(Text, nullable=True)
+    responded_at   = Column(DateTime, nullable=True)
+    created_at     = Column(DateTime, server_default=func.now())
+
+
+class iViewFlowsheet(Base):
+    __tablename__ = "iview_flowsheets"
+    id          = Column(Integer, primary_key=True, index=True)
+    form_id     = Column(Integer, ForeignKey("assessment_forms.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+    time_band   = Column(String(10), default="4h")  # 1h|2h|4h|8h|12h|24h
+    row_config  = Column(JSON, nullable=True)
+    created_at  = Column(DateTime, server_default=func.now())
+    updated_at  = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
 # ─── Medical Terminology Library (dynamic — replaces all hardcoded disease/symptom lists) ───
 
 class MedicalTerm(Base):
