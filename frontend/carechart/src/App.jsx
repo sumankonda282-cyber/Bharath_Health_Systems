@@ -16,6 +16,7 @@ import PinSetup from './pages/PinSetup'
 import Assessments from './pages/Assessments'
 import DocumentationTemplates from './pages/DocumentationTemplates'
 import AdmissionChart from './pages/AdmissionChart'
+import AccountSettings from './pages/AccountSettings'
 import { Loader2 } from 'lucide-react'
 
 function AppLoader() {
@@ -46,6 +47,7 @@ function AppRoutes() {
       <Route path="/login" element={<Navigate to="/" replace />} />
       <Route path="/pin-setup" element={<PinSetup />} />
       <Route path="/ward-setup" element={<WardSetup />} />
+      <Route path="/account" element={<AccountSettings />} />
       <Route element={setupComplete ? <Layout /> : <Navigate to="/ward-setup" replace />}>
         <Route index element={<Dashboard />} />
         <Route path="ward-board" element={<WardBoard />} />
