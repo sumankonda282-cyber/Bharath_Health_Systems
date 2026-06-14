@@ -29,8 +29,7 @@ class Settings(BaseSettings):
         "https://my.bharathhealthsystems.com,https://admin.bharathhealthsystems.com,"
         "https://lab.bharathhealthsystems.com,https://pharmacy.bharathhealthsystems.com,"
         "https://imaging.bharathhealthsystems.com,"
-        "https://carechart.bharathhealthsystems.com,https://ward.bharathhealthsystems.com,"
-        "https://nursing.bharathhealthsystems.com"
+        "https://carechart.bharathhealthsystems.com"
     )
 
     DEBUG: bool = False
@@ -70,8 +69,6 @@ class Settings(BaseSettings):
             "https://pharmacy.bharathhealthsystems.com",
             "https://imaging.bharathhealthsystems.com",
             "https://carechart.bharathhealthsystems.com",
-            "https://ward.bharathhealthsystems.com",
-            "https://nursing.bharathhealthsystems.com",
             "http://localhost:5173",
             "http://localhost:5174",
             "http://localhost:5175",
