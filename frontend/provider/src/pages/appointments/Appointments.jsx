@@ -379,13 +379,12 @@ export default function Appointments() {
     setLoading(true)
     Promise.all([
       appointmentsApi.list({ appointment_date: date, limit: 100 }),
-      appointmentsApi.listOnlineBookings({ status: 'pending', date }),
-    ])
-      .then(([appts, bookings]) => {
-        setAppointments(Array.isArray(appts) ? appts : [])
-        const allBookings = Array.isArray(bookings) ? bookings : []
-        setOnlineBookings(allBookings.filter(b => b.booking_date === date))
-      })
+      appointmentsApi.listOnlineBookings({ status: 'pending' }),
+])
+  .then(([appts, bookings]) => {
+    setAppointments(Array.isArray(appts) ? appts : [])
+    setOnlineBookings(Array.isArray(bookings) ? bookings : [])
+  })
       .finally(() => setLoading(false))
   }
 
