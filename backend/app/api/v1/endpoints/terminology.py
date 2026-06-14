@@ -192,6 +192,37 @@ def get_drug_counselling(
     return {"generic": generic, "tips": [r.tip for r in rows]}
 
 
+@router.get("/drugs/interactions")
+def get_drug_interactions(
+    generic: str = Query(..., min_length=2),
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Return drug interactions (drug-drug, drug-food, drug-condition) for a generic name."""
+    g = generic.strip().lower()
+    rows = (
+        db.query(DrugInteraction)
+        .filter(
+            DrugInteraction.drug_a.ilike(f"%{g}%") |
+            DrugInteraction.drug_b.ilike(f"%{g}%")
+        )
+        .order_by(DrugInteraction.severity)
+        .limit(20)
+        .all()
+    )
+    return [
+        {
+            "drug_a": r.drug_a,
+            "drug_b": r.drug_b,
+            "severity": r.severity,
+            "interaction_type": getattr(r, "interaction_type", "drug-drug"),
+            "effect": r.effect,
+            "management": r.management,
+        }
+        for r in rows
+    ]
+
+
 # ── Clinical Decision Support ────────────────────────────────────────────────
 
 class CdsDrug(BaseModel):
