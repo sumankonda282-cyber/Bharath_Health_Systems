@@ -5,7 +5,7 @@ from typing import Optional
 from datetime import datetime, date, timedelta
 from app.db.session import get_db
 from app.core.security import get_current_platform_admin, hash_password
-from app.models.models import Clinic, Branch, Staff, Patient, Appointment, PlatformAdmin, AuditLog, Invoice, Feedback
+from app.models.models import Clinic, Branch, Staff, Patient, Appointment, PlatformAdmin, AuditLog, Invoice, Feedback, Department, Ward, Bed
 
 import re
 import secrets
@@ -847,3 +847,214 @@ def get_clinic_staff(
         }
         for s in staff
     ]
+
+
+# ── Hospital / Inpatient Settings (platform-admin level) ──────────────────────
+
+@router.get("/clinics/{clinic_id}/org-config")
+def admin_get_org_config(
+    clinic_id: int,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    clinic = db.query(Clinic).filter(Clinic.id == clinic_id).first()
+    if not clinic:
+        raise HTTPException(404, "Clinic not found")
+    return {
+        "org_type":     getattr(clinic, "org_type", "clinic"),
+        "wards_enabled": getattr(clinic, "wards_enabled", False),
+        "clinic_prefix": clinic.clinic_prefix,
+    }
+
+
+@router.put("/clinics/{clinic_id}/org-config")
+def admin_update_org_config(
+    clinic_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    clinic = db.query(Clinic).filter(Clinic.id == clinic_id).first()
+    if not clinic:
+        raise HTTPException(404, "Clinic not found")
+    if "org_type" in body:
+        clinic.org_type = body["org_type"]
+    if "wards_enabled" in body:
+        clinic.wards_enabled = body["wards_enabled"]
+    if "clinic_prefix" in body:
+        clinic.clinic_prefix = body["clinic_prefix"]
+    db.commit()
+    return {"detail": "org config updated"}
+
+
+@router.get("/clinics/{clinic_id}/departments")
+def admin_list_departments(
+    clinic_id: int,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    depts = db.query(Department).filter(Department.clinic_id == clinic_id).all()
+    return [
+        {"id": d.id, "name": d.name, "code": d.code, "dept_type": d.dept_type, "color_hex": d.color_hex, "is_active": d.is_active}
+        for d in depts
+    ]
+
+
+@router.post("/clinics/{clinic_id}/departments")
+def admin_create_department(
+    clinic_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    dept = Department(
+        clinic_id=clinic_id,
+        name=body["name"],
+        code=body.get("code"),
+        dept_type=body.get("dept_type", "clinical"),
+        color_hex=body.get("color_hex"),
+        is_active=body.get("is_active", True),
+    )
+    db.add(dept); db.commit(); db.refresh(dept)
+    return {"id": dept.id, "name": dept.name}
+
+
+@router.put("/clinics/{clinic_id}/departments/{dept_id}")
+def admin_update_department(
+    clinic_id: int, dept_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    dept = db.query(Department).filter(Department.id == dept_id, Department.clinic_id == clinic_id).first()
+    if not dept:
+        raise HTTPException(404, "Department not found")
+    for field in ("name", "code", "dept_type", "color_hex", "is_active"):
+        if field in body:
+            setattr(dept, field, body[field])
+    db.commit()
+    return {"detail": "updated"}
+
+
+@router.delete("/clinics/{clinic_id}/departments/{dept_id}")
+def admin_delete_department(
+    clinic_id: int, dept_id: int,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    dept = db.query(Department).filter(Department.id == dept_id, Department.clinic_id == clinic_id).first()
+    if not dept:
+        raise HTTPException(404, "Department not found")
+    db.delete(dept); db.commit()
+    return {"detail": "deleted"}
+
+
+@router.get("/clinics/{clinic_id}/wards")
+def admin_list_wards(
+    clinic_id: int,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    wards = db.query(Ward).filter(Ward.clinic_id == clinic_id).all()
+    return [
+        {"id": w.id, "name": w.name, "floor": w.floor, "wing": w.wing, "ward_type": w.ward_type, "total_beds": w.total_beds, "department_id": w.department_id}
+        for w in wards
+    ]
+
+
+@router.post("/clinics/{clinic_id}/wards")
+def admin_create_ward(
+    clinic_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    ward = Ward(
+        clinic_id=clinic_id,
+        name=body["name"],
+        floor=body.get("floor"),
+        wing=body.get("wing"),
+        ward_type=body.get("ward_type", "general"),
+        total_beds=int(body.get("total_beds") or 0),
+        department_id=body.get("department_id"),
+    )
+    db.add(ward); db.commit(); db.refresh(ward)
+    return {"id": ward.id, "name": ward.name}
+
+
+@router.put("/clinics/{clinic_id}/wards/{ward_id}")
+def admin_update_ward(
+    clinic_id: int, ward_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    ward = db.query(Ward).filter(Ward.id == ward_id, Ward.clinic_id == clinic_id).first()
+    if not ward:
+        raise HTTPException(404, "Ward not found")
+    for field in ("name", "floor", "wing", "ward_type", "total_beds", "department_id"):
+        if field in body:
+            setattr(ward, field, body[field])
+    db.commit()
+    return {"detail": "updated"}
+
+
+@router.delete("/clinics/{clinic_id}/wards/{ward_id}")
+def admin_delete_ward(
+    clinic_id: int, ward_id: int,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    ward = db.query(Ward).filter(Ward.id == ward_id, Ward.clinic_id == clinic_id).first()
+    if not ward:
+        raise HTTPException(404, "Ward not found")
+    db.delete(ward); db.commit()
+    return {"detail": "deleted"}
+
+
+@router.get("/clinics/{clinic_id}/beds")
+def admin_list_beds(
+    clinic_id: int,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    beds = db.query(Bed).filter(Bed.clinic_id == clinic_id).all()
+    return [
+        {"id": b.id, "bed_number": b.bed_number, "bed_type": b.bed_type, "status": b.status, "ward_id": b.ward_id}
+        for b in beds
+    ]
+
+
+@router.post("/clinics/{clinic_id}/beds")
+def admin_create_bed(
+    clinic_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    bed = Bed(
+        clinic_id=clinic_id,
+        bed_number=body["bed_number"],
+        bed_type=body.get("bed_type", "general"),
+        status="vacant",
+        ward_id=int(body["ward_id"]),
+    )
+    db.add(bed); db.commit(); db.refresh(bed)
+    return {"id": bed.id, "bed_number": bed.bed_number}
+
+
+@router.put("/clinics/{clinic_id}/beds/{bed_id}")
+def admin_update_bed(
+    clinic_id: int, bed_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    bed = db.query(Bed).filter(Bed.id == bed_id, Bed.clinic_id == clinic_id).first()
+    if not bed:
+        raise HTTPException(404, "Bed not found")
+    for field in ("bed_number", "bed_type", "status", "ward_id"):
+        if field in body:
+            setattr(bed, field, body[field])
+    db.commit()
+    return {"detail": "updated"}

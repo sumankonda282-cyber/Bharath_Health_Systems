@@ -21,7 +21,7 @@ api.interceptors.response.use(
     // Login endpoint returning 401 means wrong credentials — show error, don't redirect
     if (err.response?.status === 401) {
       const url = err.config?.url || ''
-      const isExempt = url.includes('/login') || url.includes('/send-otp') || url.includes('/verify-otp') || url.includes('/me')
+      const isExempt = url.includes('/login') || url.includes('/send-otp') || url.includes('/verify-otp') || url.includes('/me') || url.includes('/inpatient/')
       if (!isExempt) {
         sessionStorage.removeItem('admin_token')
         window.location.href = '/login'

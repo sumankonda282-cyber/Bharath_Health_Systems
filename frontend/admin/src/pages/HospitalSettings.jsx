@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import api from '../api/client'
 import {
   Building2, Layers, BedDouble, LayoutGrid,
-  Plus, Edit2, Trash2, Loader2, X, Check,
+  Plus, Edit2, Trash2, Loader2, X, Check, ChevronDown,
 } from 'lucide-react'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -44,7 +44,7 @@ function Toggle2({ enabled, onChange, label }) {
 }
 
 // ── Overview Tab ──────────────────────────────────────────────────────────────
-function OverviewTab() {
+function OverviewTab({ clinicId }) {
   const [config, setConfig] = useState({ org_type: 'clinic', clinic_prefix: '', wards_enabled: false })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -52,16 +52,17 @@ function OverviewTab() {
   const [err, setErr] = useState('')
 
   useEffect(() => {
-    api.get('/inpatient/org-config')
+    setLoading(true)
+    api.get(`/platform/clinics/${clinicId}/org-config`)
       .then(r => setConfig(r || { org_type: 'clinic', clinic_prefix: '', wards_enabled: false }))
       .catch(() => setErr('Could not load config'))
       .finally(() => setLoading(false))
-  }, [])
+  }, [clinicId])
 
   const save = async () => {
     setSaving(true); setMsg(''); setErr('')
     try {
-      await api.put('/inpatient/org-config', config)
+      await api.put(`/platform/clinics/${clinicId}/org-config`, config)
       setMsg('Saved successfully')
       setTimeout(() => setMsg(''), 3000)
     } catch (e) { setErr(e.message || 'Save failed') }
@@ -76,7 +77,6 @@ function OverviewTab() {
       {msg && <div className="p-4 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm">{msg}</div>}
 
       <div className="card p-5 space-y-5">
-        {/* Org Type */}
         <div>
           <label className="label">Organisation Type</label>
           <div className="flex gap-2 mt-1">
@@ -93,7 +93,6 @@ function OverviewTab() {
           </div>
         </div>
 
-        {/* MRN Prefix */}
         <div>
           <label className="label">MRN / Clinic ID Prefix</label>
           <input
@@ -106,7 +105,6 @@ function OverviewTab() {
           <p className="text-xs text-gray-400 mt-1">Used as prefix for patient IDs (e.g. BHC-0001)</p>
         </div>
 
-        {/* Wards Enabled */}
         <div className="flex items-center justify-between">
           <div>
             <div className="text-sm font-medium text-gray-700">Wards & Bed Management</div>
@@ -128,7 +126,7 @@ function OverviewTab() {
 }
 
 // ── Departments Tab ───────────────────────────────────────────────────────────
-function DeptModal({ dept, onClose, onSaved }) {
+function DeptModal({ dept, clinicId, onClose, onSaved }) {
   const [form, setForm] = useState(dept || { name: '', code: '', dept_type: 'clinical', color_hex: '#0F2557', is_active: true })
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
@@ -137,9 +135,9 @@ function DeptModal({ dept, onClose, onSaved }) {
     e.preventDefault(); setSaving(true); setErr('')
     try {
       if (dept?.id) {
-        await api.put(`/inpatient/departments/${dept.id}`, form)
+        await api.put(`/platform/clinics/${clinicId}/departments/${dept.id}`, form)
       } else {
-        await api.post('/inpatient/departments', form)
+        await api.post(`/platform/clinics/${clinicId}/departments`, form)
       }
       onSaved()
     } catch (ex) { setErr(ex.message || 'Failed to save') }
@@ -180,25 +178,25 @@ function DeptModal({ dept, onClose, onSaved }) {
   )
 }
 
-function DepartmentsTab() {
+function DepartmentsTab({ clinicId }) {
   const [depts, setDepts] = useState([])
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState('')
-  const [modal, setModal] = useState(null) // null | 'new' | dept object
+  const [modal, setModal] = useState(null)
 
   const load = useCallback(() => {
     setLoading(true)
-    api.get('/inpatient/departments')
+    api.get(`/platform/clinics/${clinicId}/departments`)
       .then(r => setDepts(Array.isArray(r) ? r : []))
       .catch(() => setErr('Could not load departments'))
       .finally(() => setLoading(false))
-  }, [])
+  }, [clinicId])
 
   useEffect(() => { load() }, [load])
 
   const remove = async id => {
     if (!window.confirm('Delete this department?')) return
-    try { await api.delete(`/inpatient/departments/${id}`); load() }
+    try { await api.delete(`/platform/clinics/${clinicId}/departments/${id}`); load() }
     catch (e) { alert(e.message || 'Delete failed') }
   }
 
@@ -250,6 +248,7 @@ function DepartmentsTab() {
       {modal && (
         <DeptModal
           dept={modal === 'new' ? null : modal}
+          clinicId={clinicId}
           onClose={() => setModal(null)}
           onSaved={() => { setModal(null); load() }}
         />
@@ -259,7 +258,7 @@ function DepartmentsTab() {
 }
 
 // ── Wards Tab ─────────────────────────────────────────────────────────────────
-function WardModal({ ward, departments, onClose, onSaved }) {
+function WardModal({ ward, departments, clinicId, onClose, onSaved }) {
   const [form, setForm] = useState(ward || { name: '', floor: '', wing: '', ward_type: 'general', total_beds: '', department_id: '' })
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
@@ -269,9 +268,9 @@ function WardModal({ ward, departments, onClose, onSaved }) {
     try {
       const payload = { ...form, total_beds: parseInt(form.total_beds) || 0, department_id: form.department_id ? parseInt(form.department_id) : null }
       if (ward?.id) {
-        await api.put(`/inpatient/wards/${ward.id}`, payload)
+        await api.put(`/platform/clinics/${clinicId}/wards/${ward.id}`, payload)
       } else {
-        await api.post('/inpatient/wards', payload)
+        await api.post(`/platform/clinics/${clinicId}/wards`, payload)
       }
       onSaved()
     } catch (ex) { setErr(ex.message || 'Failed to save') }
@@ -316,7 +315,7 @@ function WardModal({ ward, departments, onClose, onSaved }) {
   )
 }
 
-function WardsTab() {
+function WardsTab({ clinicId }) {
   const [wards, setWards] = useState([])
   const [departments, setDepartments] = useState([])
   const [loading, setLoading] = useState(true)
@@ -327,17 +326,17 @@ function WardsTab() {
   const load = useCallback(() => {
     setLoading(true)
     Promise.all([
-      api.get('/inpatient/wards').then(r => setWards(Array.isArray(r) ? r : [])),
-      api.get('/inpatient/departments').then(r => setDepartments(Array.isArray(r) ? r : [])),
+      api.get(`/platform/clinics/${clinicId}/wards`).then(r => setWards(Array.isArray(r) ? r : [])),
+      api.get(`/platform/clinics/${clinicId}/departments`).then(r => setDepartments(Array.isArray(r) ? r : [])),
     ]).catch(() => setErr('Could not load data'))
       .finally(() => setLoading(false))
-  }, [])
+  }, [clinicId])
 
   useEffect(() => { load() }, [load])
 
   const remove = async id => {
     if (!window.confirm('Delete this ward?')) return
-    try { await api.delete(`/inpatient/wards/${id}`); load() }
+    try { await api.delete(`/platform/clinics/${clinicId}/wards/${id}`); load() }
     catch (e) { alert(e.message || 'Delete failed') }
   }
 
@@ -396,6 +395,7 @@ function WardsTab() {
         <WardModal
           ward={modal === 'new' ? null : modal}
           departments={departments}
+          clinicId={clinicId}
           onClose={() => setModal(null)}
           onSaved={() => { setModal(null); load() }}
         />
@@ -405,7 +405,7 @@ function WardsTab() {
 }
 
 // ── Beds Tab ──────────────────────────────────────────────────────────────────
-function BedModal({ wards, onClose, onSaved }) {
+function BedModal({ wards, clinicId, onClose, onSaved }) {
   const [form, setForm] = useState({ bed_number: '', bed_type: 'general', ward_id: '' })
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
@@ -413,7 +413,7 @@ function BedModal({ wards, onClose, onSaved }) {
   const submit = async e => {
     e.preventDefault(); setSaving(true); setErr('')
     try {
-      await api.post('/inpatient/beds', { ...form, ward_id: parseInt(form.ward_id) })
+      await api.post(`/platform/clinics/${clinicId}/beds`, { ...form, ward_id: parseInt(form.ward_id) })
       onSaved()
     } catch (ex) { setErr(ex.message || 'Failed to save') }
     finally { setSaving(false) }
@@ -452,7 +452,7 @@ function BedModal({ wards, onClose, onSaved }) {
   )
 }
 
-function BedsTab() {
+function BedsTab({ clinicId }) {
   const [beds, setBeds] = useState([])
   const [wards, setWards] = useState([])
   const [loading, setLoading] = useState(true)
@@ -463,16 +463,16 @@ function BedsTab() {
   const load = useCallback(() => {
     setLoading(true)
     Promise.all([
-      api.get('/inpatient/beds').then(r => setBeds(Array.isArray(r) ? r : [])),
-      api.get('/inpatient/wards').then(r => setWards(Array.isArray(r) ? r : [])),
+      api.get(`/platform/clinics/${clinicId}/beds`).then(r => setBeds(Array.isArray(r) ? r : [])),
+      api.get(`/platform/clinics/${clinicId}/wards`).then(r => setWards(Array.isArray(r) ? r : [])),
     ]).catch(() => setErr('Could not load data'))
       .finally(() => setLoading(false))
-  }, [])
+  }, [clinicId])
 
   useEffect(() => { load() }, [load])
 
   const updateStatus = async (id, status) => {
-    try { await api.put(`/inpatient/beds/${id}`, { status }); load() }
+    try { await api.put(`/platform/clinics/${clinicId}/beds/${id}`, { status }); load() }
     catch (e) { alert(e.message || 'Update failed') }
   }
 
@@ -503,7 +503,6 @@ function BedsTab() {
                 <div className="text-xs uppercase font-medium mb-1 opacity-70">{b.bed_type}</div>
                 <div className="text-xs opacity-60 mb-2 truncate">{ward?.name || '—'}</div>
                 <div className="text-xs font-medium">{BED_STATUS_LABELS[b.status] || b.status}</div>
-                {/* Status update for maintenance/cleaning */}
                 {(b.status === 'maintenance' || b.status === 'pending_cleaning') && (
                   <button
                     onClick={() => updateStatus(b.id, 'vacant')}
@@ -525,7 +524,7 @@ function BedsTab() {
           })}
         </div>
       )}
-      {showAdd && <BedModal wards={wards} onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); load() }} />}
+      {showAdd && <BedModal wards={wards} clinicId={clinicId} onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); load() }} />}
     </div>
   )
 }
@@ -540,25 +539,71 @@ const TABS = [
 
 export default function HospitalSettings() {
   const [tab, setTab] = useState('overview')
+  const [clinics, setClinics] = useState([])
+  const [selectedClinicId, setSelectedClinicId] = useState('')
+  const [loadingClinics, setLoadingClinics] = useState(true)
+
+  useEffect(() => {
+    api.get('/platform/clinics?status=active')
+      .then(data => setClinics(Array.isArray(data) ? data : []))
+      .catch(() => {})
+      .finally(() => setLoadingClinics(false))
+  }, [])
 
   return (
     <div>
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-6 w-fit overflow-x-auto">
-        {TABS.map(t => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${tab === t.key ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
-          >
-            <t.icon size={14} />{t.label}
-          </button>
-        ))}
+      {/* Clinic selector */}
+      <div className="mb-6 flex items-center gap-3">
+        <div className="relative w-72">
+          <Building2 size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+          {loadingClinics ? (
+            <div className="input pl-9 flex items-center gap-2 text-gray-400 text-sm">
+              <Loader2 size={14} className="animate-spin" />Loading health centers…
+            </div>
+          ) : (
+            <select
+              className="input pl-9 pr-8 text-sm appearance-none"
+              value={selectedClinicId}
+              onChange={e => { setSelectedClinicId(e.target.value); setTab('overview') }}
+            >
+              <option value="">— Select a health center —</option>
+              {clinics.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          )}
+          <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+        </div>
+        {selectedClinicId && (
+          <span className="text-xs text-gray-500">
+            Configuring: <span className="font-semibold text-gray-700">{clinics.find(c => String(c.id) === selectedClinicId)?.name}</span>
+          </span>
+        )}
       </div>
 
-      {tab === 'overview'    && <OverviewTab />}
-      {tab === 'departments' && <DepartmentsTab />}
-      {tab === 'wards'       && <WardsTab />}
-      {tab === 'beds'        && <BedsTab />}
+      {!selectedClinicId ? (
+        <div className="card-p py-16 text-center text-gray-400">
+          <Building2 size={40} className="mx-auto mb-3 opacity-20" />
+          <p className="font-medium">Select a health center above to configure its hospital settings</p>
+        </div>
+      ) : (
+        <>
+          <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-6 w-fit overflow-x-auto">
+            {TABS.map(t => (
+              <button
+                key={t.key}
+                onClick={() => setTab(t.key)}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${tab === t.key ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                <t.icon size={14} />{t.label}
+              </button>
+            ))}
+          </div>
+
+          {tab === 'overview'    && <OverviewTab    clinicId={selectedClinicId} />}
+          {tab === 'departments' && <DepartmentsTab clinicId={selectedClinicId} />}
+          {tab === 'wards'       && <WardsTab       clinicId={selectedClinicId} />}
+          {tab === 'beds'        && <BedsTab        clinicId={selectedClinicId} />}
+        </>
+      )}
     </div>
   )
 }
