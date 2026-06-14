@@ -289,6 +289,39 @@ def seed_imaging_catalog():
         print(f"[medlib] imaging_catalog loaded: {len(rows)}")
 
 
+def seed_disease_counselling():
+    try:
+        from app.seed_data.disease_counselling import DISEASE_COUNSELLING
+    except ImportError as e:
+        print(f"[medlib] disease_counselling seed missing: {e}")
+        return
+    with engine.begin() as conn:
+        try:
+            existing = _count(conn, "SELECT count(*) FROM disease_counselling")
+        except Exception:
+            print("[medlib] disease_counselling table not yet created — skipping")
+            return
+        if existing >= 100:
+            print(f"[medlib] disease_counselling already loaded ({existing}) — skipping")
+            return
+        rows = []
+        for entry in DISEASE_COUNSELLING:
+            for i, tip in enumerate(entry["tips"]):
+                rows.append({
+                    "icd10_prefix": entry["icd10_prefix"][:10],
+                    "condition": entry.get("condition", "")[:200],
+                    "tip": tip,
+                    "sort_order": i,
+                })
+        _batched_insert(
+            conn,
+            "INSERT INTO disease_counselling (icd10_prefix, condition, tip, sort_order) "
+            "VALUES (:icd10_prefix, :condition, :tip, :sort_order)",
+            rows,
+        )
+        print(f"[medlib] disease_counselling loaded: {len(rows)} tips")
+
+
 def main():
     steps = [
         ("icd10 reference", seed_icd10_reference),
@@ -296,6 +329,7 @@ def main():
         ("drug data", seed_drug_data),
         ("lab tests", seed_lab_tests),
         ("imaging catalog", seed_imaging_catalog),
+        ("disease counselling", seed_disease_counselling),
     ]
     for name, fn in steps:
         try:

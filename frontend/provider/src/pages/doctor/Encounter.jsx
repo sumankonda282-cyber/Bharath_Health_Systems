@@ -459,8 +459,9 @@ export default function PatientChart() {
   // ── Follow-up
   const [followupDays, setFollowupDays] = useState('')
 
-  // ── Counselling text
+  // ── Counselling text + disease-level suggestion chips
   const [counsellingText, setCounsellingText] = useState('')
+  const [diseaseTips, setDiseaseTips] = useState([])   // [{condition, tips:[]}]
 
   // ── Load encounter
   useEffect(() => {
@@ -569,6 +570,21 @@ export default function PatientChart() {
     }, 250)
     return () => clearTimeout(t)
   }, [orderSearch, orderTab])
+
+  // Auto-fetch disease counselling tips when diagnoses change
+  useEffect(() => {
+    if (!diagnoses.length) { setDiseaseTips([]); return }
+    const codes = [...new Set(diagnoses.map(d => d.code.slice(0, 3).toUpperCase()))]
+    Promise.all(
+      codes.map(code =>
+        api.get('/terminology/counselling/suggest', { params: { icd10: code } })
+          .then(r => r.data)
+          .catch(() => null)
+      )
+    ).then(results => {
+      setDiseaseTips(results.filter(r => r && r.tips && r.tips.length > 0))
+    })
+  }, [diagnoses])
 
   // ── Actions ──────────────────────────────────────────────────────────────────
   const flash = text => { setMsg(text); setTimeout(() => setMsg(''), 3500) }
@@ -1284,6 +1300,44 @@ export default function PatientChart() {
                 locked={isLocked}
                 onEdit={counsellingText ? () => toggleEdit(key) : undefined}
                 editMode={editMode[key]} />
+
+              {/* Disease-specific tip chips */}
+              {diseaseTips.length > 0 && !isLocked && (
+                <div className="mb-3 space-y-2">
+                  {diseaseTips.map((entry, ei) => (
+                    <div key={ei}>
+                      {entry.condition && (
+                        <div className="text-xs font-medium text-indigo-700 mb-1">{entry.condition}</div>
+                      )}
+                      <div className="flex flex-wrap gap-1">
+                        {entry.tips.map((tip, ti) => {
+                          const alreadyAdded = counsellingText.includes(tip)
+                          return (
+                            <button
+                              key={ti}
+                              onClick={() => {
+                                if (!alreadyAdded) {
+                                  setCounsellingText(prev =>
+                                    prev ? prev + '\n• ' + tip : '• ' + tip
+                                  )
+                                }
+                              }}
+                              className={`text-xs px-2 py-1 rounded-full border transition-colors ${
+                                alreadyAdded
+                                  ? 'bg-indigo-100 border-indigo-300 text-indigo-500 cursor-default'
+                                  : 'bg-white border-gray-300 text-gray-700 hover:border-indigo-400 hover:bg-indigo-50 cursor-pointer'
+                              }`}
+                            >
+                              {alreadyAdded ? '✓ ' : '+ '}{tip}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {editMode[key] || !counsellingText ? (
                 <AutoTextarea value={counsellingText}
                   onChange={setCounsellingText}

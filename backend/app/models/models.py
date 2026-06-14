@@ -1965,3 +1965,13 @@ class VisitorPass(Base):
     admission = relationship("Admission", foreign_keys=[admission_id])
     patient   = relationship("Patient", foreign_keys=[patient_id])
     issuer    = relationship("Staff", foreign_keys=[issued_by])
+
+
+class DiseaseCounselling(Base):
+    __tablename__ = "disease_counselling"
+    id           = Column(Integer, primary_key=True, index=True)
+    icd10_prefix = Column(String(10), nullable=False, index=True)
+    condition    = Column(String(200), nullable=True)
+    tip          = Column(Text, nullable=False)
+    sort_order   = Column(Integer, default=0)
+    created_at   = Column(DateTime, server_default=func.now())

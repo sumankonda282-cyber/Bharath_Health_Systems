@@ -14,7 +14,7 @@ from typing import Optional, List
 
 from app.db.session import get_db
 from app.core.security import get_current_staff
-from app.models.models import Staff, DoctorProfile, Drug, DrugInteraction, DrugDoseRange, DrugContraindication, DrugCounselling
+from app.models.models import Staff, DoctorProfile, Drug, DrugInteraction, DrugDoseRange, DrugContraindication, DrugCounselling, DiseaseCounselling
 
 router = APIRouter(prefix="/terminology", tags=["terminology"])
 
@@ -221,6 +221,34 @@ def get_drug_interactions(
         }
         for r in rows
     ]
+
+
+@router.get("/counselling/suggest")
+def suggest_disease_counselling(
+    icd10: str = Query(..., min_length=2, description="ICD-10 code or prefix, e.g. E11 or E11.9"),
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Return counselling tips matching an ICD-10 prefix (longest match first)."""
+    code = icd10.strip().upper()
+    # Try progressively shorter prefixes: E11.9 → E11 → E1
+    results = []
+    for length in [len(code), 3, 2]:
+        prefix = code[:length]
+        rows = (
+            db.query(DiseaseCounselling)
+            .filter(DiseaseCounselling.icd10_prefix == prefix)
+            .order_by(DiseaseCounselling.sort_order)
+            .all()
+        )
+        if rows:
+            results = rows
+            break
+    return {
+        "icd10": icd10,
+        "condition": results[0].condition if results else None,
+        "tips": [r.tip for r in results],
+    }
 
 
 # ── Clinical Decision Support ────────────────────────────────────────────────
