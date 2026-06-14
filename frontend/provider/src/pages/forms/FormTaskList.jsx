@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import {
-  ClipboardList, Clock, AlertTriangle, CheckCircle2, RefreshCw,
-  ChevronRight, Activity, User, Calendar, BarChart2, Loader2, Star, BookOpen
+  ClipboardList, Clock, AlertTriangle, CheckCircle2,
+  ChevronRight, Activity, User, BarChart2, Loader2, Star, BookOpen
 } from 'lucide-react'
 import api from '../../api/client'
 
@@ -341,33 +341,12 @@ export default function FormTaskList() {
   })
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="flex items-start justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-[#0F2557] flex items-center gap-2">
-              <ClipboardList size={24} className="text-[#0F2557]" />
-              Assessment Forms
-            </h1>
-            <p className="text-sm text-gray-500 mt-1">
-              {patientId
-                ? patientName
-                  ? `Forms for ${patientName}`
-                  : `Forms for patient #${patientId}`
-                : "Today's clinic worklist"}
-            </p>
-          </div>
-          {mainTab === 'queue' && (
-            <button
-              onClick={fetchAssignments}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-white transition"
-            >
-              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-              Refresh
-            </button>
-          )}
-        </div>
+    <div className="max-w-4xl mx-auto">
+      {patientId && (
+        <p className="text-sm text-gray-500 mb-4">
+          {patientName ? `Forms for ${patientName}` : `Forms for patient #${patientId}`}
+        </p>
+      )}
 
         {/* Main tab switcher: My Queue / Form Library */}
         <div className="flex gap-1 bg-white rounded-xl border border-gray-100 p-1 mb-6">
@@ -460,7 +439,6 @@ export default function FormTaskList() {
             )}
           </>
         )}
-      </div>
     </div>
   )
 }
