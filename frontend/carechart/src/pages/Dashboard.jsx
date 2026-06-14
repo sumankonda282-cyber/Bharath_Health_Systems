@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { BedDouble, Activity, Pill, ArrowLeftRight, Loader2, Clock, User } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { BedDouble, Activity, Pill, ArrowLeftRight, Loader2, Clock, User, FileText } from 'lucide-react'
 import api from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 
 function timeAgo(dateStr) {
   if (!dateStr) return null
-  const diff = (Date.now() - new Date(dateStr).getTime()) / 1000 / 60 // minutes
+  const diff = (Date.now() - new Date(dateStr).getTime()) / 1000 / 60
   if (diff < 60) return `${Math.round(diff)}m ago`
   if (diff < 1440) return `${Math.round(diff / 60)}h ago`
   return `${Math.round(diff / 1440)}d ago`
@@ -28,6 +29,7 @@ function StatCard({ icon: Icon, label, value, color, sub }) {
 
 export default function Dashboard() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [admissions, setAdmissions] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -45,7 +47,6 @@ export default function Dashboard() {
     return diffH > 4
   }).length
 
-  // Current shift
   const h = new Date().getHours()
   const shiftName = h >= 6 && h < 14 ? 'Morning' : h >= 14 && h < 22 ? 'Afternoon' : 'Night'
 
@@ -54,50 +55,21 @@ export default function Dashboard() {
       <div className="page-header">
         <div>
           <h1 className="page-title">Ward Dashboard</h1>
-          <p className="text-gray-500 text-sm mt-1">
-            Welcome back, {user?.full_name || 'Nurse'} · {shiftName} Shift
-          </p>
+          <p className="text-gray-500 text-sm mt-1">Welcome back, {user?.full_name || 'Nurse'} · {shiftName} Shift</p>
         </div>
       </div>
 
-      {error && (
-        <div className="p-4 mb-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">{error}</div>
-      )}
+      {error && <div className="p-4 mb-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">{error}</div>}
 
       {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 size={32} className="animate-spin text-gray-400" />
-        </div>
+        <div className="flex items-center justify-center py-20"><Loader2 size={32} className="animate-spin text-gray-400" /></div>
       ) : (
         <>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            <StatCard
-              icon={BedDouble}
-              label="Active Admissions"
-              value={admissions.length}
-              color="#065F46"
-            />
-            <StatCard
-              icon={Activity}
-              label="Vitals Due"
-              value={vitalsDue}
-              color={vitalsDue > 0 ? '#CC1414' : '#16A34A'}
-              sub="> 4h since last charting"
-            />
-            <StatCard
-              icon={Pill}
-              label="MAR Status"
-              value="—"
-              color="#d97706"
-              sub="Check MAR tab"
-            />
-            <StatCard
-              icon={ArrowLeftRight}
-              label="Shift Handoff"
-              value={shiftName}
-              color="#6366f1"
-              sub="Handoff tab for notes"
-            />
+            <StatCard icon={BedDouble} label="Active Admissions" value={admissions.length} color="#065F46" />
+            <StatCard icon={Activity} label="Vitals Due" value={vitalsDue} color={vitalsDue > 0 ? '#CC1414' : '#16A34A'} sub="> 4h since last charting" />
+            <StatCard icon={Pill} label="MAR Status" value="—" color="#d97706" sub="Check MAR tab" />
+            <StatCard icon={ArrowLeftRight} label="Shift Handoff" value={shiftName} color="#6366f1" sub="Handoff tab for notes" />
           </div>
 
           <div className="card overflow-hidden">
@@ -106,22 +78,17 @@ export default function Dashboard() {
               <span className="badge-green">{admissions.length} patients</span>
             </div>
             {admissions.length === 0 ? (
-              <div className="empty-state">
-                <User size={32} className="empty-state-icon" />
-                <span className="empty-state-text">No active admissions</span>
-              </div>
+              <div className="empty-state"><User size={32} className="empty-state-icon" /><span className="empty-state-text">No active admissions</span></div>
             ) : (
               <div className="table-wrapper rounded-none">
                 <table className="table">
-                  <thead>
-                    <tr>
-                      <th className="th">Patient</th>
-                      <th className="th">Admission #</th>
-                      <th className="th">Ward / Bed</th>
-                      <th className="th">Diagnosis</th>
-                      <th className="th">Last Vitals</th>
-                    </tr>
-                  </thead>
+                  <thead><tr>
+                    <th className="th">Patient</th>
+                    <th className="th">Admission #</th>
+                    <th className="th">Ward / Bed</th>
+                    <th className="th">Diagnosis</th>
+                    <th className="th">Last Vitals</th>
+                  </tr></thead>
                   <tbody className="bg-white divide-y divide-gray-50">
                     {admissions.map(a => {
                       const name = a.patient?.full_name || a.patient_name || 'Unknown'
@@ -130,11 +97,12 @@ export default function Dashboard() {
                       const bed = a.bed?.bed_number || a.bed_number || '—'
                       const diag = a.diagnosis || a.primary_diagnosis || '—'
                       const ago = timeAgo(a.last_vital_at)
-                      const overdue = !a.last_vital_at ||
-                        (Date.now() - new Date(a.last_vital_at).getTime()) / 1000 / 3600 > 4
+                      const overdue = !a.last_vital_at || (Date.now() - new Date(a.last_vital_at).getTime()) / 1000 / 3600 > 4
                       return (
-                        <tr key={a.id} className="tr-hover">
-                          <td className="td font-medium text-gray-900">{name}</td>
+                        <tr key={a.id} className="tr-hover cursor-pointer" onClick={() => navigate(`/chart/${a.id}`)}>
+                          <td className="td font-medium text-gray-900 flex items-center gap-2">
+                            <FileText size={13} className="text-emerald-500 flex-shrink-0" />{name}
+                          </td>
                           <td className="td text-gray-500">{admNo}</td>
                           <td className="td">{ward} / {bed}</td>
                           <td className="td text-gray-500 max-w-xs truncate">{diag}</td>

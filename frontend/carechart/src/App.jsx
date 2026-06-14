@@ -15,6 +15,7 @@ import WardSetup from './pages/WardSetup'
 import PinSetup from './pages/PinSetup'
 import Assessments from './pages/Assessments'
 import DocumentationTemplates from './pages/DocumentationTemplates'
+import AdmissionChart from './pages/AdmissionChart'
 import { Loader2 } from 'lucide-react'
 
 function AppLoader() {
@@ -31,7 +32,6 @@ function AppRoutes() {
 
   if (loading) return <AppLoader />
 
-  // Not authenticated → login
   if (!user) {
     return (
       <Routes>
@@ -41,14 +41,11 @@ function AppRoutes() {
     )
   }
 
-  // Authenticated — route based on setup state
   return (
     <Routes>
       <Route path="/login" element={<Navigate to="/" replace />} />
       <Route path="/pin-setup" element={<PinSetup />} />
       <Route path="/ward-setup" element={<WardSetup />} />
-
-      {/* Protected app routes — redirect to ward-setup if not configured */}
       <Route element={setupComplete ? <Layout /> : <Navigate to="/ward-setup" replace />}>
         <Route index element={<Dashboard />} />
         <Route path="ward-board" element={<WardBoard />} />
@@ -59,8 +56,8 @@ function AppRoutes() {
         <Route path="handoff" element={<ShiftHandoff />} />
         <Route path="assessments" element={<Assessments />} />
         <Route path="templates" element={<DocumentationTemplates />} />
+        <Route path="chart/:admissionId" element={<AdmissionChart />} />
       </Route>
-
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
