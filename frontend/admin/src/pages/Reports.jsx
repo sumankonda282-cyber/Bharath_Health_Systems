@@ -46,22 +46,16 @@ export default function Reports() {
 
   return (
     <div>
-      <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="mb-6 flex flex-wrap gap-2 items-end">
         <div>
-          <h1 className="page-title">Reports</h1>
-          <p className="text-gray-500 text-sm mt-1">Business metrics and platform health</p>
+          <label className="text-xs text-gray-500 block mb-1">From</label>
+          <input type="date" className="input w-36 py-1.5 text-sm" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
         </div>
-        <div className="flex flex-wrap gap-2 items-end">
-          <div>
-            <label className="text-xs text-gray-500 block mb-1">From</label>
-            <input type="date" className="input w-36 py-1.5 text-sm" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
-          </div>
-          <div>
-            <label className="text-xs text-gray-500 block mb-1">To</label>
-            <input type="date" className="input w-36 py-1.5 text-sm" value={dateTo} onChange={e => setDateTo(e.target.value)} />
-          </div>
-          <button onClick={load} className="btn-primary py-1.5">Apply</button>
+        <div>
+          <label className="text-xs text-gray-500 block mb-1">To</label>
+          <input type="date" className="input w-36 py-1.5 text-sm" value={dateTo} onChange={e => setDateTo(e.target.value)} />
         </div>
+        <button onClick={load} className="btn-primary py-1.5">Apply</button>
       </div>
 
       {loading ? (

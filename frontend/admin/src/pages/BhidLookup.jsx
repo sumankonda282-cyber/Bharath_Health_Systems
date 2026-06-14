@@ -24,11 +24,6 @@ export default function BhidLookup() {
 
   return (
     <div className="max-w-4xl">
-      <div className="page-header">
-        <h1 className="page-title">BH ID Lookup</h1>
-        <p className="text-sm text-gray-500">Search patients by BH ID or UHID across all clinics</p>
-      </div>
-
       <form onSubmit={search} className="card p-4 mb-6 flex gap-3">
         <input
           className="input flex-1"

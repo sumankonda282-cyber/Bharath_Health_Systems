@@ -28,12 +28,6 @@ export default function PendingClinics() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="page-title">Pending Approvals</h1>
-          <p className="text-gray-500 text-sm mt-1">{clinics.length} clinic{clinics.length !== 1 ? 's' : ''} awaiting review</p>
-        </div>
-      </div>
 
       {loading ? (
         <div className="flex justify-center py-20"><div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" /></div>

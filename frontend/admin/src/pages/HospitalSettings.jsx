@@ -543,10 +543,6 @@ export default function HospitalSettings() {
 
   return (
     <div>
-      <div className="page-header">
-        <h1 className="page-title">Hospital Setup</h1>
-      </div>
-
       <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-6 w-fit overflow-x-auto">
         {TABS.map(t => (
           <button

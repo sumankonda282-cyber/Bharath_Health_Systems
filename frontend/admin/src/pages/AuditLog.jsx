@@ -160,19 +160,7 @@ export default function AuditLog() {
       `}</style>
 
       <div>
-        {/* Header */}
-        <div className="mb-6 flex items-start justify-between flex-wrap gap-3">
-          <div>
-            <h1 className="page-title">Audit Trail</h1>
-            <p className="text-gray-500 text-sm mt-1">NABH-compliant log of all system actions</p>
-          </div>
-          <button onClick={() => window.print()} className="btn-primary no-print flex items-center gap-2">
-            <Download size={15} />
-            Export PDF
-          </button>
-        </div>
-
-        {/* Filters */}
+        {/* Filters + Export */}
         <div className="card-p mb-4 flex flex-wrap gap-3 items-end no-print">
           <div>
             <label className="text-xs text-gray-500 mb-1 block">Start Date</label>
@@ -210,6 +198,9 @@ export default function AuditLog() {
           </div>
           <button onClick={() => load(0)} className="btn-primary py-1.5">
             <Search size={14} />Filter
+          </button>
+          <button onClick={() => window.print()} className="btn-secondary py-1.5">
+            <Download size={15} />PDF
           </button>
         </div>
 

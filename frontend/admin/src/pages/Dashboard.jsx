@@ -47,11 +47,6 @@ export default function Dashboard() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="page-title">Dashboard</h1>
-        <p className="text-gray-500 text-sm mt-1">Platform overview — {new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
-      </div>
-
       {/* Platform Pulse */}
       <div className="mb-6">
         <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Platform Pulse</div>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { adminApi } from '../api'
-import { RefreshCw, ChevronDown } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
 import api from '../api/client'
 
 const PLAN_OPTIONS = ['basic', 'pro', 'enterprise']
@@ -162,17 +162,6 @@ export default function Subscriptions() {
   return (
     <div>
       <Toast toasts={toasts} onDismiss={dismiss} />
-
-      {/* Header */}
-      <div className="mb-6 flex items-center justify-between gap-4">
-        <div>
-          <h1 className="page-title text-white text-2xl font-bold">Subscriptions</h1>
-          <p className="text-gray-500 text-sm mt-1">Manage clinic subscription plans and status</p>
-        </div>
-        <button onClick={load} className="btn-secondary py-1.5 text-sm">
-          <RefreshCw size={14} />Refresh
-        </button>
-      </div>
 
       {/* Summary ribbon */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">

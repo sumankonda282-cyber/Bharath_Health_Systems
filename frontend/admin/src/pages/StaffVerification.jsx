@@ -32,10 +32,6 @@ export default function StaffVerification() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="page-title">Staff Verification</h1>
-        <p className="text-gray-500 text-sm mt-1">Pharmacists, Lab Technicians, and Imaging Tech awaiting license verification</p>
-      </div>
 
       {loading ? (
         <div className="flex justify-center py-20"><div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" /></div>
