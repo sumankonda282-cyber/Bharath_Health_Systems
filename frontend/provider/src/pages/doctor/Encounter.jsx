@@ -349,6 +349,7 @@ export default function PatientChart() {
 
   // ── Data
   const [data, setData]         = useState(null)
+  const [loadError, setLoadError] = useState('')
   const [pastVisits, setPastVisits] = useState([])
   const [loading, setLoading]   = useState(true)
   const [isLocked, setIsLocked] = useState(false)
@@ -448,7 +449,10 @@ export default function PatientChart() {
             .catch(() => {})
         }
       })
-      .catch(() => {})
+      .catch(err => {
+        const detail = err?.response?.data?.detail || err?.message || 'Failed to load encounter'
+        setLoadError(detail)
+      })
       .finally(() => setLoading(false))
   }, [id])
 
@@ -616,7 +620,13 @@ export default function PatientChart() {
 
   // ── Render ────────────────────────────────────────────────────────────────────
   if (loading) return <PageLoader />
-  if (!data)   return <div className="p-8 text-gray-400">Encounter not found.</div>
+  if (!data)   return (
+    <div className="p-8 text-center">
+      <div className="text-red-500 font-semibold mb-2">Could not load encounter</div>
+      <div className="text-sm text-gray-500 mb-4">{loadError || 'Appointment not found or access denied.'}</div>
+      <button onClick={() => navigate(-1)} className="btn-secondary text-sm">← Go Back</button>
+    </div>
+  )
 
   const patient   = data.patient || {}
   const vitals    = data.vitals  || {}
