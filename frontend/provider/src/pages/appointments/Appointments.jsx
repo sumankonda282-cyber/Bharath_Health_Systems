@@ -42,7 +42,21 @@ function ScheduleTab({ doctors }) {
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState('')
 
-  // Collect unique clinics from doctors
+  // Load saved availability on mount
+  useEffect(() => {
+    api.get('/scheduler/availability').then(r => {
+      if (r.data.schedule && Object.keys(r.data.schedule).length > 0) {
+        setSchedule(prev => {
+          const merged = { ...prev }
+          Object.entries(r.data.schedule).forEach(([day, data]) => {
+            merged[day] = { ...defaultDaySchedule(), ...data }
+          })
+          return merged
+        })
+      }
+      if (Array.isArray(r.data.blocked_slots)) setBlockedSlots(r.data.blocked_slots)
+    }).catch(() => {})
+  }, [])
   const clinics = []
   const seen = new Set()
   doctors.forEach(d => {

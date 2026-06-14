@@ -705,3 +705,112 @@ def delete_pattern(pattern_id: int, db: Session = Depends(get_db), current: Staf
     db.delete(p)
     db.commit()
     return {"ok": True}
+
+
+# ── Doctor Availability (weekly schedule + blocked slots) ─────────────────────
+
+from app.models.models import DoctorProfile, DoctorSchedule
+from pydantic import BaseModel as _BM
+from typing import Any, Dict
+
+
+class AvailabilityPayload(_BM):
+    schedule: Dict[str, Any]       # { "Monday": {start_time, end_time, slot_duration, blocked, breaks, ...} }
+    blocked_slots: list = []       # [{date, start, end, reason}]
+
+
+@router.get("/availability")
+def get_availability(db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
+    profile = db.query(DoctorProfile).filter(DoctorProfile.staff_id == current.id).first()
+    if not profile:
+        return {"schedule": {}, "blocked_slots": []}
+
+    rows = db.query(DoctorSchedule).filter(
+        DoctorSchedule.doctor_id == profile.id,
+        DoctorSchedule.is_active == True,
+    ).all()
+
+    schedule = {}
+    for r in rows:
+        day = r.day_of_week.title()   # "monday" → "Monday"
+        schedule[day] = {
+            "start_time":          r.start_time,
+            "end_time":            r.end_time,
+            "slot_duration":       r.slot_minutes,
+            "blocked":             False,
+            "online_booking":      False,
+            "online_window_start": r.start_time,
+            "online_window_end":   r.end_time,
+            "breaks":              [],
+        }
+
+    # Merge richer data stored in working_hours JSONB
+    wh = profile.working_hours or {}
+    for day, data in wh.get("schedule", {}).items():
+        if day not in schedule:
+            schedule[day] = data
+        else:
+            schedule[day].update(data)
+
+    blocked_slots = wh.get("blocked_slots", [])
+    return {"schedule": schedule, "blocked_slots": blocked_slots}
+
+
+@router.put("/availability")
+def save_availability(
+    payload: AvailabilityPayload,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    profile = db.query(DoctorProfile).filter(DoctorProfile.staff_id == current.id).first()
+    if not profile:
+        raise HTTPException(status_code=404, detail="Doctor profile not found. Contact your clinic admin.")
+
+    DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+
+    # Upsert DoctorSchedule rows for non-blocked days
+    for day in DAYS:
+        day_data = payload.schedule.get(day, {})
+        existing = db.query(DoctorSchedule).filter(
+            DoctorSchedule.doctor_id == profile.id,
+            DoctorSchedule.day_of_week == day.lower(),
+        ).first()
+
+        is_blocked = day_data.get("blocked", False)
+
+        if is_blocked:
+            if existing:
+                existing.is_active = False
+        else:
+            start = day_data.get("start_time", "09:00")
+            end   = day_data.get("end_time", "17:00")
+            slot  = int(day_data.get("slot_duration", 15))
+            if existing:
+                existing.start_time   = start
+                existing.end_time     = end
+                existing.slot_minutes = slot
+                existing.is_active    = True
+            else:
+                db.add(DoctorSchedule(
+                    doctor_id    = profile.id,
+                    day_of_week  = day.lower(),
+                    start_time   = start,
+                    end_time     = end,
+                    slot_minutes = slot,
+                    is_active    = True,
+                ))
+
+    # Persist full rich schedule + blocked_slots in working_hours JSONB
+    wh = profile.working_hours or {}
+    wh["schedule"]      = payload.schedule
+    wh["blocked_slots"] = payload.blocked_slots
+    from sqlalchemy import text as _text
+    from app.db.session import engine as _engine
+    # Use ORM update (working_hours is a JSONB column added via ALTER TABLE)
+    db.execute(
+        _text("UPDATE doctor_profiles SET working_hours = :wh::jsonb WHERE id = :id"),
+        {"wh": __import__("json").dumps(wh), "id": profile.id},
+    )
+
+    db.commit()
+    return {"ok": True, "days_saved": len(payload.schedule), "blocked_slots": len(payload.blocked_slots)}
