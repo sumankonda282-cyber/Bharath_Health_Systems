@@ -353,7 +353,7 @@ def portal_cancel_booking(
         (OnlineBooking.patient_user_id == current.id) | (OnlineBooking.patient_mobile == current.mobile)
     ).first()
     if booking:
-        if booking.status in ('pending', 'confirmed'):
+        if booking.status in ('pending', 'confirmed', 'in_progress'):
             booking.status = 'cancelled'
             db.commit()
             return {"cancelled": True, "type": "online_booking"}
@@ -375,7 +375,7 @@ def portal_cancel_appointment(
     ).first()
     if not appt:
         raise HTTPException(status_code=404, detail="Appointment not found")
-    if appt.status in ('pending', 'confirmed'):
+    if appt.status in ('pending', 'confirmed', 'in_progress'):
         appt.status = 'cancelled'
         db.commit()
         return {"cancelled": True}
