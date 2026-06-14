@@ -348,8 +348,11 @@ export default function PopulationDashboard() {
   useEffect(() => {
     setLoading(true)
     api.get('/platform/forms/analytics')
-      .then(res => { setData(res.data); setError(null) })
-      .catch(err => setError(err?.response?.data?.detail || err.message || 'Failed to load analytics'))
+      .then(data => { setData(data); setError(null) })
+      .catch(err => {
+        const detail = err?.response?.data?.detail
+        setError(typeof detail === 'string' ? detail : err?.message || 'Failed to load analytics')
+      })
       .finally(() => setLoading(false))
   }, [])
 
@@ -360,14 +363,6 @@ export default function PopulationDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
-      {/* Page header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-extrabold tracking-tight" style={{ color: ORANGE }}>
-          Population Dashboard
-        </h1>
-        <p className="text-gray-400 text-sm mt-1">Clinical insights across all patients</p>
-      </div>
-
       {/* Error */}
       {error && (
         <div className="mb-4 px-4 py-3 rounded-lg bg-red-950 border border-red-700 text-red-300 text-sm">

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { adminApi } from '../api'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Search, ExternalLink, RefreshCw } from 'lucide-react'
+import { Search, ExternalLink } from 'lucide-react'
 
 const STATUS_TABS = ['all', 'active', 'pending', 'suspended', 'revoked']
 const PLAN_COLORS = { free: 'badge-free', basic: 'badge-basic', pro: 'badge-pro', enterprise: 'badge-enterprise' }
@@ -26,27 +26,21 @@ export default function AllClinics() {
 
   return (
     <div>
-      <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h1 className="page-title">All Clinics</h1>
-        <div className="flex gap-2">
-          <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-            <input className="input pl-8 w-48 text-sm py-1.5" placeholder="Search…"
-              value={search} onChange={e => setSearch(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && load()} />
-          </div>
-          <button onClick={load} className="btn-secondary py-1.5"><RefreshCw size={14} /></button>
+      <div className="mb-4 flex flex-col sm:flex-row sm:items-center gap-2">
+        <div className="flex gap-1 bg-gray-900 border border-gray-800 p-1 rounded-xl overflow-x-auto flex-1 min-w-0">
+          {STATUS_TABS.map(s => (
+            <button key={s} onClick={() => setTab(s)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium capitalize whitespace-nowrap transition-all ${tab === s ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-white'}`}>
+              {s}
+            </button>
+          ))}
         </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex gap-1 bg-gray-900 border border-gray-800 p-1 rounded-xl mb-4 overflow-x-auto">
-        {STATUS_TABS.map(s => (
-          <button key={s} onClick={() => setTab(s)}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium capitalize whitespace-nowrap transition-all ${tab === s ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-white'}`}>
-            {s}
-          </button>
-        ))}
+        <div className="relative flex-shrink-0">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+          <input className="input pl-8 w-48 text-sm py-1.5" placeholder="Search…"
+            value={search} onChange={e => setSearch(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && load()} />
+        </div>
       </div>
 
       <div className="card overflow-hidden">

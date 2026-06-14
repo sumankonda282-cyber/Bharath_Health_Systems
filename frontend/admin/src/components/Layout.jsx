@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import {
   LayoutDashboard, Clock, Building2, ShieldCheck,
   ClipboardList, BarChart3, LogOut, Menu, X, Search, CreditCard, Hospital,
-  FileText, Users, Bell
+  FileText, Users, Bell, RefreshCw, PlusCircle, ChevronDown
 } from 'lucide-react'
 import api from '../api/client'
 import BrandLogo from './BrandLogo'
@@ -12,7 +12,7 @@ import BrandLogo from './BrandLogo'
 const NAV = [
   { to: '/dashboard',         icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/pending',           icon: Clock,           label: 'Pending Approvals' },
-  { to: '/clinics',           icon: Building2,       label: 'All Clinics' },
+  { to: '/clinics',           icon: Building2,       label: 'All Health Centers' },
   { to: '/subscriptions',     icon: CreditCard,      label: 'Subscriptions' },
   { to: '/staff',             icon: ShieldCheck,     label: 'Staff Verification' },
   { to: '/forms',             icon: FileText,        label: 'Assessment Forms' },
@@ -23,16 +23,28 @@ const NAV = [
   { to: '/hospital-settings', icon: Hospital,        label: 'Hospital Setup' },
 ]
 
+const PAGE_TITLES = {
+  '/dashboard':         'Dashboard',
+  '/pending':           'Pending Approvals',
+  '/clinics':           'All Health Centers',
+  '/subscriptions':     'Subscriptions',
+  '/staff':             'Staff Verification',
+  '/forms':             'Assessment Forms',
+  '/population':        'Population',
+  '/audit':             'Audit Log',
+  '/reports':           'Reports',
+  '/bhid':              'BH ID Lookup',
+  '/hospital-settings': 'Hospital Setup',
+}
+
 function getInitials(email) {
   if (!email) return '?'
   return email.slice(0, 2).toUpperCase()
 }
 
 function Sidebar({ onClose }) {
-  const { user, logout } = useAuth()
   return (
     <aside className="w-60 flex flex-col h-full bg-gray-900 border-r border-gray-800">
-      {/* Brand */}
       <div className="px-5 py-5 border-b border-gray-800 flex items-center justify-between">
         <div>
           <BrandLogo size="sm" />
@@ -46,8 +58,6 @@ function Sidebar({ onClose }) {
           </button>
         )}
       </div>
-
-      {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
         {NAV.map(({ to, icon: Icon, label }) => (
           <NavLink key={to} to={to}
@@ -57,28 +67,6 @@ function Sidebar({ onClose }) {
           </NavLink>
         ))}
       </nav>
-
-      {/* User footer */}
-      <div className="px-3 py-4 border-t border-gray-800">
-        <div className="flex items-center gap-3 px-2 mb-3">
-          <div
-            className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-            style={{ background: 'rgba(245,130,30,0.2)', color: '#F5821E' }}
-          >
-            {getInitials(user?.email || user?.full_name)}
-          </div>
-          <div className="min-w-0">
-            <div className="text-white text-xs font-semibold truncate">{user?.email || user?.full_name}</div>
-            <div className="text-gray-500 text-xs">Super Admin</div>
-          </div>
-        </div>
-        <button
-          onClick={logout}
-          className="sidebar-link w-full text-red-400 hover:text-red-300 hover:bg-red-500/10"
-        >
-          <LogOut size={15} />Sign Out
-        </button>
-      </div>
     </aside>
   )
 }
@@ -181,8 +169,58 @@ function FeedbackBell() {
   )
 }
 
+function ProfileDropdown() {
+  const { user, logout } = useAuth()
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="flex items-center gap-1.5 p-1 rounded-lg hover:bg-gray-800 transition-colors"
+        title={user?.email}
+      >
+        <div
+          className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+          style={{ background: 'rgba(245,130,30,0.2)', color: '#F5821E' }}
+        >
+          {getInitials(user?.email || user?.full_name)}
+        </div>
+        <ChevronDown size={14} className="text-gray-500" />
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-12 w-56 bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl z-50 overflow-hidden">
+          <div className="px-4 py-3 border-b border-gray-800">
+            <div className="text-white text-sm font-semibold truncate">{user?.email || user?.full_name}</div>
+            <div className="text-gray-500 text-xs">Super Admin</div>
+          </div>
+          <div className="p-2">
+            <button
+              onClick={logout}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300 text-sm font-medium transition-colors"
+            >
+              <LogOut size={15} />Sign Out
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Layout() {
   const [open, setOpen] = useState(false)
+  const location = useLocation()
+  const pageTitle = PAGE_TITLES[location.pathname] || ''
+
   return (
     <div className="flex h-screen overflow-hidden bg-gray-950">
       {open && (
@@ -197,15 +235,48 @@ export default function Layout() {
         <Sidebar />
       </div>
       <main className="flex-1 overflow-y-auto">
+        {/* Mobile header */}
         <div className="md:hidden flex items-center gap-3 px-4 py-3 border-b border-gray-800 bg-gray-900 sticky top-0 z-30">
           <button onClick={() => setOpen(true)} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-800">
             <Menu size={22} />
           </button>
-          <div className="flex-1"><BrandLogo size="sm" /></div>
-          <FeedbackBell />
+          <div className="flex-1 min-w-0">
+            {pageTitle
+              ? <span className="text-white font-semibold text-sm truncate">{pageTitle}</span>
+              : <BrandLogo size="sm" />
+            }
+          </div>
+          <div className="flex items-center gap-1">
+            <button onClick={() => window.location.reload()} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-800" title="Refresh">
+              <RefreshCw size={18} />
+            </button>
+            <FeedbackBell />
+            <ProfileDropdown />
+          </div>
         </div>
-        <div className="hidden md:flex items-center justify-end px-6 py-2 border-b border-gray-800 bg-gray-900 sticky top-0 z-30">
+        {/* Desktop header */}
+        <div className="hidden md:flex items-center gap-3 px-6 py-2 border-b border-gray-800 bg-gray-900 sticky top-0 z-30 min-h-[52px]">
+          <span className="text-white font-bold text-base flex-1">{pageTitle}</span>
+          <a
+            href="https://bharathhealthsystems.com/register"
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+            style={{ background: 'rgba(245,130,30,0.15)', border: '1px solid rgba(245,130,30,0.3)', color: '#F5821E' }}
+            title="Register Health Center"
+          >
+            <PlusCircle size={14} />
+            <span className="hidden lg:inline">Register</span>
+          </a>
+          <button
+            onClick={() => window.location.reload()}
+            className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-800 flex items-center justify-center"
+            title="Refresh page"
+          >
+            <RefreshCw size={18} />
+          </button>
           <FeedbackBell />
+          <ProfileDropdown />
         </div>
         <div className="p-4 md:p-6">
           <Outlet />
