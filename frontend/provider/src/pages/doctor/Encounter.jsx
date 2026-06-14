@@ -413,8 +413,8 @@ export default function PatientChart() {
 
   // ── Load form pool for Assessment Tools sidebar
   useEffect(() => {
-    api.get('/provider/forms/pool')
-      .then(r => setFormPool(Array.isArray(r) ? r : (r?.data?.forms || r?.data?.forms || r?.data || r?.forms || [])))
+    api.get('/forms/templates', { params: { limit: 100 } })
+      .then(r => setFormPool(Array.isArray(r) ? r : []))
       .catch(() => {})
   }, [])
 
