@@ -83,16 +83,47 @@ def get_encounter(
     db: Session = Depends(get_db),
     current: Staff = Depends(require_doctor),
 ):
-    appt = db.query(Appointment).options(
-        joinedload(Appointment.patient),
-        joinedload(Appointment.vitals),
-        joinedload(Appointment.soap_note),
-        joinedload(Appointment.prescriptions).joinedload(Prescription.items),
-        joinedload(Appointment.lab_orders).joinedload(LabOrder.items),
-    ).filter(
-        Appointment.id == appointment_id,
-        Appointment.clinic_id == current.clinic_id,
-    ).first()
+    try:
+        appt = db.query(Appointment).options(
+            joinedload(Appointment.patient),
+            joinedload(Appointment.vitals),
+            joinedload(Appointment.soap_note),
+            joinedload(Appointment.prescriptions).joinedload(Prescription.items),
+            joinedload(Appointment.lab_orders).joinedload(LabOrder.items),
+        ).filter(
+            Appointment.id == appointment_id,
+            Appointment.clinic_id == current.clinic_id,
+        ).first()
+    except Exception as e:
+        # Column missing in DB — try loading without soap/prescriptions
+        db.rollback()
+        appt = db.query(Appointment).options(
+            joinedload(Appointment.patient),
+            joinedload(Appointment.vitals),
+        ).filter(
+            Appointment.id == appointment_id,
+            Appointment.clinic_id == current.clinic_id,
+        ).first()
+        if not appt:
+            raise HTTPException(status_code=404, detail="Appointment not found")
+        return {
+            "id": appt.id,
+            "appointment_date": str(appt.appointment_date),
+            "appointment_time": appt.appointment_time,
+            "status": appt.status, "mode": appt.mode, "reason": appt.reason,
+            "triage_complaint": appt.reason,
+            "patient": {
+                "id": appt.patient.id, "full_name": appt.patient.full_name,
+                "gender": appt.patient.gender, "mobile": appt.patient.mobile,
+                "date_of_birth": str(appt.patient.date_of_birth) if appt.patient and appt.patient.date_of_birth else None,
+                "age": _age(appt.patient),
+                "blood_group": appt.patient.blood_group if appt.patient else None,
+                "allergies": appt.patient.allergies if appt.patient else None,
+                "clinic_patient_id": getattr(appt.patient, 'clinic_patient_id', None),
+            } if appt.patient else None,
+            "vitals": None, "soap_note": None, "prescriptions": [], "lab_orders": [],
+            "_db_warn": str(e)[:200],
+        }
     if not appt:
         raise HTTPException(status_code=404, detail="Appointment not found")
 
