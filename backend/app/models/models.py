@@ -1999,10 +1999,11 @@ class DrugInteraction(Base):
     id         = Column(Integer, primary_key=True, index=True)
     drug_a     = Column(String(200), nullable=False, index=True)
     drug_b     = Column(String(200), nullable=False, index=True)
-    severity   = Column(String(20), nullable=False)   # contraindicated|serious|moderate
-    effect     = Column(Text, nullable=True)
-    management = Column(Text, nullable=True)
-    created_at = Column(DateTime, server_default=func.now())
+    severity         = Column(String(20), nullable=False)   # contraindicated|serious|moderate
+    interaction_type = Column(String(30), default="drug-drug")  # drug-drug|drug-food|drug-condition
+    effect           = Column(Text, nullable=True)
+    management       = Column(Text, nullable=True)
+    created_at       = Column(DateTime, server_default=func.now())
 
 
 class DrugDoseRange(Base):
@@ -2036,6 +2037,19 @@ class DrugCounselling(Base):
     tip        = Column(Text, nullable=False)
     sort_order = Column(Integer, default=0)
     created_at = Column(DateTime, server_default=func.now())
+
+
+class ImagingCatalog(Base):
+    __tablename__ = "imaging_catalog"
+    id               = Column(Integer, primary_key=True, index=True)
+    name             = Column(String(200), nullable=False)
+    modality         = Column(String(20), nullable=False, index=True)
+    body_part        = Column(String(100), nullable=True)
+    category         = Column(String(100), nullable=True)
+    turnaround_hours = Column(Integer, default=24)
+    preparation      = Column(Text, nullable=True)
+    is_active        = Column(Boolean, default=True)
+    created_at       = Column(DateTime, server_default=func.now())
 
 
 # ── Visitor Desk ───────────────────────────────────────────────────────────────
@@ -2085,3 +2099,13 @@ class VisitorPass(Base):
     admission = relationship("Admission", foreign_keys=[admission_id])
     patient   = relationship("Patient", foreign_keys=[patient_id])
     issuer    = relationship("Staff", foreign_keys=[issued_by])
+
+
+class DiseaseCounselling(Base):
+    __tablename__ = "disease_counselling"
+    id           = Column(Integer, primary_key=True, index=True)
+    icd10_prefix = Column(String(10), nullable=False, index=True)
+    condition    = Column(String(200), nullable=True)
+    tip          = Column(Text, nullable=False)
+    sort_order   = Column(Integer, default=0)
+    created_at   = Column(DateTime, server_default=func.now())

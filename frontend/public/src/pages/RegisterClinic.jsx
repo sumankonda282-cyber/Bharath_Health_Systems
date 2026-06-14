@@ -4,31 +4,78 @@ import { Building2, ChevronRight, Check, CheckCircle, ArrowLeft, Mail, Phone, Up
 import { publicApi } from '../api/client'
 import Navbar from '../components/Navbar'
 
-const STEPS = ['Health Center Details', 'Doctor Details', 'Review & Submit']
+const STEPS = ['Health Center Info', 'Primary Doctor / Contact', 'Review & Submit']
 
-const CLINIC_TYPES = [
-  'General / Primary Care',
-  'Multispecialty',
-  'Dental',
-  'Ayurveda',
+const HEALTH_CENTER_TYPES = [
+  // Outpatient
+  'Single Doctor Clinic',
+  'Group Practice / Polyclinic',
+  'Multispecialty Clinic',
+  // Hospital
+  'Nursing Home (< 30 beds)',
+  'Small Hospital (30–100 beds)',
+  'Large Hospital (> 100 beds)',
+  'Maternity & Nursing Home',
+  // Specialty
+  'Dental Clinic',
+  'Eye Care Centre',
+  'Skin & Cosmetic Clinic',
+  'Mother & Child Care Centre',
+  'Orthopaedic & Spine Centre',
+  'Heart & Vascular Centre',
+  'Cancer Care Centre',
+  'Mental Health Centre',
+  // Allied
+  'Physiotherapy & Rehabilitation',
+  'Ayurveda / Naturopathy',
   'Homeopathy',
-  'Naturopathy',
-  'Physiotherapy',
-  'Eye Care (Ophthalmology)',
-  'Skin & Cosmetic',
-  'Diagnostics & Lab',
-  'Emergency & Trauma',
-  'Mother & Child Care',
-  'Mental Health',
+  'Unani',
+  'Siddha',
+  // Diagnostics
+  'Diagnostic Centre / Lab',
+  'Radiology & Imaging Centre',
+  'Blood Bank',
+  // Other
   'Other',
 ]
 
 const DOCTOR_SPECIALTIES = [
-  'General Medicine', 'Cardiology', 'Dermatology', 'Pediatrics',
-  'Orthopedics', 'Gynecology', 'Neurology', 'Ophthalmology',
-  'ENT', 'Psychiatry', 'Dentistry', 'Ayurveda', 'Homeopathy',
-  'Physiotherapy', 'Radiology', 'Pathology', 'Oncology',
-  'Nephrology', 'Gastroenterology', 'Endocrinology', 'Other',
+  'General Medicine',
+  'Family Medicine',
+  'Cardiology',
+  'Dermatology & Cosmetology',
+  'Paediatrics',
+  'Orthopaedics',
+  'Gynaecology & Obstetrics',
+  'Neurology',
+  'Neurosurgery',
+  'Ophthalmology',
+  'ENT (Ear, Nose & Throat)',
+  'Psychiatry & Mental Health',
+  'Dentistry',
+  'Oral & Maxillofacial Surgery',
+  'Urology',
+  'Nephrology',
+  'Gastroenterology',
+  'Hepatology',
+  'Endocrinology & Diabetology',
+  'Pulmonology',
+  'Oncology',
+  'Haematology',
+  'Rheumatology',
+  'Radiology & Imaging',
+  'Pathology & Lab Medicine',
+  'Anaesthesiology',
+  'General Surgery',
+  'Plastic & Reconstructive Surgery',
+  'Vascular Surgery',
+  'Physiotherapy & Rehabilitation',
+  'Ayurveda',
+  'Homeopathy',
+  'Naturopathy',
+  'Unani',
+  'Siddha',
+  'Other',
 ]
 
 const INDIAN_STATES = [
@@ -66,11 +113,12 @@ function StepIndicator({ current }) {
   )
 }
 
-function Field({ label, required, error, children }) {
+function Field({ label, required, optional, error, children }) {
   return (
     <div>
       <label className="block text-sm font-medium text-gray-700 mb-1.5">
-        {label} {required && <span className="text-red-600">*</span>}
+        {label}{required && <span className="text-red-600 ml-0.5">*</span>}
+        {optional && <span className="text-gray-400 font-normal ml-1">(optional)</span>}
       </label>
       {children}
       {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
@@ -79,11 +127,11 @@ function Field({ label, required, error, children }) {
 }
 
 const inputCls = (err) =>
-  `w-full px-4 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-transparent transition-all ${err ? 'border-red-400' : 'border-gray-300'}`
+  `w-full px-4 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-transparent transition-all ${err ? 'border-red-400 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-100'}`
 
 const btnPrimary = { background: '#CC1414' }
 
-// ── Step 1: Clinic Details ────────────────────────────────────────────────────
+// ── Step 1: Health Center Details ────────────────────────────────────────────
 function Step1({ data, onChange, onNext }) {
   const [errors, setErrors] = useState({})
 
@@ -110,42 +158,44 @@ function Step1({ data, onChange, onNext }) {
   return (
     <div>
       <h2 className="text-xl font-bold mb-1" style={{ color: '#0F2557' }}>Health Center Details</h2>
-      <p className="text-gray-500 text-sm mb-6">Tell us about your health center</p>
+      <p className="text-gray-500 text-sm mb-6">Basic information about your health center or hospital</p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Field label="Health Center Name" required error={errors.clinic_name}>
-          <input type="text" {...inp('clinic_name')} placeholder="e.g. City Care Clinic" />
-        </Field>
-        <Field label="Health Center Type" required error={errors.specialty}>
+        <div className="md:col-span-2">
+          <Field label="Health Center / Hospital Name" required error={errors.clinic_name}>
+            <input type="text" {...inp('clinic_name')} placeholder="e.g. Sunrise Multi-Speciality Hospital" />
+          </Field>
+        </div>
+        <Field label="Type of Health Center" required error={errors.specialty}>
           <select {...inp('specialty')}>
-            <option value="">Select health center type</option>
-            {CLINIC_TYPES.map(s => <option key={s} value={s}>{s}</option>)}
+            <option value="">Select type…</option>
+            {HEALTH_CENTER_TYPES.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
-        </Field>
-        <Field label="City" required error={errors.city}>
-          <input type="text" {...inp('city')} placeholder="e.g. Mumbai" />
         </Field>
         <Field label="State" required error={errors.state}>
           <select {...inp('state')}>
-            <option value="">Select state</option>
+            <option value="">Select state…</option>
             {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </Field>
-        <Field label="Health Center Phone" required error={errors.phone}>
+        <Field label="City / Town" required error={errors.city}>
+          <input type="text" {...inp('city')} placeholder="e.g. Hyderabad" />
+        </Field>
+        <Field label="Pincode" optional>
+          <input type="text" {...inp('pincode')} maxLength={6} placeholder="6-digit pincode" />
+        </Field>
+        <Field label="Contact Phone" required error={errors.phone}>
           <input type="tel" {...inp('phone')} maxLength={10} placeholder="10-digit number" />
         </Field>
-        <Field label="Health Center Email" required error={errors.email}>
-          <input type="email" {...inp('email')} placeholder="clinic@example.com" />
+        <Field label="Official Email" required error={errors.email}>
+          <input type="email" {...inp('email')} placeholder="info@yourhospital.com" />
         </Field>
         <div className="md:col-span-2">
           <Field label="Full Address" required error={errors.address}>
             <textarea value={data.address || ''} onChange={e => onChange('address', e.target.value)}
-              rows={2} placeholder="Street address, landmark..."
+              rows={2} placeholder="Street address, area, landmark…"
               className={`${inputCls(errors.address)} resize-none`} />
           </Field>
         </div>
-        <Field label="Pincode">
-          <input type="text" {...inp('pincode')} maxLength={6} placeholder="6-digit pincode" />
-        </Field>
       </div>
       <button onClick={() => { if (validate()) onNext() }}
         className="mt-8 w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm text-white"
@@ -156,19 +206,18 @@ function Step1({ data, onChange, onNext }) {
   )
 }
 
-// ── Step 2: Doctor Details ────────────────────────────────────────────────────
+// ── Step 2: Primary Doctor / Contact ─────────────────────────────────────────
 function Step2({ data, onChange, onNext, onBack }) {
   const [errors, setErrors] = useState({})
   const fileRef = useRef(null)
 
   const validate = () => {
     const e = {}
-    if (!data.doctor_name?.trim()) e.doctor_name = 'Doctor name is required'
+    if (!data.doctor_name?.trim()) e.doctor_name = 'Full name is required'
     if (!data.doctor_email?.trim() || !/\S+@\S+\.\S+/.test(data.doctor_email)) e.doctor_email = 'Valid email required — login credentials will be sent here'
     if (!data.doctor_phone?.trim() || !/^[6-9]\d{9}$/.test(data.doctor_phone)) e.doctor_phone = 'Valid 10-digit phone required — credentials also sent via SMS'
     if (!data.doctor_specialty) e.doctor_specialty = 'Specialty is required'
     if (!data.qualification?.trim()) e.qualification = 'Qualification is required'
-    if (!data.mci_number?.trim()) e.mci_number = 'MCI registration number is required'
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -181,78 +230,80 @@ function Step2({ data, onChange, onNext, onBack }) {
 
   return (
     <div>
-      <h2 className="text-xl font-bold mb-1" style={{ color: '#0F2557' }}>Primary Doctor Details</h2>
-      <p className="text-gray-500 text-sm mb-2">Details of the main consulting doctor / clinic owner</p>
+      <h2 className="text-xl font-bold mb-1" style={{ color: '#0F2557' }}>Primary Doctor / Contact Details</h2>
+      <p className="text-gray-500 text-sm mb-2">Details of the primary doctor, owner, or admin contact</p>
 
-      {/* Credentials notice */}
       <div className="mb-5 rounded-xl p-3 text-xs flex gap-3 items-start" style={{ background: '#0F255510', border: '1px solid #0F255530' }}>
         <span className="text-lg mt-0.5">🔐</span>
         <p style={{ color: '#0F2557' }}>
-          No password needed now. Once your health center is approved, your <strong>username and temporary password</strong> will be sent to the email and phone number you provide below.
+          No password needed now. Once your health center is approved, your <strong>username and temporary password</strong> will be sent to the email and phone you provide below.
         </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Field label="Doctor's Full Name" required error={errors.doctor_name}>
-          <input type="text" {...inp('doctor_name')} placeholder="Dr. Firstname Lastname" />
+        <Field label="Full Name" required error={errors.doctor_name}>
+          <input type="text" {...inp('doctor_name')} placeholder="Dr. / Mr. / Ms. Full Name" />
         </Field>
-        <Field label="Doctor's Email" required error={errors.doctor_email}>
+        <Field label="Designation / Role" optional>
+          <input type="text" {...inp('designation')} placeholder="e.g. Chief Medical Officer, Director" />
+        </Field>
+        <Field label="Login Email" required error={errors.doctor_email}>
           <input type="email" {...inp('doctor_email')} placeholder="doctor@example.com" />
         </Field>
-        <Field label="Doctor's Phone" required error={errors.doctor_phone}>
-          <input type="tel" {...inp('doctor_phone')} maxLength={10} placeholder="10-digit mobile number" />
+        <Field label="Mobile Number" required error={errors.doctor_phone}>
+          <input type="tel" {...inp('doctor_phone')} maxLength={10} placeholder="10-digit mobile" />
         </Field>
-        <Field label="Specialty" required error={errors.doctor_specialty}>
+        <Field label="Specialty / Department" required error={errors.doctor_specialty}>
           <select {...inp('doctor_specialty')}>
-            <option value="">Select specialty</option>
+            <option value="">Select specialty…</option>
             {DOCTOR_SPECIALTIES.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </Field>
         <Field label="Qualification" required error={errors.qualification}>
-          <input type="text" {...inp('qualification')} placeholder="e.g. MBBS, MD (Internal Medicine)" />
+          <input type="text" {...inp('qualification')} placeholder="e.g. MBBS, MD, MS, BDS, BPT" />
         </Field>
-        <Field label="MCI Registration Number" required error={errors.mci_number}>
-          <input type="text" {...inp('mci_number')} placeholder="e.g. MH/12345/2010" />
+        <Field label="Medical Council Reg. Number" optional>
+          <input type="text" {...inp('mci_number')} placeholder="e.g. MH/12345/2010 (if applicable)" />
         </Field>
-        <Field label="Experience (years)">
+        <Field label="Experience (years)" optional>
           <input type="number" {...inp('experience_years')} min="0" max="60" placeholder="e.g. 10" />
         </Field>
-        <Field label="Consultation Fee (₹)">
+        <Field label="Consultation Fee (₹)" optional>
           <input type="number" {...inp('fee')} min="0" placeholder="e.g. 500" />
         </Field>
       </div>
 
-      {/* License upload */}
       <div className="mt-4">
         <label className="block text-sm font-medium text-gray-700 mb-1.5">
-          Degree / License Document <span className="text-gray-400 font-normal">(optional)</span>
+          Degree / License / Registration Document <span className="text-gray-400 font-normal">(optional)</span>
         </label>
         {data.license_file ? (
           <div className="flex items-center gap-3 px-4 py-3 border border-green-300 rounded-xl bg-green-50 text-sm">
             <Upload size={16} className="text-green-600 flex-shrink-0" />
             <span className="text-green-700 font-medium truncate flex-1">{data.license_file.name}</span>
-            <button type="button" onClick={() => onChange('license_file', null)}
-              className="text-gray-400 hover:text-red-500 flex-shrink-0">
+            <button type="button" onClick={() => onChange('license_file', null)} className="text-gray-400 hover:text-red-500 flex-shrink-0">
               <X size={16} />
             </button>
           </div>
         ) : (
           <button type="button" onClick={() => fileRef.current?.click()}
             className="w-full border-2 border-dashed border-gray-300 rounded-xl py-4 text-sm text-gray-500 hover:border-blue-400 hover:text-blue-600 transition-colors flex items-center justify-center gap-2">
-            <Upload size={16} /> Upload PDF, JPG or PNG (max 5MB)
+            <Upload size={16} /> Upload PDF, JPG or PNG (max 5 MB)
           </button>
         )}
         <input ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden"
           onChange={e => {
             const f = e.target.files?.[0]
             if (f && f.size <= 5 * 1024 * 1024) onChange('license_file', f)
-            else if (f) alert('File size must be under 5MB')
+            else if (f) alert('File size must be under 5 MB')
             e.target.value = ''
           }} />
-        <p className="text-xs text-gray-400 mt-1">MBBS degree, medical council registration certificate, or any valid practitioner license.</p>
+        <p className="text-xs text-gray-400 mt-1">Medical degree, council registration certificate, hospital licence, or any valid practitioner document.</p>
       </div>
+
       <div className="flex gap-3 mt-8">
-        <button onClick={onBack} className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 border-2 rounded-xl font-semibold text-sm"
+        <button onClick={onBack}
+          className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 border-2 rounded-xl font-semibold text-sm"
           style={{ borderColor: '#0F2557', color: '#0F2557' }}>Back</button>
         <button onClick={() => { if (validate()) onNext() }}
           className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm text-white"
@@ -268,38 +319,45 @@ function Step2({ data, onChange, onNext, onBack }) {
 function Step3({ data, onBack, onSubmit, submitting, error }) {
   const rows = [
     { label: 'Health Center Name', value: data.clinic_name },
-    { label: 'Health Center Type', value: data.specialty },
+    { label: 'Type',               value: data.specialty },
     { label: 'City',               value: data.city },
     { label: 'State',              value: data.state },
+    { label: 'Pincode',            value: data.pincode },
     { label: 'Phone',              value: data.phone },
     { label: 'Email',              value: data.email },
-    { label: 'Address',          value: data.address },
-    { label: 'Doctor Name',      value: data.doctor_name },
-    { label: 'Doctor Email',     value: data.doctor_email },
-    { label: 'Doctor Phone',     value: data.doctor_phone },
-    { label: 'Doctor Specialty', value: data.doctor_specialty },
-    { label: 'Qualification',    value: data.qualification },
-    { label: 'MCI Number',       value: data.mci_number },
-    { label: 'Experience',       value: data.experience_years ? `${data.experience_years} years` : null },
-    { label: 'Consultation Fee', value: data.fee ? `₹${data.fee}` : null },
-    { label: 'License Document', value: data.license_file ? data.license_file.name : null },
-  ].filter(r => r.value)
+    { label: 'Address',            value: data.address },
+    null,
+    { label: 'Contact Name',       value: data.doctor_name },
+    { label: 'Designation',        value: data.designation },
+    { label: 'Login Email',        value: data.doctor_email },
+    { label: 'Mobile',             value: data.doctor_phone },
+    { label: 'Specialty',          value: data.doctor_specialty },
+    { label: 'Qualification',      value: data.qualification },
+    { label: 'Reg. Number',        value: data.mci_number },
+    { label: 'Experience',         value: data.experience_years ? `${data.experience_years} years` : null },
+    { label: 'Consultation Fee',   value: data.fee ? `₹${data.fee}` : null },
+    { label: 'License Document',   value: data.license_file ? data.license_file.name : null },
+  ].filter(r => r === null || r.value)
 
+  let idx = 0
   return (
     <div>
       <h2 className="text-xl font-bold mb-1" style={{ color: '#0F2557' }}>Review Your Details</h2>
-      <p className="text-gray-500 text-sm mb-6">Please verify all details before submitting.</p>
+      <p className="text-gray-500 text-sm mb-6">Please verify all information before submitting.</p>
 
       <div className="border border-gray-200 rounded-xl overflow-hidden mb-5">
-        {rows.map((row, i) => (
-          <div key={row.label} className={`flex justify-between items-center px-4 py-3 text-sm ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-            <span className="text-gray-500 font-medium flex-shrink-0 mr-4">{row.label}</span>
-            <span className="font-semibold text-right" style={{ color: '#0F2557' }}>{row.value}</span>
-          </div>
-        ))}
+        {rows.map((row, i) => {
+          if (row === null) return <div key={`div-${i}`} className="h-px bg-blue-100" />
+          const bg = idx++ % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+          return (
+            <div key={row.label} className={`flex justify-between items-center px-4 py-3 text-sm ${bg}`}>
+              <span className="text-gray-500 font-medium flex-shrink-0 mr-4">{row.label}</span>
+              <span className="font-semibold text-right" style={{ color: '#0F2557' }}>{row.value}</span>
+            </div>
+          )
+        })}
       </div>
 
-      {/* Credentials delivery notice */}
       <div className="mb-5 rounded-xl p-4 text-sm" style={{ background: '#0F255510', border: '1px solid #0F255530' }}>
         <p className="font-semibold mb-2" style={{ color: '#0F2557' }}>After approval, credentials will be sent to:</p>
         <div className="flex items-center gap-2 text-gray-600 mb-1"><Mail size={14} /> {data.doctor_email}</div>
@@ -321,7 +379,7 @@ function Step3({ data, onBack, onSubmit, submitting, error }) {
           className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm text-white disabled:opacity-50"
           style={btnPrimary}>
           {submitting
-            ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Submitting...</>
+            ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Submitting…</>
             : 'Submit Registration'}
         </button>
       </div>
@@ -329,7 +387,7 @@ function Step3({ data, onBack, onSubmit, submitting, error }) {
   )
 }
 
-function SuccessScreen() {
+function SuccessScreen({ email }) {
   return (
     <div className="text-center py-8">
       <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -340,7 +398,7 @@ function SuccessScreen() {
         Thank you for registering with BHarath Health. Your health center is <strong className="text-yellow-600">pending approval</strong>.
       </p>
       <p className="text-gray-400 text-sm mb-8 max-w-sm mx-auto">
-        Our team reviews registrations within 24 hours. Once approved, your login credentials will be sent directly to your registered email and phone.
+        Our team reviews registrations within 24 hours. Once approved, your login credentials will be sent to <strong className="text-gray-600">{email}</strong>.
       </p>
       <div className="rounded-2xl p-6 max-w-sm mx-auto mb-8 text-sm text-left space-y-4"
         style={{ background: '#0F255508', border: '1px solid #0F255520' }}>
@@ -348,7 +406,7 @@ function SuccessScreen() {
         {[
           'Our team verifies your health center and doctor credentials',
           'You receive a username + one-time password via email and SMS',
-          'Log in and set your permanent password to get started',
+          'Log in at provider.bharathhealthsystems.com and set your permanent password',
         ].map((step, i) => (
           <div key={i} className="flex items-start gap-3">
             <div className="w-5 h-5 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5"
@@ -382,14 +440,14 @@ export default function RegisterClinic() {
     try {
       await publicApi.registerClinic({
         clinic: {
-          name:    formData.clinic_name,
+          name:      formData.clinic_name,
           specialty: formData.specialty,
-          city:    formData.city,
-          state:   formData.state,
-          phone:   formData.phone,
-          email:   formData.email,
-          address: formData.address,
-          pincode: formData.pincode,
+          city:      formData.city,
+          state:     formData.state,
+          phone:     formData.phone,
+          email:     formData.email,
+          address:   formData.address,
+          pincode:   formData.pincode,
         },
         doctor: {
           full_name:           formData.doctor_name,
@@ -400,12 +458,13 @@ export default function RegisterClinic() {
           experience_years:    formData.experience_years ? Number(formData.experience_years) : null,
           consultation_fee:    formData.fee ? Number(formData.fee) : 500,
           specialty:           formData.doctor_specialty,
+          designation:         formData.designation,
         },
         admin_email: formData.doctor_email,
       })
       setSubmitted(true)
     } catch (err) {
-      setSubmitError(err.message)
+      setSubmitError(err.message || 'Submission failed. Please try again.')
     } finally {
       setSubmitting(false)
     }
@@ -421,14 +480,14 @@ export default function RegisterClinic() {
               <ArrowLeft className="w-4 h-4" /> Back to Home
             </Link>
             <h1 className="text-2xl font-extrabold">Register Your Health Center</h1>
-            <p className="text-blue-200 text-sm mt-1">Join India's fastest-growing digital health platform. Free to register.</p>
+            <p className="text-blue-200 text-sm mt-1">Clinic, hospital, nursing home or diagnostic centre — free to register.</p>
           </div>
         </div>
       )}
       <div className="max-w-3xl mx-auto px-4 py-10">
         {submitted ? (
           <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-8">
-            <SuccessScreen />
+            <SuccessScreen email={formData.doctor_email} />
           </div>
         ) : (
           <>

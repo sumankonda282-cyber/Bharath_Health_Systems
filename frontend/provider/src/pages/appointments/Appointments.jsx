@@ -17,13 +17,15 @@ const STATUS_COLORS = {
 const ALL_STATUSES = ['pending', 'confirmed', 'in_progress', 'completed', 'cancelled']
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-const SLOT_DURATIONS = [10, 15, 20, 30]
+const SLOT_DURATIONS = [5, 10, 15, 20, 30, 45, 60]
+const MAX_PATIENTS_OPTIONS = [5, 10, 15, 20, 25, 30, 40, 50]
 
 function defaultDaySchedule() {
   return {
     start_time: '09:00',
     end_time: '17:00',
     slot_duration: 15,
+    max_patients: 20,
     blocked: false,
     online_booking: false,
     online_window_start: '09:00',
@@ -31,6 +33,21 @@ function defaultDaySchedule() {
     location_id: '',
     breaks: [],
   }
+}
+
+function calcSlots(d) {
+  if (!d.start_time || !d.end_time || !d.slot_duration) return null
+  const [sh, sm] = d.start_time.split(':').map(Number)
+  const [eh, em] = d.end_time.split(':').map(Number)
+  const totalMins = (eh * 60 + em) - (sh * 60 + sm)
+  const breakMins = (d.breaks || []).reduce((acc, b) => {
+    if (!b.start || !b.end) return acc
+    const [bsh, bsm] = b.start.split(':').map(Number)
+    const [beh, bem] = b.end.split(':').map(Number)
+    return acc + ((beh * 60 + bem) - (bsh * 60 + bsm))
+  }, 0)
+  const available = totalMins - breakMins
+  return available > 0 ? Math.floor(available / d.slot_duration) : 0
 }
 
 function ScheduleTab({ doctors }) {
@@ -42,7 +59,21 @@ function ScheduleTab({ doctors }) {
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState('')
 
-  // Collect unique clinics from doctors
+  // Load saved availability on mount
+  useEffect(() => {
+    api.get('/scheduler/availability').then(r => {
+      if (r.data.schedule && Object.keys(r.data.schedule).length > 0) {
+        setSchedule(prev => {
+          const merged = { ...prev }
+          Object.entries(r.data.schedule).forEach(([day, data]) => {
+            merged[day] = { ...defaultDaySchedule(), ...data }
+          })
+          return merged
+        })
+      }
+      if (Array.isArray(r.data.blocked_slots)) setBlockedSlots(r.data.blocked_slots)
+    }).catch(() => {})
+  }, [])
   const clinics = []
   const seen = new Set()
   doctors.forEach(d => {
@@ -99,14 +130,55 @@ function ScheduleTab({ doctors }) {
     }
   }
 
+  const quickSetup = (days, start, end, slots, maxP) => {
+    setSchedule(s => {
+      const updated = { ...s }
+      DAYS.forEach(day => {
+        const isWeekend = day === 'Saturday' || day === 'Sunday'
+        if (days === 'all' || (days === 'weekdays' && !isWeekend) || (days === 'all7' )) {
+          updated[day] = { ...updated[day], start_time: start, end_time: end, slot_duration: slots, max_patients: maxP, blocked: isWeekend && days === 'weekdays' }
+        }
+      })
+      return updated
+    })
+  }
+
+  const copyMonToAll = () => {
+    const mon = schedule['Monday']
+    setSchedule(s => Object.fromEntries(DAYS.map(d => [d, { ...mon }])))
+  }
+
   return (
     <div className="space-y-6">
+      {/* Quick setup strip */}
+      <div className="card p-4">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Quick Setup</p>
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => quickSetup('weekdays', '09:00', '17:00', 15, 20)}
+            className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-colors">
+            Mon–Fri · 9am–5pm · 15 min slots
+          </button>
+          <button onClick={() => quickSetup('weekdays', '08:00', '20:00', 10, 30)}
+            className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-colors">
+            Mon–Fri · 8am–8pm · 10 min slots
+          </button>
+          <button onClick={() => quickSetup('all7', '09:00', '18:00', 15, 25)}
+            className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-colors">
+            All 7 days · 9am–6pm · 15 min slots
+          </button>
+          <button onClick={copyMonToAll}
+            className="text-xs px-3 py-1.5 rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors">
+            Copy Monday → All days
+          </button>
+        </div>
+      </div>
+
       {/* Weekly grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {DAYS.map(day => {
           const d = schedule[day]
           return (
-            <div key={day} className={`card p-4 space-y-3 ${d.blocked ? 'opacity-60' : ''}`}>
+            <div key={day} className={`card p-4 space-y-3 ${d.blocked ? 'opacity-50 bg-gray-50' : ''}`}>
               <div className="flex items-center justify-between">
                 <span className="font-semibold text-gray-800">{day}</span>
                 <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer select-none">
@@ -115,21 +187,53 @@ function ScheduleTab({ doctors }) {
                 </label>
               </div>
 
-              {!d.blocked && (
+              {d.blocked ? (
+                <div className="text-xs text-gray-400 italic text-center py-2">Day blocked — no appointments</div>
+              ) : (
                 <>
                   {/* Hours */}
                   <div className="flex items-center gap-2">
                     <div className="flex-1">
-                      <label className="label text-xs">Start</label>
+                      <label className="label text-xs">Start time</label>
                       <input type="time" className="input py-1 text-sm" value={d.start_time}
                         onChange={e => updateDay(day, 'start_time', e.target.value)} />
                     </div>
                     <div className="flex-1">
-                      <label className="label text-xs">End</label>
+                      <label className="label text-xs">End time</label>
                       <input type="time" className="input py-1 text-sm" value={d.end_time}
                         onChange={e => updateDay(day, 'end_time', e.target.value)} />
                     </div>
                   </div>
+
+                  {/* Slot duration + max patients */}
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1">
+                      <label className="label text-xs">Slot duration</label>
+                      <select className="input py-1 text-sm" value={d.slot_duration}
+                        onChange={e => updateDay(day, 'slot_duration', Number(e.target.value))}>
+                        {SLOT_DURATIONS.map(m => <option key={m} value={m}>{m} min</option>)}
+                      </select>
+                    </div>
+                    <div className="flex-1">
+                      <label className="label text-xs">Max patients</label>
+                      <select className="input py-1 text-sm" value={d.max_patients || 20}
+                        onChange={e => updateDay(day, 'max_patients', Number(e.target.value))}>
+                        {MAX_PATIENTS_OPTIONS.map(n => <option key={n} value={n}>{n}</option>)}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Slot count preview */}
+                  {(() => {
+                    const slots = calcSlots(d)
+                    if (slots === null) return null
+                    const capped = Math.min(slots, d.max_patients || 20)
+                    return (
+                      <div className="text-xs bg-blue-50 text-blue-700 rounded-lg px-3 py-1.5 font-medium">
+                        {capped} slots/day · {slots} possible from schedule{slots > (d.max_patients || 20) ? ` (capped at ${d.max_patients || 20})` : ''}
+                      </div>
+                    )
+                  })()}
 
                   {/* Breaks */}
                   {d.breaks.length > 0 && (
@@ -151,17 +255,8 @@ function ScheduleTab({ doctors }) {
                   )}
                   <button onClick={() => addBreak(day)}
                     className="flex items-center gap-1 text-xs text-blue-600 hover:underline">
-                    <PlusCircle size={12} /> Add break
+                    <PlusCircle size={12} /> Add lunch / break
                   </button>
-
-                  {/* Slot duration */}
-                  <div>
-                    <label className="label text-xs">Slot duration</label>
-                    <select className="input py-1 text-sm" value={d.slot_duration}
-                      onChange={e => updateDay(day, 'slot_duration', Number(e.target.value))}>
-                      {SLOT_DURATIONS.map(m => <option key={m} value={m}>{m} min</option>)}
-                    </select>
-                  </div>
 
                   {/* Location */}
                   {clinics.length > 1 && (
@@ -176,19 +271,22 @@ function ScheduleTab({ doctors }) {
                   )}
 
                   {/* Online booking */}
-                  <div>
+                  <div className="border-t border-gray-100 pt-2.5">
                     <label className="flex items-center gap-2 cursor-pointer select-none">
                       <input type="checkbox" checked={d.online_booking}
-                        onChange={e => updateDay(day, 'online_booking', e.target.checked)} className="w-3.5 h-3.5" />
-                      <span className="text-xs text-gray-600 font-medium">Enable online booking</span>
+                        onChange={e => updateDay(day, 'online_booking', e.target.checked)} className="w-3.5 h-3.5 accent-blue-600" />
+                      <span className="text-xs text-gray-600 font-medium">🌐 Enable online booking</span>
                     </label>
                     {d.online_booking && (
-                      <div className="flex items-center gap-2 mt-1.5">
-                        <input type="time" className="input py-1 text-xs flex-1" value={d.online_window_start}
-                          onChange={e => updateDay(day, 'online_window_start', e.target.value)} />
-                        <span className="text-xs text-gray-400">–</span>
-                        <input type="time" className="input py-1 text-xs flex-1" value={d.online_window_end}
-                          onChange={e => updateDay(day, 'online_window_end', e.target.value)} />
+                      <div className="mt-1.5">
+                        <p className="text-xs text-gray-400 mb-1">Online booking window</p>
+                        <div className="flex items-center gap-2">
+                          <input type="time" className="input py-1 text-xs flex-1" value={d.online_window_start}
+                            onChange={e => updateDay(day, 'online_window_start', e.target.value)} />
+                          <span className="text-xs text-gray-400">–</span>
+                          <input type="time" className="input py-1 text-xs flex-1" value={d.online_window_end}
+                            onChange={e => updateDay(day, 'online_window_end', e.target.value)} />
+                        </div>
                       </div>
                     )}
                   </div>

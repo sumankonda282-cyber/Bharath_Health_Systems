@@ -71,11 +71,12 @@ function AppRoutes() {
         <Route path="/billing"      element={<Suspense fallback={<PageLoader />}><Billing /></Suspense>} />
         <Route path="/analytics"    element={<Suspense fallback={<PageLoader />}><Analytics /></Suspense>} />
         <Route path="/referrals"    element={<Suspense fallback={<PageLoader />}><Referrals /></Suspense>} />
-        <Route path="/admin"            element={<Suspense fallback={<PageLoader />}><ClinicAdmin /></Suspense>} />
-        <Route path="/branch-overview"  element={<Suspense fallback={<PageLoader />}><BranchOverview /></Suspense>} />
-        <Route path="/inpatient-admin"  element={<Suspense fallback={<PageLoader />}><InpatientAdmin /></Suspense>} />
-        <Route path="/inpatient" element={<Suspense fallback={<PageLoader />}><InpatientDesk /></Suspense>} />
-        <Route path="/inpatient/admission/:admissionId" element={<Suspense fallback={<PageLoader />}><AdmissionChart /></Suspense>} />
+        {/* Clinic-admin-only routes — redirect platform admin away to prevent 401 logout */}
+        <Route path="/admin"            element={user?.user_type === 'platform_admin' ? <Navigate to="/platform" replace /> : <Suspense fallback={<PageLoader />}><ClinicAdmin /></Suspense>} />
+        <Route path="/branch-overview"  element={user?.user_type === 'platform_admin' ? <Navigate to="/platform" replace /> : <Suspense fallback={<PageLoader />}><BranchOverview /></Suspense>} />
+        <Route path="/inpatient-admin"  element={user?.user_type === 'platform_admin' ? <Navigate to="/platform" replace /> : <Suspense fallback={<PageLoader />}><InpatientAdmin /></Suspense>} />
+        <Route path="/inpatient"        element={user?.user_type === 'platform_admin' ? <Navigate to="/platform" replace /> : <Suspense fallback={<PageLoader />}><InpatientDesk /></Suspense>} />
+        <Route path="/inpatient/admission/:admissionId" element={user?.user_type === 'platform_admin' ? <Navigate to="/platform" replace /> : <Suspense fallback={<PageLoader />}><AdmissionChart /></Suspense>} />
         <Route path="/platform"        element={<Suspense fallback={<PageLoader />}><PlatformAdmin /></Suspense>} />
         <Route path="/forms/iview"           element={<Suspense fallback={<PageLoader />}><IViewSelector /></Suspense>} />
         <Route path="/forms/iview/:formId"   element={<Suspense fallback={<PageLoader />}><IViewFlowsheet /></Suspense>} />

@@ -162,12 +162,13 @@ def seed_drug_data():
         from app.seed_data.interactions import INTERACTIONS
         loaders.append((
             "drug_interactions", INTERACTIONS, 50,
-            "INSERT INTO drug_interactions (drug_a, drug_b, severity, effect, management) "
-            "VALUES (:drug_a, :drug_b, :severity, :effect, :management)",
+            "INSERT INTO drug_interactions (drug_a, drug_b, severity, effect, management, interaction_type) "
+            "VALUES (:drug_a, :drug_b, :severity, :effect, :management, :interaction_type)",
             lambda d: {
                 "drug_a": d["drug_a"][:200], "drug_b": d["drug_b"][:200],
                 "severity": d["severity"], "effect": d.get("effect"),
                 "management": d.get("management"),
+                "interaction_type": d.get("interaction_type", "drug-drug"),
             },
         ))
     except ImportError as e:
@@ -227,11 +228,108 @@ def seed_drug_data():
             print(f"[medlib] {table} loaded: {len(rows)}")
 
 
+def seed_lab_tests():
+    try:
+        from app.seed_data.lab_tests import LAB_TESTS
+    except ImportError as e:
+        print(f"[medlib] lab_tests seed missing: {e}")
+        return
+    with engine.begin() as conn:
+        existing = _count(conn, "SELECT count(*) FROM lab_tests")
+        if existing >= 100:
+            print(f"[medlib] lab_tests already loaded ({existing}) — skipping")
+            return
+        rows = [{
+            "name": t["name"][:200],
+            "code": t.get("code", "")[:50],
+            "category": t.get("category", "")[:100],
+            "normal_range": t.get("normal_range", "")[:200],
+            "unit": t.get("unit", "")[:50],
+            "turnaround_hours": t.get("turnaround_hours"),
+        } for t in LAB_TESTS]
+        _batched_insert(
+            conn,
+            "INSERT INTO lab_tests (name, code, category, normal_range, unit, turnaround_hours) "
+            "VALUES (:name, :code, :category, :normal_range, :unit, :turnaround_hours)",
+            rows,
+        )
+        print(f"[medlib] lab_tests loaded: {len(rows)}")
+
+
+def seed_imaging_catalog():
+    try:
+        from app.seed_data.imaging_catalog import IMAGING_STUDIES
+    except ImportError as e:
+        print(f"[medlib] imaging_catalog seed missing: {e}")
+        return
+    with engine.begin() as conn:
+        # Check if table exists first
+        try:
+            existing = _count(conn, "SELECT count(*) FROM imaging_catalog")
+        except Exception:
+            print("[medlib] imaging_catalog table not yet created — skipping")
+            return
+        if existing >= 50:
+            print(f"[medlib] imaging_catalog already loaded ({existing}) — skipping")
+            return
+        rows = [{
+            "name": s["name"][:200],
+            "modality": s.get("modality", "")[:20],
+            "body_part": s.get("body_part", "")[:100],
+            "category": s.get("category", "")[:100],
+            "turnaround_hours": s.get("turnaround_hours", 24),
+            "preparation": s.get("preparation", ""),
+        } for s in IMAGING_STUDIES]
+        _batched_insert(
+            conn,
+            "INSERT INTO imaging_catalog (name, modality, body_part, category, turnaround_hours, preparation) "
+            "VALUES (:name, :modality, :body_part, :category, :turnaround_hours, :preparation)",
+            rows,
+        )
+        print(f"[medlib] imaging_catalog loaded: {len(rows)}")
+
+
+def seed_disease_counselling():
+    try:
+        from app.seed_data.disease_counselling import DISEASE_COUNSELLING
+    except ImportError as e:
+        print(f"[medlib] disease_counselling seed missing: {e}")
+        return
+    with engine.begin() as conn:
+        try:
+            existing = _count(conn, "SELECT count(*) FROM disease_counselling")
+        except Exception:
+            print("[medlib] disease_counselling table not yet created — skipping")
+            return
+        if existing >= 100:
+            print(f"[medlib] disease_counselling already loaded ({existing}) — skipping")
+            return
+        rows = []
+        for entry in DISEASE_COUNSELLING:
+            for i, tip in enumerate(entry["tips"]):
+                rows.append({
+                    "icd10_prefix": entry["icd10_prefix"][:10],
+                    "condition": entry.get("condition", "")[:200],
+                    "tip": tip,
+                    "sort_order": i,
+                })
+        _batched_insert(
+            conn,
+            "INSERT INTO disease_counselling (icd10_prefix, condition, tip, sort_order) "
+            "VALUES (:icd10_prefix, :condition, :tip, :sort_order)",
+            rows,
+        )
+        print(f"[medlib] disease_counselling loaded: {len(rows)} tips")
+
+
 def main():
     steps = [
         ("icd10 reference", seed_icd10_reference),
         ("curated terms", seed_curated_terms),
         ("drug data", seed_drug_data),
+        ("lab tests", seed_lab_tests),
+        ("imaging catalog", seed_imaging_catalog),
+        ("disease counselling", seed_disease_counselling),
     ]
     for name, fn in steps:
         try:
