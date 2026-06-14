@@ -9,7 +9,7 @@ import {
   Lock, PenLine, BedDouble, X, ChevronDown, ChevronRight, Search,
   AlertCircle, Stethoscope, ClipboardList, Edit2, Activity, Heart,
   BookOpen, Microscope, Image, MessageSquare, Calendar, ChevronUp,
-  CheckSquare,
+  CheckSquare, Printer,
 } from 'lucide-react'
 import VitalsForm from '../../components/clinical/VitalsForm'
 
@@ -777,6 +777,25 @@ export default function PatientChart() {
                 <BedDouble size={14} />Admit
               </button>
             )}
+            <button
+              onClick={async () => {
+                try {
+                  const res = await api.get(`/pdf/encounter/${id}`, { responseType: 'blob' })
+                  const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }))
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = `encounter_${id}_summary.pdf`
+                  document.body.appendChild(a)
+                  a.click()
+                  document.body.removeChild(a)
+                  URL.revokeObjectURL(url)
+                } catch { flash('Could not generate PDF') }
+              }}
+              className="btn-secondary text-sm"
+              title="Download clinical summary PDF"
+            >
+              <Printer size={14} />Print Summary
+            </button>
             {isLocked ? (
               <button onClick={() => setAddendumMode(v => !v)} className="btn-secondary text-sm">
                 <PenLine size={14} />Addendum

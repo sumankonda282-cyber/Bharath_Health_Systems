@@ -5,12 +5,13 @@ from app.db.session import get_db
 from app.core.security import get_current_staff, get_current_patient_user
 from app.models.models import (
     Prescription, PrescriptionItem, LabOrder, LabOrderItem,
-    Invoice, Patient, Branch, Clinic, Staff
+    Invoice, Patient, Branch, Clinic, Staff, Appointment, SoapNote, Vitals
 )
 from app.services.pdf_service import (
     generate_prescription_pdf,
     generate_lab_report_pdf,
     generate_invoice_pdf,
+    generate_encounter_summary_pdf,
 )
 from datetime import date
 
@@ -152,6 +153,90 @@ def download_invoice(
     return Response(
         content=pdf, media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename={inv.invoice_number or f'invoice_{invoice_id}'}.pdf"}
+    )
+
+
+@router.get("/encounter/{appointment_id}")
+def download_encounter_summary(
+    appointment_id: int,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_staff),
+):
+    appt = db.query(Appointment).filter(Appointment.id == appointment_id).first()
+    if not appt:
+        raise HTTPException(status_code=404, detail="Appointment not found")
+
+    patient = db.query(Patient).filter(Patient.id == appt.patient_id).first()
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    sn = db.query(SoapNote).filter(SoapNote.appointment_id == appointment_id).first()
+    vitals = db.query(Vitals).filter(Vitals.appointment_id == appointment_id).first()
+
+    # Prescriptions for this appointment
+    pres_list = db.query(Prescription).filter(
+        Prescription.appointment_id == appointment_id
+    ).options(joinedload(Prescription.items).joinedload(PrescriptionItem.medicine)).all()
+    rx_items = []
+    for pres in pres_list:
+        for item in pres.items:
+            rx_items.append({
+                "medicine_name": item.medicine_name or (item.medicine.name if item.medicine else "—"),
+                "dosage":        item.dosage or "",
+                "frequency":     item.frequency or "",
+                "duration":      item.duration or "",
+                "instructions":  item.instructions or "",
+            })
+
+    # Lab orders for this appointment
+    lab_orders = db.query(LabOrder).filter(
+        LabOrder.appointment_id == appointment_id
+    ).all()
+    lab_list = [{"test_names": lo.test_names or [], "status": lo.status} for lo in lab_orders]
+
+    # Build doctor name
+    doctor_staff_id = None
+    if appt.doctor:
+        doctor_staff_id = appt.doctor.staff_id if hasattr(appt.doctor, "staff_id") else None
+    clinic_data = _clinic_data(patient, db, doctor_staff_id)
+
+    # Vitals dict
+    v = None
+    if vitals:
+        bp = None
+        if vitals.blood_pressure_systolic and vitals.blood_pressure_diastolic:
+            bp = f"{vitals.blood_pressure_systolic}/{vitals.blood_pressure_diastolic}"
+        v = {
+            "bp":     bp,
+            "pulse":  vitals.pulse_rate,
+            "temp":   float(vitals.temperature) if vitals.temperature else None,
+            "spo2":   vitals.oxygen_saturation,
+            "weight": float(vitals.weight_kg) if vitals.weight_kg else None,
+            "height": float(vitals.height_cm) if vitals.height_cm else None,
+            "rbs":    float(vitals.blood_sugar) if vitals.blood_sugar else None,
+        }
+
+    enc = {
+        "date":                  appt.appointment_date.strftime("%d %b %Y") if appt.appointment_date else "",
+        "reason_for_visit":      sn.reason_for_visit if sn else (appt.triage_complaint or ""),
+        "patient_complaints":    sn.patient_complaints if sn else "",
+        "past_history":          sn.past_history if sn else "",
+        "investigations_findings": sn.investigations_findings if sn else (sn.objective if sn else ""),
+        "discharge_assessment":  sn.discharge_assessment if sn else (sn.assessment if sn else ""),
+        "cautions_followup":     sn.cautions_followup if sn else (sn.plan if sn else ""),
+        "diagnosis_codes":       sn.diagnosis_codes if sn else None,
+        "follow_up_days":        sn.follow_up_days if sn else None,
+        "counselling":           None,
+        "vitals":                v,
+        "prescriptions":         rx_items,
+        "lab_orders":            lab_list,
+    }
+
+    pdf = generate_encounter_summary_pdf(enc, _patient_data(patient), clinic_data)
+    fname = f"encounter_{appointment_id}_{patient.full_name.replace(' ', '_') if patient.full_name else 'summary'}.pdf"
+    return Response(
+        content=pdf, media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={fname}"}
     )
 
 

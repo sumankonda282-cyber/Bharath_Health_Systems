@@ -246,3 +246,124 @@ def generate_invoice_pdf(inv: dict, patient: dict, clinic: dict) -> bytes:
     story.append(ts)
     doc.build(story)
     return buf.getvalue()
+
+
+def generate_encounter_summary_pdf(enc: dict, patient: dict, clinic: dict) -> bytes:
+    buf = BytesIO()
+    doc = _base_doc(buf)
+    s = _styles()
+    story = []
+
+    _header(story, s, clinic.get("clinic_name", ""), clinic.get("branch_name", ""),
+            clinic.get("address", ""), "CLINICAL ENCOUNTER SUMMARY")
+
+    story.append(_patient_table(
+        patient.get("full_name"), patient.get("uhid"),
+        patient.get("age"), patient.get("gender"),
+        clinic.get("doctor_name"),
+        enc.get("date", datetime.now().strftime("%d %b %Y")),
+    ))
+    story.append(Spacer(1, 5*mm))
+
+    if patient.get("allergies"):
+        story.append(Paragraph(f"⚠ Allergies: {patient['allergies']}", ParagraphStyle(
+            "AlertEnc", fontSize=8, textColor=RED, fontName="Helvetica-Bold",
+            backColor=colors.HexColor("#fff3cd"), borderPad=3,
+        )))
+        story.append(Spacer(1, 3*mm))
+
+    # Vitals
+    vitals = enc.get("vitals")
+    if vitals:
+        v_items = []
+        if vitals.get("bp"):         v_items.append(f"BP: {vitals['bp']} mmHg")
+        if vitals.get("pulse"):      v_items.append(f"Pulse: {vitals['pulse']} bpm")
+        if vitals.get("temp"):       v_items.append(f"Temp: {vitals['temp']} °C")
+        if vitals.get("spo2"):       v_items.append(f"SpO₂: {vitals['spo2']}%")
+        if vitals.get("weight"):     v_items.append(f"Wt: {vitals['weight']} kg")
+        if vitals.get("height"):     v_items.append(f"Ht: {vitals['height']} cm")
+        if vitals.get("rbs"):        v_items.append(f"RBS: {vitals['rbs']} mg/dL")
+        if v_items:
+            story.append(Paragraph("VITALS", s["Label"]))
+            story.append(Paragraph("  ·  ".join(v_items), s["Body"]))
+            story.append(Spacer(1, 3*mm))
+
+    # Clinical sections
+    sections = [
+        ("REASON FOR VISIT",        enc.get("reason_for_visit")),
+        ("PRESENTING COMPLAINTS",   enc.get("patient_complaints")),
+        ("PAST HISTORY",            enc.get("past_history")),
+        ("EXAMINATION & FINDINGS",  enc.get("investigations_findings")),
+        ("ASSESSMENT / DIAGNOSIS",  enc.get("discharge_assessment")),
+        ("PLAN & CAUTIONS",         enc.get("cautions_followup")),
+    ]
+    for title, text in sections:
+        if text and text.strip():
+            story.append(Paragraph(title, s["Label"]))
+            story.append(Paragraph(text.replace("\n", "<br/>"), s["Body"]))
+            story.append(Spacer(1, 3*mm))
+
+    # ICD-10 diagnosis codes
+    dx = enc.get("diagnosis_codes")
+    if dx:
+        story.append(Paragraph("ICD-10 CODES", s["Label"]))
+        if isinstance(dx, list):
+            for d in dx:
+                code = d.get("code","") if isinstance(d, dict) else str(d)
+                disp = d.get("display","") if isinstance(d, dict) else ""
+                story.append(Paragraph(f"{code}  {disp}", s["Body"]))
+        story.append(Spacer(1, 3*mm))
+
+    # Prescriptions
+    rx_items = enc.get("prescriptions", [])
+    if rx_items:
+        story.append(Paragraph("PRESCRIPTIONS", s["Label"]))
+        rows = [["#", "Medicine", "Dosage", "Frequency", "Duration", "Instructions"]]
+        for i, item in enumerate(rx_items, 1):
+            rows.append([str(i), item.get("medicine_name",""),
+                         item.get("dosage",""), item.get("frequency",""),
+                         item.get("duration",""), item.get("instructions","") or ""])
+        t = Table(rows, colWidths=[7*mm, 50*mm, 28*mm, 28*mm, 22*mm, 45*mm])
+        t.setStyle(TableStyle([
+            ("BACKGROUND",    (0,0), (-1,0), PRIMARY),
+            ("TEXTCOLOR",     (0,0), (-1,0), colors.white),
+            ("FONTNAME",      (0,0), (-1,0), "Helvetica-Bold"),
+            ("FONTSIZE",      (0,0), (-1,-1), 8),
+            ("ROWBACKGROUNDS",(0,1), (-1,-1), [colors.white, LIGHT_BLUE]),
+            ("GRID",          (0,0), (-1,-1), 0.3, colors.lightgrey),
+            ("PADDING",       (0,0), (-1,-1), 4),
+            ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
+        ]))
+        story.append(t)
+        story.append(Spacer(1, 3*mm))
+
+    # Lab orders
+    lab_orders = enc.get("lab_orders", [])
+    if lab_orders:
+        story.append(Paragraph("INVESTIGATIONS ORDERED", s["Label"]))
+        for lo in lab_orders:
+            tests = ", ".join(lo.get("test_names", []))
+            story.append(Paragraph(f"• {tests} — {lo.get('status','pending').title()}", s["Body"]))
+        story.append(Spacer(1, 3*mm))
+
+    # Follow-up
+    if enc.get("follow_up_days"):
+        story.append(Paragraph("FOLLOW-UP", s["Label"]))
+        story.append(Paragraph(f"Review after {enc['follow_up_days']} days", s["Body"]))
+        story.append(Spacer(1, 3*mm))
+
+    # Counselling
+    if enc.get("counselling"):
+        story.append(Paragraph("PATIENT COUNSELLING NOTES", s["Label"]))
+        story.append(Paragraph(enc["counselling"].replace("\n", "<br/>"), s["Body"]))
+        story.append(Spacer(1, 3*mm))
+
+    story.append(Spacer(1, 8*mm))
+    story.append(HRFlowable(width="60mm", thickness=0.5, color=DARK, hAlign="RIGHT"))
+    story.append(Paragraph(f"Dr. {clinic.get('doctor_name', '')}", ParagraphStyle(
+        "SignEnc", fontSize=9, fontName="Helvetica-Bold", alignment=TA_RIGHT)))
+    story.append(Paragraph("Signature & Stamp", ParagraphStyle(
+        "SignSubEnc", fontSize=7, textColor=GRAY, alignment=TA_RIGHT)))
+
+    doc.build(story)
+    return buf.getvalue()
