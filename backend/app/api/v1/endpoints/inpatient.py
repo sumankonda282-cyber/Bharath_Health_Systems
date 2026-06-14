@@ -23,6 +23,7 @@ from app.models.models import (
     DischargeSummary, ProgressNote,
     InpatientCharge, InpatientBill, Invoice,
     VisitorPass, VisitorPolicy,
+    MedicationOrder, ClinicalOrder,
 )
 
 router = APIRouter(prefix="/inpatient", tags=["inpatient"])
@@ -2716,3 +2717,230 @@ def cancel_emergency(
     db.commit()
     db.refresh(adm)
     return _emergency_dict(adm, db)
+
+
+# ── Medication Orders (CPOE) ───────────────────────────────────────────────────
+
+@router.get("/admissions/{admission_id}/orders")
+def get_medication_orders(
+    admission_id: int,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    adm = db.query(Admission).filter(Admission.id == admission_id, Admission.clinic_id == current.clinic_id).first()
+    if not adm:
+        raise HTTPException(status_code=404, detail="Admission not found")
+    orders = db.query(MedicationOrder).filter(
+        MedicationOrder.admission_id == admission_id
+    ).order_by(MedicationOrder.ordered_at.desc()).all()
+    return [
+        {
+            "id":               o.id,
+            "drug_name":        o.drug_name,
+            "generic_name":     o.generic_name,
+            "dose":             o.dose,
+            "route":            o.route,
+            "frequency":        o.frequency,
+            "duration_days":    o.duration_days,
+            "instructions":     o.instructions,
+            "is_prn":           o.is_prn,
+            "prn_reason":       o.prn_reason,
+            "is_stat":          o.is_stat,
+            "is_continuous":    o.is_continuous,
+            "iv_rate":          o.iv_rate,
+            "iv_fluid":         o.iv_fluid,
+            "iv_volume_ml":     o.iv_volume_ml,
+            "notes":            o.notes,
+            "status":           o.status,
+            "ordered_by":       o.ordered_by,
+            "orderer_name":     o.orderer.full_name if o.orderer else None,
+            "ordered_at":       o.ordered_at.isoformat() if o.ordered_at else None,
+            "discontinued_at":  o.discontinued_at.isoformat() if o.discontinued_at else None,
+            "discontinue_reason": o.discontinue_reason,
+        }
+        for o in orders
+    ]
+
+
+@router.post("/admissions/{admission_id}/orders")
+def create_medication_order(
+    admission_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    adm = db.query(Admission).filter(Admission.id == admission_id, Admission.clinic_id == current.clinic_id).first()
+    if not adm:
+        raise HTTPException(status_code=404, detail="Admission not found")
+    order = MedicationOrder(
+        admission_id  = admission_id,
+        clinic_id     = current.clinic_id,
+        drug_name     = body.get("drug_name", ""),
+        generic_name  = body.get("generic_name"),
+        dose          = body.get("dose"),
+        route         = body.get("route"),
+        frequency     = body.get("frequency"),
+        duration_days = body.get("duration_days"),
+        instructions  = body.get("instructions"),
+        is_prn        = bool(body.get("is_prn", False)),
+        prn_reason    = body.get("prn_reason"),
+        is_stat       = bool(body.get("is_stat", False)),
+        is_continuous = bool(body.get("is_continuous", False)),
+        iv_rate       = body.get("iv_rate"),
+        iv_fluid      = body.get("iv_fluid"),
+        iv_volume_ml  = body.get("iv_volume_ml"),
+        notes         = body.get("notes"),
+        ordered_by    = current.id,
+    )
+    db.add(order)
+    db.commit()
+    db.refresh(order)
+    return {"id": order.id, "status": order.status, "drug_name": order.drug_name}
+
+
+@router.post("/orders/{order_id}/discontinue")
+def discontinue_medication_order(
+    order_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    order = db.query(MedicationOrder).filter(MedicationOrder.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    order.status           = "discontinued"
+    order.discontinued_by  = current.id
+    order.discontinued_at  = datetime.utcnow()
+    order.discontinue_reason = body.get("reason", "")
+    db.commit()
+    return {"ok": True}
+
+
+# ── Clinical Orders ────────────────────────────────────────────────────────────
+
+@router.get("/admissions/{admission_id}/clinical-orders")
+def get_clinical_orders(
+    admission_id: int,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    adm = db.query(Admission).filter(Admission.id == admission_id, Admission.clinic_id == current.clinic_id).first()
+    if not adm:
+        raise HTTPException(status_code=404, detail="Admission not found")
+    orders = db.query(ClinicalOrder).filter(
+        ClinicalOrder.admission_id == admission_id
+    ).order_by(ClinicalOrder.ordered_at.desc()).all()
+    return [_clinical_order_dict(o) for o in orders]
+
+
+@router.post("/admissions/{admission_id}/clinical-orders")
+def create_clinical_order(
+    admission_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    adm = db.query(Admission).filter(Admission.id == admission_id, Admission.clinic_id == current.clinic_id).first()
+    if not adm:
+        raise HTTPException(status_code=404, detail="Admission not found")
+    order = ClinicalOrder(
+        admission_id = admission_id,
+        clinic_id    = current.clinic_id,
+        order_type   = body.get("order_type", "nursing"),
+        order_detail = body.get("order_detail", ""),
+        priority     = body.get("priority", "routine"),
+        instructions = body.get("instructions"),
+        ordered_by   = current.id,
+    )
+    db.add(order)
+    db.commit()
+    db.refresh(order)
+    return _clinical_order_dict(order)
+
+
+@router.post("/clinical-orders/{order_id}/acknowledge")
+def acknowledge_clinical_order(
+    order_id: int,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    order = db.query(ClinicalOrder).filter(ClinicalOrder.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    order.status           = "acknowledged"
+    order.acknowledged_by  = current.id
+    order.acknowledged_at  = datetime.utcnow()
+    db.commit()
+    return _clinical_order_dict(order)
+
+
+@router.post("/clinical-orders/{order_id}/start")
+def start_clinical_order(
+    order_id: int,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    order = db.query(ClinicalOrder).filter(ClinicalOrder.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    order.status = "in_progress"
+    db.commit()
+    return _clinical_order_dict(order)
+
+
+@router.post("/clinical-orders/{order_id}/complete")
+def complete_clinical_order(
+    order_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    order = db.query(ClinicalOrder).filter(ClinicalOrder.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    order.status       = "completed"
+    order.completed_by = current.id
+    order.completed_at = datetime.utcnow()
+    order.result_notes = body.get("result_notes")
+    db.commit()
+    return _clinical_order_dict(order)
+
+
+@router.post("/clinical-orders/{order_id}/cancel")
+def cancel_clinical_order(
+    order_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    order = db.query(ClinicalOrder).filter(ClinicalOrder.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    order.status       = "cancelled"
+    order.cancelled_by = current.id
+    order.cancelled_at = datetime.utcnow()
+    order.cancel_reason = body.get("reason", "")
+    db.commit()
+    return _clinical_order_dict(order)
+
+
+def _clinical_order_dict(o: ClinicalOrder):
+    return {
+        "id":               o.id,
+        "order_type":       o.order_type,
+        "order_detail":     o.order_detail,
+        "priority":         o.priority,
+        "instructions":     o.instructions,
+        "status":           o.status,
+        "ordered_by":       o.ordered_by,
+        "orderer_name":     o.orderer.full_name if o.orderer else None,
+        "ordered_at":       o.ordered_at.isoformat() if o.ordered_at else None,
+        "acknowledged_by":  o.acknowledged_by,
+        "acknowledger_name": o.acknowledger.full_name if o.acknowledger else None,
+        "acknowledged_at":  o.acknowledged_at.isoformat() if o.acknowledged_at else None,
+        "completed_by":     o.completed_by,
+        "completer_name":   o.completer.full_name if o.completer else None,
+        "completed_at":     o.completed_at.isoformat() if o.completed_at else None,
+        "result_notes":     o.result_notes,
+        "cancel_reason":    o.cancel_reason,
+    }

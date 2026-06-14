@@ -1394,6 +1394,66 @@ class InpatientBill(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class MedicationOrder(Base):
+    __tablename__ = "medication_orders"
+    id              = Column(Integer, primary_key=True, index=True)
+    admission_id    = Column(Integer, ForeignKey("admissions.id"), nullable=False)
+    clinic_id       = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    drug_name       = Column(String(200), nullable=False)
+    generic_name    = Column(String(200))
+    dose            = Column(String(100))
+    route           = Column(String(30))         # PO, IV, IM, SC, etc.
+    frequency       = Column(String(30))         # OD, BD, TDS, PRN, STAT, etc.
+    duration_days   = Column(Integer)
+    instructions    = Column(Text)
+    is_prn          = Column(Boolean, default=False)
+    prn_reason      = Column(String(200))
+    is_stat         = Column(Boolean, default=False)
+    is_continuous   = Column(Boolean, default=False)
+    iv_rate         = Column(String(50))
+    iv_fluid        = Column(String(100))
+    iv_volume_ml    = Column(String(50))
+    notes           = Column(Text)
+    status          = Column(String(20), default="active")  # active/discontinued/completed
+    ordered_by      = Column(Integer, ForeignKey("staff.id"))
+    ordered_at      = Column(DateTime, default=datetime.utcnow)
+    discontinued_by = Column(Integer, ForeignKey("staff.id"))
+    discontinued_at = Column(DateTime)
+    discontinue_reason = Column(String(300))
+    created_at      = Column(DateTime, default=datetime.utcnow)
+
+    admission  = relationship("Admission", foreign_keys=[admission_id])
+    orderer    = relationship("Staff", foreign_keys=[ordered_by])
+
+
+class ClinicalOrder(Base):
+    __tablename__ = "clinical_orders"
+    id            = Column(Integer, primary_key=True, index=True)
+    admission_id  = Column(Integer, ForeignKey("admissions.id"), nullable=False)
+    clinic_id     = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    order_type    = Column(String(30), nullable=False)   # lab/imaging/procedure/diet/activity/nursing/consult
+    order_detail  = Column(String(500), nullable=False)
+    priority      = Column(String(20), default="routine")  # stat/urgent/routine
+    instructions  = Column(Text)
+    status        = Column(String(20), default="pending")  # pending/acknowledged/in_progress/completed/cancelled
+    ordered_by    = Column(Integer, ForeignKey("staff.id"))
+    ordered_at    = Column(DateTime, default=datetime.utcnow)
+    acknowledged_by = Column(Integer, ForeignKey("staff.id"))
+    acknowledged_at = Column(DateTime)
+    completed_by  = Column(Integer, ForeignKey("staff.id"))
+    completed_at  = Column(DateTime)
+    result_notes  = Column(Text)
+    cancelled_by  = Column(Integer, ForeignKey("staff.id"))
+    cancelled_at  = Column(DateTime)
+    cancel_reason = Column(String(300))
+    created_at    = Column(DateTime, default=datetime.utcnow)
+
+    admission    = relationship("Admission", foreign_keys=[admission_id])
+    orderer      = relationship("Staff", foreign_keys=[ordered_by])
+    acknowledger = relationship("Staff", foreign_keys=[acknowledged_by])
+    completer    = relationship("Staff", foreign_keys=[completed_by])
+
+
 class DocumentationSession(Base):
     """A 'sign & close' marker that groups all entries above it under one clinician block."""
     __tablename__ = "documentation_sessions"
