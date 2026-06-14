@@ -1,6 +1,7 @@
 import InstallPrompt from './components/InstallPrompt'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { TelehealthProvider } from './contexts/TelehealthContext'
 import { Suspense, lazy } from 'react'
 import Layout from './components/layout/Layout'
 import { PageLoader } from './components/ui/Spinner'
@@ -101,7 +102,9 @@ export default function App() {
       <InstallPrompt appName="BH Provider" />
       <BrowserRouter>
         <AuthProvider>
-          <AppRoutes />
+          <TelehealthProvider>
+            <AppRoutes />
+          </TelehealthProvider>
         </AuthProvider>
       </BrowserRouter>
     </>
