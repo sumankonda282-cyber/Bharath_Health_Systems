@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import {
-  ClipboardList, Clock, AlertTriangle, CheckCircle2, RefreshCw,
-  ChevronRight, Activity, User, Calendar, BarChart2, Loader2
+  ClipboardList, Clock, AlertTriangle, CheckCircle2,
+  ChevronRight, Activity, User, BarChart2, Loader2, BookOpen, Plus
 } from 'lucide-react'
 import api from '../../api/client'
 
-const TABS = ['All', 'Pending', 'In Progress', 'Completed', 'Overdue']
+const STATUS_TABS = ['All', 'Pending', 'In Progress', 'Completed', 'Overdue']
 
 const CATEGORY_COLORS = {
   vitals: 'bg-blue-100 text-blue-700',
@@ -78,7 +78,7 @@ function StatusBadge({ status }) {
   )
 }
 
-function AssignmentCard({ assignment, worklist, onFill }) {
+function AssignmentCard({ assignment, worklist }) {
   const navigate = useNavigate()
   const countdown = getDueCountdown(assignment.due_at)
   const isCompleted = assignment.status === 'completed'
@@ -147,6 +147,32 @@ function AssignmentCard({ assignment, worklist, onFill }) {
   )
 }
 
+function LibraryCard({ template, onAdd, adding }) {
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-wrap items-center gap-2 mb-2">
+            <h3 className="text-sm font-bold text-[#0F2557] truncate">{template.title}</h3>
+            <CategoryBadge category={template.category} />
+          </div>
+          {template.description && (
+            <p className="text-xs text-gray-500 mt-1 line-clamp-2">{template.description}</p>
+          )}
+        </div>
+        <button
+          onClick={() => onAdd(template)}
+          disabled={adding === template.id}
+          className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[#0F2557] text-[#0F2557] text-xs font-semibold hover:bg-[#0F2557] hover:text-white transition shrink-0"
+        >
+          {adding === template.id ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
+          Add to Queue
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function EmptyState({ tab }) {
   const messages = {
     All: { icon: <ClipboardList size={40} className="text-gray-300" />, msg: 'No form assignments found.' },
@@ -168,11 +194,15 @@ export default function FormTaskList() {
   const [searchParams] = useSearchParams()
   const patientId = searchParams.get('patient_id')
   const patientName = searchParams.get('patient_name')
+  const [mainTab, setMainTab] = useState('queue') // 'queue' | 'library'
   const [assignments, setAssignments] = useState([])
+  const [templates, setTemplates] = useState([])
   const [loading, setLoading] = useState(true)
+  const [libLoading, setLibLoading] = useState(false)
   const [error, setError] = useState(null)
   const [activeTab, setActiveTab] = useState('All')
-  const [lastRefresh, setLastRefresh] = useState(null)
+  const [adding, setAdding] = useState(null)
+  const [addMsg, setAddMsg] = useState('')
 
   const fetchAssignments = useCallback(async () => {
     try {
@@ -182,7 +212,6 @@ export default function FormTaskList() {
         : '/provider/forms/assignments'
       const res = await api.get(url)
       setAssignments(res.data?.assignments || res.data || [])
-      setLastRefresh(new Date())
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to load assignments')
     } finally {
@@ -190,11 +219,42 @@ export default function FormTaskList() {
     }
   }, [patientId])
 
+  const fetchTemplates = useCallback(async () => {
+    setLibLoading(true)
+    try {
+      const res = await api.get('/provider/forms/templates?global=true')
+      setTemplates(res.data?.templates || res.data || [])
+    } catch {
+      // silently fail — library may not be configured yet
+    } finally {
+      setLibLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     fetchAssignments()
     const interval = setInterval(fetchAssignments, 60000)
     return () => clearInterval(interval)
   }, [fetchAssignments])
+
+  useEffect(() => {
+    if (mainTab === 'library') fetchTemplates()
+  }, [mainTab, fetchTemplates])
+
+  const addToQueue = async (template) => {
+    setAdding(template.id)
+    try {
+      await api.post('/provider/forms/quick-assign', { form_id: template.id })
+      setAddMsg(`"${template.title}" added to your queue`)
+      setTimeout(() => setAddMsg(''), 3000)
+      fetchAssignments()
+    } catch (e) {
+      setAddMsg(e.response?.data?.detail || 'Failed to add to queue')
+      setTimeout(() => setAddMsg(''), 3000)
+    } finally {
+      setAdding(null)
+    }
+  }
 
   const filtered = assignments.filter(a => {
     if (activeTab === 'All') return true
@@ -210,92 +270,125 @@ export default function FormTaskList() {
   })
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="flex items-start justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-[#0F2557] flex items-center gap-2">
-              <ClipboardList size={24} className="text-[#0F2557]" />
-              Assessment Forms
-            </h1>
-            <p className="text-sm text-gray-500 mt-1">
-              {patientId
-                ? patientName
-                  ? `Forms for ${patientName}`
-                  : `Forms for patient #${patientId}`
-                : "Today's clinic worklist"}
-            </p>
-          </div>
+    <div className="max-w-4xl mx-auto px-4 py-6">
+      {patientId && (
+        <p className="text-sm text-gray-500 mb-4">
+          {patientName ? `Forms for ${patientName}` : `Forms for patient #${patientId}`}
+        </p>
+      )}
+
+      {/* Main tabs: My Queue / Form Library */}
+      <div className="flex items-center justify-between mb-5">
+        <div className="flex gap-1 bg-white rounded-xl border border-gray-100 p-1">
           <button
-            onClick={fetchAssignments}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-white transition"
+            onClick={() => setMainTab('queue')}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition ${
+              mainTab === 'queue' ? 'bg-[#0F2557] text-white shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+            }`}
           >
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-            Refresh
+            <ClipboardList size={14} />
+            My Queue
+            <span className={`ml-1 text-xs ${mainTab === 'queue' ? 'text-white/70' : 'text-gray-400'}`}>
+              ({assignments.length})
+            </span>
+          </button>
+          <button
+            onClick={() => setMainTab('library')}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition ${
+              mainTab === 'library' ? 'bg-[#0F2557] text-white shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            <BookOpen size={14} />
+            Form Library
           </button>
         </div>
+      </div>
 
-        {/* Tabs */}
-        <div className="flex gap-1 bg-white rounded-xl border border-gray-100 p-1 mb-6 overflow-x-auto">
-          {TABS.map(tab => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition ${
-                activeTab === tab
-                  ? 'bg-[#0F2557] text-white shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              {tab}
-              {tab !== 'All' && (
-                <span className={`ml-1.5 text-xs ${activeTab === tab ? 'text-white/70' : 'text-gray-400'}`}>
-                  ({assignments.filter(a => {
-                    if (tab === 'Pending') return a.status === 'pending'
-                    if (tab === 'In Progress') return a.status === 'in_progress'
-                    if (tab === 'Completed') return a.status === 'completed'
-                    if (tab === 'Overdue') return a.status === 'overdue' || (a.due_at && a.status !== 'completed' && new Date(a.due_at) < new Date())
-                    return false
-                  }).length})
-                </span>
-              )}
-            </button>
-          ))}
+      {addMsg && (
+        <div className="mb-4 p-3 rounded-xl bg-green-50 border border-green-200 text-sm text-green-700">
+          {addMsg}
         </div>
+      )}
 
-        {/* Content */}
-        {error && (
-          <div className="mb-4 p-4 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700 flex items-center gap-2">
-            <AlertTriangle size={16} />
-            {error}
-          </div>
-        )}
+      {/* Error */}
+      {error && (
+        <div className="mb-4 p-4 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700 flex items-center gap-2">
+          <AlertTriangle size={16} />
+          {error}
+        </div>
+      )}
 
-        {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 size={32} className="animate-spin text-[#0F2557]" />
-          </div>
-        ) : filtered.length === 0 ? (
-          <EmptyState tab={activeTab} />
-        ) : (
-          <div className="flex flex-col gap-3">
-            {filtered.map(a => (
-              <AssignmentCard
-                key={a.id}
-                assignment={a}
-                worklist={!patientId}
-              />
+      {mainTab === 'queue' && (
+        <>
+          {/* Status filter tabs */}
+          <div className="flex gap-1 bg-white rounded-xl border border-gray-100 p-1 mb-5 overflow-x-auto">
+            {STATUS_TABS.map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition ${
+                  activeTab === tab
+                    ? 'bg-[#F5821E] text-white shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                {tab}
+                {tab !== 'All' && (
+                  <span className={`ml-1.5 text-xs ${activeTab === tab ? 'text-white/70' : 'text-gray-400'}`}>
+                    ({assignments.filter(a => {
+                      if (tab === 'Pending') return a.status === 'pending'
+                      if (tab === 'In Progress') return a.status === 'in_progress'
+                      if (tab === 'Completed') return a.status === 'completed'
+                      if (tab === 'Overdue') return a.status === 'overdue' || (a.due_at && a.status !== 'completed' && new Date(a.due_at) < new Date())
+                      return false
+                    }).length})
+                  </span>
+                )}
+              </button>
             ))}
           </div>
-        )}
 
-        {lastRefresh && (
-          <p className="text-center text-xs text-gray-400 mt-6">
-            Last updated {lastRefresh.toLocaleTimeString()}
-          </p>
-        )}
-      </div>
+          {loading ? (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 size={32} className="animate-spin text-[#0F2557]" />
+            </div>
+          ) : filtered.length === 0 ? (
+            <EmptyState tab={activeTab} />
+          ) : (
+            <div className="flex flex-col gap-3">
+              {filtered.map(a => (
+                <AssignmentCard
+                  key={a.id}
+                  assignment={a}
+                  worklist={!patientId}
+                />
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {mainTab === 'library' && (
+        <>
+          <p className="text-sm text-gray-500 mb-4">Browse all available assessment forms. Add any to your worklist queue.</p>
+          {libLoading ? (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 size={32} className="animate-spin text-[#0F2557]" />
+            </div>
+          ) : templates.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 gap-3">
+              <BookOpen size={40} className="text-gray-300" />
+              <p className="text-sm text-gray-400">No form templates available in the library yet.</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {templates.map(t => (
+                <LibraryCard key={t.id} template={t} onAdd={addToQueue} adding={adding} />
+              ))}
+            </div>
+          )}
+        </>
+      )}
     </div>
   )
 }
