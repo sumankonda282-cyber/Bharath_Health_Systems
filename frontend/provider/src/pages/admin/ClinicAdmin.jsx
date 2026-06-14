@@ -5,7 +5,7 @@ import Modal from '../../components/ui/Modal'
 import { Settings, Users, UserPlus, Building2, Calendar, Plus, Edit2, ToggleLeft, ToggleRight, Clock, CheckCircle, Video, Palette, Upload } from 'lucide-react'
 import api from '../../api/client'
 
-const ROLES = ['doctor', 'receptionist', 'pharmacist', 'lab_technician', 'clinic_admin']
+const ROLES = ['doctor', 'receptionist', 'manager', 'pharmacist', 'lab_technician', 'imaging_tech', 'nurse', 'clinic_admin']
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
 
 const ROLE_COLORS = {
@@ -142,7 +142,7 @@ export default function ClinicAdmin() {
 
   // Staff modal
   const [showAddStaff, setShowAddStaff] = useState(false)
-  const [newStaff, setNewStaff] = useState({ full_name: '', email: '', mobile: '', role: 'receptionist', password: '', specialty: '', consultation_fee: 500 })
+  const [newStaff, setNewStaff] = useState({ full_name: '', email: '', mobile: '', role: 'receptionist', password: '', specialty: '', consultation_fee: 500, branch_id: '' })
   const [saving, setSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState('')
 
@@ -151,6 +151,10 @@ export default function ClinicAdmin() {
   const [weekSchedule, setWeekSchedule] = useState(initWeek())
   const [scheduleBranchId, setScheduleBranchId] = useState('')
   const [scheduleLoading, setScheduleLoading] = useState(false)
+
+  // Edit staff modal
+  const [editStaff, setEditStaff] = useState(null) // staff object being edited
+  const [editStaffForm, setEditStaffForm] = useState({})
 
   // Telehealth doctor state
   const [telehealthSaving, setTelehealthSaving] = useState({})
@@ -213,9 +217,24 @@ export default function ClinicAdmin() {
     e.preventDefault()
     setSaving(true)
     try {
-      await clinicApi.addStaff(newStaff)
+      await clinicApi.addStaff({ ...newStaff, branch_id: newStaff.branch_id || null })
       setShowAddStaff(false)
-      setNewStaff({ full_name: '', email: '', mobile: '', role: 'receptionist', password: '', specialty: '', consultation_fee: 500 })
+      setNewStaff({ full_name: '', email: '', mobile: '', role: 'receptionist', password: '', specialty: '', consultation_fee: 500, branch_id: '' })
+      load()
+    } finally { setSaving(false) }
+  }
+
+  const openEditStaff = (s) => {
+    setEditStaff(s)
+    setEditStaffForm({ full_name: s.full_name, mobile: s.mobile || '', role: s.role, branch_id: s.branch_id || '', specialty: s.specialty || '', consultation_fee: s.consultation_fee || 500 })
+  }
+
+  const handleEditStaff = async (e) => {
+    e.preventDefault()
+    setSaving(true)
+    try {
+      await clinicApi.updateStaff(editStaff.id, { ...editStaffForm, branch_id: editStaffForm.branch_id || null })
+      setEditStaff(null)
       load()
     } finally { setSaving(false) }
   }
@@ -359,7 +378,7 @@ export default function ClinicAdmin() {
             <table className="table">
               <thead><tr>
                 <th className="th">Name</th><th className="th">Email</th><th className="th">Mobile</th>
-                <th className="th">Role</th><th className="th">Status</th><th className="th">Actions</th>
+                <th className="th">Role</th><th className="th">Branch</th><th className="th">Status</th><th className="th">Actions</th>
               </tr></thead>
               <tbody className="divide-y divide-gray-100">
                 {staff.map(s => (
@@ -368,14 +387,22 @@ export default function ClinicAdmin() {
                     <td className="td text-gray-500 text-sm">{s.email || '—'}</td>
                     <td className="td text-sm">{s.mobile || '—'}</td>
                     <td className="td"><span className={`badge ${ROLE_COLORS[s.role] || 'badge-gray'}`}>{s.role?.replace('_', ' ')}</span></td>
+                    <td className="td text-xs text-gray-500">
+                      {s.branch_id ? (branches.find(b => b.id === s.branch_id)?.name || `Branch ${s.branch_id}`) : <span className="text-gray-300">All</span>}
+                    </td>
                     <td className="td">
                       <span className={s.is_active ? 'badge badge-green' : 'badge badge-red'}>{s.is_active ? 'Active' : 'Inactive'}</span>
                     </td>
                     <td className="td">
-                      <button onClick={() => handleToggle(s.id)} className="text-xs text-gray-500 hover:text-gray-800 flex items-center gap-1">
-                        {s.is_active ? <ToggleRight size={14} className="text-green-500" /> : <ToggleLeft size={14} />}
-                        {s.is_active ? 'Disable' : 'Enable'}
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => openEditStaff(s)} className="text-xs text-blue-600 hover:underline flex items-center gap-1">
+                          <Edit2 size={12} /> Edit
+                        </button>
+                        <button onClick={() => handleToggle(s.id)} className="text-xs text-gray-500 hover:text-gray-800 flex items-center gap-1">
+                          {s.is_active ? <ToggleRight size={14} className="text-green-500" /> : <ToggleLeft size={14} />}
+                          {s.is_active ? 'Disable' : 'Enable'}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -542,6 +569,15 @@ export default function ClinicAdmin() {
               <label className="label">Password *</label>
               <input className="input" type="password" required value={newStaff.password} onChange={e => setNewStaff(s => ({ ...s, password: e.target.value }))} placeholder="Min 8 characters" />
             </div>
+            {branches.length > 0 && (
+              <div>
+                <label className="label">Branch</label>
+                <select className="input" value={newStaff.branch_id} onChange={e => setNewStaff(s => ({ ...s, branch_id: e.target.value }))}>
+                  <option value="">All branches (no restriction)</option>
+                  {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </select>
+              </div>
+            )}
             {newStaff.role === 'doctor' && (
               <>
                 <div>
@@ -650,6 +686,64 @@ export default function ClinicAdmin() {
               <button type="button" onClick={() => setScheduleDoctor(null)} className="btn-secondary flex-1">Cancel</button>
               <button type="submit" disabled={saving} className="btn-primary flex-1 justify-center">
                 {saving ? 'Saving…' : 'Save Schedule'}
+              </button>
+            </div>
+          </form>
+        )}
+      </Modal>
+
+      {/* Edit Staff Modal */}
+      <Modal open={!!editStaff} onClose={() => setEditStaff(null)} title="Edit Staff Member">
+        {editStaff && (
+          <form onSubmit={handleEditStaff} className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="col-span-full">
+                <label className="label">Full Name *</label>
+                <input className="input" required value={editStaffForm.full_name}
+                  onChange={e => setEditStaffForm(f => ({ ...f, full_name: e.target.value }))} />
+              </div>
+              <div>
+                <label className="label">Mobile</label>
+                <input className="input" type="tel" value={editStaffForm.mobile}
+                  onChange={e => setEditStaffForm(f => ({ ...f, mobile: e.target.value }))} />
+              </div>
+              <div>
+                <label className="label">Role *</label>
+                <select className="input" value={editStaffForm.role}
+                  onChange={e => setEditStaffForm(f => ({ ...f, role: e.target.value }))}>
+                  {ROLES.map(r => <option key={r} value={r}>{r.replace('_', ' ')}</option>)}
+                </select>
+              </div>
+              <div className="col-span-full">
+                <label className="label">Branch Assignment</label>
+                <select className="input" value={editStaffForm.branch_id}
+                  onChange={e => setEditStaffForm(f => ({ ...f, branch_id: e.target.value }))}>
+                  <option value="">All branches (no restriction)</option>
+                  {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </select>
+                <p className="text-xs text-gray-400 mt-1">
+                  Receptionist & admin always see all branches regardless of this setting.
+                </p>
+              </div>
+              {(editStaffForm.role === 'doctor') && (
+                <>
+                  <div>
+                    <label className="label">Specialty</label>
+                    <input className="input" placeholder="Cardiology, General…" value={editStaffForm.specialty}
+                      onChange={e => setEditStaffForm(f => ({ ...f, specialty: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="label">Consultation Fee (₹)</label>
+                    <input className="input" type="number" value={editStaffForm.consultation_fee}
+                      onChange={e => setEditStaffForm(f => ({ ...f, consultation_fee: e.target.value }))} />
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="flex gap-3 pt-1">
+              <button type="button" onClick={() => setEditStaff(null)} className="btn-secondary flex-1">Cancel</button>
+              <button type="submit" disabled={saving} className="btn-primary flex-1 justify-center">
+                {saving ? 'Saving…' : 'Save Changes'}
               </button>
             </div>
           </form>

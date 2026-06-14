@@ -9,8 +9,8 @@ import BrandLogo from '../BrandLogo'
 
 const ALL_NAV = [
   { to: '/dashboard',    label: 'Dashboard',   icon: LayoutDashboard, roles: ['clinic_admin','doctor','receptionist','pharmacist','lab_tech','imaging_tech'] },
-  { to: '/patients',     label: 'Patients',     icon: Users,           roles: ['clinic_admin','doctor','receptionist'] },
-  { to: '/appointments', label: 'Appointments', icon: Calendar,        roles: ['clinic_admin','doctor','receptionist'] },
+  { to: '/patients',     label: 'Patients',     icon: Users,           roles: ['clinic_admin','doctor','receptionist','manager'] },
+  { to: '/appointments', label: 'Appointments', icon: Calendar,        roles: ['clinic_admin','doctor','receptionist','manager'] },
   { to: '/triage',       label: 'Triage',       icon: Activity,        roles: ['clinic_admin','receptionist','nurse'] },
   { to: '/doctor-desk',  label: 'Doctor Desk',  icon: Stethoscope,     roles: ['doctor','clinic_admin'] },
   { to: '/telehealth',   label: 'Telehealth',   icon: Video,           roles: ['doctor','clinic_admin'] },
@@ -20,10 +20,10 @@ const ALL_NAV = [
   { to: '/pharmacy',     label: 'Pharmacy',     icon: Pill,            roles: ['pharmacist','clinic_admin'] },
   { to: '/lab',          label: 'Laboratory',   icon: FlaskConical,    roles: ['lab_tech','clinic_admin','doctor'] },
   { to: '/imaging',      label: 'Imaging',      icon: Scan,            roles: ['imaging_tech','clinic_admin','doctor'] },
-  { to: '/billing',      label: 'Billing',      icon: Receipt,         roles: ['clinic_admin','receptionist'] },
+  { to: '/billing',      label: 'Billing',      icon: Receipt,         roles: ['clinic_admin','receptionist','manager'] },
   { to: '/analytics',   label: 'Analytics',    icon: BarChart3,       roles: ['clinic_admin'] },
   { to: '/referrals',    label: 'Referrals',    icon: Send,            roles: ['clinic_admin','doctor'] },
-  { to: '/admin',            label: 'Clinic Admin',    icon: Settings,     roles: ['clinic_admin'] },
+  { to: '/admin',            label: 'Clinic Admin',    icon: Settings,     roles: ['clinic_admin', 'manager'] },
   { to: '/inpatient-admin', label: 'Inpatient',       icon: BedDouble,    roles: ['clinic_admin'], hospitalOnly: true },
   { to: '/branch-overview', label: 'Branch Overview', icon: LayoutGrid,   roles: ['clinic_admin'] },
   { to: '/platform',         label: 'Platform',        icon: ShieldCheck,  userType: 'platform_admin' },
