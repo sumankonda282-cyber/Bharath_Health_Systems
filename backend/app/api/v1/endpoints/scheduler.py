@@ -709,7 +709,7 @@ def delete_pattern(pattern_id: int, db: Session = Depends(get_db), current: Staf
 
 # ── Doctor Availability (weekly schedule + blocked slots) ─────────────────────
 
-from app.models.models import DoctorProfile, DoctorSchedule
+from app.models.models import DoctorProfile, DoctorSchedule, Branch
 from pydantic import BaseModel as _BM
 from typing import Any, Dict
 
@@ -766,6 +766,12 @@ def save_availability(
     if not profile:
         raise HTTPException(status_code=404, detail="Doctor profile not found. Contact your clinic admin.")
 
+    # Resolve doctor's branch_id from their clinic
+    doctor_branch = db.query(Branch).filter(
+        Branch.clinic_id == profile.clinic_id, Branch.is_active == True
+    ).first()
+    doctor_branch_id = doctor_branch.id if doctor_branch else None
+
     DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
     # Upsert DoctorSchedule rows for non-blocked days
@@ -790,9 +796,12 @@ def save_availability(
                 existing.end_time     = end
                 existing.slot_minutes = slot
                 existing.is_active    = True
+                if doctor_branch_id and not existing.branch_id:
+                    existing.branch_id = doctor_branch_id
             else:
                 db.add(DoctorSchedule(
                     doctor_id    = profile.id,
+                    branch_id    = doctor_branch_id,
                     day_of_week  = day.lower(),
                     start_time   = start,
                     end_time     = end,

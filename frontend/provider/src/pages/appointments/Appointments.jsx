@@ -62,16 +62,16 @@ function ScheduleTab({ doctors }) {
   // Load saved availability on mount
   useEffect(() => {
     api.get('/scheduler/availability').then(r => {
-      if (r.data.schedule && Object.keys(r.data.schedule).length > 0) {
+      if (r.schedule && Object.keys(r.schedule).length > 0) {
         setSchedule(prev => {
           const merged = { ...prev }
-          Object.entries(r.data.schedule).forEach(([day, data]) => {
+          Object.entries(r.schedule).forEach(([day, data]) => {
             merged[day] = { ...defaultDaySchedule(), ...data }
           })
           return merged
         })
       }
-      if (Array.isArray(r.data.blocked_slots)) setBlockedSlots(r.data.blocked_slots)
+      if (Array.isArray(r.blocked_slots)) setBlockedSlots(r.blocked_slots)
     }).catch(() => {})
   }, [])
   const clinics = []
