@@ -12,7 +12,8 @@ from app.models.models import (
     LabTest, LabOrder, LabOrderItem,
     Invoice, InvoiceItem, Staff, StockTransaction,
     Supplier, PurchaseOrder, PurchaseOrderItem,
-    SalesReturn, SalesReturnItem, DrugRegister, MedicineBatch
+    SalesReturn, SalesReturnItem, DrugRegister, MedicineBatch,
+    ImagingCatalog,
 )
 from app.schemas.schemas import (
     MedicineCreate, MedicineOut,
@@ -321,29 +322,51 @@ def search_lab_tests(
     db: Session = Depends(get_db),
     current: Staff = Depends(get_current_staff),
 ):
+    if type == "imaging":
+        # Query imaging_catalog table
+        try:
+            img_q = db.query(ImagingCatalog).filter(ImagingCatalog.is_active == True)
+            if q:
+                img_q = img_q.filter(
+                    ImagingCatalog.name.ilike(f"%{q}%") |
+                    ImagingCatalog.body_part.ilike(f"%{q}%") |
+                    ImagingCatalog.modality.ilike(f"%{q}%")
+                )
+            results = img_q.order_by(ImagingCatalog.name).limit(20).all()
+            return [
+                {
+                    "id": f"img-{r.id}",
+                    "name": r.name,
+                    "code": r.modality,
+                    "category": r.category,
+                    "body_part": r.body_part,
+                    "turnaround_hours": r.turnaround_hours,
+                    "preparation": r.preparation,
+                    "available": True,
+                }
+                for r in results
+            ]
+        except Exception:
+            return []
+    # Lab tests
     effective_branch = branch_id or current.branch_id
     query = db.query(LabTest).filter(LabTest.is_active == True)
     if effective_branch:
         query = query.filter(LabTest.branch_id == effective_branch)
-    from sqlalchemy import or_
-    imaging_keywords = ['imaging', 'radiology', 'scan', 'x-ray', 'xray', 'mri', 'ct', 'ultrasound']
-    imaging_filter = or_(*[LabTest.category.ilike(f"%{kw}%") for kw in imaging_keywords])
-    if type == "imaging":
-        query = query.filter(imaging_filter)
-    else:
-        query = query.filter(~imaging_filter)
     if q:
         query = query.filter(
             LabTest.name.ilike(f"%{q}%") |
-            LabTest.code.ilike(f"%{q}%")
+            LabTest.code.ilike(f"%{q}%") |
+            LabTest.category.ilike(f"%{q}%")
         )
-    results = query.order_by(LabTest.name).limit(15).all()
+    results = query.order_by(LabTest.name).limit(20).all()
     return [
         {
             "id": t.id,
             "name": t.name,
             "code": t.code,
             "category": t.category,
+            "normal_range": t.normal_range,
             "price": float(t.price) if t.price else None,
             "available": True,
         }
