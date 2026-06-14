@@ -3,6 +3,7 @@ import Sidebar from './Sidebar'
 import TopBar from './TopBar'
 import { Outlet } from 'react-router-dom'
 import ChatWidget from '../ChatWidget'
+import TelehealthWidget from '../TelehealthWidget'
 import { cacheClear } from '../../utils/cache'
 
 export default function Layout() {
@@ -41,6 +42,7 @@ export default function Layout() {
       </main>
 
       <ChatWidget />
+      <TelehealthWidget />
     </div>
   )
 }

@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { patientsApi, tagsApi, appointmentsApi } from '../../api'
 import { cachedFetch, TTL } from '../../utils/cache'
 import { PageLoader } from '../../components/ui/Spinner'
-import { Search, Plus, User, X, Tag, ChevronDown } from 'lucide-react'
+import { Search, Plus, User, X, Tag, Calendar } from 'lucide-react'
 
 // ── Status config ─────────────────────────────────────────────────────────────
 const STATUS = {
@@ -22,6 +22,27 @@ function StatusBadge({ status }) {
     <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${s.color}`}>
       {s.label}
     </span>
+  )
+}
+
+// ── Tag display (capped) ──────────────────────────────────────────────────────
+function TagsDisplay({ tags }) {
+  if (!tags || tags.length === 0) return <span className="text-gray-300 text-xs">—</span>
+  const visible = tags.slice(0, 2)
+  const extra = tags.length - 2
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      {visible.map(t => (
+        <span key={t.id} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
+          {t.tag_name}
+        </span>
+      ))}
+      {extra > 0 && (
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500 border border-gray-200">
+          +{extra} more
+        </span>
+      )}
+    </div>
   )
 }
 
@@ -80,9 +101,8 @@ function TagInput({ patientId, currentTags, onTagsChange }) {
 
   return (
     <div className="relative" ref={ref}>
-      {/* Current tags + open button */}
       <div className="flex flex-wrap items-center gap-1">
-        {currentTags.map(t => (
+        {currentTags.slice(0, 2).map(t => (
           <span key={t.id} className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
             {t.tag_name}
             <button onClick={(e) => { e.stopPropagation(); remove(t.id) }} className="hover:text-red-500 ml-0.5">
@@ -90,6 +110,11 @@ function TagInput({ patientId, currentTags, onTagsChange }) {
             </button>
           </span>
         ))}
+        {currentTags.length > 2 && (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500 border border-gray-200">
+            +{currentTags.length - 2} more
+          </span>
+        )}
         <button
           onClick={(e) => { e.stopPropagation(); setOpen(v => !v); setFreeMode(false) }}
           className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-xs text-gray-400 border border-dashed border-gray-300 hover:border-blue-400 hover:text-blue-500 transition-colors"
@@ -98,11 +123,8 @@ function TagInput({ patientId, currentTags, onTagsChange }) {
         </button>
       </div>
 
-      {/* Dropdown */}
       {open && (
         <div className="absolute z-50 left-0 top-full mt-1 w-72 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
-
-          {/* Tier 1 — Clinic saved tags */}
           {saved.length > 0 && (
             <div className="px-3 pt-3 pb-2">
               <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Saved Tags</div>
@@ -124,7 +146,6 @@ function TagInput({ patientId, currentTags, onTagsChange }) {
             </div>
           )}
 
-          {/* Tier 2 — Specialty suggestions */}
           {suggestions.length > 0 && (
             <div className={`px-3 py-2 ${saved.length > 0 ? 'border-t border-gray-100' : 'pt-3'}`}>
               <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Suggested</div>
@@ -146,7 +167,6 @@ function TagInput({ patientId, currentTags, onTagsChange }) {
             </div>
           )}
 
-          {/* Tier 3 — Free tag */}
           <div className="border-t border-gray-100 px-3 py-2">
             {!freeMode ? (
               <button
@@ -192,13 +212,18 @@ function TagInput({ patientId, currentTags, onTagsChange }) {
 // ── Main component ────────────────────────────────────────────────────────────
 export default function PatientList() {
   const [patients, setPatients]     = useState([])
-  const [todayAppts, setTodayAppts] = useState({}) // patientId → status
+  const [suggestions, setSuggestions] = useState([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [todayAppts, setTodayAppts] = useState({})
   const [search, setSearch]         = useState('')
   const [genderFilter, setGenderFilter] = useState('')
   const [ageFilter, setAgeFilter]       = useState('')
   const [apptFilter, setApptFilter]     = useState('')
+  const [dateFrom, setDateFrom]         = useState('')
+  const [dateTo, setDateTo]             = useState('')
   const [loading, setLoading]       = useState(true)
   const navigate = useNavigate()
+  const searchRef = useRef(null)
 
   const loadPatients = (q = search) => {
     setLoading(true)
@@ -214,6 +239,29 @@ export default function PatientList() {
         .finally(() => setLoading(false))
     }
   }
+
+  // Search suggestions
+  useEffect(() => {
+    if (search.length < 2) { setSuggestions([]); setShowSuggestions(false); return }
+    const t = setTimeout(() => {
+      patientsApi.list({ search, limit: 8 })
+        .then(r => {
+          setSuggestions(Array.isArray(r) ? r : [])
+          setShowSuggestions(true)
+        })
+        .catch(() => {})
+    }, 200)
+    return () => clearTimeout(t)
+  }, [search])
+
+  // Close suggestions on outside click
+  useEffect(() => {
+    const handler = (e) => {
+      if (searchRef.current && !searchRef.current.contains(e.target)) setShowSuggestions(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
 
   // Load today's appointment statuses
   useEffect(() => {
@@ -236,6 +284,14 @@ export default function PatientList() {
     setPatients(ps => ps.map(p => p.id === patientId ? { ...p, tags } : p))
   }
 
+  // Derive MRN: prefer clinic_patient_id, fallback uhid, fallback #id
+  const getMRN = (p) => {
+    if (p.clinic_patient_id && /^[A-Z]/.test(p.clinic_patient_id)) return p.clinic_patient_id
+    if (p.uhid) return p.uhid
+    if (p.clinic_patient_id) return p.clinic_patient_id
+    return `#${p.id}`
+  }
+
   const ageInRange = (age) => {
     if (!ageFilter) return true
     if (ageFilter === '0-12')  return age >= 0 && age <= 12
@@ -248,16 +304,23 @@ export default function PatientList() {
 
   const filtered = patients.filter(p => {
     if (genderFilter && p.gender?.toLowerCase() !== genderFilter) return false
-    if (ageFilter && !ageInRange(p.age)) return false
+    if (ageFilter) {
+      const age = p.date_of_birth
+        ? Math.floor((Date.now() - new Date(p.date_of_birth)) / (365.25 * 24 * 60 * 60 * 1000))
+        : null
+      if (age === null || !ageInRange(age)) return false
+    }
     if (apptFilter) {
       const s = todayAppts[p.id]
       if (apptFilter === 'none' && s) return false
       if (apptFilter !== 'none' && s !== apptFilter) return false
     }
+    if (dateFrom && p.created_at && new Date(p.created_at) < new Date(dateFrom)) return false
+    if (dateTo && p.created_at && new Date(p.created_at) > new Date(dateTo + 'T23:59:59')) return false
     return true
   })
 
-  const activeFilters = [genderFilter, ageFilter, apptFilter].filter(Boolean).length
+  const activeFilters = [genderFilter, ageFilter, apptFilter, dateFrom, dateTo].filter(Boolean).length
 
   return (
     <div>
@@ -269,14 +332,33 @@ export default function PatientList() {
               <Plus size={15} />Register Patient
             </Link>
             <div className="w-px h-6 bg-gray-200 hidden sm:block" />
-            <div className="relative flex-1 min-w-48">
+            <div className="relative flex-1 min-w-48" ref={searchRef}>
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 className="input pl-9"
-                placeholder="Search by name or clinic ID…"
+                placeholder="Search by name, MRN or mobile…"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
+                onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
               />
+              {showSuggestions && suggestions.length > 0 && (
+                <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+                  {suggestions.map(p => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => {
+                        navigate(`/patients/${p.id}`)
+                        setShowSuggestions(false)
+                      }}
+                      className="w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 border-b last:border-0 flex justify-between items-center"
+                    >
+                      <span className="font-medium text-gray-900">{p.full_name}</span>
+                      <span className="text-xs text-gray-400 font-mono">{getMRN(p)}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <select className="input w-36" value={genderFilter} onChange={e => setGenderFilter(e.target.value)}>
               <option value="">All Genders</option>
@@ -302,14 +384,29 @@ export default function PatientList() {
             </select>
             {activeFilters > 0 && (
               <button
-                onClick={() => { setGenderFilter(''); setAgeFilter(''); setApptFilter('') }}
+                onClick={() => { setGenderFilter(''); setAgeFilter(''); setApptFilter(''); setDateFrom(''); setDateTo('') }}
                 className="flex items-center gap-1 text-xs text-gray-500 hover:text-red-600 px-2 py-1.5"
               >
-                <X size={13} /> Clear filters ({activeFilters})
+                <X size={13} /> Clear ({activeFilters})
               </button>
             )}
           </div>
-          {(genderFilter || ageFilter || apptFilter) && (
+
+          {/* Date range row */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <Calendar size={14} className="text-gray-400" />
+            <span className="text-xs text-gray-500">Registered:</span>
+            <input type="date" className="input w-36 text-sm" value={dateFrom} onChange={e => setDateFrom(e.target.value)} title="From date" />
+            <span className="text-xs text-gray-400">to</span>
+            <input type="date" className="input w-36 text-sm" value={dateTo} onChange={e => setDateTo(e.target.value)} title="To date" />
+            {(dateFrom || dateTo) && (
+              <button onClick={() => { setDateFrom(''); setDateTo('') }} className="text-xs text-gray-400 hover:text-red-500">
+                <X size={12} />
+              </button>
+            )}
+          </div>
+
+          {activeFilters > 0 && (
             <p className="text-xs text-gray-400">{filtered.length} of {patients.length} patients shown</p>
           )}
         </div>
@@ -325,13 +422,12 @@ export default function PatientList() {
             <table className="table">
               <thead>
                 <tr>
-                  <th className="th">Clinic ID</th>
+                  <th className="th">MRN</th>
                   <th className="th">Name</th>
                   <th className="th">Age / Gender</th>
                   <th className="th">Blood Group</th>
                   <th className="th">Conditions</th>
                   <th className="th">Today's Status</th>
-                  <th className="th"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -343,7 +439,7 @@ export default function PatientList() {
                     <tr key={p.id} className="tr-hover cursor-pointer"
                       onClick={() => navigate(`/patients/${p.id}`)}>
                       <td className="td font-mono text-xs text-gray-500 whitespace-nowrap align-middle">
-                        {p.clinic_patient_id}
+                        {getMRN(p)}
                       </td>
                       <td className="td align-middle">
                         <div className="font-medium text-gray-900">{p.full_name}</div>
@@ -366,15 +462,6 @@ export default function PatientList() {
                       </td>
                       <td className="td align-middle">
                         <StatusBadge status={todayAppts[p.id]} />
-                      </td>
-                      <td className="td align-middle whitespace-nowrap">
-                        <Link
-                          to={`/patients/${p.id}`}
-                          onClick={e => e.stopPropagation()}
-                          className="text-blue-600 text-xs hover:underline"
-                        >
-                          View →
-                        </Link>
                       </td>
                     </tr>
                   )
