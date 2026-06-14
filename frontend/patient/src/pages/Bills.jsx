@@ -161,7 +161,12 @@ export default function Bills() {
       await api.post('/portal/seed-demo')
       await cacheClear()
       window.location.reload()
-    } catch (e) { alert(e.message || 'Seed failed') }
+    } catch (e) {
+      const msg = (e.message === 'Network Error' || e.code === 'ECONNABORTED')
+        ? 'The server is waking up — please wait 30 seconds and try again.'
+        : (e.message || 'Failed to load demo data')
+      alert(msg)
+    }
     finally { setSeeding(false) }
   }
 
