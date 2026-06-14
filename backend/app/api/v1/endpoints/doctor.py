@@ -97,6 +97,7 @@ def get_encounter(
         raise HTTPException(status_code=404, detail="Appointment not found")
 
     p = appt.patient
+    sn = appt.soap_note
     return {
         "id":               appt.id,
         "appointment_date": str(appt.appointment_date),
@@ -104,13 +105,15 @@ def get_encounter(
         "status":           appt.status,
         "mode":             appt.mode,
         "reason":           appt.reason,
+        "triage_complaint": appt.reason,
         "patient": {
-            "id":            p.id, "uhid": p.uhid, "bh_id": p.bh_id,
-            "full_name":     p.full_name, "mobile": p.mobile, "email": p.email,
-            "gender":        p.gender, "blood_group": p.blood_group,
-            "allergies":     p.allergies,
-            "date_of_birth": str(p.date_of_birth) if p.date_of_birth else None,
-            "age":           _age(p),
+            "id":               p.id, "uhid": p.uhid, "bh_id": p.bh_id,
+            "clinic_patient_id": p.clinic_patient_id,
+            "full_name":        p.full_name, "mobile": p.mobile, "email": p.email,
+            "gender":           p.gender, "blood_group": p.blood_group,
+            "allergies":        p.allergies,
+            "date_of_birth":    str(p.date_of_birth) if p.date_of_birth else None,
+            "age":              _age(p),
         } if p else None,
         "vitals": {
             "blood_pressure_systolic":  appt.vitals.blood_pressure_systolic,
@@ -123,12 +126,19 @@ def get_encounter(
             "blood_sugar":              str(appt.vitals.blood_sugar) if appt.vitals.blood_sugar else None,
         } if appt.vitals else None,
         "soap_note": {
-            "subjective":    appt.soap_note.subjective,
-            "objective":     appt.soap_note.objective,
-            "assessment":    appt.soap_note.assessment,
-            "plan":          appt.soap_note.plan,
-            "follow_up_days":appt.soap_note.follow_up_days,
-        } if appt.soap_note else None,
+            "reason_for_visit":        sn.reason_for_visit,
+            "patient_complaints":      sn.patient_complaints,
+            "past_history":            sn.past_history,
+            "investigations_findings": sn.investigations_findings,
+            "discharge_assessment":    sn.discharge_assessment,
+            "cautions_followup":       sn.cautions_followup,
+            "subjective":    sn.subjective,
+            "objective":     sn.objective,
+            "assessment":    sn.assessment,
+            "plan":          sn.plan,
+            "follow_up_days":sn.follow_up_days,
+            "is_locked":     sn.is_locked,
+        } if sn else None,
         "prescriptions": [
             {
                 "id":     pr.id,
