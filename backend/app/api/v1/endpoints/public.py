@@ -532,11 +532,14 @@ def register_clinic(body: dict, db: Session = Depends(get_db)):
 
     clinic_data   = body.get("clinic", {})
     doctor_data   = body.get("doctor", {})
-    admin_email   = body.get("admin_email", "")
-    admin_password = body.get("admin_password", "")
+    admin_email   = body.get("admin_email", "") or doctor_data.get("email", "")
+
+    # Auto-generate a temporary password — sent to doctor via email/SMS on approval
+    import secrets, string as _string
+    auto_pw = ''.join(secrets.choice(_string.ascii_letters + _string.digits) for _ in range(10))
 
     # Validate
-    if not clinic_data.get("name") or not admin_email or not admin_password:
+    if not clinic_data.get("name") or not admin_email:
         raise HTTPException(400, "Clinic name, email and password are required")
 
     # Check email not already used
@@ -589,9 +592,11 @@ def register_clinic(body: dict, db: Session = Depends(get_db)):
         branch_id       = branch.id,
         full_name       = doctor_data.get("full_name", "Clinic Admin"),
         email           = admin_email,
-        hashed_password = hash_password(admin_password),
+        mobile          = doctor_data.get("mobile"),
+        hashed_password = hash_password(auto_pw),
         role            = 'clinic_admin',
         is_active       = True,   # Clinic admin can login immediately
+        is_first_login  = True,   # Will be prompted to set own password on first login
     )
     db.add(staff)
     db.flush()
@@ -630,7 +635,8 @@ def register_clinic(body: dict, db: Session = Depends(get_db)):
         "clinic_slug": clinic.slug,
         "public_url": f"/clinics/{clinic.slug}",
         "login_email": admin_email,
-        "message": "Registration successful! Your clinic is pending approval. Login at provider.bharathhealthsystems.com once approved."
+        "temp_password": auto_pw,   # shown in success screen; also emailed on approval
+        "message": "Registration successful! Your clinic is pending approval. Your temporary login credentials will be sent to your email once approved."
     }
 
 
