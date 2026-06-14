@@ -9,6 +9,7 @@ import Prescriptions from './pages/Prescriptions'
 import LabResults from './pages/LabResults'
 import Bills from './pages/Bills'
 import ClinicalHistory from './pages/ClinicalHistory'
+import Timeline from './pages/Timeline'
 import Telehealth from './pages/Telehealth'
 import TelehealthCall from './pages/TelehealthCall'
 import BookAppointmentPage from './pages/BookAppointmentPage'
@@ -41,7 +42,7 @@ function AppRoutes() {
         <Route path="/lab-results"   element={<LabResults />} />
         <Route path="/bills"         element={<Bills />} />
         <Route path="/history"       element={<ClinicalHistory />} />
-        <Route path="/timeline"      element={<Navigate to="/history" replace />} />
+        <Route path="/timeline"      element={<Timeline />} />
         <Route path="/telehealth"    element={<Telehealth />} />
         <Route path="/doctors/:id"   element={<DoctorProfile />} />
       </Route>
