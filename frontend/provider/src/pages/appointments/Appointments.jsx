@@ -377,15 +377,17 @@ export default function Appointments() {
 
   const loadAppts = () => {
     setLoading(true)
-    Promise.all([
+    Promise.allSettled([
       appointmentsApi.list({ appointment_date: date, limit: 100 }),
       appointmentsApi.listOnlineBookings({ status: 'pending' }),
-])
-  .then(([appts, bookings]) => {
-    setAppointments(Array.isArray(appts) ? appts : [])
-    setOnlineBookings(Array.isArray(bookings) ? bookings : [])
-  })
-      .finally(() => setLoading(false))
+    ]).then(([apptResult, bookingResult]) => {
+      if (apptResult.status === 'fulfilled') {
+        setAppointments(Array.isArray(apptResult.value) ? apptResult.value : [])
+      }
+      if (bookingResult.status === 'fulfilled') {
+        setOnlineBookings(Array.isArray(bookingResult.value) ? bookingResult.value : [])
+      }
+    }).finally(() => setLoading(false))
   }
 
   useEffect(() => { loadAppts() }, [date])
