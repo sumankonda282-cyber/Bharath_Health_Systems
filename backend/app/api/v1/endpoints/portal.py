@@ -667,10 +667,9 @@ def seed_demo_data(current: PatientUser = Depends(get_current_patient), db: Sess
     """Seed demo prescriptions and lab results for the current patient (for review/testing only)."""
     from app.models.models import (
         Patient, Prescription, PrescriptionItem, LabOrder, LabResult,
-        Appointment, Clinic, DoctorProfile, Staff
+        Appointment, Clinic, DoctorProfile, Staff, Invoice, InvoiceItem
     )
-    from datetime import date, timedelta
-    import random, string
+    from datetime import date, timedelta, datetime as _dt
 
     patients = db.query(Patient).filter(Patient.portal_user_id == current.id).all()
     if not patients:
@@ -713,7 +712,6 @@ def seed_demo_data(current: PatientUser = Depends(get_current_patient), db: Sess
         },
     ]
 
-    from datetime import datetime as _dt
     created_rx = 0
     for rx in rx_data:
         rx_date = _dt.combine(today + timedelta(days=rx["date_offset"]), _dt.min.time())
@@ -766,34 +764,35 @@ def seed_demo_data(current: PatientUser = Depends(get_current_patient), db: Sess
         },
     ]
 
-    from datetime import datetime as dt_
     created_lab = 0
-    for lab in lab_data:
-        lab_date = today + timedelta(days=lab["date_offset"])
-        lab_dt = dt_.combine(lab_date, dt_.min.time())
-        lo = LabOrder(
-            order_id=lab["order_id"],
-            patient_id=patient.id,
-            clinic_id=clinic.id,
-            ordered_by=doc.staff.id if doc else None,
-            test_names=lab["test_names"],
-            status="signed",
-            created_at=lab_dt,
-        )
-        db.add(lo)
-        db.flush()
-        result = LabResult(
-            order_id=lo.id,
-            observations=lab["observations"],
-            interpretation=lab["interpretation"],
-            signed_at=lab_dt,
-            status="signed",
-        )
-        db.add(result)
-        created_lab += 1
+    if doc:  # ordered_by is NOT NULL — skip lab orders when no doctor exists
+        for lab in lab_data:
+            if db.query(LabOrder).filter(LabOrder.order_id == lab["order_id"]).first():
+                continue  # already seeded, skip to avoid unique constraint error
+            lab_date = today + timedelta(days=lab["date_offset"])
+            lab_dt = _dt.combine(lab_date, _dt.min.time())
+            lo = LabOrder(
+                order_id=lab["order_id"],
+                patient_id=patient.id,
+                clinic_id=clinic.id,
+                ordered_by=doc.staff.id,
+                test_names=lab["test_names"],
+                status="signed",
+                created_at=lab_dt,
+            )
+            db.add(lo)
+            db.flush()
+            result = LabResult(
+                order_id=lo.id,
+                observations=lab["observations"],
+                interpretation=lab["interpretation"],
+                signed_at=lab_dt,
+                status="signed",
+            )
+            db.add(result)
+            created_lab += 1
 
     # --- Seed 3 invoices ---
-    from app.models.models import Invoice, InvoiceItem
     bill_data = [
         {
             "date_offset": -3,
@@ -841,6 +840,11 @@ def seed_demo_data(current: PatientUser = Depends(get_current_patient), db: Sess
 
     created_bills = 0
     for bill in bill_data:
+        if db.query(Invoice).filter(
+            Invoice.patient_id == patient.id,
+            Invoice.invoice_number == bill["invoice_number"]
+        ).first():
+            continue  # already seeded, skip to avoid duplicates
         bill_dt = _dt.combine(today + timedelta(days=bill["date_offset"]), _dt.min.time())
         inv = Invoice(
             clinic_id=clinic.id,
@@ -866,5 +870,9 @@ def seed_demo_data(current: PatientUser = Depends(get_current_patient), db: Sess
             ))
         created_bills += 1
 
-    db.commit()
+    try:
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to save demo data: {exc}")
     return {"seeded": True, "prescriptions": created_rx, "lab_orders": created_lab, "bills": created_bills}
