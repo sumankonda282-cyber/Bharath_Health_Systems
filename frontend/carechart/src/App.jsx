@@ -1,86 +1,47 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
-import { WardSessionProvider, useWardSession } from './contexts/WardSessionContext'
-import { PinProvider } from './contexts/PinContext'
-import Layout from './components/Layout'
 import Login from './pages/Login'
-import Dashboard from './pages/Dashboard'
-import WardBoard from './pages/WardBoard'
-import Vitals from './pages/Vitals'
-import NursingNotes from './pages/NursingNotes'
-import MAR from './pages/MAR'
-import WardRounds from './pages/WardRounds'
-import ShiftHandoff from './pages/ShiftHandoff'
-import WardSetup from './pages/WardSetup'
-import PinSetup from './pages/PinSetup'
-import Assessments from './pages/Assessments'
-import DocumentationTemplates from './pages/DocumentationTemplates'
-import AdmissionChart from './pages/AdmissionChart'
-import Orders from './pages/Orders'
-import PatientList from './pages/PatientList'
-import DischargeSheet from './pages/DischargeSheet'
-import { Loader2 } from 'lucide-react'
 
-function AppLoader() {
-  return (
-    <div className="h-screen flex items-center justify-center">
-      <Loader2 size={36} className="animate-spin text-gray-400" />
+function PrivateRoute({ children }) {
+  const { user, loading } = useAuth()
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center">
+      <span className="w-8 h-8 border-2 border-gray-200 border-t-green-700 rounded-full animate-spin" />
     </div>
   )
+  return user ? children : <Navigate to="/login" replace />
 }
 
-function AppRoutes() {
+function PublicRoute({ children }) {
   const { user, loading } = useAuth()
-  const { setupComplete } = useWardSession()
-
-  if (loading) return <AppLoader />
-
-  if (!user) {
-    return (
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
-    )
-  }
-
-  return (
-    <Routes>
-      <Route path="/login" element={<Navigate to="/" replace />} />
-      <Route path="/pin-setup" element={<PinSetup />} />
-      <Route path="/ward-setup" element={<WardSetup />} />
-
-      <Route element={setupComplete ? <Layout /> : <Navigate to="/ward-setup" replace />}>
-        <Route index element={<Dashboard />} />
-        <Route path="ward-board" element={<WardBoard />} />
-        <Route path="vitals" element={<Vitals />} />
-        <Route path="notes" element={<NursingNotes />} />
-        <Route path="mar" element={<MAR />} />
-        <Route path="rounds" element={<WardRounds />} />
-        <Route path="handoff" element={<ShiftHandoff />} />
-        <Route path="assessments" element={<Assessments />} />
-        <Route path="templates" element={<DocumentationTemplates />} />
-        <Route path="orders" element={<Orders />} />
-        <Route path="patients" element={<PatientList />} />
-        <Route path="discharge" element={<DischargeSheet />} />
-        <Route path="chart/:admissionId" element={<AdmissionChart />} />
-      </Route>
-
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
-  )
+  if (loading) return null
+  return user ? <Navigate to="/" replace /> : children
 }
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <WardSessionProvider>
-          <PinProvider>
-            <AppRoutes />
-          </PinProvider>
-        </WardSessionProvider>
-      </AuthProvider>
-    </BrowserRouter>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+          <Route path="/" element={<PrivateRoute><ComingSoon /></PrivateRoute>} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
+  )
+}
+
+function ComingSoon() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="text-center">
+        <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: '#065F46' }}>
+          <span className="text-white text-2xl">✓</span>
+        </div>
+        <h1 className="text-2xl font-bold text-gray-800 mb-2">Logged In</h1>
+        <p className="text-gray-500 text-sm">Dashboard coming next…</p>
+      </div>
+    </div>
   )
 }
