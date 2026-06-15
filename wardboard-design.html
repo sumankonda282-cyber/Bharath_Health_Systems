@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ward Board — CareChart Mockup</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Inter, system-ui, sans-serif; background: #f9fafb; display: flex; height: 100vh; overflow: hidden; }
+
+  /* ── Sidebar ── */
+  .sidebar { width: 224px; flex-shrink: 0; background: #0f1117; border-right: 1px solid #1f2028; display: flex; flex-direction: column; }
+  .sidebar-logo { padding: 14px 16px; border-bottom: 1px solid #1f2028; display: flex; align-items: center; gap: 8px; }
+  .logo-text { display: flex; flex-direction: column; line-height: 1; }
+  .logo-text .brand { font-size: 13px; font-weight: 800; letter-spacing: -0.02em; }
+  .logo-text .brand .red { color: #CC1414; }
+  .logo-text .brand .navy { color: #0F2557; }
+  .logo-text .sub { font-size: 9px; color: #6b7280; font-style: italic; }
+  .logo-text .cc { font-size: 9px; color: #065F46; font-weight: 700; margin-top: 1px; }
+  .ward-label { padding: 8px 16px; border-bottom: 1px solid #1f2028; }
+  .ward-label .wl { font-size: 9px; color: #4b5563; text-transform: uppercase; letter-spacing: 0.06em; }
+  .ward-label .wn { font-size: 11px; color: #d1d5db; font-weight: 600; margin-top: 2px; }
+  .ward-label .wd { font-size: 10px; color: #6b7280; }
+  nav { flex: 1; overflow-y: auto; padding: 12px 8px; display: flex; flex-direction: column; gap: 16px; }
+  .nav-section .ns-label { font-size: 9px; font-weight: 700; color: #4b5563; text-transform: uppercase; letter-spacing: 0.08em; padding: 0 8px; margin-bottom: 4px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; color: #9ca3af; }
+  .nav-item:hover { color: white; background: rgba(255,255,255,0.08); }
+  .nav-item.active { background: #065F46; color: white; }
+  .nav-item svg { width: 15px; height: 15px; flex-shrink: 0; }
+  .shift-badge { padding: 10px 16px; border-top: 1px solid #1f2028; }
+  .shift-badge span { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 99px; background: rgba(6,95,70,0.3); color: #34d399; }
+
+  /* ── Main ── */
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* Topbar */
+  .topbar { background: white; border-bottom: 1px solid #f3f4f6; padding: 8px 20px; display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  .ward-crumb { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #9ca3af; }
+  .ward-crumb .w { font-weight: 600; color: #374151; }
+  .ward-crumb .h { font-weight: 700; color: #065F46; }
+  .topbar-spacer { flex: 1; }
+  .topbar-icon { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #9ca3af; }
+  .topbar-icon:hover { background: #f3f4f6; }
+  .topbar-icon svg { width: 15px; height: 15px; }
+  .profile-btn { display: flex; align-items: center; gap: 7px; padding: 4px 10px 4px 4px; border-radius: 10px; cursor: pointer; }
+  .avatar { width: 28px; height: 28px; border-radius: 50%; background: #065F46; display: flex; align-items: center; justify-content: center; color: white; font-size: 11px; font-weight: 700; }
+  .profile-info .pn { font-size: 11px; font-weight: 600; color: #1f2937; }
+  .profile-info .pr { font-size: 9px; color: #9ca3af; }
+
+  /* Content */
+  .content { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+
+  /* Filters bar */
+  .filters-bar { background: white; border-bottom: 1px solid #f3f4f6; padding: 8px 20px; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .search-box { display: flex; align-items: center; gap: 6px; padding: 5px 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 12px; color: #9ca3af; flex: 1; max-width: 220px; }
+  .search-box svg { width: 13px; height: 13px; flex-shrink: 0; }
+  .filter-select { padding: 5px 24px 5px 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 12px; color: #374151; background: white; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' viewBox='0 0 24 24' stroke='%239ca3af'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; }
+
+  /* Summary strip */
+  .summary-strip { display: flex; align-items: center; gap: 6px; padding: 6px 20px; background: #f9fafb; border-bottom: 1px solid #f3f4f6; flex-shrink: 0; flex-wrap: wrap; }
+  .sum-pill { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 99px; cursor: pointer; border: 1.5px solid transparent; }
+  .sum-pill.all    { background: #f0fdf4; color: #065F46; border-color: #065F46; }
+  .sum-pill.occ    { background: #f0fdf4; color: #15803d; }
+  .sum-pill.vac    { background: #f9fafb; color: #6b7280; border-color: #e5e7eb; }
+  .sum-pill.crit   { background: #fef2f2; color: #dc2626; }
+  .sum-pill.clean  { background: #fffbeb; color: #d97706; }
+  .sum-pill.res    { background: #eff6ff; color: #2563eb; }
+  .sum-dot { width: 7px; height: 7px; border-radius: 50%; }
+
+  /* Bed grid */
+  .grid-area { flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
+
+  /* Wing label */
+  .wing-label { font-size: 10px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+
+  .bed-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+
+  /* Bed card */
+  .bed-card { background: white; border-radius: 12px; border: 1.5px solid #e5e7eb; padding: 11px 13px; cursor: pointer; transition: all 0.15s; display: flex; flex-direction: column; gap: 4px; min-height: 126px; }
+  .bed-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.07); }
+  .bed-card.occupied { border-color: #bbf7d0; border-left: 3px solid #065F46; }
+  .bed-card.occupied:hover { background: #f0fdf4; }
+  .bed-card.critical { border-color: #fecaca; border-left: 3px solid #dc2626; background: #fff8f8; }
+  .bed-card.critical:hover { background: #fef2f2; }
+  .bed-card.vacant { opacity: 0.75; cursor: default; }
+  .bed-card.vacant:hover { box-shadow: none; }
+  .bed-card.cleaning { border-color: #fde68a; border-left: 3px solid #d97706; background: #fffdf5; }
+  .bed-card.reserved { border-color: #bfdbfe; border-left: 3px solid #2563eb; background: #f8faff; }
+
+  .bed-header { display: flex; align-items: center; justify-content: space-between; }
+  .bed-num { font-size: 14px; font-weight: 800; color: #111827; }
+  .bed-status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  .bed-status-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 1px; }
+  .sl-occupied  { color: #065F46; }
+  .sl-critical  { color: #dc2626; }
+  .sl-vacant    { color: #9ca3af; }
+  .sl-cleaning  { color: #d97706; }
+  .sl-reserved  { color: #2563eb; }
+
+  .bed-divider { height: 1px; background: #f3f4f6; margin: 3px 0; }
+
+  .patient-name-card { font-size: 13px; font-weight: 700; color: #111827; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .patient-meta { font-size: 10px; color: #6b7280; }
+  .patient-diag { font-size: 10px; color: #374151; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .patient-doc  { font-size: 10px; color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card-badges  { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 2px; }
+  .badge { display: inline-flex; font-size: 8px; font-weight: 700; padding: 2px 5px; border-radius: 3px; white-space: nowrap; }
+  .badge-nbm   { background: #fff7ed; color: #c2410c; }
+  .badge-post  { background: #eff6ff; color: #1d4ed8; }
+  .badge-blood { background: #fef2f2; color: #b91c1c; }
+  .badge-crit  { background: #fef2f2; color: #b91c1c; }
+
+  .empty-card-text { color: #d1d5db; font-size: 11px; font-weight: 500; margin: auto 0; }
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar">
+  <div class="sidebar-logo">
+    <div style="width:28px;height:28px;background:#1f2028;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:13px;">🗺</div>
+    <div class="logo-text">
+      <span class="brand"><span class="red">BHarath</span> <span class="navy">Health</span></span>
+      <span class="sub">Systems</span>
+      <span class="cc">CareChart</span>
+    </div>
+  </div>
+  <div class="ward-label">
+    <div class="wl">Current Ward</div>
+    <div class="wn">Ward A — ICU</div>
+    <div class="wd">General Medicine</div>
+  </div>
+  <nav>
+    <div class="nav-section">
+      <div class="ns-label">Clinical</div>
+      <div class="nav-item"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><rect x="3" y="3" width="7" height="7" rx="1" stroke-width="2"/><rect x="14" y="3" width="7" height="7" rx="1" stroke-width="2"/><rect x="3" y="14" width="7" height="7" rx="1" stroke-width="2"/><rect x="14" y="14" width="7" height="7" rx="1" stroke-width="2"/></svg>Dashboard</div>
+      <div class="nav-item"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-width="2" d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4" stroke-width="2"/></svg>Patients</div>
+      <div class="nav-item active"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-width="2" d="M3 10h18M3 6h18M3 14h18M3 18h18"/></svg>Ward Board</div>
+    </div>
+    <div class="nav-section">
+      <div class="ns-label">Provider</div>
+      <div class="nav-item"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-width="2" d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/></svg>Ward Rounds</div>
+      <div class="nav-item"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-width="2" d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6" stroke-width="2"/></svg>Orders</div>
+      <div class="nav-item"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-width="2" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8" stroke-width="2"/></svg>Documentation</div>
+    </div>
+    <div class="nav-section">
+      <div class="ns-label">Nursing</div>
+      <div class="nav-item"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" stroke-width="2"/></svg>Vitals</div>
+      <div class="nav-item"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="12" cy="12" r="10" stroke-width="2"/><polyline points="12 6 12 12 16 14" stroke-width="2"/></svg>MAR</div>
+      <div class="nav-item"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-width="2" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><line x1="8" y1="13" x2="16" y2="13" stroke-width="2"/></svg>Nursing Notes</div>
+      <div class="nav-item"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-width="2" d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="2" stroke-width="2"/></svg>Assessments</div>
+      <div class="nav-item"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-width="2" d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7" stroke-width="2"/><line x1="21" y1="12" x2="9" y2="12" stroke-width="2"/></svg>Discharge</div>
+      <div class="nav-item"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-width="2" d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/></svg>Shift Handoff</div>
+    </div>
+  </nav>
+  <div class="shift-badge"><span>Morning Shift</span></div>
+</div>
+
+<!-- Main -->
+<div class="main">
+
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="ward-crumb">
+      <span class="w">City Hospital</span><span>·</span>
+      <span>General Medicine</span><span>·</span>
+      <span class="h">Ward A – ICU</span>
+    </div>
+    <div class="topbar-spacer"></div>
+    <div class="topbar-icon"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-width="2" d="M23 4v6h-6"/><path stroke-width="2" d="M1 20v-6h6"/><path stroke-width="2" d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></div>
+    <div class="topbar-icon"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="12" cy="12" r="10" stroke-width="2"/><path stroke-width="2" d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17" stroke-width="2"/></svg></div>
+    <div class="topbar-icon" style="position:relative;"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-width="2" d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path stroke-width="2" d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span style="position:absolute;top:4px;right:4px;width:8px;height:8px;background:#ef4444;border-radius:50%;border:1.5px solid white;"></span></div>
+    <div class="profile-btn">
+      <div class="avatar">P</div>
+      <div class="profile-info"><div class="pn">Priya Nair</div><div class="pr">Nurse</div></div>
+      <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="#9ca3af"><path stroke-width="2" d="M6 9l6 6 6-6"/></svg>
+    </div>
+  </div>
+
+  <!-- Filters bar -->
+  <div class="filters-bar">
+    <div class="search-box">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="11" cy="11" r="8" stroke-width="2"/><line x1="21" y1="21" x2="16.65" y2="16.65" stroke-width="2"/></svg>
+      Search bed, patient…
+    </div>
+    <select class="filter-select"><option>All Status</option><option>Occupied</option><option>Vacant</option><option>Cleaning</option><option>Reserved</option></select>
+    <select class="filter-select"><option>All Wings</option><option>Wing A</option><option>Wing B</option></select>
+  </div>
+
+  <!-- Summary strip -->
+  <div class="summary-strip">
+    <span class="sum-pill all"><span class="sum-dot" style="background:#065F46;"></span>Total 24</span>
+    <span class="sum-pill occ"><span class="sum-dot" style="background:#16a34a;"></span>Occupied 16</span>
+    <span class="sum-pill vac"><span class="sum-dot" style="background:#9ca3af;"></span>Vacant 5</span>
+    <span class="sum-pill crit"><span class="sum-dot" style="background:#dc2626;"></span>Critical 2</span>
+    <span class="sum-pill clean"><span class="sum-dot" style="background:#d97706;"></span>Cleaning 2</span>
+    <span class="sum-pill res"><span class="sum-dot" style="background:#2563eb;"></span>Reserved 1</span>
+  </div>
+
+  <!-- Bed grid -->
+  <div class="grid-area">
+
+    <div>
+      <div class="wing-label">Wing A</div>
+      <div class="bed-grid">
+
+        <!-- Occupied -->
+        <div class="bed-card occupied">
+          <div class="bed-header">
+            <span class="bed-num">A01</span>
+            <span class="bed-status-dot" style="background:#16a34a;"></span>
+          </div>
+          <div class="bed-status-label sl-occupied">Occupied</div>
+          <div class="bed-divider"></div>
+          <div class="patient-name-card">Ravi Kumar</div>
+          <div class="patient-meta">54M · Day 4</div>
+          <div class="patient-diag">Pneumonia</div>
+          <div class="patient-doc">Dr. Sharma</div>
+          <div class="card-badges"><span class="badge badge-nbm">NBM</span><span class="badge badge-post">Post-op</span></div>
+        </div>
+
+        <!-- Critical -->
+        <div class="bed-card critical">
+          <div class="bed-header">
+            <span class="bed-num">A02</span>
+            <span class="bed-status-dot" style="background:#dc2626;"></span>
+          </div>
+          <div class="bed-status-label sl-critical">Critical</div>
+          <div class="bed-divider"></div>
+          <div class="patient-name-card">Sita Devi</div>
+          <div class="patient-meta">38F · Day 1</div>
+          <div class="patient-diag">Post CABG</div>
+          <div class="patient-doc">Dr. Reddy</div>
+          <div class="card-badges"><span class="badge badge-crit">Critical</span><span class="badge badge-blood">Blood Thin.</span></div>
+        </div>
+
+        <!-- Vacant -->
+        <div class="bed-card vacant">
+          <div class="bed-header">
+            <span class="bed-num">A03</span>
+            <span class="bed-status-dot" style="background:#d1d5db;"></span>
+          </div>
+          <div class="bed-status-label sl-vacant">Vacant</div>
+          <div class="bed-divider"></div>
+          <div class="empty-card-text">Available</div>
+        </div>
+
+        <!-- Cleaning -->
+        <div class="bed-card cleaning">
+          <div class="bed-header">
+            <span class="bed-num">A04</span>
+            <span class="bed-status-dot" style="background:#d97706;"></span>
+          </div>
+          <div class="bed-status-label sl-cleaning">Cleaning</div>
+          <div class="bed-divider"></div>
+          <div class="empty-card-text">Being prepared</div>
+        </div>
+
+        <!-- Occupied -->
+        <div class="bed-card occupied">
+          <div class="bed-header">
+            <span class="bed-num">A05</span>
+            <span class="bed-status-dot" style="background:#16a34a;"></span>
+          </div>
+          <div class="bed-status-label sl-occupied">Occupied</div>
+          <div class="bed-divider"></div>
+          <div class="patient-name-card">Mohammed Ali</div>
+          <div class="patient-meta">67M · Day 5</div>
+          <div class="patient-diag">DM Type 2</div>
+          <div class="patient-doc">Dr. Patel</div>
+          <div class="card-badges"><span class="badge badge-nbm">NBM</span></div>
+        </div>
+
+        <!-- Reserved -->
+        <div class="bed-card reserved">
+          <div class="bed-header">
+            <span class="bed-num">A06</span>
+            <span class="bed-status-dot" style="background:#2563eb;"></span>
+          </div>
+          <div class="bed-status-label sl-reserved">Reserved</div>
+          <div class="bed-divider"></div>
+          <div class="empty-card-text">Pre-admission</div>
+        </div>
+
+        <!-- Occupied -->
+        <div class="bed-card occupied">
+          <div class="bed-header">
+            <span class="bed-num">A07</span>
+            <span class="bed-status-dot" style="background:#16a34a;"></span>
+          </div>
+          <div class="bed-status-label sl-occupied">Occupied</div>
+          <div class="bed-divider"></div>
+          <div class="patient-name-card">Lakshmi Devi</div>
+          <div class="patient-meta">52F · Day 2</div>
+          <div class="patient-diag">Fracture — R. Femur</div>
+          <div class="patient-doc">Dr. Iyer</div>
+          <div class="card-badges"><span class="badge badge-post">Post-op</span></div>
+        </div>
+
+        <!-- Critical -->
+        <div class="bed-card critical">
+          <div class="bed-header">
+            <span class="bed-num">A08</span>
+            <span class="bed-status-dot" style="background:#dc2626;"></span>
+          </div>
+          <div class="bed-status-label sl-critical">Critical</div>
+          <div class="bed-divider"></div>
+          <div class="patient-name-card">Fatima Begum</div>
+          <div class="patient-meta">71F · Day 3</div>
+          <div class="patient-diag">Septic shock</div>
+          <div class="patient-doc">Dr. Reddy</div>
+          <div class="card-badges"><span class="badge badge-crit">Critical</span><span class="badge badge-nbm">NBM</span></div>
+        </div>
+
+      </div>
+    </div>
+
+    <div>
+      <div class="wing-label">Wing B</div>
+      <div class="bed-grid">
+
+        <div class="bed-card occupied">
+          <div class="bed-header"><span class="bed-num">B01</span><span class="bed-status-dot" style="background:#16a34a;"></span></div>
+          <div class="bed-status-label sl-occupied">Occupied</div>
+          <div class="bed-divider"></div>
+          <div class="patient-name-card">Arjun Singh</div>
+          <div class="patient-meta">29M · Day 1</div>
+          <div class="patient-diag">Appendectomy</div>
+          <div class="patient-doc">Dr. Sharma</div>
+          <div class="card-badges"><span class="badge badge-post">Post-op</span></div>
+        </div>
+
+        <div class="bed-card vacant">
+          <div class="bed-header"><span class="bed-num">B02</span><span class="bed-status-dot" style="background:#d1d5db;"></span></div>
+          <div class="bed-status-label sl-vacant">Vacant</div>
+          <div class="bed-divider"></div>
+          <div class="empty-card-text">Available</div>
+        </div>
+
+        <div class="bed-card cleaning">
+          <div class="bed-header"><span class="bed-num">B03</span><span class="bed-status-dot" style="background:#d97706;"></span></div>
+          <div class="bed-status-label sl-cleaning">Cleaning</div>
+          <div class="bed-divider"></div>
+          <div class="empty-card-text">Being prepared</div>
+        </div>
+
+        <div class="bed-card occupied">
+          <div class="bed-header"><span class="bed-num">B04</span><span class="bed-status-dot" style="background:#16a34a;"></span></div>
+          <div class="bed-status-label sl-occupied">Occupied</div>
+          <div class="bed-divider"></div>
+          <div class="patient-name-card">Deepa Menon</div>
+          <div class="patient-meta">44F · Day 6</div>
+          <div class="patient-diag">Hypertension crisis</div>
+          <div class="patient-doc">Dr. Patel</div>
+          <div class="card-badges"><span class="badge badge-nbm">NBM</span></div>
+        </div>
+
+        <div class="bed-card vacant">
+          <div class="bed-header"><span class="bed-num">B05</span><span class="bed-status-dot" style="background:#d1d5db;"></span></div>
+          <div class="bed-status-label sl-vacant">Vacant</div>
+          <div class="bed-divider"></div>
+          <div class="empty-card-text">Available</div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>
