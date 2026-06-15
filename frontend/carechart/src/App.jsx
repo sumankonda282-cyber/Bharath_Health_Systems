@@ -5,6 +5,7 @@ import Login from './pages/Login'
 import SelectLocation from './pages/SelectLocation'
 import Dashboard from './pages/Dashboard'
 import Patients from './pages/Patients'
+import WardBoard from './pages/WardBoard'
 import Layout from './components/Layout'
 
 function Spinner() {
@@ -55,7 +56,7 @@ export default function App() {
 
             <Route path="/dashboard"   element={<WardRoute><Dashboard /></WardRoute>} />
             <Route path="/patients"    element={<WardRoute><Patients /></WardRoute>} />
-            <Route path="/ward-board"  element={<WardRoute><Placeholder label="Ward Board" /></WardRoute>} />
+            <Route path="/ward-board"  element={<WardRoute><WardBoard /></WardRoute>} />
             <Route path="/vitals"      element={<WardRoute><Placeholder label="Vitals" /></WardRoute>} />
             <Route path="/mar"         element={<WardRoute><Placeholder label="MAR" /></WardRoute>} />
             <Route path="/notes"       element={<WardRoute><Placeholder label="Nursing Notes" /></WardRoute>} />
