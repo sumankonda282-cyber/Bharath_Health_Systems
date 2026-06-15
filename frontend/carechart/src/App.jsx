@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard'
 import Patients from './pages/Patients'
 import WardBoard from './pages/WardBoard'
 import WardRounds from './pages/WardRounds'
+import PatientChart from './pages/PatientChart'
 import Layout from './components/Layout'
 
 function Spinner() {
@@ -67,7 +68,7 @@ export default function App() {
             <Route path="/rounds"      element={<WardRoute><WardRounds /></WardRoute>} />
             <Route path="/orders"      element={<WardRoute><Placeholder label="Orders" /></WardRoute>} />
             <Route path="/docs"        element={<WardRoute><Placeholder label="Documentation" /></WardRoute>} />
-            <Route path="/chart/:id"   element={<WardRoute><Placeholder label="Patient Chart" /></WardRoute>} />
+            <Route path="/chart/:id"   element={<WardRoute><PatientChart /></WardRoute>} />
 
             <Route path="/"  element={<Navigate to="/dashboard" replace />} />
             <Route path="*"  element={<Navigate to="/dashboard" replace />} />
