@@ -560,36 +560,76 @@ export default function Encounter() {
   // ─── Load encounter ─────────────────────────────────────────────────────────
   useEffect(() => {
     setLoading(true)
-    Promise.allSettled([
-      encountersApi.get(encounterId),
-      patientsApi.getVitals?.(encounterId),
-    ]).then(([encRes, vitRes]) => {
-      if (encRes.status === 'fulfilled') {
-        const enc = encRes.value
+    doctorApi.getEncounter(encounterId)
+      .then(enc => {
         setData(enc)
-        setPatient(enc.patient || enc.patients || null)
-        const existing = enc.notes?.sections || []
-        setSections(existing.length ? existing.map(s => s.key) : ['complaints', 'assessment', 'medications'])
-        const n = enc.notes || {}
-        setComplaint(n.complaint || '')
-        setSymptoms(n.symptoms || [])
-        setPastHistory(n.past_history || '')
-        setExamination(n.examination || '')
-        setAssessment(n.assessment || '')
-        setRxItems(n.medications || [])
-        setLabOrders(n.lab_orders || [])
-        setImagingOrders(n.imaging_orders || [])
-        setCounselling(n.counselling || '')
-        setFollowupDays(n.followup_days || '')
-        setFollowupNote(n.followup_note || '')
-        setInitDx(n.init_dx || [])
-        if (n.init_dx?.length) triggerSuggestions(n.init_dx)
-      }
-      if (vitRes.status === 'fulfilled') {
-        setSavedVitals(vitRes.value || {})
-      }
-    }).catch(() => setError('Failed to load encounter'))
-    .finally(() => setLoading(false))
+        setPatient(enc.patient || null)
+
+        // Map vitals to shape used by DemographicsBar / VitalsForm
+        if (enc.vitals) {
+          const v = enc.vitals
+          setSavedVitals({
+            ...v,
+            blood_pressure: v.blood_pressure_systolic
+              ? `${v.blood_pressure_systolic}/${v.blood_pressure_diastolic}`
+              : null,
+            pulse:             v.pulse_rate,
+            weight:            v.weight_kg,
+            height:            v.height_cm,
+          })
+        }
+
+        const sn = enc.soap_note || {}
+
+        // Determine sections to show from what's already filled
+        const populated = []
+        if (enc.triage_complaint || sn.patient_complaints || sn.reason_for_visit) populated.push('complaints')
+        if (sn.past_history) populated.push('past_history')
+        if (sn.objective) populated.push('examination')
+        if (sn.assessment || sn.discharge_assessment) populated.push('assessment')
+        if (enc.lab_orders?.length) populated.push('lab')
+        if (enc.prescriptions?.length) populated.push('medications')
+        if (sn.cautions_followup) populated.push('counselling')
+        if (sn.follow_up_days) populated.push('followup')
+        setSections(populated.length ? populated : ['complaints', 'assessment', 'medications'])
+
+        setComplaint(enc.triage_complaint || sn.reason_for_visit || sn.patient_complaints || '')
+        setSymptoms([])
+        setPastHistory(sn.past_history || '')
+        setExamination(sn.objective || '')
+        setAssessment(sn.assessment || sn.discharge_assessment || '')
+
+        // Map structured prescriptions → rxItems
+        const rxLoaded = enc.prescriptions?.flatMap(pr =>
+          (pr.items || []).map(item => ({
+            drug_id:   null,
+            drug_name: item.medicine_name,
+            dosage:    item.dosage || '',
+            route:     'Oral',
+            brand:     '',
+            freq:      item.frequency ? [item.frequency] : [],
+            timing:    [],
+            duration:  item.duration || '',
+            food:      item.instructions || '',
+            notes:     '',
+          }))
+        ) || []
+        setRxItems(rxLoaded)
+
+        // Map lab order items → { id, name, notes }
+        const labLoaded = enc.lab_orders?.flatMap(lo =>
+          (lo.items || []).map(item => ({ id: item.id || Date.now(), name: item.test_name, notes: '' }))
+        ) || []
+        setLabOrders(labLoaded)
+
+        setImagingOrders([])
+        setCounselling(sn.cautions_followup || '')
+        setFollowupDays(sn.follow_up_days || '')
+        setFollowupNote('')
+        setInitDx([])
+      })
+      .catch(() => setError('Failed to load encounter'))
+      .finally(() => setLoading(false))
   }, [encounterId])
 
   // ─── Suggestions from working diagnosis ─────────────────────────────────────
@@ -829,7 +869,18 @@ export default function Encounter() {
   const handleSave = async () => {
     setSaving(true)
     try {
-      await encountersApi.update(encounterId, { notes: buildNotes() })
+      await encountersApi.save({
+        appointment_id:          Number(encounterId),
+        patient_complaints:      complaint,
+        past_history:            pastHistory,
+        investigations_findings: examination,
+        discharge_assessment:    assessment,
+        cautions_followup:       counselling,
+        medications_prescribed:  rxItems.map(rx =>
+          [rx.drug_name, rx.dosage, rx.freq.join('/'), rx.duration].filter(Boolean).join(' ')
+        ).join('\n'),
+        lock: false,
+      })
     } catch (e) {
       setError('Save failed: ' + (e?.message || 'unknown'))
     } finally { setSaving(false) }
@@ -838,7 +889,27 @@ export default function Encounter() {
   const handleFinalise = async () => {
     setFinalising(true)
     try {
-      await encountersApi.update(encounterId, { notes: buildNotes(), status: 'completed' })
+      await doctorApi.completeEncounter(encounterId, {
+        soap: {
+          subjective:     [complaint, symptoms.length ? 'Symptoms: ' + symptoms.join(', ') : ''].filter(Boolean).join('\n\n'),
+          objective:      examination,
+          assessment:     assessment,
+          plan:           counselling,
+          follow_up_days: followupDays || null,
+        },
+        prescription: rxItems.length ? {
+          items: rxItems.map(rx => ({
+            medicine_name: rx.drug_name,
+            dosage:        rx.dosage,
+            frequency:     rx.freq.join(', '),
+            duration:      rx.duration,
+            instructions:  [rx.food, rx.notes].filter(Boolean).join(' '),
+          }))
+        } : null,
+        lab_order: labOrders.length ? {
+          tests: labOrders.map(l => ({ test_name: l.name }))
+        } : null,
+      })
       navigate(-1)
     } catch (e) {
       setError('Finalise failed: ' + (e?.message || 'unknown'))
