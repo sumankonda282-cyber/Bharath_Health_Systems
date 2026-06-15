@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { BedDouble, Activity, Pill, ArrowLeftRight, Loader2, Clock, User, FileText } from 'lucide-react'
+import {
+  BedDouble, Activity, Pill, ArrowLeftRight,
+  Loader2, Clock, User, AlertTriangle, TrendingUp, ChevronRight
+} from 'lucide-react'
 import api from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -12,15 +15,25 @@ function timeAgo(dateStr) {
   return `${Math.round(diff / 1440)}d ago`
 }
 
-function StatCard({ icon: Icon, label, value, color, sub }) {
+function getShiftName() {
+  const h = new Date().getHours()
+  if (h >= 6 && h < 14) return 'Morning'
+  if (h >= 14 && h < 22) return 'Afternoon'
+  return 'Night'
+}
+
+function StatCard({ icon: Icon, label, value, color, sub, urgent }) {
   return (
-    <div className="card p-5 flex items-center gap-4">
-      <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: `${color}18` }}>
-        <Icon size={22} style={{ color }} />
+    <div className={`card p-4 flex items-start gap-3 ${urgent ? 'border-red-200 bg-red-50/50' : ''}`}>
+      <div
+        className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
+        style={{ background: `${color}18` }}
+      >
+        <Icon size={20} style={{ color }} />
       </div>
-      <div>
-        <div className="text-2xl font-bold" style={{ color: '#0F2557' }}>{value}</div>
-        <div className="text-sm text-gray-500">{label}</div>
+      <div className="min-w-0">
+        <div className="text-xl font-bold leading-tight" style={{ color: urgent ? '#DC2626' : '#0F2557' }}>{value}</div>
+        <div className="text-xs font-medium text-gray-600 mt-0.5">{label}</div>
         {sub && <div className="text-xs text-gray-400 mt-0.5">{sub}</div>}
       </div>
     </div>
@@ -43,77 +56,125 @@ export default function Dashboard() {
 
   const vitalsDue = admissions.filter(a => {
     if (!a.last_vital_at) return true
-    const diffH = (Date.now() - new Date(a.last_vital_at).getTime()) / 1000 / 3600
-    return diffH > 4
+    return (Date.now() - new Date(a.last_vital_at).getTime()) / 3600000 > 4
   }).length
 
-  const h = new Date().getHours()
-  const shiftName = h >= 6 && h < 14 ? 'Morning' : h >= 14 && h < 22 ? 'Afternoon' : 'Night'
+  const shiftName = getShiftName()
 
   return (
     <div>
       <div className="page-header">
         <div>
           <h1 className="page-title">Ward Dashboard</h1>
-          <p className="text-gray-500 text-sm mt-1">Welcome back, {user?.full_name || 'Nurse'} · {shiftName} Shift</p>
+          <p className="text-gray-500 text-xs mt-0.5">
+            {shiftName} Shift · {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'short' })}
+          </p>
+        </div>
+        <div className="text-right">
+          <div className="text-xs text-gray-400">Welcome back</div>
+          <div className="text-sm font-semibold text-gray-800">{user?.full_name || user?.email}</div>
         </div>
       </div>
 
-      {error && <div className="p-4 mb-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">{error}</div>}
+      {error && (
+        <div className="alert-red mb-4">
+          <AlertTriangle size={15} />{error}
+        </div>
+      )}
 
       {loading ? (
-        <div className="flex items-center justify-center py-20"><Loader2 size={32} className="animate-spin text-gray-400" /></div>
+        <div className="flex items-center justify-center py-20">
+          <Loader2 size={28} className="animate-spin text-gray-400" />
+        </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
             <StatCard icon={BedDouble} label="Active Admissions" value={admissions.length} color="#065F46" />
-            <StatCard icon={Activity} label="Vitals Due" value={vitalsDue} color={vitalsDue > 0 ? '#CC1414' : '#16A34A'} sub="> 4h since last charting" />
-            <StatCard icon={Pill} label="MAR Status" value="—" color="#d97706" sub="Check MAR tab" />
-            <StatCard icon={ArrowLeftRight} label="Shift Handoff" value={shiftName} color="#6366f1" sub="Handoff tab for notes" />
+            <StatCard
+              icon={Activity} label="Vitals Due" value={vitalsDue}
+              color={vitalsDue > 0 ? '#DC2626' : '#16A34A'}
+              sub="> 4h since charting"
+              urgent={vitalsDue > 0}
+            />
+            <StatCard icon={Pill} label="MAR Pending" value="—" color="#d97706" sub="Open MAR" />
+            <StatCard icon={ArrowLeftRight} label="Shift Handoff" value={shiftName} color="#6366f1" sub="Handoff due at shift end" />
           </div>
 
-          <div className="card overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-              <h2 className="font-semibold text-gray-800">Today's Active Admissions</h2>
-              <span className="badge-green">{admissions.length} patients</span>
+          {vitalsDue > 0 && (
+            <div className="alert-amber mb-4">
+              <AlertTriangle size={15} />
+              <span><strong>{vitalsDue} patient{vitalsDue > 1 ? 's' : ''}</strong> have vitals overdue (&gt;4h). Click a row to chart.</span>
             </div>
+          )}
+
+          <div className="card overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <TrendingUp size={16} className="text-emerald-600" />
+                <h2 className="font-semibold text-gray-800 text-sm">Active Admissions</h2>
+                <span className="badge-green">{admissions.length}</span>
+              </div>
+              <span className="text-xs text-gray-400">Click row to open chart</span>
+            </div>
+
             {admissions.length === 0 ? (
-              <div className="empty-state"><User size={32} className="empty-state-icon" /><span className="empty-state-text">No active admissions</span></div>
+              <div className="empty-state">
+                <User size={28} className="empty-state-icon" />
+                <span className="empty-state-text">No active admissions</span>
+              </div>
             ) : (
-              <div className="table-wrapper rounded-none">
+              <div className="table-wrapper rounded-none border-0">
                 <table className="table">
-                  <thead><tr>
-                    <th className="th">Patient</th>
-                    <th className="th">Admission #</th>
-                    <th className="th">Ward / Bed</th>
-                    <th className="th">Diagnosis</th>
-                    <th className="th">Last Vitals</th>
-                  </tr></thead>
+                  <thead>
+                    <tr>
+                      <th className="th">Patient</th>
+                      <th className="th">Ward / Bed</th>
+                      <th className="th hidden sm:table-cell">Diagnosis</th>
+                      <th className="th">Last Vitals</th>
+                      <th className="th w-8"></th>
+                    </tr>
+                  </thead>
                   <tbody className="bg-white divide-y divide-gray-50">
                     {admissions.map(a => {
                       const name = a.patient?.full_name || a.patient_name || 'Unknown'
-                      const admNo = a.admission_number || `#${a.id}`
+                      const mrn = a.patient?.patient_id || a.patient?.mrn || ''
                       const ward = a.ward?.name || a.ward_name || '—'
                       const bed = a.bed?.bed_number || a.bed_number || '—'
                       const diag = a.diagnosis || a.primary_diagnosis || '—'
                       const ago = timeAgo(a.last_vital_at)
-                      const overdue = !a.last_vital_at || (Date.now() - new Date(a.last_vital_at).getTime()) / 1000 / 3600 > 4
+                      const overdue = !a.last_vital_at ||
+                        (Date.now() - new Date(a.last_vital_at).getTime()) / 3600000 > 4
                       return (
-                        <tr key={a.id} className="tr-hover cursor-pointer" onClick={() => navigate(`/chart/${a.id}`)}>
-                          <td className="td font-medium text-gray-900 flex items-center gap-2">
-                            <FileText size={13} className="text-emerald-500 flex-shrink-0" />{name}
+                        <tr
+                          key={a.id}
+                          className="tr-hover cursor-pointer"
+                          onClick={() => navigate(`/chart/${a.id}`)}
+                        >
+                          <td className="td">
+                            <div className="font-medium text-gray-900 text-sm">{name}</div>
+                            {mrn && <div className="text-xs text-gray-400">MRN {mrn}</div>}
                           </td>
-                          <td className="td text-gray-500">{admNo}</td>
-                          <td className="td">{ward} / {bed}</td>
-                          <td className="td text-gray-500 max-w-xs truncate">{diag}</td>
+                          <td className="td">
+                            <div className="text-sm">{ward}</div>
+                            <div className="text-xs text-gray-400">Bed {bed}</div>
+                          </td>
+                          <td className="td hidden sm:table-cell">
+                            <span className="text-xs text-gray-600 line-clamp-2 max-w-xs">{diag}</span>
+                          </td>
                           <td className="td">
                             {ago ? (
-                              <span className={`inline-flex items-center gap-1 text-xs font-medium ${overdue ? 'text-red-600' : 'text-green-700'}`}>
+                              <span className={`inline-flex items-center gap-1 text-xs font-medium ${
+                                overdue ? 'text-red-600' : 'text-green-700'
+                              }`}>
                                 <Clock size={11} />{ago}
+                                {overdue && <span className="ml-1 badge-red btn-xs">Due</span>}
                               </span>
                             ) : (
-                              <span className="text-xs text-red-500 font-medium">Never charted</span>
+                              <span className="badge-red text-xs">Never charted</span>
                             )}
+                          </td>
+                          <td className="td text-gray-300">
+                            <ChevronRight size={14} />
                           </td>
                         </tr>
                       )
