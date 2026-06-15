@@ -9,6 +9,7 @@ import {
 import { useWardSession } from '../contexts/WardSessionContext'
 import api from '../api/client'
 import ProviderView from './ProviderView'
+import MedicationList from './MedicationList'
 
 const GREEN  = '#065F46'
 const NAVY   = '#0F2557'
@@ -551,16 +552,21 @@ export default function PatientChart() {
           {activeNav === 'provider' && (
             <ProviderView admission={admission} vitals={vitals} />
           )}
-          {activeNav !== 'dashboard' && activeNav !== 'provider' && (
+          {activeNav === 'medications' && (
+            <MedicationList admission={admission} />
+          )}
+          {activeNav !== 'dashboard' && activeNav !== 'provider' && activeNav !== 'medications' && (
             <ComingSoon label={PATIENT_NAV.find(n => n.key === activeNav)?.label || ''} />
           )}
         </div>
 
-        {/* Assessment panel */}
-        <div className="flex-shrink-0 border-l overflow-hidden flex flex-col"
-          style={{ width: 272, borderColor: '#e9eaec' }}>
-          <AssessmentPanel admissionId={id} />
-        </div>
+        {/* Assessment panel — hidden on full-width views */}
+        {activeNav !== 'medications' && (
+          <div className="flex-shrink-0 border-l overflow-hidden flex flex-col"
+            style={{ width: 272, borderColor: '#e9eaec' }}>
+            <AssessmentPanel admissionId={id} />
+          </div>
+        )}
       </div>
     </div>
   )
