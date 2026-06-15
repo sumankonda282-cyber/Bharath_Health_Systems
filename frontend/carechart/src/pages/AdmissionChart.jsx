@@ -13,6 +13,8 @@ import {
   Shield, ClipboardCheck
 } from 'lucide-react'
 
+// ── Utilities ─────────────────────────────────────────────────────────────────
+
 function timeAgo(d) {
   if (!d) return null
   const m = (Date.now() - new Date(d).getTime()) / 60000
@@ -38,6 +40,8 @@ function getShift() {
   return 'Night'
 }
 
+// ── NEWS2 ─────────────────────────────────────────────────────────────────────
+
 function calcNEWS2(v) {
   if (!v) return null
   let s = 0
@@ -61,6 +65,8 @@ function news2Style(score) {
   if (score <= 6) return { cls: 'news2-med', label: `NEWS2: ${score} · Medium` }
   return { cls: 'news2-high', label: `NEWS2: ${score} · HIGH` }
 }
+
+// ── Vitals abnormal check ─────────────────────────────────────────────────────
 
 const RANGES = {
   temperature: [36.1, 38.0], temp: [36.1, 38.0],
@@ -89,6 +95,8 @@ function TrendIcon({ dir }) {
   return <Minus size={12} className="text-gray-400" />
 }
 
+// ── Tabs definition ───────────────────────────────────────────────────────────
+
 const TABS = [
   { key: 'overview',    label: 'Overview',      icon: User },
   { key: 'vitals',      label: 'Vitals',        icon: Activity },
@@ -100,6 +108,8 @@ const TABS = [
   { key: 'discharge',   label: 'Discharge',     icon: Home },
 ]
 
+// ── Overview Tab ──────────────────────────────────────────────────────────────
+
 function OverviewTab({ admission, navigate }) {
   const pt = admission?.patient || {}
   const ward = admission?.ward?.name || admission?.ward_name || '—'
@@ -109,6 +119,7 @@ function OverviewTab({ admission, navigate }) {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+      {/* Left: demographics + admission */}
       <div className="lg:col-span-3 space-y-4">
         <div className="card p-4">
           <div className="section-header mt-0">Patient Demographics</div>
@@ -181,6 +192,7 @@ function OverviewTab({ admission, navigate }) {
         )}
       </div>
 
+      {/* Right: quick status */}
       <div className="lg:col-span-2 space-y-3">
         <div className="card p-4">
           <div className="section-header mt-0">Quick Actions</div>
@@ -211,6 +223,8 @@ function OverviewTab({ admission, navigate }) {
     </div>
   )
 }
+
+// ── Vitals Tab ────────────────────────────────────────────────────────────────
 
 function VitalsTab({ admissionId }) {
   const [vitals, setVitals] = useState([])
@@ -253,7 +267,9 @@ function VitalsTab({ admissionId }) {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      {/* Left: table */}
       <div className="lg:col-span-2 space-y-4">
+        {/* NEWS2 banner */}
         {news2 !== null && news2 >= 5 && (
           <div className={`flex items-center gap-3 p-3 rounded-xl border ${news2 >= 7 ? 'bg-red-50 border-red-300' : 'bg-orange-50 border-orange-300'}`}>
             <AlertTriangle size={18} className={news2 >= 7 ? 'text-red-600' : 'text-orange-600'} />
@@ -264,6 +280,7 @@ function VitalsTab({ admissionId }) {
           </div>
         )}
 
+        {/* Latest vitals summary */}
         {latest && (
           <div className="card p-4">
             <div className="flex items-center justify-between mb-3">
@@ -296,6 +313,7 @@ function VitalsTab({ admissionId }) {
           </div>
         )}
 
+        {/* Vitals history table */}
         {loading ? (
           <div className="flex justify-center py-8"><Loader2 size={24} className="animate-spin text-gray-400" /></div>
         ) : vitals.length === 0 ? (
@@ -325,6 +343,7 @@ function VitalsTab({ admissionId }) {
                   {vitals.map((v, i) => {
                     const n2 = calcNEWS2(v)
                     const n2s = news2Style(n2)
+                    const pulse = v.pulse; const prevPulse = vitals[i + 1]?.pulse
                     return (
                       <tr key={v.id} className="tr-hover">
                         <td className="td text-xs text-gray-500 whitespace-nowrap">{fmt(v.recorded_at || v.created_at)}</td>
@@ -346,6 +365,7 @@ function VitalsTab({ admissionId }) {
         )}
       </div>
 
+      {/* Right: add vitals form */}
       <div>
         <div className="card p-4 sticky top-20">
           <div className="text-sm font-semibold text-gray-800 mb-4 flex items-center gap-2">
@@ -382,6 +402,8 @@ function VitalsTab({ admissionId }) {
     </div>
   )
 }
+
+// ── Nursing Notes Tab ─────────────────────────────────────────────────────────
 
 function NotesTab({ admissionId }) {
   const [notes, setNotes] = useState([])
@@ -430,15 +452,20 @@ function NotesTab({ admissionId }) {
   const NOTE_TYPES = ['general', 'assessment', 'medication', 'procedure', 'observation', 'incident', 'handoff']
   const FILTERS = ['all', ...NOTE_TYPES]
   const filtered = filter === 'all' ? notes : notes.filter(n => (n.note_type || n.type) === filter)
+
   const h = new Date().getHours()
   const shiftChanging = h === 6 || h === 14 || h === 22
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+      {/* Left: notes list */}
       <div className="lg:col-span-3 space-y-3">
         {shiftChanging && (
-          <div className="alert-amber"><Bell size={14} />Shift change time — consider writing a Shift Handoff note.</div>
+          <div className="alert-amber">
+            <Bell size={14} />Shift change time — consider writing a Shift Handoff note.
+          </div>
         )}
+        {/* Filter tabs */}
         <div className="flex gap-1 flex-wrap">
           {FILTERS.map(f => (
             <button key={f} onClick={() => setFilter(f)}
@@ -470,6 +497,7 @@ function NotesTab({ admissionId }) {
         )}
       </div>
 
+      {/* Right: composer */}
       <div className="lg:col-span-2">
         <div className="card p-4 sticky top-20">
           <div className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
@@ -505,6 +533,8 @@ function NotesTab({ admissionId }) {
     </div>
   )
 }
+
+// ── MAR Tab ───────────────────────────────────────────────────────────────────
 
 function MARTab({ admissionId, admission }) {
   const [meds, setMeds] = useState([])
@@ -618,6 +648,8 @@ function MARTab({ admissionId, admission }) {
   )
 }
 
+// ── Orders Tab ────────────────────────────────────────────────────────────────
+
 const ORDER_ICONS = {
   lab: FlaskConical, imaging: ActivityIcon, procedure: Stethoscope,
   diet: Utensils, activity: BookOpen, nursing: Bell, consult: UserCheck,
@@ -630,6 +662,7 @@ function OrdersTab({ admissionId }) {
   const [loading, setLoading] = useState(true)
   const { requestPin } = usePin()
   const { user } = useAuth()
+  const canWrite = ['doctor', 'clinic_admin', 'clinic_manager'].includes(user?.role)
 
   useEffect(() => {
     Promise.all([
@@ -668,6 +701,7 @@ function OrdersTab({ admissionId }) {
 
       {subTab === 'clinical' && (
         <div className="space-y-2">
+          {/* STAT orders first */}
           {clinical.filter(o => o.priority === 'stat').map(o => {
             const Icon = ORDER_ICONS[o.order_type] || Bell
             return (
@@ -691,6 +725,7 @@ function OrdersTab({ admissionId }) {
               </div>
             )
           })}
+          {/* Other orders */}
           {clinical.filter(o => o.priority !== 'stat').map(o => {
             const Icon = ORDER_ICONS[o.order_type] || Bell
             return (
@@ -742,6 +777,8 @@ function OrdersTab({ admissionId }) {
     </div>
   )
 }
+
+// ── Assessments Tab ───────────────────────────────────────────────────────────
 
 const QUICK_ASSESSMENTS = [
   { id: 'braden', name: 'Braden Scale', icon: Shield, color: '#d97706', desc: 'Pressure ulcer risk' },
@@ -829,7 +866,9 @@ function AssessmentsTab({ admissionId, admission }) {
                     <span className="text-xs font-semibold text-gray-800">{a.name}</span>
                   </div>
                   <div className="text-xs text-amber-700 mb-2">{s.reason}</div>
-                  <button onClick={() => navigate(`/assessments?form=${s.id}&admission=${admissionId}`)} className="w-full btn-accent btn-xs">Start Now</button>
+                  <button onClick={() => navigate(`/assessments?form=${s.id}&admission=${admissionId}`)} className="w-full btn-accent btn-xs">
+                    Start Now
+                  </button>
                 </div>
               )
             })}
@@ -839,6 +878,8 @@ function AssessmentsTab({ admissionId, admission }) {
     </div>
   )
 }
+
+// ── Ward Rounds Tab ───────────────────────────────────────────────────────────
 
 function RoundsTab({ admissionId }) {
   const [rounds, setRounds] = useState([])
@@ -941,6 +982,8 @@ function RoundsTab({ admissionId }) {
   )
 }
 
+// ── Discharge Tab ─────────────────────────────────────────────────────────────
+
 function DischargeTab({ admissionId, admission }) {
   const [form, setForm] = useState({
     discharge_date: '', discharge_time: '', condition: '',
@@ -1021,6 +1064,8 @@ function DischargeTab({ admissionId, admission }) {
   )
 }
 
+// ── Main Component ────────────────────────────────────────────────────────────
+
 export default function AdmissionChart() {
   const { admissionId } = useParams()
   const navigate = useNavigate()
@@ -1064,8 +1109,10 @@ export default function AdmissionChart() {
 
   return (
     <div>
+      {/* Sticky patient header */}
       <div className="pt-header mb-0">
         <div className="px-4 py-2.5">
+          {/* Row 1 */}
           <div className="flex items-center gap-3 flex-wrap">
             <button onClick={() => navigate(-1)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 flex-shrink-0">
               <ArrowLeft size={16} />
@@ -1082,8 +1129,11 @@ export default function AdmissionChart() {
                 </span>
               )}
             </div>
-            <div className="text-xs text-gray-500 flex-shrink-0">Dr. {doctor}</div>
+            <div className="text-xs text-gray-500 flex-shrink-0">
+              Dr. {doctor}
+            </div>
           </div>
+          {/* Row 2 */}
           <div className="flex items-center gap-4 mt-1 ml-9 flex-wrap text-xs text-gray-500">
             <span className="flex items-center gap-1"><BedDouble size={11} />{ward} · Bed {bed}</span>
             {diagText && <span className="truncate max-w-xs">{diagText}{icd10}</span>}
@@ -1091,11 +1141,16 @@ export default function AdmissionChart() {
           </div>
         </div>
 
+        {/* Tab bar */}
         <div className="tab-bar px-4">
           {TABS.map(tab => {
             const Icon = tab.icon
             return (
-              <button key={tab.key} onClick={() => setActiveTab(tab.key)} className={activeTab === tab.key ? 'tab-active' : 'tab-item'}>
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={activeTab === tab.key ? 'tab-active' : 'tab-item'}
+              >
                 <Icon size={13} />{tab.label}
               </button>
             )
@@ -1103,15 +1158,98 @@ export default function AdmissionChart() {
         </div>
       </div>
 
-      <div className="p-4 md:p-5">
-        {activeTab === 'overview'    && <OverviewTab admission={admission} navigate={navigate} />}
-        {activeTab === 'vitals'      && <VitalsTab admissionId={admissionId} />}
-        {activeTab === 'notes'       && <NotesTab admissionId={admissionId} />}
-        {activeTab === 'mar'         && <MARTab admissionId={admissionId} admission={admission} />}
-        {activeTab === 'orders'      && <OrdersTab admissionId={admissionId} />}
-        {activeTab === 'assessments' && <AssessmentsTab admissionId={admissionId} admission={admission} />}
-        {activeTab === 'rounds'      && <RoundsTab admissionId={admissionId} />}
-        {activeTab === 'discharge'   && <DischargeTab admissionId={admissionId} admission={admission} />}
+      {/* Tab content + suggestions panel */}
+      <div className="flex gap-0">
+        <div className="flex-1 min-w-0 p-4 md:p-5">
+          {activeTab === 'overview'    && <OverviewTab admission={admission} navigate={navigate} />}
+          {activeTab === 'vitals'      && <VitalsTab admissionId={admissionId} />}
+          {activeTab === 'notes'       && <NotesTab admissionId={admissionId} />}
+          {activeTab === 'mar'         && <MARTab admissionId={admissionId} admission={admission} />}
+          {activeTab === 'orders'      && <OrdersTab admissionId={admissionId} />}
+          {activeTab === 'assessments' && <AssessmentsTab admissionId={admissionId} admission={admission} />}
+          {activeTab === 'rounds'      && <RoundsTab admissionId={admissionId} />}
+          {activeTab === 'discharge'   && <DischargeTab admissionId={admissionId} admission={admission} />}
+        </div>
+        <AssessmentSuggestionsPanel diagText={diagText} admission={admission} activeTab={activeTab} onTabChange={setActiveTab} />
+      </div>
+    </div>
+  )
+}
+
+// ── Assessment Suggestions Panel ──────────────────────────────────────────────
+
+function AssessmentSuggestionsPanel({ diagText, admission, activeTab, onTabChange }) {
+  const diag = (diagText || '').toLowerCase()
+
+  const suggestions = []
+  if (diag.includes('diab') || diag.includes('dm')) {
+    suggestions.push({ label: 'Diabetes Care Bundle', tab: 'assessments', detail: 'Blood glucose monitoring, foot exam, HbA1c' })
+  }
+  if (diag.includes('fall') || admission?.fall_risk === 'high' || admission?.is_high_risk) {
+    suggestions.push({ label: 'Fall Risk (Morse Scale)', tab: 'assessments', detail: 'Re-assess fall risk category and preventive measures' })
+  }
+  if (diag.includes('pneum') || diag.includes('copd') || diag.includes('resp') || diag.includes('bronch')) {
+    suggestions.push({ label: 'Respiratory Assessment', tab: 'vitals', detail: 'SpO₂, RR, breath sounds, oxygen requirement' })
+  }
+  if (diag.includes('pressure') || diag.includes('wound') || diag.includes('ulcer') || diag.includes('bedsore')) {
+    suggestions.push({ label: 'Braden Scale', tab: 'assessments', detail: 'Pressure injury risk score' })
+  }
+  if (diag.includes('pain') || diag.includes('post-op') || diag.includes('postop') || diag.includes('surg')) {
+    suggestions.push({ label: 'Pain Assessment (NRS)', tab: 'assessments', detail: 'Numeric pain rating scale 0–10' })
+  }
+  if (diag.includes('stroke') || diag.includes('tia') || diag.includes('neuro') || diag.includes('gcs')) {
+    suggestions.push({ label: 'GCS / Neuro Check', tab: 'assessments', detail: 'Glasgow Coma Scale, pupils, power' })
+  }
+  if (!suggestions.length) {
+    suggestions.push({ label: 'Routine Nursing Assessment', tab: 'assessments', detail: 'General systems review' })
+    suggestions.push({ label: 'Vitals Monitoring', tab: 'vitals', detail: 'Record current vitals' })
+  }
+
+  const vitalsHrs = admission?.last_vital_at
+    ? (Date.now() - new Date(admission.last_vital_at).getTime()) / 3600000
+    : Infinity
+
+  return (
+    <div className="w-64 flex-shrink-0 border-l border-gray-200 bg-gray-50 p-3 min-h-full">
+      <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Suggested Actions</div>
+
+      {vitalsHrs > 4 && (
+        <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2">
+          <AlertTriangle size={13} className="text-red-500 mt-0.5 flex-shrink-0" />
+          <div>
+            <div className="text-xs font-semibold text-red-700">Vitals Overdue</div>
+            <div className="text-xs text-red-600">{vitalsHrs === Infinity ? 'Never recorded' : `${vitalsHrs.toFixed(1)}h ago`}</div>
+            <button onClick={() => onTabChange('vitals')}
+              className="text-xs text-red-700 underline mt-1">Record now →</button>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {suggestions.map((s, i) => (
+          <button key={i} onClick={() => onTabChange(s.tab)}
+            className="w-full text-left p-2.5 bg-white border border-gray-200 rounded-xl hover:border-emerald-400 hover:bg-emerald-50 transition-colors group">
+            <div className="text-xs font-semibold text-gray-800 group-hover:text-emerald-800">{s.label}</div>
+            <div className="text-xs text-gray-500 mt-0.5 group-hover:text-emerald-700">{s.detail}</div>
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-4 pt-3 border-t border-gray-200">
+        <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Quick Nav</div>
+        {[
+          { key: 'vitals', label: 'Vitals' },
+          { key: 'notes', label: 'Nursing Notes' },
+          { key: 'mar', label: 'MAR' },
+          { key: 'orders', label: 'Orders' },
+        ].map(t => (
+          <button key={t.key} onClick={() => onTabChange(t.key)}
+            className={`w-full text-left px-2 py-1.5 rounded-lg text-xs font-medium mb-1 transition-colors ${
+              activeTab === t.key ? 'bg-emerald-100 text-emerald-800' : 'text-gray-600 hover:bg-gray-100'
+            }`}>
+            {t.label}
+          </button>
+        ))}
       </div>
     </div>
   )

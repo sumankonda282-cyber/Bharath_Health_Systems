@@ -3,6 +3,7 @@ import api from '../api/client'
 import { usePin } from '../contexts/PinContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useWardSession } from '../contexts/WardSessionContext'
+import ClinicalSearch from '../components/ClinicalSearch'
 import {
   FlaskConical, Activity, Utensils, PersonStanding, Bell, Stethoscope,
   CheckCircle2, Search, RefreshCw, Plus, X, AlertTriangle, Clock,
@@ -127,7 +128,10 @@ function NewMedOrderForm({ onSave, onCancel }) {
       <div className="grid grid-cols-2 gap-2">
         <div className="col-span-2">
           <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Drug Name *</label>
-          <input className="input mt-1 text-sm" placeholder="e.g. Amoxicillin, Metformin…" {...f('drug_name')} />
+          <ClinicalSearch type="drug" value={form.drug_name}
+            onChange={v => setForm(p => ({ ...p, drug_name: v }))}
+            onSelect={item => setForm(p => ({ ...p, drug_name: item.generic_name || item.generic || item.name || '' }))}
+            placeholder="e.g. Amoxicillin, Metformin…" inputClass="text-sm" />
         </div>
         <div>
           <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Dose</label>
