@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { useWardSession } from '../contexts/WardSessionContext'
 import api from '../api/client'
+import ProviderView from './ProviderView'
 
 const GREEN  = '#065F46'
 const NAVY   = '#0F2557'
@@ -547,7 +548,10 @@ export default function PatientChart() {
           {activeNav === 'dashboard' && (
             <PatientDashboard admission={admission} vitals={vitals} loading={loading} session={session} />
           )}
-          {activeNav !== 'dashboard' && (
+          {activeNav === 'provider' && (
+            <ProviderView admission={admission} vitals={vitals} />
+          )}
+          {activeNav !== 'dashboard' && activeNav !== 'provider' && (
             <ComingSoon label={PATIENT_NAV.find(n => n.key === activeNav)?.label || ''} />
           )}
         </div>
