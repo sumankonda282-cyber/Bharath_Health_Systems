@@ -17,7 +17,8 @@ import Assessments from './pages/Assessments'
 import DocumentationTemplates from './pages/DocumentationTemplates'
 import AdmissionChart from './pages/AdmissionChart'
 import Orders from './pages/Orders'
-import AccountSettings from './pages/AccountSettings'
+import PatientList from './pages/PatientList'
+import DischargeSheet from './pages/DischargeSheet'
 import { Loader2 } from 'lucide-react'
 
 function AppLoader() {
@@ -48,7 +49,7 @@ function AppRoutes() {
       <Route path="/login" element={<Navigate to="/" replace />} />
       <Route path="/pin-setup" element={<PinSetup />} />
       <Route path="/ward-setup" element={<WardSetup />} />
-      <Route path="/account" element={<AccountSettings />} />
+
       <Route element={setupComplete ? <Layout /> : <Navigate to="/ward-setup" replace />}>
         <Route index element={<Dashboard />} />
         <Route path="ward-board" element={<WardBoard />} />
@@ -60,8 +61,11 @@ function AppRoutes() {
         <Route path="assessments" element={<Assessments />} />
         <Route path="templates" element={<DocumentationTemplates />} />
         <Route path="orders" element={<Orders />} />
+        <Route path="patients" element={<PatientList />} />
+        <Route path="discharge" element={<DischargeSheet />} />
         <Route path="chart/:admissionId" element={<AdmissionChart />} />
       </Route>
+
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

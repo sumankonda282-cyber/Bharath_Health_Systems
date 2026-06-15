@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ArrowLeftRight, Printer, Loader2, AlertCircle, Clock, Activity } from 'lucide-react'
+import { ArrowLeftRight, Printer, Loader2, AlertCircle, Clock, Activity, Pill, Thermometer } from 'lucide-react'
 import api from '../api/client'
 import { useNavigate } from 'react-router-dom'
 
@@ -111,6 +111,9 @@ export default function ShiftHandoff() {
   }, [])
 
   const vitalsOverdueCount = admissions.filter(a => isVitalsOverdue(a.last_vital_at)).length
+  const criticalPatients = admissions.filter(a =>
+    isVitalsOverdue(a.last_vital_at) || a.acuity === 'critical' || a.is_high_risk || a.fall_risk === 'high'
+  )
 
   return (
     <div>
@@ -140,10 +143,36 @@ export default function ShiftHandoff() {
         <p className="text-gray-600">{shift} Shift · {new Date().toLocaleString('en-IN')} · {admissions.length} patients</p>
       </div>
 
-      {vitalsOverdueCount > 0 && (
-        <div className="flex items-center gap-2 p-3 mb-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm no-print">
-          <AlertCircle size={15} />
-          <strong>{vitalsOverdueCount} patient{vitalsOverdueCount !== 1 ? 's' : ''}</strong> with overdue vitals (&gt;4h)
+      {criticalPatients.length > 0 && (
+        <div className="mb-5 no-print border border-red-200 rounded-2xl overflow-hidden">
+          <div className="bg-red-600 text-white px-4 py-2 flex items-center gap-2 font-semibold text-sm">
+            <AlertCircle size={15} /> Pending Critical Tasks — {criticalPatients.length} patient{criticalPatients.length !== 1 ? 's' : ''} requiring attention
+          </div>
+          <div className="divide-y divide-red-100">
+            {criticalPatients.map(a => {
+              const name = a.patient?.full_name || a.patient_name || 'Unknown'
+              const bed = a.bed?.bed_number || a.bed_number || '—'
+              const tasks = []
+              if (isVitalsOverdue(a.last_vital_at)) tasks.push({ icon: Thermometer, label: 'Vitals overdue (>4h)' })
+              if (a.acuity === 'critical') tasks.push({ icon: AlertCircle, label: 'Critical acuity' })
+              if (a.is_high_risk || a.fall_risk === 'high') tasks.push({ icon: AlertCircle, label: 'High fall risk' })
+              return (
+                <div key={a.id} className="px-4 py-3 bg-red-50 flex items-center justify-between gap-4">
+                  <div>
+                    <span className="font-semibold text-red-900 text-sm">{name}</span>
+                    <span className="text-red-700 text-xs ml-2">Bed {bed}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {tasks.map((t, i) => (
+                      <span key={i} className="flex items-center gap-1 text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium">
+                        <t.icon size={10} />{t.label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
 
