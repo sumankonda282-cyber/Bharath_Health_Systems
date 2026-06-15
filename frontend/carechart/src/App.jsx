@@ -16,6 +16,7 @@ import PinSetup from './pages/PinSetup'
 import Assessments from './pages/Assessments'
 import DocumentationTemplates from './pages/DocumentationTemplates'
 import AdmissionChart from './pages/AdmissionChart'
+import Orders from './pages/Orders'
 import AccountSettings from './pages/AccountSettings'
 import { Loader2 } from 'lucide-react'
 
@@ -58,6 +59,7 @@ function AppRoutes() {
         <Route path="handoff" element={<ShiftHandoff />} />
         <Route path="assessments" element={<Assessments />} />
         <Route path="templates" element={<DocumentationTemplates />} />
+        <Route path="orders" element={<Orders />} />
         <Route path="chart/:admissionId" element={<AdmissionChart />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
