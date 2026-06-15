@@ -25,6 +25,14 @@ const NAV = [
     ],
   },
   {
+    section: 'PROVIDER',
+    items: [
+      { to: '/rounds', icon: Stethoscope, label: 'Ward Rounds' },
+      { to: '/orders', icon: ShoppingBag, label: 'Orders' },
+      { to: '/docs',   icon: FileEdit,    label: 'Documentation' },
+    ],
+  },
+  {
     section: 'NURSING',
     items: [
       { to: '/vitals',      icon: Activity,           label: 'Vitals' },
@@ -33,14 +41,6 @@ const NAV = [
       { to: '/assessments', icon: ClipboardList,       label: 'Assessments' },
       { to: '/discharge',   icon: ArrowRightFromLine,  label: 'Discharge' },
       { to: '/handoff',     icon: ShoppingBag,         label: 'Shift Handoff' },
-    ],
-  },
-  {
-    section: 'PROVIDER',
-    items: [
-      { to: '/rounds', icon: Stethoscope, label: 'Ward Rounds' },
-      { to: '/orders', icon: ShoppingBag, label: 'Orders' },
-      { to: '/docs',   icon: FileEdit,    label: 'Documentation' },
     ],
   },
 ]
