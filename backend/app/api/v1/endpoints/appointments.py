@@ -6,7 +6,7 @@ from app.db.session import get_db
 from app.core.security import get_current_staff
 from app.models.models import (
     Appointment, OnlineBooking, Patient, Staff, DoctorProfile,
-    Vitals, SoapNote
+    Vitals, SoapNote, Clinic
 )
 from app.schemas.schemas import (
     AppointmentCreate, AppointmentUpdate, AppointmentOut,
@@ -17,12 +17,14 @@ router = APIRouter(prefix="/appointments", tags=["appointments"])
 
 
 def _next_token(db, doctor_id, appt_date, branch_id) -> int:
-    count = db.query(Appointment).filter(
+    # Use SELECT MAX + FOR UPDATE to prevent duplicate tokens under concurrent requests
+    from sqlalchemy import func
+    row = db.query(func.max(Appointment.token_number)).filter(
         Appointment.doctor_id == doctor_id,
         Appointment.appointment_date == appt_date,
         Appointment.branch_id == branch_id,
-    ).count()
-    return count + 1
+    ).with_for_update().scalar()
+    return (row or 0) + 1
 
 
 @router.post("/", response_model=AppointmentOut)
@@ -241,6 +243,16 @@ def confirm_online_booking(
         )
         db.add(conf_patient)
         db.flush()
+        # Assign clinic MRN (clinic_patient_id) atomically
+        clinic = db.query(Clinic).filter(
+            Clinic.id == current.clinic_id
+        ).with_for_update().first()
+        if clinic:
+            clinic.patient_id_counter = (clinic.patient_id_counter or 0) + 1
+            db.flush()
+            prefix = clinic.clinic_prefix or "CLN"
+            conf_patient.clinic_patient_id = f"{prefix}-{str(clinic.patient_id_counter).zfill(5)}"
+            db.flush()
     elif portal_user and not conf_patient.portal_user_id:
         conf_patient.portal_user_id = portal_user.id
 
