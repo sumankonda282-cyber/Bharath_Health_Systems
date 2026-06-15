@@ -9,11 +9,11 @@ import {
   Lock, PenLine, BedDouble, X, ChevronDown, ChevronRight, Search,
   AlertCircle, Stethoscope, ClipboardList, Edit2, Activity, Heart,
   BookOpen, Microscope, Image, MessageSquare, Calendar, ChevronUp,
-  CheckSquare, Printer,
+  CheckSquare, Printer, Star, Lightbulb, ClipboardCheck, Loader2,
 } from 'lucide-react'
 import VitalsForm from '../../components/clinical/VitalsForm'
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 const calcAge = dob =>
   dob ? Math.floor((Date.now() - new Date(dob)) / (365.25 * 86400000)) : null
 
@@ -22,7 +22,89 @@ function nextDate(days) {
     .toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-// ─── Section definitions (order determines display order when added) ───────────
+// ─── Search cache (module-level, 5-min TTL, max 80 entries) ──────────────────
+const _cache = new Map()
+function cacheGet(key) {
+  const e = _cache.get(key)
+  if (!e) return null
+  if (Date.now() - e.ts > 300000) { _cache.delete(key); return null }
+  return e.data
+}
+function cachePut(key, data) {
+  if (_cache.size > 80) _cache.delete(_cache.keys().next().value)
+  _cache.set(key, { data, ts: Date.now() })
+}
+
+// ─── ICD-10 smart suggestions ─────────────────────────────────────────────────
+const ICD10_DRUG_HINTS = {
+  A: ['amoxicillin', 'azithromycin', 'metronidazole', 'cefuroxime'],
+  B: ['antiviral', 'antimalarial', 'ivermectin', 'albendazole'],
+  C: ['atorvastatin', 'amlodipine', 'metoprolol', 'aspirin', 'ramipril'],
+  D: ['folic acid', 'iron supplement', 'vitamin B12', 'prednisolone'],
+  E: ['metformin', 'insulin', 'levothyroxine', 'vitamin D', 'calcium'],
+  F: ['sertraline', 'escitalopram', 'alprazolam', 'quetiapine'],
+  G: ['gabapentin', 'carbamazepine', 'levodopa', 'sumatriptan'],
+  H: ['timolol eye drops', 'ciprofloxacin ear drops', 'betahistine'],
+  I: ['aspirin', 'clopidogrel', 'furosemide', 'enalapril', 'digoxin'],
+  J: ['amoxicillin', 'salbutamol', 'budesonide', 'azithromycin', 'prednisolone'],
+  K: ['omeprazole', 'pantoprazole', 'metoclopramide', 'ondansetron'],
+  L: ['cetirizine', 'hydrocortisone cream', 'clotrimazole', 'permethrin'],
+  M: ['ibuprofen', 'diclofenac', 'paracetamol', 'calcium', 'vitamin D'],
+  N: ['paracetamol', 'ibuprofen', 'tramadol', 'pregabalin'],
+  O: ['folic acid', 'iron', 'progesterone', 'dydrogesterone'],
+  P: ['amoxicillin', 'paracetamol syrup', 'salbutamol syrup', 'vitamin D3'],
+  Q: ['metronidazole', 'albendazole', 'mebendazole'],
+  R: ['paracetamol', 'cetirizine', 'ibuprofen', 'loperamide'],
+  S: ['diclofenac gel', 'ibuprofen', 'tetanus toxoid', 'antiseptic'],
+  T: ['activated charcoal', 'naloxone', 'atropine'],
+  U: ['trimethoprim', 'nitrofurantoin', 'ciprofloxacin'],
+  V: ['counselling', 'referral', 'supportive care'],
+  W: ['folic acid', 'iron', 'calcium', 'vitamin D'],
+  X: ['trauma care', 'analgesia', 'referral'],
+  Y: ['analgesia', 'referral', 'physiotherapy'],
+  Z: ['multivitamin', 'vaccine', 'counselling'],
+}
+
+const ICD10_TEST_HINTS = {
+  A: ['CBC', 'CRP', 'Blood Culture', 'Urine R/E', 'ESR'],
+  B: ['CBC', 'Malaria Antigen', 'Dengue NS1', 'LFT', 'Widal'],
+  C: ['ECG', 'Echo', 'Lipid Profile', 'CBC', 'BMP'],
+  D: ['CBC', 'Peripheral Smear', 'Iron Studies', 'Vitamin B12', 'Folate'],
+  E: ['HbA1c', 'Fasting Sugar', 'Thyroid Profile', 'Lipid Profile', 'Urine Microalbumin'],
+  F: ['No specific labs', 'CBC', 'Thyroid Profile', 'Vitamin D', 'B12'],
+  G: ['MRI Brain', 'EEG', 'CBC', 'Vitamin B12', 'Blood Sugar'],
+  H: ['Audiometry', 'Visual Acuity', 'IOP', 'Tympanometry'],
+  I: ['ECG', 'Troponin', 'Lipid Profile', 'Echo', 'Chest X-Ray', 'CBC'],
+  J: ['Chest X-Ray', 'CBC', 'CRP', 'Sputum Culture', 'Spirometry'],
+  K: ['USG Abdomen', 'LFT', 'Amylase', 'Lipase', 'H. pylori Test'],
+  L: ['KOH Mount', 'Skin Biopsy', 'Patch Test', 'CBC', 'IgE'],
+  M: ['X-Ray Joint', 'Uric Acid', 'ESR', 'CRP', 'Calcium', 'Vitamin D'],
+  N: ['MRI Spine', 'CBC', 'Blood Sugar', 'Vitamin B12', 'EMG/NCS'],
+  O: ['USG Pelvis', 'Beta hCG', 'CBC', 'Urine Culture', 'Pap Smear'],
+  P: ['CBC', 'Blood Culture', 'Urine R/E', 'Chest X-Ray', 'Blood Sugar'],
+  Q: ['Stool Exam', 'Urine R/E', 'CBC', 'Culture Sensitivity'],
+  R: ['CBC', 'CRP', 'Blood Sugar', 'Urine R/E', 'Chest X-Ray'],
+  S: ['X-Ray', 'CBC', 'Blood Group', 'Wound Swab C/S'],
+  T: ['Toxicology Screen', 'Liver Function', 'Renal Function', 'CBC'],
+  U: ['Urine R/E', 'Urine Culture', 'Renal Function', 'USG KUB'],
+  V: ['Counselling', 'Social Work Referral'],
+  W: ['CBC', 'Blood Group & Rh', 'Urine R/E', 'USG Obstetric'],
+  X: ['X-Ray', 'CT Scan', 'CBC', 'Cross-match'],
+  Y: ['X-Ray', 'CBC', 'Wound Swab C/S'],
+  Z: ['CBC', 'Urine R/E', 'Blood Sugar', 'Immunisation Check'],
+}
+
+const ICD10_TIPS = {
+  J: ['Advise steam inhalation', 'Avoid cold drinks and exposure', 'Complete antibiotic course', 'Follow up if no improvement in 5 days'],
+  E: ['Monitor blood glucose daily', 'Low sugar diet counselling', 'Regular exercise 30 min/day', 'Avoid skipping meals'],
+  I: ['Low salt diet (<5g/day)', 'No smoking', 'Regular BP monitoring', 'Avoid strenuous activity'],
+  K: ['Avoid spicy and oily food', 'Small frequent meals', 'Avoid NSAIDs', 'Elevate head of bed'],
+  M: ['Physiotherapy advised', 'Warm compresses', 'Weight reduction if overweight', 'Avoid prolonged standing'],
+  N: ['Adequate rest', 'Ergonomic posture advice', 'Avoid lifting heavy weights'],
+  L: ['Keep skin dry and clean', 'Avoid scratching', 'Wear cotton clothing', 'Avoid allergens'],
+}
+
+// ─── Section definitions ──────────────────────────────────────────────────────
 const SECTION_DEFS = [
   { key: 'complaints',    label: 'History of Illness',    icon: FileText,      unique: true  },
   { key: 'past_history',  label: 'Past History',          icon: BookOpen,      unique: true  },
@@ -35,98 +117,325 @@ const SECTION_DEFS = [
   { key: 'followup',      label: 'Follow-up',             icon: Calendar,      unique: true  },
 ]
 
-const FOLLOWUP_DAYS = ['7', '10', '14', '15', '20', '30', '45', '60', '90']
-const FREQ_OPTIONS  = ['OD', 'BD', 'TDS', 'QID', 'SOS', 'Weekly', 'Alternate days', 'Monthly']
-const TIMING_OPTIONS = ['Morning', 'Afternoon', 'Evening', 'Night', 'Bedtime']
+const FOLLOWUP_DAYS   = ['7', '10', '14', '15', '20', '30', '45', '60', '90']
+const FREQ_OPTIONS    = ['OD', 'BD', 'TDS', 'QID', 'SOS', 'Weekly', 'Alternate days', 'Monthly']
+const TIMING_OPTIONS  = ['Morning', 'Afternoon', 'Evening', 'Night', 'Bedtime']
 const DURATION_OPTIONS = ['3 days', '5 days', '7 days', '10 days', '14 days', '30 days', '60 days', '90 days', 'Ongoing']
-const FOOD_OPTIONS  = ['Before food', 'After food', 'With food', 'Empty stomach', 'Bedtime']
+const FOOD_OPTIONS    = ['Before food', 'After food', 'With food', 'Empty stomach', 'Bedtime']
+const ROUTES          = ['Oral', 'IV', 'IM', 'SC', 'Topical', 'Inhaled', 'Sublingual', 'Nasal', 'Ophthalmic', 'Rectal']
 
-// ─── Demographics Bar ─────────────────────────────────────────────────────────────
+// ─── Demographics Bar ─────────────────────────────────────────────────────────
 function DemographicsBar({ patient = {}, vitals = {}, complaint }) {
   const age = calcAge(patient.date_of_birth)
   const genderShort = patient.gender === 'male' ? 'M' : patient.gender === 'female' ? 'F' : patient.gender
 
   return (
     <div className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm px-4 md:px-6 py-2.5">
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="font-bold text-gray-900 truncate">{patient.full_name}</span>
-          {patient.clinic_patient_id && (
-            <span className="text-xs font-mono text-gray-400 bg-gray-50 border border-gray-200 px-1.5 py-0.5 rounded shrink-0">
-              MRN: {patient.clinic_patient_id}
+          <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+            <span className="text-sm font-semibold text-blue-700">
+              {patient.full_name?.[0] || '?'}
             </span>
-          )}
+          </div>
+          <div className="min-w-0">
+            <p className="font-semibold text-gray-900 text-sm leading-tight truncate">
+              {patient.full_name || '—'}
+            </p>
+            <p className="text-xs text-gray-500">
+              {[genderShort, age != null && `${age}y`, patient.blood_group].filter(Boolean).join(' · ')}
+            </p>
+          </div>
         </div>
-        <div className="flex gap-3 text-gray-600 shrink-0">
-          {age != null && <span><span className="text-gray-400">Age</span> <b>{age}y</b></span>}
-          {genderShort && <b>{genderShort}</b>}
-          {patient.blood_group && <span className="text-red-600 font-bold">{patient.blood_group}</span>}
-        </div>
-        {(vitals.blood_pressure_systolic || vitals.pulse_rate || vitals.oxygen_saturation) && (
-          <div className="flex gap-3 text-xs font-mono text-gray-500 shrink-0 border-l pl-4">
-            {vitals.blood_pressure_systolic && (
-              <span>BP <b className="text-gray-700">{vitals.blood_pressure_systolic}/{vitals.blood_pressure_diastolic}</b></span>
-            )}
-            {vitals.pulse_rate && <span>P <b className="text-gray-700">{vitals.pulse_rate}</b></span>}
-            {vitals.oxygen_saturation && <span>SpO₂ <b className="text-gray-700">{vitals.oxygen_saturation}%</b></span>}
-            {vitals.temperature && <span>T <b className="text-gray-700">{vitals.temperature}°F</b></span>}
-            {vitals.weight_kg && <span>Wt <b className="text-gray-700">{vitals.weight_kg}kg</b></span>}
+
+        {/* Vitals inline */}
+        {vitals && Object.keys(vitals).some(k => vitals[k]) && (
+          <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-600 border-l border-gray-200 pl-4">
+            {vitals.blood_pressure && <span>BP: <b>{vitals.blood_pressure}</b></span>}
+            {vitals.pulse && <span>P: <b>{vitals.pulse}</b></span>}
+            {vitals.temperature && <span>T: <b>{vitals.temperature}°</b></span>}
+            {vitals.oxygen_saturation && <span>SpO2: <b>{vitals.oxygen_saturation}%</b></span>}
+            {vitals.weight && <span>Wt: <b>{vitals.weight}kg</b></span>}
+            {vitals.height && <span>Ht: <b>{vitals.height}cm</b></span>}
           </div>
         )}
-        {patient.allergies && (
-          <span className="inline-flex items-center gap-1 text-xs font-medium text-orange-700 bg-orange-50 px-2 py-0.5 rounded-full border border-orange-200 shrink-0">
-            <AlertCircle size={11} />⚠ {patient.allergies}
-          </span>
-        )}
+
         {complaint && (
-          <span className="text-sm text-gray-500 truncate">
-            <span className="text-gray-400">CC: </span>{complaint}
-          </span>
+          <div className="text-xs text-gray-500 border-l border-gray-200 pl-4 truncate max-w-xs">
+            CC: <span className="text-gray-700">{complaint}</span>
+          </div>
         )}
       </div>
     </div>
   )
 }
 
-// ─── Section Divider ────────────────────────────────────────────────────────────────
-function SectionDivider({ icon: Icon, title, onEdit, locked, editMode }) {
+// ─── Inline search bar ────────────────────────────────────────────────────────
+function InlineSearch({ placeholder = 'Search…', value, onChange, loading, onClear }) {
   return (
-    <div className="flex items-center gap-2 pt-6 pb-3 border-t border-gray-100">
-      <Icon size={14} className="text-gray-400 shrink-0" />
-      <span className="text-xs font-bold uppercase tracking-wider text-gray-500 flex-1">{title}</span>
-      {!locked && onEdit && (
-        <button type="button" onClick={onEdit}
-          className={`text-xs flex items-center gap-1 px-2 py-1 rounded transition-colors ${
-            editMode
-              ? 'bg-blue-600 text-white'
-              : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'
-          }`}>
-          <Edit2 size={11} />{editMode ? 'Done' : 'Edit'}
+    <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-md px-2 py-0.5">
+      {loading
+        ? <Loader2 size={12} className="text-gray-400 animate-spin flex-shrink-0" />
+        : <Search size={12} className="text-gray-400 flex-shrink-0" />
+      }
+      <input
+        className="text-xs bg-transparent outline-none w-32 placeholder-gray-400"
+        placeholder={placeholder}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+      />
+      {value && (
+        <button onClick={onClear} className="text-gray-400 hover:text-gray-600">
+          <X size={10} />
         </button>
       )}
     </div>
   )
 }
 
-// ─── Chip group ─────────────────────────────────────────────────────────────────────────
-function Chips({ options, value, multi = false, onChange, size = 'sm' }) {
-  const selected = multi ? (Array.isArray(value) ? value : []) : value
-  const px = size === 'xs' ? 'px-2 py-0.5' : 'px-2.5 py-1'
+// ─── Section Divider ──────────────────────────────────────────────────────────
+function SectionDivider({ icon: Icon, label, onRemove, rightSlot }) {
+  return (
+    <div className="flex items-center gap-2 py-2 border-b border-gray-100 mb-3">
+      {Icon && <Icon size={15} className="text-blue-500 flex-shrink-0" />}
+      <span className="text-sm font-semibold text-gray-700 flex-1">{label}</span>
+      {rightSlot}
+      {onRemove && (
+        <button onClick={onRemove} className="text-gray-300 hover:text-red-400 ml-1">
+          <X size={13} />
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ─── Right Smart Panel ────────────────────────────────────────────────────────
+function RightSmartPanel({
+  suggestedMeds, suggestedTests, loading, tips,
+  favoriteMeds, onAddFav, onRemoveFav, onQuickMed, onQuickTest,
+  rightTab, setRightTab,
+}) {
+  return (
+    <div className="w-72 xl:w-80 flex-shrink-0 hidden lg:flex flex-col sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto border-l border-gray-100 bg-gray-50 pb-8">
+      {/* Tabs */}
+      <div className="flex border-b border-gray-200 bg-white sticky top-0 z-10">
+        {[
+          { id: 'suggestions', icon: <Lightbulb size={13} />, label: 'Suggestions' },
+          { id: 'mymeds',      icon: <Star size={13} />,      label: 'My Meds' },
+          { id: 'tips',        icon: <ClipboardCheck size={13} />, label: 'Tips' },
+        ].map(t => (
+          <button
+            key={t.id}
+            onClick={() => setRightTab(t.id)}
+            className={`flex-1 flex items-center justify-center gap-1 py-2 text-xs font-medium border-b-2 transition-colors
+              ${rightTab === t.id ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+          >
+            {t.icon} {t.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="p-3 space-y-3">
+        {/* Suggestions tab */}
+        {rightTab === 'suggestions' && (
+          <>
+            {loading && (
+              <div className="flex items-center gap-2 text-xs text-gray-500 py-2">
+                <Loader2 size={13} className="animate-spin" /> Loading suggestions…
+              </div>
+            )}
+            {!loading && suggestedMeds.length === 0 && suggestedTests.length === 0 && (
+              <p className="text-xs text-gray-400 text-center py-6">
+                Add a working diagnosis in Initial Assessment to see suggestions.
+              </p>
+            )}
+
+            {suggestedMeds.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-gray-600 mb-1.5 flex items-center gap-1">
+                  <Pill size={11} /> Suggested Medications
+                </p>
+                <div className="space-y-1">
+                  {suggestedMeds.map((m, i) => (
+                    <div key={i} className="flex items-center justify-between bg-white rounded border border-gray-100 px-2 py-1.5">
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-gray-800 truncate">{m.generic_name || m.name}</p>
+                        {m.generic_name && m.name !== m.generic_name && (
+                          <p className="text-[10px] text-gray-400 truncate">{m.name}</p>
+                        )}
+                      </div>
+                      <div className="flex gap-1 flex-shrink-0 ml-1">
+                        <button
+                          onClick={() => onAddFav(m)}
+                          title="Add to My Meds"
+                          className="text-gray-300 hover:text-yellow-500 p-0.5"
+                        >
+                          <Star size={11} />
+                        </button>
+                        <button
+                          onClick={() => onQuickMed(m)}
+                          className="text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 rounded px-1.5 py-0.5"
+                        >
+                          + Add
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {suggestedTests.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-gray-600 mb-1.5 flex items-center gap-1">
+                  <Microscope size={11} /> Suggested Tests
+                </p>
+                <div className="space-y-1">
+                  {suggestedTests.map((t, i) => (
+                    <div key={i} className="flex items-center justify-between bg-white rounded border border-gray-100 px-2 py-1.5">
+                      <p className="text-xs text-gray-800 truncate">{t}</p>
+                      <button
+                        onClick={() => onQuickTest(t)}
+                        className="text-xs bg-green-50 text-green-600 hover:bg-green-100 rounded px-1.5 py-0.5 flex-shrink-0 ml-1"
+                      >
+                        + Add
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* My Meds tab */}
+        {rightTab === 'mymeds' && (
+          <div>
+            <p className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-1">
+              <Star size={11} className="text-yellow-500" /> My Favorite Medications
+            </p>
+            {favoriteMeds.length === 0 && (
+              <p className="text-xs text-gray-400 text-center py-6">
+                Star any suggestion to add it here for quick prescribing.
+              </p>
+            )}
+            <div className="space-y-1">
+              {favoriteMeds.map((m, i) => (
+                <div key={i} className="flex items-center justify-between bg-white rounded border border-gray-100 px-2 py-1.5">
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-gray-800 truncate">{m.generic_name || m.name}</p>
+                    {m.generic_name && m.name !== m.generic_name && (
+                      <p className="text-[10px] text-gray-400 truncate">{m.name}</p>
+                    )}
+                  </div>
+                  <div className="flex gap-1 flex-shrink-0 ml-1">
+                    <button
+                      onClick={() => onQuickMed(m)}
+                      className="text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 rounded px-1.5 py-0.5"
+                    >
+                      + Add
+                    </button>
+                    <button
+                      onClick={() => onRemoveFav(m)}
+                      className="text-gray-300 hover:text-red-400 p-0.5"
+                    >
+                      <X size={11} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Tips tab */}
+        {rightTab === 'tips' && (
+          <div>
+            <p className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-1">
+              <ClipboardCheck size={11} /> Counselling Tips
+            </p>
+            {tips.length === 0 && (
+              <p className="text-xs text-gray-400 text-center py-6">
+                Add a working diagnosis to see relevant counselling tips.
+              </p>
+            )}
+            <ul className="space-y-1.5">
+              {tips.map((t, i) => (
+                <li key={i} className="text-xs text-gray-700 bg-white border border-gray-100 rounded px-2 py-1.5 flex items-start gap-1.5">
+                  <CheckSquare size={11} className="text-green-500 mt-0.5 flex-shrink-0" /> {t}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Add Section Menu ─────────────────────────────────────────────────────────
+function AddSectionMenu({ sections, onAdd }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handler = e => { if (!ref.current?.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors"
+      >
+        <Plus size={13} /> Add Section
+      </button>
+      {open && (
+        <div className="absolute bottom-full mb-1 right-0 bg-white border border-gray-200 rounded-xl shadow-xl w-52 z-50 overflow-hidden">
+          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide px-3 pt-2 pb-1">
+            Add to chart
+          </p>
+          {sections.length === 0 && (
+            <p className="text-xs text-gray-400 px-3 pb-3">All sections added</p>
+          )}
+          {sections.map(s => {
+            const Icon = s.icon
+            return (
+              <button
+                key={s.key}
+                onClick={() => { onAdd(s.key); setOpen(false) }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+              >
+                <Icon size={14} className="text-gray-400" />
+                {s.label}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Chip selector ────────────────────────────────────────────────────────────
+function ChipSelect({ options, selected, onToggle, multi = true }) {
   return (
     <div className="flex flex-wrap gap-1.5">
       {options.map(opt => {
-        const active = multi ? selected.includes(opt) : selected === opt
+        const active = multi ? selected?.includes(opt) : selected === opt
         return (
-          <button key={opt} type="button"
-            onClick={() => multi
-              ? onChange(active ? selected.filter(s => s !== opt) : [...selected, opt])
-              : onChange(active ? '' : opt)
-            }
-            className={`${px} rounded-lg text-xs border transition-all ${
+          <button
+            key={opt}
+            onClick={() => onToggle(opt)}
+            className={`px-2 py-0.5 rounded-full text-xs border transition-colors ${
               active
                 ? 'bg-blue-600 text-white border-blue-600'
-                : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-600'
-            }`}>
+                : 'bg-white text-gray-600 border-gray-200 hover:border-blue-400'
+            }`}
+          >
             {opt}
           </button>
         )
@@ -135,1215 +444,1092 @@ function Chips({ options, value, multi = false, onChange, size = 'sm' }) {
   )
 }
 
-// ─── ICD-10 Tag ─────────────────────────────────────────────────────────────────────────────
-function DxChip({ code, display, onRemove }) {
-  return (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-800 border border-blue-200 rounded-lg text-xs font-medium">
-      <span className="font-mono text-blue-400">{code}</span> {display}
-      {onRemove && (
-        <button type="button" onClick={onRemove} className="hover:text-red-500 ml-0.5">
-          <X size={11} />
-        </button>
-      )}
-    </span>
-  )
-}
+// ─── Drug search hook ─────────────────────────────────────────────────────────
+function useDrugSearch() {
+  const [query, setQuery]     = useState('')
+  const [results, setResults] = useState([])
+  const [loading, setLoading] = useState(false)
+  const timerRef              = useRef(null)
 
-// ─── Auto-grow textarea ─────────────────────────────────────────────────────────────────
-function AutoTextarea({ value, onChange, onBlur, placeholder, disabled, minRows = 2 }) {
-  const ref = useRef(null)
-  useEffect(() => {
-    if (ref.current) {
-      ref.current.style.height = 'auto'
-      ref.current.style.height = ref.current.scrollHeight + 'px'
-    }
-  }, [value])
-  return (
-    <textarea
-      ref={ref}
-      className="w-full text-sm text-gray-800 bg-transparent outline-none resize-none placeholder-gray-300 leading-relaxed"
-      style={{ minHeight: `${minRows * 1.6}em` }}
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      onBlur={onBlur}
-      placeholder={disabled ? '—' : placeholder}
-      disabled={disabled}
-    />
-  )
-}
-
-// ─── Lab result status ────────────────────────────────────────────────────────────────
-function LabResultStatus({ order }) {
-  const items = order.items || []
-  const abnormal = items.filter(i => i.is_abnormal)
-  if (items.length === 0 || items.every(i => !i.result_value)) {
-    return (
-      <div className="flex items-center gap-2 text-xs text-gray-400 italic">
-        <div className="w-2 h-2 rounded-full bg-yellow-300 animate-pulse" />
-        Results awaited…
-      </div>
-    )
-  }
-  if (abnormal.length === 0) {
-    return (
-      <div className="flex items-center gap-2 text-xs text-green-600">
-        <CheckSquare size={12} />
-        All results within normal range
-      </div>
-    )
-  }
-  return (
-    <div className="space-y-1">
-      <div className="text-xs font-semibold text-red-600 mb-1">Abnormal results:</div>
-      {abnormal.map((item, i) => (
-        <div key={i} className="flex items-center gap-2 text-xs">
-          <span className="font-medium text-gray-700">{item.test_name}</span>
-          <span className="text-red-600 font-bold">{item.result_value} {item.unit}</span>
-          {item.reference_range && <span className="text-gray-400">(ref: {item.reference_range})</span>}
-        </div>
-      ))}
-    </div>
-  )
-}
-
-// ─── Past Visit Card ───────────────────────────────────────────────────────────────────
-function PastVisitCard({ visit }) {
-  const [open, setOpen] = useState(false)
-  const sn = visit.soap_note || {}
-  const vt = visit.vitals   || {}
-  const fields = [
-    ['Chief Complaint',  sn.reason_for_visit   || sn.subjective],
-    ['History',          sn.patient_complaints],
-    ['Past History',     sn.past_history],
-    ['Findings',         sn.investigations_findings || sn.objective],
-    ['Assessment',       sn.discharge_assessment   || sn.assessment],
-    ['Plan',             sn.cautions_followup      || sn.plan],
-  ].filter(([, v]) => v)
-
-  return (
-    <div className="border border-gray-200 rounded-xl overflow-hidden">
-      <button type="button"
-        className="w-full flex items-center gap-3 px-4 py-3 bg-gray-50 hover:bg-gray-100 text-left"
-        onClick={() => setOpen(o => !o)}>
-        {open ? <ChevronDown size={14} className="text-gray-400 shrink-0" /> : <ChevronRight size={14} className="text-gray-400 shrink-0" />}
-        <div className="flex-1 flex flex-wrap items-center gap-3 text-sm min-w-0">
-          <span className="font-medium text-gray-800 shrink-0">{visit.appointment_date || visit.visit_date || visit.date}</span>
-          <span className="text-gray-400 shrink-0">·</span>
-          <span className="text-gray-500 shrink-0">{visit.visit_type || 'OPD'}</span>
-          {vt.blood_pressure_systolic && (
-            <span className="text-xs font-mono text-gray-400 bg-white border px-1.5 py-0.5 rounded shrink-0">
-              BP {vt.blood_pressure_systolic}/{vt.blood_pressure_diastolic}
-            </span>
-          )}
-          {(sn.discharge_assessment || sn.assessment) && (
-            <span className="text-xs text-gray-400 truncate">
-              {(sn.discharge_assessment || sn.assessment).substring(0, 60)}
-            </span>
-          )}
-        </div>
-        {(visit.is_locked || sn.is_locked) && <Lock size={12} className="text-gray-300 shrink-0" />}
-      </button>
-      {open && (
-        <div className="px-4 pb-4 pt-3 bg-white space-y-3">
-          {(vt.blood_pressure_systolic || vt.pulse_rate) && (
-            <div className="flex flex-wrap gap-3 text-xs font-mono text-gray-500 bg-gray-50 rounded-lg p-2">
-              {vt.blood_pressure_systolic && <span>BP {vt.blood_pressure_systolic}/{vt.blood_pressure_diastolic}</span>}
-              {vt.pulse_rate && <span>P {vt.pulse_rate} bpm</span>}
-              {vt.oxygen_saturation && <span>SpO₂ {vt.oxygen_saturation}%</span>}
-              {vt.temperature && <span>T {vt.temperature}°F</span>}
-              {vt.weight_kg && <span>Wt {vt.weight_kg}kg</span>}
-            </div>
-          )}
-          {fields.map(([label, value]) => (
-            <div key={label}>
-              <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">{label}</div>
-              <div className="text-sm text-gray-700 whitespace-pre-wrap">{value}</div>
-            </div>
-          ))}
-          {(visit.prescriptions || []).length > 0 && (
-            <div>
-              <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Medications</div>
-              <div className="flex flex-wrap gap-1.5">
-                {visit.prescriptions.map((rx, i) => (
-                  <span key={i} className="text-xs bg-blue-50 border border-blue-200 text-blue-800 rounded px-2 py-0.5">
-                    <b>{rx.medicine_name || rx.medicine}</b>
-                    {rx.dosage && ` · ${rx.dosage}`}
-                    {rx.frequency && ` · ${rx.frequency}`}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ─── Admission Modal ──────────────────────────────────────────────────────────────────────
-function AdmissionModal({ appointmentId, patientId, patientName, prefillDiagnosis, onClose, onCreated }) {
-  const { user } = useAuth()
-  const [departments, setDepartments] = useState([])
-  const [form, setForm] = useState({
-    department_id: '', primary_diagnosis: prefillDiagnosis || '',
-    expected_discharge: '', urgency: 'routine', notes: '',
-  })
-  const [saving, setSaving] = useState(false)
-  const [err, setErr] = useState('')
-
-  useEffect(() => {
-    api.get('/inpatient/departments').then(r => setDepartments(Array.isArray(r) ? r : [])).catch(() => {})
+  const search = useCallback(q => {
+    setQuery(q)
+    clearTimeout(timerRef.current)
+    if (!q.trim()) { setResults([]); return }
+    const cached = cacheGet(`drug:${q}`)
+    if (cached) { setResults(cached); return }
+    setLoading(true)
+    timerRef.current = setTimeout(async () => {
+      try {
+        const res = await api.get('/medications/search', { params: { q, limit: 8 } })
+        const data = res.data?.data || res.data || []
+        cachePut(`drug:${q}`, data)
+        setResults(data)
+      } catch { setResults([]) }
+      finally { setLoading(false) }
+    }, 350)
   }, [])
 
-  const submit = async e => {
-    e.preventDefault(); setSaving(true); setErr('')
+  const clear = useCallback(() => { setQuery(''); setResults([]) }, [])
+  return { query, results, loading, search, clear }
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+export default function Encounter() {
+  const { id: encounterId } = useParams()
+  const navigate = useNavigate()
+  const { user } = useAuth()
+
+  const [loading,    setLoading]    = useState(true)
+  const [saving,     setSaving]     = useState(false)
+  const [finalising, setFinalising] = useState(false)
+  const [error,      setError]      = useState(null)
+
+  const [data,       setData]       = useState(null)
+  const [patient,    setPatient]    = useState(null)
+  const [vitals,     setVitals]     = useState(null)
+  const [savedVitals, setSavedVitals] = useState({})
+
+  // Active sections
+  const [sections, setSections] = useState([])
+
+  // Section data
+  const [complaint,    setComplaint]    = useState('')
+  const [symptoms,     setSymptoms]     = useState([])
+  const [pastHistory,  setPastHistory]  = useState('')
+  const [examination,  setExamination]  = useState('')
+  const [assessment,   setAssessment]   = useState('')
+  const [rxItems,      setRxItems]      = useState([])
+  const [labOrders,    setLabOrders]    = useState([])
+  const [imagingOrders, setImagingOrders] = useState([])
+  const [counselling,  setCounselling]  = useState('')
+  const [followupDays, setFollowupDays] = useState('')
+  const [followupNote, setFollowupNote] = useState('')
+
+  // Initial Assessment (working diagnosis)
+  const [initDx,          setInitDx]          = useState([])
+  const [initDxSearch,    setInitDxSearch]     = useState('')
+  const [initDxResults,   setInitDxResults]    = useState([])
+  const [loadingDxSearch, setLoadingDxSearch]  = useState(false)
+  const dxTimerRef = useRef(null)
+
+  // Smart suggestions
+  const [suggestedMeds,       setSuggestedMeds]       = useState([])
+  const [suggestedTests,       setSuggestedTests]      = useState([])
+  const [smartTips,            setSmartTips]           = useState([])
+  const [loadingSuggestions,   setLoadingSuggestions]  = useState(false)
+  const [rightTab,             setRightTab]            = useState('suggestions')
+
+  // Doctor favorites
+  const favKey = `fav_meds_${user?.id || 'dr'}`
+  const [favoriteMeds, setFavoriteMeds] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(favKey) || '[]') } catch { return [] }
+  })
+
+  // Symptom search
+  const [symSearch,   setSymSearch]   = useState('')
+  const [symResults,  setSymResults]  = useState([])
+  const [loadingSym,  setLoadingSym]  = useState(false)
+  const symTimerRef = useRef(null)
+
+  // Drug search (for medications section)
+  const drugSearch = useDrugSearch()
+
+  // Lab/Imaging search
+  const [labSearch,     setLabSearch]     = useState('')
+  const [labResults,    setLabResults]    = useState([])
+  const [loadingLab,    setLoadingLab]    = useState(false)
+  const labTimerRef = useRef(null)
+
+  const [imgSearch,     setImgSearch]     = useState('')
+  const [imgResults,    setImgResults]    = useState([])
+  const [loadingImg,    setLoadingImg]    = useState(false)
+  const imgTimerRef = useRef(null)
+
+  // Dx search (for assessment section)
+  const [dxSearch,   setDxSearch]   = useState('')
+  const [dxResults,  setDxResults]  = useState([])
+  const [loadingDx,  setLoadingDx]  = useState(false)
+  const aDxTimerRef = useRef(null)
+
+  // Drug mini-form
+  const [rxDraft, setRxDraft] = useState({
+    drug: null, dosage: '', route: 'Oral', brand: '',
+    freq: [], timing: [], duration: '', food: '', notes: '',
+  })
+
+  // ─── Load encounter ─────────────────────────────────────────────────────────
+  useEffect(() => {
+    setLoading(true)
+    Promise.allSettled([
+      encountersApi.get(encounterId),
+      patientsApi.getVitals?.(encounterId),
+    ]).then(([encRes, vitRes]) => {
+      if (encRes.status === 'fulfilled') {
+        const enc = encRes.value
+        setData(enc)
+        setPatient(enc.patient || enc.patients || null)
+        const existing = enc.notes?.sections || []
+        setSections(existing.length ? existing.map(s => s.key) : ['complaints', 'assessment', 'medications'])
+        const n = enc.notes || {}
+        setComplaint(n.complaint || '')
+        setSymptoms(n.symptoms || [])
+        setPastHistory(n.past_history || '')
+        setExamination(n.examination || '')
+        setAssessment(n.assessment || '')
+        setRxItems(n.medications || [])
+        setLabOrders(n.lab_orders || [])
+        setImagingOrders(n.imaging_orders || [])
+        setCounselling(n.counselling || '')
+        setFollowupDays(n.followup_days || '')
+        setFollowupNote(n.followup_note || '')
+        setInitDx(n.init_dx || [])
+        if (n.init_dx?.length) triggerSuggestions(n.init_dx)
+      }
+      if (vitRes.status === 'fulfilled') {
+        setSavedVitals(vitRes.value || {})
+      }
+    }).catch(() => setError('Failed to load encounter'))
+    .finally(() => setLoading(false))
+  }, [encounterId])
+
+  // ─── Suggestions from working diagnosis ─────────────────────────────────────
+  const triggerSuggestions = useCallback(async (dxList) => {
+    if (!dxList?.length) {
+      setSuggestedMeds([]); setSuggestedTests([]); setSmartTips([]); return
+    }
+    setLoadingSuggestions(true)
     try {
-      const res = await api.post('/inpatient/admissions', {
-        patient_id: patientId,
-        admitting_doctor_id: user?.id,
-        source_appointment_id: parseInt(appointmentId),
-        department_id: form.department_id ? parseInt(form.department_id) : undefined,
-        admission_type: 'opd_referred',
-        primary_diagnosis: form.primary_diagnosis,
-        expected_discharge: form.expected_discharge || undefined,
-        urgency: form.urgency,
-        notes: form.notes,
+      const cats = [...new Set(dxList.map(d => (d.code || '').charAt(0).toUpperCase()).filter(Boolean))]
+      const drugHints = [...new Set(cats.flatMap(c => ICD10_DRUG_HINTS[c] || []))]
+      const testHints = [...new Set(cats.flatMap(c => ICD10_TEST_HINTS[c] || []))]
+      const tips      = [...new Set(cats.flatMap(c => ICD10_TIPS[c] || []))]
+
+      setSmartTips(tips)
+      setSuggestedTests(testHints.slice(0, 8))
+
+      const drugFetches = drugHints.slice(0, 6).map(async hint => {
+        const cacheKey = `drug:${hint}`
+        const cached = cacheGet(cacheKey)
+        if (cached) return cached[0]
+        try {
+          const res = await api.get('/medications/search', { params: { q: hint, limit: 1 } })
+          const data = res.data?.data || res.data || []
+          if (data.length) cachePut(cacheKey, data)
+          return data[0]
+        } catch { return null }
       })
-      onCreated(res?.admission_number || res?.id || 'created')
-    } catch (ex) {
-      setErr(ex?.response?.data?.detail || ex.message || 'Failed')
+      const drugs = (await Promise.allSettled(drugFetches))
+        .filter(r => r.status === 'fulfilled' && r.value)
+        .map(r => r.value)
+      setSuggestedMeds(drugs)
+    } catch { /* silent */ }
+    finally { setLoadingSuggestions(false) }
+  }, [])
+
+  // ─── Dx search (Initial Assessment) ─────────────────────────────────────────
+  const searchInitDx = useCallback(q => {
+    setInitDxSearch(q)
+    clearTimeout(dxTimerRef.current)
+    if (!q.trim()) { setInitDxResults([]); return }
+    const cached = cacheGet(`dx:${q}`)
+    if (cached) { setInitDxResults(cached); return }
+    setLoadingDxSearch(true)
+    dxTimerRef.current = setTimeout(async () => {
+      try {
+        const res = await api.get('/terminology/search', { params: { category: 'diagnosis', q, limit: 8 } })
+        const data = res.data?.data || res.data || []
+        cachePut(`dx:${q}`, data)
+        setInitDxResults(data)
+      } catch { setInitDxResults([]) }
+      finally { setLoadingDxSearch(false) }
+    }, 350)
+  }, [])
+
+  const addInitDx = useCallback(dx => {
+    setInitDx(prev => {
+      if (prev.find(d => d.code === dx.code)) return prev
+      const next = [...prev, dx]
+      triggerSuggestions(next)
+      return next
+    })
+    setInitDxSearch(''); setInitDxResults([])
+    setRightTab('suggestions')
+  }, [triggerSuggestions])
+
+  const removeInitDx = useCallback(code => {
+    setInitDx(prev => {
+      const next = prev.filter(d => d.code !== code)
+      triggerSuggestions(next)
+      return next
+    })
+  }, [triggerSuggestions])
+
+  // ─── Symptom search ──────────────────────────────────────────────────────────
+  const searchSymptoms = useCallback(q => {
+    setSymSearch(q)
+    clearTimeout(symTimerRef.current)
+    if (!q.trim()) { setSymResults([]); return }
+    const cached = cacheGet(`sym:${q}`)
+    if (cached) { setSymResults(cached); return }
+    setLoadingSym(true)
+    symTimerRef.current = setTimeout(async () => {
+      try {
+        const res = await api.get('/terminology/search', { params: { category: 'symptom', q, limit: 8 } })
+        const data = res.data?.data || res.data || []
+        cachePut(`sym:${q}`, data)
+        setSymResults(data)
+      } catch { setSymResults([]) }
+      finally { setLoadingSym(false) }
+    }, 350)
+  }, [])
+
+  // ─── Lab search ──────────────────────────────────────────────────────────────
+  const searchLab = useCallback(q => {
+    setLabSearch(q)
+    clearTimeout(labTimerRef.current)
+    if (!q.trim()) { setLabResults([]); return }
+    const cached = cacheGet(`lab:${q}`)
+    if (cached) { setLabResults(cached); return }
+    setLoadingLab(true)
+    labTimerRef.current = setTimeout(async () => {
+      try {
+        const res = await api.get('/lab-tests/search', { params: { q, limit: 8 } })
+        const data = res.data?.data || res.data || []
+        cachePut(`lab:${q}`, data)
+        setLabResults(data)
+      } catch { setLabResults([]) }
+      finally { setLoadingLab(false) }
+    }, 350)
+  }, [])
+
+  // ─── Imaging search ──────────────────────────────────────────────────────────
+  const searchImg = useCallback(q => {
+    setImgSearch(q)
+    clearTimeout(imgTimerRef.current)
+    if (!q.trim()) { setImgResults([]); return }
+    const cached = cacheGet(`img:${q}`)
+    if (cached) { setImgResults(cached); return }
+    setLoadingImg(true)
+    imgTimerRef.current = setTimeout(async () => {
+      try {
+        const res = await api.get('/lab-tests/search', { params: { q, category: 'imaging', limit: 8 } })
+        const data = res.data?.data || res.data || []
+        cachePut(`img:${q}`, data)
+        setImgResults(data)
+      } catch { setImgResults([]) }
+      finally { setLoadingImg(false) }
+    }, 350)
+  }, [])
+
+  // ─── Assessment Dx search ─────────────────────────────────────────────────────
+  const searchDx = useCallback(q => {
+    setDxSearch(q)
+    clearTimeout(aDxTimerRef.current)
+    if (!q.trim()) { setDxResults([]); return }
+    const cached = cacheGet(`dx:${q}`)
+    if (cached) { setDxResults(cached); return }
+    setLoadingDx(true)
+    aDxTimerRef.current = setTimeout(async () => {
+      try {
+        const res = await api.get('/terminology/search', { params: { category: 'diagnosis', q, limit: 8 } })
+        const data = res.data?.data || res.data || []
+        cachePut(`dx:${q}`, data)
+        setDxResults(data)
+      } catch { setDxResults([]) }
+      finally { setLoadingDx(false) }
+    }, 350)
+  }, [])
+
+  // ─── Favorites ───────────────────────────────────────────────────────────────
+  const addToFavorites = useCallback(med => {
+    setFavoriteMeds(prev => {
+      if (prev.find(m => m.id === med.id)) return prev
+      const next = [...prev, med]
+      localStorage.setItem(favKey, JSON.stringify(next))
+      return next
+    })
+  }, [favKey])
+
+  const removeFromFavorites = useCallback(med => {
+    setFavoriteMeds(prev => {
+      const next = prev.filter(m => m.id !== med.id)
+      localStorage.setItem(favKey, JSON.stringify(next))
+      return next
+    })
+  }, [favKey])
+
+  // ─── Quick add from panel ─────────────────────────────────────────────────────
+  const quickAddMed = useCallback(drug => {
+    if (!sections.includes('medications')) setSections(prev => [...prev, 'medications'])
+    setRxItems(prev => {
+      if (prev.find(r => r.drug_id === drug.id)) return prev
+      return [...prev, {
+        drug_id: drug.id,
+        drug_name: drug.generic_name || drug.name,
+        dosage: '', route: 'Oral', brand: '',
+        freq: [], timing: [], duration: '', food: '', notes: '',
+      }]
+    })
+  }, [sections])
+
+  const quickAddTest = useCallback(testName => {
+    if (!sections.includes('lab')) setSections(prev => [...prev, 'lab'])
+    setLabOrders(prev => {
+      if (prev.find(l => l.name === testName)) return prev
+      return [...prev, { name: testName, id: Date.now(), notes: '' }]
+    })
+  }, [sections])
+
+  // ─── Rx helpers ───────────────────────────────────────────────────────────────
+  const addRxItem = () => {
+    if (!rxDraft.drug) return
+    const item = {
+      drug_id:   rxDraft.drug.id,
+      drug_name: rxDraft.drug.generic_name || rxDraft.drug.name,
+      dosage:    rxDraft.dosage,
+      route:     rxDraft.route,
+      brand:     rxDraft.brand,
+      freq:      rxDraft.freq,
+      timing:    rxDraft.timing,
+      duration:  rxDraft.duration,
+      food:      rxDraft.food,
+      notes:     rxDraft.notes,
+    }
+    setRxItems(prev => [...prev, item])
+    setRxDraft({ drug: null, dosage: '', route: 'Oral', brand: '', freq: [], timing: [], duration: '', food: '', notes: '' })
+    drugSearch.clear()
+  }
+
+  const removeRxItem = idx => setRxItems(prev => prev.filter((_, i) => i !== idx))
+
+  const toggleRxChip = (field, val) => {
+    setRxDraft(d => {
+      const arr = d[field] || []
+      return { ...d, [field]: arr.includes(val) ? arr.filter(v => v !== val) : [...arr, val] }
+    })
+  }
+
+  // ─── Save / Finalise ─────────────────────────────────────────────────────────
+  const buildNotes = () => ({
+    sections:       sections.map(k => ({ key: k })),
+    complaint,
+    symptoms,
+    past_history:   pastHistory,
+    examination,
+    assessment,
+    medications:    rxItems,
+    lab_orders:     labOrders,
+    imaging_orders: imagingOrders,
+    counselling,
+    followup_days:  followupDays,
+    followup_note:  followupNote,
+    init_dx:        initDx,
+  })
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      await encountersApi.update(encounterId, { notes: buildNotes() })
+    } catch (e) {
+      setError('Save failed: ' + (e?.message || 'unknown'))
     } finally { setSaving(false) }
   }
 
-  return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="text-lg font-bold" style={{ color: '#0F2557' }}>Advise Admission</h3>
-            <p className="text-sm text-gray-500">{patientName}</p>
-          </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400"><X size={16} /></button>
-        </div>
-        <form onSubmit={submit} className="space-y-3">
-          <div>
-            <label className="label">Department</label>
-            <select className="input" value={form.department_id}
-              onChange={e => setForm(f => ({ ...f, department_id: e.target.value }))}>
-              <option value="">Select department</option>
-              {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="label">Primary Diagnosis</label>
-            <textarea className="input resize-none" rows={2} value={form.primary_diagnosis}
-              onChange={e => setForm(f => ({ ...f, primary_diagnosis: e.target.value }))} />
-          </div>
-          <div>
-            <label className="label">Urgency</label>
-            <select className="input" value={form.urgency}
-              onChange={e => setForm(f => ({ ...f, urgency: e.target.value }))}>
-              <option value="routine">Routine</option>
-              <option value="urgent">Urgent</option>
-              <option value="emergency">Emergency</option>
-            </select>
-          </div>
-          <div>
-            <label className="label">Notes</label>
-            <textarea className="input resize-none" rows={2} value={form.notes}
-              onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
-          </div>
-          {err && <p className="text-red-600 text-sm">{err}</p>}
-          <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
-            <button type="submit" disabled={saving} className="btn-primary flex-1 justify-center">
-              {saving ? 'Creating…' : 'Advise Admission'}
-            </button>
-          </div>
-        </form>
+  const handleFinalise = async () => {
+    setFinalising(true)
+    try {
+      await encountersApi.update(encounterId, { notes: buildNotes(), status: 'completed' })
+      navigate(-1)
+    } catch (e) {
+      setError('Finalise failed: ' + (e?.message || 'unknown'))
+    } finally { setFinalising(false) }
+  }
+
+  // ─── Section helpers ──────────────────────────────────────────────────────────
+  const addSection   = key => { if (!sections.includes(key)) setSections(p => [...p, key]) }
+  const removeSection = key => setSections(p => p.filter(k => k !== key))
+
+  const availableSections = SECTION_DEFS.filter(s => !sections.includes(s.key))
+
+  // ─── Render ───────────────────────────────────────────────────────────────────
+  if (loading) return <PageLoader />
+
+  if (error && !data) return (
+    <div className="flex items-center justify-center h-screen">
+      <div className="text-center">
+        <AlertCircle size={40} className="text-red-400 mx-auto mb-3" />
+        <p className="text-red-600 font-medium">{error}</p>
+        <button onClick={() => navigate(-1)} className="mt-4 text-sm text-blue-600 hover:underline">
+          Go back
+        </button>
       </div>
     </div>
   )
-}
 
-// ─── Section Add Menu ────────────────────────────────────────────────────────────────────
-function AddSectionMenu({ addedKeys, onAdd, onClose }) {
-  const available = SECTION_DEFS.filter(s => !addedKeys.includes(s.key))
-  if (available.length === 0) return null
-  return (
-    <div className="absolute z-20 left-0 mt-1 w-56 bg-white border border-gray-200 rounded-xl shadow-lg py-1" onClick={e => e.stopPropagation()}>
-      {available.map(s => {
-        const Icon = s.icon
-        return (
-          <button key={s.key} type="button"
-            className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-blue-50 text-left text-sm text-gray-700"
-            onClick={() => { onAdd(s.key); onClose() }}>
-            <Icon size={14} className="text-gray-400 shrink-0" />
-            {s.label}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// ─── Main Component ───────────────────────────────────────────────────────────────────────────────
-// ═══════════════════════════════════════════════════════════════════════════════
-export default function PatientChart() {
-  const { id } = useParams()
-  const navigate = useNavigate()
-  const { user } = useAuth()
-  const autoSaveRef = useRef(null)
-  const menuRef = useRef(null)
-
-  const [data, setData]             = useState(null)
-  const [loadError, setLoadError]   = useState('')
-  const [pastVisits, setPastVisits] = useState([])
-  const [loading, setLoading]       = useState(true)
-  const [isLocked, setIsLocked]     = useState(false)
-  const [saving, setSaving]         = useState(false)
-  const [msg, setMsg]               = useState('')
-  const [addendumMode, setAddendumMode] = useState(false)
-  const [addendumText, setAddendumText] = useState('')
-  const [showAdmission, setShowAdmission] = useState(false)
-  const [showPastVisits, setShowPastVisits] = useState(false)
-  const [showAddMenu, setShowAddMenu] = useState(false)
-  const [sections, setSections] = useState([])
-  const [notes, setNotes] = useState({
-    reason_for_visit: '',
-    patient_complaints: '',
-    past_history: '',
-    investigations_findings: '',
-    discharge_assessment: '',
-    cautions_followup: '',
-  })
-  const [editMode, setEditMode] = useState({})
-  const [diagnoses, setDiagnoses] = useState([])
-  const [dxSearch, setDxSearch]   = useState('')
-  const [dxResults, setDxResults] = useState([])
-  const [labOrders, setLabOrders]         = useState([])
-  const [labResults, setLabResults]       = useState([])
-  const [imagingOrders, setImagingOrders] = useState([])
-  const [orderNote, setOrderNote]         = useState('')
-  const [ordersSaved, setOrdersSaved]     = useState(false)
-  const [orderTab, setOrderTab]           = useState('lab')
-  const [orderSearch, setOrderSearch]     = useState('')
-  const [orderResults, setOrderResults]   = useState([])
-  const [orderSearching, setOrderSearching] = useState(false)
-  const [rxItems, setRxItems]   = useState([])
-  const [rxNotes, setRxNotes]   = useState('')
-  const [drugSearch, setDrugSearch]   = useState('')
-  const [drugResults, setDrugResults] = useState([])
-  const [drugSearching, setDrugSearching] = useState(false)
-  const [configDrug, setConfigDrug]   = useState(null)
-  const [drugConfig, setDrugConfig]   = useState({
-    timing: ['Morning'], frequency: 'OD', duration: '7 days', food: 'After food', counselling: [],
-  })
-  const [counsellingTips, setCounsellingTips] = useState([])
-  const [interactions, setInteractions] = useState([])
-  const [followupDays, setFollowupDays] = useState('')
-  const [counsellingText, setCounsellingText] = useState('')
-  const [diseaseTips, setDiseaseTips] = useState([])   // [{condition, tips:[]}]
-
-  useEffect(() => {
-    doctorApi.getEncounter(id)
-      .then(r => {
-        setData(r)
-        const sn = r.soap_note
-        if (sn) {
-          const n = {
-            reason_for_visit:        sn.reason_for_visit        || sn.subjective || r.triage_complaint || '',
-            patient_complaints:      sn.patient_complaints      || '',
-            past_history:            sn.past_history            || '',
-            investigations_findings: sn.investigations_findings || sn.objective  || '',
-            discharge_assessment:    sn.discharge_assessment    || sn.assessment || '',
-            cautions_followup:       sn.cautions_followup       || sn.plan       || '',
-          }
-          setNotes(n)
-          setIsLocked(!!sn.is_locked)
-          const auto = []
-          if (n.patient_complaints)      auto.push('complaints')
-          if (n.past_history)            auto.push('past_history')
-          if (n.investigations_findings) auto.push('examination')
-          if (n.discharge_assessment || sn.assessment) auto.push('assessment')
-          setSections(auto)
-        } else if (r.triage_complaint) {
-          setNotes(n => ({ ...n, reason_for_visit: r.triage_complaint }))
-        }
-        if (r.lab_orders?.length > 0) setLabResults(r.lab_orders)
-        if (r.lab_orders?.length > 0) setSections(s => s.includes('lab') ? s : [...s, 'lab'])
-        if (r.patient?.id) {
-          patientsApi.getClinical(r.patient.id)
-            .then(cr => {
-              const raw = cr?.visits || cr?.encounters || []
-              setPastVisits(raw.filter(v =>
-                String(v.appointment_id) !== String(id) && String(v.id) !== String(id)
-              ))
-            })
-            .catch(() => {})
-        }
-      })
-      .catch(err => {
-        const detail = err?.response?.data?.detail || err?.message || 'Failed to load encounter'
-        setLoadError(detail)
-      })
-      .finally(() => setLoading(false))
-  }, [id])
-
-  useEffect(() => {
-    if (isLocked) return
-    autoSaveRef.current = setInterval(() => saveDraft(false), 45000)
-    return () => clearInterval(autoSaveRef.current)
-  }, [notes, isLocked])
-
-  useEffect(() => {
-    if (!showAddMenu) return
-    const handler = e => { if (!menuRef.current?.contains(e.target)) setShowAddMenu(false) }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [showAddMenu])
-
-  useEffect(() => {
-    if (dxSearch.length < 2) { setDxResults([]); return }
-    const t = setTimeout(async () => {
-      try {
-        const r = await api.get('/terminology/search', { params: { q: dxSearch, category: 'condition', limit: 8 } })
-        setDxResults(Array.isArray(r) ? r : (r?.items || r?.results || []))
-      } catch { setDxResults([]) }
-    }, 300)
-    return () => clearTimeout(t)
-  }, [dxSearch])
-
-  useEffect(() => {
-    if (drugSearch.length < 2) { setDrugResults([]); return }
-    const t = setTimeout(async () => {
-      setDrugSearching(true)
-      try {
-        const r = await api.get('/terminology/drugs/search', { params: { q: drugSearch, limit: 10 } })
-        setDrugResults(Array.isArray(r) ? r : [])
-      } catch { setDrugResults([]) }
-      finally { setDrugSearching(false) }
-    }, 250)
-    return () => clearTimeout(t)
-  }, [drugSearch])
-
-  useEffect(() => {
-    if (orderSearch.length < 2) { setOrderResults([]); return }
-    const t = setTimeout(async () => {
-      setOrderSearching(true)
-      try {
-        const r = await labApi.searchTests(orderSearch, orderTab)
-        setOrderResults(Array.isArray(r) ? r : [])
-      } catch { setOrderResults([]) }
-      finally { setOrderSearching(false) }
-    }, 250)
-    return () => clearTimeout(t)
-  }, [orderSearch, orderTab])
-
-  // Auto-fetch disease counselling tips when diagnoses change
-  useEffect(() => {
-    if (!diagnoses.length) { setDiseaseTips([]); return }
-    const codes = [...new Set(diagnoses.map(d => d.code.slice(0, 3).toUpperCase()))]
-    Promise.all(
-      codes.map(code =>
-        api.get('/terminology/counselling/suggest', { params: { icd10: code } })
-          .then(r => r.data)
-          .catch(() => null)
-      )
-    ).then(results => {
-      setDiseaseTips(results.filter(r => r && r.tips && r.tips.length > 0))
-    })
-  }, [diagnoses])
-
-  const flash = text => { setMsg(text); setTimeout(() => setMsg(''), 3500) }
-
-  const saveDraft = async (showMsg = true) => {
-    if (isLocked || !data) return
-    try {
-      await encountersApi.save({ appointment_id: parseInt(id), ...notes, lock: false })
-      if (showMsg) flash('Draft saved')
-    } catch (e) {
-      if (showMsg) flash('Error saving: ' + e.message)
-    }
-  }
-
-  const saveSection = async (key) => {
-    if (isLocked || !data) return
-    setEditMode(m => ({ ...m, [key]: false }))
-    saveDraft(false)
-  }
-
-  const endConsultation = async () => {
-    if (!window.confirm('End consultation and lock the record? This cannot be undone.')) return
-    setSaving(true)
-    try {
-      await encountersApi.save({ appointment_id: parseInt(id), ...notes, lock: true })
-      if (rxItems.length > 0) {
-        await doctorApi.completeEncounter(id, {
-          soap: { appointment_id: parseInt(id) },
-          prescription: {
-            notes: rxNotes,
-            items: rxItems.map(rx => ({
-              medicine_name: rx.generic,
-              dosage: rx.config.timing.join('+'),
-              frequency: rx.config.frequency,
-              duration: rx.config.duration,
-              instructions: [rx.config.food, ...(rx.config.counselling || [])].filter(Boolean).join('; '),
-            })),
-          },
-        })
-      }
-      if (labOrders.length > 0 || imagingOrders.length > 0) {
-        await doctorApi.completeEncounter(id, {
-          soap: { appointment_id: parseInt(id) },
-          lab_order:     labOrders.length     ? { notes: orderNote, tests: labOrders }     : null,
-          imaging_order: imagingOrders.length ? { notes: orderNote, tests: imagingOrders } : null,
-        })
-      }
-      setIsLocked(true)
-      flash('Consultation locked')
-      setTimeout(() => navigate('/doctor-desk'), 1500)
-    } catch (e) {
-      flash('Error: ' + e.message)
-    } finally { setSaving(false) }
-  }
-
-  const submitAddendum = async () => {
-    if (!addendumText.trim()) return
-    setSaving(true)
-    try {
-      await encountersApi.addendum({ appointment_id: parseInt(id), addendum: addendumText })
-      setAddendumText('')
-      setAddendumMode(false)
-      flash('Addendum added')
-    } catch (e) {
-      flash('Error: ' + e.message)
-    } finally { setSaving(false) }
-  }
-
-  const saveOrders = async () => {
-    setSaving(true)
-    try {
-      await doctorApi.completeEncounter(id, {
-        soap: { appointment_id: parseInt(id) },
-        lab_order:     labOrders.length     ? { notes: orderNote, tests: labOrders }     : null,
-        imaging_order: imagingOrders.length ? { notes: orderNote, tests: imagingOrders } : null,
-      })
-      setOrdersSaved(true)
-      setLabResults(prev => [...prev, ...labOrders.map(o => ({ ...o, items: [] }))])
-      setLabOrders([])
-      setImagingOrders([])
-      flash('Orders placed successfully')
-    } catch (e) {
-      flash('Error placing orders: ' + e.message)
-    } finally { setSaving(false) }
-  }
-
-  const selectDrug = async drug => {
-    setConfigDrug(drug)
-    setDrugSearch('')
-    setDrugResults([])
-    setDrugConfig({ timing: ['Morning'], frequency: 'OD', duration: '7 days', food: 'After food', counselling: [] })
-    setCounsellingTips([])
-    setInteractions([])
-    try {
-      const [tips, ixns] = await Promise.all([
-        api.get('/terminology/drugs/counselling', { params: { generic: drug.generic } }).catch(() => ({})),
-        api.get('/terminology/drugs/interactions', { params: { generic: drug.generic } }).catch(() => []),
-      ])
-      setCounsellingTips(tips?.tips || [])
-      setInteractions(Array.isArray(ixns) ? ixns : [])
-    } catch { /* non-fatal */ }
-  }
-
-  const addMedication = () => {
-    if (!configDrug) return
-    setRxItems(prev => [...prev, { id: Date.now(), ...configDrug, config: { ...drugConfig } }])
-    setConfigDrug(null)
-    setCounsellingTips([])
-    setInteractions([])
-    setDrugConfig({ timing: ['Morning'], frequency: 'OD', duration: '7 days', food: 'After food', counselling: [] })
-  }
-
-  const addOrder = item => {
-    const order = { test_id: item.id, test_name: item.name }
-    if (orderTab === 'lab') {
-      if (!labOrders.find(o => o.test_name === item.name)) setLabOrders(p => [...p, order])
-    } else {
-      if (!imagingOrders.find(o => o.test_name === item.name)) setImagingOrders(p => [...p, order])
-    }
-    setOrderSearch('')
-    setOrderResults([])
-    setOrdersSaved(false)
-  }
-
-  const addSection = key => {
-    setSections(s => s.includes(key) ? s : [...s, key])
-    setEditMode(m => ({ ...m, [key]: true }))
-  }
-
-  const note = (key, val) => setNotes(n => ({ ...n, [key]: val }))
-  const toggleEdit = key => setEditMode(m => ({ ...m, [key]: !m[key] }))
-
-  if (loading) return <PageLoader />
-  if (!data)   return (
-    <div className="p-8 text-center">
-      <div className="text-red-500 font-semibold mb-2">Could not load encounter</div>
-      <div className="text-sm text-gray-500 mb-4">{loadError || 'Appointment not found or access denied.'}</div>
-      <button onClick={() => navigate(-1)} className="btn-secondary text-sm">← Go Back</button>
-    </div>
-  )
-
-  const patient    = data.patient || {}
-  const vitals     = data.vitals  || {}
-  const isHospital = user?.org_type === 'hospital'
-  const assessmentDisplay = diagnoses.map(d => `${d.code} ${d.display}`).join(', ') || notes.discharge_assessment
+  const isLocked = data?.status === 'completed'
+  const apptDate = data?.appointment_date
+    ? new Date(data.appointment_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+    : ''
 
   return (
-    <div className="-mx-4 md:-mx-6 flex flex-col">
-      <DemographicsBar patient={patient} vitals={vitals} complaint={data.triage_complaint} />
+    <div className="flex flex-col min-h-screen bg-gray-50">
+      {/* Demographics bar */}
+      <DemographicsBar
+        patient={patient || {}}
+        vitals={savedVitals}
+        complaint={complaint}
+      />
 
-      {msg && (
-        <div className={`mx-4 md:mx-6 mt-3 px-4 py-2.5 rounded-lg text-sm ${
-          msg.startsWith('Error') ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-green-50 text-green-700 border border-green-200'
-        }`}>
-          {msg}
-        </div>
-      )}
+      <div className="flex flex-1 overflow-hidden">
+        {/* ── Left: scrollable chart ── */}
+        <div className="flex-1 overflow-y-auto px-4 md:px-6 py-4 space-y-4">
 
-      <div className="px-4 md:px-6 py-5 max-w-3xl">
-        <div className="flex items-center justify-between gap-3 mb-6">
-          <div className="flex items-center gap-3 min-w-0">
-            <button onClick={() => navigate(-1)} className="btn-secondary p-2 shrink-0">
-              <ArrowLeft size={16} />
+          {/* Top bar: back + date + actions */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <button onClick={() => navigate(-1)} className="text-gray-500 hover:text-gray-700 p-1">
+              <ArrowLeft size={18} />
             </button>
-            <div className="min-w-0">
-              <h1 className="font-bold text-gray-900 truncate">{patient.full_name}</h1>
-              <p className="text-xs text-gray-400 font-mono">
-                {data.appointment_date} {data.appointment_time}
-                {isLocked && <span className="ml-2 text-amber-500">· Locked</span>}
-              </p>
-            </div>
-          </div>
-          <div className="flex gap-2 shrink-0">
-            {isHospital && (
-              <button onClick={() => setShowAdmission(true)} className="btn-secondary text-sm">
-                <BedDouble size={14} />Admit
-              </button>
+            <span className="text-sm text-gray-500">{apptDate}</span>
+            {isLocked && (
+              <span className="flex items-center gap-1 text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                <Lock size={11} /> Finalised
+              </span>
             )}
-            <button
-              onClick={async () => {
-                try {
-                  const res = await api.get(`/pdf/encounter/${id}`, { responseType: 'blob' })
-                  const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }))
-                  const a = document.createElement('a')
-                  a.href = url
-                  a.download = `encounter_${id}_summary.pdf`
-                  document.body.appendChild(a)
-                  a.click()
-                  document.body.removeChild(a)
-                  URL.revokeObjectURL(url)
-                } catch { flash('Could not generate PDF') }
-              }}
-              className="btn-secondary text-sm"
-              title="Download clinical summary PDF"
-            >
-              <Printer size={14} />Print Summary
-            </button>
-            {isLocked ? (
-              <button onClick={() => setAddendumMode(v => !v)} className="btn-secondary text-sm">
-                <PenLine size={14} />Addendum
-              </button>
-            ) : (
+            <div className="flex-1" />
+            {!isLocked && (
               <>
-                <button onClick={() => saveDraft(true)} disabled={saving} className="btn-secondary text-sm">
-                  <Save size={14} />{saving ? '…' : 'Save Draft'}
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 disabled:opacity-60"
+                >
+                  {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+                  {saving ? 'Saving…' : 'Save Draft'}
                 </button>
-                <button onClick={endConsultation} disabled={saving} className="btn-success text-sm">
-                  <CheckCircle size={14} />{saving ? '…' : 'End & Lock'}
+                <button
+                  onClick={handleFinalise}
+                  disabled={finalising}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-60"
+                >
+                  {finalising ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle size={13} />}
+                  {finalising ? 'Finalising…' : 'Finalise'}
                 </button>
               </>
             )}
+            <button className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg px-2 py-1.5">
+              <Printer size={13} /> Print
+            </button>
           </div>
-        </div>
 
-        {isLocked && (
-          <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800 mb-4">
-            <Lock size={14} className="shrink-0" />
-            This record is locked. Use Addendum to add notes.
-          </div>
-        )}
-
-        {addendumMode && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3 mb-4">
-            <p className="text-sm font-semibold text-amber-800">Add Addendum</p>
-            <textarea className="input resize-none w-full" rows={3} value={addendumText}
-              onChange={e => setAddendumText(e.target.value)} placeholder="Enter addendum note…" autoFocus />
-            <div className="flex gap-2 justify-end">
-              <button type="button" onClick={() => { setAddendumMode(false); setAddendumText('') }}
-                className="btn-secondary text-sm">Cancel</button>
-              <button type="button" onClick={submitAddendum} disabled={!addendumText.trim() || saving}
-                className="btn-primary text-sm">Submit Addendum</button>
+          {error && (
+            <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-sm text-red-700">
+              <AlertCircle size={14} /> {error}
             </div>
-          </div>
-        )}
-
-        <div className="flex items-center gap-2 mb-1 text-xs text-gray-400 font-mono">
-          <div className={`w-2 h-2 rounded-full shrink-0 ${isLocked ? 'bg-gray-300' : 'bg-green-400 animate-pulse'}`} />
-          {data.appointment_date}
-          <span className="mx-1">·</span>
-          {isLocked ? 'Locked Record' : 'Active Visit'}
-        </div>
-
-        <div>
-          <SectionDivider icon={Heart} title="Vitals" locked={isLocked} />
-          <VitalsForm
-            patientId={data.patient?.id}
-            appointmentId={data.id}
-            initialValues={vitals}
-            compact={true}
-            readOnly={isLocked}
-            onSaved={saved => setData(d => d ? { ...d, vitals: { ...d.vitals, ...saved } } : d)}
-          />
-        </div>
-
-        <div>
-          <SectionDivider icon={FileText} title="Chief Complaint"
-            locked={isLocked}
-            onEdit={notes.reason_for_visit ? () => toggleEdit('chief') : undefined}
-            editMode={editMode.chief} />
-
-          {editMode.chief || !notes.reason_for_visit ? (
-            <div>
-              <AutoTextarea
-                value={notes.reason_for_visit}
-                onChange={v => note('reason_for_visit', v)}
-                onBlur={() => saveSection('chief')}
-                placeholder="Enter chief complaint…"
-                disabled={isLocked}
-              />
-              {!isLocked && (
-                <div className="relative mt-3">
-                  <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2 bg-gray-50">
-                    <Search size={13} className="text-gray-400 shrink-0" />
-                    <input
-                      className="flex-1 outline-none text-sm bg-transparent text-gray-700"
-                      placeholder="Search and add diagnosis (ICD-10)…"
-                      value={dxSearch}
-                      onChange={e => setDxSearch(e.target.value)}
-                    />
-                    {dxSearch && <button type="button" onClick={() => { setDxSearch(''); setDxResults([]) }}><X size={13} className="text-gray-400" /></button>}
-                  </div>
-                  {dxResults.length > 0 && (
-                    <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-52 overflow-y-auto">
-                      {dxResults.map((r, i) => (
-                        <button key={i} type="button"
-                          className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm border-b last:border-0"
-                          onClick={() => {
-                            if (!diagnoses.find(d => d.code === r.code))
-                              setDiagnoses(p => [...p, { code: r.code, display: r.display }])
-                            setDxSearch(''); setDxResults([])
-                          }}>
-                          <span className="font-mono text-xs text-gray-400 mr-2">{r.code}</span>
-                          {r.display}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          ) : (
-            <p className="text-sm text-gray-800 leading-relaxed">{notes.reason_for_visit}</p>
           )}
 
-          {diagnoses.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-3">
-              {diagnoses.map((d, i) => (
-                <DxChip key={i} code={d.code} display={d.display}
-                  onRemove={!isLocked ? () => setDiagnoses(p => p.filter((_, j) => j !== i)) : undefined} />
-              ))}
-            </div>
-          )}
-        </div>
+          {/* Vitals section */}
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+            <SectionDivider icon={Heart} label="Vitals" />
+            <VitalsForm
+              patientId={patient?.id}
+              appointmentId={data?.appointment_id}
+              initialValues={savedVitals}
+              compact
+              onSaved={v => setSavedVitals(v)}
+              readOnly={isLocked}
+            />
+          </div>
 
-        {sections.map(key => {
-          const def = SECTION_DEFS.find(s => s.key === key)
-          if (!def) return null
-
-          if (key === 'complaints') return (
-            <div key={key}>
-              <SectionDivider icon={def.icon} title={def.label} locked={isLocked}
-                onEdit={notes.patient_complaints ? () => toggleEdit(key) : undefined}
-                editMode={editMode[key]} />
-              {editMode[key] || !notes.patient_complaints ? (
-                <AutoTextarea value={notes.patient_complaints}
-                  onChange={v => note('patient_complaints', v)}
-                  onBlur={() => saveSection(key)}
-                  placeholder="History of present illness, symptom duration, severity…"
-                  disabled={isLocked} />
-              ) : (
-                <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">{notes.patient_complaints}</p>
-              )}
-            </div>
-          )
-
-          if (key === 'past_history') return (
-            <div key={key}>
-              <SectionDivider icon={def.icon} title={def.label} locked={isLocked}
-                onEdit={notes.past_history ? () => toggleEdit(key) : undefined}
-                editMode={editMode[key]} />
-              {editMode[key] || !notes.past_history ? (
-                <AutoTextarea value={notes.past_history}
-                  onChange={v => note('past_history', v)}
-                  onBlur={() => saveSection(key)}
-                  placeholder="Past medical, surgical, family, social history…"
-                  disabled={isLocked} />
-              ) : (
-                <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">{notes.past_history}</p>
-              )}
-            </div>
-          )
-
-          if (key === 'examination') return (
-            <div key={key}>
-              <SectionDivider icon={def.icon} title={def.label} locked={isLocked}
-                onEdit={notes.investigations_findings ? () => toggleEdit(key) : undefined}
-                editMode={editMode[key]} />
-              {editMode[key] || !notes.investigations_findings ? (
-                <AutoTextarea value={notes.investigations_findings}
-                  onChange={v => note('investigations_findings', v)}
-                  onBlur={() => saveSection(key)}
-                  placeholder="General examination, systemic examination findings…"
-                  disabled={isLocked} />
-              ) : (
-                <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">{notes.investigations_findings}</p>
-              )}
-            </div>
-          )
-
-          if (key === 'assessment') return (
-            <div key={key}>
-              <SectionDivider icon={def.icon} title={def.label} locked={isLocked}
-                onEdit={() => toggleEdit(key)}
-                editMode={editMode[key]} />
-              {(editMode[key] || !assessmentDisplay) && !isLocked && (
-                <div className="relative mb-3">
-                  <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2 bg-gray-50">
-                    <Search size={13} className="text-gray-400 shrink-0" />
-                    <input
-                      className="flex-1 outline-none text-sm bg-transparent"
-                      placeholder="Search diagnosis (ICD-10)…"
-                      value={dxSearch}
-                      onChange={e => setDxSearch(e.target.value)}
-                    />
-                    {dxSearch && <button type="button" onClick={() => { setDxSearch(''); setDxResults([]) }}><X size={13} className="text-gray-400" /></button>}
-                  </div>
-                  {dxResults.length > 0 && (
-                    <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-52 overflow-y-auto">
-                      {dxResults.map((r, i) => (
-                        <button key={i} type="button"
-                          className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm border-b last:border-0"
-                          onClick={() => {
-                            if (!diagnoses.find(d => d.code === r.code))
-                              setDiagnoses(p => [...p, { code: r.code, display: r.display }])
-                            setDxSearch(''); setDxResults([])
-                          }}>
-                          <span className="font-mono text-xs text-gray-400 mr-2">{r.code}</span>
-                          {r.display}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-              {diagnoses.length > 0 && (
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {diagnoses.map((d, i) => (
-                    <DxChip key={i} code={d.code} display={d.display}
-                      onRemove={!isLocked ? () => setDiagnoses(p => p.filter((_, j) => j !== i)) : undefined} />
+          {/* Initial Assessment (working diagnosis) */}
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+            <SectionDivider icon={Stethoscope} label="Initial Assessment (Working Diagnosis)" />
+            <div className="relative">
+              <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                {loadingDxSearch
+                  ? <Loader2 size={14} className="text-gray-400 animate-spin" />
+                  : <Search size={14} className="text-gray-400" />
+                }
+                <input
+                  className="flex-1 text-sm bg-transparent outline-none placeholder-gray-400"
+                  placeholder="Search ICD-10 diagnosis…"
+                  value={initDxSearch}
+                  onChange={e => searchInitDx(e.target.value)}
+                  disabled={isLocked}
+                />
+                {initDxSearch && (
+                  <button onClick={() => { setInitDxSearch(''); setInitDxResults([]) }}>
+                    <X size={13} className="text-gray-400" />
+                  </button>
+                )}
+              </div>
+              {initDxResults.length > 0 && (
+                <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg z-40 max-h-56 overflow-y-auto mt-1">
+                  {initDxResults.map((dx, i) => (
+                    <button
+                      key={i}
+                      onClick={() => addInitDx(dx)}
+                      className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm border-b border-gray-50 last:border-0"
+                    >
+                      <span className="font-mono text-xs text-blue-600 mr-2">{dx.code}</span>
+                      {dx.description || dx.name}
+                    </button>
                   ))}
                 </div>
               )}
-              {(editMode[key] || !notes.discharge_assessment) ? (
-                <AutoTextarea value={notes.discharge_assessment}
-                  onChange={v => note('discharge_assessment', v)}
-                  onBlur={() => saveSection(key)}
-                  placeholder="Clinical assessment, differential diagnosis, management plan…"
-                  disabled={isLocked} />
-              ) : (
-                <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">{notes.discharge_assessment}</p>
-              )}
             </div>
-          )
+            {initDx.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2.5">
+                {initDx.map(dx => (
+                  <span key={dx.code} className="flex items-center gap-1 bg-blue-50 text-blue-700 text-xs rounded-full px-2.5 py-1 border border-blue-100">
+                    <span className="font-mono font-semibold">{dx.code}</span>
+                    <span className="max-w-[180px] truncate">{dx.description || dx.name}</span>
+                    {!isLocked && (
+                      <button onClick={() => removeInitDx(dx.code)} className="ml-0.5 text-blue-400 hover:text-red-400">
+                        <X size={10} />
+                      </button>
+                    )}
+                  </span>
+                ))}
+              </div>
+            )}
+            {initDx.length > 0 && (
+              <p className="text-[11px] text-gray-400 mt-2">
+                Smart suggestions updated in the right panel based on this diagnosis.
+              </p>
+            )}
+          </div>
 
-          if (key === 'lab') return (
-            <div key={key}>
-              <SectionDivider icon={def.icon} title="Investigations (Lab & Imaging)" locked={isLocked}
-                onEdit={!ordersSaved ? () => toggleEdit(key) : undefined}
-                editMode={editMode[key]} />
-              {!isLocked && (editMode[key] || (labOrders.length === 0 && imagingOrders.length === 0 && labResults.length === 0)) && (
-                <div>
-                  <div className="flex border border-gray-200 rounded-lg overflow-hidden w-fit mb-3">
-                    {['lab', 'imaging'].map(t => (
-                      <button key={t} type="button"
-                        onClick={() => { setOrderTab(t); setOrderSearch(''); setOrderResults([]) }}
-                        className={`px-4 py-1.5 text-xs font-medium capitalize transition-colors ${
-                          orderTab === t ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'
-                        }`}>
-                        {t === 'lab' ? 'Lab' : 'Imaging'}
+          {/* Dynamic sections */}
+          {sections.map(sectionKey => {
+            const def = SECTION_DEFS.find(s => s.key === sectionKey)
+            if (!def) return null
+            const Icon = def.icon
+
+            // ── History of Illness ──────────────────────────────────────────
+            if (sectionKey === 'complaints') return (
+              <div key={sectionKey} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+                <SectionDivider
+                  icon={Icon}
+                  label={def.label}
+                  onRemove={!isLocked ? () => removeSection(sectionKey) : null}
+                  rightSlot={!isLocked && (
+                    <InlineSearch
+                      placeholder="Search symptom…"
+                      value={symSearch}
+                      onChange={searchSymptoms}
+                      loading={loadingSym}
+                      onClear={() => { setSymSearch(''); setSymResults([]) }}
+                    />
+                  )}
+                />
+                {symResults.length > 0 && (
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg max-h-44 overflow-y-auto mb-2">
+                    {symResults.map((s, i) => (
+                      <button
+                        key={i}
+                        onClick={() => {
+                          const name = s.description || s.name
+                          if (!symptoms.includes(name)) setSymptoms(p => [...p, name])
+                          setSymSearch(''); setSymResults([])
+                        }}
+                        className="w-full text-left px-3 py-1.5 text-sm hover:bg-blue-50 border-b border-gray-100 last:border-0"
+                      >
+                        {s.description || s.name}
                       </button>
                     ))}
                   </div>
-                  <div className="relative mb-3">
-                    <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2">
-                      <Search size={13} className="text-gray-400 shrink-0" />
-                      <input className="flex-1 outline-none text-sm"
-                        placeholder={orderTab === 'lab' ? 'Search lab tests (CBC, LFT, TSH…)' : 'Search imaging (X-Ray Chest, USG Abdomen…)'}
-                        value={orderSearch}
-                        onChange={e => setOrderSearch(e.target.value)} />
-                      {orderSearching && <div className="w-3 h-3 border border-blue-500 border-t-transparent rounded-full animate-spin shrink-0" />}
-                    </div>
-                    {orderResults.length > 0 && (
-                      <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-64 overflow-y-auto">
-                        {orderResults.map((r, i) => (
-                          <button key={i} type="button"
-                            className="w-full text-left px-3 py-2.5 hover:bg-blue-50 text-sm border-b last:border-0 flex items-center gap-3"
-                            onClick={() => addOrder(r)}>
-                            <span className="font-medium text-gray-800 flex-1">{r.name}</span>
-                            {r.category && <span className="text-xs text-gray-400 shrink-0">{r.category}</span>}
-                            {r.turnaround_hours && <span className="text-xs text-gray-300 shrink-0">{r.turnaround_hours}h</span>}
+                )}
+                {symptoms.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {symptoms.map(sym => (
+                      <span key={sym} className="flex items-center gap-1 bg-indigo-50 text-indigo-700 text-xs rounded-full px-2.5 py-1 border border-indigo-100">
+                        {sym}
+                        {!isLocked && (
+                          <button onClick={() => setSymptoms(p => p.filter(s => s !== sym))}>
+                            <X size={10} className="text-indigo-400 hover:text-red-400" />
                           </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-              {labOrders.length > 0 && (
-                <div className="mb-2">
-                  <div className="text-xs font-semibold text-blue-600 mb-1.5">Lab — pending submit:</div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {labOrders.map((o, i) => (
-                      <span key={i} className="inline-flex items-center gap-1 text-xs bg-blue-50 border border-blue-200 text-blue-800 rounded-lg px-2 py-0.5">
-                        {o.test_name}
-                        <button type="button" onClick={() => setLabOrders(p => p.filter((_, j) => j !== i))}><X size={10} /></button>
+                        )}
                       </span>
                     ))}
                   </div>
-                </div>
-              )}
-              {imagingOrders.length > 0 && (
-                <div className="mb-2">
-                  <div className="text-xs font-semibold text-purple-600 mb-1.5">Imaging — pending submit:</div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {imagingOrders.map((o, i) => (
-                      <span key={i} className="inline-flex items-center gap-1 text-xs bg-purple-50 border border-purple-200 text-purple-800 rounded-lg px-2 py-0.5">
-                        {o.test_name}
-                        <button type="button" onClick={() => setImagingOrders(p => p.filter((_, j) => j !== i))}><X size={10} /></button>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {(labOrders.length > 0 || imagingOrders.length > 0) && !ordersSaved && (
-                <button type="button" onClick={saveOrders} disabled={saving} className="btn-primary text-xs mt-2">
-                  <Save size={12} />{saving ? '…' : 'Submit Orders'}
-                </button>
-              )}
-              {ordersSaved && <span className="text-xs text-green-600 font-medium mt-2 block">✓ Orders submitted</span>}
-              {labResults.length > 0 && (
-                <div className="mt-3 space-y-3">
-                  {labResults.map((order, i) => (
-                    <div key={i} className="border border-gray-100 rounded-lg p-3">
-                      <div className="text-xs font-semibold text-gray-600 mb-1.5">
-                        {order.test_name || order.order_id || `Order ${i + 1}`}
-                      </div>
-                      <LabResultStatus order={order} />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )
+                )}
+                <textarea
+                  rows={3}
+                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-blue-300 resize-none placeholder-gray-400"
+                  placeholder="Chief complaint and history of present illness…"
+                  value={complaint}
+                  onChange={e => setComplaint(e.target.value)}
+                  disabled={isLocked}
+                />
+              </div>
+            )
 
-          if (key === 'medications') return (
-            <div key={key}>
-              <SectionDivider icon={def.icon} title={def.label} locked={isLocked}
-                onEdit={() => toggleEdit(key)}
-                editMode={editMode[key]} />
-              {!isLocked && (editMode[key] || rxItems.length === 0) && (
-                <div className="space-y-4">
-                  <div className="relative">
-                    <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2">
-                      <Search size={13} className="text-gray-400 shrink-0" />
-                      <input className="flex-1 outline-none text-sm"
-                        placeholder="Search drug (generic name)…"
-                        value={drugSearch}
-                        onChange={e => setDrugSearch(e.target.value)} />
-                      {drugSearching && <div className="w-3 h-3 border border-blue-500 border-t-transparent rounded-full animate-spin shrink-0" />}
-                    </div>
-                    {drugResults.length > 0 && (
-                      <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
-                        {drugResults.map((r, i) => (
-                          <button key={i} type="button"
-                            className="w-full text-left px-3 py-2.5 hover:bg-blue-50 text-sm border-b last:border-0"
-                            onClick={() => selectDrug(r)}>
-                            <div className="font-medium text-gray-800">{r.generic}</div>
-                            {r.brands && <div className="text-xs text-gray-400 mt-0.5">{r.brands.split('|').slice(0, 3).join(', ')}</div>}
-                            {r.drug_class && <div className="text-xs text-blue-400">{r.drug_class}</div>}
-                          </button>
-                        ))}
-                      </div>
-                    )}
+            // ── Past History ────────────────────────────────────────────────
+            if (sectionKey === 'past_history') return (
+              <div key={sectionKey} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+                <SectionDivider icon={Icon} label={def.label} onRemove={!isLocked ? () => removeSection(sectionKey) : null} />
+                <textarea
+                  rows={3}
+                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-blue-300 resize-none placeholder-gray-400"
+                  placeholder="Past medical, surgical, family, social history…"
+                  value={pastHistory}
+                  onChange={e => setPastHistory(e.target.value)}
+                  disabled={isLocked}
+                />
+              </div>
+            )
+
+            // ── Examination Findings ────────────────────────────────────────
+            if (sectionKey === 'examination') return (
+              <div key={sectionKey} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+                <SectionDivider icon={Icon} label={def.label} onRemove={!isLocked ? () => removeSection(sectionKey) : null} />
+                <textarea
+                  rows={3}
+                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-blue-300 resize-none placeholder-gray-400"
+                  placeholder="General examination, systemic examination findings…"
+                  value={examination}
+                  onChange={e => setExamination(e.target.value)}
+                  disabled={isLocked}
+                />
+              </div>
+            )
+
+            // ── Assessment / Diagnosis ──────────────────────────────────────
+            if (sectionKey === 'assessment') return (
+              <div key={sectionKey} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+                <SectionDivider
+                  icon={Icon}
+                  label={def.label}
+                  onRemove={!isLocked ? () => removeSection(sectionKey) : null}
+                  rightSlot={!isLocked && (
+                    <InlineSearch
+                      placeholder="Search ICD-10…"
+                      value={dxSearch}
+                      onChange={searchDx}
+                      loading={loadingDx}
+                      onClear={() => { setDxSearch(''); setDxResults([]) }}
+                    />
+                  )}
+                />
+                {dxResults.length > 0 && (
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg max-h-44 overflow-y-auto mb-2">
+                    {dxResults.map((dx, i) => (
+                      <button
+                        key={i}
+                        onClick={() => {
+                          const line = `${dx.code} – ${dx.description || dx.name}`
+                          setAssessment(p => p ? p + '\n' + line : line)
+                          setDxSearch(''); setDxResults([])
+                        }}
+                        className="w-full text-left px-3 py-1.5 text-sm hover:bg-blue-50 border-b border-gray-100 last:border-0"
+                      >
+                        <span className="font-mono text-xs text-blue-600 mr-2">{dx.code}</span>
+                        {dx.description || dx.name}
+                      </button>
+                    ))}
                   </div>
-                  {configDrug && (
-                    <div className="border border-blue-100 bg-blue-50/40 rounded-xl p-4 space-y-4">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <div className="font-semibold text-gray-900">{configDrug.generic}</div>
-                          {configDrug.drug_class && <div className="text-xs text-gray-500">{configDrug.drug_class}</div>}
-                        </div>
-                        <button type="button" onClick={() => setConfigDrug(null)} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
+                )}
+                <textarea
+                  rows={4}
+                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-blue-300 resize-none placeholder-gray-400"
+                  placeholder="Diagnosis, differential diagnoses, clinical impression…"
+                  value={assessment}
+                  onChange={e => setAssessment(e.target.value)}
+                  disabled={isLocked}
+                />
+              </div>
+            )
+
+            // ── Lab Orders ──────────────────────────────────────────────────
+            if (sectionKey === 'lab') return (
+              <div key={sectionKey} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+                <SectionDivider
+                  icon={Icon}
+                  label={def.label}
+                  onRemove={!isLocked ? () => removeSection(sectionKey) : null}
+                  rightSlot={!isLocked && (
+                    <InlineSearch
+                      placeholder="Search test…"
+                      value={labSearch}
+                      onChange={searchLab}
+                      loading={loadingLab}
+                      onClear={() => { setLabSearch(''); setLabResults([]) }}
+                    />
+                  )}
+                />
+                {labResults.length > 0 && (
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg max-h-44 overflow-y-auto mb-2">
+                    {labResults.map((t, i) => (
+                      <button
+                        key={i}
+                        onClick={() => {
+                          setLabOrders(p => [...p, { id: t.id || Date.now(), name: t.name, notes: '' }])
+                          setLabSearch(''); setLabResults([])
+                        }}
+                        className="w-full text-left px-3 py-1.5 text-sm hover:bg-blue-50 border-b border-gray-100 last:border-0"
+                      >
+                        {t.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {labOrders.length > 0 && (
+                  <div className="space-y-1.5 mb-2">
+                    {labOrders.map((t, i) => (
+                      <div key={i} className="flex items-center gap-2 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
+                        <Microscope size={13} className="text-green-500 flex-shrink-0" />
+                        <span className="text-sm flex-1">{t.name}</span>
+                        <input
+                          className="text-xs border border-gray-200 rounded px-2 py-0.5 w-36 outline-none"
+                          placeholder="Notes…"
+                          value={t.notes || ''}
+                          onChange={e => setLabOrders(p => p.map((x, j) => j === i ? { ...x, notes: e.target.value } : x))}
+                          disabled={isLocked}
+                        />
+                        {!isLocked && (
+                          <button onClick={() => setLabOrders(p => p.filter((_, j) => j !== i))}>
+                            <Trash2 size={13} className="text-gray-300 hover:text-red-400" />
+                          </button>
+                        )}
                       </div>
-                      {interactions.length > 0 && (
-                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5">
-                          <div className="text-xs font-semibold text-amber-700 mb-1 flex items-center gap-1">
-                            <AlertCircle size={12} />Interactions / Cautions
-                          </div>
-                          {interactions.slice(0, 3).map((ix, i) => (
-                            <div key={i} className="text-xs text-amber-800">
-                              <span className={`font-medium ${ix.severity === 'contraindicated' ? 'text-red-600' : 'text-amber-700'}`}>
-                                {ix.severity}:
-                              </span>{' '}
-                              {ix.drug_b} — {ix.effect?.substring(0, 80)}
+                    ))}
+                  </div>
+                )}
+                {!isLocked && labOrders.length === 0 && (
+                  <p className="text-xs text-gray-400 text-center py-4">
+                    Search above or add from Suggestions panel.
+                  </p>
+                )}
+              </div>
+            )
+
+            // ── Imaging Orders ──────────────────────────────────────────────
+            if (sectionKey === 'imaging') return (
+              <div key={sectionKey} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+                <SectionDivider
+                  icon={Icon}
+                  label={def.label}
+                  onRemove={!isLocked ? () => removeSection(sectionKey) : null}
+                  rightSlot={!isLocked && (
+                    <InlineSearch
+                      placeholder="Search imaging…"
+                      value={imgSearch}
+                      onChange={searchImg}
+                      loading={loadingImg}
+                      onClear={() => { setImgSearch(''); setImgResults([]) }}
+                    />
+                  )}
+                />
+                {imgResults.length > 0 && (
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg max-h-44 overflow-y-auto mb-2">
+                    {imgResults.map((t, i) => (
+                      <button
+                        key={i}
+                        onClick={() => {
+                          setImagingOrders(p => [...p, { id: t.id || Date.now(), name: t.name, notes: '' }])
+                          setImgSearch(''); setImgResults([])
+                        }}
+                        className="w-full text-left px-3 py-1.5 text-sm hover:bg-blue-50 border-b border-gray-100 last:border-0"
+                      >
+                        {t.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {imagingOrders.length > 0 && (
+                  <div className="space-y-1.5 mb-2">
+                    {imagingOrders.map((t, i) => (
+                      <div key={i} className="flex items-center gap-2 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
+                        <Image size={13} className="text-purple-500 flex-shrink-0" />
+                        <span className="text-sm flex-1">{t.name}</span>
+                        <input
+                          className="text-xs border border-gray-200 rounded px-2 py-0.5 w-36 outline-none"
+                          placeholder="Notes…"
+                          value={t.notes || ''}
+                          onChange={e => setImagingOrders(p => p.map((x, j) => j === i ? { ...x, notes: e.target.value } : x))}
+                          disabled={isLocked}
+                        />
+                        {!isLocked && (
+                          <button onClick={() => setImagingOrders(p => p.filter((_, j) => j !== i))}>
+                            <Trash2 size={13} className="text-gray-300 hover:text-red-400" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {!isLocked && imagingOrders.length === 0 && (
+                  <p className="text-xs text-gray-400 text-center py-4">
+                    Search above or add from Suggestions panel.
+                  </p>
+                )}
+              </div>
+            )
+
+            // ── Medications ─────────────────────────────────────────────────
+            if (sectionKey === 'medications') return (
+              <div key={sectionKey} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+                <SectionDivider
+                  icon={Icon}
+                  label={def.label}
+                  onRemove={!isLocked ? () => removeSection(sectionKey) : null}
+                />
+
+                {rxItems.length > 0 && (
+                  <div className="space-y-2 mb-3">
+                    {rxItems.map((rx, i) => (
+                      <div key={i} className="border border-gray-100 rounded-lg p-3 bg-gray-50">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-gray-800">{rx.drug_name}</p>
+                            <div className="flex flex-wrap gap-1 mt-1 text-xs text-gray-500">
+                              {rx.dosage && <span className="bg-white border border-gray-200 rounded px-1.5 py-0.5">{rx.dosage}</span>}
+                              {rx.route && <span className="bg-white border border-gray-200 rounded px-1.5 py-0.5">{rx.route}</span>}
+                              {rx.freq?.length > 0 && <span className="bg-white border border-gray-200 rounded px-1.5 py-0.5">{rx.freq.join(', ')}</span>}
+                              {rx.timing?.length > 0 && <span className="bg-white border border-gray-200 rounded px-1.5 py-0.5">{rx.timing.join(', ')}</span>}
+                              {rx.duration && <span className="bg-white border border-gray-200 rounded px-1.5 py-0.5">{rx.duration}</span>}
+                              {rx.food && <span className="bg-white border border-gray-200 rounded px-1.5 py-0.5">{rx.food}</span>}
+                              {rx.brand && <span className="bg-blue-50 text-blue-600 border border-blue-100 rounded px-1.5 py-0.5">Brand: {rx.brand}</span>}
                             </div>
+                            {rx.notes && <p className="text-xs text-gray-400 mt-1 italic">{rx.notes}</p>}
+                          </div>
+                          {!isLocked && (
+                            <button onClick={() => removeRxItem(i)} className="text-gray-300 hover:text-red-400 flex-shrink-0">
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {!isLocked && (
+                  <div className="border border-dashed border-blue-200 rounded-xl p-3 space-y-3 bg-blue-50/30">
+                    <p className="text-xs font-semibold text-gray-600">Add Medication</p>
+
+                    <div className="relative">
+                      <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2">
+                        {drugSearch.loading
+                          ? <Loader2 size={14} className="text-gray-400 animate-spin" />
+                          : <Search size={14} className="text-gray-400" />
+                        }
+                        <input
+                          className="flex-1 text-sm outline-none placeholder-gray-400"
+                          placeholder="Search drug / generic name…"
+                          value={rxDraft.drug ? (rxDraft.drug.generic_name || rxDraft.drug.name) : drugSearch.query}
+                          onChange={e => {
+                            if (rxDraft.drug) setRxDraft(d => ({ ...d, drug: null }))
+                            drugSearch.search(e.target.value)
+                          }}
+                        />
+                        {(drugSearch.query || rxDraft.drug) && (
+                          <button onClick={() => { drugSearch.clear(); setRxDraft(d => ({ ...d, drug: null })) }}>
+                            <X size={13} className="text-gray-400" />
+                          </button>
+                        )}
+                      </div>
+                      {drugSearch.results.length > 0 && !rxDraft.drug && (
+                        <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg z-40 max-h-48 overflow-y-auto mt-1">
+                          {drugSearch.results.map((d, i) => (
+                            <button
+                              key={i}
+                              onClick={() => {
+                                setRxDraft(dr => ({ ...dr, drug: d, brand: d.brands?.[0] || '' }))
+                                drugSearch.clear()
+                              }}
+                              className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm border-b border-gray-50 last:border-0"
+                            >
+                              <span className="font-medium">{d.generic_name || d.name}</span>
+                              {d.generic_name && d.name !== d.generic_name && (
+                                <span className="ml-2 text-xs text-gray-400">{d.name}</span>
+                              )}
+                              {d.strength && (
+                                <span className="ml-2 text-xs text-blue-500">{d.strength}</span>
+                              )}
+                            </button>
                           ))}
                         </div>
                       )}
-                      <div>
-                        <div className="text-xs text-gray-500 mb-1.5">Timing (select all that apply)</div>
-                        <Chips options={TIMING_OPTIONS} value={drugConfig.timing} multi
-                          onChange={v => setDrugConfig(c => ({ ...c, timing: v }))} />
-                      </div>
-                      <div>
-                        <div className="text-xs text-gray-500 mb-1.5">Frequency</div>
-                        <Chips options={FREQ_OPTIONS} value={drugConfig.frequency}
-                          onChange={v => setDrugConfig(c => ({ ...c, frequency: v }))} />
-                      </div>
-                      <div>
-                        <div className="text-xs text-gray-500 mb-1.5">Duration</div>
-                        <Chips options={DURATION_OPTIONS} value={drugConfig.duration}
-                          onChange={v => setDrugConfig(c => ({ ...c, duration: v }))} />
-                      </div>
-                      <div>
-                        <div className="text-xs text-gray-500 mb-1.5">With food</div>
-                        <Chips options={FOOD_OPTIONS} value={drugConfig.food}
-                          onChange={v => setDrugConfig(c => ({ ...c, food: v }))} />
-                      </div>
-                      {counsellingTips.length > 0 && (
+                    </div>
+
+                    {rxDraft.drug && (
+                      <>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-[10px] text-gray-500 uppercase tracking-wide">Dosage / Strength</label>
+                            <input
+                              className="w-full mt-0.5 text-sm border border-gray-200 rounded-lg px-2 py-1.5 outline-none focus:border-blue-300"
+                              placeholder="e.g. 500mg, 5ml"
+                              value={rxDraft.dosage}
+                              onChange={e => setRxDraft(d => ({ ...d, dosage: e.target.value }))}
+                            />
+                          </div>
+                          {rxDraft.drug.brands?.length > 0 && (
+                            <div>
+                              <label className="text-[10px] text-gray-500 uppercase tracking-wide">Brand</label>
+                              <select
+                                className="w-full mt-0.5 text-sm border border-gray-200 rounded-lg px-2 py-1.5 outline-none bg-white"
+                                value={rxDraft.brand}
+                                onChange={e => setRxDraft(d => ({ ...d, brand: e.target.value }))}
+                              >
+                                <option value="">Select brand</option>
+                                {rxDraft.drug.brands.map(b => <option key={b} value={b}>{b}</option>)}
+                              </select>
+                            </div>
+                          )}
+                        </div>
+
                         <div>
-                          <div className="text-xs text-gray-500 mb-1.5">Counselling tips (select to add)</div>
-                          <div className="flex flex-wrap gap-1.5">
-                            {counsellingTips.map((tip, i) => {
-                              const selected = drugConfig.counselling.includes(tip)
-                              return (
-                                <button key={i} type="button"
-                                  onClick={() => setDrugConfig(c => ({
-                                    ...c,
-                                    counselling: selected
-                                      ? c.counselling.filter(t => t !== tip)
-                                      : [...c.counselling, tip],
-                                  }))}
-                                  className={`px-2 py-1 rounded-lg text-xs border transition-all ${
-                                    selected
-                                      ? 'bg-green-600 text-white border-green-600'
-                                      : 'bg-white text-gray-600 border-gray-200 hover:border-green-300'
-                                  }`}>
-                                  {tip}
-                                </button>
-                              )
-                            })}
+                          <label className="text-[10px] text-gray-500 uppercase tracking-wide mb-1 block">Route</label>
+                          <ChipSelect
+                            options={ROUTES}
+                            selected={rxDraft.route}
+                            multi={false}
+                            onToggle={val => setRxDraft(d => ({ ...d, route: val }))}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] text-gray-500 uppercase tracking-wide mb-1 block">Frequency</label>
+                          <ChipSelect
+                            options={FREQ_OPTIONS}
+                            selected={rxDraft.freq}
+                            onToggle={val => toggleRxChip('freq', val)}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] text-gray-500 uppercase tracking-wide mb-1 block">Timing</label>
+                          <ChipSelect
+                            options={TIMING_OPTIONS}
+                            selected={rxDraft.timing}
+                            onToggle={val => toggleRxChip('timing', val)}
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-[10px] text-gray-500 uppercase tracking-wide mb-1 block">Duration</label>
+                            <ChipSelect
+                              options={DURATION_OPTIONS}
+                              selected={rxDraft.duration}
+                              multi={false}
+                              onToggle={val => setRxDraft(d => ({ ...d, duration: d.duration === val ? '' : val }))}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-gray-500 uppercase tracking-wide mb-1 block">Food</label>
+                            <ChipSelect
+                              options={FOOD_OPTIONS}
+                              selected={rxDraft.food}
+                              multi={false}
+                              onToggle={val => setRxDraft(d => ({ ...d, food: d.food === val ? '' : val }))}
+                            />
                           </div>
                         </div>
-                      )}
-                      <button type="button" onClick={addMedication} className="btn-primary text-sm w-full justify-center">
-                        <Plus size={14} />Add Medication
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-              {rxItems.length > 0 && (
-                <div className="mt-3 space-y-2">
-                  {rxItems.map((rx, i) => (
-                    <div key={rx.id} className="flex items-start gap-3 py-2 border-b border-gray-100 last:border-0">
-                      <Pill size={14} className="text-blue-400 mt-0.5 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <span className="font-semibold text-gray-800 text-sm">{rx.generic}</span>
-                        <span className="text-gray-500 text-xs ml-2">
-                          {rx.config.timing.join('+')} · {rx.config.frequency} · {rx.config.duration} · {rx.config.food}
-                        </span>
-                        {rx.config.counselling?.length > 0 && (
-                          <div className="text-xs text-gray-400 mt-0.5">{rx.config.counselling.join(' · ')}</div>
-                        )}
-                      </div>
-                      {!isLocked && (
-                        <button type="button" onClick={() => setRxItems(p => p.filter((_, j) => j !== i))}
-                          className="text-gray-300 hover:text-red-400 shrink-0"><X size={13} /></button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-              {rxItems.length === 0 && !editMode[key] && !configDrug && (
-                <p className="text-sm text-gray-400 italic">No medications added yet.</p>
-              )}
-            </div>
-          )
 
-          if (key === 'counselling') return (
-            <div key={key}>
-              <SectionDivider icon={def.icon} title={def.label} locked={isLocked}
-                onEdit={counsellingText ? () => toggleEdit(key) : undefined}
-                editMode={editMode[key]} />
-              {diseaseTips.length > 0 && !isLocked && (
-                <div className="mb-3 space-y-2">
-                  {diseaseTips.map((entry, ei) => (
-                    <div key={ei}>
-                      {entry.condition && (
-                        <div className="text-xs font-medium text-indigo-700 mb-1">{entry.condition}</div>
-                      )}
-                      <div className="flex flex-wrap gap-1">
-                        {entry.tips.map((tip, ti) => {
-                          const alreadyAdded = counsellingText.includes(tip)
-                          return (
-                            <button key={ti}
-                              onClick={() => {
-                                if (!alreadyAdded) {
-                                  setCounsellingText(prev => prev ? prev + '\n• ' + tip : '• ' + tip)
-                                }
-                              }}
-                              className={`text-xs px-2 py-1 rounded-full border transition-colors ${
-                                alreadyAdded
-                                  ? 'bg-indigo-100 border-indigo-300 text-indigo-500 cursor-default'
-                                  : 'bg-white border-gray-300 text-gray-700 hover:border-indigo-400 hover:bg-indigo-50 cursor-pointer'
-                              }`}
-                            >
-                              {alreadyAdded ? '✓ ' : '+ '}{tip}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {editMode[key] || !counsellingText ? (
-                <AutoTextarea value={counsellingText}
-                  onChange={setCounsellingText}
-                  onBlur={() => setEditMode(m => ({ ...m, [key]: false }))}
-                  placeholder="Patient education, lifestyle advice, red flag symptoms to watch for…"
-                  disabled={isLocked} />
-              ) : (
-                <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">{counsellingText}</p>
-              )}
-            </div>
-          )
+                        <input
+                          className="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5 outline-none focus:border-blue-300"
+                          placeholder="Additional instructions…"
+                          value={rxDraft.notes}
+                          onChange={e => setRxDraft(d => ({ ...d, notes: e.target.value }))}
+                        />
 
-          if (key === 'followup') return (
-            <div key={key}>
-              <SectionDivider icon={def.icon} title="Follow-up" locked={isLocked}
-                onEdit={followupDays ? () => toggleEdit(key) : undefined}
-                editMode={editMode[key]} />
-              {(editMode[key] || !followupDays) && !isLocked ? (
+                        <button
+                          onClick={addRxItem}
+                          className="w-full py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
+                        >
+                          Add to Prescription
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+
+            // ── Counselling ─────────────────────────────────────────────────
+            if (sectionKey === 'counselling') return (
+              <div key={sectionKey} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+                <SectionDivider icon={Icon} label={def.label} onRemove={!isLocked ? () => removeSection(sectionKey) : null} />
+                <textarea
+                  rows={3}
+                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-blue-300 resize-none placeholder-gray-400"
+                  placeholder="Patient counselling notes, lifestyle advice…"
+                  value={counselling}
+                  onChange={e => setCounselling(e.target.value)}
+                  disabled={isLocked}
+                />
+              </div>
+            )
+
+            // ── Follow-up ───────────────────────────────────────────────────
+            if (sectionKey === 'followup') return (
+              <div key={sectionKey} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+                <SectionDivider icon={Icon} label={def.label} onRemove={!isLocked ? () => removeSection(sectionKey) : null} />
                 <div className="space-y-3">
                   <div>
-                    <div className="text-xs text-gray-500 mb-2">Review after:</div>
-                    <Chips options={FOLLOWUP_DAYS.map(d => `${d} days`)} value={followupDays}
-                      onChange={setFollowupDays} />
+                    <label className="text-xs text-gray-500 mb-1 block">Follow-up after</label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {FOLLOWUP_DAYS.map(d => (
+                        <button
+                          key={d}
+                          disabled={isLocked}
+                          onClick={() => setFollowupDays(d)}
+                          className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
+                            followupDays === d
+                              ? 'bg-blue-600 text-white border-blue-600'
+                              : 'bg-white text-gray-600 border-gray-200 hover:border-blue-400'
+                          }`}
+                        >
+                          {d} days
+                        </button>
+                      ))}
+                    </div>
+                    {followupDays && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Approx. date: <b>{nextDate(followupDays)}</b>
+                      </p>
+                    )}
                   </div>
-                  {followupDays && (
-                    <div className="text-sm text-gray-600">
-                      Follow-up on: <b className="text-gray-900">{nextDate(followupDays)}</b>
-                    </div>
-                  )}
-                  <textarea className="input resize-none w-full" rows={2}
-                    value={notes.cautions_followup}
-                    onChange={e => note('cautions_followup', e.target.value)}
-                    onBlur={() => saveDraft(false)}
-                    placeholder="Additional follow-up instructions, red flags…" />
+                  <textarea
+                    rows={2}
+                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-blue-300 resize-none placeholder-gray-400"
+                    placeholder="Follow-up instructions…"
+                    value={followupNote}
+                    onChange={e => setFollowupNote(e.target.value)}
+                    disabled={isLocked}
+                  />
                 </div>
-              ) : (
-                <div className="space-y-1">
-                  {followupDays && (
-                    <div className="text-sm text-gray-800">
-                      Review in <b>{followupDays}</b> — <span className="text-gray-500">{nextDate(followupDays)}</span>
-                    </div>
-                  )}
-                  {notes.cautions_followup && (
-                    <p className="text-sm text-gray-600 whitespace-pre-wrap">{notes.cautions_followup}</p>
-                  )}
-                </div>
-              )}
+              </div>
+            )
+
+            return null
+          })}
+
+          {!isLocked && (
+            <div className="flex justify-end pb-16">
+              <AddSectionMenu sections={availableSections} onAdd={addSection} />
             </div>
-          )
+          )}
+        </div>
 
-          return null
-        })}
-
-        {!isLocked && sections.length < SECTION_DEFS.length && (
-          <div className="relative mt-8 pt-6 border-t border-gray-100" ref={menuRef}>
-            <button type="button"
-              onClick={() => setShowAddMenu(v => !v)}
-              className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 font-medium">
-              <div className="w-6 h-6 rounded-full border-2 border-blue-400 flex items-center justify-center">
-                <Plus size={14} />
-              </div>
-              Add section
-            </button>
-            {showAddMenu && (
-              <AddSectionMenu
-                addedKeys={sections}
-                onAdd={addSection}
-                onClose={() => setShowAddMenu(false)} />
-            )}
-          </div>
-        )}
-
-        {pastVisits.length > 0 && (
-          <div className="mt-10 pt-6 border-t border-gray-100">
-            <button type="button"
-              className="flex items-center gap-2 w-full text-left mb-4"
-              onClick={() => setShowPastVisits(v => !v)}>
-              <ClipboardList size={14} className="text-gray-400" />
-              <span className="text-xs font-bold uppercase tracking-wider text-gray-500 flex-1">
-                Past Visits ({pastVisits.length})
-              </span>
-              {showPastVisits ? <ChevronUp size={14} className="text-gray-400" /> : <ChevronDown size={14} className="text-gray-400" />}
-            </button>
-            {showPastVisits && (
-              <div className="space-y-2">
-                {pastVisits.map((v, i) => <PastVisitCard key={i} visit={v} />)}
-              </div>
-            )}
-          </div>
-        )}
-
-        <div className="h-20" />
-      </div>
-
-      {showAdmission && (
-        <AdmissionModal
-          appointmentId={id}
-          patientId={patient.id}
-          patientName={patient.full_name}
-          prefillDiagnosis={assessmentDisplay}
-          onClose={() => setShowAdmission(false)}
-          onCreated={num => { flash(`Admission ${num} created`); setShowAdmission(false) }}
+        {/* ── Right Smart Panel ── */}
+        <RightSmartPanel
+          suggestedMeds={suggestedMeds}
+          suggestedTests={suggestedTests}
+          loading={loadingSuggestions}
+          tips={smartTips}
+          favoriteMeds={favoriteMeds}
+          onAddFav={addToFavorites}
+          onRemoveFav={removeFromFavorites}
+          onQuickMed={quickAddMed}
+          onQuickTest={quickAddTest}
+          rightTab={rightTab}
+          setRightTab={setRightTab}
         />
-      )}
+      </div>
     </div>
   )
 }
