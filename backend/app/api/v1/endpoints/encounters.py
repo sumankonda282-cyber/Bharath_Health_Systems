@@ -178,11 +178,14 @@ def set_clinic_prefix(
 
 
 def _assign_clinic_patient_id(clinic: Clinic, db: Session) -> str:
-    """Generate next sequential clinic patient ID like APL-00001."""
+    """Generate next sequential clinic patient ID like APL-00001 (atomic)."""
     prefix = clinic.clinic_prefix or "CLN"
-    clinic.patient_id_counter = (clinic.patient_id_counter or 0) + 1
+    # Reload with row-level lock to prevent duplicate IDs under concurrent requests
+    db.refresh(clinic)
+    locked = db.query(Clinic).filter(Clinic.id == clinic.id).with_for_update().first()
+    locked.patient_id_counter = (locked.patient_id_counter or 0) + 1
     db.flush()
-    return f"{prefix}-{str(clinic.patient_id_counter).zfill(5)}"
+    return f"{prefix}-{str(locked.patient_id_counter).zfill(5)}"
 
 
 # ── Tags ─────────────────────────────────────────────────────────────────────
