@@ -1,1 +1,0 @@
-# BharatCliniq Carechart Portal
