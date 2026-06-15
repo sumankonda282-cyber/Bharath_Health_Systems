@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, BedDouble, Activity, ClipboardList, Pill,
   Stethoscope, ArrowLeftRight, Menu, X, Sun, Sunset, Moon,
-  FileText, ClipboardCheck, ChevronDown, LogOut, Settings, KeyRound, User
+  FileText, ClipboardCheck, ChevronDown, LogOut, Settings, KeyRound, User,
+  Users, FileOutput
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useWardSession } from '../contexts/WardSessionContext'
@@ -32,6 +33,7 @@ function IndiaMapLogo({ size = 40 }) {
 
 const CLINICAL_NAV = [
   { to: '/',           icon: LayoutDashboard, label: 'Dashboard', end: true },
+  { to: '/patients',   icon: Users,           label: 'Patients'             },
   { to: '/ward-board', icon: BedDouble,       label: 'Ward Board'           },
 ]
 
@@ -40,12 +42,14 @@ const NURSE_NAV = [
   { to: '/mar',         icon: Pill,           label: 'MAR'           },
   { to: '/notes',       icon: ClipboardList,  label: 'Nursing Notes' },
   { to: '/assessments', icon: ClipboardCheck, label: 'Assessments'   },
+  { to: '/discharge',   icon: FileOutput,     label: 'Discharge'     },
   { to: '/handoff',     icon: ArrowLeftRight, label: 'Shift Handoff' },
 ]
 
 const PROVIDER_NAV = [
   { to: '/rounds',    icon: Stethoscope,   label: 'Ward Rounds'   },
   { to: '/orders',    icon: ClipboardList, label: 'Orders'        },
+  { to: '/discharge', icon: FileOutput,    label: 'Discharge'     },
   { to: '/templates', icon: FileText,      label: 'Documentation' },
 ]
 
@@ -108,12 +112,26 @@ function NavSection({ title, items, onClose }) {
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
 
-function Sidebar({ onClose }) {
+function Sidebar({ onClose, collapsed }) {
   const { mode, department, ward } = useWardSession()
   const shift = getShift()
 
+  if (collapsed) return (
+    <aside className="w-14 flex flex-col h-full flex-shrink-0 items-center py-4 gap-1" style={{ background: '#065F46' }}>
+      <div className="mb-3"><IndiaMapLogo size={28} /></div>
+      {[...CLINICAL_NAV, ...(mode === 'nurse' ? NURSE_NAV : PROVIDER_NAV)].map(({ to, icon: Icon, label, end }) => (
+        <NavLink key={to} to={to} end={end} title={label}
+          className={({ isActive }) =>
+            `p-2 rounded-lg transition-colors ${isActive ? 'bg-white/20 text-white' : 'text-white/60 hover:bg-white/10 hover:text-white'}`
+          }>
+          <Icon size={18} />
+        </NavLink>
+      ))}
+    </aside>
+  )
+
   return (
-    <aside className="w-60 flex flex-col h-full flex-shrink-0" style={{ background: '#0F2557' }}>
+    <aside className="w-60 flex flex-col h-full flex-shrink-0" style={{ background: '#065F46' }}>
       {/* Logo */}
       <div className="px-4 pt-5 pb-4 border-b border-white/10">
         <div className="flex items-start gap-3">
@@ -138,7 +156,7 @@ function Sidebar({ onClose }) {
         {/* Context chip */}
         {(department || ward) && (
           <div className="mt-3 px-2 py-1.5 rounded-md text-xs flex items-center gap-1 flex-wrap"
-            style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.55)' }}
+            style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.65)' }}
           >
             {department && <span>{department.name}</span>}
             {department && ward && <span style={{ color: 'rgba(255,255,255,0.25)' }}>·</span>}
@@ -182,7 +200,7 @@ function ProfileDropdown() {
       >
         {/* Avatar */}
         <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-          style={{ background: '#0F2557' }}>
+          style={{ background: '#065F46' }}>
           {getInitials(user?.full_name || user?.email)}
         </div>
         <div className="hidden sm:block text-left">
@@ -241,8 +259,10 @@ function ProfileDropdown() {
 export default function Layout() {
   const { mode, switchMode } = useWardSession()
   const [open, setOpen] = useState(false)
+  const location = useLocation()
   const shift = getShift()
   const ShiftIcon = shift.icon
+  const collapsed = location.pathname.startsWith('/chart/')
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
@@ -257,12 +277,12 @@ export default function Layout() {
       <div className={`fixed inset-y-0 left-0 z-50 md:hidden transition-transform duration-300 ${
         open ? 'translate-x-0' : '-translate-x-full'
       }`}>
-        <Sidebar onClose={() => setOpen(false)} />
+        <Sidebar onClose={() => setOpen(false)} collapsed={false} />
       </div>
 
       {/* Desktop sidebar */}
       <div className="hidden md:flex flex-shrink-0">
-        <Sidebar />
+        <Sidebar collapsed={collapsed} />
       </div>
 
       {/* Main content */}
