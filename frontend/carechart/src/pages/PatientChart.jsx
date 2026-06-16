@@ -13,6 +13,7 @@ import MedicationList from './MedicationList'
 import MAR from './MAR'
 import Orders from './Orders'
 import DietNutrition from './DietNutrition'
+import Documentation from './Documentation'
 
 const GREEN  = '#065F46'
 const NAVY   = '#0F2557'
@@ -567,13 +568,16 @@ export default function PatientChart() {
           {activeNav === 'food' && (
             <DietNutrition admission={admission} />
           )}
-          {activeNav !== 'dashboard' && activeNav !== 'provider' && activeNav !== 'medications' && activeNav !== 'mar' && activeNav !== 'orders' && activeNav !== 'food' && (
+          {activeNav === 'docs' && (
+            <Documentation admission={admission} />
+          )}
+          {activeNav !== 'dashboard' && activeNav !== 'provider' && activeNav !== 'medications' && activeNav !== 'mar' && activeNav !== 'orders' && activeNav !== 'food' && activeNav !== 'docs' && (
             <ComingSoon label={PATIENT_NAV.find(n => n.key === activeNav)?.label || ''} />
           )}
         </div>
 
         {/* Assessment panel — hidden on full-width views */}
-        {activeNav !== 'medications' && activeNav !== 'mar' && activeNav !== 'orders' && activeNav !== 'food' && (
+        {activeNav !== 'medications' && activeNav !== 'mar' && activeNav !== 'orders' && activeNav !== 'food' && activeNav !== 'docs' && (
           <div className="flex-shrink-0 border-l overflow-hidden flex flex-col"
             style={{ width: 272, borderColor: '#e9eaec' }}>
             <AssessmentPanel admissionId={id} />
