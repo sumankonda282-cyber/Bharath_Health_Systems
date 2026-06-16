@@ -142,6 +142,52 @@ def seed_curated_terms():
         print(f"[medlib] allergens loaded: {len(rows)}")
 
 
+def seed_extra_terms():
+    """Load anatomy, procedure, and exam_finding terms into medical_terms."""
+    extra_sections = []
+    try:
+        from app.seed_data.anatomy import ANATOMY
+        extra_sections.append(("anatomy", ANATOMY))
+    except ImportError as e:
+        print(f"[medlib] anatomy seed missing: {e}")
+    try:
+        from app.seed_data.procedures import PROCEDURES
+        extra_sections.append(("procedure", PROCEDURES))
+    except ImportError as e:
+        print(f"[medlib] procedures seed missing: {e}")
+    try:
+        from app.seed_data.exam_findings import EXAM_FINDINGS
+        extra_sections.append(("exam_finding", EXAM_FINDINGS))
+    except ImportError as e:
+        print(f"[medlib] exam_findings seed missing: {e}")
+
+    with engine.begin() as conn:
+        for category, items in extra_sections:
+            existing = _count(
+                conn,
+                "SELECT count(*) FROM medical_terms WHERE tier='curated' AND category=:c",
+                c=category,
+            )
+            if existing >= min(20, len(items) // 2):
+                print(f"[medlib] {category} terms already loaded ({existing}) — skipping")
+                continue
+            rows = [{
+                "system": "custom",
+                "code": None,
+                "display": it["display"][:300],
+                "category": category,
+                "specialty": it.get("specialty"),
+                "synonyms": it.get("synonyms"),
+            } for it in items]
+            _batched_insert(
+                conn,
+                "INSERT INTO medical_terms (system, code, display, category, specialty, synonyms, tier, is_active) "
+                "VALUES (:system, :code, :display, :category, :specialty, :synonyms, 'curated', TRUE)",
+                rows,
+            )
+            print(f"[medlib] {category} terms loaded: {len(rows)}")
+
+
 def seed_drug_data():
     loaders = []
     try:
@@ -326,6 +372,7 @@ def main():
     steps = [
         ("icd10 reference", seed_icd10_reference),
         ("curated terms", seed_curated_terms),
+        ("extra terms", seed_extra_terms),
         ("drug data", seed_drug_data),
         ("lab tests", seed_lab_tests),
         ("imaging catalog", seed_imaging_catalog),
