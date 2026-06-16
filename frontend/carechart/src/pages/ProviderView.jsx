@@ -20,6 +20,45 @@ function fmtTime(iso) {
   return new Date(iso).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
 }
 
+// ── Acuity + Vitals Frequency banner ─────────────────────────────────────────
+function AcuityBanner({ admission }) {
+  const adm = admission || {}
+  const acuity    = adm.acuity_level || adm.acuity || null
+  const freqHours = adm.vitals_freq_hours || adm.vitals_frequency || null
+  const note      = adm.monitoring_note  || adm.acuity_note || null
+
+  // Mock defaults when not in API
+  const mockAcuity    = acuity    || 'high'
+  const mockFreq      = freqHours || 1
+  const mockNote      = note      || 'Dr. Rao: Post-op monitoring. Alert immediately if SpO₂ < 95% or BP > 150/100 or Temp > 38.5°C.'
+
+  const ACUITY_CFG = {
+    high:    { label: 'HIGH ACUITY',    dot: '🔴', bg: '#b91c1c', text: 'white' },
+    medium:  { label: 'MEDIUM ACUITY',  dot: '🟡', bg: '#d97706', text: 'white' },
+    low:     { label: 'LOW ACUITY',     dot: '🟢', bg: '#065F46', text: 'white' },
+    routine: { label: 'ROUTINE',        dot: '⚪', bg: '#6b7280', text: 'white' },
+  }
+  const ac = ACUITY_CFG[mockAcuity] || ACUITY_CFG.routine
+
+  return (
+    <div className="flex-shrink-0 px-5 py-2.5 flex items-center gap-4 flex-wrap"
+      style={{ background: ac.bg, borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
+      <span className="text-[10px] font-black uppercase tracking-widest text-white opacity-90">{ac.dot} {ac.label}</span>
+      <div className="w-px h-3 bg-white opacity-30" />
+      {mockFreq && (
+        <>
+          <span className="text-[10px] text-white opacity-80">Vitals</span>
+          <span className="text-xs font-extrabold text-white">Every {mockFreq}h</span>
+          <div className="w-px h-3 bg-white opacity-30" />
+        </>
+      )}
+      {mockNote && (
+        <span className="text-[11px] text-white opacity-85 italic truncate flex-1">{mockNote}</span>
+      )}
+    </div>
+  )
+}
+
 // ── Latest vitals band ────────────────────────────────────────────────────────
 function VitalsBand({ vitals }) {
   const v = vitals?.[0]
@@ -423,6 +462,7 @@ export default function ProviderView({ admission, vitals }) {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
+      <AcuityBanner admission={admission} />
       <VitalsBand vitals={vitals} />
 
       {loading ? (
