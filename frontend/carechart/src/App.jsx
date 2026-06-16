@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard'
 import Patients from './pages/Patients'
 import WardBoard from './pages/WardBoard'
 import WardRounds from './pages/WardRounds'
+import Vitals from './pages/Vitals'
 import PatientChart from './pages/PatientChart'
 import Layout from './components/Layout'
 
@@ -59,7 +60,7 @@ export default function App() {
             <Route path="/dashboard"   element={<WardRoute><Dashboard /></WardRoute>} />
             <Route path="/patients"    element={<WardRoute><Patients /></WardRoute>} />
             <Route path="/ward-board"  element={<WardRoute><WardBoard /></WardRoute>} />
-            <Route path="/vitals"      element={<WardRoute><Placeholder label="Vitals" /></WardRoute>} />
+            <Route path="/vitals"      element={<WardRoute><Vitals /></WardRoute>} />
             <Route path="/mar"         element={<WardRoute><Placeholder label="MAR" /></WardRoute>} />
             <Route path="/notes"       element={<WardRoute><Placeholder label="Nursing Notes" /></WardRoute>} />
             <Route path="/assessments" element={<WardRoute><Placeholder label="Assessments" /></WardRoute>} />
