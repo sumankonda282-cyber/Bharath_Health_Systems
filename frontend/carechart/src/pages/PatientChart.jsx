@@ -11,6 +11,7 @@ import api from '../api/client'
 import ProviderView from './ProviderView'
 import MedicationList from './MedicationList'
 import MAR from './MAR'
+import Orders from './Orders'
 
 const GREEN  = '#065F46'
 const NAVY   = '#0F2557'
@@ -559,13 +560,16 @@ export default function PatientChart() {
           {activeNav === 'mar' && (
             <MAR admission={admission} />
           )}
-          {activeNav !== 'dashboard' && activeNav !== 'provider' && activeNav !== 'medications' && activeNav !== 'mar' && (
+          {activeNav === 'orders' && (
+            <Orders admission={admission} />
+          )}
+          {activeNav !== 'dashboard' && activeNav !== 'provider' && activeNav !== 'medications' && activeNav !== 'mar' && activeNav !== 'orders' && (
             <ComingSoon label={PATIENT_NAV.find(n => n.key === activeNav)?.label || ''} />
           )}
         </div>
 
         {/* Assessment panel — hidden on full-width views */}
-        {activeNav !== 'medications' && activeNav !== 'mar' && (
+        {activeNav !== 'medications' && activeNav !== 'mar' && activeNav !== 'orders' && (
           <div className="flex-shrink-0 border-l overflow-hidden flex flex-col"
             style={{ width: 272, borderColor: '#e9eaec' }}>
             <AssessmentPanel admissionId={id} />
