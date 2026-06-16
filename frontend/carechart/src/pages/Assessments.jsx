@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   Activity, AlertTriangle, ClipboardList, FileText,
-  CheckCircle, Plus, ChevronDown, User
+  CheckCircle, Plus, ChevronDown, User, Wind
 } from 'lucide-react'
 import PatientList from '../components/PatientList'
 import GCSForm from '../components/assessments/GCSForm'
@@ -13,6 +13,7 @@ import WoundCareForm from '../components/assessments/WoundCareForm'
 import RestraintForm from '../components/assessments/RestraintForm'
 import PatientProfileForm from '../components/assessments/PatientProfileForm'
 import VitalSignsForm from '../components/assessments/VitalSignsForm'
+import AsthmaForm from '../components/assessments/AsthmaForm'
 import api from '../api/client'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -120,6 +121,7 @@ function AssessmentCard({ assessment, lastNote, onClick }) {
 const GENERAL_ASSESSMENTS = [
   { key: 'patient_profile', name: '[A] Patient Profile', Icon: User,     iconBg: 'bg-emerald-100', iconColor: 'text-emerald-600', noteType: 'patient_profile' },
   { key: 'vital_signs',     name: '[A] Vital Signs',     Icon: Activity, iconBg: 'bg-blue-100',    iconColor: 'text-blue-600',    noteType: 'vital_signs'     },
+  { key: 'asthma',          name: '[A] Asthma',          Icon: Wind,     iconBg: 'bg-sky-100',     iconColor: 'text-sky-600',     noteType: 'asthma'          },
 ]
 
 const NURSING_ASSESSMENTS = [
@@ -189,6 +191,7 @@ export default function Assessments() {
     const FormComponent = {
       patient_profile: PatientProfileForm,
       vital_signs:     VitalSignsForm,
+      asthma:          AsthmaForm,
       gcs:      GCSForm,
       braden:   BradenForm,
       morse:    MorseForm,
