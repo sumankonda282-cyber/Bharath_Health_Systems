@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { MessageSquare, Plus, X, Search } from 'lucide-react'
 import api from '../../api/client'
+import MedicalTextArea from '../MedicalTextArea'
 
 const DURATION_UNITS = ['min', 'hr', 'day', 'wk', 'mo', 'yr']
 const ONSET_OPTS    = ['Sudden', 'Gradual']
@@ -285,11 +286,11 @@ export default function ChiefComplaintForm({ admission, onClose, onSaved }) {
               </button>
             )}
           </div>
-          <textarea
+          <MedicalTextArea
             rows={4} value={hpi}
             onChange={e => { setHpi(e.target.value); setHpiEdited(true) }}
             placeholder="Auto-generates from complaints above. Edit to customise."
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
+            categories="symptom,condition,anatomy,exam_finding"
           />
         </section>
 
