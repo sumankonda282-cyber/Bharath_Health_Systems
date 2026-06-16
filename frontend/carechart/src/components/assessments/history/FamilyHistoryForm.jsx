@@ -1,8 +1,6 @@
 import { useState } from 'react'
 import { Loader2, CheckCircle, AlertCircle, GitBranch, Plus } from 'lucide-react'
-import { usePin } from '../../contexts/PinContext'
-import SignatureBlock from '../SignatureBlock'
-import api from '../../api/client'
+import api from '../../../api/client'
 
 const CONDITIONS = [
   'Alcohol Abuse',
@@ -50,8 +48,6 @@ export default function FamilyHistoryForm({ admission, onClose, onSaved }) {
   const [saving, setSaving]           = useState(false)
   const [error, setError]             = useState(null)
   const [done, setDone]               = useState(false)
-  const { pin }                       = usePin()
-
   const addMember = () => setMembers(p => [...p, newMember()])
 
   const updateMember = (idx, field, val) =>
@@ -72,8 +68,7 @@ export default function FamilyHistoryForm({ admission, onClose, onSaved }) {
       const payload = { type: 'family_history', no_significant_history: noHistory, consanguinity, members: membersData, notes }
       await api.post(
         `/inpatient/admissions/${admission.id}/notes`,
-        { note_type: 'assessment', note_text: JSON.stringify(payload) },
-        pin ? { headers: { 'X-PIN': pin } } : {}
+        { note_type: 'assessment', note_text: JSON.stringify(payload) }
       )
       setDone(true)
       setTimeout(() => { onSaved?.() }, 1200)
@@ -215,9 +210,6 @@ export default function FamilyHistoryForm({ admission, onClose, onSaved }) {
           <textarea rows={2} value={notes} onChange={e => setNotes(e.target.value)}
             placeholder="Additional notes..."
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
-        </div>
-        <div className="px-4 pb-2">
-          <SignatureBlock />
         </div>
       </div>
 

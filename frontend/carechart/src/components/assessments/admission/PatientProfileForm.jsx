@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Loader2, CheckCircle, AlertCircle } from 'lucide-react'
-import { usePin } from '../../contexts/PinContext'
-import SignatureBlock from '../SignatureBlock'
-import api from '../../api/client'
+import api from '../../../api/client'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -104,15 +102,12 @@ function ReadonlyField({ label, value }) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function PatientProfileForm({ admission, onClose, onSaved }) {
-  const { requestPin } = usePin()
   const [form, setForm]         = useState(null)
   const [patientMeta, setMeta]  = useState({ mrn: '', bh_id: '' })
   const [loading, setLoading]   = useState(true)
   const [saving, setSaving]     = useState(false)
   const [error, setError]       = useState('')
   const [success, setSuccess]   = useState(false)
-  const [signedIdentity, setSI] = useState(null)
-  const [signedAt, setSA]       = useState('')
 
   const patientId = admission?.patient?.id || admission?.patient_id
 
@@ -182,17 +177,13 @@ export default function PatientProfileForm({ admission, onClose, onSaved }) {
       }
     }
 
-    let identity
-    try { identity = await requestPin('Update Patient Profile') } catch { return }
-
     setSaving(true)
     try {
       await api.put(`/patients/${patientId}`, {
         ...form,
         full_name: [form.first_name, form.last_name].filter(Boolean).join(' '),
       })
-      const now = new Date().toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
-      setSuccess(true); setSI(identity); setSA(now)
+      setSuccess(true)
       onSaved?.()
     } catch (err) {
       setError(err.message || 'Save failed')
@@ -218,7 +209,6 @@ export default function PatientProfileForm({ admission, onClose, onSaved }) {
       <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm">
         <CheckCircle size={15} /> Patient profile updated successfully.
       </div>
-      {signedIdentity && <SignatureBlock verifiedIdentity={signedIdentity} signed signedAt={signedAt} />}
       <div className="shrink-0 border-t border-gray-200 pt-4 flex justify-end">
         <button onClick={onClose} className="btn-secondary">Close</button>
       </div>
@@ -418,8 +408,7 @@ export default function PatientProfileForm({ admission, onClose, onSaved }) {
       </div>
 
       {/* Footer */}
-      <div className="shrink-0 border-t border-gray-200 bg-white px-6 py-4 flex items-center justify-between gap-3">
-        <p className="text-xs text-gray-400">PIN required to save — updates patient record across all portals.</p>
+      <div className="shrink-0 border-t border-gray-200 bg-white px-6 py-4 flex items-center justify-end gap-3">
         <div className="flex gap-2">
           <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
           <button type="submit" disabled={saving} className="btn-primary">

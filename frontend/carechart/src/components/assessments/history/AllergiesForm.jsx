@@ -1,8 +1,6 @@
 import { useState } from 'react'
 import { Loader2, CheckCircle, AlertCircle, ShieldAlert, Plus, X } from 'lucide-react'
-import { usePin } from '../../contexts/PinContext'
-import SignatureBlock from '../SignatureBlock'
-import api from '../../api/client'
+import api from '../../../api/client'
 
 const CATEGORIES = ['Drug', 'Food', 'Environmental', 'Other']
 
@@ -46,8 +44,6 @@ export default function AllergiesForm({ admission, onClose, onSaved }) {
   const [saving, setSaving]   = useState(false)
   const [error, setError]     = useState(null)
   const [done, setDone]       = useState(false)
-  const { pin }               = usePin()
-
   const addEntry  = () => setEntries(p => [...p, newEntry()])
   const removeEntry = (id) => setEntries(p => p.filter(e => e.id !== id))
   const updateEntry = (id, field, val) =>
@@ -73,8 +69,7 @@ export default function AllergiesForm({ admission, onClose, onSaved }) {
       }
       await api.post(
         `/inpatient/admissions/${admission.id}/notes`,
-        { note_type: 'assessment', note_text: JSON.stringify(payload) },
-        pin ? { headers: { 'X-PIN': pin } } : {}
+        { note_type: 'assessment', note_text: JSON.stringify(payload) }
       )
       setDone(true)
       setTimeout(() => { onSaved?.() }, 1200)
@@ -226,7 +221,6 @@ export default function AllergiesForm({ admission, onClose, onSaved }) {
             placeholder="Additional notes..."
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 resize-none" />
         </div>
-        <SignatureBlock />
       </div>
 
       {/* Footer */}

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Stethoscope, ChevronDown, ChevronUp, CheckCircle, MinusCircle } from 'lucide-react'
-import MedicalTextArea from '../MedicalTextArea'
-import api from '../../api/client'
+import MedicalTextArea from '../../MedicalTextArea'
+import api from '../../../api/client'
 
 // ── System definitions ────────────────────────────────────────────────────────
 

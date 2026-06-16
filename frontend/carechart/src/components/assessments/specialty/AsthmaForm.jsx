@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Loader2, CheckCircle, AlertCircle, Wind } from 'lucide-react'
-import { usePin } from '../../contexts/PinContext'
-import SignatureBlock from '../SignatureBlock'
-import api from '../../api/client'
+import api from '../../../api/client'
 
 // ── Clinical calculation helpers ──────────────────────────────────────────────
 
@@ -204,8 +202,6 @@ const TRIGGERS = ['Dust / Dust mites', 'Cigarette smoke', 'Cold air', 'Exercise 
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function AsthmaForm({ admission, onClose, onSaved }) {
-  const { requestPin } = usePin()
-
   const [patientInfo, setPatientInfo] = useState({ age: null, sex: '', height: null, weight: null })
   const [loading,  setLoading]  = useState(true)
 
@@ -225,8 +221,6 @@ export default function AsthmaForm({ admission, onClose, onSaved }) {
   const [saving,  setSaving]  = useState(false)
   const [error,   setError]   = useState('')
   const [success, setSuccess] = useState(false)
-  const [signedIdentity, setSI] = useState(null)
-  const [signedAt,       setSA] = useState('')
 
   // ── Fetch patient demographics + latest vitals ──────────────────────────────
   useEffect(() => {
@@ -285,8 +279,6 @@ export default function AsthmaForm({ admission, onClose, onSaved }) {
   // ── Submit ──────────────────────────────────────────────────────────────────
   const handleSubmit = async e => {
     e.preventDefault(); setError('')
-    let identity
-    try { identity = await requestPin('Record Asthma Assessment') } catch { return }
     setSaving(true)
     try {
       const data = {
@@ -313,8 +305,7 @@ export default function AsthmaForm({ admission, onClose, onSaved }) {
         note_text: JSON.stringify(data),
         shift: 'general',
       })
-      const now = new Date().toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
-      setSuccess(true); setSI(identity); setSA(now)
+      setSuccess(true)
       onSaved?.()
     } catch (err) {
       setError(err.message || 'Save failed')
@@ -330,7 +321,6 @@ export default function AsthmaForm({ admission, onClose, onSaved }) {
         <CheckCircle size={15} /> Asthma assessment recorded.
       </div>
       {ginaSev && <ScoreBadge label={ginaSev.label} color={ginaSev.color} />}
-      {signedIdentity && <SignatureBlock verifiedIdentity={signedIdentity} signed signedAt={signedAt} />}
       <div className="pt-4 border-t border-gray-200 flex justify-end">
         <button onClick={onClose} className="btn-secondary">Close</button>
       </div>
@@ -515,8 +505,7 @@ export default function AsthmaForm({ admission, onClose, onSaved }) {
         )}
       </div>
 
-      <div className="shrink-0 border-t border-gray-200 bg-white px-6 py-4 flex items-center justify-between gap-3">
-        <p className="text-xs text-gray-400">PIN required — permanent clinical record.</p>
+      <div className="shrink-0 border-t border-gray-200 bg-white px-6 py-4 flex items-center justify-end gap-3">
         <div className="flex gap-2">
           <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
           <button type="submit" disabled={saving} className="btn-primary">

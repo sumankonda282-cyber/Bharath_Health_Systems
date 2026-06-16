@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { MessageSquare, Plus, X, Search } from 'lucide-react'
-import api from '../../api/client'
-import MedicalTextArea from '../MedicalTextArea'
+import api from '../../../api/client'
+import MedicalTextArea from '../../MedicalTextArea'
 
 const DURATION_UNITS = ['min', 'hr', 'day', 'wk', 'mo', 'yr']
 const ONSET_OPTS    = ['Sudden', 'Gradual']

@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Loader2, CheckCircle, AlertCircle, Activity } from 'lucide-react'
-import { usePin } from '../../contexts/PinContext'
-import SignatureBlock from '../SignatureBlock'
-import api from '../../api/client'
+import api from '../../../api/client'
 
 // ── Temperature normal ranges by location (IAP / API Indian standards) ────────
 const TEMP_RANGES = {
@@ -92,8 +90,6 @@ function RangeHint({ bad, badMsg, normalText }) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function VitalSignsForm({ admission, onClose, onSaved }) {
-  const { requestPin } = usePin()
-
   const patientDob = admission?.patient?.date_of_birth || null
   const initAge    = calcAge(patientDob)
 
@@ -112,8 +108,6 @@ export default function VitalSignsForm({ admission, onClose, onSaved }) {
   const [saving,  setSaving]  = useState(false)
   const [error,   setError]   = useState('')
   const [success, setSuccess] = useState(false)
-  const [signedIdentity, setSI] = useState(null)
-  const [signedAt,       setSA] = useState('')
 
   // Age derived from DOB or manual entry
   const age = dob ? calcAge(dob) : (ageInput !== '' ? parseInt(ageInput, 10) : null)
@@ -145,15 +139,12 @@ export default function VitalSignsForm({ admission, onClose, onSaved }) {
     if (form.pain_present === null) { setError('Please answer the Pain Present question'); return }
     setError('')
 
-    let identity
-    try { identity = await requestPin('Record Vital Signs') } catch { return }
-
     setSaving(true)
     try {
       const meta = JSON.stringify({ temp_location: form.temp_location, pain_present: form.pain_present })
       const notesText = `[vitals_meta]${meta}${form.notes ? '\n' + form.notes : ''}`
 
-      const payload = { notes: notesText, recorded_by: identity.staff_id }
+      const payload = { notes: notesText }
       const numFields = ['temperature','pulse','bp_systolic','bp_diastolic','spo2','respiration_rate','weight','height']
       numFields.forEach(k => {
         if (form[k] !== '' && form[k] != null) payload[k] = Number(form[k])
@@ -162,8 +153,7 @@ export default function VitalSignsForm({ admission, onClose, onSaved }) {
       payload.pain_score = form.pain_present ? null : 0
 
       await api.post(`/inpatient/admissions/${admission.id}/vitals`, payload)
-      const now = new Date().toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
-      setSuccess(true); setSI(identity); setSA(now)
+      setSuccess(true)
       onSaved?.({ pain_present: form.pain_present })
     } catch (err) {
       setError(err.message || 'Save failed')
@@ -182,7 +172,6 @@ export default function VitalSignsForm({ admission, onClose, onSaved }) {
           <span className="ml-1 font-medium">Pain reported — complete Pain Assessment next.</span>
         )}
       </div>
-      {signedIdentity && <SignatureBlock verifiedIdentity={signedIdentity} signed signedAt={signedAt} />}
       <div className="shrink-0 pt-4 border-t border-gray-200 flex justify-end">
         <button onClick={onClose} className="btn-secondary">Close</button>
       </div>
@@ -371,8 +360,7 @@ export default function VitalSignsForm({ admission, onClose, onSaved }) {
       </div>
 
       {/* Footer */}
-      <div className="shrink-0 border-t border-gray-200 bg-white px-6 py-4 flex items-center justify-between gap-3">
-        <p className="text-xs text-gray-400">PIN required — vitals are a permanent clinical record.</p>
+      <div className="shrink-0 border-t border-gray-200 bg-white px-6 py-4 flex items-center justify-end gap-3">
         <div className="flex gap-2">
           <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
           <button type="submit" disabled={saving} className="btn-primary">
