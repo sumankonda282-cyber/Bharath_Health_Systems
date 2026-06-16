@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   Activity, AlertTriangle, ClipboardList, FileText,
-  CheckCircle, Plus, ChevronDown
+  CheckCircle, Plus, ChevronDown, User
 } from 'lucide-react'
 import PatientList from '../components/PatientList'
 import GCSForm from '../components/assessments/GCSForm'
@@ -11,6 +11,7 @@ import PainForm from '../components/assessments/PainForm'
 import IOChartForm from '../components/assessments/IOChartForm'
 import WoundCareForm from '../components/assessments/WoundCareForm'
 import RestraintForm from '../components/assessments/RestraintForm'
+import PatientProfileForm from '../components/assessments/PatientProfileForm'
 import api from '../api/client'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -115,6 +116,10 @@ function AssessmentCard({ assessment, lastNote, onClick }) {
 
 // ── Definitions ───────────────────────────────────────────────────────────────
 
+const GENERAL_ASSESSMENTS = [
+  { key: 'patient_profile', name: '[A] Patient Profile', Icon: User, iconBg: 'bg-emerald-100', iconColor: 'text-emerald-600', noteType: 'patient_profile' },
+]
+
 const NURSING_ASSESSMENTS = [
   { key: 'gcs',       name: 'Glasgow Coma Scale (GCS)',    Icon: Activity,       iconBg: 'bg-blue-100',   iconColor: 'text-blue-600',   noteType: 'gcs'       },
   { key: 'braden',    name: 'Braden Scale',                Icon: AlertTriangle,  iconBg: 'bg-orange-100', iconColor: 'text-orange-600', noteType: 'braden'    },
@@ -178,8 +183,9 @@ export default function Assessments() {
   function renderModal() {
     if (!openModal || !selectedAdmission) return null
     const props = { admission: selectedAdmission, onClose: () => setOpenModal(null), onSaved: handleSaved }
-    const title = [...NURSING_ASSESSMENTS, ...PROVIDER_ASSESSMENTS].find(a => a.key === openModal)?.name || openModal
+    const title = [...GENERAL_ASSESSMENTS, ...NURSING_ASSESSMENTS, ...PROVIDER_ASSESSMENTS].find(a => a.key === openModal)?.name || openModal
     const FormComponent = {
+      patient_profile: PatientProfileForm,
       gcs:      GCSForm,
       braden:   BradenForm,
       morse:    MorseForm,
@@ -230,6 +236,23 @@ export default function Assessments() {
                 </p>
               </div>
             </div>
+
+            {/* General Assessments */}
+            <section className="mb-8">
+              <h2 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                <User size={14} /> General
+              </h2>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                {GENERAL_ASSESSMENTS.map(a => (
+                  <AssessmentCard
+                    key={a.key}
+                    assessment={a}
+                    lastNote={lastNotes[a.key] || lastNotes[a.noteType]}
+                    onClick={() => setOpenModal(a.key)}
+                  />
+                ))}
+              </div>
+            </section>
 
             {/* Nursing Assessments */}
             <section className="mb-8">
