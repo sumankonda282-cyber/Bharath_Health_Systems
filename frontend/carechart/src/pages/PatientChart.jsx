@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, Search, Pin, PinOff, ChevronDown, ChevronUp,
   Loader2, AlertTriangle, Activity, Pill, ClipboardList,
-  FileText, Heart, Bed, TrendingUp, ShieldAlert, Droplets, Utensils,
+  FileText, Heart, Bed, TrendingUp, ShieldAlert, Droplets, Utensils, Navigation,
   X, Lock
 } from 'lucide-react'
 import { useWardSession } from '../contexts/WardSessionContext'
@@ -15,6 +15,7 @@ import Orders from './Orders'
 import DietNutrition from './DietNutrition'
 import Documentation from './Documentation'
 import PrePostOp from './PrePostOp'
+import PatientMovement from './PatientMovement'
 
 const GREEN  = '#065F46'
 const NAVY   = '#0F2557'
@@ -52,7 +53,7 @@ const PATIENT_NAV = [
   { key: 'food',         icon: Utensils,      label: 'Diet & Nutrition' },
   { key: 'preop',        icon: Bed,           label: 'Pre / Post-Op Care' },
   { key: 'notes',        icon: FileText,      label: 'Notes' },
-  { key: 'flowsheet',    icon: TrendingUp,    label: 'Flow Sheet' },
+  { key: 'flowsheet',    icon: Navigation,    label: 'Patient Movement' },
   { key: 'discharge',    icon: ShieldAlert,   label: 'Discharge Summary' },
 ]
 
@@ -575,13 +576,16 @@ export default function PatientChart() {
           {activeNav === 'preop' && (
             <PrePostOp admission={admission} />
           )}
-          {activeNav !== 'dashboard' && activeNav !== 'provider' && activeNav !== 'medications' && activeNav !== 'mar' && activeNav !== 'orders' && activeNav !== 'food' && activeNav !== 'docs' && activeNav !== 'preop' && (
+          {activeNav === 'flowsheet' && (
+            <PatientMovement admission={admission} />
+          )}
+          {activeNav !== 'dashboard' && activeNav !== 'provider' && activeNav !== 'medications' && activeNav !== 'mar' && activeNav !== 'orders' && activeNav !== 'food' && activeNav !== 'docs' && activeNav !== 'preop' && activeNav !== 'flowsheet' && (
             <ComingSoon label={PATIENT_NAV.find(n => n.key === activeNav)?.label || ''} />
           )}
         </div>
 
         {/* Assessment panel — hidden on full-width views */}
-        {activeNav !== 'medications' && activeNav !== 'mar' && activeNav !== 'orders' && activeNav !== 'food' && activeNav !== 'docs' && activeNav !== 'preop' && (
+        {activeNav !== 'medications' && activeNav !== 'mar' && activeNav !== 'orders' && activeNav !== 'food' && activeNav !== 'docs' && activeNav !== 'preop' && activeNav !== 'flowsheet' && (
           <div className="flex-shrink-0 border-l overflow-hidden flex flex-col"
             style={{ width: 272, borderColor: '#e9eaec' }}>
             <AssessmentPanel admissionId={id} />
