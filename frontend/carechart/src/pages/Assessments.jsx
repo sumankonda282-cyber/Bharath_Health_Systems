@@ -17,6 +17,7 @@ import AsthmaForm from '../components/assessments/AsthmaForm'
 import SocialHistoryForm from '../components/assessments/SocialHistoryForm'
 import FamilyHistoryForm from '../components/assessments/FamilyHistoryForm'
 import AllergiesForm from '../components/assessments/AllergiesForm'
+import MedicalHistoryForm from '../components/assessments/MedicalHistoryForm'
 import api from '../api/client'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -127,7 +128,8 @@ const GENERAL_ASSESSMENTS = [
   { key: 'asthma',          name: '[A] Asthma',          Icon: Wind,     iconBg: 'bg-sky-100',     iconColor: 'text-sky-600',     noteType: 'asthma'          },
   { key: 'social_history',  name: '[A] Social History',  Icon: Users,      iconBg: 'bg-violet-100', iconColor: 'text-violet-600', noteType: 'social_history'  },
   { key: 'family_history',  name: '[A] Family History',  Icon: GitBranch,   iconBg: 'bg-indigo-100', iconColor: 'text-indigo-600', noteType: 'family_history' },
-  { key: 'allergies',       name: '[A] Allergies',       Icon: ShieldAlert, iconBg: 'bg-red-100',    iconColor: 'text-red-600',    noteType: 'allergies'      },
+  { key: 'allergies',        name: '[A] Allergies',        Icon: ShieldAlert,  iconBg: 'bg-red-100',   iconColor: 'text-red-600',    noteType: 'allergies'        },
+  { key: 'medical_history',  name: '[A] Medical History',  Icon: ClipboardList, iconBg: 'bg-teal-100', iconColor: 'text-teal-600',   noteType: 'medical_history'  },
 ]
 
 const NURSING_ASSESSMENTS = [
@@ -201,6 +203,7 @@ export default function Assessments() {
       social_history:  SocialHistoryForm,
       family_history:  FamilyHistoryForm,
       allergies:       AllergiesForm,
+      medical_history: MedicalHistoryForm,
       gcs:      GCSForm,
       braden:   BradenForm,
       morse:    MorseForm,
