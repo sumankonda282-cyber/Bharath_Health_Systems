@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   Activity, AlertTriangle, ClipboardList, FileText,
-  CheckCircle, Plus, ChevronDown, User, Wind, Users, GitBranch, ShieldAlert, Zap
+  CheckCircle, Plus, ChevronDown, User, Wind, Users, GitBranch, ShieldAlert, Zap, MessageSquare
 } from 'lucide-react'
 import PatientList from '../components/PatientList'
 import GCSForm from '../components/assessments/GCSForm'
@@ -19,6 +19,7 @@ import FamilyHistoryForm from '../components/assessments/FamilyHistoryForm'
 import AllergiesForm from '../components/assessments/AllergiesForm'
 import MedicalHistoryForm from '../components/assessments/MedicalHistoryForm'
 import PainAssessmentForm from '../components/assessments/PainAssessmentForm'
+import ChiefComplaintForm from '../components/assessments/ChiefComplaintForm'
 import api from '../api/client'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -124,7 +125,8 @@ function AssessmentCard({ assessment, lastNote, onClick }) {
 // ── Definitions ───────────────────────────────────────────────────────────────
 
 const GENERAL_ASSESSMENTS = [
-  { key: 'patient_profile', name: '[A] Patient Profile', Icon: User,     iconBg: 'bg-emerald-100', iconColor: 'text-emerald-600', noteType: 'patient_profile' },
+  { key: 'chief_complaint', name: '[A] Chief Complaint', Icon: MessageSquare, iconBg: 'bg-amber-100',   iconColor: 'text-amber-600',   noteType: 'chief_complaint' },
+  { key: 'patient_profile', name: '[A] Patient Profile', Icon: User,          iconBg: 'bg-emerald-100', iconColor: 'text-emerald-600', noteType: 'patient_profile' },
   { key: 'vital_signs',     name: '[A] Vital Signs',     Icon: Activity, iconBg: 'bg-blue-100',    iconColor: 'text-blue-600',    noteType: 'vital_signs'     },
   { key: 'asthma',          name: '[A] Asthma',          Icon: Wind,     iconBg: 'bg-sky-100',     iconColor: 'text-sky-600',     noteType: 'asthma'          },
   { key: 'social_history',  name: '[A] Social History',  Icon: Users,      iconBg: 'bg-violet-100', iconColor: 'text-violet-600', noteType: 'social_history'  },
@@ -199,6 +201,7 @@ export default function Assessments() {
     const props = { admission: selectedAdmission, onClose: () => setOpenModal(null), onSaved: handleSaved }
     const title = [...GENERAL_ASSESSMENTS, ...NURSING_ASSESSMENTS, ...PROVIDER_ASSESSMENTS].find(a => a.key === openModal)?.name || openModal
     const FormComponent = {
+      chief_complaint: ChiefComplaintForm,
       patient_profile: PatientProfileForm,
       vital_signs:     VitalSignsForm,
       asthma:          AsthmaForm,
