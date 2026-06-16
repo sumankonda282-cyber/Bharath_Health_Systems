@@ -9,6 +9,7 @@ import WardBoard from './pages/WardBoard'
 import WardRounds from './pages/WardRounds'
 import Vitals from './pages/Vitals'
 import WardOrders from './pages/WardOrders'
+import Assessments from './pages/Assessments'
 import PatientChart from './pages/PatientChart'
 import Layout from './components/Layout'
 
@@ -64,7 +65,7 @@ export default function App() {
             <Route path="/vitals"      element={<WardRoute><Vitals /></WardRoute>} />
             <Route path="/mar"         element={<WardRoute><Placeholder label="MAR" /></WardRoute>} />
             <Route path="/notes"       element={<WardRoute><Placeholder label="Nursing Notes" /></WardRoute>} />
-            <Route path="/assessments" element={<WardRoute><Placeholder label="Assessments" /></WardRoute>} />
+            <Route path="/assessments" element={<WardRoute><Assessments /></WardRoute>} />
             <Route path="/discharge"   element={<WardRoute><Placeholder label="Discharge" /></WardRoute>} />
             <Route path="/handoff"     element={<WardRoute><Placeholder label="Shift Handoff" /></WardRoute>} />
             <Route path="/rounds"      element={<WardRoute><WardRounds /></WardRoute>} />
