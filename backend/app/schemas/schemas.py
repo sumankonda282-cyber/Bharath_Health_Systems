@@ -202,7 +202,10 @@ class PatientCreate(BaseModel):
 
 class PatientUpdate(BaseModel):
     full_name: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     mobile: Optional[str] = None
+    whatsapp: Optional[str] = None
     date_of_birth: Optional[date] = None
     gender: Optional[str] = None
     email: Optional[EmailStr] = None
@@ -214,25 +217,60 @@ class PatientUpdate(BaseModel):
     allergies: Optional[str] = None
     emergency_contact_name: Optional[str] = None
     emergency_contact_phone: Optional[str] = None
+    emergency_contact_relationship: Optional[str] = None
     abha_id: Optional[str] = None
+    guardian_name: Optional[str] = None
+    guardian_mobile: Optional[str] = None
+    guardian_relationship: Optional[str] = None
+    marital_status: Optional[str] = None
+    occupation: Optional[str] = None
+    nationality: Optional[str] = None
+    religion: Optional[str] = None
+    preferred_language: Optional[str] = None
+    insurance_type: Optional[str] = None
+    insurance_provider: Optional[str] = None
+    insurance_policy_number: Optional[str] = None
+    govt_scheme_name: Optional[str] = None
+    govt_beneficiary_id: Optional[str] = None
 
 
 class PatientOut(BaseModel):
     id: int
-    uhid: Optional[str]
-    bh_id: Optional[str]
+    clinic_patient_id: Optional[str] = None
+    uhid: Optional[str] = None
+    bh_id: Optional[str] = None
     full_name: str
-    date_of_birth: Optional[date]
-    gender: Optional[str]
-    mobile: Optional[str]
-    email: Optional[str]
-    blood_group: Optional[str]
-    allergies: Optional[str]
-    address: Optional[str]
-    city: Optional[str]
-    state: Optional[str]
-    abha_id: Optional[str]
-    branch_id: Optional[int]
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    date_of_birth: Optional[date] = None
+    gender: Optional[str] = None
+    mobile: Optional[str] = None
+    whatsapp: Optional[str] = None
+    email: Optional[str] = None
+    blood_group: Optional[str] = None
+    allergies: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    pincode: Optional[str] = None
+    abha_id: Optional[str] = None
+    marital_status: Optional[str] = None
+    occupation: Optional[str] = None
+    nationality: Optional[str] = None
+    religion: Optional[str] = None
+    preferred_language: Optional[str] = None
+    insurance_type: Optional[str] = None
+    insurance_provider: Optional[str] = None
+    insurance_policy_number: Optional[str] = None
+    govt_scheme_name: Optional[str] = None
+    govt_beneficiary_id: Optional[str] = None
+    emergency_contact_name: Optional[str] = None
+    emergency_contact_phone: Optional[str] = None
+    emergency_contact_relationship: Optional[str] = None
+    guardian_name: Optional[str] = None
+    guardian_mobile: Optional[str] = None
+    guardian_relationship: Optional[str] = None
+    branch_id: Optional[int] = None
     is_active: bool
     created_at: datetime
 
