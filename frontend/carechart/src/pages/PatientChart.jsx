@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, Search, Pin, PinOff, ChevronDown, ChevronUp,
   Loader2, AlertTriangle, Activity, Pill, ClipboardList,
-  FileText, Heart, Bed, TrendingUp, ShieldAlert, Droplets,
+  FileText, Heart, Bed, TrendingUp, ShieldAlert, Droplets, Utensils,
   X, Lock
 } from 'lucide-react'
 import { useWardSession } from '../contexts/WardSessionContext'
@@ -12,6 +12,7 @@ import ProviderView from './ProviderView'
 import MedicationList from './MedicationList'
 import MAR from './MAR'
 import Orders from './Orders'
+import DietNutrition from './DietNutrition'
 
 const GREEN  = '#065F46'
 const NAVY   = '#0F2557'
@@ -46,7 +47,7 @@ const PATIENT_NAV = [
   { key: 'mar',          icon: ClipboardList, label: 'MAR' },
   { key: 'orders',       icon: FileText,      label: 'Orders' },
   { key: 'docs',         icon: FileText,      label: 'Documentation' },
-  { key: 'food',         icon: Droplets,      label: 'Food & Supplements' },
+  { key: 'food',         icon: Utensils,      label: 'Diet & Nutrition' },
   { key: 'preop',        icon: Bed,           label: 'Pre / Post-Op Care' },
   { key: 'notes',        icon: FileText,      label: 'Notes' },
   { key: 'flowsheet',    icon: TrendingUp,    label: 'Flow Sheet' },
@@ -563,13 +564,16 @@ export default function PatientChart() {
           {activeNav === 'orders' && (
             <Orders admission={admission} />
           )}
-          {activeNav !== 'dashboard' && activeNav !== 'provider' && activeNav !== 'medications' && activeNav !== 'mar' && activeNav !== 'orders' && (
+          {activeNav === 'food' && (
+            <DietNutrition admission={admission} />
+          )}
+          {activeNav !== 'dashboard' && activeNav !== 'provider' && activeNav !== 'medications' && activeNav !== 'mar' && activeNav !== 'orders' && activeNav !== 'food' && (
             <ComingSoon label={PATIENT_NAV.find(n => n.key === activeNav)?.label || ''} />
           )}
         </div>
 
         {/* Assessment panel — hidden on full-width views */}
-        {activeNav !== 'medications' && activeNav !== 'mar' && activeNav !== 'orders' && (
+        {activeNav !== 'medications' && activeNav !== 'mar' && activeNav !== 'orders' && activeNav !== 'food' && (
           <div className="flex-shrink-0 border-l overflow-hidden flex flex-col"
             style={{ width: 272, borderColor: '#e9eaec' }}>
             <AssessmentPanel admissionId={id} />
