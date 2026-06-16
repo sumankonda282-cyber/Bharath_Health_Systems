@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   Activity, AlertTriangle, ClipboardList, FileText,
-  CheckCircle, Plus, ChevronDown, User, Wind, Users
+  CheckCircle, Plus, ChevronDown, User, Wind, Users, GitBranch
 } from 'lucide-react'
 import PatientList from '../components/PatientList'
 import GCSForm from '../components/assessments/GCSForm'
@@ -15,6 +15,7 @@ import PatientProfileForm from '../components/assessments/PatientProfileForm'
 import VitalSignsForm from '../components/assessments/VitalSignsForm'
 import AsthmaForm from '../components/assessments/AsthmaForm'
 import SocialHistoryForm from '../components/assessments/SocialHistoryForm'
+import FamilyHistoryForm from '../components/assessments/FamilyHistoryForm'
 import api from '../api/client'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -123,7 +124,8 @@ const GENERAL_ASSESSMENTS = [
   { key: 'patient_profile', name: '[A] Patient Profile', Icon: User,     iconBg: 'bg-emerald-100', iconColor: 'text-emerald-600', noteType: 'patient_profile' },
   { key: 'vital_signs',     name: '[A] Vital Signs',     Icon: Activity, iconBg: 'bg-blue-100',    iconColor: 'text-blue-600',    noteType: 'vital_signs'     },
   { key: 'asthma',          name: '[A] Asthma',          Icon: Wind,     iconBg: 'bg-sky-100',     iconColor: 'text-sky-600',     noteType: 'asthma'          },
-  { key: 'social_history',  name: '[A] Social History',  Icon: Users,    iconBg: 'bg-violet-100',  iconColor: 'text-violet-600',  noteType: 'social_history'  },
+  { key: 'social_history',  name: '[A] Social History',  Icon: Users,      iconBg: 'bg-violet-100', iconColor: 'text-violet-600', noteType: 'social_history'  },
+  { key: 'family_history',  name: '[A] Family History',  Icon: GitBranch,  iconBg: 'bg-indigo-100', iconColor: 'text-indigo-600', noteType: 'family_history'  },
 ]
 
 const NURSING_ASSESSMENTS = [
@@ -195,6 +197,7 @@ export default function Assessments() {
       vital_signs:     VitalSignsForm,
       asthma:          AsthmaForm,
       social_history:  SocialHistoryForm,
+      family_history:  FamilyHistoryForm,
       gcs:      GCSForm,
       braden:   BradenForm,
       morse:    MorseForm,
