@@ -1,176 +1,290 @@
-import { useState } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { useState, useRef, useEffect } from 'react'
+import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import {
-  LayoutDashboard, BedDouble, Activity, ClipboardList, Pill,
-  Stethoscope, ArrowLeftRight, LogOut, Menu, X, Sun, Sunset, Moon,
-  FileText, ClipboardCheck, Settings
+  LayoutDashboard, Users, BedDouble,
+  Activity, Pill, FileText, ClipboardList, LogOut as LogOutIcon, ArrowRightFromLine,
+  Stethoscope, ShoppingBag, FileEdit,
+  Bell, RefreshCw, HelpCircle, ChevronDown, Menu, X,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useWardSession } from '../contexts/WardSessionContext'
+import EmergencyAlertBanner from './EmergencyAlertBanner'
+import ChatWidget from './ChatWidget'
+import BrandLogo from './BrandLogo'
+import api from '../api/client'
 
-const NURSE_NAV = [
-  { to: '/',              icon: LayoutDashboard, label: 'Dashboard',     end: true  },
-  { to: '/ward-board',    icon: BedDouble,       label: 'Ward Board'               },
-  { to: '/vitals',        icon: Activity,        label: 'Vitals'                   },
-  { to: '/notes',         icon: ClipboardList,   label: 'Nursing Notes'            },
-  { to: '/mar',           icon: Pill,            label: 'MAR'                      },
-  { to: '/assessments',   icon: ClipboardCheck,  label: 'Assessments'              },
-  { to: '/handoff',       icon: ArrowLeftRight,  label: 'Shift Handoff'            },
+const GREEN = '#065F46'
+
+const NAV = [
+  {
+    section: 'CLINICAL',
+    items: [
+      { to: '/dashboard',  icon: LayoutDashboard, label: 'Dashboard' },
+      { to: '/patients',   icon: Users,            label: 'Patients' },
+      { to: '/ward-board', icon: BedDouble,         label: 'Ward Board' },
+    ],
+  },
+  {
+    section: 'PROVIDER',
+    items: [
+      { to: '/rounds', icon: Stethoscope, label: 'Ward Rounds' },
+      { to: '/orders', icon: ShoppingBag, label: 'Orders' },
+      { to: '/docs',   icon: FileEdit,    label: 'Documentation' },
+    ],
+  },
+  {
+    section: 'NURSING',
+    items: [
+      { to: '/vitals',      icon: Activity,           label: 'Vitals' },
+      { to: '/mar',         icon: Pill,                label: 'MAR' },
+      { to: '/notes',       icon: FileText,            label: 'Nursing Notes' },
+      { to: '/assessments', icon: ClipboardList,       label: 'Assessments' },
+      { to: '/discharge',   icon: ArrowRightFromLine,  label: 'Discharge' },
+      { to: '/handoff',     icon: ShoppingBag,         label: 'Shift Handoff' },
+    ],
+  },
 ]
 
-const PROVIDER_NAV = [
-  { to: '/',              icon: LayoutDashboard, label: 'Dashboard',     end: true  },
-  { to: '/ward-board',    icon: BedDouble,       label: 'Ward Board'               },
-  { to: '/rounds',        icon: Stethoscope,     label: 'Ward Rounds'              },
-  { to: '/progress-notes', icon: FileText,       label: 'Progress Notes'           },
-  { to: '/orders',        icon: ClipboardList,   label: 'Orders',   disabled: true  },
-  { to: '/handoff',       icon: ArrowLeftRight,  label: 'Shift Handoff'            },
-]
-
-function getInitials(name) {
-  if (!name) return '?'
-  return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
-}
-
-function getShift() {
-  const h = new Date().getHours()
-  if (h >= 6 && h < 14) return { label: 'Morning Shift', icon: Sun, color: '#F5821E', range: '6am–2pm' }
-  if (h >= 14 && h < 22) return { label: 'Afternoon Shift', icon: Sunset, color: '#d97706', range: '2pm–10pm' }
-  return { label: 'Night Shift', icon: Moon, color: '#6366f1', range: '10pm–6am' }
-}
-
-function formatDate(d) {
-  return d.toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })
-}
-
-function formatRole(role) {
-  if (!role) return ''
-  return role.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
-}
-
-function Sidebar({ onClose }) {
-  const { user, logout } = useAuth()
-  const { mode, department, ward } = useWardSession()
-  const navigate = useNavigate()
-  const navItems = mode === 'provider' ? PROVIDER_NAV : NURSE_NAV
-
+function SidebarLink({ to, icon: Icon, label, collapsed }) {
   return (
-    <aside className="w-60 flex flex-col h-full flex-shrink-0" style={{ background: '#065F46' }}>
-      <div className="px-5 py-5 border-b border-white/10 flex items-center justify-between">
-        <div>
-          <div className="text-white font-extrabold text-lg tracking-tight">BHaratCliniq</div>
-          <div className="text-xs font-semibold mt-0.5 tracking-wider uppercase" style={{ color: '#6ee7b7' }}>
-            Ward Portal
-          </div>
-          {department && (
-            <div className="text-xs mt-1" style={{ color: 'rgba(110,231,183,0.7)' }}>
-              {department.name}{ward ? ` · ${ward.name}` : ''}
-            </div>
-          )}
-        </div>
-        {onClose && (
-          <button onClick={onClose} className="md:hidden text-white/60 hover:text-white">
-            <X size={20} />
-          </button>
-        )}
-      </div>
-
-      <nav className="flex-1 px-3 py-4 overflow-y-auto">
-        {navItems.map(({ to, icon: Icon, label, end, disabled }) =>
-          disabled ? (
-            <div key={to} className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm mb-0.5 cursor-not-allowed"
-              style={{ color: 'rgba(255,255,255,0.3)' }}>
-              <Icon size={17} className="flex-shrink-0" />
-              {label}
-              <span className="ml-auto text-xs px-1.5 py-0.5 rounded"
-                style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.3)' }}>
-                Soon
-              </span>
-            </div>
-          ) : (
-            <NavLink key={to} to={to} end={end} onClick={onClose}
-              className={({ isActive }) => isActive ? 'sidebar-link-active' : 'sidebar-link'}>
-              <Icon size={17} className="flex-shrink-0" />{label}
-            </NavLink>
-          )
-        )}
-      </nav>
-
-      <div className="px-3 py-4 border-t border-white/10">
-        <div className="flex items-center gap-3 px-2 mb-3">
-          <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-            style={{ background: 'rgba(110,231,183,0.2)', color: '#6ee7b7' }}>
-            {getInitials(user?.full_name || user?.email)}
-          </div>
-          <div className="min-w-0">
-            <div className="text-white text-xs font-semibold truncate">{user?.full_name || user?.email}</div>
-            <div className="text-emerald-300 text-xs truncate">{formatRole(user?.role)}</div>
-          </div>
-        </div>
-        <button onClick={() => { navigate('/account'); onClose?.() }} className="sidebar-link w-full"><Settings size={15} />Account Settings</button>
-        <button onClick={logout} className="sidebar-link w-full"><LogOut size={15} />Sign Out</button>
-      </div>
-    </aside>
+    <NavLink
+      to={to}
+      className={({ isActive }) =>
+        `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all
+         ${isActive ? 'text-white' : 'text-gray-400 hover:text-white hover:bg-white/10'}`
+      }
+      style={({ isActive }) => isActive ? { background: GREEN } : {}}
+      title={collapsed ? label : undefined}
+    >
+      <Icon size={17} className="flex-shrink-0" />
+      {!collapsed && <span className="truncate">{label}</span>}
+    </NavLink>
   )
 }
 
-export default function Layout() {
-  const { mode, switchMode, department, ward } = useWardSession()
-  const [open, setOpen] = useState(false)
-  const shift = getShift()
-  const ShiftIcon = shift.icon
+export default function Layout({ children }) {
+  const { user, logout }          = useAuth()
+  const { session, clearSession } = useWardSession()
+  const navigate                  = useNavigate()
+  const location                  = useLocation()
 
-  return (
-    <div className="flex h-screen overflow-hidden bg-gray-50">
-      {open && (
-        <div className="fixed inset-0 z-40 md:hidden" onClick={() => setOpen(false)}>
-          <div className="absolute inset-0 bg-black/50" />
+  const [profileOpen, setProfileOpen]       = useState(false)
+  const [notifOpen, setNotifOpen]           = useState(false)
+  const [notifications, setNotifications]   = useState([])
+  const [unread, setUnread]                 = useState(0)
+  const [refreshing, setRefreshing]         = useState(false)
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+
+  const profileRef = useRef(null)
+  const notifRef   = useRef(null)
+
+  const collapsed = location.pathname.startsWith('/chart/')
+
+  useEffect(() => {
+    const h = (e) => {
+      if (profileRef.current && !profileRef.current.contains(e.target)) setProfileOpen(false)
+      if (notifRef.current   && !notifRef.current.contains(e.target))   setNotifOpen(false)
+    }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [])
+
+  useEffect(() => {
+    const fetchNotifs = async () => {
+      try {
+        const data = await api.get('/inpatient/emergency', { params: { status: 'scheduled' } })
+        const list = Array.isArray(data) ? data : []
+        setNotifications(list)
+        setUnread(list.filter(n => !n.alert_ack_at).length)
+      } catch {}
+    }
+    fetchNotifs()
+    const t = setInterval(fetchNotifs, 30000)
+    window.addEventListener('carechart:refresh', fetchNotifs)
+    return () => { clearInterval(t); window.removeEventListener('carechart:refresh', fetchNotifs) }
+  }, [])
+
+  const handleRefresh = () => {
+    setRefreshing(true)
+    window.dispatchEvent(new CustomEvent('carechart:refresh'))
+    setTimeout(() => setRefreshing(false), 800)
+  }
+
+  const handleSignOut = () => { clearSession(); logout() }
+
+  const shift = (() => {
+    const h = new Date().getHours()
+    if (h >= 6  && h < 14) return 'Morning'
+    if (h >= 14 && h < 22) return 'Evening'
+    return 'Night'
+  })()
+
+  const Sidebar = ({ mobile = false }) => (
+    <aside
+      className={`flex flex-col h-full ${mobile ? 'w-64' : collapsed ? 'w-14' : 'w-56'} flex-shrink-0 transition-all duration-200`}
+      style={{ background: '#0f1117', borderRight: '1px solid #1f2028' }}
+    >
+      <div className={`flex items-center ${collapsed && !mobile ? 'justify-center' : 'px-4'} py-4 border-b flex-shrink-0`} style={{ borderColor: '#1f2028' }}>
+        {collapsed && !mobile ? <BrandLogo size="sm" showText={false} /> : <BrandLogo size="sm" />}
+      </div>
+
+      {(!collapsed || mobile) && session && (
+        <div className="px-4 py-2 border-b flex-shrink-0" style={{ borderColor: '#1f2028' }}>
+          <p className="text-xs text-gray-500 uppercase tracking-wider">Current Ward</p>
+          <p className="text-xs font-semibold text-gray-300 truncate mt-0.5">{session.ward?.name}</p>
+          <p className="text-xs text-gray-500 truncate">{session.department?.name}</p>
         </div>
       )}
-      <div className={`fixed inset-y-0 left-0 z-50 md:hidden transition-transform duration-300 ${open ? 'translate-x-0' : '-translate-x-full'}`}>
-        <Sidebar onClose={() => setOpen(false)} />
-      </div>
-      <div className="hidden md:flex flex-shrink-0">
+
+      <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-4">
+        {NAV.map(({ section, items }) => (
+          <div key={section}>
+            {(!collapsed || mobile) && (
+              <p className="text-[10px] font-bold tracking-widest text-gray-600 uppercase px-2 mb-1">{section}</p>
+            )}
+            <div className="space-y-0.5">
+              {items.map(item => (
+                <SidebarLink key={item.to} {...item} collapsed={collapsed && !mobile} />
+              ))}
+            </div>
+          </div>
+        ))}
+      </nav>
+
+      {(!collapsed || mobile) && (
+        <div className="px-4 py-3 border-t flex-shrink-0" style={{ borderColor: '#1f2028' }}>
+          <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: 'rgba(6,95,70,0.3)', color: '#34d399' }}>
+            {shift} Shift
+          </span>
+        </div>
+      )}
+    </aside>
+  )
+
+  return (
+    <div className="flex h-screen overflow-hidden bg-gray-50" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
+      <div className="hidden md:flex flex-col h-full">
         <Sidebar />
       </div>
 
-      <main className="flex-1 overflow-y-auto">
-        <div className="sticky top-0 z-30 bg-white border-b border-gray-200 flex items-center justify-between px-4 py-2.5 gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <button onClick={() => setOpen(true)} className="md:hidden p-1.5 rounded-lg text-gray-600 hover:bg-gray-100 flex-shrink-0">
-              <Menu size={22} />
+      {mobileSidebarOpen && (
+        <div className="fixed inset-0 z-50 flex md:hidden">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setMobileSidebarOpen(false)} />
+          <div className="relative flex flex-col h-full">
+            <button className="absolute top-3 right-3 text-gray-400" onClick={() => setMobileSidebarOpen(false)}>
+              <X size={20} />
             </button>
-            {department ? (
-              <span className="hidden md:block text-xs text-gray-500 truncate">
-                {department.name}{ward ? ` · ${ward.name}` : ' · All Wards'}
-              </span>
-            ) : (
-              <span className="hidden md:block text-xs text-gray-400">{formatDate(new Date())}</span>
+            <Sidebar mobile />
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-col flex-1 min-w-0 h-full overflow-hidden">
+        <EmergencyAlertBanner />
+
+        <header className="flex items-center gap-3 px-4 py-2.5 bg-white border-b border-gray-100 flex-shrink-0">
+          <button className="md:hidden text-gray-500 hover:text-gray-800 mr-1" onClick={() => setMobileSidebarOpen(true)}>
+            <Menu size={20} />
+          </button>
+
+          {session && (
+            <div className="hidden sm:flex items-center gap-1.5 text-xs text-gray-500 flex-shrink-0">
+              <span className="font-medium text-gray-700">{session.hospital?.name}</span>
+              <span>·</span>
+              <span>{session.department?.name}</span>
+              <span>·</span>
+              <span className="font-semibold" style={{ color: GREEN }}>{session.ward?.name}</span>
+            </div>
+          )}
+
+          <div className="flex-1" />
+
+          <button onClick={handleRefresh} title="Refresh" className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
+            <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+          </button>
+
+          <a href="https://www.bharathhealthsystems.com/support" target="_blank" rel="noreferrer" title="Help & Support"
+            className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
+            <HelpCircle size={16} />
+          </a>
+
+          <div className="relative" ref={notifRef}>
+            <button onClick={() => setNotifOpen(o => !o)} title="Advance Admissions"
+              className="relative p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
+              <Bell size={16} />
+              {unread > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                  {unread > 9 ? '9+' : unread}
+                </span>
+              )}
+            </button>
+            {notifOpen && (
+              <div className="absolute right-0 top-full mt-1 w-80 bg-white rounded-xl shadow-lg border border-gray-100 z-30 overflow-hidden">
+                <div className="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
+                  <span className="text-sm font-semibold text-gray-800">Advance Admissions</span>
+                  <span className="text-xs text-gray-400">{notifications.length} scheduled</span>
+                </div>
+                <div className="max-h-64 overflow-y-auto">
+                  {notifications.length === 0 ? (
+                    <p className="text-sm text-gray-400 text-center py-6">No upcoming admissions</p>
+                  ) : notifications.map(n => (
+                    <div key={n.id} className="px-4 py-3 border-b border-gray-50 last:border-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-semibold text-gray-800">{n.patient_name}</p>
+                          <p className="text-xs text-gray-500 mt-0.5">{n.chief_complaint || 'Scheduled admission'}</p>
+                          {n.eta_minutes && <p className="text-xs font-medium mt-0.5" style={{ color: GREEN }}>ETA {n.eta_minutes} min</p>}
+                        </div>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded uppercase flex-shrink-0"
+                          style={{ background: '#fef3c7', color: '#92400e' }}>
+                          {n.triage_level || 'SCHED'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
 
-          <div className="flex items-center bg-gray-100 rounded-full p-0.5 gap-0.5 flex-shrink-0">
-            <button onClick={() => switchMode('nurse')}
-              className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${mode === 'nurse' ? 'bg-emerald-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
-              Nurse Mode
+          <div className="relative" ref={profileRef}>
+            <button onClick={() => setProfileOpen(o => !o)}
+              className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-xl hover:bg-gray-100 transition-colors">
+              <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0" style={{ background: GREEN }}>
+                {user?.full_name?.[0] || user?.name?.[0] || '?'}
+              </div>
+              <div className="hidden sm:block text-left">
+                <p className="text-xs font-semibold text-gray-800 leading-none">{user?.full_name || user?.name}</p>
+                <p className="text-[10px] text-gray-400 mt-0.5 capitalize">{user?.role || 'Staff'}</p>
+              </div>
+              <ChevronDown size={13} className="text-gray-400" />
             </button>
-            <button onClick={() => switchMode('provider')}
-              className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${mode === 'provider' ? 'bg-emerald-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
-              Provider Mode
-            </button>
-          </div>
 
-          <div className="flex items-center gap-2 text-sm font-medium flex-shrink-0" style={{ color: shift.color }}>
-            <ShiftIcon size={15} />
-            <span className="hidden sm:inline">{shift.label}</span>
-            <span className="text-gray-400 font-normal text-xs hidden sm:inline">({shift.range})</span>
+            {profileOpen && (
+              <div className="absolute right-0 top-full mt-1 w-52 bg-white rounded-xl shadow-lg border border-gray-100 z-30 py-1">
+                <div className="px-4 py-2.5 border-b border-gray-100">
+                  <p className="text-sm font-semibold text-gray-800">{user?.full_name || user?.name}</p>
+                  <p className="text-xs text-gray-400 capitalize">{user?.role}</p>
+                </div>
+                <button onClick={() => { setProfileOpen(false); navigate('/select-location') }}
+                  className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                  Change Location
+                </button>
+                <button onClick={handleSignOut}
+                  className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2">
+                  <LogOutIcon size={14} /> Sign Out
+                </button>
+              </div>
+            )}
           </div>
-        </div>
+        </header>
 
-        <div className="p-4 md:p-6">
-          <Outlet />
-        </div>
-      </main>
+        <main className="flex-1 overflow-y-auto">
+          {children}
+        </main>
+      </div>
+
+      <ChatWidget />
     </div>
   )
 }

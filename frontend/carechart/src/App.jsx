@@ -1,80 +1,80 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { WardSessionProvider, useWardSession } from './contexts/WardSessionContext'
-import { PinProvider } from './contexts/PinContext'
-import Layout from './components/Layout'
 import Login from './pages/Login'
+import SelectLocation from './pages/SelectLocation'
 import Dashboard from './pages/Dashboard'
+import Patients from './pages/Patients'
 import WardBoard from './pages/WardBoard'
-import Vitals from './pages/Vitals'
-import NursingNotes from './pages/NursingNotes'
-import MAR from './pages/MAR'
 import WardRounds from './pages/WardRounds'
-import ShiftHandoff from './pages/ShiftHandoff'
-import WardSetup from './pages/WardSetup'
-import PinSetup from './pages/PinSetup'
-import Assessments from './pages/Assessments'
-import DocumentationTemplates from './pages/DocumentationTemplates'
-import AdmissionChart from './pages/AdmissionChart'
-import AccountSettings from './pages/AccountSettings'
-import { Loader2 } from 'lucide-react'
+import PatientChart from './pages/PatientChart'
+import Layout from './components/Layout'
 
-function AppLoader() {
+function Spinner() {
   return (
-    <div className="h-screen flex items-center justify-center">
-      <Loader2 size={36} className="animate-spin text-gray-400" />
+    <div className="min-h-screen flex items-center justify-center">
+      <span className="w-8 h-8 border-2 border-gray-200 border-t-green-700 rounded-full animate-spin" />
     </div>
   )
 }
 
-function AppRoutes() {
+function PublicRoute({ children }) {
   const { user, loading } = useAuth()
-  const { setupComplete } = useWardSession()
+  if (loading) return <Spinner />
+  return user ? <Navigate to="/select-location" replace /> : children
+}
 
-  if (loading) return <AppLoader />
+function PrivateRoute({ children }) {
+  const { user, loading } = useAuth()
+  if (loading) return <Spinner />
+  return user ? children : <Navigate to="/login" replace />
+}
 
-  if (!user) {
-    return (
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
-    )
-  }
+function WardRoute({ children }) {
+  const { user, loading } = useAuth()
+  const { session } = useWardSession()
+  if (loading) return <Spinner />
+  if (!user) return <Navigate to="/login" replace />
+  if (!session) return <Navigate to="/select-location" replace />
+  return <Layout>{children}</Layout>
+}
 
+function Placeholder({ label }) {
   return (
-    <Routes>
-      <Route path="/login" element={<Navigate to="/" replace />} />
-      <Route path="/pin-setup" element={<PinSetup />} />
-      <Route path="/ward-setup" element={<WardSetup />} />
-      <Route path="/account" element={<AccountSettings />} />
-      <Route element={setupComplete ? <Layout /> : <Navigate to="/ward-setup" replace />}>
-        <Route index element={<Dashboard />} />
-        <Route path="ward-board" element={<WardBoard />} />
-        <Route path="vitals" element={<Vitals />} />
-        <Route path="notes" element={<NursingNotes />} />
-        <Route path="mar" element={<MAR />} />
-        <Route path="rounds" element={<WardRounds />} />
-        <Route path="handoff" element={<ShiftHandoff />} />
-        <Route path="assessments" element={<Assessments />} />
-        <Route path="templates" element={<DocumentationTemplates />} />
-        <Route path="chart/:admissionId" element={<AdmissionChart />} />
-      </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <div className="flex items-center justify-center h-64 text-gray-400 text-sm">
+      {label} — coming soon
+    </div>
   )
 }
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <WardSessionProvider>
-          <PinProvider>
-            <AppRoutes />
-          </PinProvider>
-        </WardSessionProvider>
-      </AuthProvider>
-    </BrowserRouter>
+    <AuthProvider>
+      <WardSessionProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login"           element={<PublicRoute><Login /></PublicRoute>} />
+            <Route path="/select-location" element={<PrivateRoute><SelectLocation /></PrivateRoute>} />
+
+            <Route path="/dashboard"   element={<WardRoute><Dashboard /></WardRoute>} />
+            <Route path="/patients"    element={<WardRoute><Patients /></WardRoute>} />
+            <Route path="/ward-board"  element={<WardRoute><WardBoard /></WardRoute>} />
+            <Route path="/vitals"      element={<WardRoute><Placeholder label="Vitals" /></WardRoute>} />
+            <Route path="/mar"         element={<WardRoute><Placeholder label="MAR" /></WardRoute>} />
+            <Route path="/notes"       element={<WardRoute><Placeholder label="Nursing Notes" /></WardRoute>} />
+            <Route path="/assessments" element={<WardRoute><Placeholder label="Assessments" /></WardRoute>} />
+            <Route path="/discharge"   element={<WardRoute><Placeholder label="Discharge" /></WardRoute>} />
+            <Route path="/handoff"     element={<WardRoute><Placeholder label="Shift Handoff" /></WardRoute>} />
+            <Route path="/rounds"      element={<WardRoute><WardRounds /></WardRoute>} />
+            <Route path="/orders"      element={<WardRoute><Placeholder label="Orders" /></WardRoute>} />
+            <Route path="/docs"        element={<WardRoute><Placeholder label="Documentation" /></WardRoute>} />
+            <Route path="/chart/:id"   element={<WardRoute><PatientChart /></WardRoute>} />
+
+            <Route path="/"  element={<Navigate to="/dashboard" replace />} />
+            <Route path="*"  element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </WardSessionProvider>
+    </AuthProvider>
   )
 }

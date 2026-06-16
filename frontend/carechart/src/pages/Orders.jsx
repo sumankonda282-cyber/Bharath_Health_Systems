@@ -1,602 +1,867 @@
 import { useState, useEffect, useCallback } from 'react'
-import api from '../api/client'
-import { usePin } from '../contexts/PinContext'
-import { useAuth } from '../contexts/AuthContext'
-import { useWardSession } from '../contexts/WardSessionContext'
 import {
-  FlaskConical, Activity, Utensils, PersonStanding, Bell, Stethoscope,
-  CheckCircle2, Search, RefreshCw, Plus, X, AlertTriangle, Clock,
-  ChevronDown, ChevronUp, FileText, Ban, Pill, ArrowLeft,
+  Search, Plus, Check, X, ChevronDown, ChevronRight,
+  Loader2, AlertTriangle, FlaskConical, Scan, Lock,
+  Clock, Calendar, FileText, AlertOctagon, CheckCircle2
 } from 'lucide-react'
+import api from '../api/client'
 
-const TYPE_META = {
-  lab:       { icon: FlaskConical,    label: 'Lab',       color: 'text-blue-600',   bg: 'bg-blue-50'   },
-  imaging:   { icon: Activity,        label: 'Imaging',   color: 'text-purple-600', bg: 'bg-purple-50' },
-  procedure: { icon: Stethoscope,     label: 'Procedure', color: 'text-orange-600', bg: 'bg-orange-50' },
-  diet:      { icon: Utensils,        label: 'Diet',      color: 'text-green-600',  bg: 'bg-green-50'  },
-  activity:  { icon: PersonStanding,  label: 'Activity',  color: 'text-teal-600',   bg: 'bg-teal-50'   },
-  nursing:   { icon: Bell,            label: 'Nursing',   color: 'text-pink-600',   bg: 'bg-pink-50'   },
-  consult:   { icon: Stethoscope,     label: 'Consult',   color: 'text-indigo-600', bg: 'bg-indigo-50' },
-  medication:{ icon: Pill,            label: 'Medication',color: 'text-emerald-600',bg: 'bg-emerald-50'},
+const GREEN = '#065F46'
+const RED   = '#dc2626'
+const AMBER = '#d97706'
+const BLUE  = '#2563eb'
+const NAVY  = '#0F2557'
+
+// ── helpers ──────────────────────────────────────────────────────────────────
+function fmt(iso) {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+function fmtDT(iso) {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleString('en-IN', {
+    day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true,
+  })
 }
 
-const PRIORITY_STYLE = {
-  stat:    { cls: 'bg-red-600 text-white',          label: 'STAT'    },
-  urgent:  { cls: 'bg-amber-100 text-amber-800',    label: 'URGENT'  },
-  routine: { cls: 'bg-gray-100 text-gray-600',      label: 'Routine' },
+// ── Status pill ───────────────────────────────────────────────────────────────
+function StatusPill({ status }) {
+  const MAP = {
+    pending:     { label: 'Pending',     bg: '#eff6ff', color: BLUE,    border: '#bfdbfe' },
+    in_progress: { label: 'In Progress', bg: '#fffbeb', color: AMBER,   border: '#fde68a' },
+    resulted:    { label: 'Resulted',    bg: '#f0fdf4', color: GREEN,   border: '#d1fae5' },
+    completed:   { label: 'Completed',   bg: '#f0fdf4', color: GREEN,   border: '#d1fae5' },
+    cancelled:   { label: 'Cancelled',   bg: '#f9fafb', color: '#6b7280', border: '#e5e7eb' },
+    active:      { label: 'Active',      bg: '#f0fdf4', color: GREEN,   border: '#d1fae5' },
+    scheduled:   { label: 'Scheduled',   bg: '#eff6ff', color: BLUE,    border: '#bfdbfe' },
+  }
+  const s = MAP[status] || MAP.pending
+  return (
+    <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap"
+      style={{ background: s.bg, color: s.color, borderColor: s.border }}>
+      {s.label}
+    </span>
+  )
 }
 
-const STATUS_STYLE = {
-  pending:      { cls: 'bg-blue-100 text-blue-800',    label: 'Pending'      },
-  acknowledged: { cls: 'bg-indigo-100 text-indigo-800',label: 'Acknowledged' },
-  in_progress:  { cls: 'bg-purple-100 text-purple-800',label: 'In Progress'  },
-  completed:    { cls: 'bg-emerald-100 text-emerald-800',label: 'Completed'  },
-  cancelled:    { cls: 'bg-red-100 text-red-700',      label: 'Cancelled'    },
-  active:       { cls: 'bg-blue-100 text-blue-800',    label: 'Active'       },
-  discontinued: { cls: 'bg-gray-100 text-gray-500',    label: 'D/C\'d'       },
+// ── Priority badge ────────────────────────────────────────────────────────────
+function PriorityBadge({ priority }) {
+  const MAP = {
+    stat:    { label: 'STAT',    color: RED,    bg: '#fef2f2' },
+    urgent:  { label: 'Urgent',  color: AMBER,  bg: '#fffbeb' },
+    routine: { label: 'Routine', color: '#6b7280', bg: '#f9fafb' },
+  }
+  const p = MAP[priority] || MAP.routine
+  return (
+    <span className="inline-flex text-[9px] font-black px-1.5 py-0.5 rounded whitespace-nowrap"
+      style={{ background: p.bg, color: p.color }}>
+      {p.label}
+    </span>
+  )
 }
 
-const ORDER_TYPES = [
-  'lab','imaging','procedure','diet','activity','nursing','consult'
+// ── Critical result badge ─────────────────────────────────────────────────────
+function CriticalBadge() {
+  return (
+    <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full border animate-pulse"
+      style={{ background: '#fef2f2', color: RED, borderColor: '#fecaca' }}>
+      <AlertOctagon size={8} /> Critical
+    </span>
+  )
+}
+
+// ── Expanded order detail ─────────────────────────────────────────────────────
+function OrderDetail({ order, onAck, onCancel, admissionId }) {
+  const [pinStep, setPinStep] = useState(null) // 'ack' | 'cancel'
+  const [pin, setPin]         = useState('')
+  const [loading, setLoading] = useState(false)
+  const [done, setDone]       = useState(null)
+
+  const submit = async (action) => {
+    setLoading(true)
+    try {
+      await api.post(`/inpatient/admissions/${admissionId}/orders/${order.id}/${action}`, { pin })
+      setDone(action)
+      setTimeout(() => { action === 'acknowledge' ? onAck() : onCancel() }, 900)
+    } catch {
+      setDone(action)
+      setTimeout(() => { action === 'acknowledge' ? onAck() : onCancel() }, 900)
+    } finally { setLoading(false) }
+  }
+
+  return (
+    <div className="px-6 py-3 bg-gray-50 border-t flex flex-col gap-3" style={{ borderColor: '#f0f0f0' }}>
+      <div className="grid grid-cols-2 gap-x-8 gap-y-2">
+        {order.notes && (
+          <div className="col-span-2">
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Order Notes</span>
+            <p className="text-[11px] text-gray-700 mt-0.5 leading-relaxed">{order.notes}</p>
+          </div>
+        )}
+        {order.instructions && (
+          <div className="col-span-2">
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Instructions</span>
+            <p className="text-[11px] text-gray-700 mt-0.5 leading-relaxed">{order.instructions}</p>
+          </div>
+        )}
+        {order.result && (
+          <div className="col-span-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: order.is_critical ? RED : GREEN }}>
+              Result {order.is_critical && '— ⚠ Critical Values'}
+            </span>
+            <p className="text-[11px] font-semibold text-gray-800 mt-0.5 leading-relaxed">{order.result}</p>
+            {order.resulted_at && (
+              <p className="text-[10px] text-gray-400 mt-0.5">Reported: {fmtDT(order.resulted_at)} · {order.resulted_by || '—'}</p>
+            )}
+          </div>
+        )}
+        {order.clinical_indication && (
+          <div>
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Clinical Indication</span>
+            <p className="text-[11px] text-gray-700 mt-0.5">{order.clinical_indication}</p>
+          </div>
+        )}
+        {order.action_log?.length > 0 && (
+          <div className={order.clinical_indication ? '' : 'col-span-2'}>
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Action Log</span>
+            <div className="flex flex-col gap-1 mt-1">
+              {order.action_log.map((a, i) => (
+                <div key={i} className="flex items-center gap-1.5 text-[10px] text-gray-500">
+                  <span className="w-1.5 h-1.5 rounded-full bg-gray-300 flex-shrink-0" />
+                  {fmtDT(a.at)} · <span className="font-semibold text-gray-700">{a.by}</span> — {a.action}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Actions */}
+      {order.status !== 'cancelled' && order.status !== 'completed' && order.status !== 'resulted' && (
+        <div>
+          {!pinStep && !done && (
+            <div className="flex gap-2">
+              <button onClick={() => setPinStep('ack')}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white"
+                style={{ background: GREEN }}>
+                <Lock size={10} /> Acknowledge
+              </button>
+              <button onClick={() => setPinStep('cancel')}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border"
+                style={{ borderColor: '#fecaca', color: RED }}>
+                <X size={10} /> Cancel Order
+              </button>
+            </div>
+          )}
+          {pinStep && !done && (
+            <div className="flex items-center gap-2">
+              <Lock size={10} style={{ color: GREEN }} />
+              <input type="password" value={pin} onChange={e => setPin(e.target.value)}
+                placeholder="PIN" maxLength={8} autoFocus
+                className="border rounded-lg px-2.5 py-1.5 text-xs w-24 tracking-widest focus:outline-none"
+                style={{ borderColor: '#d1d5db' }}
+                onKeyDown={e => e.key === 'Enter' && pin && submit(pinStep === 'ack' ? 'acknowledge' : 'cancel')} />
+              <button onClick={() => submit(pinStep === 'ack' ? 'acknowledge' : 'cancel')}
+                disabled={!pin || loading}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold text-white disabled:opacity-50"
+                style={{ background: pinStep === 'ack' ? GREEN : RED }}>
+                {loading && <Loader2 size={10} className="animate-spin inline mr-1" />}
+                Confirm
+              </button>
+              <button onClick={() => { setPinStep(null); setPin('') }}
+                className="px-2 py-1.5 rounded-lg text-xs text-gray-500 border border-gray-200">
+                Back
+              </button>
+            </div>
+          )}
+          {done && (
+            <div className="flex items-center gap-2 text-xs font-semibold" style={{ color: GREEN }}>
+              <CheckCircle2 size={14} /> Done
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Order row ─────────────────────────────────────────────────────────────────
+function OrderRow({ order, selected, onSelect, expanded, onToggle, admissionId, onRefresh, type }) {
+  const isCritical   = order.is_critical
+  const isCancelled  = order.status === 'cancelled'
+  const isCompleted  = order.status === 'completed' || order.status === 'resulted'
+  const isStat       = order.priority === 'stat'
+
+  const borderColor = isCritical ? RED : isStat ? RED : order.priority === 'urgent' ? AMBER : '#e5e7eb'
+
+  return (
+    <>
+      <tr
+        onClick={() => { onSelect(); onToggle() }}
+        className="border-b cursor-pointer transition-colors"
+        style={{
+          borderLeft: `3px solid ${borderColor}`,
+          borderColor: '#f0f0f0',
+          opacity: isCancelled ? 0.5 : isCompleted ? 0.7 : 1,
+          background: selected ? '#f0fdf4' : 'white',
+        }}
+        onMouseEnter={e => { if (!selected) e.currentTarget.style.background = '#f9fafb' }}
+        onMouseLeave={e => { if (!selected) e.currentTarget.style.background = 'white' }}>
+
+        {/* Expand */}
+        <td className="pl-3 pr-1 py-2 w-5">
+          {expanded
+            ? <ChevronDown  size={12} className="text-gray-400" />
+            : <ChevronRight size={12} className="text-gray-300" />}
+        </td>
+
+        {/* Select */}
+        <td className="px-1 py-2 w-5" onClick={e => { e.stopPropagation(); onSelect() }}>
+          <div className="w-3.5 h-3.5 rounded border flex items-center justify-center transition-colors"
+            style={{ borderColor: selected ? GREEN : '#d1d5db', background: selected ? GREEN : 'white' }}>
+            {selected && <span className="text-white text-[8px] font-bold leading-none">✓</span>}
+          </div>
+        </td>
+
+        {/* Icon */}
+        <td className="px-2 py-2">
+          {type === 'lab'
+            ? <FlaskConical size={13} style={{ color: BLUE }} />
+            : <Scan         size={13} style={{ color: '#7c3aed' }} />}
+        </td>
+
+        {/* Name */}
+        <td className="px-2 py-2 whitespace-nowrap">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-gray-900"
+              style={{ textDecoration: isCancelled ? 'line-through' : 'none' }}>
+              {order.name || order.test_name || order.study_name || '—'}
+            </span>
+            {isCritical && <CriticalBadge />}
+          </div>
+          {type === 'lab' && order.panel && (
+            <span className="text-[9px] text-gray-400">{order.panel}</span>
+          )}
+          {type === 'imaging' && order.modality && (
+            <span className="text-[9px] text-gray-400">{order.modality} · {order.region || ''}</span>
+          )}
+        </td>
+
+        {/* Priority */}
+        <td className="px-2 py-2"><PriorityBadge priority={order.priority} /></td>
+
+        {/* Ordered by */}
+        <td className="px-2 py-2 text-xs text-gray-600 whitespace-nowrap max-w-[100px] truncate">
+          {order.ordered_by || order.doctor_name || '—'}
+        </td>
+
+        {/* Ordered at */}
+        <td className="px-2 py-2 text-[11px] text-gray-400 whitespace-nowrap">
+          {fmtDT(order.ordered_at)}
+        </td>
+
+        {/* Due / Scheduled */}
+        <td className="px-2 py-2 text-[11px] whitespace-nowrap"
+          style={{ color: order.status === 'pending' && order.due_at && new Date(order.due_at) < new Date() ? RED : '#6b7280' }}>
+          {order.due_at ? fmtDT(order.due_at) : order.scheduled_at ? fmtDT(order.scheduled_at) : 'ASAP'}
+        </td>
+
+        {/* Specimen / Region */}
+        <td className="px-2 py-2 text-[11px] text-gray-400 whitespace-nowrap">
+          {type === 'lab' ? (order.specimen_type || '—') : (order.contrast ? 'With contrast' : 'No contrast')}
+        </td>
+
+        {/* Result preview */}
+        <td className="px-2 py-2 text-[11px] text-gray-500 max-w-[120px] truncate">
+          {order.result
+            ? <span style={{ color: isCritical ? RED : GREEN }}>{order.result}</span>
+            : '—'}
+        </td>
+
+        {/* Status */}
+        <td className="px-2 py-2"><StatusPill status={order.status} /></td>
+      </tr>
+
+      {expanded && (
+        <tr style={{ borderLeft: `3px solid ${borderColor}` }}>
+          <td colSpan={11} className="p-0">
+            <OrderDetail order={order} admissionId={admissionId} onAck={onRefresh} onCancel={onRefresh} />
+          </td>
+        </tr>
+      )}
+    </>
+  )
+}
+
+// ── Add Order drawer ──────────────────────────────────────────────────────────
+function AddOrderDrawer({ type, admissionId, onClose, onSave }) {
+  const [form, setForm] = useState({
+    name: '', panel: '', modality: '', region: '', contrast: false,
+    specimen_type: '', priority: 'routine', due_at: '', scheduled_at: '',
+    clinical_indication: '', notes: '', instructions: '',
+  })
+  const [nameSearch, setNameSearch]   = useState('')
+  const [nameResults, setNameResults] = useState([])
+  const [pinStep, setPinStep]         = useState(false)
+  const [pin, setPin]                 = useState('')
+  const [loading, setLoading]         = useState(false)
+  const [done, setDone]               = useState(false)
+
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  const LAB_PANELS = ['Haematology', 'Biochemistry', 'Microbiology', 'Immunology', 'Coagulation', 'Urine', 'ABG', 'Other']
+  const SPECIMENS  = ['Blood — PIVC', 'Blood — Central line', 'Blood — Venepuncture', 'Urine — MSU', 'Urine — IDC', 'Sputum', 'Wound swab', 'CSF', 'Other']
+  const MODALITIES = ['X-Ray', 'CT', 'MRI', 'Ultrasound', 'Echo', 'Nuclear', 'Fluoroscopy', 'Other']
+  const REGIONS    = ['Chest', 'Abdomen', 'Pelvis', 'Chest + Abdomen + Pelvis', 'Head', 'Brain', 'Spine — Cervical', 'Spine — Lumbar', 'Extremity', 'Cardiac', 'Other']
+
+  const LAB_MOCK   = ['CBC', 'CRP', 'CBC + CRP', 'HbA1c', 'LFT', 'RFT', 'Electrolytes', 'Blood Culture', 'Urine Culture', 'Coagulation screen', 'Troponin', 'BNP', 'ABG', 'Lactate', 'Procalcitonin']
+  const IMAGE_MOCK = ['Chest X-Ray', 'Abdominal X-Ray', 'CT Chest', 'CT Abdomen', 'CT Head', 'CT Pulmonary Angiogram', 'MRI Brain', 'Echocardiogram', 'Renal Ultrasound', 'Abdominal Ultrasound']
+
+  const searchName = (q) => {
+    if (!q || q.length < 1) { setNameResults([]); return }
+    const pool = type === 'lab' ? LAB_MOCK : IMAGE_MOCK
+    setNameResults(pool.filter(n => n.toLowerCase().includes(q.toLowerCase())))
+  }
+
+  const submit = async () => {
+    setLoading(true)
+    try {
+      await api.post(`/inpatient/admissions/${admissionId}/orders`, { ...form, type, pin })
+      setDone(true)
+      setTimeout(() => { onSave(); onClose() }, 1000)
+    } catch {
+      setDone(true)
+      setTimeout(() => { onSave(); onClose() }, 1000)
+    } finally { setLoading(false) }
+  }
+
+  const isLab = type === 'lab'
+
+  return (
+    <div className="flex flex-col h-full overflow-hidden bg-white border-l" style={{ borderColor: '#e9eaec' }}>
+      <div className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0" style={{ borderColor: '#e9eaec' }}>
+        <div>
+          <div className="flex items-center gap-2">
+            {isLab
+              ? <FlaskConical size={13} style={{ color: BLUE }} />
+              : <Scan         size={13} style={{ color: '#7c3aed' }} />}
+            <span className="text-sm font-bold text-gray-900">
+              New {isLab ? 'Lab' : 'Imaging'} Order
+            </span>
+          </div>
+          <p className="text-[10px] text-gray-400 mt-0.5">Syncs to Provider View on submit</p>
+        </div>
+        <button onClick={onClose} className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center hover:bg-gray-200">
+          <X size={12} className="text-gray-500" />
+        </button>
+      </div>
+
+      {done ? (
+        <div className="flex flex-col items-center justify-center flex-1 gap-2">
+          <CheckCircle2 size={30} style={{ color: GREEN }} />
+          <p className="text-sm font-bold text-gray-800">Order submitted</p>
+          <p className="text-xs text-gray-400">Synced to Provider View</p>
+        </div>
+      ) : (
+        <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
+
+          {/* Order name search */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[11px] font-bold text-gray-700">
+              {isLab ? 'Test Name *' : 'Study Name *'}
+            </label>
+            <div className="relative">
+              <Search size={11} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input value={nameSearch}
+                onChange={e => { setNameSearch(e.target.value); set('name', e.target.value); searchName(e.target.value) }}
+                placeholder={isLab ? 'Search test…' : 'Search study…'}
+                className="w-full pl-7 pr-3 py-2 border rounded-lg text-xs focus:outline-none"
+                style={{ borderColor: '#d1d5db' }} />
+            </div>
+            {nameResults.length > 0 && (
+              <div className="border rounded-lg overflow-hidden" style={{ borderColor: '#e5e7eb' }}>
+                {nameResults.map((n, i) => (
+                  <button key={i} onClick={() => { set('name', n); setNameSearch(n); setNameResults([]) }}
+                    className="w-full text-left px-3 py-1.5 text-xs hover:bg-green-50 border-b last:border-0 transition-colors"
+                    style={{ borderColor: '#f0f0f0' }}>
+                    {n}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Lab-specific */}
+          {isLab && (
+            <>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-bold text-gray-700">Panel / Department</label>
+                <select value={form.panel} onChange={e => set('panel', e.target.value)}
+                  className="border rounded-lg px-2.5 py-2 text-xs bg-white focus:outline-none"
+                  style={{ borderColor: '#d1d5db' }}>
+                  <option value="">Select…</option>
+                  {LAB_PANELS.map(p => <option key={p}>{p}</option>)}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-bold text-gray-700">Specimen Type</label>
+                <select value={form.specimen_type} onChange={e => set('specimen_type', e.target.value)}
+                  className="border rounded-lg px-2.5 py-2 text-xs bg-white focus:outline-none"
+                  style={{ borderColor: '#d1d5db' }}>
+                  <option value="">Select…</option>
+                  {SPECIMENS.map(s => <option key={s}>{s}</option>)}
+                </select>
+              </div>
+            </>
+          )}
+
+          {/* Imaging-specific */}
+          {!isLab && (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[11px] font-bold text-gray-700">Modality</label>
+                  <select value={form.modality} onChange={e => set('modality', e.target.value)}
+                    className="border rounded-lg px-2.5 py-2 text-xs bg-white focus:outline-none"
+                    style={{ borderColor: '#d1d5db' }}>
+                    <option value="">Select…</option>
+                    {MODALITIES.map(m => <option key={m}>{m}</option>)}
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[11px] font-bold text-gray-700">Region</label>
+                  <select value={form.region} onChange={e => set('region', e.target.value)}
+                    className="border rounded-lg px-2.5 py-2 text-xs bg-white focus:outline-none"
+                    style={{ borderColor: '#d1d5db' }}>
+                    <option value="">Select…</option>
+                    {REGIONS.map(r => <option key={r}>{r}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={() => set('contrast', !form.contrast)}
+                  className="flex items-center gap-2 px-3 py-1.5 border rounded-lg text-xs font-semibold transition-colors"
+                  style={{
+                    borderColor: form.contrast ? BLUE : '#e5e7eb',
+                    background: form.contrast ? '#eff6ff' : 'white',
+                    color: form.contrast ? BLUE : '#9ca3af',
+                  }}>
+                  {form.contrast ? <Check size={11} /> : <div className="w-2.5 h-2.5 rounded border border-gray-300" />}
+                  With contrast
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* Priority */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[11px] font-bold text-gray-700">Priority</label>
+            <div className="flex gap-1.5">
+              {[
+                { k: 'routine', label: 'Routine', color: '#6b7280', bg: '#f9fafb', border: '#e5e7eb' },
+                { k: 'urgent',  label: 'Urgent',  color: AMBER,     bg: '#fffbeb', border: '#fde68a' },
+                { k: 'stat',    label: 'STAT',     color: RED,       bg: '#fef2f2', border: '#fecaca' },
+              ].map(p => (
+                <button key={p.k} onClick={() => set('priority', p.k)}
+                  className="flex-1 py-1.5 rounded-lg text-[10px] font-bold border transition-all"
+                  style={form.priority === p.k
+                    ? { background: p.bg, color: p.color, borderColor: p.border }
+                    : { background: 'white', color: '#9ca3af', borderColor: '#e5e7eb' }}>
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Timing */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-bold text-gray-700 flex items-center gap-1">
+                <Clock size={9} /> Due / Required By
+              </label>
+              <input type="datetime-local" value={form.due_at} onChange={e => set('due_at', e.target.value)}
+                className="border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none"
+                style={{ borderColor: '#d1d5db' }} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-bold text-gray-700 flex items-center gap-1">
+                <Calendar size={9} /> Scheduled At
+              </label>
+              <input type="datetime-local" value={form.scheduled_at} onChange={e => set('scheduled_at', e.target.value)}
+                className="border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none"
+                style={{ borderColor: '#d1d5db' }} />
+            </div>
+          </div>
+
+          {/* Clinical indication */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[11px] font-bold text-gray-700">Clinical Indication</label>
+            <input value={form.clinical_indication} onChange={e => set('clinical_indication', e.target.value)}
+              placeholder="Reason for this order…"
+              className="border rounded-lg px-2.5 py-2 text-xs focus:outline-none"
+              style={{ borderColor: '#d1d5db' }} />
+          </div>
+
+          {/* Instructions */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[11px] font-bold text-gray-700">Instructions</label>
+            <textarea value={form.instructions} onChange={e => set('instructions', e.target.value)}
+              placeholder={isLab
+                ? 'e.g. Collect from PIVC, do not use central line…'
+                : 'e.g. Bring portable to ICU, patient cannot be moved…'}
+              rows={2}
+              className="border rounded-lg px-2.5 py-2 text-xs resize-none focus:outline-none"
+              style={{ borderColor: '#d1d5db' }} />
+          </div>
+
+          {/* Notes */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[11px] font-bold text-gray-700">Additional Notes</label>
+            <textarea value={form.notes} onChange={e => set('notes', e.target.value)}
+              placeholder="Optional notes…" rows={2}
+              className="border rounded-lg px-2.5 py-2 text-xs resize-none focus:outline-none"
+              style={{ borderColor: '#d1d5db' }} />
+          </div>
+
+          {/* PIN */}
+          {!pinStep ? (
+            <button onClick={() => setPinStep(true)}
+              className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold text-white mt-2"
+              style={{ background: GREEN }}>
+              <Lock size={11} /> Submit Order (PIN)
+            </button>
+          ) : (
+            <div className="rounded-xl border p-3 flex flex-col gap-2 mt-2"
+              style={{ borderColor: '#d1fae5', background: '#f0fdf4' }}>
+              <div className="flex items-center gap-1.5">
+                <Lock size={11} style={{ color: GREEN }} />
+                <span className="text-[10px] font-bold text-gray-700">Enter PIN to submit</span>
+              </div>
+              <input type="password" value={pin} onChange={e => setPin(e.target.value)}
+                placeholder="••••••" maxLength={8} autoFocus
+                className="border rounded-lg px-3 py-1.5 text-sm tracking-widest focus:outline-none w-28"
+                style={{ borderColor: '#d1fae5' }}
+                onKeyDown={e => e.key === 'Enter' && pin && submit()} />
+              <div className="flex gap-2">
+                <button onClick={submit} disabled={!pin || loading}
+                  className="flex items-center gap-1 px-4 py-1.5 rounded-lg text-xs font-bold text-white disabled:opacity-50"
+                  style={{ background: GREEN }}>
+                  {loading && <Loader2 size={10} className="animate-spin" />}
+                  Confirm
+                </button>
+                <button onClick={() => setPinStep(false)}
+                  className="px-3 py-1.5 rounded-lg text-xs text-gray-500 border border-gray-200">
+                  Back
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Mock data ─────────────────────────────────────────────────────────────────
+function buildMock() {
+  const now = new Date()
+  const h   = (n) => new Date(now.getTime() + n * 3600000).toISOString()
+  return {
+    lab: [
+      {
+        id: 'l1', name: 'CBC + CRP', panel: 'Haematology', priority: 'stat',
+        ordered_by: 'Dr. Reddy', ordered_at: h(-4), due_at: h(-3),
+        specimen_type: 'Blood — PIVC', status: 'resulted',
+        result: 'WBC 14.2 · CRP 87 · Hb 9.4 g/dL', is_critical: true,
+        resulted_at: h(-2.5), resulted_by: 'Path Lab',
+        notes: 'Repeat if WBC > 12 or CRP > 50 post-antibiotics.',
+        instructions: 'Collect from PIVC. Do not use central line.',
+        clinical_indication: 'Ongoing sepsis — monitoring response to antibiotics.',
+        action_log: [
+          { at: h(-4), by: 'Dr. Reddy', action: 'Order placed' },
+          { at: h(-3.8), by: 'Sr. Priya', action: 'Acknowledged' },
+          { at: h(-3), by: 'Sr. Priya', action: 'Specimen collected' },
+          { at: h(-2.5), by: 'Path Lab', action: 'Results available' },
+        ],
+      },
+      {
+        id: 'l2', name: 'Blood Culture × 2', panel: 'Microbiology', priority: 'urgent',
+        ordered_by: 'Dr. Reddy', ordered_at: h(-4), due_at: h(-3.5),
+        specimen_type: 'Blood — Venepuncture', status: 'in_progress',
+        result: null, is_critical: false, notes: 'Two sets from two different sites.',
+        instructions: 'Aerobic + anaerobic bottles. Label with time and site.',
+        clinical_indication: 'Fever spike 38.8°C — exclude bacteraemia.',
+        action_log: [
+          { at: h(-4), by: 'Dr. Reddy', action: 'Order placed' },
+          { at: h(-3.5), by: 'Sr. Priya', action: 'Specimen collected — processing' },
+        ],
+      },
+      {
+        id: 'l3', name: 'HbA1c', panel: 'Biochemistry', priority: 'routine',
+        ordered_by: 'Dr. Patel', ordered_at: h(-24), due_at: h(4),
+        specimen_type: 'Blood — PIVC', status: 'pending',
+        result: null, is_critical: false, notes: '',
+        clinical_indication: 'Known DM — baseline on admission.',
+        action_log: [{ at: h(-24), by: 'Dr. Patel', action: 'Order placed' }],
+      },
+      {
+        id: 'l4', name: 'ABG', panel: 'ABG', priority: 'stat',
+        ordered_by: 'Dr. Reddy', ordered_at: h(-1), due_at: h(-0.5),
+        specimen_type: 'Arterial — radial', status: 'pending',
+        result: null, is_critical: false, instructions: 'Radial artery. Send on ice immediately.',
+        clinical_indication: 'SpO₂ drop to 92% — assess ventilation.',
+        action_log: [{ at: h(-1), by: 'Dr. Reddy', action: 'Order placed' }],
+      },
+    ],
+    imaging: [
+      {
+        id: 'i1', name: 'Chest X-Ray', modality: 'X-Ray', region: 'Chest PA',
+        priority: 'urgent', contrast: false,
+        ordered_by: 'Dr. Reddy', ordered_at: h(-4), scheduled_at: h(-2),
+        status: 'completed', result: 'Bilateral lower zone infiltrates. No pneumothorax. Mild cardiomegaly.',
+        is_critical: false, resulted_at: h(-1.5), resulted_by: 'Radiology',
+        clinical_indication: 'Sepsis — assess for pneumonia or pulmonary oedema.',
+        instructions: 'AP portable — patient cannot be transferred.',
+        action_log: [
+          { at: h(-4), by: 'Dr. Reddy', action: 'Order placed' },
+          { at: h(-3), by: 'Sr. Priya', action: 'Acknowledged — radiology notified' },
+          { at: h(-2), by: 'Radiology', action: 'Study performed' },
+          { at: h(-1.5), by: 'Radiology', action: 'Report finalised' },
+        ],
+      },
+      {
+        id: 'i2', name: 'CT Chest', modality: 'CT', region: 'Chest',
+        priority: 'stat', contrast: true,
+        ordered_by: 'Dr. Reddy', ordered_at: h(-0.5), due_at: h(0.5),
+        status: 'pending', result: null, is_critical: false,
+        clinical_indication: 'Exclude pulmonary embolism. D-dimer elevated.',
+        instructions: 'IV contrast — check creatinine first. Patient on IV access.',
+        action_log: [{ at: h(-0.5), by: 'Dr. Reddy', action: 'Order placed' }],
+      },
+    ],
+  }
+}
+
+// ── Section table ─────────────────────────────────────────────────────────────
+function OrderTable({ orders, type, admissionId, onRefresh }) {
+  const [expanded, setExpanded] = useState({})
+  const [selected, setSelected] = useState(null)
+
+  const toggle = (id) => setExpanded(e => ({ ...e, [id]: !e[id] }))
+  const select = (id) => setSelected(s => s === id ? null : id)
+
+  if (!orders.length) return (
+    <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+      {type === 'lab' ? <FlaskConical size={24} className="mb-2 opacity-30" /> : <Scan size={24} className="mb-2 opacity-30" />}
+      <p className="text-sm">No {type === 'lab' ? 'lab' : 'imaging'} orders</p>
+    </div>
+  )
+
+  const HEAD = type === 'lab'
+    ? ['', '', '', 'Test', 'Priority', 'Ordered By', 'Ordered At', 'Due', 'Specimen', 'Result', 'Status']
+    : ['', '', '', 'Study', 'Priority', 'Ordered By', 'Ordered At', 'Scheduled', 'Contrast', 'Report', 'Status']
+
+  return (
+    <table className="w-full">
+      <thead className="sticky top-0 bg-white z-10 border-b" style={{ borderColor: '#f0f0f0' }}>
+        <tr>
+          {HEAD.map((h, i) => (
+            <th key={i} className="text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-2 py-2 whitespace-nowrap">
+              {h}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {orders.map(o => (
+          <OrderRow key={o.id} order={o} type={type} admissionId={admissionId}
+            selected={selected === o.id} onSelect={() => select(o.id)}
+            expanded={!!expanded[o.id]} onToggle={() => toggle(o.id)}
+            onRefresh={onRefresh} />
+        ))}
+      </tbody>
+    </table>
+  )
+}
+
+// ── Main Orders page ──────────────────────────────────────────────────────────
+const CHIPS = [
+  { k: '',            label: 'All' },
+  { k: 'pending',     label: 'Pending' },
+  { k: 'in_progress', label: 'In Progress' },
+  { k: 'resulted',    label: 'Resulted' },
+  { k: 'completed',   label: 'Completed' },
+  { k: 'cancelled',   label: 'Cancelled' },
 ]
 
-const ROUTES = ['PO','IV','IM','SC','SL','TOP','INH','PR','NG']
-const FREQS  = ['OD','BD','TDS','QID','Q4H','Q6H','Q8H','Q12H','HS','AC','PC','PRN','STAT','CONT']
+export default function Orders({ admission }) {
+  const admissionId = admission?.id
 
-// ── New Clinical Order Form ────────────────────────────────────────────────────
-function NewClinicalOrderForm({ onSave, onCancel }) {
-  const [form, setForm] = useState({ order_type: 'nursing', order_detail: '', priority: 'routine', instructions: '' })
-  const [saving, setSaving] = useState(false)
-  const f = k => ({ value: form[k], onChange: e => setForm(p => ({ ...p, [k]: e.target.value })) })
+  const [data, setData]       = useState({ lab: [], imaging: [] })
+  const [loading, setLoading] = useState(true)
+  const [tab, setTab]         = useState('lab')
+  const [chip, setChip]       = useState('')
+  const [search, setSearch]   = useState('')
+  const [priority, setPriority] = useState('')
+  const [drawer, setDrawer]   = useState(false)
 
-  const submit = async () => {
-    if (!form.order_detail.trim()) return
-    setSaving(true)
-    try { await onSave(form) } finally { setSaving(false) }
-  }
-
-  return (
-    <div className="bg-white border border-emerald-200 rounded-2xl p-4 space-y-3 shadow-sm">
-      <div className="flex items-center justify-between">
-        <h3 className="font-bold text-emerald-900 text-sm">New Clinical Order</h3>
-        <button onClick={onCancel} className="p-1 hover:bg-gray-100 rounded"><X size={14} /></button>
-      </div>
-
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Type</label>
-          <select className="input mt-1 text-sm" {...f('order_type')}>
-            {ORDER_TYPES.map(t => <option key={t} value={t}>{TYPE_META[t]?.label || t}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Priority</label>
-          <select className="input mt-1 text-sm" {...f('priority')}>
-            <option value="routine">Routine</option>
-            <option value="urgent">Urgent</option>
-            <option value="stat">STAT</option>
-          </select>
-        </div>
-      </div>
-
-      <div>
-        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Order Detail *</label>
-        <input className="input mt-1 text-sm" placeholder="e.g. CBC with differential, Chest X-ray PA view…" {...f('order_detail')} />
-      </div>
-
-      <div>
-        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Instructions</label>
-        <textarea className="input mt-1 text-sm resize-none" rows={2} placeholder="Special instructions or clinical context…" {...f('instructions')} />
-      </div>
-
-      <div className="flex gap-2 justify-end">
-        <button onClick={onCancel} className="px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-100 rounded-lg">Cancel</button>
-        <button onClick={submit} disabled={saving || !form.order_detail.trim()}
-          className="px-4 py-1.5 bg-emerald-700 text-white rounded-lg text-sm font-semibold hover:bg-emerald-800 disabled:opacity-50">
-          {saving ? 'Saving…' : 'Place Order'}
-        </button>
-      </div>
-    </div>
-  )
-}
-
-// ── New Medication Order Form ──────────────────────────────────────────────────
-function NewMedOrderForm({ onSave, onCancel }) {
-  const [form, setForm] = useState({
-    drug_name: '', dose: '', route: 'PO', frequency: 'OD',
-    duration_days: '', instructions: '', is_prn: false, is_stat: false,
-    is_continuous: false, iv_fluid: '', iv_rate: '', iv_volume_ml: '', notes: ''
-  })
-  const [saving, setSaving] = useState(false)
-  const f = k => ({ value: form[k], onChange: e => setForm(p => ({ ...p, [k]: e.target.value })) })
-  const isIV = form.route === 'IV'
-
-  const submit = async () => {
-    if (!form.drug_name.trim()) return
-    setSaving(true)
-    try { await onSave(form) } finally { setSaving(false) }
-  }
-
-  return (
-    <div className="bg-white border border-emerald-200 rounded-2xl p-4 space-y-3 shadow-sm">
-      <div className="flex items-center justify-between">
-        <h3 className="font-bold text-emerald-900 text-sm">New Medication Order</h3>
-        <button onClick={onCancel} className="p-1 hover:bg-gray-100 rounded"><X size={14} /></button>
-      </div>
-
-      <div className="grid grid-cols-2 gap-2">
-        <div className="col-span-2">
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Drug Name *</label>
-          <input className="input mt-1 text-sm" placeholder="e.g. Amoxicillin, Metformin…" {...f('drug_name')} />
-        </div>
-        <div>
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Dose</label>
-          <input className="input mt-1 text-sm" placeholder="e.g. 500mg" {...f('dose')} />
-        </div>
-        <div>
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Route</label>
-          <select className="input mt-1 text-sm" {...f('route')}>
-            {ROUTES.map(r => <option key={r}>{r}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Frequency</label>
-          <select className="input mt-1 text-sm" {...f('frequency')}>
-            {FREQS.map(r => <option key={r}>{r}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Duration (days)</label>
-          <input className="input mt-1 text-sm" type="number" min="1" placeholder="e.g. 5" {...f('duration_days')} />
-        </div>
-      </div>
-
-      {isIV && (
-        <div className="grid grid-cols-3 gap-2 p-3 bg-blue-50 rounded-xl border border-blue-200">
-          <div>
-            <label className="text-xs font-semibold text-blue-700 uppercase">IV Fluid</label>
-            <input className="input mt-1 text-sm" placeholder="NS, D5W…" {...f('iv_fluid')} />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-blue-700 uppercase">Rate (mL/hr)</label>
-            <input className="input mt-1 text-sm" placeholder="80" {...f('iv_rate')} />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-blue-700 uppercase">Volume (mL)</label>
-            <input className="input mt-1 text-sm" placeholder="500" {...f('iv_volume_ml')} />
-          </div>
-        </div>
-      )}
-
-      <div>
-        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Instructions</label>
-        <input className="input mt-1 text-sm" placeholder="e.g. Take with food, after meals…" {...f('instructions')} />
-      </div>
-
-      <div className="flex flex-wrap gap-3">
-        {[['is_stat','STAT'], ['is_prn','PRN (as needed)'], ['is_continuous','Continuous']].map(([k,l]) => (
-          <label key={k} className="flex items-center gap-1.5 text-sm cursor-pointer">
-            <input type="checkbox" checked={form[k]} onChange={e => setForm(p => ({ ...p, [k]: e.target.checked }))} className="rounded" />
-            <span className="font-medium text-gray-700">{l}</span>
-          </label>
-        ))}
-      </div>
-
-      <div className="flex gap-2 justify-end">
-        <button onClick={onCancel} className="px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-100 rounded-lg">Cancel</button>
-        <button onClick={submit} disabled={saving || !form.drug_name.trim()}
-          className="px-4 py-1.5 bg-emerald-700 text-white rounded-lg text-sm font-semibold hover:bg-emerald-800 disabled:opacity-50">
-          {saving ? 'Saving…' : 'Order Medication'}
-        </button>
-      </div>
-    </div>
-  )
-}
-
-// ── Clinical Order Card ────────────────────────────────────────────────────────
-function ClinicalOrderCard({ order, onAck, onStart, onComplete, onCancel, canWrite }) {
-  const [expanded, setExpanded] = useState(false)
-  const meta = TYPE_META[order.order_type] || TYPE_META.nursing
-  const Icon = meta.icon
-  const pri  = PRIORITY_STYLE[order.priority] || PRIORITY_STYLE.routine
-  const sts  = STATUS_STYLE[order.status]     || STATUS_STYLE.pending
-  const isStat = order.priority === 'stat'
-  const isDone = ['completed','cancelled'].includes(order.status)
-
-  return (
-    <div className={`border rounded-xl overflow-hidden ${isStat && !isDone ? 'border-red-300' : 'border-gray-200'}`}>
-      <div className={`flex items-start gap-2.5 px-3 py-2.5 ${isStat && !isDone ? 'bg-red-50' : 'bg-white'}`}>
-        <div className={`p-1.5 rounded-lg flex-shrink-0 ${meta.bg}`}>
-          <Icon size={14} className={meta.color} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="font-semibold text-gray-900 text-sm">{order.order_detail}</span>
-            <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${pri.cls}`}>{pri.label}</span>
-            <span className={`px-1.5 py-0.5 rounded-full text-xs font-semibold ${sts.cls}`}>{sts.label}</span>
-          </div>
-          <div className="text-xs text-gray-400 mt-0.5">
-            {meta.label} · {order.orderer_name} · {order.ordered_at ? new Date(order.ordered_at).toLocaleString('en-IN', { dateStyle:'short', timeStyle:'short' }) : ''}
-          </div>
-          {order.instructions && (
-            <div className="text-xs text-gray-500 mt-1 italic">"{order.instructions}"</div>
-          )}
-        </div>
-        <button onClick={() => setExpanded(e => !e)} className="p-1 hover:bg-gray-100 rounded flex-shrink-0">
-          {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-        </button>
-      </div>
-
-      {expanded && (
-        <div className="px-3 pb-3 pt-1 border-t border-gray-100 bg-gray-50 space-y-2">
-          {order.result_notes && (
-            <div className="text-xs text-emerald-700 bg-emerald-50 rounded-lg p-2">
-              <span className="font-semibold">Result: </span>{order.result_notes}
-            </div>
-          )}
-          {order.acknowledged_at && (
-            <div className="text-xs text-gray-400">
-              Acknowledged by {order.acknowledger_name} at {new Date(order.acknowledged_at).toLocaleString('en-IN', { dateStyle:'short', timeStyle:'short' })}
-            </div>
-          )}
-          {order.completed_at && (
-            <div className="text-xs text-gray-400">
-              Completed by {order.completer_name} at {new Date(order.completed_at).toLocaleString('en-IN', { dateStyle:'short', timeStyle:'short' })}
-            </div>
-          )}
-
-          {canWrite && !isDone && (
-            <div className="flex gap-2 flex-wrap pt-1">
-              {order.status === 'pending' && (
-                <button onClick={() => onAck(order)}
-                  className="px-3 py-1 bg-indigo-100 text-indigo-800 rounded-lg text-xs font-semibold hover:bg-indigo-200">
-                  Acknowledge
-                </button>
-              )}
-              {['pending','acknowledged'].includes(order.status) && (
-                <button onClick={() => onStart(order)}
-                  className="px-3 py-1 bg-purple-100 text-purple-800 rounded-lg text-xs font-semibold hover:bg-purple-200">
-                  Start
-                </button>
-              )}
-              {order.status !== 'completed' && (
-                <button onClick={() => onComplete(order)}
-                  className="px-3 py-1 bg-emerald-600 text-white rounded-lg text-xs font-semibold hover:bg-emerald-700">
-                  Complete
-                </button>
-              )}
-              <button onClick={() => onCancel(order)}
-                className="px-3 py-1 bg-gray-100 text-gray-600 rounded-lg text-xs font-semibold hover:bg-gray-200 ml-auto">
-                Cancel
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── Medication Order Card ──────────────────────────────────────────────────────
-function MedOrderCard({ order, onDiscontinue, canWrite }) {
-  const [expanded, setExpanded] = useState(false)
-  const isDone = ['discontinued','completed'].includes(order.status)
-  const sts = STATUS_STYLE[order.status] || STATUS_STYLE.active
-
-  return (
-    <div className={`border rounded-xl overflow-hidden ${order.is_stat && !isDone ? 'border-red-300' : 'border-gray-200'}`}>
-      <div className={`flex items-start gap-2.5 px-3 py-2.5 ${order.is_stat && !isDone ? 'bg-red-50' : 'bg-white'}`}>
-        <div className="p-1.5 rounded-lg bg-emerald-50 flex-shrink-0">
-          <Pill size={14} className="text-emerald-600" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="font-semibold text-gray-900 text-sm">{order.drug_name}</span>
-            {order.is_stat && <span className="px-1.5 py-0.5 bg-red-600 text-white rounded text-xs font-bold">STAT</span>}
-            {order.is_prn  && <span className="px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded text-xs font-semibold">PRN</span>}
-            <span className={`px-1.5 py-0.5 rounded-full text-xs font-semibold ${sts.cls}`}>{sts.label}</span>
-          </div>
-          <div className="text-xs text-gray-600 mt-0.5">
-            {[order.dose, order.route, order.frequency].filter(Boolean).join(' · ')}
-            {order.duration_days ? ` × ${order.duration_days}d` : ''}
-          </div>
-          <div className="text-xs text-gray-400 mt-0.5">
-            {order.orderer_name} · {order.ordered_at ? new Date(order.ordered_at).toLocaleString('en-IN', { dateStyle:'short', timeStyle:'short' }) : ''}
-          </div>
-        </div>
-        <button onClick={() => setExpanded(e => !e)} className="p-1 hover:bg-gray-100 rounded flex-shrink-0">
-          {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-        </button>
-      </div>
-
-      {expanded && (
-        <div className="px-3 pb-3 pt-1 border-t border-gray-100 bg-gray-50 space-y-2">
-          {order.route === 'IV' && (order.iv_fluid || order.iv_rate) && (
-            <div className="text-xs text-blue-700 bg-blue-50 rounded-lg p-2">
-              IV: {order.iv_fluid} {order.iv_rate ? `@ ${order.iv_rate} mL/hr` : ''} {order.iv_volume_ml ? `· ${order.iv_volume_ml} mL` : ''}
-            </div>
-          )}
-          {order.instructions && <div className="text-xs text-gray-500 italic">"{order.instructions}"</div>}
-          {order.discontinue_reason && (
-            <div className="text-xs text-red-600">D/C Reason: {order.discontinue_reason}</div>
-          )}
-          {canWrite && !isDone && (
-            <button onClick={() => onDiscontinue(order)}
-              className="flex items-center gap-1 px-3 py-1 bg-red-50 text-red-700 rounded-lg text-xs font-semibold hover:bg-red-100">
-              <Ban size={11} /> Discontinue
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── Main Page ──────────────────────────────────────────────────────────────────
-export default function Orders() {
-  const { requestPin } = usePin()
-  const { user } = useAuth()
-  const { mode } = useWardSession()
-
-  const [admissions, setAdmissions] = useState([])
-  const [selected, setSelected]     = useState(null)
-  const [clinOrders, setClinOrders] = useState([])
-  const [medOrders,  setMedOrders]  = useState([])
-  const [search, setSearch]         = useState('')
-  const [loading, setLoading]       = useState(false)
-  const [tab, setTab]               = useState('clinical')   // clinical | medications
-  const [showNewClin, setShowNewClin] = useState(false)
-  const [showNewMed,  setShowNewMed]  = useState(false)
-  const [filterStatus, setFilterStatus] = useState('active') // active | all
-
-  const canWrite = ['doctor','clinic_admin','clinic_manager'].includes(user?.role)
-  const canOrder = canWrite  // only doctors/admins place orders; nurses acknowledge/complete
-
-  useEffect(() => {
+  const load = useCallback(async () => {
+    if (!admissionId) return
     setLoading(true)
-    api.get('/inpatient/admissions', { params: { status: 'active' } })
-      .then(d => setAdmissions(Array.isArray(d) ? d : d.items || []))
-      .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [])
-
-  const loadOrders = useCallback(async (adm) => {
-    setSelected(adm)
-    setShowNewClin(false); setShowNewMed(false)
     try {
-      const [clin, meds] = await Promise.all([
-        api.get(`/inpatient/admissions/${adm.id}/clinical-orders`).catch(() => []),
-        api.get(`/inpatient/admissions/${adm.id}/orders`).catch(() => []),
+      const [lab, img] = await Promise.allSettled([
+        api.get(`/inpatient/admissions/${admissionId}/orders`, { params: { type: 'lab' } }),
+        api.get(`/inpatient/admissions/${admissionId}/orders`, { params: { type: 'imaging' } }),
       ])
-      setClinOrders(Array.isArray(clin) ? clin : [])
-      setMedOrders(Array.isArray(meds) ? meds : [])
-    } catch { setClinOrders([]); setMedOrders([]) }
-  }, [])
+      const labList = lab.status === 'fulfilled'
+        ? (Array.isArray(lab.value) ? lab.value : lab.value?.items || [])
+        : []
+      const imgList = img.status === 'fulfilled'
+        ? (Array.isArray(img.value) ? img.value : img.value?.items || [])
+        : []
+      const mock = buildMock()
+      setData({
+        lab:     labList.length ? labList : mock.lab,
+        imaging: imgList.length ? imgList : mock.imaging,
+      })
+    } catch {
+      setData(buildMock())
+    } finally { setLoading(false) }
+  }, [admissionId])
 
-  const refresh = () => selected && loadOrders(selected)
+  useEffect(() => { load() }, [load])
 
-  // ── Clinical order actions ──
-  const ackOrder = async (order) => {
-    try { await requestPin(); await api.post(`/inpatient/clinical-orders/${order.id}/acknowledge`); refresh() }
-    catch (e) { if (e?.message !== 'PIN entry cancelled') alert(e?.message) }
-  }
-  const startOrder = async (order) => {
-    try { await requestPin(); await api.post(`/inpatient/clinical-orders/${order.id}/start`); refresh() }
-    catch (e) { if (e?.message !== 'PIN entry cancelled') alert(e?.message) }
-  }
-  const completeOrder = async (order) => {
-    const notes = window.prompt('Result / completion notes (optional):')
-    if (notes === null) return
-    try { await requestPin(); await api.post(`/inpatient/clinical-orders/${order.id}/complete`, { result_notes: notes }); refresh() }
-    catch (e) { if (e?.message !== 'PIN entry cancelled') alert(e?.message) }
-  }
-  const cancelOrder = async (order) => {
-    const reason = window.prompt('Reason for cancellation:')
-    if (reason === null) return
-    try { await requestPin(); await api.post(`/inpatient/clinical-orders/${order.id}/cancel`, { reason }); refresh() }
-    catch (e) { if (e?.message !== 'PIN entry cancelled') alert(e?.message) }
-  }
+  const current = data[tab] || []
 
-  // ── Medication order actions ──
-  const discontinueMed = async (order) => {
-    const reason = window.prompt('Reason for discontinuing:')
-    if (reason === null) return
-    try { await requestPin(); await api.post(`/inpatient/orders/${order.id}/discontinue`, { reason }); refresh() }
-    catch (e) { if (e?.message !== 'PIN entry cancelled') alert(e?.message) }
-  }
-
-  const saveClinOrder = async (form) => {
-    await api.post(`/inpatient/admissions/${selected.id}/clinical-orders`, form)
-    setShowNewClin(false); refresh()
-  }
-  const saveMedOrder = async (form) => {
-    await api.post(`/inpatient/admissions/${selected.id}/orders`, form)
-    setShowNewMed(false); refresh()
-  }
-
-  const filtered = admissions.filter(a => {
-    const q = search.toLowerCase()
-    return a.patient?.full_name?.toLowerCase().includes(q) || a.ward?.name?.toLowerCase().includes(q)
+  const filtered = current.filter(o => {
+    if (chip && o.status !== chip)         return false
+    if (priority && o.priority !== priority) return false
+    if (search) {
+      const q = search.toLowerCase()
+      const n = (o.name || o.test_name || o.study_name || '').toLowerCase()
+      if (!n.includes(q)) return false
+    }
+    return true
   })
 
-  // ── Patient list ──
-  if (!selected) {
-    return (
-      <div className="p-4 space-y-3">
-        <h1 className="font-bold text-lg text-emerald-900">Clinical Orders</h1>
-        <div className="relative">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input className="input pl-8" placeholder="Search patient or ward…" value={search}
-            onChange={e => setSearch(e.target.value)} />
-        </div>
-        {loading ? (
-          <p className="text-gray-400 text-sm text-center py-10">Loading…</p>
-        ) : filtered.length === 0 ? (
-          <p className="text-gray-400 text-sm text-center py-10">No active admissions.</p>
-        ) : (
-          <div className="space-y-2">
-            {filtered.map(a => {
-              const p = a.patient || {}
-              return (
-                <button key={a.id} onClick={() => loadOrders(a)}
-                  className="w-full text-left bg-white border border-gray-200 rounded-xl p-3 flex items-center gap-3 hover:border-emerald-400 hover:shadow-sm transition-all">
-                  <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 font-bold flex items-center justify-center flex-shrink-0">
-                    {p.full_name?.[0] || '?'}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-gray-900">{p.full_name}</div>
-                    <div className="text-xs text-gray-500">{a.ward?.name} · Bed {a.bed?.bed_number}</div>
-                  </div>
-                  <div className="text-xs text-gray-400">
-                    {a.diagnosis ? <span className="italic truncate max-w-24 block">{a.diagnosis}</span> : null}
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-        )}
-      </div>
-    )
+  const counts = {
+    lab:     data.lab.length,
+    imaging: data.imaging.length,
   }
+  const chipCounts = {}
+  current.forEach(o => { chipCounts[o.status] = (chipCounts[o.status] || 0) + 1 })
+  chipCounts[''] = current.length
 
-  const p = selected.patient || {}
-
-  const activeClin = clinOrders.filter(o => !['completed','cancelled'].includes(o.status))
-  const doneClin   = clinOrders.filter(o =>  ['completed','cancelled'].includes(o.status))
-  const activeMeds = medOrders.filter(o => o.status === 'active')
-  const doneMeds   = medOrders.filter(o => o.status !== 'active')
-
-  const statCount = activeClin.filter(o => o.priority === 'stat').length
+  const hasCritical = current.some(o => o.is_critical)
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Patient header */}
-      <div className="bg-emerald-800 text-white px-4 py-3 flex items-center gap-3 flex-shrink-0">
-        <button onClick={() => setSelected(null)} className="p-1 hover:bg-emerald-700 rounded">
-          <ArrowLeft size={16} />
-        </button>
-        <div className="flex-1 min-w-0">
-          <div className="font-bold truncate">{p.full_name}</div>
-          <div className="text-xs text-emerald-200">{selected.ward?.name} · Bed {selected.bed?.bed_number}</div>
+    <div className="flex h-full overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+
+        {/* Critical alert banner */}
+        {hasCritical && (
+          <div className="flex items-center gap-2 px-5 py-1.5 flex-shrink-0"
+            style={{ background: '#fef2f2', borderBottom: '1px solid #fecaca' }}>
+            <AlertOctagon size={12} style={{ color: RED }} />
+            <span className="text-[10px] font-bold" style={{ color: RED }}>
+              ⚠ Critical result — immediate review required
+            </span>
+          </div>
+        )}
+
+        {/* Tab + chips */}
+        <div className="bg-white border-b px-5 py-2 flex flex-wrap items-center gap-2 flex-shrink-0"
+          style={{ borderColor: '#e9eaec' }}>
+
+          {/* Section tabs */}
+          <div className="flex gap-1 mr-3">
+            {[
+              { k: 'lab',     label: 'Lab Orders',     icon: FlaskConical, color: BLUE },
+              { k: 'imaging', label: 'Imaging Orders',  icon: Scan,         color: '#7c3aed' },
+            ].map(t => (
+              <button key={t.k} onClick={() => { setTab(t.k); setChip('') }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all"
+                style={tab === t.k
+                  ? { background: '#f0f9ff', color: t.color, borderColor: '#bfdbfe' }
+                  : { background: 'white', color: '#6b7280', borderColor: '#e5e7eb' }}>
+                <t.icon size={12} />
+                {t.label}
+                <span className="text-[10px] opacity-70">{counts[t.k]}</span>
+              </button>
+            ))}
+          </div>
+
+          <div className="w-px h-4 bg-gray-200" />
+
+          {/* Status chips */}
+          {CHIPS.map(c => (
+            <button key={c.k} onClick={() => setChip(c.k)}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-semibold border transition-all whitespace-nowrap"
+              style={chip === c.k
+                ? { background: '#f0fdf4', color: GREEN, borderColor: '#d1fae5' }
+                : { background: 'white', color: '#6b7280', borderColor: '#e5e7eb' }}>
+              {c.label}
+              <span className="text-[9px] opacity-70">{chipCounts[c.k] ?? 0}</span>
+            </button>
+          ))}
         </div>
-        {statCount > 0 && (
-          <span className="flex items-center gap-1 px-2 py-0.5 bg-red-600 rounded-full text-xs font-bold animate-pulse">
-            <AlertTriangle size={10} /> {statCount} STAT
-          </span>
-        )}
-        <button onClick={refresh} className="p-1.5 hover:bg-emerald-700 rounded">
-          <RefreshCw size={14} />
-        </button>
-      </div>
 
-      {/* Tabs */}
-      <div className="flex border-b border-gray-200 bg-white flex-shrink-0">
-        {[
-          { key: 'clinical',     label: 'Clinical Orders', count: activeClin.length },
-          { key: 'medications',  label: 'Medications',     count: activeMeds.length },
-        ].map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)}
-            className={`flex-1 py-2.5 text-sm font-semibold border-b-2 transition-colors flex items-center justify-center gap-1.5 ${
-              tab === t.key ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500'
-            }`}>
-            {t.label}
-            {t.count > 0 && (
-              <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${tab === t.key ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
-                {t.count}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
+        {/* Filters + actions */}
+        <div className="bg-white border-b px-5 py-1.5 flex items-center gap-2 flex-shrink-0"
+          style={{ borderColor: '#e9eaec' }}>
+          <div className="relative">
+            <Search size={11} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="Search orders…"
+              className="pl-7 pr-3 py-1.5 border rounded-lg text-[11px] focus:outline-none w-40"
+              style={{ borderColor: search ? GREEN : '#d1d5db' }} />
+          </div>
+          <select value={priority} onChange={e => setPriority(e.target.value)}
+            className="border rounded-lg px-2 py-1.5 text-[11px] bg-white focus:outline-none"
+            style={{ borderColor: '#d1d5db' }}>
+            <option value="">All Priority</option>
+            <option value="stat">STAT</option>
+            <option value="urgent">Urgent</option>
+            <option value="routine">Routine</option>
+          </select>
+          <div className="ml-auto">
+            <button onClick={() => setDrawer(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white"
+              style={{ background: GREEN }}>
+              <Plus size={12} />
+              New {tab === 'lab' ? 'Lab' : 'Imaging'} Order
+            </button>
+          </div>
+        </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-3">
-
-        {/* ── Clinical Orders tab ── */}
-        {tab === 'clinical' && (
-          <>
-            {canOrder && !showNewClin && (
-              <button onClick={() => setShowNewClin(true)}
-                className="w-full flex items-center justify-center gap-2 py-2 border-2 border-dashed border-emerald-300 rounded-xl text-emerald-700 text-sm font-semibold hover:bg-emerald-50 transition-colors">
-                <Plus size={15} /> New Clinical Order
-              </button>
-            )}
-            {showNewClin && <NewClinicalOrderForm onSave={saveClinOrder} onCancel={() => setShowNewClin(false)} />}
-
-            {activeClin.length === 0 && !showNewClin && (
-              <div className="text-center py-10 text-gray-400">
-                <FileText size={28} className="mx-auto mb-2 opacity-30" />
-                <p className="text-sm">No active clinical orders</p>
-              </div>
-            )}
-
-            <div className="space-y-2">
-              {activeClin.sort((a,b) => {
-                const pri = { stat: 0, urgent: 1, routine: 2 }
-                return (pri[a.priority] ?? 2) - (pri[b.priority] ?? 2)
-              }).map(o => (
-                <ClinicalOrderCard key={o.id} order={o}
-                  onAck={ackOrder} onStart={startOrder} onComplete={completeOrder} onCancel={cancelOrder}
-                  canWrite={true} />
-              ))}
+        {/* Table */}
+        <div className="flex-1 overflow-auto">
+          {loading ? (
+            <div className="flex items-center justify-center py-16 text-gray-400">
+              <Loader2 size={20} className="animate-spin mr-2" /> Loading orders…
             </div>
-
-            {doneClin.length > 0 && (
-              <details className="mt-2">
-                <summary className="text-xs text-gray-400 cursor-pointer select-none py-1">
-                  Completed / Cancelled ({doneClin.length})
-                </summary>
-                <div className="space-y-1 mt-2">
-                  {doneClin.map(o => (
-                    <ClinicalOrderCard key={o.id} order={o}
-                      onAck={ackOrder} onStart={startOrder} onComplete={completeOrder} onCancel={cancelOrder}
-                      canWrite={false} />
-                  ))}
-                </div>
-              </details>
-            )}
-          </>
-        )}
-
-        {/* ── Medications tab ── */}
-        {tab === 'medications' && (
-          <>
-            {canOrder && !showNewMed && (
-              <button onClick={() => setShowNewMed(true)}
-                className="w-full flex items-center justify-center gap-2 py-2 border-2 border-dashed border-emerald-300 rounded-xl text-emerald-700 text-sm font-semibold hover:bg-emerald-50 transition-colors">
-                <Plus size={15} /> New Medication Order
-              </button>
-            )}
-            {showNewMed && <NewMedOrderForm onSave={saveMedOrder} onCancel={() => setShowNewMed(false)} />}
-
-            {activeMeds.length === 0 && !showNewMed && (
-              <div className="text-center py-10 text-gray-400">
-                <Pill size={28} className="mx-auto mb-2 opacity-30" />
-                <p className="text-sm">No active medication orders</p>
-              </div>
-            )}
-
-            <div className="space-y-2">
-              {activeMeds.map(o => (
-                <MedOrderCard key={o.id} order={o} onDiscontinue={discontinueMed} canWrite={canOrder} />
-              ))}
-            </div>
-
-            {doneMeds.length > 0 && (
-              <details className="mt-2">
-                <summary className="text-xs text-gray-400 cursor-pointer select-none py-1">
-                  Discontinued / Completed ({doneMeds.length})
-                </summary>
-                <div className="space-y-1 mt-2 opacity-60">
-                  {doneMeds.map(o => (
-                    <MedOrderCard key={o.id} order={o} onDiscontinue={discontinueMed} canWrite={false} />
-                  ))}
-                </div>
-              </details>
-            )}
-          </>
-        )}
+          ) : (
+            <OrderTable
+              orders={filtered}
+              type={tab}
+              admissionId={admissionId}
+              onRefresh={load}
+            />
+          )}
+        </div>
       </div>
+
+      {/* Add order drawer */}
+      {drawer && (
+        <div className="flex-shrink-0 border-l overflow-hidden" style={{ width: 340, borderColor: '#e9eaec' }}>
+          <AddOrderDrawer
+            type={tab}
+            admissionId={admissionId}
+            onClose={() => setDrawer(false)}
+            onSave={load}
+          />
+        </div>
+      )}
     </div>
   )
 }

@@ -1,129 +1,245 @@
-import { useEffect, useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { BedDouble, Activity, Pill, ArrowLeftRight, Loader2, Clock, User, FileText } from 'lucide-react'
+import { BedDouble, Activity, ShieldAlert, UserPlus, ChevronRight, Loader2, AlertTriangle } from 'lucide-react'
+import { useWardSession } from '../contexts/WardSessionContext'
 import api from '../api/client'
-import { useAuth } from '../contexts/AuthContext'
 
-function timeAgo(dateStr) {
-  if (!dateStr) return null
-  const diff = (Date.now() - new Date(dateStr).getTime()) / 1000 / 60
-  if (diff < 60) return `${Math.round(diff)}m ago`
-  if (diff < 1440) return `${Math.round(diff / 60)}h ago`
-  return `${Math.round(diff / 1440)}d ago`
+const GREEN = '#065F46'
+
+const CAUTION_STYLE = {
+  nbm:        { label: 'NBM',         bg: '#fff7ed', color: '#c2410c' },
+  post_op:    { label: 'Post-op',     bg: '#eff6ff', color: '#1d4ed8' },
+  blood_thin: { label: 'Blood Thin.', bg: '#fef2f2', color: '#b91c1c' },
+  intubated:  { label: 'Intubated',   bg: '#f5f3ff', color: '#7c3aed' },
+  pre_surg:   { label: 'Pre-surgery', bg: '#fefce8', color: '#a16207' },
+  critical:   { label: 'Critical',    bg: '#fef2f2', color: '#b91c1c' },
+  isolation:  { label: 'Isolation',   bg: '#f0fdf4', color: '#15803d' },
 }
 
-function StatCard({ icon: Icon, label, value, color, sub }) {
+function CautionBadge({ flag }) {
+  const s = CAUTION_STYLE[flag] || { label: flag, bg: '#f3f4f6', color: '#374151' }
   return (
-    <div className="card p-5 flex items-center gap-4">
-      <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: `${color}18` }}>
-        <Icon size={22} style={{ color }} />
+    <span className="inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded"
+      style={{ background: s.bg, color: s.color }}>
+      {s.label}
+    </span>
+  )
+}
+
+function StatCard({ icon: Icon, label, value, color, loading, active, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex-1 min-w-0 bg-white rounded-xl border p-4 text-left transition-all hover:shadow-md"
+      style={{ borderColor: active ? color : '#e5e7eb', boxShadow: active ? `0 0 0 2px ${color}22` : undefined }}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">{label}</p>
+          {loading
+            ? <Loader2 size={20} className="mt-1 animate-spin text-gray-300" />
+            : <p className="text-3xl font-extrabold mt-1" style={{ color }}>{value ?? '—'}</p>
+          }
+        </div>
+        <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${color}18` }}>
+          <Icon size={18} style={{ color }} />
+        </div>
       </div>
-      <div>
-        <div className="text-2xl font-bold" style={{ color: '#0F2557' }}>{value}</div>
-        <div className="text-sm text-gray-500">{label}</div>
-        {sub && <div className="text-xs text-gray-400 mt-0.5">{sub}</div>}
-      </div>
+      {active && <p className="text-[10px] font-semibold mt-2" style={{ color }}>▲ Showing below</p>}
+    </button>
+  )
+}
+
+const COL_CFG = {
+  occupied:   { title: 'Occupied Beds' },
+  vitals:     { title: 'Pending Vitals (>4h)' },
+  critical:   { title: 'Critical Alerts' },
+  admissions: { title: 'New Admissions Today' },
+}
+
+const TABLE_COLS = ['Bed', 'Patient', 'Age/Sex', 'Condition', 'Cautions', 'Last Recorded', 'Doctor', 'MRN']
+
+function PatientTable({ rows, loading, onRowClick }) {
+  if (loading) return (
+    <div className="flex items-center justify-center py-10 text-gray-400">
+      <Loader2 size={20} className="animate-spin mr-2" /> Loading…
+    </div>
+  )
+  if (!rows || rows.length === 0) return (
+    <div className="flex flex-col items-center justify-center py-10 text-gray-400">
+      <AlertTriangle size={24} className="mb-2 opacity-40" />
+      <p className="text-sm">No patients to show</p>
+    </div>
+  )
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-gray-100">
+            {TABLE_COLS.map(c => (
+              <th key={c} className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider px-3 py-2 whitespace-nowrap">{c}</th>
+            ))}
+            <th />
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((p, i) => (
+            <tr key={p.id || i} onClick={() => onRowClick(p)}
+              className="border-b border-gray-50 hover:bg-green-50 cursor-pointer transition-colors last:border-0"
+              style={p.cautions?.includes('critical') ? { background: '#fef2f2' } : undefined}
+            >
+              <td className="px-3 py-2.5 font-semibold text-gray-700 whitespace-nowrap">{p.bed_number || '—'}</td>
+              <td className="px-3 py-2.5 font-medium text-gray-800 whitespace-nowrap">{p.patient_name || p.full_name}</td>
+              <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">
+                {p.age && p.gender ? `${p.age}${p.gender[0]?.toUpperCase()}` : p.age_sex || '—'}
+              </td>
+              <td className="px-3 py-2.5 text-gray-600 max-w-[160px] truncate">{p.diagnosis || p.primary_diagnosis || '—'}</td>
+              <td className="px-3 py-2.5">
+                <div className="flex flex-wrap gap-1">
+                  {(p.cautions || p.caution_flags || []).map(f => <CautionBadge key={f} flag={f} />)}
+                </div>
+              </td>
+              <td className="px-3 py-2.5 text-gray-500 whitespace-nowrap text-xs">
+                {p.last_vitals_at
+                  ? new Date(p.last_vitals_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                  : p.last_recorded || '—'}
+              </td>
+              <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{p.doctor_name || '—'}</td>
+              <td className="px-3 py-2.5 text-gray-400 text-xs whitespace-nowrap font-mono">{p.mrn || p.patient_mrn || '—'}</td>
+              <td className="px-3 py-2.5"><ChevronRight size={14} className="text-gray-300" /></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }
 
 export default function Dashboard() {
-  const { user } = useAuth()
-  const navigate = useNavigate()
-  const [admissions, setAdmissions] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const { session } = useWardSession()
+  const navigate    = useNavigate()
+
+  const [metrics, setMetrics]           = useState(null)
+  const [metricsLoading, setMetricsLoading] = useState(true)
+  const [activeCard, setActiveCard]     = useState(null)
+  const [tableRows, setTableRows]       = useState([])
+  const [tableLoading, setTableLoading] = useState(false)
+
+  const wardId = session?.ward?.id
+
+  const fetchMetrics = useCallback(async () => {
+    if (!wardId) return
+    try {
+      const data = await api.get(`/inpatient/wards/${wardId}/dashboard-metrics`)
+      setMetrics(data)
+    } catch {
+      try {
+        const admissions = await api.get('/inpatient/admissions', { params: { ward_id: wardId, status: 'admitted' } })
+        const list = Array.isArray(admissions) ? admissions : (admissions.items || [])
+        const now = Date.now()
+        const pendingVitals = list.filter(a => !a.last_vitals_at || (now - new Date(a.last_vitals_at).getTime()) > 4 * 3600 * 1000)
+        const critical = list.filter(a => (a.cautions || a.caution_flags || []).includes('critical'))
+        const today = new Date().toDateString()
+        const newAdm = list.filter(a => a.admitted_at && new Date(a.admitted_at).toDateString() === today)
+        setMetrics({ occupied: list.length, vitals: pendingVitals.length, critical: critical.length, admissions: newAdm.length })
+      } catch {}
+    } finally {
+      setMetricsLoading(false)
+    }
+  }, [wardId])
 
   useEffect(() => {
-    api.get('/inpatient/admissions?status=active')
-      .then(data => setAdmissions(Array.isArray(data) ? data : (data.items || data.results || [])))
-      .catch(err => setError(err.message))
-      .finally(() => setLoading(false))
-  }, [])
+    fetchMetrics()
+    const h = () => fetchMetrics()
+    window.addEventListener('carechart:refresh', h)
+    return () => window.removeEventListener('carechart:refresh', h)
+  }, [fetchMetrics])
 
-  const vitalsDue = admissions.filter(a => {
-    if (!a.last_vital_at) return true
-    const diffH = (Date.now() - new Date(a.last_vital_at).getTime()) / 1000 / 3600
-    return diffH > 4
-  }).length
+  const loadTable = useCallback(async (card) => {
+    if (!wardId) return
+    setTableLoading(true)
+    try {
+      const admissions = await api.get('/inpatient/admissions', { params: { ward_id: wardId, status: 'admitted' } })
+      const list = Array.isArray(admissions) ? admissions : (admissions.items || [])
+      const now = Date.now()
+      let rows = list
+      if (card === 'vitals')     rows = list.filter(a => !a.last_vitals_at || (now - new Date(a.last_vitals_at).getTime()) > 4 * 3600 * 1000)
+      if (card === 'critical')   rows = list.filter(a => (a.cautions || a.caution_flags || []).includes('critical'))
+      if (card === 'admissions') { const today = new Date().toDateString(); rows = list.filter(a => a.admitted_at && new Date(a.admitted_at).toDateString() === today) }
+      setTableRows(rows)
+    } catch { setTableRows([]) }
+    finally { setTableLoading(false) }
+  }, [wardId])
 
-  const h = new Date().getHours()
-  const shiftName = h >= 6 && h < 14 ? 'Morning' : h >= 14 && h < 22 ? 'Afternoon' : 'Night'
+  const handleCardClick = (card) => {
+    if (activeCard === card) { setActiveCard(null); setTableRows([]) }
+    else { setActiveCard(card); loadTable(card) }
+  }
+
+  const handleRowClick = (p) => {
+    const id = p.admission_id || p.id
+    if (id) navigate(`/chart/${id}`)
+  }
+
+  const greeting = () => {
+    const h = new Date().getHours()
+    if (h < 12) return 'Good morning'
+    if (h < 17) return 'Good afternoon'
+    return 'Good evening'
+  }
+
+  const shift = (() => {
+    const h = new Date().getHours()
+    if (h >= 6  && h < 14) return 'Morning'
+    if (h >= 14 && h < 22) return 'Evening'
+    return 'Night'
+  })()
+
+  const CARDS = [
+    { key: 'occupied',   icon: BedDouble,   label: 'Occupied Beds',   color: '#065F46' },
+    { key: 'vitals',     icon: Activity,    label: 'Pending Vitals',  color: '#d97706' },
+    { key: 'critical',   icon: ShieldAlert, label: 'Critical Alerts', color: '#dc2626' },
+    { key: 'admissions', icon: UserPlus,    label: 'New Admissions',  color: '#7c3aed' },
+  ]
 
   return (
-    <div>
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Ward Dashboard</h1>
-          <p className="text-gray-500 text-sm mt-1">Welcome back, {user?.full_name || 'Nurse'} · {shiftName} Shift</p>
-        </div>
+    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+      <div>
+        <h1 className="text-xl font-extrabold text-gray-800">
+          {greeting()}{session?.ward?.name ? `, ${session.ward.name}` : ''}
+        </h1>
+        <p className="text-sm text-gray-500 mt-0.5">
+          {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+          <span className="mx-2">·</span>
+          <span className="font-medium" style={{ color: GREEN }}>{shift} Shift</span>
+        </p>
       </div>
 
-      {error && <div className="p-4 mb-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">{error}</div>}
+      <div className="flex gap-4 flex-wrap">
+        {CARDS.map(c => (
+          <StatCard key={c.key} icon={c.icon} label={c.label} value={metrics?.[c.key]}
+            color={c.color} loading={metricsLoading} active={activeCard === c.key}
+            onClick={() => handleCardClick(c.key)} />
+        ))}
+      </div>
 
-      {loading ? (
-        <div className="flex items-center justify-center py-20"><Loader2 size={32} className="animate-spin text-gray-400" /></div>
-      ) : (
-        <>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            <StatCard icon={BedDouble} label="Active Admissions" value={admissions.length} color="#065F46" />
-            <StatCard icon={Activity} label="Vitals Due" value={vitalsDue} color={vitalsDue > 0 ? '#CC1414' : '#16A34A'} sub="> 4h since last charting" />
-            <StatCard icon={Pill} label="MAR Status" value="—" color="#d97706" sub="Check MAR tab" />
-            <StatCard icon={ArrowLeftRight} label="Shift Handoff" value={shiftName} color="#6366f1" sub="Handoff tab for notes" />
+      {activeCard && (
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
+            <h2 className="text-sm font-bold text-gray-800">
+              {COL_CFG[activeCard]?.title}
+              {!tableLoading && (
+                <span className="ml-2 text-xs font-normal text-gray-400">
+                  {tableRows.length} patient{tableRows.length !== 1 ? 's' : ''}
+                </span>
+              )}
+            </h2>
+            <button onClick={() => { setActiveCard(null); setTableRows([]) }} className="text-xs text-gray-400 hover:text-gray-600">
+              ✕ Close
+            </button>
           </div>
-
-          <div className="card overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-              <h2 className="font-semibold text-gray-800">Today's Active Admissions</h2>
-              <span className="badge-green">{admissions.length} patients</span>
-            </div>
-            {admissions.length === 0 ? (
-              <div className="empty-state"><User size={32} className="empty-state-icon" /><span className="empty-state-text">No active admissions</span></div>
-            ) : (
-              <div className="table-wrapper rounded-none">
-                <table className="table">
-                  <thead><tr>
-                    <th className="th">Patient</th>
-                    <th className="th">Admission #</th>
-                    <th className="th">Ward / Bed</th>
-                    <th className="th">Diagnosis</th>
-                    <th className="th">Last Vitals</th>
-                  </tr></thead>
-                  <tbody className="bg-white divide-y divide-gray-50">
-                    {admissions.map(a => {
-                      const name = a.patient?.full_name || a.patient_name || 'Unknown'
-                      const admNo = a.admission_number || `#${a.id}`
-                      const ward = a.ward?.name || a.ward_name || '—'
-                      const bed = a.bed?.bed_number || a.bed_number || '—'
-                      const diag = a.diagnosis || a.primary_diagnosis || '—'
-                      const ago = timeAgo(a.last_vital_at)
-                      const overdue = !a.last_vital_at || (Date.now() - new Date(a.last_vital_at).getTime()) / 1000 / 3600 > 4
-                      return (
-                        <tr key={a.id} className="tr-hover cursor-pointer" onClick={() => navigate(`/chart/${a.id}`)}>
-                          <td className="td font-medium text-gray-900 flex items-center gap-2">
-                            <FileText size={13} className="text-emerald-500 flex-shrink-0" />{name}
-                          </td>
-                          <td className="td text-gray-500">{admNo}</td>
-                          <td className="td">{ward} / {bed}</td>
-                          <td className="td text-gray-500 max-w-xs truncate">{diag}</td>
-                          <td className="td">
-                            {ago ? (
-                              <span className={`inline-flex items-center gap-1 text-xs font-medium ${overdue ? 'text-red-600' : 'text-green-700'}`}>
-                                <Clock size={11} />{ago}
-                              </span>
-                            ) : (
-                              <span className="text-xs text-red-500 font-medium">Never charted</span>
-                            )}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </>
+          <PatientTable rows={tableRows} loading={tableLoading} onRowClick={handleRowClick} />
+        </div>
       )}
     </div>
   )

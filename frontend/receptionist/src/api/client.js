@@ -9,7 +9,7 @@ const api = axios.create({
 })
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('staff_token')
+  const token = localStorage.getItem('access_token')
   if (token) config.headers.Authorization = `Bearer ${token}`
   return config
 })
@@ -25,7 +25,7 @@ api.interceptors.response.use(
 
     // Auto-refresh on 401 for non-exempt endpoints
     if (status === 401 && !isExempt && !err.config._retried) {
-      const refreshToken = localStorage.getItem('staff_refresh_token')
+      const refreshToken = localStorage.getItem('refresh_token')
       if (refreshToken) {
         try {
           if (!_refreshing) {
@@ -33,8 +33,8 @@ api.interceptors.response.use(
               .finally(() => { _refreshing = null })
           }
           const { data } = await _refreshing
-          localStorage.setItem('staff_token', data.access_token)
-          if (data.refresh_token) localStorage.setItem('staff_refresh_token', data.refresh_token)
+          localStorage.setItem('access_token', data.access_token)
+          if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token)
           err.config._retried = true
           err.config.headers.Authorization = `Bearer ${data.access_token}`
           return api.request(err.config)
@@ -42,8 +42,8 @@ api.interceptors.response.use(
           // Refresh failed — fall through to logout
         }
       }
-      localStorage.removeItem('staff_token')
-      localStorage.removeItem('staff_refresh_token')
+      localStorage.removeItem('access_token')
+      localStorage.removeItem('refresh_token')
       localStorage.removeItem('clinic_id')
       localStorage.removeItem('branch_id')
       window.location.href = '/login'
