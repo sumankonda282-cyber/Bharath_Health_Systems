@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   Activity, AlertTriangle, ClipboardList, FileText,
-  CheckCircle, Plus, ChevronDown, User, Wind, Users, GitBranch, ShieldAlert, Zap, MessageSquare
+  CheckCircle, Plus, ChevronDown, User, Wind, Users, GitBranch, ShieldAlert, Zap, MessageSquare, Stethoscope
 } from 'lucide-react'
 import PatientList from '../components/PatientList'
 import GCSForm from '../components/assessments/GCSForm'
@@ -20,6 +20,7 @@ import AllergiesForm from '../components/assessments/AllergiesForm'
 import MedicalHistoryForm from '../components/assessments/MedicalHistoryForm'
 import PainAssessmentForm from '../components/assessments/PainAssessmentForm'
 import ChiefComplaintForm from '../components/assessments/ChiefComplaintForm'
+import SystemsReviewForm from '../components/assessments/SystemsReviewForm'
 import api from '../api/client'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -134,6 +135,7 @@ const GENERAL_ASSESSMENTS = [
   { key: 'allergies',        name: '[A] Allergies',        Icon: ShieldAlert,  iconBg: 'bg-red-100',   iconColor: 'text-red-600',    noteType: 'allergies'        },
   { key: 'medical_history',  name: '[A] Medical History',  Icon: ClipboardList, iconBg: 'bg-teal-100',  iconColor: 'text-teal-600',  noteType: 'medical_history'  },
   { key: 'pain_assessment',  name: '[A] Pain Assessment',  Icon: Zap,           iconBg: 'bg-rose-100',  iconColor: 'text-rose-600',  noteType: 'pain_assessment'  },
+  { key: 'systems_review',   name: '[A] Systems Review',   Icon: Stethoscope,   iconBg: 'bg-slate-100', iconColor: 'text-slate-600', noteType: 'systems_review'   },
 ]
 
 const NURSING_ASSESSMENTS = [
@@ -216,7 +218,8 @@ export default function Assessments() {
       pain:     PainForm,
       io:       IOChartForm,
       wound:    WoundCareForm,
-      restraint: RestraintForm,
+      restraint:      RestraintForm,
+      systems_review: SystemsReviewForm,
     }[openModal]
 
     return (
