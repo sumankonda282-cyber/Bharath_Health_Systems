@@ -12,9 +12,13 @@ export function AuthProvider({ children }) {
     if (!token) { setLoading(false); return }
     api.get('/auth/staff/me')
       .then(data => setUser(data))
-      .catch(() => {
-        localStorage.removeItem('access_token')
-        localStorage.removeItem('refresh_token')
+      .catch((err) => {
+        // Only clear token on explicit auth rejection, not network failures
+        if (err.status === 401 || err.status === 403) {
+          localStorage.removeItem('access_token')
+          localStorage.removeItem('refresh_token')
+        }
+        // On network errors keep token — user stays logged in and retry happens on next action
       })
       .finally(() => setLoading(false))
   }, [])
