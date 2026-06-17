@@ -59,6 +59,30 @@ body {
   margin: 0;
 }
 
+/* ── Shared UI component classes ── */
+@layer components {
+  .card {
+    @apply bg-white border border-gray-200 rounded-xl p-4 shadow-sm;
+  }
+  .page-title {
+    @apply text-xl font-bold text-gray-900 tracking-tight;
+  }
+  .table {
+    @apply w-full border-collapse text-left;
+  }
+  .th {
+    @apply text-[10px] font-bold uppercase tracking-wider text-gray-400 px-4 py-2.5 bg-gray-50 border-b border-gray-200;
+  }
+  .td {
+    @apply px-4 py-3 border-b border-gray-100 text-sm align-top;
+  }
+  .badge-green  { @apply inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border bg-emerald-50 text-emerald-700 border-emerald-200; }
+  .badge-amber  { @apply inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border bg-amber-50 text-amber-700 border-amber-200; }
+  .badge-red    { @apply inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border bg-red-50 text-red-700 border-red-200; }
+  .badge-gray   { @apply inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border bg-gray-100 text-gray-600 border-gray-200; }
+  .badge-blue   { @apply inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border bg-blue-50 text-blue-700 border-blue-200; }
+}
+
 #root {
   width: 1126px;
   max-width: 100%;

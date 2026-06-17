@@ -11,6 +11,7 @@ import Vitals from './pages/Vitals'
 import WardOrders from './pages/WardOrders'
 import Assessments from './pages/Assessments'
 import PatientChart from './pages/PatientChart'
+import DischargeQueue from './pages/DischargeQueue'
 import Layout from './components/Layout'
 
 function Spinner() {
@@ -66,7 +67,7 @@ export default function App() {
             <Route path="/mar"         element={<WardRoute><Placeholder label="MAR" /></WardRoute>} />
             <Route path="/notes"       element={<WardRoute><Placeholder label="Nursing Notes" /></WardRoute>} />
             <Route path="/assessments" element={<WardRoute><Assessments /></WardRoute>} />
-            <Route path="/discharge"   element={<WardRoute><Placeholder label="Discharge" /></WardRoute>} />
+            <Route path="/discharge"   element={<WardRoute><DischargeQueue /></WardRoute>} />
             <Route path="/handoff"     element={<WardRoute><Placeholder label="Shift Handoff" /></WardRoute>} />
             <Route path="/rounds"      element={<WardRoute><WardRounds /></WardRoute>} />
             <Route path="/orders"      element={<WardRoute><WardOrders /></WardRoute>} />
