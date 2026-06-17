@@ -30,7 +30,16 @@ export default function Login() {
     try {
       await login(form.identifier, form.password)
     } catch (err) {
-      setError(err.message || 'Login failed. Please check your credentials.')
+      const msg = err.message || ''
+      if (msg.includes('401') || msg.toLowerCase().includes('invalid')) {
+        setError('Invalid credentials. Use your CareChart staff account — provider portal accounts are not accepted here.')
+      } else if (msg.includes('403')) {
+        setError('Account not yet activated. Contact your ward manager.')
+      } else if (msg.includes('429') || msg.toLowerCase().includes('locked')) {
+        setError(msg)
+      } else {
+        setError(msg || 'Login failed. Please check your credentials.')
+      }
       setLoading(false)
     }
   }
