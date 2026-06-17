@@ -20,9 +20,20 @@ export function AuthProvider({ children }) {
   const loginWithToken = async (access_token, bh_profile_id) => {
     localStorage.setItem('patient_token', access_token)
     if (bh_profile_id) localStorage.setItem('bh_profile_id', String(bh_profile_id))
-    const me = await api.get('/portal/me')
-    setUser(me.data || me)
-    return me.data || me
+    try {
+      const me = await api.get('/portal/me')
+      setUser(me.data || me)
+      return me.data || me
+    } catch (err) {
+      // Network/cold-start error — create a minimal user object so login still succeeds.
+      // Full profile will load on next navigation.
+      if (!err.status || err.status >= 500 || err.message === 'Network Error') {
+        const minimal = { bh_profile_id, access_token }
+        setUser(minimal)
+        return minimal
+      }
+      throw err
+    }
   }
 
   const logout = () => {

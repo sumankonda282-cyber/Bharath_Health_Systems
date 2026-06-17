@@ -22,7 +22,7 @@ api.interceptors.response.use(
     if (err.response?.status === 401) {
       const url = err.config?.url || ''
       const isExempt = url.includes('/login') || url.includes('/send-otp') || url.includes('/verify-otp') || url.includes('/me')
-      if (!isExempt) {
+      if (!isExempt && !window.location.pathname.startsWith('/login')) {
         localStorage.removeItem('patient_token')
         localStorage.removeItem('bh_profile_id')
         window.location.href = '/login'
