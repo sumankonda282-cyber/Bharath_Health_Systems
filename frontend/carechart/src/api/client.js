@@ -44,7 +44,10 @@ api.interceptors.response.use(
       localStorage.removeItem('access_token')
       localStorage.removeItem('refresh_token')
       localStorage.removeItem('user_type')
-      window.location.href = '/login'
+      // Never redirect if already on login — prevents infinite reload loop
+      if (!window.location.pathname.startsWith('/login')) {
+        window.location.href = '/login'
+      }
       return Promise.reject(new Error('Session expired. Please log in again.'))
     }
 
