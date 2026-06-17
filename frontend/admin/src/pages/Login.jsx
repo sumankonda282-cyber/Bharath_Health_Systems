@@ -133,6 +133,12 @@ export default function Login() {
                 </div>
               )}
 
+              <div className="flex justify-end">
+                <a href="/reset-password" className="text-xs" style={{ color: '#F5821E' }}>
+                  Forgot password?
+                </a>
+              </div>
+
               <button
                 type="submit"
                 disabled={loading}

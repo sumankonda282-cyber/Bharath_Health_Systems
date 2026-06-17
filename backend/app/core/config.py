@@ -18,16 +18,19 @@ class Settings(BaseSettings):
     TWILIO_WHATSAPP_FROM: str = ""        # whatsapp:+14155551234
     SMS_PROVIDER: str = "fast2sms"        # "fast2sms" | "twilio"
 
-    # ── Email / SMTP ───────────────────────────────────────────────────────────
+    # ── Email / Resend ─────────────────────────────────────────────────────────
+    RESEND_API_KEY: str = ""
+    EMAIL_FROM_ADDRESS: str = "noreply@bharathhealthsystems.com"
+    EMAIL_FROM_NAME: str = "BHarath Health"
+    EMAIL_ENABLED: bool = False           # set True once RESEND_API_KEY is set
+
+    # ── Legacy SMTP (kept for fallback reference, not used when Resend is active) ──
     SMTP_HOST: str = "smtp.gmail.com"
     SMTP_PORT: int = 587
     SMTP_TLS: bool = True
     SMTP_SSL: bool = False
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
-    EMAIL_FROM_ADDRESS: str = "noreply@bharathhealthsystems.com"
-    EMAIL_FROM_NAME: str = "BHarath Health"
-    EMAIL_ENABLED: bool = False           # set True once SMTP creds are configured
 
     CORS_ORIGINS: str = (
         "http://localhost:3000,http://localhost:5173,http://localhost:5174,http://localhost:5175,"
