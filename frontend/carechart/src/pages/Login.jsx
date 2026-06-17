@@ -324,7 +324,7 @@ export default function Login() {
         </div>
       )}
 
-      <ChatWidget />
+      {/* ChatWidget intentionally omitted — it makes authenticated API calls that cause redirect loops on login */}
     </div>
   )
 }
