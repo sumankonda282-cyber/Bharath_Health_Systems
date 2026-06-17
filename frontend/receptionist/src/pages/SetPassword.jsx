@@ -42,7 +42,11 @@ export default function SetPassword() {
       await refreshUser()
       navigate('/', { replace: true })
     } catch (err) {
-      setError(err.message || 'Failed to set password')
+      if (!err.status && err.message?.toLowerCase().includes('network')) {
+        setError('Network error — the server may be waking up. Please wait 30 seconds and try again.')
+      } else {
+        setError(err.message || 'Failed to set password')
+      }
     } finally {
       setSaving(false)
     }
