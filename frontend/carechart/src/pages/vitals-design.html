@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Vitals — CareChart Design</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f0f2f5; color: #111827; font-size: 13px; }
+
+  /* topbar */
+  .topbar {
+    position: sticky; top: 0; z-index: 50;
+    background: #fff; border-bottom: 1px solid #e5e7eb;
+    padding: 12px 24px; display: flex; align-items: center; gap: 16px;
+  }
+  .page-title { font-size: 15px; font-weight: 800; color: #111827; }
+  .ward-chip {
+    font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 99px;
+    background: #f0fdf4; color: #065F46; border: 1px solid #a7f3d0;
+  }
+  .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 14px; border-radius: 10px; font-size: 12px; font-weight: 600;
+    border: 1px solid; cursor: pointer;
+  }
+  .btn-green  { background: #065F46; color: #fff; border-color: #065F46; }
+  .btn-outline{ background: #fff; color: #374151; border-color: #d1d5db; }
+
+  /* stat strip */
+  .stat-strip {
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    gap: 12px; padding: 16px 24px;
+  }
+  .stat-card {
+    background: #fff; border-radius: 14px; border: 1px solid #e9eaec;
+    padding: 14px 16px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .stat-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #9ca3af; }
+  .stat-value { font-size: 26px; font-weight: 900; line-height: 1; }
+  .stat-sub   { font-size: 10px; color: #9ca3af; }
+  .stat-icon  { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+
+  /* overdue banner */
+  .overdue-banner {
+    margin: 0 24px 8px; padding: 10px 16px; border-radius: 12px;
+    background: #fef2f2; border: 1px solid #fca5a5;
+    display: flex; align-items: center; gap: 10px;
+    font-size: 12px; font-weight: 600; color: #b91c1c;
+  }
+
+  /* filter + search bar */
+  .filter-bar {
+    display: flex; align-items: center; gap: 10px;
+    padding: 0 24px 14px;
+  }
+  .search-box {
+    flex: 1; max-width: 260px; position: relative;
+  }
+  .search-box input {
+    width: 100%; padding: 8px 12px 8px 34px; border-radius: 10px;
+    border: 1px solid #e5e7eb; font-size: 12px; background: #fff;
+    outline: none; color: #111827;
+  }
+  .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #9ca3af; font-size: 13px; }
+  .filter-tabs { display: flex; gap: 4px; }
+  .tab {
+    padding: 6px 14px; border-radius: 8px; font-size: 11px; font-weight: 600;
+    border: 1px solid #e5e7eb; background: #fff; color: #6b7280; cursor: pointer;
+  }
+  .tab.active { background: #065F46; color: #fff; border-color: #065F46; }
+  .tab.red    { background: #fef2f2; color: #b91c1c; border-color: #fca5a5; }
+  .tab.amber  { background: #fef9c3; color: #a16207; border-color: #fde047; }
+  .sort-select {
+    padding: 7px 10px; border-radius: 10px; border: 1px solid #e5e7eb;
+    font-size: 11px; font-weight: 600; color: #374151; background: #fff;
+    margin-left: auto;
+  }
+
+  /* patient vitals table */
+  .table-wrap { padding: 0 24px 24px; }
+  table { width: 100%; border-collapse: separate; border-spacing: 0; }
+  thead th {
+    background: #fff; padding: 10px 14px;
+    font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #9ca3af;
+    text-align: left; border-bottom: 1px solid #e9eaec; position: sticky; top: 60px;
+  }
+  tbody tr { background: #fff; transition: background .1s; }
+  tbody tr:hover { background: #f9fafb; }
+  tbody tr + tr td { border-top: 1px solid #f3f4f6; }
+  td { padding: 12px 14px; vertical-align: middle; }
+
+  /* patient name cell */
+  .pt-name   { font-size: 13px; font-weight: 700; color: #111827; }
+  .pt-sub    { font-size: 10px; color: #9ca3af; margin-top: 1px; }
+  .bed-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 44px; padding: 3px 8px; border-radius: 8px; font-size: 10px; font-weight: 800;
+    background: #f0fdf4; color: #065F46; border: 1px solid #a7f3d0;
+  }
+
+  /* vital value cell */
+  .vital-cell { text-align: center; }
+  .vital-val  { font-size: 13px; font-weight: 700; color: #111827; }
+  .vital-unit { font-size: 9px; color: #9ca3af; }
+  .vital-high { color: #b91c1c; }
+  .vital-low  { color: #2563eb; }
+  .vital-warn { color: #d97706; }
+  .vital-nil  { color: #d1d5db; font-size: 12px; }
+
+  /* time since */
+  .time-ok     { color: #065F46; font-weight: 700; }
+  .time-due    { color: #d97706; font-weight: 700; }
+  .time-overdue{ color: #b91c1c; font-weight: 700; }
+
+  /* status chip */
+  .chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 9px; font-weight: 700; padding: 3px 8px; border-radius: 99px; border: 1px solid;
+  }
+  .chip-green  { background: #dcfce7; color: #15803d; border-color: #a7f3d0; }
+  .chip-amber  { background: #fef9c3; color: #a16207; border-color: #fde047; }
+  .chip-red    { background: #fee2e2; color: #b91c1c; border-color: #fca5a5; }
+  .chip-blue   { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+  .chip-purple { background: #f5f3ff; color: #7c3aed; border-color: #ddd6fe; }
+
+  /* caution flags */
+  .caution-flag {
+    display: inline-flex; font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-right: 2px;
+  }
+
+  /* record btn */
+  .record-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: 700;
+    background: #065F46; color: #fff; border: none; cursor: pointer; white-space: nowrap;
+  }
+  .record-btn.secondary {
+    background: #f0fdf4; color: #065F46; border: 1px solid #a7f3d0;
+  }
+
+  /* sparkline placeholder */
+  .spark { display: flex; align-items: flex-end; gap: 2px; height: 22px; }
+  .spark-bar { width: 4px; border-radius: 2px; background: #d1fae5; }
+  .spark-bar.high { background: #fca5a5; }
+  .spark-bar.warn { background: #fde68a; }
+
+  /* drawer overlay */
+  .drawer-overlay {
+    position: fixed; inset: 0; background: rgba(15,37,87,.4); z-index: 100;
+    display: flex; justify-content: flex-end;
+  }
+  .drawer {
+    width: 420px; height: 100%; background: #fff;
+    display: flex; flex-direction: column; box-shadow: -4px 0 32px rgba(0,0,0,.15);
+  }
+  .drawer-head {
+    padding: 16px 20px; border-bottom: 1px solid #f3f4f6;
+    display: flex; align-items: center; justify-content: space-between;
+    background: #065F46;
+  }
+  .drawer-title  { font-size: 13px; font-weight: 800; color: #fff; }
+  .drawer-sub    { font-size: 10px; color: rgba(255,255,255,.65); margin-top: 1px; }
+  .drawer-body   { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+  .drawer-footer { padding: 14px 20px; border-top: 1px solid #f3f4f6; display: flex; gap: 10px; }
+
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-group { display: flex; flex-direction: column; gap: 4px; }
+  .form-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: #9ca3af; }
+  .form-input {
+    padding: 9px 12px; border: 1px solid #e5e7eb; border-radius: 10px;
+    font-size: 13px; font-weight: 600; color: #111827; background: #fff; outline: none;
+    font-family: inherit;
+  }
+  .form-input:focus { border-color: #065F46; }
+  .form-hint  { font-size: 9px; color: #9ca3af; margin-top: 2px; }
+  .range-bar  { height: 4px; border-radius: 2px; background: #e5e7eb; margin-top: 4px; position: relative; }
+  .range-fill { height: 100%; border-radius: 2px; background: #065F46; }
+  .pin-input {
+    width: 100%; padding: 12px; border: 1px solid #e5e7eb; border-radius: 12px;
+    font-size: 20px; font-weight: 900; letter-spacing: .4em; text-align: center;
+    font-family: monospace; outline: none; background: #f9fafb;
+  }
+
+  .section-label {
+    font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em;
+    color: #9ca3af; margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid #f3f4f6;
+  }
+
+  /* last reading card inside drawer */
+  .last-reading {
+    background: #f0fdf4; border: 1px solid #a7f3d0; border-radius: 12px; padding: 12px 14px;
+  }
+  .last-reading-title { font-size: 9px; font-weight: 700; text-transform: uppercase; color: #059669; margin-bottom: 8px; }
+  .last-reading-grid  { display: flex; gap: 12px; flex-wrap: wrap; }
+  .lrv { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+  .lrv-val  { font-size: 14px; font-weight: 800; color: #065F46; }
+  .lrv-unit { font-size: 9px; color: #6b7280; }
+</style>
+</head>
+<body>
+
+<!-- ── Topbar ── -->
+<div class="topbar">
+  <span style="color:#9ca3af;font-size:18px">←</span>
+  <span class="page-title">Vitals</span>
+  <span class="ward-chip">Ward 3B — General Surgery</span>
+  <span style="font-size:10px;color:#9ca3af">16 Jun 2025 · Morning Shift</span>
+  <div class="topbar-right">
+    <button class="btn btn-outline">⬇ Export CSV</button>
+    <button class="btn btn-green">＋ Record Vitals</button>
+  </div>
+</div>
+
+<!-- ── Stat Strip ── -->
+<div class="stat-strip">
+  <div class="stat-card">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <span class="stat-label">Total Patients</span>
+      <div class="stat-icon" style="background:#eff6ff">🛏</div>
+    </div>
+    <span class="stat-value" style="color:#0F2557">12</span>
+    <span class="stat-sub">in Ward 3B</span>
+  </div>
+  <div class="stat-card">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <span class="stat-label">Recorded Today</span>
+      <div class="stat-icon" style="background:#f0fdf4">✓</div>
+    </div>
+    <span class="stat-value" style="color:#065F46">8</span>
+    <span class="stat-sub">at least once</span>
+  </div>
+  <div class="stat-card">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <span class="stat-label">Due Now (&gt;4h)</span>
+      <div class="stat-icon" style="background:#fef9c3">⏱</div>
+    </div>
+    <span class="stat-value" style="color:#d97706">3</span>
+    <span class="stat-sub">within next hour</span>
+  </div>
+  <div class="stat-card">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <span class="stat-label">Overdue (&gt;6h)</span>
+      <div class="stat-icon" style="background:#fef2f2">⚠</div>
+    </div>
+    <span class="stat-value" style="color:#b91c1c">2</span>
+    <span class="stat-sub">immediate action</span>
+  </div>
+  <div class="stat-card">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <span class="stat-label">Critical Values</span>
+      <div class="stat-icon" style="background:#fef2f2">🔴</div>
+    </div>
+    <span class="stat-value" style="color:#b91c1c">1</span>
+    <span class="stat-sub">SpO₂ &lt; 92%</span>
+  </div>
+</div>
+
+<!-- ── Overdue Banner ── -->
+<div class="overdue-banner">
+  <span style="font-size:16px">⚠</span>
+  <span>2 patients are <strong>overdue for vitals (&gt;6 hours)</strong> — Bed 4 (Ramesh Mehta) and Bed 9 (Anita Sharma). Record immediately.</span>
+</div>
+
+<!-- ── Filter + Search ── -->
+<div class="filter-bar">
+  <div class="search-box">
+    <span class="search-icon">🔍</span>
+    <input placeholder="Search patient, bed, diagnosis…" />
+  </div>
+  <div class="filter-tabs">
+    <span class="tab active">All (12)</span>
+    <span class="tab red">Overdue (2)</span>
+    <span class="tab amber">Due Soon (3)</span>
+    <span class="tab" style="background:#f0fdf4;color:#065F46;border-color:#a7f3d0">Done (7)</span>
+    <span class="tab" style="background:#fef2f2;color:#b91c1c;border-color:#fca5a5">Critical (1)</span>
+  </div>
+  <select class="sort-select">
+    <option>Sort: Overdue first</option>
+    <option>Sort: Bed number</option>
+    <option>Sort: Last recorded</option>
+    <option>Sort: Patient name</option>
+  </select>
+</div>
+
+<!-- ── Vitals Table ── -->
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Bed</th>
+        <th>Patient</th>
+        <th>BP (mmHg)</th>
+        <th>Pulse (bpm)</th>
+        <th>Temp (°C)</th>
+        <th>SpO₂ (%)</th>
+        <th>RR (/min)</th>
+        <th>Trend</th>
+        <th>Last Recorded</th>
+        <th>Status</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+
+      <!-- OVERDUE rows -->
+      <tr style="background:#fff5f5">
+        <td><span class="bed-badge" style="background:#fef2f2;color:#b91c1c;border-color:#fca5a5">Bed 4</span></td>
+        <td>
+          <div class="pt-name">Ramesh Mehta</div>
+          <div class="pt-sub">45M · Appendicitis · Dr. Rao</div>
+          <span class="caution-flag" style="background:#fef2f2;color:#b91c1c">Post-op</span>
+        </td>
+        <td class="vital-cell"><span class="vital-val vital-high">148/94</span><br><span class="vital-unit">mmHg</span></td>
+        <td class="vital-cell"><span class="vital-val vital-high">102</span><br><span class="vital-unit">bpm</span></td>
+        <td class="vital-cell"><span class="vital-val vital-warn">38.2</span><br><span class="vital-unit">°C</span></td>
+        <td class="vital-cell"><span class="vital-val">97</span><br><span class="vital-unit">%</span></td>
+        <td class="vital-cell"><span class="vital-val">20</span><br><span class="vital-unit">/min</span></td>
+        <td>
+          <div class="spark">
+            <div class="spark-bar warn" style="height:10px"></div>
+            <div class="spark-bar warn" style="height:14px"></div>
+            <div class="spark-bar high" style="height:18px"></div>
+            <div class="spark-bar high" style="height:22px"></div>
+          </div>
+        </td>
+        <td><span class="time-overdue">7h 12m ago</span><br><span style="font-size:9px;color:#9ca3af">01:22 AM</span></td>
+        <td><span class="chip chip-red">🔴 Overdue</span></td>
+        <td><button class="record-btn">📋 Record</button></td>
+      </tr>
+
+      <tr style="background:#fff5f5">
+        <td><span class="bed-badge" style="background:#fef2f2;color:#b91c1c;border-color:#fca5a5">Bed 9</span></td>
+        <td>
+          <div class="pt-name">Anita Sharma</div>
+          <div class="pt-sub">62F · Cholecystitis · Dr. Krishnan</div>
+          <span class="caution-flag" style="background:#fffbeb;color:#92400e">Fall Risk</span>
+        </td>
+        <td class="vital-cell"><span class="vital-val">122/78</span><br><span class="vital-unit">mmHg</span></td>
+        <td class="vital-cell"><span class="vital-val">84</span><br><span class="vital-unit">bpm</span></td>
+        <td class="vital-cell"><span class="vital-val">36.6</span><br><span class="vital-unit">°C</span></td>
+        <td class="vital-cell"><span class="vital-val vital-high">88</span><br><span class="vital-unit" style="color:#b91c1c">LOW ⚠</span></td>
+        <td class="vital-cell"><span class="vital-val">22</span><br><span class="vital-unit">/min</span></td>
+        <td>
+          <div class="spark">
+            <div class="spark-bar" style="height:18px"></div>
+            <div class="spark-bar" style="height:14px"></div>
+            <div class="spark-bar high" style="height:8px"></div>
+            <div class="spark-bar high" style="height:6px"></div>
+          </div>
+        </td>
+        <td><span class="time-overdue">8h 45m ago</span><br><span style="font-size:9px;color:#9ca3af">11:48 PM</span></td>
+        <td>
+          <span class="chip chip-red" style="display:block;margin-bottom:3px">🔴 Overdue</span>
+          <span class="chip chip-purple">⚠ SpO₂ Critical</span>
+        </td>
+        <td><button class="record-btn">📋 Record</button></td>
+      </tr>
+
+      <!-- DUE SOON rows -->
+      <tr>
+        <td><span class="bed-badge" style="background:#fef9c3;color:#a16207;border-color:#fde047">Bed 2</span></td>
+        <td>
+          <div class="pt-name">Priya Nair</div>
+          <div class="pt-sub">34F · Hernia Repair · Dr. Rao</div>
+          <span class="caution-flag" style="background:#eff6ff;color:#1d4ed8">Post-op</span>
+        </td>
+        <td class="vital-cell"><span class="vital-val">118/76</span><br><span class="vital-unit">mmHg</span></td>
+        <td class="vital-cell"><span class="vital-val">74</span><br><span class="vital-unit">bpm</span></td>
+        <td class="vital-cell"><span class="vital-val">36.9</span><br><span class="vital-unit">°C</span></td>
+        <td class="vital-cell"><span class="vital-val">99</span><br><span class="vital-unit">%</span></td>
+        <td class="vital-cell"><span class="vital-val">16</span><br><span class="vital-unit">/min</span></td>
+        <td>
+          <div class="spark">
+            <div class="spark-bar" style="height:14px"></div>
+            <div class="spark-bar" style="height:16px"></div>
+            <div class="spark-bar" style="height:14px"></div>
+            <div class="spark-bar" style="height:15px"></div>
+          </div>
+        </td>
+        <td><span class="time-due">4h 30m ago</span><br><span style="font-size:9px;color:#9ca3af">04:04 AM</span></td>
+        <td><span class="chip chip-amber">⏱ Due Soon</span></td>
+        <td><button class="record-btn secondary">📋 Record</button></td>
+      </tr>
+
+      <tr>
+        <td><span class="bed-badge" style="background:#fef9c3;color:#a16207;border-color:#fde047">Bed 6</span></td>
+        <td>
+          <div class="pt-name">Kiran Reddy</div>
+          <div class="pt-sub">51M · GI Bleed · Dr. Mehta</div>
+          <span class="caution-flag" style="background:#fef2f2;color:#b91c1c">Blood Thin.</span>
+        </td>
+        <td class="vital-cell"><span class="vital-val vital-low">98/62</span><br><span class="vital-unit">mmHg</span></td>
+        <td class="vital-cell"><span class="vital-val vital-high">112</span><br><span class="vital-unit">bpm</span></td>
+        <td class="vital-cell"><span class="vital-val">37.1</span><br><span class="vital-unit">°C</span></td>
+        <td class="vital-cell"><span class="vital-val">95</span><br><span class="vital-unit">%</span></td>
+        <td class="vital-cell"><span class="vital-val vital-high">24</span><br><span class="vital-unit">/min</span></td>
+        <td>
+          <div class="spark">
+            <div class="spark-bar high" style="height:20px"></div>
+            <div class="spark-bar warn" style="height:14px"></div>
+            <div class="spark-bar" style="height:10px"></div>
+            <div class="spark-bar" style="height:8px"></div>
+          </div>
+        </td>
+        <td><span class="time-due">4h 58m ago</span><br><span style="font-size:9px;color:#9ca3af">03:36 AM</span></td>
+        <td><span class="chip chip-amber">⏱ Due Soon</span></td>
+        <td><button class="record-btn secondary">📋 Record</button></td>
+      </tr>
+
+      <tr>
+        <td><span class="bed-badge" style="background:#fef9c3;color:#a16207;border-color:#fde047">Bed 11</span></td>
+        <td>
+          <div class="pt-name">Suresh Babu</div>
+          <div class="pt-sub">67M · Colorectal Ca · Dr. Krishnan</div>
+        </td>
+        <td class="vital-cell"><span class="vital-val">132/82</span><br><span class="vital-unit">mmHg</span></td>
+        <td class="vital-cell"><span class="vital-val">88</span><br><span class="vital-unit">bpm</span></td>
+        <td class="vital-cell"><span class="vital-val vital-warn">37.8</span><br><span class="vital-unit">°C</span></td>
+        <td class="vital-cell"><span class="vital-val">96</span><br><span class="vital-unit">%</span></td>
+        <td class="vital-cell"><span class="vital-val">18</span><br><span class="vital-unit">/min</span></td>
+        <td>
+          <div class="spark">
+            <div class="spark-bar" style="height:12px"></div>
+            <div class="spark-bar warn" style="height:16px"></div>
+            <div class="spark-bar warn" style="height:18px"></div>
+            <div class="spark-bar warn" style="height:16px"></div>
+          </div>
+        </td>
+        <td><span class="time-due">5h 22m ago</span><br><span style="font-size:9px;color:#9ca3af">03:12 AM</span></td>
+        <td><span class="chip chip-amber">⏱ Due Soon</span></td>
+        <td><button class="record-btn secondary">📋 Record</button></td>
+      </tr>
+
+      <!-- DONE rows -->
+      <tr>
+        <td><span class="bed-badge">Bed 1</span></td>
+        <td>
+          <div class="pt-name">Deepa Menon</div>
+          <div class="pt-sub">29F · Post-LSCS · Dr. Varma</div>
+        </td>
+        <td class="vital-cell"><span class="vital-val">110/70</span><br><span class="vital-unit">mmHg</span></td>
+        <td class="vital-cell"><span class="vital-val">72</span><br><span class="vital-unit">bpm</span></td>
+        <td class="vital-cell"><span class="vital-val">36.7</span><br><span class="vital-unit">°C</span></td>
+        <td class="vital-cell"><span class="vital-val">99</span><br><span class="vital-unit">%</span></td>
+        <td class="vital-cell"><span class="vital-val">16</span><br><span class="vital-unit">/min</span></td>
+        <td>
+          <div class="spark">
+            <div class="spark-bar" style="height:14px"></div>
+            <div class="spark-bar" style="height:13px"></div>
+            <div class="spark-bar" style="height:15px"></div>
+            <div class="spark-bar" style="height:14px"></div>
+          </div>
+        </td>
+        <td><span class="time-ok">1h 10m ago</span><br><span style="font-size:9px;color:#9ca3af">07:24 AM</span></td>
+        <td><span class="chip chip-green">✓ Done</span></td>
+        <td><button class="record-btn secondary">📋 Record</button></td>
+      </tr>
+
+      <tr>
+        <td><span class="bed-badge">Bed 3</span></td>
+        <td>
+          <div class="pt-name">Mohammed Salim</div>
+          <div class="pt-sub">44M · Diabetic Foot · Dr. Rao</div>
+          <span class="caution-flag" style="background:#fff7ed;color:#c2410c">NBM</span>
+        </td>
+        <td class="vital-cell"><span class="vital-val vital-high">156/96</span><br><span class="vital-unit">mmHg</span></td>
+        <td class="vital-cell"><span class="vital-val">90</span><br><span class="vital-unit">bpm</span></td>
+        <td class="vital-cell"><span class="vital-val vital-warn">38.0</span><br><span class="vital-unit">°C</span></td>
+        <td class="vital-cell"><span class="vital-val">94</span><br><span class="vital-unit">%</span></td>
+        <td class="vital-cell"><span class="vital-val">19</span><br><span class="vital-unit">/min</span></td>
+        <td>
+          <div class="spark">
+            <div class="spark-bar high" style="height:20px"></div>
+            <div class="spark-bar high" style="height:22px"></div>
+            <div class="spark-bar high" style="height:20px"></div>
+            <div class="spark-bar high" style="height:18px"></div>
+          </div>
+        </td>
+        <td><span class="time-ok">2h 05m ago</span><br><span style="font-size:9px;color:#9ca3af">06:29 AM</span></td>
+        <td><span class="chip chip-green">✓ Done</span></td>
+        <td><button class="record-btn secondary">📋 Record</button></td>
+      </tr>
+
+      <tr>
+        <td><span class="bed-badge">Bed 7</span></td>
+        <td>
+          <div class="pt-name">Lakshmi Devi</div>
+          <div class="pt-sub">55F · Hysterectomy · Dr. Varma</div>
+        </td>
+        <td class="vital-cell"><span class="vital-val">124/80</span><br><span class="vital-unit">mmHg</span></td>
+        <td class="vital-cell"><span class="vital-val">76</span><br><span class="vital-unit">bpm</span></td>
+        <td class="vital-cell"><span class="vital-val">36.5</span><br><span class="vital-unit">°C</span></td>
+        <td class="vital-cell"><span class="vital-val">98</span><br><span class="vital-unit">%</span></td>
+        <td class="vital-cell"><span class="vital-val">17</span><br><span class="vital-unit">/min</span></td>
+        <td>
+          <div class="spark">
+            <div class="spark-bar" style="height:13px"></div>
+            <div class="spark-bar" style="height:15px"></div>
+            <div class="spark-bar" style="height:14px"></div>
+            <div class="spark-bar" style="height:14px"></div>
+          </div>
+        </td>
+        <td><span class="time-ok">1h 48m ago</span><br><span style="font-size:9px;color:#9ca3af">06:46 AM</span></td>
+        <td><span class="chip chip-green">✓ Done</span></td>
+        <td><button class="record-btn secondary">📋 Record</button></td>
+      </tr>
+
+    </tbody>
+  </table>
+</div>
+
+<!-- ── Record Vitals Drawer (shown as overlay) ── -->
+<div class="drawer-overlay" style="display:flex">
+  <div class="drawer">
+    <div class="drawer-head">
+      <div>
+        <div class="drawer-title">Record Vitals</div>
+        <div class="drawer-sub">Ramesh Mehta · Bed 4 · Post-op Day 1</div>
+      </div>
+      <span style="color:rgba(255,255,255,.6);font-size:18px;cursor:pointer">✕</span>
+    </div>
+
+    <div class="drawer-body">
+
+      <!-- last reading -->
+      <div class="last-reading">
+        <div class="last-reading-title">Last Reading — 7h 12m ago (01:22 AM)</div>
+        <div class="last-reading-grid">
+          <div class="lrv"><span class="lrv-val">148/94</span><span class="lrv-unit">BP</span></div>
+          <div class="lrv"><span class="lrv-val">102</span><span class="lrv-unit">Pulse</span></div>
+          <div class="lrv"><span class="lrv-val">38.2</span><span class="lrv-unit">Temp</span></div>
+          <div class="lrv"><span class="lrv-val">97%</span><span class="lrv-unit">SpO₂</span></div>
+          <div class="lrv"><span class="lrv-val">20</span><span class="lrv-unit">RR</span></div>
+        </div>
+      </div>
+
+      <!-- vitals form -->
+      <div>
+        <div class="section-label">Blood Pressure</div>
+        <div class="form-row">
+          <div class="form-group">
+            <span class="form-label">Systolic (mmHg)</span>
+            <input class="form-input" placeholder="e.g. 120" type="number" />
+            <span class="form-hint">Normal: 90–140</span>
+          </div>
+          <div class="form-group">
+            <span class="form-label">Diastolic (mmHg)</span>
+            <input class="form-input" placeholder="e.g. 80" type="number" />
+            <span class="form-hint">Normal: 60–90</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <span class="form-label">Pulse Rate (bpm)</span>
+          <input class="form-input" placeholder="e.g. 72" type="number" />
+          <span class="form-hint">Normal: 60–100</span>
+        </div>
+        <div class="form-group">
+          <span class="form-label">Temperature (°C)</span>
+          <input class="form-input" placeholder="e.g. 36.8" type="number" step="0.1" />
+          <span class="form-hint">Normal: 36.1–37.2</span>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <span class="form-label">SpO₂ (%)</span>
+          <input class="form-input" placeholder="e.g. 98" type="number" />
+          <span class="form-hint">Normal: ≥ 95%</span>
+        </div>
+        <div class="form-group">
+          <span class="form-label">Respiratory Rate (/min)</span>
+          <input class="form-input" placeholder="e.g. 16" type="number" />
+          <span class="form-hint">Normal: 12–20</span>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <span class="form-label">Blood Sugar (mg/dL) — optional</span>
+          <input class="form-input" placeholder="e.g. 142" type="number" />
+        </div>
+        <div class="form-group">
+          <span class="form-label">Pain Score (0–10)</span>
+          <input class="form-input" placeholder="0 = no pain" type="number" min="0" max="10" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <span class="form-label">Notes (optional)</span>
+        <textarea class="form-input" rows="2" placeholder="Any observations, patient complaints, interventions…" style="resize:none"></textarea>
+      </div>
+
+      <!-- PIN -->
+      <div>
+        <div class="section-label">Staff PIN Confirmation</div>
+        <input class="pin-input" type="password" placeholder="● ● ● ●" maxlength="6" />
+        <p style="font-size:10px;color:#9ca3af;text-align:center;margin-top:6px">Enter your 4–6 digit staff PIN to submit</p>
+      </div>
+
+    </div>
+
+    <div class="drawer-footer">
+      <button class="btn btn-outline" style="flex:1">Cancel</button>
+      <button class="btn btn-green" style="flex:2">🔒 Submit Vitals</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

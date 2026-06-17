@@ -4,7 +4,7 @@ import {
   ArrowLeft, Search, Pin, PinOff, ChevronDown, ChevronUp,
   Loader2, AlertTriangle, Activity, Pill, ClipboardList,
   FileText, Heart, Bed, TrendingUp, ShieldAlert, Droplets, Utensils, Navigation,
-  X, Lock
+  X, Lock, BookOpen, Edit3, CheckCircle, Save
 } from 'lucide-react'
 import { useWardSession } from '../contexts/WardSessionContext'
 import api from '../api/client'
@@ -16,6 +16,7 @@ import DietNutrition from './DietNutrition'
 import Documentation from './Documentation'
 import PrePostOp from './PrePostOp'
 import PatientMovement from './PatientMovement'
+import DischargeSummary from './DischargeSummary'
 
 const GREEN  = '#065F46'
 const NAVY   = '#0F2557'
@@ -263,10 +264,210 @@ function AssessmentPanel({ admissionId }) {
   )
 }
 
+// ── Admission Form Modal ─────────────────────────────────────────────────────
+function AdmissionFormModal({ admission, onClose }) {
+  const adm = admission || {}
+  const [editField, setEditField] = useState(null)
+  const [extra, setExtra]         = useState({})
+
+  const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'
+  const fmtDateTime = (d) => d ? new Date(d).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) : '—'
+
+  const GROUPS = [
+    {
+      title: 'Patient Identity',
+      icon: '🪪',
+      fields: [
+        ['Full Name',          adm.patient_name       || 'Ramesh Mehta'],
+        ['Date of Birth',      adm.dob                || '12 Mar 1980 (45 yrs)'],
+        ['Gender',             adm.gender             || 'Male'],
+        ['Blood Group',        adm.blood_group        || 'B+'],
+        ['UHID / MRN',         adm.mrn || adm.patient_mrn || 'MRN-2025-00482'],
+        ['Nationality',        adm.nationality        || 'Indian'],
+        ['Religion',           adm.religion           || '—'],
+        ['Occupation',         adm.occupation         || '—'],
+      ]
+    },
+    {
+      title: 'Contact & Address',
+      icon: '📞',
+      fields: [
+        ['Mobile',             adm.contact_number     || '+91 98765 43210'],
+        ['Email',              adm.email              || '—'],
+        ['Address',            adm.address            || '42 MG Road, Hyderabad 500001'],
+        ['Emergency Contact',  adm.emergency_contact  || 'Priya Mehta (Spouse) — 9876543210'],
+        ['Relationship',       adm.emergency_relation || 'Spouse'],
+      ]
+    },
+    {
+      title: 'Admission Details',
+      icon: '🏥',
+      fields: [
+        ['IP Number',           adm.ip_number         || 'IP-25-9914'],
+        ['Date & Time of Admission', fmtDateTime(adm.admitted_at) || '10 Jun 2025, 08:30 AM'],
+        ['Admission Type',     adm.admission_type     || 'Emergency'],
+        ['Ward',               adm.ward_name          || 'General Surgery — Ward 3B'],
+        ['Bed Number',         adm.bed_number         || 'Bed 12'],
+        ['Department',         adm.department_name    || 'General Surgery'],
+        ['Expected Discharge', fmtDate(adm.expected_discharge) || '16 Jun 2025'],
+        ['Mode of Arrival',    adm.mode_of_arrival    || 'Ambulance'],
+        ['Referred From',      adm.referred_from      || 'Narayana Clinic, Kukatpally'],
+      ]
+    },
+    {
+      title: 'Clinical Presentation',
+      icon: '🩺',
+      fields: [
+        ['Presenting Complaints', adm.complaints || 'Right iliac fossa pain × 2 days, fever, vomiting, anorexia'],
+        ['Duration of Illness',  adm.illness_duration || '2 days'],
+        ['Provisional Diagnosis',adm.primary_diagnosis || 'Acute Appendicitis with Peritonitis'],
+        ['Allergies',           adm.allergies          || 'Penicillin — Rash'],
+        ['Past Medical History', adm.pmh               || 'Type 2 DM (5 yrs), Hypertension (3 yrs)'],
+        ['Past Surgical History',adm.psh               || 'Nil'],
+        ['Current Medications',  adm.home_medications  || 'Tab. Metformin 500 mg BD, Tab. Amlodipine 5 mg OD'],
+        ['Family History',       adm.family_history     || 'Father — T2DM, HTN'],
+        ['Social History',       adm.social_history     || 'Non-smoker, occasional alcohol'],
+      ]
+    },
+    {
+      title: 'Care Team',
+      icon: '👨‍⚕️',
+      fields: [
+        ['Treating Doctor',     adm.doctor_name        || 'Dr. Srinivasa Rao, MS (Gen. Surgery)'],
+        ['Consultant',          adm.consultant_name    || 'Dr. Meena Krishnan, MD (Internal Medicine)'],
+        ['Primary Nurse',       adm.nurse_name         || 'Sr. Lakshmi Devi'],
+        ['Referring Doctor',    adm.referring_doctor   || 'Dr. Raju (Narayana Clinic)'],
+      ]
+    },
+    {
+      title: 'Insurance & Billing',
+      icon: '💳',
+      fields: [
+        ['Payment Mode',        adm.payment_mode       || 'Insurance'],
+        ['Insurance Provider',  adm.insurance_name     || 'Star Health'],
+        ['Policy Number',       adm.policy_number      || 'STH-2024-44129'],
+        ['TPA Name',            adm.tpa_name           || 'Medi Assist'],
+        ['Pre-auth Number',     adm.preauth_number     || 'TPA-2025-441'],
+        ['Approved Amount',     adm.approved_amount    || '₹1,20,000'],
+      ]
+    },
+  ]
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto py-6 px-4"
+      style={{ background: 'rgba(15,37,87,0.5)' }}
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="w-full max-w-3xl bg-white rounded-2xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div className="px-6 py-4 flex items-center justify-between" style={{ background: NAVY }}>
+          <div>
+            <div className="text-[10px] font-bold uppercase tracking-widest text-blue-300 mb-0.5">Admission Form</div>
+            <div className="text-base font-extrabold text-white">{adm.patient_name || 'Ramesh Mehta'}</div>
+            <div className="text-[11px] text-blue-200 mt-0.5">
+              MRN {adm.mrn || 'MRN-2025-00482'} · {adm.ip_number || 'IP-25-9914'} · {adm.ward_name || 'Ward 3B'} {adm.bed_number || 'Bed 12'}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold px-2.5 py-1 rounded-full border text-blue-200 border-blue-600">
+              View Only — click field to add info
+            </span>
+            <button onClick={onClose} className="text-blue-300 hover:text-white transition-colors ml-2">
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="p-6 flex flex-col gap-6 max-h-[80vh] overflow-y-auto">
+          {GROUPS.map(group => (
+            <div key={group.title}>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-base">{group.icon}</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{group.title}</span>
+              </div>
+              <div className="bg-gray-50 rounded-xl overflow-hidden border" style={{ borderColor: '#e9eaec' }}>
+                {group.fields.map(([label, value], i) => {
+                  const isEditing = editField === `${group.title}.${label}`
+                  const extraVal  = extra[`${group.title}.${label}`]
+                  return (
+                    <div key={label}
+                      className={`flex items-start gap-4 px-4 py-3 ${i !== 0 ? 'border-t' : ''}`}
+                      style={{ borderColor: '#f0f0f0' }}>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 w-36 flex-shrink-0 mt-0.5">
+                        {label}
+                      </span>
+                      <div className="flex-1">
+                        <span className="text-xs font-semibold text-gray-800">{value}</span>
+                        {extraVal && (
+                          <div className="mt-1 text-xs text-gray-600 bg-yellow-50 border border-yellow-200 rounded-lg px-2 py-1">
+                            <span className="text-[9px] font-bold text-yellow-700 uppercase">Added: </span>{extraVal}
+                          </div>
+                        )}
+                        {isEditing ? (
+                          <div className="mt-2 flex gap-2">
+                            <input autoFocus
+                              placeholder="Add extra info…"
+                              defaultValue={extraVal || ''}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') {
+                                  setExtra(prev => ({ ...prev, [`${group.title}.${label}`]: e.target.value }))
+                                  setEditField(null)
+                                }
+                                if (e.key === 'Escape') setEditField(null)
+                              }}
+                              className="flex-1 border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none"
+                              style={{ borderColor: GREEN }}
+                            />
+                            <button onClick={() => setEditField(null)}
+                              className="text-xs text-gray-400 hover:text-gray-600 px-2">✕</button>
+                          </div>
+                        ) : (
+                          <button onClick={() => setEditField(`${group.title}.${label}`)}
+                            className="mt-1 text-[10px] flex items-center gap-1 opacity-0 hover:opacity-100 text-gray-400 hover:text-green-600 transition-all group-hover:opacity-100">
+                            <Edit3 size={9} /> Add info
+                          </button>
+                        )}
+                      </div>
+                      <button onClick={() => setEditField(`${group.title}.${label}`)}
+                        className="flex-shrink-0 mt-0.5 text-gray-300 hover:text-green-500 transition-colors">
+                        <Edit3 size={11} />
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-3 border-t flex items-center justify-between" style={{ borderColor: '#f3f4f6', background: '#fafaf9' }}>
+          <span className="text-[10px] text-gray-400">
+            Admitted {adm.admitted_at ? new Date(adm.admitted_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) : '10 Jun 2025'}
+          </span>
+          <div className="flex items-center gap-2">
+            <button onClick={onClose}
+              className="text-xs font-semibold px-4 py-2 rounded-lg border" style={{ borderColor: '#e5e7eb', color: '#6b7280' }}>
+              Close
+            </button>
+            <button
+              className="flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-lg text-white"
+              style={{ background: NAVY }}>
+              <Save size={11} /> Save Additions
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Dashboard view (patient-specific) ───────────────────────────────────────
 function PatientDashboard({ admission, vitals, loading }) {
   const adm = admission || {}
   const latestVital = vitals?.[0] || {}
+  const [showAdmForm, setShowAdmForm] = useState(false)
 
   const los = adm.admitted_at
     ? Math.floor((Date.now() - new Date(adm.admitted_at).getTime()) / 86400000) + 1
@@ -285,10 +486,19 @@ function PatientDashboard({ admission, vitals, loading }) {
 
   return (
     <div className="p-5 flex flex-col gap-5 overflow-y-auto h-full">
+      {showAdmForm && <AdmissionFormModal admission={admission} onClose={() => setShowAdmForm(false)} />}
 
       {/* Stat cards grid */}
       <div>
-        <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Patient Metrics</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Patient Metrics</h2>
+          <button onClick={() => setShowAdmForm(true)}
+            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors hover:bg-blue-50"
+            style={{ borderColor: '#bfdbfe', color: NAVY, background: '#eff6ff' }}>
+            <BookOpen size={12} />
+            Admission Form
+          </button>
+        </div>
         <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
           {STATS.map(s => (
             <PatientStatCard key={s.label} loading={loading && !latestVital.blood_pressure}
@@ -579,13 +789,16 @@ export default function PatientChart() {
           {activeNav === 'flowsheet' && (
             <PatientMovement admission={admission} />
           )}
-          {activeNav !== 'dashboard' && activeNav !== 'provider' && activeNav !== 'medications' && activeNav !== 'mar' && activeNav !== 'orders' && activeNav !== 'food' && activeNav !== 'docs' && activeNav !== 'preop' && activeNav !== 'flowsheet' && (
+          {activeNav === 'discharge' && (
+            <DischargeSummary admission={admission} />
+          )}
+          {activeNav !== 'dashboard' && activeNav !== 'provider' && activeNav !== 'medications' && activeNav !== 'mar' && activeNav !== 'orders' && activeNav !== 'food' && activeNav !== 'docs' && activeNav !== 'preop' && activeNav !== 'flowsheet' && activeNav !== 'discharge' && (
             <ComingSoon label={PATIENT_NAV.find(n => n.key === activeNav)?.label || ''} />
           )}
         </div>
 
         {/* Assessment panel — hidden on full-width views */}
-        {activeNav !== 'medications' && activeNav !== 'mar' && activeNav !== 'orders' && activeNav !== 'food' && activeNav !== 'docs' && activeNav !== 'preop' && activeNav !== 'flowsheet' && (
+        {activeNav !== 'medications' && activeNav !== 'mar' && activeNav !== 'orders' && activeNav !== 'food' && activeNav !== 'docs' && activeNav !== 'preop' && activeNav !== 'flowsheet' && activeNav !== 'discharge' && (
           <div className="flex-shrink-0 border-l overflow-hidden flex flex-col"
             style={{ width: 272, borderColor: '#e9eaec' }}>
             <AssessmentPanel admissionId={id} />
