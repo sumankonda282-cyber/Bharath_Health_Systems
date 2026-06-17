@@ -225,10 +225,9 @@ export default function Login() {
           </div>
         </div>
 
-          <p className="text-center text-xs text-gray-400 mt-5">
-            BHarath Health Systems · CareChart Portal
-          </p>
-        </div>
+        <p className="text-center text-xs text-gray-400 mt-5">
+          BHarath Health Systems · CareChart Portal
+        </p>
       </div>
 
       {/* ── Forgot Password / Access Request Modal ── */}
