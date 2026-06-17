@@ -3,7 +3,7 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, Users, BedDouble,
   Activity, Pill, FileText, ClipboardList, LogOut as LogOutIcon, ArrowRightFromLine,
-  Stethoscope, ShoppingBag, FileEdit,
+  Stethoscope, ShoppingBag, FileEdit, GitBranch,
   Bell, RefreshCw, HelpCircle, ChevronDown, Menu, X,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
@@ -40,7 +40,7 @@ const NAV = [
       { to: '/notes',       icon: FileText,            label: 'Nursing Notes' },
       { to: '/assessments', icon: ClipboardList,       label: 'Assessments' },
       { to: '/discharge',   icon: ArrowRightFromLine,  label: 'Discharge' },
-      { to: '/handoff',     icon: ShoppingBag,         label: 'Shift Handoff' },
+      { to: '/handoff',     icon: GitBranch,           label: 'Shift Handoff' },
     ],
   },
 ]
