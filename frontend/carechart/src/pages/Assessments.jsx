@@ -3,10 +3,11 @@ import {
   Search, Plus, X, ChevronDown, ChevronUp, GripVertical,
   Edit3, Copy, Trash2, CheckCircle, AlertTriangle, Loader2,
   FileText, Zap, List, ClipboardList, Settings, Eye,
-  Lock, ArrowRight, ToggleLeft, ToggleRight, Save, BookOpen
+  Lock, ArrowRight, ToggleLeft, ToggleRight, Save, BookOpen, ExternalLink
 } from 'lucide-react'
 import { useWardSession } from '../contexts/WardSessionContext'
 import api from '../api/client'
+import FormRenderer from '../components/assessments/FormRenderer'
 
 const GREEN = '#065F46'
 const NAVY  = '#0F2557'
@@ -14,18 +15,30 @@ const RED   = '#CC1414'
 
 // ── Category config ───────────────────────────────────────────────────────────
 const CAT_CFG = {
-  vitals:     { label: 'Vitals',      color: '#0891b2', bg: '#ecfeff', border: '#a5f3fc' },
-  pain:       { label: 'Pain',        color: '#dc2626', bg: '#fef2f2', border: '#fca5a5' },
-  mental:     { label: 'Mental',      color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe' },
-  safety:     { label: 'Safety',      color: '#d97706', bg: '#fef9c3', border: '#fde047' },
-  nursing:    { label: 'Nursing',     color: GREEN,     bg: '#f0fdf4', border: '#a7f3d0' },
-  discharge:  { label: 'Discharge',   color: NAVY,      bg: '#eff6ff', border: '#bfdbfe' },
-  surgery:    { label: 'Surgery',     color: '#db2777', bg: '#fdf2f8', border: '#f9a8d4' },
-  general:    { label: 'General',     color: '#6b7280', bg: '#f9fafb', border: '#e5e7eb' },
-  admission:  { label: 'Admission',   color: '#0f766e', bg: '#f0fdfa', border: '#99f6e4' },
-  respiratory:{ label: 'Respiratory', color: '#2563eb', bg: '#eff6ff', border: '#bfdbfe' },
-  cardiology: { label: 'Cardiology',  color: '#dc2626', bg: '#fef2f2', border: '#fca5a5' },
-  custom:     { label: 'Custom',      color: '#065F46', bg: '#f0fdf4', border: '#a7f3d0' },
+  vitals:       { label: 'Vitals',           color: '#0891b2', bg: '#ecfeff', border: '#a5f3fc' },
+  pain:         { label: 'Pain',             color: '#dc2626', bg: '#fef2f2', border: '#fca5a5' },
+  mental:       { label: 'Mental',           color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe' },
+  mental_health:{ label: 'Mental Health',    color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe' },
+  safety:       { label: 'Safety',           color: '#d97706', bg: '#fef9c3', border: '#fde047' },
+  nursing:      { label: 'Nursing',          color: GREEN,     bg: '#f0fdf4', border: '#a7f3d0' },
+  discharge:    { label: 'Discharge',        color: NAVY,      bg: '#eff6ff', border: '#bfdbfe' },
+  surgery:      { label: 'Surgery',          color: '#db2777', bg: '#fdf2f8', border: '#f9a8d4' },
+  surgical:     { label: 'Surgical',         color: '#db2777', bg: '#fdf2f8', border: '#f9a8d4' },
+  general:      { label: 'General',          color: '#6b7280', bg: '#f9fafb', border: '#e5e7eb' },
+  admission:    { label: 'Admission',        color: '#0f766e', bg: '#f0fdfa', border: '#99f6e4' },
+  intake:       { label: 'Intake',           color: '#0f766e', bg: '#f0fdfa', border: '#99f6e4' },
+  respiratory:  { label: 'Respiratory',      color: '#2563eb', bg: '#eff6ff', border: '#bfdbfe' },
+  cardiology:   { label: 'Cardiology',       color: '#dc2626', bg: '#fef2f2', border: '#fca5a5' },
+  ent:          { label: 'ENT',              color: '#ea580c', bg: '#fff7ed', border: '#fdba74' },
+  gastro:       { label: 'Gastroenterology', color: '#ca8a04', bg: '#fefce8', border: '#fde047' },
+  orthopedic:   { label: 'Orthopedics',      color: '#78716c', bg: '#fafaf9', border: '#d6d3d1' },
+  obg:          { label: 'OBG',              color: '#db2777', bg: '#fdf2f8', border: '#f9a8d4' },
+  pediatrics:   { label: 'Pediatrics',       color: '#16a34a', bg: '#f0fdf4', border: '#86efac' },
+  clinical:     { label: 'Clinical',         color: '#0d9488', bg: '#f0fdfa', border: '#99f6e4' },
+  history:      { label: 'History',          color: '#b45309', bg: '#fffbeb', border: '#fcd34d' },
+  systems:      { label: 'Systems',          color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe' },
+  specialty:    { label: 'Specialty',        color: '#4f46e5', bg: '#eef2ff', border: '#c7d2fe' },
+  custom:       { label: 'Custom',           color: '#065F46', bg: '#f0fdf4', border: '#a7f3d0' },
 }
 
 function CatChip({ cat, small }) {
@@ -464,31 +477,48 @@ function CareFormCard({ cf, onEdit, onClone, onDelete, onTogglePublish }) {
 }
 
 // ── Assessment library card ───────────────────────────────────────────────────
-function AssessmentCard({ form, onEdit }) {
+function AssessmentCard({ form, onEdit, onOpen }) {
+  const title = form.title || form.name || '—'
+  const hasJsx = !!(form.subcategory)
   return (
     <div className="bg-white rounded-xl border p-3.5 hover:shadow-sm transition-all" style={{ borderColor: '#e9eaec' }}>
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-bold text-gray-900 leading-tight">{form.name}</span>
-            {form.iview_enabled && (
+            {form.icon && <span className="text-sm">{form.icon}</span>}
+            <span className="text-xs font-bold text-gray-900 leading-tight">{title}</span>
+            {form.is_iview_enabled && (
               <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full" style={{ background: '#eff6ff', color: NAVY }}>iView</span>
             )}
             {form.requires_cosign && (
               <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full" style={{ background: '#fef2f2', color: RED }}>CoSign</span>
             )}
+            {hasJsx && (
+              <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full" style={{ background: '#f0fdf4', color: GREEN }}>Rich Form</span>
+            )}
           </div>
           <p className="text-[10px] text-gray-400 mt-0.5 leading-relaxed">{form.description}</p>
         </div>
-        <button onClick={() => onEdit(form)}
-          className="flex-shrink-0 w-7 h-7 rounded-lg border flex items-center justify-center transition-colors hover:bg-gray-50"
-          style={{ borderColor: '#e5e7eb' }}>
-          <Edit3 size={11} className="text-gray-400" />
-        </button>
+        <div className="flex gap-1 flex-shrink-0">
+          {hasJsx && (
+            <button onClick={() => onOpen(form)}
+              className="w-7 h-7 rounded-lg border flex items-center justify-center transition-colors hover:bg-green-50"
+              style={{ borderColor: '#a7f3d0' }}
+              title="Open form">
+              <ExternalLink size={11} style={{ color: GREEN }} />
+            </button>
+          )}
+          <button onClick={() => onEdit(form)}
+            className="w-7 h-7 rounded-lg border flex items-center justify-center transition-colors hover:bg-gray-50"
+            style={{ borderColor: '#e5e7eb' }}>
+            <Edit3 size={11} className="text-gray-400" />
+          </button>
+        </div>
       </div>
       <div className="flex items-center gap-2 flex-wrap">
         <CatChip cat={form.category} small />
-        <span className="text-[9px] text-gray-400">{form.fields_count} fields</span>
+        {form.subcategory && <span className="text-[9px] text-gray-400 font-mono">{form.subcategory}</span>}
+        {form.fields_count ? <span className="text-[9px] text-gray-400">{form.fields_count} fields</span> : null}
         {form.freq && <span className="text-[9px] text-gray-400">· {form.freq}</span>}
         <span className="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full"
           style={{ background: form.is_template ? '#f0fdf4' : '#eff6ff', color: form.is_template ? GREEN : NAVY }}>
@@ -510,6 +540,7 @@ export default function Assessments() {
   const [search, setSearch]     = useState('')
   const [catFilter, setCatFilter] = useState('')
   const [builder, setBuilder]   = useState(null)   // null | care form object (new or existing)
+  const [openForm, setOpenForm] = useState(null)   // null | { title, subcategory, ... }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -692,7 +723,7 @@ export default function Assessments() {
 
           <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-3">
             {filteredForms.map(f => (
-              <AssessmentCard key={f.id} form={f} onEdit={() => {}} />
+              <AssessmentCard key={f.id} form={f} onEdit={() => {}} onOpen={setOpenForm} />
             ))}
           </div>
         </div>
@@ -755,6 +786,38 @@ export default function Assessments() {
           onSave={handleSaveCareForms}
           onClose={() => setBuilder(null)}
         />
+      )}
+
+      {/* ── Form Open Modal ── */}
+      {openForm && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto"
+          style={{ background: 'rgba(0,0,0,0.45)' }}
+          onClick={e => { if (e.target === e.currentTarget) setOpenForm(null) }}>
+          <div className="relative w-full max-w-3xl mx-4 my-8 bg-white rounded-2xl shadow-2xl flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-3.5 border-b" style={{ borderColor: '#e9eaec' }}>
+              <div className="flex items-center gap-2">
+                {openForm.icon && <span className="text-lg">{openForm.icon}</span>}
+                <span className="font-bold text-gray-900 text-sm">{openForm.title || openForm.name}</span>
+                <CatChip cat={openForm.category} small />
+              </div>
+              <button onClick={() => setOpenForm(null)}
+                className="w-7 h-7 rounded-lg border flex items-center justify-center hover:bg-gray-50 transition-colors"
+                style={{ borderColor: '#e5e7eb' }}>
+                <X size={13} className="text-gray-400" />
+              </button>
+            </div>
+            {/* Body */}
+            <div className="overflow-y-auto p-5 max-h-[80vh]">
+              <FormRenderer
+                formKey={openForm.subcategory}
+                patientId={null}
+                encounterId={null}
+                onSaved={() => setOpenForm(null)}
+              />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
