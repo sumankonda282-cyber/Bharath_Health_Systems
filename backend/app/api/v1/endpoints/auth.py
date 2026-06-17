@@ -16,8 +16,12 @@ from app.core.security import (
     get_current_platform_admin
 )
 from app.core.limiter import limiter
+from app.services.email_service import send_password_reset_email
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+# In-memory reset token store (process lifetime). For multi-instance deploy, move to Redis/DB.
+_platform_reset_tokens: dict[str, dict] = {}  # token -> {admin_id, expires}
 
 
 # ── BH ID state-digit lookup ─────────────────────────────────────────────────
@@ -733,3 +737,71 @@ def pin_verify(body: dict, db: Session = Depends(get_db)):
         "role":        staff.role,
         "credentials": staff.role,
     }
+
+
+# ── Platform Admin — Forgot / Reset Password ─────────────────────────────────
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+
+@router.post("/platform/forgot-password")
+@limiter.limit("3/minute")
+def platform_forgot_password(request: Request, payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    """Send a password reset link to the platform admin's email."""
+    admin = db.query(PlatformAdmin).filter(
+        PlatformAdmin.email == payload.email.lower().strip(),
+        PlatformAdmin.is_active == True
+    ).first()
+    # Always return 200 to avoid email enumeration
+    if not admin:
+        return {"detail": "If that email exists, a reset link has been sent."}
+
+    token = secrets.token_urlsafe(32)
+    _platform_reset_tokens[token] = {
+        "admin_id": admin.id,
+        "expires": datetime.utcnow() + timedelta(minutes=30),
+    }
+
+    # Determine the platform admin portal URL from settings / env
+    base_url = "https://admin.bharathhealthsystems.com"
+    reset_url = f"{base_url}/reset-password?token={token}"
+
+    sent = send_password_reset_email(to=admin.email, name=admin.full_name, reset_url=reset_url)
+    if not sent:
+        # If email not configured, return token directly (dev mode only)
+        if settings.DEBUG:
+            return {"detail": "Email not configured. Dev token:", "token": token}
+        raise HTTPException(status_code=503, detail="Email service not configured. Contact support.")
+
+    return {"detail": "If that email exists, a reset link has been sent."}
+
+
+@router.post("/platform/reset-password")
+def platform_reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
+    """Consume a reset token and set a new password."""
+    record = _platform_reset_tokens.get(payload.token)
+    if not record:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token.")
+    if datetime.utcnow() > record["expires"]:
+        _platform_reset_tokens.pop(payload.token, None)
+        raise HTTPException(status_code=400, detail="Reset token has expired. Request a new one.")
+
+    if len(payload.new_password) < 8:
+        raise HTTPException(status_code=422, detail="Password must be at least 8 characters.")
+
+    admin = db.query(PlatformAdmin).filter(PlatformAdmin.id == record["admin_id"]).first()
+    if not admin:
+        raise HTTPException(status_code=404, detail="Admin not found.")
+
+    admin.hashed_password = hash_password(payload.new_password)
+    admin.token_version = (admin.token_version or 1) + 1  # invalidate existing sessions
+    db.commit()
+    _platform_reset_tokens.pop(payload.token, None)
+
+    return {"detail": "Password updated successfully. Please log in with your new password."}
