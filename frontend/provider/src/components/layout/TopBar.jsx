@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { Menu, HelpCircle, User, LogOut, Settings, Globe, ChevronDown, RefreshCw, Clock } from 'lucide-react'
 import ProfileDrawer from './ProfileDrawer'
 import NotificationBell from '../ui/NotificationBell'
+import HelpWidget from './HelpWidget'
 
 const ROUTE_TITLES = [
   { pattern: /^\/dashboard$/,         title: 'Dashboard' },
@@ -44,6 +45,7 @@ export default function TopBar({ onMenuClick, onRefresh }) {
   const navigate = useNavigate()
   const [dropOpen, setDropOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
   const dropRef = useRef(null)
 
   const title = getTitle(location.pathname)
@@ -85,11 +87,13 @@ export default function TopBar({ onMenuClick, onRefresh }) {
           </button>
           <NotificationBell />
           <button
+            onClick={() => setHelpOpen(true)}
             className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
-            title="Help"
+            title="Help & Support"
           >
             <HelpCircle size={18} />
           </button>
+          <HelpWidget open={helpOpen} onClose={() => setHelpOpen(false)} />
 
           {/* Profile dropdown */}
           <div className="relative" ref={dropRef}>
