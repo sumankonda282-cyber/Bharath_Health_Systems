@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { useWardSession } from '../contexts/WardSessionContext'
 import api from '../api/client'
+import FormRenderer from '../components/assessments/FormRenderer'
 import ProviderView from './ProviderView'
 import MedicationList from './MedicationList'
 import MAR from './MAR'
@@ -59,14 +60,141 @@ const PATIENT_NAV = [
 ]
 
 // ── Assessment form pool ─────────────────────────────────────────────────────
+// Each entry: { name, key? } — key maps to FORM_REGISTRY; no key = simple entry placeholder
 const FORM_POOL = [
-  'Vital Signs', 'MAR Quick Entry', 'Pain Score', 'Fluid Balance',
-  'Braden Scale', 'GCS Assessment', 'Fall Risk — Morse', 'I/O Chart',
-  'Blood Sugar Log', 'Wound Care Log', 'Nutrition Assessment',
-  'Neurological Obs', 'Pressure Injury', 'Sepsis Screening',
-  'DVT Prophylaxis', 'Medication Reconciliation', 'Discharge Checklist',
-  'Post-Op Monitoring', 'Fluid Resuscitation', 'Restraint Assessment',
+  // Bedside / nursing (simple placeholder)
+  { name: 'Vital Signs' },
+  { name: 'MAR Quick Entry' },
+  { name: 'Pain Score' },
+  { name: 'Fluid Balance' },
+  { name: 'Braden Scale' },
+  { name: 'GCS Assessment' },
+  { name: 'Fall Risk — Morse' },
+  { name: 'I/O Chart' },
+  { name: 'Blood Sugar Log' },
+  { name: 'Wound Care Log' },
+  { name: 'Nutrition Assessment' },
+  { name: 'Neurological Obs' },
+  { name: 'Pressure Injury' },
+  { name: 'Sepsis Screening' },
+  { name: 'DVT Prophylaxis' },
+  { name: 'Medication Reconciliation' },
+  { name: 'Discharge Checklist' },
+  { name: 'Post-Op Monitoring' },
+  { name: 'Fluid Resuscitation' },
+  { name: 'Restraint Assessment' },
+  // Patient history (JSX forms)
+  { name: 'Patient Profile',   key: 'patient-profile' },
+  { name: 'Chief Complaint',   key: 'chief-complaint' },
+  { name: 'Medical History',   key: 'medical-history' },
+  { name: 'Family History',    key: 'family-history' },
+  { name: 'Social History',    key: 'social-history' },
+  { name: 'Allergies',         key: 'allergies' },
+  { name: 'Systems Review',    key: 'systems-review' },
+  // General
+  { name: 'Pain Assessment',   key: 'pain-assessment' },
+  { name: 'Asthma Control',    key: 'asthma-basic' },
+  // Clinical examination
+  { name: 'Clinical Exam',        key: 'systems-clinical-exam' },
+  { name: 'Clinical Impression',  key: 'systems-clinical-impression' },
+  // Cardiology
+  { name: 'Chest Pain',           key: 'cardiology-chest-pain' },
+  { name: 'Hypertension',         key: 'cardiology-hypertension' },
+  { name: 'Heart Failure',        key: 'cardiology-heart-failure' },
+  { name: 'ACS Assessment',       key: 'cardiology-acs' },
+  { name: 'Atrial Fibrillation',  key: 'cardiology-af' },
+  { name: 'Dyslipidemia',         key: 'cardiology-dyslipidemia' },
+  { name: 'Cardiomyopathy',       key: 'cardiology-cardiomyopathy' },
+  { name: 'Valvular Heart Disease',key: 'cardiology-valvular' },
+  { name: 'Rheumatic Heart Disease',key:'cardiology-rhd' },
+  { name: 'Pericardial Disease',  key: 'cardiology-pericardial' },
+  // ENT
+  { name: 'Ear Assessment',       key: 'ent-ear' },
+  { name: 'Nose & Sinus',         key: 'ent-nose-sinus' },
+  { name: 'Throat & Larynx',      key: 'ent-throat-larynx' },
+  { name: 'Head & Neck',          key: 'ent-head-neck' },
+  { name: 'Audiology & Hearing',  key: 'ent-audiology' },
+  { name: 'Facial Nerve',         key: 'ent-facial-nerve' },
+  { name: 'Paediatric ENT',       key: 'ent-paediatric' },
+  { name: 'Tracheostomy',         key: 'ent-tracheostomy' },
+  // Gastroenterology
+  { name: 'Acute Abdomen',           key: 'gastro-acute-abdomen' },
+  { name: 'Acute Pancreatitis',      key: 'gastro-acute-pancreatitis' },
+  { name: 'Anorectal Disorders',     key: 'gastro-anorectal' },
+  { name: 'Biliary & Gallstone',     key: 'gastro-biliary' },
+  { name: 'Chronic Pancreatitis',    key: 'gastro-chronic-pancreatitis' },
+  { name: 'Dysphagia & Esophageal', key: 'gastro-dysphagia' },
+  { name: 'Functional GI',          key: 'gastro-functional' },
+  { name: 'GI Bleed',               key: 'gastro-gi-bleed' },
+  { name: 'GI Cancer',              key: 'gastro-gi-cancer' },
+  { name: 'Gastroparesis',          key: 'gastro-gastroparesis' },
+  { name: 'IBD',                    key: 'gastro-ibd' },
+  { name: 'Liver Disease',          key: 'gastro-liver' },
+  { name: 'Peptic Ulcer / GERD',    key: 'gastro-peptic-ulcer' },
+  // OBG
+  { name: 'ANC Follow-up',          key: 'obg-anc-followup' },
+  { name: 'Antenatal Booking',      key: 'obg-antenatal' },
+  { name: 'Cervical Screening',     key: 'obg-cervical' },
+  { name: 'Female Infertility',     key: 'obg-infertility' },
+  { name: 'GDM Assessment',         key: 'obg-gdm' },
+  { name: 'High Risk Pregnancy',    key: 'obg-high-risk' },
+  { name: 'Labour Assessment',      key: 'obg-labour' },
+  { name: 'Menopause',              key: 'obg-menopause' },
+  { name: 'Menstrual Disorder',     key: 'obg-menstrual' },
+  { name: 'PCOS',                   key: 'obg-pcos' },
+  { name: 'PID Assessment',         key: 'obg-pid' },
+  { name: 'Postpartum',             key: 'obg-postpartum' },
+  { name: 'Preeclampsia',           key: 'obg-preeclampsia' },
+  // Orthopedics
+  { name: 'Compartment Syndrome',   key: 'ortho-compartment-syndrome' },
+  { name: 'Fracture / Trauma',      key: 'ortho-fracture' },
+  { name: 'Musculoskeletal Pain',   key: 'ortho-msk-pain' },
+  { name: 'Elbow Assessment',       key: 'ortho-elbow' },
+  { name: 'Foot & Ankle',           key: 'ortho-foot-ankle' },
+  { name: 'Hand & Wrist',           key: 'ortho-hand-wrist' },
+  { name: 'Hip Assessment',         key: 'ortho-hip' },
+  { name: 'Knee Assessment',        key: 'ortho-knee' },
+  { name: 'Septic Arthritis / Osteomyelitis', key: 'ortho-septic-arthritis' },
+  { name: 'Shoulder Assessment',    key: 'ortho-shoulder' },
+  { name: 'Orthopedic Tumor',       key: 'ortho-tumor' },
+  { name: 'Orthotic & Prosthetic',  key: 'ortho-prosthetic' },
+  { name: 'Osteoporosis',           key: 'ortho-osteoporosis' },
+  { name: 'Pediatric Orthopedic',   key: 'ortho-pediatric' },
+  { name: 'Peripheral Nerve',       key: 'ortho-peripheral-nerve' },
+  { name: 'Post-Op Rehab',          key: 'ortho-postop-rehab' },
+  { name: 'Spine Assessment',       key: 'ortho-spine' },
+  // Pediatrics
+  { name: 'Adolescent Health',       key: 'peds-adolescent' },
+  { name: 'NICU Assessment',         key: 'peds-nicu' },
+  { name: 'Neonatal Assessment',     key: 'peds-neonatal' },
+  { name: 'Peds Cardiology',         key: 'peds-cardiology' },
+  { name: 'Developmental Disorders', key: 'peds-developmental' },
+  { name: 'Pediatric Emergency',     key: 'peds-emergency' },
+  { name: 'Peds Endocrinology',      key: 'peds-endocrinology' },
+  { name: 'Peds Fever & Infections', key: 'peds-fever' },
+  { name: 'Peds Gastro & Nutrition', key: 'peds-gastro' },
+  { name: 'Growth & Development',    key: 'peds-growth' },
+  { name: 'Haematology & Oncology',  key: 'peds-haematology' },
+  { name: 'Peds Nephrology',         key: 'peds-nephrology' },
+  { name: 'Peds Neurology',          key: 'peds-neurology' },
+  { name: 'Peds Respiratory',        key: 'peds-respiratory' },
+  { name: 'Peds Rheumatology',       key: 'peds-rheumatology' },
+  { name: 'Vaccination Chart',       key: 'peds-vaccination' },
+  // Specialty / Clinical scales
+  { name: 'Aerosol Therapy',         key: 'specialty-aerosol' },
+  { name: 'Asthma (Specialty)',      key: 'specialty-asthma' },
+  { name: 'Diabetes Assessment',     key: 'specialty-diabetes' },
+  { name: 'ACT Score',               key: 'clinical-act' },
+  { name: 'ADHD Scale',              key: 'clinical-adhd' },
+  { name: 'ALSFRS-R',               key: 'clinical-alsfrs' },
+  { name: 'ASRS Screen',            key: 'clinical-asrs' },
+  { name: 'Migraine Assessment',    key: 'clinical-migraine' },
 ]
+
+// Map form name string → registry key (for backward compatibility with any saved pin strings)
+const FORM_KEY_MAP = Object.fromEntries(
+  FORM_POOL.filter(f => f.key).map(f => [f.name, f.key])
+)
 
 // ── Stat card for patient dashboard ─────────────────────────────────────────
 function PatientStatCard({ icon: Icon, label, value, sub, color, loading }) {
@@ -123,21 +251,25 @@ function ComingSoon({ label }) {
 
 // ── Assessment panel ─────────────────────────────────────────────────────────
 function AssessmentPanel({ admissionId }) {
-  const [pinned, setPinned]       = useState(['Vital Signs', 'MAR Quick Entry', 'Pain Score', 'Fluid Balance'])
+  const [pinned, setPinned]         = useState(['Vital Signs', 'MAR Quick Entry', 'Pain Score', 'Fluid Balance'])
   const [poolSearch, setPoolSearch] = useState('')
-  const [activeForm, setActiveForm] = useState(null)
-  const [pinSearch, setPinSearch]  = useState('')
+  const [activeForm, setActiveForm] = useState(null)  // form name string
+  const [pinSearch, setPinSearch]   = useState('')
   const [showPinSearch, setShowPinSearch] = useState(false)
 
+  // FORM_POOL is now [{name, key?}] — flatten to names for search/pin operations
   const filteredPool = FORM_POOL.filter(f =>
-    f.toLowerCase().includes(poolSearch.toLowerCase()) && !pinned.includes(f)
+    f.name.toLowerCase().includes(poolSearch.toLowerCase()) && !pinned.includes(f.name)
   )
   const filteredPin = FORM_POOL.filter(f =>
-    f.toLowerCase().includes(pinSearch.toLowerCase()) && !pinned.includes(f)
+    f.name.toLowerCase().includes(pinSearch.toLowerCase()) && !pinned.includes(f.name)
   )
 
-  const addPin = (f) => { setPinned(p => [...p, f]); setShowPinSearch(false); setPinSearch('') }
-  const removePin = (f) => { setPinned(p => p.filter(x => x !== f)); if (activeForm === f) setActiveForm(null) }
+  const addPin = (name) => { setPinned(p => [...p, name]); setShowPinSearch(false); setPinSearch('') }
+  const removePin = (name) => { setPinned(p => p.filter(x => x !== name)); if (activeForm === name) setActiveForm(null) }
+
+  // Look up registry key for active form (may be undefined for simple forms)
+  const activeFormKey = activeForm ? FORM_KEY_MAP[activeForm] : null
 
   return (
     <div className="flex flex-col h-full overflow-hidden" style={{ background: '#fafaf9' }}>
@@ -167,10 +299,11 @@ function AssessmentPanel({ admissionId }) {
             </div>
             <div className="flex flex-wrap gap-1 max-h-28 overflow-y-auto">
               {filteredPin.map(f => (
-                <button key={f} onClick={() => addPin(f)}
+                <button key={f.name} onClick={() => addPin(f.name)}
                   className="text-[10px] px-2 py-1 rounded-lg border bg-white hover:border-green-400 hover:text-green-700 transition-colors"
                   style={{ borderColor: '#e5e7eb', color: '#374151' }}>
-                  {f}
+                  {f.name}
+                  {f.key && <span className="ml-1 text-[8px] text-green-500">●</span>}
                 </button>
               ))}
               {filteredPin.length === 0 && <span className="text-[10px] text-gray-400">No matches</span>}
@@ -190,6 +323,7 @@ function AssessmentPanel({ admissionId }) {
               }}
               onClick={() => setActiveForm(f === activeForm ? null : f)}>
               {f}
+              {FORM_KEY_MAP[f] && <span className="text-[8px] text-green-400">●</span>}
               <button onClick={e => { e.stopPropagation(); removePin(f) }}
                 className="opacity-0 group-hover:opacity-100 transition-opacity ml-0.5 text-gray-400 hover:text-red-400">
                 <X size={9} />
@@ -201,30 +335,50 @@ function AssessmentPanel({ admissionId }) {
           )}
         </div>
 
-        {/* Active form placeholder */}
+        {/* Active form — JSX component if registered, simple entry otherwise */}
         {activeForm && (
-          <div className="mx-3 mb-3 p-3 rounded-xl border bg-white"
-            style={{ borderColor: '#d1fae5' }}>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-gray-800">{activeForm}</span>
-              <button onClick={() => setActiveForm(null)} className="text-gray-400 hover:text-gray-600">
-                <X size={12} />
-              </button>
+          activeFormKey ? (
+            <div className="mx-3 mb-3 rounded-xl border bg-white overflow-hidden"
+              style={{ borderColor: '#d1fae5' }}>
+              <div className="flex items-center justify-between px-3 py-2 border-b" style={{ borderColor: '#e9eaec' }}>
+                <span className="text-xs font-bold text-gray-800">{activeForm}</span>
+                <button onClick={() => setActiveForm(null)} className="text-gray-400 hover:text-gray-600">
+                  <X size={12} />
+                </button>
+              </div>
+              <div className="overflow-y-auto max-h-[60vh] p-1">
+                <FormRenderer
+                  formKey={activeFormKey}
+                  patientId={null}
+                  encounterId={admissionId}
+                  onSaved={() => setActiveForm(null)}
+                />
+              </div>
             </div>
-            <div className="flex flex-col gap-2">
-              <input placeholder="Value / observation…"
-                className="w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none"
-                style={{ borderColor: '#d1d5db' }} />
-              <input placeholder="Notes (optional)"
-                className="w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none"
-                style={{ borderColor: '#d1d5db' }} />
-              <button className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded-lg text-xs font-bold text-white"
-                style={{ background: GREEN }}>
-                <Lock size={10} />
-                Submit (PIN required)
-              </button>
+          ) : (
+            <div className="mx-3 mb-3 p-3 rounded-xl border bg-white"
+              style={{ borderColor: '#d1fae5' }}>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-gray-800">{activeForm}</span>
+                <button onClick={() => setActiveForm(null)} className="text-gray-400 hover:text-gray-600">
+                  <X size={12} />
+                </button>
+              </div>
+              <div className="flex flex-col gap-2">
+                <input placeholder="Value / observation…"
+                  className="w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none"
+                  style={{ borderColor: '#d1d5db' }} />
+                <input placeholder="Notes (optional)"
+                  className="w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none"
+                  style={{ borderColor: '#d1d5db' }} />
+                <button className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded-lg text-xs font-bold text-white"
+                  style={{ background: GREEN }}>
+                  <Lock size={10} />
+                  Submit (PIN required)
+                </button>
+              </div>
             </div>
-          </div>
+          )
         )}
       </div>
 
@@ -245,12 +399,16 @@ function AssessmentPanel({ admissionId }) {
         </div>
         <div className="flex-1 overflow-y-auto px-3 pb-3 flex flex-col gap-1">
           {filteredPool.map(f => (
-            <div key={f}
+            <div key={f.name}
               className="flex items-center justify-between px-2.5 py-2 rounded-lg border bg-white hover:border-green-300 cursor-pointer transition-colors group"
-              style={{ borderColor: '#f0f0f0' }}>
-              <span className="text-[11px] text-gray-700 group-hover:text-gray-900">{f}</span>
-              <button onClick={() => addPin(f)}
-                className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-green-600">
+              style={{ borderColor: '#f0f0f0' }}
+              onClick={() => setActiveForm(f.name)}>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-[11px] text-gray-700 group-hover:text-gray-900 truncate">{f.name}</span>
+                {f.key && <span className="text-[8px] text-green-500 flex-shrink-0" title="Rich clinical form">●</span>}
+              </div>
+              <button onClick={e => { e.stopPropagation(); addPin(f.name) }}
+                className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-green-600 flex-shrink-0">
                 <Pin size={10} />
               </button>
             </div>

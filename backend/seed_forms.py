@@ -2017,6 +2017,625 @@ TEMPLATES = [
             ]
         },
     },
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # JSX RICH FORMS — subcategory = form_key used by frontend FormRenderer
+    # Schema is minimal; the JSX component owns the full UI & auto-scoring logic
+    # ═══════════════════════════════════════════════════════════════════════════
+
+    # ── General / Root ──────────────────────────────────────────────────────────
+    {
+        "title": "Vital Signs Assessment",
+        "description": "Comprehensive vital signs with BP, HR, SpO₂, RR, Temp, weight & BMI. Auto-flags abnormals.",
+        "category": "vitals", "subcategory": "vital-signs", "icon": "🫀",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Pain Assessment (Clinical)",
+        "description": "NRS 0–10, site, character, onset, radiation, alleviating/aggravating factors, pain diary.",
+        "category": "pain", "subcategory": "pain-assessment", "icon": "🩹",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Asthma Control Assessment",
+        "description": "Spirometry, peak flow, ACT auto-score, step-up triggers, inhaler technique check.",
+        "category": "respiratory", "subcategory": "asthma-basic", "icon": "🫁",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Allergies & Adverse Reactions",
+        "description": "Drug, food, environmental & latex allergies with reaction type, severity and DNAR code.",
+        "category": "history", "subcategory": "allergies", "icon": "⚠️",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Medical History",
+        "description": "Past medical history, surgical history, hospitalizations, current diagnoses with ICD codes.",
+        "category": "history", "subcategory": "medical-history", "icon": "📋",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Family History",
+        "description": "Familial diseases across three generations — hereditary, cardiac, oncological, genetic conditions.",
+        "category": "history", "subcategory": "family-history", "icon": "👨‍👩‍👧",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Social History",
+        "description": "Occupation, tobacco, alcohol, substance use, diet, exercise, living situation, travel history.",
+        "category": "history", "subcategory": "social-history", "icon": "🏠",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Systems Review",
+        "description": "14-system review of systems — cardiovascular, respiratory, GI, neuro, MSK, skin and more.",
+        "category": "systems", "subcategory": "systems-review", "icon": "🔍",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Patient Profile & Demographics",
+        "description": "Demographics, contact details, NOK, insurance, religion, language, and admission details.",
+        "category": "admission", "subcategory": "patient-profile", "icon": "🪪",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Chief Complaint",
+        "description": "Presenting complaint in patient's own words, HPI, duration, onset, severity and timeline.",
+        "category": "admission", "subcategory": "chief-complaint", "icon": "💬",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+
+    # ── Clinical Examination (systems/) ─────────────────────────────────────────
+    {
+        "title": "Clinical Examination",
+        "description": "Full structured clinical examination — general, systemic, regional exam with findings.",
+        "category": "systems", "subcategory": "systems-clinical-exam", "icon": "🩺",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Clinical Impression & Plan",
+        "description": "Working diagnosis, differential diagnoses, investigation plan and management summary.",
+        "category": "systems", "subcategory": "systems-clinical-impression", "icon": "💡",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Systems Pain Assessment",
+        "description": "Systems-specific pain assessment with site mapping and multi-axis pain characterisation.",
+        "category": "systems", "subcategory": "systems-pain", "icon": "🩹",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Systems Review (Full)",
+        "description": "Extended multi-system review with organ-level positive and negative findings documentation.",
+        "category": "systems", "subcategory": "systems-review-full", "icon": "📊",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+
+    # ── Cardiology ───────────────────────────────────────────────────────────────
+    {
+        "title": "ACS (Acute Coronary Syndrome) Assessment",
+        "description": "TIMI/GRACE risk, ECG findings, cardiac biomarkers, thrombolysis eligibility, DAPT plan.",
+        "category": "cardiology", "subcategory": "cardiology-acs", "icon": "❤️",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Atrial Fibrillation Assessment",
+        "description": "CHA₂DS₂-VASc auto-score, HAS-BLED auto-score, rhythm control vs rate control strategy.",
+        "category": "cardiology", "subcategory": "cardiology-af", "icon": "💓",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Cardiomyopathy Assessment",
+        "description": "NYHA class, Echo parameters, LVEF tracking, cardiac MRI findings, genetics screen.",
+        "category": "cardiology", "subcategory": "cardiology-cardiomyopathy", "icon": "🫀",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Chest Pain Assessment",
+        "description": "HEART score auto-calculation, typicality, risk factors, ECG, troponin trend, disposition.",
+        "category": "cardiology", "subcategory": "cardiology-chest-pain", "icon": "💔",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Dyslipidemia Assessment",
+        "description": "Lipid profile, ASCVD 10-year risk, FH criteria, statin intensity, LDL targets.",
+        "category": "cardiology", "subcategory": "cardiology-dyslipidemia", "icon": "🧪",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Heart Failure Assessment",
+        "description": "HFrEF/HFmrEF/HFpEF classification, NYHA stage, BNP trend, GDMT checklist.",
+        "category": "cardiology", "subcategory": "cardiology-heart-failure", "icon": "💊",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Hypertension Assessment",
+        "description": "JNC/ESC staging, ABPM review, end-organ damage screen, lifestyle and medication record.",
+        "category": "cardiology", "subcategory": "cardiology-hypertension", "icon": "📈",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Pericardial Disease Assessment",
+        "description": "Acute pericarditis, effusion sizing, Beck's triad, pericardiocentesis record.",
+        "category": "cardiology", "subcategory": "cardiology-pericardial", "icon": "🫁",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Rheumatic Heart Disease Assessment",
+        "description": "Jones criteria, streptococcal serology, valve involvement, penicillin prophylaxis record.",
+        "category": "cardiology", "subcategory": "cardiology-rhd", "icon": "🦠",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Valvular Heart Disease Assessment",
+        "description": "Valve lesion grading, Echo Doppler data, surgical/TAVI indication, anticoagulation.",
+        "category": "cardiology", "subcategory": "cardiology-valvular", "icon": "🔬",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+
+    # ── Clinical Scales ──────────────────────────────────────────────────────────
+    {
+        "title": "Asthma Control Test (ACT)",
+        "description": "5-item ACT auto-score 5–25. ≤19 = not controlled, 20–24 = well controlled, 25 = fully.",
+        "category": "clinical", "subcategory": "clinical-act", "icon": "🌬️",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "ADHD Rating Scale",
+        "description": "DSM-5 inattention + hyperactivity/impulsivity 18-item scale with auto subtype classification.",
+        "category": "clinical", "subcategory": "clinical-adhd", "icon": "🧠",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "ALSFRS-R (ALS Functional Rating Scale)",
+        "description": "48-item 12-domain ALS functional rating — bulbar, fine motor, gross motor, respiratory.",
+        "category": "clinical", "subcategory": "clinical-alsfrs", "icon": "⚡",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "ASRS ADHD Screener",
+        "description": "18-item Adult ADHD Self-Report Scale with Part A auto-screening and Part B full score.",
+        "category": "clinical", "subcategory": "clinical-asrs", "icon": "📝",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Migraine & Headache Assessment",
+        "description": "ICHD-3 classification, MIDAS disability score, frequency diary, trigger mapping, acute treatment.",
+        "category": "clinical", "subcategory": "clinical-migraine", "icon": "🤕",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+
+    # ── ENT ─────────────────────────────────────────────────────────────────────
+    {
+        "title": "Ear Assessment",
+        "description": "Rinne/Weber auto-interpretation, PTA classification, CSOM safe/unsafe, EAONO cholesteatoma staging, THI 0–100, Dix-Hallpike.",
+        "category": "ent", "subcategory": "ent-ear", "icon": "👂",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Nose & Sinus Assessment",
+        "description": "SNOT-22 22-item 0–110 auto-severity, ARIA rhinitis, Lund-Mackay CT score, Lund-Kennedy endoscopy, mucormycosis protocol.",
+        "category": "ent", "subcategory": "ent-nose-sinus", "icon": "👃",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Throat & Larynx Assessment",
+        "description": "McIsaac auto-score, VHI-10 dysphonia, RSI 0–45 LPR, STOP-BANG 0–8, FOIS swallowing, deep neck space alerts.",
+        "category": "ent", "subcategory": "ent-throat-larynx", "icon": "🗣️",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Head & Neck Assessment",
+        "description": "TNM AJCC 8th edition staging, ECOG 0–4, TIRADS TR1–TR5, Bethesda I–VI, neck level mapping, TB lymphadenitis.",
+        "category": "ent", "subcategory": "ent-head-neck", "icon": "🧬",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Audiology & Hearing Assessment",
+        "description": "8-frequency PTA grid (AC+BC), auto WHO grade, auto ABG, BERA wave latency, ECochG SP/AP, CAP 0–7, SSNHL protocol.",
+        "category": "ent", "subcategory": "ent-audiology", "icon": "🎧",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Facial Nerve Assessment",
+        "description": "House-Brackmann I–VI auto-description, Sunnybrook composite 0–100, ENoG degeneration % with CRITICAL surgical alert ≥90%.",
+        "category": "ent", "subcategory": "ent-facial-nerve", "icon": "😐",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Paediatric ENT Assessment",
+        "description": "Button battery EMERGENCY protocol, paed OSA AHI auto-severity, Brodsky/Fujioka grading, Paradise criteria, RRP Derkay-Mounts.",
+        "category": "ent", "subcategory": "ent-paediatric", "icon": "👶",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Tracheostomy Assessment",
+        "description": "Full tube inventory, cuff pressure, decannulation readiness 12-item auto-score, Passy-Muir valve, TIF/TIA emergency alerts.",
+        "category": "ent", "subcategory": "ent-tracheostomy", "icon": "🫁",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+
+    # ── Gastroenterology ─────────────────────────────────────────────────────────
+    {
+        "title": "Acute Abdomen Assessment",
+        "description": "Alvarado score (appendicitis), Rebound/guarding grading, surgical urgency flags, differential checklist.",
+        "category": "gastro", "subcategory": "gastro-acute-abdomen", "icon": "🏥",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Acute Pancreatitis Assessment",
+        "description": "Ranson criteria auto-score (day 1 + day 3), BISAP, Modified Glasgow, CTSI, organ failure tracking.",
+        "category": "gastro", "subcategory": "gastro-acute-pancreatitis", "icon": "🔥",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Anorectal Disorders Assessment",
+        "description": "Haemorrhoid grading (Goligher I–IV), fistula Park's classification, continence scoring, anal manometry findings.",
+        "category": "gastro", "subcategory": "gastro-anorectal", "icon": "🩺",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Biliary & Gallstone Assessment",
+        "description": "Charcot's triad, Reynolds pentad, Modified Alvarado for biliary colic, MRCP/ERCP indication, Mirizzi classification.",
+        "category": "gastro", "subcategory": "gastro-biliary", "icon": "🟡",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Chronic Pancreatitis Assessment",
+        "description": "Manchester classification, exocrine/endocrine insufficiency, pain VAS, enzyme replacement, HbA1c tracking.",
+        "category": "gastro", "subcategory": "gastro-chronic-pancreatitis", "icon": "🔴",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Dysphagia & Esophageal Assessment",
+        "description": "Ogilvie dysphagia grade, Eckardt achalasia score, Barrett's surveillance, EGD findings, manometry results.",
+        "category": "gastro", "subcategory": "gastro-dysphagia", "icon": "🍽️",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Functional GI Disorder Assessment",
+        "description": "Rome IV criteria for IBS/FD/bloating, Bristol Stool Chart, symptom severity score, gut-brain axis.",
+        "category": "gastro", "subcategory": "gastro-functional", "icon": "🫁",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "GI Bleed Assessment",
+        "description": "Rockall pre- and post-endoscopy auto-score, Glasgow-Blatchford, Forrest classification, endoscopy findings.",
+        "category": "gastro", "subcategory": "gastro-gi-bleed", "icon": "🩸",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "GI Cancer Assessment",
+        "description": "AJCC TNM staging for CRC/gastric/esophageal, ECOG, MSI/MMR status, Lynch syndrome screen, MDT outcome.",
+        "category": "gastro", "subcategory": "gastro-gi-cancer", "icon": "🎗️",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Gastroparesis & Motility Assessment",
+        "description": "GCSI auto-score, gastric emptying scintigraphy, SmartPill findings, diet texture and prokinetic record.",
+        "category": "gastro", "subcategory": "gastro-gastroparesis", "icon": "⏳",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Inflammatory Bowel Disease Assessment",
+        "description": "CDAI/HBI auto-score (Crohn's), Mayo/SCCAI (UC), endoscopic SES-CD/UCEIS, biologics tracking, fistula.",
+        "category": "gastro", "subcategory": "gastro-ibd", "icon": "🔥",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Liver Disease Assessment",
+        "description": "Child-Pugh auto-score + class, MELD-Na, NAFLD FIB-4, ascites grading, hepatic encephalopathy West Haven.",
+        "category": "gastro", "subcategory": "gastro-liver", "icon": "🍺",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Peptic Ulcer & GERD Assessment",
+        "description": "GERD-Q score, H. pylori status, PPI response, Barrett's risk, DU/GU size and healing tracking.",
+        "category": "gastro", "subcategory": "gastro-peptic-ulcer", "icon": "🔴",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+
+    # ── Obstetrics & Gynaecology ─────────────────────────────────────────────────
+    {
+        "title": "ANC Follow-up",
+        "description": "Fundal height, fetal movements, BP, urine dipstick, weight gain, fetal presentation tracking.",
+        "category": "obg", "subcategory": "obg-anc-followup", "icon": "🤰",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Antenatal Booking Assessment",
+        "description": "Obstetric history, LMP/EDD, booking investigations, dating USG, first-trimester screening.",
+        "category": "obg", "subcategory": "obg-antenatal", "icon": "📅",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Cervical Screening & Colposcopy",
+        "description": "Pap smear Bethesda reporting, HPV genotyping, colposcopy findings, LEEP/cone biopsy record.",
+        "category": "obg", "subcategory": "obg-cervical", "icon": "🔬",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Female Infertility Assessment",
+        "description": "Ovarian reserve (AMH/AFC), HSG, semen analysis, IVF cycle tracking, PCOS/endometriosis screen.",
+        "category": "obg", "subcategory": "obg-infertility", "icon": "🌸",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Gestational Diabetes Assessment",
+        "description": "75g OGTT interpretation, fasting/2h values, insulin titration, fetal growth monitoring, postpartum OGTT plan.",
+        "category": "obg", "subcategory": "obg-gdm", "icon": "🍬",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "High-Risk Pregnancy Assessment",
+        "description": "Risk factor scoring, fetal surveillance plan, perinatology referral, MFM consultation record.",
+        "category": "obg", "subcategory": "obg-high-risk", "icon": "⚠️",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Labour & Delivery Assessment",
+        "description": "Bishop score auto-calc, partograph, progress in labour, CTG interpretation, second-stage monitoring.",
+        "category": "obg", "subcategory": "obg-labour", "icon": "👶",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Menopause Assessment",
+        "description": "MRS symptom score, FSH/LH/E2 values, bone density, HRT eligibility and risk counselling.",
+        "category": "obg", "subcategory": "obg-menopause", "icon": "🌡️",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Menstrual Disorder Assessment",
+        "description": "PALM-COEIN classification, PBAC chart, cycle regularity, dysmenorrhoea VAS, hormone profile.",
+        "category": "obg", "subcategory": "obg-menstrual", "icon": "📆",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "PCOS Assessment",
+        "description": "Rotterdam criteria, modified Ferriman-Gallwey hirsutism score, metabolic panel, contraception plan.",
+        "category": "obg", "subcategory": "obg-pcos", "icon": "🔵",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Pelvic Inflammatory Disease Assessment",
+        "description": "CDC minimum criteria, IUCD relevance, culture/sensitivity, inpatient vs outpatient decision.",
+        "category": "obg", "subcategory": "obg-pid", "icon": "🦠",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Postpartum Assessment",
+        "description": "Edinburgh PND Scale auto-score, uterine involution, lochia, breastfeeding assessment, EPDS action plan.",
+        "category": "obg", "subcategory": "obg-postpartum", "icon": "💕",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Preeclampsia & Hypertensive Disorders Assessment",
+        "description": "ISSHP classification, CTG, fetal growth, magnesium sulfate protocol, delivery timing decision.",
+        "category": "obg", "subcategory": "obg-preeclampsia", "icon": "🩺",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+
+    # ── Orthopedics ──────────────────────────────────────────────────────────────
+    {
+        "title": "Acute Compartment Syndrome Assessment",
+        "description": "Compartment pressure measurement, 6Ps checklist, fasciotomy urgency, post-release wound tracking.",
+        "category": "orthopedic", "subcategory": "ortho-compartment-syndrome", "icon": "🦵",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Fracture & Trauma Assessment",
+        "description": "AO/OTA classification, ISS auto-tally, neurovascular status, reduction and fixation record.",
+        "category": "orthopedic", "subcategory": "ortho-fracture", "icon": "🦴",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Musculoskeletal Pain Assessment",
+        "description": "Widespread pain index, symptom severity scale, fibromyalgia diagnostic criteria, pain mapping.",
+        "category": "orthopedic", "subcategory": "ortho-msk-pain", "icon": "🩹",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Elbow Assessment",
+        "description": "Mayo elbow performance score, lateral epicondyle assessment, cubital tunnel, BROMAP, ROM.",
+        "category": "orthopedic", "subcategory": "ortho-elbow", "icon": "💪",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Foot & Ankle Assessment",
+        "description": "AOFAS score, hindfoot alignment, flat foot grading, Achilles tendon, ankle arthritis, ATFL laxity.",
+        "category": "orthopedic", "subcategory": "ortho-foot-ankle", "icon": "🦶",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Hand & Wrist Assessment",
+        "description": "DASH score, grip strength, carpal tunnel Phalen/Tinel, Finkelstein, DRUJ stability, finger ROM.",
+        "category": "orthopedic", "subcategory": "ortho-hand-wrist", "icon": "✋",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Hip Assessment",
+        "description": "Harris Hip Score, NAON hip OA grading, FAI impingement tests, THA/TKA planning, leg length.",
+        "category": "orthopedic", "subcategory": "ortho-hip", "icon": "🦿",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Knee Assessment",
+        "description": "KOOS/WOMAC auto-score, Lachman/McMurray/pivot shift, meniscus, OA grading, arthroplasty plan.",
+        "category": "orthopedic", "subcategory": "ortho-knee", "icon": "🦵",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Septic Arthritis & Osteomyelitis Assessment",
+        "description": "Kocher criteria auto-score, Cierny-Mader osteomyelitis classification, culture, surgical debridement.",
+        "category": "orthopedic", "subcategory": "ortho-septic-arthritis", "icon": "🦠",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Shoulder Assessment",
+        "description": "Oxford shoulder score, rotator cuff grading, Constant score, SLAP, impingement, instability tests.",
+        "category": "orthopedic", "subcategory": "ortho-shoulder", "icon": "💪",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Orthopedic Tumor Assessment",
+        "description": "Enneking surgical staging, biopsy record, Mirels score, bone tumour MDT outcome, limb salvage plan.",
+        "category": "orthopedic", "subcategory": "ortho-tumor", "icon": "🎗️",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Orthotic & Prosthetic Assessment",
+        "description": "K-level ambulation, stump assessment, prosthetic socket fit, gait deviation, functional goals.",
+        "category": "orthopedic", "subcategory": "ortho-prosthetic", "icon": "🦾",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Osteoporosis Assessment",
+        "description": "FRAX 10-year fracture risk auto-calc, DEXA T-score/Z-score, calcium/vitamin D, bisphosphonate record.",
+        "category": "orthopedic", "subcategory": "ortho-osteoporosis", "icon": "🦴",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Pediatric Orthopedic Assessment",
+        "description": "DDH Barlow/Ortolani, LCP Herring classification, SUFE slip angle, scoliosis Cobb angle, bone age.",
+        "category": "orthopedic", "subcategory": "ortho-pediatric", "icon": "👶",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Peripheral Nerve Assessment",
+        "description": "Sunderland grading, EMG/NCS findings, mononeuropathy vs polyneuropathy, nerve repair record.",
+        "category": "orthopedic", "subcategory": "ortho-peripheral-nerve", "icon": "⚡",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Post-Op Rehabilitation Assessment",
+        "description": "Functional milestones, ROM progress, pain VAS, physiotherapy response, discharge readiness.",
+        "category": "orthopedic", "subcategory": "ortho-postop-rehab", "icon": "🏃",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Spine Assessment",
+        "description": "VAS/ODI/NDI auto-score, myelopathy mJOA, Frankel grade, TLICS/SLIC scoring, surgical planning.",
+        "category": "orthopedic", "subcategory": "ortho-spine", "icon": "🦴",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+
+    # ── Pediatrics ───────────────────────────────────────────────────────────────
+    {
+        "title": "Adolescent Health Assessment",
+        "description": "HEADSSS screen, pubertal staging (Tanner), menstrual history, CRAFFT substance screen, mental health.",
+        "category": "pediatrics", "subcategory": "peds-adolescent", "icon": "🧑",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "NICU Assessment",
+        "description": "Gestational age, CRIB-II score, NAS Finnegan auto-score, sepsis screen, invasive line record.",
+        "category": "pediatrics", "subcategory": "peds-nicu", "icon": "🍼",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Neonatal Assessment",
+        "description": "Ballard maturity score, APGAR 1 & 5 min, NNJ/SBR tracking, neonatal feeding log, jaundice phototherapy.",
+        "category": "pediatrics", "subcategory": "peds-neonatal", "icon": "👶",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Pediatric Cardiology Assessment",
+        "description": "Congenital heart disease classification, saturation monitoring, Ross heart failure score, catheter data.",
+        "category": "pediatrics", "subcategory": "peds-cardiology", "icon": "❤️",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Developmental Disorders Assessment",
+        "description": "M-CHAT-R 20-item auto-score (autism), Vanderbilt ADHD 18+18 auto-subtype, IQ classification, GMFCS, SLD.",
+        "category": "pediatrics", "subcategory": "peds-developmental", "icon": "🧩",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Pediatric Emergency Assessment",
+        "description": "PEWS auto-score, PECARN TBI decision, PRISM-III severity, paediatric sepsis SIRS criteria.",
+        "category": "pediatrics", "subcategory": "peds-emergency", "icon": "🚨",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Pediatric Endocrinology Assessment",
+        "description": "Growth velocity, bone age, T1DM HbA1c tracking, thyroid neonatal screen, CAH 17-OHP protocol.",
+        "category": "pediatrics", "subcategory": "peds-endocrinology", "icon": "🔬",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Pediatric Fever & Infections Assessment",
+        "description": "Fever source checklist, dengue NS1/IgM/IgG, malaria smear, typhoid Widal, antibiotic stewardship.",
+        "category": "pediatrics", "subcategory": "peds-fever", "icon": "🌡️",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Pediatric Gastro & Nutrition Assessment",
+        "description": "STAMP malnutrition score, z-scores (W/A, H/A, W/H), SAM/MAM criteria, ESPGHAN IBD criteria.",
+        "category": "pediatrics", "subcategory": "peds-gastro", "icon": "🍎",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Pediatric Growth & Development Assessment",
+        "description": "WHO/IAP z-score auto-plot, developmental milestone log, vision/hearing screen, school readiness.",
+        "category": "pediatrics", "subcategory": "peds-growth", "icon": "📏",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Pediatric Haematology & Oncology Assessment",
+        "description": "BFM ALL risk auto-class, ITP platelet threshold, G6PD, sickle cell HU therapy, Ann Arbor lymphoma staging.",
+        "category": "pediatrics", "subcategory": "peds-haematology", "icon": "🩸",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Pediatric Nephrology Assessment",
+        "description": "eGFR Schwartz auto-calc, CKD staging, nephrotic vs nephritic differentiation, renal biopsy record.",
+        "category": "pediatrics", "subcategory": "peds-nephrology", "icon": "🫘",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Pediatric Neurology Assessment",
+        "description": "Paediatric seizure classification (ILAE), EEG report, GCS modified, cerebral palsy GMFCS, MMC level.",
+        "category": "pediatrics", "subcategory": "peds-neurology", "icon": "🧠",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Pediatric Respiratory Assessment",
+        "description": "PRAM/PSSS asthma severity, PICU admission triggers, croup Westley score, RSV bronchiolitis AARB.",
+        "category": "pediatrics", "subcategory": "peds-respiratory", "icon": "🫁",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Pediatric Rheumatology Assessment",
+        "description": "JADAS-27 auto-score, JIA classification (ILAR), pJAI enthesitis/uveitis screen, biologics tracking.",
+        "category": "pediatrics", "subcategory": "peds-rheumatology", "icon": "🦴",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Vaccination Chart",
+        "description": "IAP 2024 schedule with catch-up calculator, adverse event recording, cold-chain record, COVID & HPV.",
+        "category": "pediatrics", "subcategory": "peds-vaccination", "icon": "💉",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+
+    # ── Specialty ────────────────────────────────────────────────────────────────
+    {
+        "title": "Aerosol Therapy Assessment",
+        "description": "Nebuliser vs pMDI vs DPI technique, peak flow, spacer compatibility, bronchodilator response.",
+        "category": "specialty", "subcategory": "specialty-aerosol", "icon": "💨",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Asthma Assessment (Specialty)",
+        "description": "Full asthma assessment — spirometry, control, step-up plan, trigger diary, biologics eligibility.",
+        "category": "specialty", "subcategory": "specialty-asthma", "icon": "🌬️",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
+    {
+        "title": "Diabetes Assessment",
+        "description": "Type 1/2 classification, HbA1c tracking, SMBG log, hypoglycaemia frequency, complication screen.",
+        "category": "specialty", "subcategory": "specialty-diabetes", "icon": "🩸",
+        "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None,
+    },
 ]
 
 
