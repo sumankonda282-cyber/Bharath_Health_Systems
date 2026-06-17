@@ -5,7 +5,7 @@ const API_BASE = import.meta.env.VITE_API_URL || 'https://bharatcliniq-api.onren
 const api = axios.create({
   baseURL: `${API_BASE}/api/v1`,
   headers: { 'Content-Type': 'application/json' },
-  timeout: 30000,
+  timeout: 60000,
 })
 
 api.interceptors.request.use((config) => {
@@ -21,7 +21,7 @@ api.interceptors.response.use(
   async (err) => {
     const status = err.response?.status
     const url = err.config?.url || ''
-    const isExempt = url.includes('/login') || url.includes('/send-otp') || url.includes('/verify-otp') || url.includes('/me') || url.includes('/refresh')
+    const isExempt = url.includes('/login') || url.includes('/send-otp') || url.includes('/verify-otp') || url.includes('/me') || url.includes('/refresh') || url.includes('/set-password')
 
     // Auto-refresh on 401 for non-exempt endpoints
     if (status === 401 && !isExempt && !err.config._retried) {
@@ -50,10 +50,10 @@ api.interceptors.response.use(
       return Promise.reject(new Error('Session expired. Please log in again.'))
     }
 
-    // Retry once on network failure or 5xx (handles Render cold starts)
-    if (!err.response && !err.config._retried) {
+    // Retry on network failure or 5xx (handles Render cold starts — up to 60s wake time)
+    if ((!err.response || (err.response?.status >= 500)) && !err.config._retried) {
       err.config._retried = true
-      await new Promise(r => setTimeout(r, 1500))
+      await new Promise(r => setTimeout(r, 3000))
       return api.request(err.config)
     }
 
