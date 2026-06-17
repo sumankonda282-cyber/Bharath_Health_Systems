@@ -8,7 +8,7 @@ import {
   CreditCard, LayoutDashboard, LogOut, Users,
   Menu, X, Settings, BedDouble, LayoutGrid, Banknote, Wrench, HelpCircle,
   CalendarRange, UserCircle2, Plane, LayoutTemplate, Send, Monitor, RefreshCw,
-  UserCheck, ShieldAlert,
+  UserCheck, ShieldAlert, Lock,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import BrandLogo from './BrandLogo'
@@ -130,9 +130,11 @@ export default function Layout() {
   const isManager = ['clinic_manager', 'clinic_admin'].includes(user?.role)
   const isScheduler = isManager
   const isHospital = user?.org_type === 'hospital'
+  // Managers: unchanged — hospital nav only shown if isHospital
+  // Receptionists: always show hospital nav items but lock them if not a hospital
   const NAV = isManager
     ? [...MANAGER_BASE_NAV, ...(isHospital ? HOSPITAL_NAV : []), ...MANAGER_NAV]
-    : [...RECEP_NAV, ...(isHospital ? HOSPITAL_NAV : [])]
+    : [...RECEP_NAV, ...HOSPITAL_NAV.map(item => ({ ...item, locked: !isHospital }))]
 
   const pageTitle = getPageTitle(location.pathname, isManager)
   const todayLabel = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })
@@ -170,7 +172,16 @@ export default function Layout() {
       </div>
 
       <nav className="flex-1 px-2 py-3 overflow-y-auto">
-        {NAV.map(({ to, icon: Icon, label }) => (
+        {NAV.map(({ to, icon: Icon, label, locked }) => locked ? (
+          <div key={to}
+            title="IPD module — contact admin to enable"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl mb-0.5 cursor-not-allowed select-none"
+            style={{ opacity: 0.38 }}>
+            <Icon size={17} className="flex-shrink-0 text-white" />
+            <span className="flex-1 text-sm font-medium text-white">{label}</span>
+            <Lock size={11} className="text-white/60 flex-shrink-0" />
+          </div>
+        ) : (
           <NavLink key={to} to={to} end={to === '/'}
             onClick={() => setOpen(false)}
             className={({ isActive }) => isActive ? 'sidebar-link-active' : 'sidebar-link'}>
