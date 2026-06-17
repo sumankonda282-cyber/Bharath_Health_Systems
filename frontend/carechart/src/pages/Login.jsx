@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Eye, EyeOff, AlertCircle, KeyRound, HelpCircle, X, Send, CheckCircle } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import BrandLogo from '../components/BrandLogo'
@@ -8,10 +8,21 @@ import api from '../api/client'
 export default function Login() {
   const { login } = useAuth()
 
-  const [form, setForm]     = useState({ identifier: '', password: '' })
-  const [showPw, setShowPw] = useState(false)
-  const [error, setError]   = useState('')
+  const [form, setForm]       = useState({ identifier: '', password: '' })
+  const [showPw, setShowPw]   = useState(false)
+  const [error, setError]     = useState('')
   const [loading, setLoading] = useState(false)
+  // Prevent autofill-triggered submit: only allow submit after user has typed
+  const [touched, setTouched] = useState(false)
+  const idRef  = useRef(null)
+  const pwRef  = useRef(null)
+
+  // Clear any browser-autofilled values on mount so the form starts blank
+  useEffect(() => {
+    if (idRef.current)  idRef.current.value  = ''
+    if (pwRef.current)  pwRef.current.value  = ''
+    setForm({ identifier: '', password: '' })
+  }, [])
 
   // Forgot password modal state
   const [showForgot, setShowForgot] = useState(false)
@@ -20,15 +31,21 @@ export default function Login() {
   const [forgotLoading, setForgotLoading] = useState(false)
   const [forgotError, setForgotError] = useState('')
 
-  const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }))
+  const set = (k) => (e) => {
+    setTouched(true)
+    setError('')
+    setForm(f => ({ ...f, [k]: e.target.value }))
+  }
   const setForgot = (k) => (e) => setForgotForm(f => ({ ...f, [k]: e.target.value }))
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    // Block submit if user hasn't typed anything (prevents autofill loop)
+    if (!touched || !form.identifier.trim() || !form.password) return
     setError('')
     setLoading(true)
     try {
-      await login(form.identifier, form.password)
+      await login(form.identifier.trim(), form.password)
     } catch (err) {
       const msg = err.message || ''
       if (msg.includes('401') || msg.toLowerCase().includes('invalid')) {
@@ -99,9 +116,9 @@ export default function Login() {
                 Username, Email or Mobile
               </label>
               <input
+                ref={idRef}
                 type="text"
-                autoComplete="username"
-                autoFocus
+                autoComplete="off"
                 required
                 placeholder="username, nurse@ward.com or mobile"
                 value={form.identifier}
@@ -128,8 +145,9 @@ export default function Login() {
               </div>
               <div className="relative">
                 <input
+                  ref={pwRef}
                   type={showPw ? 'text' : 'password'}
-                  autoComplete="current-password"
+                  autoComplete="new-password"
                   required
                   placeholder="••••••••"
                   value={form.password}
@@ -159,7 +177,7 @@ export default function Login() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !touched || !form.identifier.trim() || !form.password}
               className="w-full flex items-center justify-center gap-2 py-3 rounded-xl
                          font-semibold text-sm text-white transition-colors
                          disabled:opacity-50 disabled:cursor-not-allowed"
