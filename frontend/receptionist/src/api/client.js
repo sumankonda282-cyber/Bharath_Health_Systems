@@ -21,7 +21,7 @@ api.interceptors.response.use(
   async (err) => {
     const status = err.response?.status
     const url = err.config?.url || ''
-    const isExempt = url.includes('/login') || url.includes('/send-otp') || url.includes('/verify-otp') || url.includes('/me') || url.includes('/refresh')
+    const isExempt = url.includes('/login') || url.includes('/send-otp') || url.includes('/verify-otp') || url.includes('/me') || url.includes('/refresh') || url.includes('/set-password')
 
     // Auto-refresh on 401 for non-exempt endpoints
     if (status === 401 && !isExempt && !err.config._retried) {
