@@ -6,7 +6,7 @@ const SIZES = {
   lg: { img: 52, name: 'text-xl',  sub: 'text-xs',     gap: 'gap-2.5' },
 }
 
-export default function BrandLogo({ size = 'md', showText = true }) {
+export default function BrandLogo({ size = 'md', showText = true, light = false }) {
   const s = SIZES[size] || SIZES.md
   return (
     <div className={`inline-flex items-center ${s.gap}`}>
@@ -14,11 +14,11 @@ export default function BrandLogo({ size = 'md', showText = true }) {
       {showText && (
         <div className="flex flex-col leading-none">
           <span className={`font-extrabold ${s.name}`} style={{ letterSpacing: '-0.02em' }}>
-            <span style={{ color: '#CC1414' }}>BHarath</span>
-            <span style={{ color: '#0F2557' }}> Health</span>
+            <span style={{ color: light ? '#fca5a5' : '#CC1414' }}>BHarath</span>
+            <span style={{ color: light ? '#white' : '#0F2557' }}> Health</span>
           </span>
-          <span className={`font-semibold italic ${s.sub}`} style={{ color: '#6b7280' }}>Systems</span>
-          <span className={`font-bold ${s.sub} mt-0.5`} style={{ color: '#065F46' }}>CareChart</span>
+          <span className={`font-semibold italic ${s.sub}`} style={{ color: light ? 'rgba(255,255,255,0.7)' : '#6b7280' }}>Systems</span>
+          <span className={`font-bold ${s.sub} mt-0.5`} style={{ color: light ? '#6ee7b7' : '#065F46' }}>CareChart</span>
         </div>
       )}
     </div>

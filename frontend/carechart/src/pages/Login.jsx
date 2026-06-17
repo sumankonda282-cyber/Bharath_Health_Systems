@@ -92,22 +92,38 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
+    <div className="min-h-screen flex" style={{
+      fontFamily: 'Inter, system-ui, sans-serif',
+      background: 'linear-gradient(135deg, #064e3b 0%, #065F46 40%, #0f766e 100%)',
+    }}>
 
-      {/* Login card */}
-      <div className="w-full max-w-md">
-
-        {/* Logo */}
-        <div className="flex justify-center mb-8">
-          <BrandLogo size="lg" />
+      {/* Left panel — branding */}
+      <div className="hidden lg:flex flex-col justify-between w-96 p-10 text-white">
+        <BrandLogo size="md" light />
+        <div>
+          <h2 className="text-3xl font-extrabold leading-tight mb-3">
+            Ward care,<br />at your fingertips.
+          </h2>
+          <p className="text-green-100 text-sm leading-relaxed">
+            CareChart connects nurses, doctors and ward staff in one unified portal — vitals, orders, assessments and handoffs in one place.
+          </p>
         </div>
+        <p className="text-green-300/60 text-xs">© 2026 BHarath Health Systems</p>
+      </div>
 
-        <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-8">
+      {/* Right panel — form */}
+      <div className="flex-1 flex items-center justify-center p-6 bg-white lg:rounded-l-3xl">
+        <div className="w-full max-w-sm">
+
+          {/* Logo (mobile only) */}
+          <div className="flex justify-center mb-7 lg:hidden">
+            <BrandLogo size="lg" />
+          </div>
 
           <h1 className="text-2xl font-extrabold mb-1" style={{ color: '#065F46' }}>
             Welcome Back
           </h1>
-          <p className="text-gray-500 text-sm mb-6">Sign in to your ward portal</p>
+          <p className="text-gray-400 text-sm mb-7">Sign in to your CareChart ward portal</p>
 
           <form onSubmit={handleSubmit} className="space-y-4" noValidate>
 
@@ -209,9 +225,10 @@ export default function Login() {
           </div>
         </div>
 
-        <p className="text-center text-xs text-gray-400 mt-4">
-          BHarath Health Systems · CareChart Portal
-        </p>
+          <p className="text-center text-xs text-gray-400 mt-5">
+            BHarath Health Systems · CareChart Portal
+          </p>
+        </div>
       </div>
 
       {/* ── Forgot Password / Access Request Modal ── */}
