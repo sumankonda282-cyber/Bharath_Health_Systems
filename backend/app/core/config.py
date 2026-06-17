@@ -9,7 +9,25 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24h
 
     OTP_MOCK: bool = True
+
+    # ── SMS / OTP ──────────────────────────────────────────────────────────────
     FAST2SMS_API_KEY: str = ""
+    TWILIO_ACCOUNT_SID: str = ""
+    TWILIO_AUTH_TOKEN: str = ""
+    TWILIO_FROM_NUMBER: str = ""          # E.164, e.g. +14155551234
+    TWILIO_WHATSAPP_FROM: str = ""        # whatsapp:+14155551234
+    SMS_PROVIDER: str = "fast2sms"        # "fast2sms" | "twilio"
+
+    # ── Email / SMTP ───────────────────────────────────────────────────────────
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_TLS: bool = True
+    SMTP_SSL: bool = False
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    EMAIL_FROM_ADDRESS: str = "noreply@bharathhealthsystems.com"
+    EMAIL_FROM_NAME: str = "BHarath Health"
+    EMAIL_ENABLED: bool = False           # set True once SMTP creds are configured
 
     CORS_ORIGINS: str = (
         "http://localhost:3000,http://localhost:5173,http://localhost:5174,http://localhost:5175,"
