@@ -872,8 +872,6 @@ export default function GDMAssessmentForm({ patientId, encounterId, onSaved }) {
     return null
   }, [gdmDiagnosis, ogttResult, glucoseTargets, riskFactorCount])
 
-  const navBtn = 'flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all'
-
   return (
     <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
       {/* Header */}
