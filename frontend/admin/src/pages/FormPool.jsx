@@ -25,7 +25,7 @@ import {
 } from 'lucide-react'
 import api from '../api/client'
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// ─── Constants ──────────────────────────────────────────────────────────────────────────────
 
 const TABS = [
   { key: 'all',       label: 'All Forms' },
@@ -61,64 +61,93 @@ const CATEGORIES = [
   { value: 'orthopedic',   label: 'Orthopedics' },
   { value: 'obg',          label: 'Obstetrics & Gynecology' },
   { value: 'respiratory',  label: 'Respiratory' },
-  { value: 'neurology',    label: 'Neurology' },
-  { value: 'oncology',     label: 'Oncology' },
-  { value: 'dermatology',  label: 'Dermatology' },
-  { value: 'pharmacy',     label: 'Pharmacy' },
-  { value: 'lab',          label: 'Laboratory' },
-  { value: 'radiology',    label: 'Radiology' },
-  { value: 'emergency',    label: 'Emergency' },
-  { value: 'palliative',   label: 'Palliative Care' },
-  { value: 'rehab',        label: 'Rehabilitation' },
-  { value: 'other',        label: 'Other' },
+  { value: 'specialty',    label: 'Specialty' },
 ]
 
-const STATUS_BADGE = {
-  published: 'bg-green-100 text-green-700',
-  draft:     'bg-yellow-100 text-yellow-700',
-  template:  'bg-blue-100 text-blue-700',
-  retired:   'bg-gray-100 text-gray-600',
+// ─── Category Helpers ─────────────────────────────────────────────────────────────────
+
+const CATEGORY_META = {
+  vitals:       { emoji: '�aa', color: 'bg-red-500/20 text-red-400' },
+  mental_health:{ emoji: '🧠', color: 'bg-purple-500/20 text-purple-400' },
+  safety:       { emoji: '⚠️', color: 'bg-yellow-500/20 text-yellow-400' },
+  intake:       { emoji: '🏥', color: 'bg-blue-500/20 text-blue-400' },
+  admission:    { emoji: '🏥', color: 'bg-blue-500/20 text-blue-400' },
+  assessment:   { emoji: '📋', color: 'bg-indigo-500/20 text-indigo-400' },
+  clinical:     { emoji: '🩺', color: 'bg-teal-500/20 text-teal-400' },
+  surgical:     { emoji: '🔬', color: 'bg-cyan-500/20 text-cyan-400' },
+  icu:          { emoji: '💊', color: 'bg-rose-500/20 text-rose-400' },
+  consent:      { emoji: '✍️', color: 'bg-green-500/20 text-green-400' },
+  discharge:    { emoji: '🚶', color: 'bg-orange-500/20 text-orange-400' },
+  followup:     { emoji: '📅', color: 'bg-sky-500/20 text-sky-400' },
+  survey:       { emoji: '📊', color: 'bg-pink-500/20 text-pink-400' },
+  pediatrics:   { emoji: '👶', color: 'bg-lime-500/20 text-lime-400' },
+  general:      { emoji: '📄', color: 'bg-gray-500/20 text-gray-400' },
+  pain:         { emoji: '🩹', color: 'bg-red-600/20 text-red-300' },
+  nursing:      { emoji: '💉', color: 'bg-emerald-500/20 text-emerald-400' },
+  history:      { emoji: '📚', color: 'bg-amber-500/20 text-amber-400' },
+  systems:      { emoji: '🔍', color: 'bg-violet-500/20 text-violet-400' },
+  cardiology:   { emoji: '❤️', color: 'bg-red-500/20 text-red-400' },
+  ent:          { emoji: '👂', color: 'bg-orange-500/20 text-orange-400' },
+  gastro:       { emoji: '�ab', color: 'bg-yellow-600/20 text-yellow-400' },
+  orthopedic:   { emoji: '🦴', color: 'bg-stone-500/20 text-stone-400' },
+  obg:          { emoji: '🌸', color: 'bg-pink-500/20 text-pink-400' },
+  respiratory:  { emoji: '�af', color: 'bg-blue-400/20 text-blue-400' },
+  specialty:    { emoji: '⭐', color: 'bg-indigo-400/20 text-indigo-400' },
 }
 
-const CATEGORY_ICONS = {
-  vitals:       <HeartPulse className="w-4 h-4" />,
-  mental_health:<Brain className="w-4 h-4" />,
-  clinical:     <Stethoscope className="w-4 h-4" />,
-  surgical:     <Syringe className="w-4 h-4" />,
-  icu:          <Activity className="w-4 h-4" />,
-  admission:    <Building2 className="w-4 h-4" />,
-  general:      <FileText className="w-4 h-4" />,
-  assessment:   <ClipboardList className="w-4 h-4" />,
+function getCategoryMeta(category) {
+  return CATEGORY_META[category] || CATEGORY_META.general
 }
 
-// ─── Tiny helpers ─────────────────────────────────────────────────────────────
+// ─── Date formatter ──────────────────────────────────────────────────────────────────────
 
-function useToast () {
-  const [toasts, setToasts] = useState([])
-  const add = useCallback((msg, type = 'info') => {
-    const id = Date.now()
-    setToasts(p => [...p, { id, msg, type }])
-    setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3500)
-  }, [])
-  const remove = useCallback(id => setToasts(p => p.filter(t => t.id !== id)), [])
-  return { toasts, add, remove }
+function fmtDate(val) {
+  if (!val) return '—'
+  try {
+    return new Date(val).toLocaleDateString('en-IN', {
+      day: '2-digit', month: 'short', year: 'numeric',
+    })
+  } catch {
+    return String(val)
+  }
 }
 
-function ToastContainer ({ toasts, onRemove }) {
-  if (!toasts.length) return null
+function capitalize(s) {
+  if (!s) return ''
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
+// ─── Status Badge ─────────────────────────────────────────────────────────────────────────────
+
+function StatusBadge({ status }) {
+  const styles = {
+    draft:     'bg-yellow-900/30 text-yellow-400 border border-yellow-800/50',
+    published: 'bg-green-900/30 text-green-400 border border-green-800/50',
+    retired:   'bg-gray-700/50 text-gray-400 border border-gray-600/50',
+    template:  'bg-blue-900/30 text-blue-400 border border-blue-800/50',
+  }
   return (
-    <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
-      {toasts.map(t => (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${styles[status] || styles.draft}`}>
+      {capitalize(status)}
+    </span>
+  )
+}
+
+// ─── Toast ──────────────────────────────────────────────────────────────────────────────
+
+function ToastContainer({ toasts, onRemove }) {
+  return (
+    <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none">
+      {toasts.map((t) => (
         <div
           key={t.id}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg shadow-lg text-sm font-medium
-            ${ t.type === 'success' ? 'bg-green-600 text-white'
-             : t.type === 'error'   ? 'bg-red-600 text-white'
-             : 'bg-gray-800 text-white' }`}
+          className={`pointer-events-auto flex items-center gap-3 bg-gray-800 border text-white text-sm px-4 py-3 rounded-xl shadow-lg border-l-4 ${
+            t.type === 'error' ? 'border-red-500 border-l-red-500 border-gray-700' : 'border-green-500 border-l-green-500 border-gray-700'
+          }`}
         >
-          {t.msg}
-          <button onClick={() => onRemove(t.id)} className="ml-1 opacity-70 hover:opacity-100">
-            <X className="w-3.5 h-3.5" />
+          <span className="flex-1">{t.message}</span>
+          <button onClick={() => onRemove(t.id)} className="text-gray-500 hover:text-white transition-colors">
+            <X size={14} />
           </button>
         </div>
       ))}
@@ -126,26 +155,129 @@ function ToastContainer ({ toasts, onRemove }) {
   )
 }
 
-function ConfirmModal ({ message, onConfirm, onCancel }) {
+// ─── Assign Modal ─────────────────────────────────────────────────────────────────────────
+
+function AssignModal({ assignModal, onClose, onAssigned, addToast }) {
+  const [clinicsList, setClinicsList] = useState([])
+  const [loadingClinics, setLoadingClinics] = useState(true)
+  const [selectedClinic, setSelectedClinic] = useState('all')
+  const [assigning, setAssigning] = useState(false)
+
+  useEffect(() => {
+    setLoadingClinics(true)
+    api.get('/clinics')
+      .then((data) => {
+        const list = Array.isArray(data) ? data : (data?.items ?? data?.results ?? [])
+        setClinicsList(list)
+      })
+      .catch(() => setClinicsList([]))
+      .finally(() => setLoadingClinics(false))
+  }, [])
+
+  async function handleAssign() {
+    setAssigning(true)
+    try {
+      await api.post('/platform/pool/assign', {
+        form_id: assignModal.formId,
+        clinic_id: selectedClinic === 'all' ? null : selectedClinic,
+      })
+      addToast(`"${assignModal.formTitle}" assigned successfully.`, 'success')
+      onAssigned()
+      onClose()
+    } catch (err) {
+      addToast(err.message || 'Failed to assign form.', 'error')
+    } finally {
+      setAssigning(false)
+    }
+  }
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-2xl shadow-2xl p-6 w-80 flex flex-col gap-4">
-        <div className="flex items-center gap-3 text-red-600">
-          <AlertTriangle className="w-6 h-6 shrink-0" />
-          <p className="text-sm font-medium text-gray-800">{message}</p>
-        </div>
-        <div className="flex justify-end gap-2">
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div
+        className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-md p-6 shadow-2xl"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h2 className="text-lg font-semibold text-white">Add to Pool</h2>
+            <p className="text-xs text-gray-500 mt-0.5">Make available for clinical use</p>
+          </div>
           <button
-            onClick={onCancel}
-            className="px-4 py-1.5 rounded-lg text-sm border border-gray-300 hover:bg-gray-50"
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3 mb-5">
+          <p className="text-xs text-gray-500 mb-0.5">Form</p>
+          <p className="text-white font-medium text-sm">{assignModal.formTitle}</p>
+        </div>
+
+        <div className="mb-6">
+          <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">
+            Make available to
+          </label>
+
+          {loadingClinics ? (
+            <div className="flex items-center gap-2 text-gray-400 text-sm py-3">
+              <Loader2 size={16} className="animate-spin" />
+              Loading clinics…
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+              <label className="flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors bg-gray-800 hover:bg-gray-700 border border-gray-700 has-[:checked]:border-[#F5821E]/50 has-[:checked]:bg-[#F5821E]/5">
+                <input
+                  type="radio"
+                  name="clinic"
+                  value="all"
+                  checked={selectedClinic === 'all'}
+                  onChange={() => setSelectedClinic('all')}
+                  className="accent-[#F5821E]"
+                />
+                <div>
+                  <p className="text-sm text-white font-medium">All Clinics</p>
+                  <p className="text-xs text-gray-500">Globally available to all clinics</p>
+                </div>
+              </label>
+
+              {clinicsList.map((clinic) => (
+                <label
+                  key={clinic.id}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors bg-gray-800 hover:bg-gray-700 border border-gray-700"
+                >
+                  <input
+                    type="radio"
+                    name="clinic"
+                    value={clinic.id}
+                    checked={selectedClinic === clinic.id}
+                    onChange={() => setSelectedClinic(clinic.id)}
+                    className="accent-[#F5821E]"
+                  />
+                  <span className="text-sm text-white">
+                    {clinic.name || clinic.clinic_name || `Clinic ${clinic.id}`}
+                  </span>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center gap-3 justify-end">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-800 text-gray-300 hover:text-white border border-gray-700 transition-colors"
           >
             Cancel
           </button>
           <button
-            onClick={onConfirm}
-            className="px-4 py-1.5 rounded-lg text-sm bg-red-600 text-white hover:bg-red-700"
+            onClick={handleAssign}
+            disabled={assigning}
+            className="px-4 py-2 rounded-lg text-sm font-medium bg-[#F5821E] hover:bg-[#e07319] text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
           >
-            Delete
+            {assigning && <Loader2 size={14} className="animate-spin" />}
+            Assign to Pool
           </button>
         </div>
       </div>
@@ -153,328 +285,284 @@ function ConfirmModal ({ message, onConfirm, onCancel }) {
   )
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// ─── Main Component ─────────────────────────────────────────────────────────────────────────
 
-export default function FormPool () {
+export default function FormPool() {
   const navigate = useNavigate()
-  const { toasts, add: toast, remove: removeToast } = useToast()
 
-  const [forms,        setForms]        = useState([])
-  const [loading,      setLoading]      = useState(true)
-  const [error,        setError]        = useState(null)
-  const [search,       setSearch]       = useState('')
-  const [activeTab,    setActiveTab]    = useState('all')
-  const [category,     setCategory]     = useState('all')
-  const [actionLoading,setActionLoading]= useState({})
-  const [deleteTarget, setDeleteTarget] = useState(null)   // form to confirm-delete
+  const [forms, setForms] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
-  // ── Fetch ──────────────────────────────────────────────────────────────────
-  const fetchForms = useCallback(async () => {
-    setLoading(true); setError(null)
-    try {
-      const { data } = await api.get('/assessment-forms/')
-      setForms(Array.isArray(data) ? data : (data.forms ?? data.items ?? []))
-    } catch (e) {
-      setError(e?.response?.data?.detail ?? 'Failed to load forms')
-    } finally {
-      setLoading(false)
-    }
+  const [activeTab, setActiveTab] = useState('all')
+  const [search, setSearch] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('all')
+
+  const [assignModal, setAssignModal] = useState(null)
+  const [toasts, setToasts] = useState([])
+  const [actionLoading, setActionLoading] = useState({})
+
+  const addToast = useCallback((message, type = 'success') => {
+    const id = Date.now()
+    setToasts(prev => [...prev, { id, message, type }])
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500)
   }, [])
 
-  useEffect(() => { fetchForms() }, [fetchForms])
+  const removeToast = useCallback((id) => {
+    setToasts(prev => prev.filter(t => t.id !== id))
+  }, [])
 
-  // ── Derived list ──────────────────────────────────────────────────────────
-  const filtered = forms.filter(f => {
-    const q = search.toLowerCase()
-    if (q && !f.title?.toLowerCase().includes(q) &&
-             !f.description?.toLowerCase().includes(q) &&
-             !f.category?.toLowerCase().includes(q)) return false
-    if (activeTab !== 'all') {
-      if (activeTab === 'published' && f.status !== 'published') return false
-      if (activeTab === 'drafts'    && f.status !== 'draft')     return false
-      if (activeTab === 'templates' && !f.is_template)           return false
-      if (activeTab === 'retired'   && f.status !== 'retired')   return false
+  useEffect(() => {
+    setLoading(true)
+    api.get('/platform/forms')
+      .then((data) => {
+        const list = Array.isArray(data) ? data : (data?.items ?? data?.results ?? [])
+        setForms(list)
+        setError('')
+      })
+      .catch((err) => setError(err.message || 'Failed to load forms.'))
+      .finally(() => setLoading(false))
+  }, [])
+
+  function setActionBusy(formId, action, busy) {
+    setActionLoading(prev => ({ ...prev, [`${formId}_${action}`]: busy }))
+  }
+
+  async function handlePublish(form) {
+    setActionBusy(form.id, 'publish', true)
+    try {
+      await api.post(`/platform/forms/${form.id}/publish`)
+      setForms(prev => prev.map(f => f.id === form.id ? { ...f, status: 'published' } : f))
+      addToast(`"${form.title}" published.`)
+    } catch (err) {
+      addToast(err.message || 'Publish failed.', 'error')
+    } finally {
+      setActionBusy(form.id, 'publish', false)
     }
-    if (category !== 'all' && f.category !== category) return false
+  }
+
+  async function handleRetire(form) {
+    if (!window.confirm(`Retire "${form.title}"? It will no longer be assignable.`)) return
+    setActionBusy(form.id, 'retire', true)
+    try {
+      await api.post(`/platform/forms/${form.id}/retire`)
+      setForms(prev => prev.map(f => f.id === form.id ? { ...f, status: 'retired' } : f))
+      addToast(`"${form.title}" retired.`)
+    } catch (err) {
+      addToast(err.message || 'Retire failed.', 'error')
+    } finally {
+      setActionBusy(form.id, 'retire', false)
+    }
+  }
+
+  async function handleDelete(form) {
+    if (!window.confirm(`Permanently delete "${form.title}"? This cannot be undone.`)) return
+    setActionBusy(form.id, 'delete', true)
+    try {
+      await api.delete(`/platform/forms/${form.id}`)
+      setForms(prev => prev.filter(f => f.id !== form.id))
+      addToast(`"${form.title}" deleted.`)
+    } catch (err) {
+      addToast(err.message || 'Delete failed.', 'error')
+    } finally {
+      setActionBusy(form.id, 'delete', false)
+    }
+  }
+
+  async function handleClone(form) {
+    setActionBusy(form.id, 'clone', true)
+    try {
+      const cloned = await api.post(`/platform/forms/${form.id}/clone`)
+      const newForm = cloned?.form ?? cloned?.data ?? cloned
+      if (newForm?.id) {
+        setForms(prev => [newForm, ...prev])
+      } else {
+        const data = await api.get('/platform/forms')
+        const list = Array.isArray(data) ? data : (data?.items ?? data?.results ?? [])
+        setForms(list)
+      }
+      addToast(`"${form.title}" cloned.`)
+    } catch (err) {
+      addToast(err.message || 'Clone failed.', 'error')
+    } finally {
+      setActionBusy(form.id, 'clone', false)
+    }
+  }
+
+  const tabCounts = {
+    all:       forms.length,
+    published: forms.filter(f => f.status === 'published').length,
+    drafts:    forms.filter(f => f.status === 'draft').length,
+    templates: forms.filter(f => f.status === 'template' || f.is_template).length,
+    retired:   forms.filter(f => f.status === 'retired').length,
+  }
+
+  const filteredForms = forms.filter((form) => {
+    if (activeTab === 'published' && form.status !== 'published') return false
+    if (activeTab === 'drafts'    && form.status !== 'draft')      return false
+    if (activeTab === 'templates' && form.status !== 'template' && !form.is_template) return false
+    if (activeTab === 'retired'   && form.status !== 'retired')    return false
+
+    if (categoryFilter !== 'all' && form.category !== categoryFilter) return false
+
+    if (search.trim()) {
+      const q = search.trim().toLowerCase()
+      if (
+        !form.title?.toLowerCase().includes(q) &&
+        !form.category?.toLowerCase().includes(q) &&
+        !form.description?.toLowerCase().includes(q)
+      ) return false
+    }
+
     return true
   })
 
-  // ── Actions ───────────────────────────────────────────────────────────────
-  const withAction = (id, fn) => async () => {
-    setActionLoading(p => ({ ...p, [id]: true }))
-    try { await fn() }
-    finally { setActionLoading(p => ({ ...p, [id]: false })) }
-  }
-
-  const handlePublish = (form) => withAction(form.id, async () => {
-    await api.patch(`/assessment-forms/${form.id}`, { status: 'published' })
-    toast('Form published', 'success')
-    fetchForms()
-  })()
-
-  const handleArchive = (form) => withAction(form.id, async () => {
-    await api.patch(`/assessment-forms/${form.id}`, { status: 'retired' })
-    toast('Form archived', 'success')
-    fetchForms()
-  })()
-
-  const handleDuplicate = (form) => withAction(form.id, async () => {
-    await api.post(`/assessment-forms/${form.id}/duplicate`)
-    toast('Form duplicated', 'success')
-    fetchForms()
-  })()
-
-  const handleShare = (form) => {
-    const url = `${window.location.origin}/forms/${form.slug ?? form.id}`
-    navigator.clipboard.writeText(url).then(
-      ()  => toast('Link copied!', 'success'),
-      ()  => toast('Could not copy link', 'error'),
-    )
-  }
-
-  // Delete flow: open confirm → confirmed → call API
-  const handleDeleteClick  = (form) => setDeleteTarget(form)
-  const handleDeleteCancel = ()     => setDeleteTarget(null)
-  const handleDeleteConfirm = async () => {
-    const form = deleteTarget
-    setDeleteTarget(null)
-    setActionLoading(p => ({ ...p, [form.id]: true }))
-    try {
-      await api.delete(`/assessment-forms/${form.id}`)
-      toast('Form deleted', 'success')
-      fetchForms()
-    } catch (e) {
-      toast(e?.response?.data?.detail ?? 'Delete failed', 'error')
-    } finally {
-      setActionLoading(p => ({ ...p, [form.id]: false }))
-    }
-  }
-
-  // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gray-50">
-
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center">
-              <ClipboardList className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold text-gray-900">Form Pool</h1>
-              <p className="text-xs text-gray-500">Manage assessment forms & templates</p>
-            </div>
-          </div>
-          <button
-            onClick={() => navigate('/forms/builder')}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition"
-          >
-            <Plus className="w-4 h-4" /> New Form
-          </button>
-        </div>
-      </div>
-
-      {/* Tabs + Filters */}
-      <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col gap-3">
-
-        <div className="flex items-center gap-1 bg-white rounded-xl border border-gray-200 p-1 w-fit">
-          {TABS.map(t => (
-            <button
-              key={t.key}
-              onClick={() => setActiveTab(t.key)}
-              className={`px-3.5 py-1.5 rounded-lg text-sm font-medium transition
-                ${activeTab === t.key
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-gray-600 hover:bg-gray-100'}`}
-            >
-              {t.label}
+    <div className="space-y-2">
+      {/* Filter bar: tabs + search + category + actions */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex gap-0.5 bg-gray-900 border border-gray-800 p-0.5 rounded-lg">
+          {TABS.map(tab => (
+            <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all flex items-center gap-1 ${
+                activeTab === tab.key ? 'bg-[#F5821E] text-white' : 'text-gray-400 hover:text-white'
+              }`}>
+              {tab.label}
+              {!loading && <span className={`text-[10px] ${activeTab === tab.key ? 'opacity-70' : 'text-gray-600'}`}>{tabCounts[tab.key] ?? 0}</span>}
             </button>
           ))}
         </div>
-
-        <div className="flex items-center gap-3">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search forms…"
-              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          <select
-            value={category}
-            onChange={e => setCategory(e.target.value)}
-            className="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-          >
-            {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-          </select>
-          <button
-            onClick={fetchForms}
-            className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
-            title="Refresh"
-          >
-            <BarChart2 className="w-4 h-4 text-gray-500" />
-          </button>
+        <div className="relative">
+          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500" />
+          <input className="bg-gray-900 border border-gray-800 text-white text-xs rounded-lg pl-8 pr-2 py-1.5 w-44 outline-none focus:border-gray-600 placeholder-gray-600"
+            placeholder="Search forms…" value={search} onChange={e => setSearch(e.target.value)} />
+          {search && <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"><X size={12} /></button>}
         </div>
+        <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}
+          className="bg-gray-900 border border-gray-800 text-gray-300 text-xs rounded-lg px-2.5 py-1.5 outline-none focus:border-gray-600">
+          {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+        </select>
+        <span className="text-xs text-gray-600 ml-auto">{!loading && `${filteredForms.length} forms`}</span>
+        <button onClick={() => navigate('/forms/analytics')}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-800 text-gray-300 border border-gray-700 hover:text-white transition-colors">
+          <BarChart2 size={12} />Analytics
+        </button>
+        <button onClick={() => navigate('/forms/builder')}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white transition-colors"
+          style={{ background: '#F5821E' }}>
+          <Plus size={12} />New Form
+        </button>
       </div>
 
-      {/* Body */}
-      <div className="max-w-7xl mx-auto px-6 pb-10">
-
-        {loading && (
-          <div className="flex justify-center py-20">
-            <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+      {/* Table */}
+      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+        {error ? (
+          <div className="py-12 text-center text-red-400 text-sm">{error}</div>
+        ) : loading ? (
+          <div className="flex justify-center py-14">
+            <div className="w-6 h-6 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#F5821E', borderTopColor: 'transparent' }} />
           </div>
-        )}
-
-        {error && !loading && (
-          <div className="text-center py-20 text-red-500 text-sm">{error}</div>
-        )}
-
-        {!loading && !error && filtered.length === 0 && (
-          <div className="text-center py-20 text-gray-400">
-            <ClipboardList className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p className="text-sm">No forms found</p>
-          </div>
-        )}
-
-        {!loading && !error && filtered.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filtered.map(form => (
-              <FormCard
-                key={form.id}
-                form={form}
-                loading={!!actionLoading[form.id]}
-                onEdit     ={() => navigate(`/forms/builder/${form.id}`)}
-                onPreview  ={() => navigate(`/forms/preview/${form.id}`)}
-                onPublish  ={() => handlePublish(form)}
-                onArchive  ={() => handleArchive(form)}
-                onDuplicate={() => handleDuplicate(form)}
-                onShare    ={() => handleShare(form)}
-                onDelete   ={() => handleDeleteClick(form)}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Delete confirm modal */}
-      {deleteTarget && (
-        <ConfirmModal
-          message={`Delete "${deleteTarget.title}"? This cannot be undone.`}
-          onConfirm={handleDeleteConfirm}
-          onCancel={handleDeleteCancel}
-        />
-      )}
-
-      <ToastContainer toasts={toasts} onRemove={removeToast} />
-    </div>
-  )
-}
-
-// ─── Form Card ────────────────────────────────────────────────────────────────
-
-function FormCard ({ form, loading, onEdit, onPreview, onPublish, onArchive, onDuplicate, onShare, onDelete }) {
-  const status    = form.status ?? 'draft'
-  const catIcon   = CATEGORY_ICONS[form.category] ?? <FileText className="w-4 h-4" />
-  const badgeCls  = STATUS_BADGE[status] ?? STATUS_BADGE.draft
-  const isPublished = status === 'published'
-
-  return (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition flex flex-col">
-
-      {/* Card header */}
-      <div className="p-4 flex items-start gap-3">
-        <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-xl shrink-0">
-          {form.icon ?? '📋'}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="font-semibold text-gray-900 text-sm truncate">{form.title}</h3>
-            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${badgeCls}`}>
-              {status}
-            </span>
-            {form.is_template && (
-              <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-purple-100 text-purple-700">
-                template
-              </span>
+        ) : filteredForms.length === 0 ? (
+          <div className="py-12 text-center text-gray-500 text-sm">
+            No forms found
+            {(activeTab === 'all' || activeTab === 'drafts') && (
+              <button onClick={() => navigate('/forms/builder')}
+                className="block mx-auto mt-3 text-xs text-[#F5821E] hover:underline">+ New Form</button>
             )}
           </div>
-          <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{form.description}</p>
-        </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-800 text-xs text-gray-500 uppercase tracking-wide">
+                  <th className="px-4 py-2.5 text-left">Form</th>
+                  <th className="px-3 py-2.5 text-left">Category</th>
+                  <th className="px-3 py-2.5 text-left">Status</th>
+                  <th className="px-3 py-2.5 text-center">Ver</th>
+                  <th className="px-3 py-2.5 text-left">Created</th>
+                  <th className="px-3 py-2.5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-800">
+                {filteredForms.map(form => {
+                  const meta = getCategoryMeta(form.category)
+                  return (
+                    <tr key={form.id} className="hover:bg-gray-800/40 transition-colors">
+                      <td className="px-4 py-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-base leading-none">{meta.emoji}</span>
+                          <div className="min-w-0">
+                            <div className="text-white text-xs font-medium truncate" title={form.title}>{form.title || 'Untitled Form'}</div>
+                            {form.subcategory && <div className="text-[10px] text-gray-500">{form.subcategory}</div>}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2">
+                        <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${meta.color}`}>
+                          {(form.category || 'general').replace(/_/g, ' ')}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2"><StatusBadge status={form.status || 'draft'} /></td>
+                      <td className="px-3 py-2 text-center text-gray-500 text-xs font-mono">v{form.version ?? 1}</td>
+                      <td className="px-3 py-2 text-gray-500 text-xs whitespace-nowrap">{fmtDate(form.created_at)}</td>
+                      <td className="px-3 py-2">
+                        <div className="flex items-center justify-end gap-0.5">
+                          <button onClick={() => navigate(`/forms/builder/${form.id}`)} title="Edit"
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors">
+                            <Pencil size={13} />
+                          </button>
+                          <button onClick={() => navigate(`/forms/preview/${form.id}`)} title="Preview"
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-blue-400 hover:bg-gray-800 transition-colors">
+                            <Eye size={13} />
+                          </button>
+                          {form.status === 'draft' && (
+                            <button onClick={() => handlePublish(form)} disabled={actionLoading[`${form.id}_publish`]} title="Publish"
+                              className="p-1.5 rounded-lg text-green-400 hover:text-green-300 hover:bg-gray-800 disabled:opacity-40 transition-colors">
+                              {actionLoading[`${form.id}_publish`] ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+                            </button>
+                          )}
+                          {form.status === 'published' && (
+                            <button onClick={() => handleRetire(form)} disabled={actionLoading[`${form.id}_retire`]} title="Retire"
+                              className="p-1.5 rounded-lg text-gray-400 hover:text-orange-400 hover:bg-gray-800 disabled:opacity-40 transition-colors">
+                              {actionLoading[`${form.id}_retire`] ? <Loader2 size={13} className="animate-spin" /> : <Archive size={13} />}
+                            </button>
+                          )}
+                          {form.status === 'published' && (
+                            <button onClick={() => setAssignModal({ formId: form.id, formTitle: form.title })} title="Add to Pool"
+                              className="p-1.5 rounded-lg text-gray-400 hover:text-[#F5821E] hover:bg-gray-800 transition-colors">
+                              <Share2 size={13} />
+                            </button>
+                          )}
+                          <button onClick={() => handleClone(form)} disabled={actionLoading[`${form.id}_clone`]} title="Clone"
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-blue-400 hover:bg-gray-800 disabled:opacity-40 transition-colors">
+                            {actionLoading[`${form.id}_clone`] ? <Loader2 size={13} className="animate-spin" /> : <Copy size={13} />}
+                          </button>
+                          {(form.status === 'draft' || form.status === 'retired') && (
+                            <button onClick={() => handleDelete(form)} disabled={actionLoading[`${form.id}_delete`]} title="Delete"
+                              className="p-1.5 rounded-lg text-gray-400 hover:text-red-400 hover:bg-gray-800 disabled:opacity-40 transition-colors">
+                              {actionLoading[`${form.id}_delete`] ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
-      {/* Meta */}
-      <div className="px-4 pb-3 flex items-center gap-3 text-xs text-gray-500">
-        <span className="flex items-center gap-1">{catIcon} {form.category ?? '—'}</span>
-        {form.version_number && (
-          <span className="bg-gray-100 px-1.5 py-0.5 rounded">v{form.version_number}</span>
-        )}
-        {form.question_count != null && (
-          <span>{form.question_count} Qs</span>
-        )}
-        {form.is_iview_enabled && (
-          <span className="bg-cyan-50 text-cyan-600 px-1.5 py-0.5 rounded">iView</span>
-        )}
-      </div>
-
-      {/* Divider */}
-      <div className="border-t border-gray-100 mx-4" />
-
-      {/* Actions */}
-      <div className="p-3 flex items-center justify-between">
-        <div className="flex items-center gap-1">
-          <IconBtn title="Edit"      onClick={onEdit}      disabled={loading}><Pencil  className="w-4 h-4" /></IconBtn>
-          <IconBtn title="Preview"   onClick={onPreview}   disabled={loading}><Eye     className="w-4 h-4" /></IconBtn>
-          <IconBtn title="Duplicate" onClick={onDuplicate} disabled={loading}><Copy    className="w-4 h-4" /></IconBtn>
-          <IconBtn title="Share"     onClick={onShare}     disabled={loading}><Share2  className="w-4 h-4" /></IconBtn>
-          <IconBtn
-            title="Delete"
-            onClick={onDelete}
-            disabled={loading}
-            className="text-red-500 hover:bg-red-50 hover:text-red-700"
-          >
-            <Trash2 className="w-4 h-4" />
-          </IconBtn>
-        </div>
-
-        {loading
-          ? <Loader2 className="w-4 h-4 animate-spin text-blue-400" />
-          : isPublished
-            ? (
-              <button
-                onClick={onArchive}
-                title="Archive"
-                className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 transition"
-              >
-                <Archive className="w-3.5 h-3.5" /> Archive
-              </button>
-            ) : (
-              <button
-                onClick={onPublish}
-                title="Publish"
-                className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-green-600 text-white hover:bg-green-700 transition"
-              >
-                <Check className="w-3.5 h-3.5" /> Publish
-              </button>
-            )
-        }
-      </div>
+      {assignModal && (
+        <AssignModal
+          assignModal={assignModal}
+          onClose={() => setAssignModal(null)}
+          onAssigned={() => {}}
+          addToast={addToast}
+        />
+      )}
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
-  )
-}
-
-function IconBtn ({ children, title, onClick, disabled, className = '' }) {
-  return (
-    <button
-      title={title}
-      onClick={onClick}
-      disabled={disabled}
-      className={`p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 transition disabled:opacity-40 ${className}`}
-    >
-      {children}
-    </button>
   )
 }
