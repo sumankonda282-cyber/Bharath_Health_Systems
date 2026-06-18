@@ -486,7 +486,7 @@ export default function PericardialDiseaseForm({ patientId, encounterId, onSave 
             <Pills options={['CBNAAT positive','ADA >40 U/L','Mantoux >10mm','IGRA positive','CXR: mediastinal/hilar adenopathy','HRCT: tree-in-bud / cavities']} value={tbTestResults} onChange={setTbTestResults} multi color="amber" />
           </FL>
           <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800">
-            India: TB pericarditis accounts for ~90% of bacterial pericarditis. ADA >40 U/L has sensitivity ~87%, specificity ~89% for TB pericarditis. CBNAAT of pericardial fluid is diagnostic. Start anti-TB empirically if high clinical suspicion — 2HRZE / 4HR. Consider corticosteroids (prednisolone 1 mg/kg × 2–4 weeks) to reduce constriction.
+            India: TB pericarditis accounts for ~90% of bacterial pericarditis. ADA {'>'} 40 U/L has sensitivity ~87%, specificity ~89% for TB pericarditis. CBNAAT of pericardial fluid is diagnostic. Start anti-TB empirically if high clinical suspicion — 2HRZE / 4HR. Consider corticosteroids (prednisolone 1 mg/kg × 2–4 weeks) to reduce constriction.
           </div>
         </Gate>
         <FL label="HIV status">

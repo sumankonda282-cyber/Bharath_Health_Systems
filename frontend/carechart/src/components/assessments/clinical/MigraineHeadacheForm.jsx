@@ -791,7 +791,7 @@ export default function MigraineHeadacheForm({ admission, onClose, onSaved }) {
       <Gate label="Medication overuse suspected?" value={medOveruse} onChange={setMedOveruse}
         accentYes="bg-red-500 text-white border-red-500">
         <p className="text-[10px] text-gray-500 -mt-2 mb-2">
-          Criteria: simple analgesics/NSAIDs ≥15 days/month, OR triptans/ergots ≥10 days/month, for >3 months
+          Criteria: simple analgesics/NSAIDs ≥15 days/month, OR triptans/ergots ≥10 days/month, for {'>'} 3 months
         </p>
         <FL label="Days per month of overused medication">
           <input type="number" value={medOveruseDays} onChange={e => setMedOveruseDays(e.target.value)}
