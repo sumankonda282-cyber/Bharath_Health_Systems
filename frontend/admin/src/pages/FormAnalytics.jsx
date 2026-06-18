@@ -22,7 +22,7 @@ import {
 } from 'lucide-react'
 import api from '../api/client'
 
-// ─── SVG Chart Helpers ────────────────────────────────────────────────────────
+// ─── SVG Chart Helpers ───────────────────────────────────────────────────────────────────
 
 function DonutChart({ segments, size = 120, thickness = 28 }) {
   const total = segments.reduce((s, seg) => s + seg.value, 0)
@@ -105,7 +105,7 @@ function HBarChart({ data }) {
   )
 }
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// ─── Constants ──────────────────────────────────────────────────────────────────────────────
 
 const CATEGORY_COLORS = {
   vitals: '#3b82f6',
@@ -137,7 +137,7 @@ const STATUS_COLORS = {
   template: '#3b82f6',
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Helpers ───────────────────────────────────────────────────────────────────────────────
 
 function capitalize(s) {
   if (!s) return ''
@@ -177,29 +177,7 @@ function countSchemaFields(schema) {
   return { sections: sections.length, fields, required, fieldTypes }
 }
 
-// ─── Summary Card ─────────────────────────────────────────────────────────────
-
-function SummaryCard({ icon: Icon, label, value, color, sub }) {
-  return (
-    <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">{label}</span>
-        <div
-          className="w-9 h-9 rounded-xl flex items-center justify-center"
-          style={{ background: `${color}22` }}
-        >
-          <Icon size={18} style={{ color }} />
-        </div>
-      </div>
-      <div>
-        <p className="text-3xl font-bold text-white">{value}</p>
-        {sub && <p className="text-xs text-gray-500 mt-1">{sub}</p>}
-      </div>
-    </div>
-  )
-}
-
-// ─── Status Badge ─────────────────────────────────────────────────────────────
+// ─── Status Badge ─────────────────────────────────────────────────────────────────────────────
 
 function StatusBadge({ status }) {
   const styles = {
@@ -219,7 +197,7 @@ function StatusBadge({ status }) {
   )
 }
 
-// ─── Form Detail Drawer ───────────────────────────────────────────────────────
+// ─── Form Detail Drawer ────────────────────────────────────────────────────────────────────
 
 function FormDetailDrawer({ form, onClose, navigate }) {
   const [detail, setDetail] = useState(null)
@@ -249,15 +227,12 @@ function FormDetailDrawer({ form, onClose, navigate }) {
 
   return (
     <>
-      {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black/60 z-40 transition-opacity"
         onClick={onClose}
       />
 
-      {/* Drawer */}
       <div className="fixed right-0 top-0 h-full w-full max-w-lg bg-gray-900 border-l border-gray-800 z-50 overflow-y-auto shadow-2xl flex flex-col">
-        {/* Header */}
         <div className="sticky top-0 bg-gray-900 border-b border-gray-800 px-6 py-4 flex items-start justify-between gap-4 z-10">
           <div className="flex-1 min-w-0">
             <h2 className="text-lg font-bold text-white truncate">
@@ -290,7 +265,6 @@ function FormDetailDrawer({ form, onClose, navigate }) {
           </button>
         </div>
 
-        {/* Body */}
         <div className="flex-1 px-6 py-5 space-y-6">
           {loading ? (
             <div className="flex items-center justify-center py-20">
@@ -303,7 +277,6 @@ function FormDetailDrawer({ form, onClose, navigate }) {
             </div>
           ) : (
             <>
-              {/* Meta */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3">
                   <p className="text-xs text-gray-500 mb-1">Category</p>
@@ -329,7 +302,6 @@ function FormDetailDrawer({ form, onClose, navigate }) {
                 </div>
               </div>
 
-              {/* Schema Stats */}
               <div>
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">
                   Schema Statistics
@@ -351,7 +323,6 @@ function FormDetailDrawer({ form, onClose, navigate }) {
                 </div>
               </div>
 
-              {/* Field Type Breakdown */}
               {Object.keys(stats.fieldTypes).length > 0 && (
                 <div>
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">
@@ -370,7 +341,6 @@ function FormDetailDrawer({ form, onClose, navigate }) {
                 </div>
               )}
 
-              {/* Scoring Config */}
               {scoring && (
                 <div>
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">
@@ -399,7 +369,6 @@ function FormDetailDrawer({ form, onClose, navigate }) {
                 </div>
               )}
 
-              {/* Alert Rules */}
               <div>
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">
                   Alert Rules
@@ -412,7 +381,6 @@ function FormDetailDrawer({ form, onClose, navigate }) {
                 </div>
               </div>
 
-              {/* iView Config */}
               {iview && (
                 <div>
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">
@@ -446,7 +414,6 @@ function FormDetailDrawer({ form, onClose, navigate }) {
           )}
         </div>
 
-        {/* Footer */}
         <div className="sticky bottom-0 bg-gray-900 border-t border-gray-800 px-6 py-4">
           <button
             onClick={() => {
@@ -464,13 +431,12 @@ function FormDetailDrawer({ form, onClose, navigate }) {
   )
 }
 
-// ─── Forms Table ──────────────────────────────────────────────────────────────
+// ─── Forms Table ─────────────────────────────────────────────────────────────────────────────
 
 function FormsTable({ forms, onViewDetails }) {
   const [search, setSearch] = useState('')
   const [sortKey, setSortKey] = useState('title')
   const [sortDir, setSortDir] = useState('asc')
-  const [expandedId, setExpandedId] = useState(null)
 
   function toggleSort(key) {
     if (sortKey === key) {
@@ -507,27 +473,16 @@ function FormsTable({ forms, onViewDetails }) {
   }
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
-      {/* Table header */}
-      <div className="px-5 py-4 border-b border-gray-800 flex items-center gap-3">
-        <h2 className="text-base font-semibold text-white flex-1">All Forms</h2>
+    <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+      <div className="px-4 py-3 border-b border-gray-800 flex items-center gap-3">
+        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex-1">All Forms</span>
         <div className="relative">
-          <Search
-            size={14}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"
-          />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
             placeholder="Filter forms…"
-            className="w-56 bg-gray-800 border border-gray-700 text-white text-sm rounded-xl pl-9 pr-3 py-1.5 outline-none focus:border-[#F5821E] transition-colors placeholder-gray-500"
-          />
+            className="w-48 bg-gray-800 border border-gray-700 text-white text-xs rounded-lg pl-8 pr-3 py-1.5 outline-none focus:border-gray-600 placeholder-gray-500" />
           {search && (
-            <button
-              onClick={() => setSearch('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
-            >
+            <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white">
               <X size={12} />
             </button>
           )}
@@ -535,172 +490,61 @@ function FormsTable({ forms, onViewDetails }) {
         <span className="text-xs text-gray-600">{filtered.length} forms</span>
       </div>
 
-      {/* Table */}
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-800 text-xs text-gray-500 uppercase tracking-wide">
-              <th className="px-5 py-3 text-left w-8"></th>
-              <th
-                className="px-3 py-3 text-left cursor-pointer hover:text-white select-none"
-                onClick={() => toggleSort('title')}
-              >
-                <span className="flex items-center gap-1">
-                  Form Title <SortIcon col="title" />
-                </span>
+              <th className="px-4 py-2.5 text-left cursor-pointer hover:text-white select-none" onClick={() => toggleSort('title')}>
+                <span className="flex items-center gap-1">Form Title <SortIcon col="title" /></span>
               </th>
-              <th
-                className="px-3 py-3 text-left cursor-pointer hover:text-white select-none"
-                onClick={() => toggleSort('category')}
-              >
-                <span className="flex items-center gap-1">
-                  Category <SortIcon col="category" />
-                </span>
+              <th className="px-3 py-2.5 text-left cursor-pointer hover:text-white select-none" onClick={() => toggleSort('category')}>
+                <span className="flex items-center gap-1">Category <SortIcon col="category" /></span>
               </th>
-              <th className="px-3 py-3 text-left">Version</th>
-              <th
-                className="px-3 py-3 text-left cursor-pointer hover:text-white select-none"
-                onClick={() => toggleSort('status')}
-              >
-                <span className="flex items-center gap-1">
-                  Status <SortIcon col="status" />
-                </span>
+              <th className="px-3 py-2.5 text-left">Ver</th>
+              <th className="px-3 py-2.5 text-left cursor-pointer hover:text-white select-none" onClick={() => toggleSort('status')}>
+                <span className="flex items-center gap-1">Status <SortIcon col="status" /></span>
               </th>
-              <th className="px-3 py-3 text-center">iView</th>
-              <th className="px-3 py-3 text-center">Co-sign</th>
-              <th className="px-3 py-3 text-center">Template</th>
-              <th className="px-3 py-3 text-right">Actions</th>
+              <th className="px-3 py-2.5 text-center">iView</th>
+              <th className="px-3 py-2.5 text-center">Co-sign</th>
+              <th className="px-3 py-2.5 text-center">Template</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-800/50">
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={9} className="px-5 py-12 text-center text-gray-500">
+                <td colSpan={7} className="px-5 py-12 text-center text-gray-500 text-xs">
                   No forms match your filter.
                 </td>
               </tr>
             ) : (
-              filtered.map((form) => {
-                const isExpanded = expandedId === form.id
-                const stats = countSchemaFields(form.schema)
-                return (
-                  <>
-                    <tr
-                      key={form.id}
-                      className="hover:bg-gray-800/30 transition-colors cursor-pointer"
-                      onClick={() => setExpandedId(isExpanded ? null : form.id)}
-                    >
-                      <td className="px-5 py-3 text-gray-500">
-                        {isExpanded ? (
-                          <ChevronUp size={14} className="text-[#F5821E]" />
-                        ) : (
-                          <ChevronDown size={14} />
-                        )}
-                      </td>
-                      <td className="px-3 py-3">
-                        <span className="font-medium text-white">
-                          {form.title || 'Untitled'}
-                        </span>
-                      </td>
-                      <td className="px-3 py-3">
-                        <span
-                          className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
-                          style={{
-                            background: `${getCategoryColor(form.category)}22`,
-                            color: getCategoryColor(form.category),
-                          }}
-                        >
-                          {(form.category || 'general').replace(/_/g, ' ')}
-                        </span>
-                      </td>
-                      <td className="px-3 py-3 text-gray-400 font-mono text-xs">
-                        v{form.version ?? 1}
-                      </td>
-                      <td className="px-3 py-3">
-                        <StatusBadge status={form.status || 'draft'} />
-                      </td>
-                      <td className="px-3 py-3 text-center">
-                        {form.is_iview_enabled ? (
-                          <span className="text-indigo-400 text-xs font-medium">Yes</span>
-                        ) : (
-                          <span className="text-gray-600 text-xs">—</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-3 text-center">
-                        {form.requires_cosign ? (
-                          <span className="text-orange-400 text-xs font-medium">Yes</span>
-                        ) : (
-                          <span className="text-gray-600 text-xs">—</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-3 text-center">
-                        {form.is_template || form.status === 'template' ? (
-                          <span className="text-blue-400 text-xs font-medium">Yes</span>
-                        ) : (
-                          <span className="text-gray-600 text-xs">—</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-3 text-right">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onViewDetails(form)
-                          }}
-                          className="inline-flex items-center gap-1.5 text-xs font-medium text-[#F5821E] hover:text-[#e07319] bg-[#F5821E]/10 hover:bg-[#F5821E]/20 px-3 py-1.5 rounded-lg transition-colors"
-                        >
-                          <Eye size={12} />
-                          View Details
-                        </button>
-                      </td>
-                    </tr>
-
-                    {/* Expanded row */}
-                    {isExpanded && (
-                      <tr key={`${form.id}-expanded`} className="bg-gray-800/20">
-                        <td colSpan={9} className="px-8 py-4">
-                          <div className="flex flex-wrap gap-6 text-sm">
-                            <div>
-                              <p className="text-xs text-gray-500 mb-1">Sections</p>
-                              <p className="text-white font-semibold">{stats.sections}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-gray-500 mb-1">Total Fields</p>
-                              <p className="text-white font-semibold">{stats.fields}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-gray-500 mb-1">Required Fields</p>
-                              <p className="text-white font-semibold">{stats.required}</p>
-                            </div>
-                            {form.scoring_config?.type && (
-                              <div>
-                                <p className="text-xs text-gray-500 mb-1">Scoring Type</p>
-                                <p className="text-white font-semibold capitalize">
-                                  {form.scoring_config.type}
-                                </p>
-                              </div>
-                            )}
-                            {Object.keys(stats.fieldTypes).length > 0 && (
-                              <div>
-                                <p className="text-xs text-gray-500 mb-1">Field Types</p>
-                                <div className="flex flex-wrap gap-2 mt-1">
-                                  {Object.entries(stats.fieldTypes).map(([t, c]) => (
-                                    <span
-                                      key={t}
-                                      className="text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded-full capitalize"
-                                    >
-                                      {t.replace(/_/g, ' ')}: {c}
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </>
-                )
-              })
+              filtered.map((form) => (
+                <tr
+                  key={form.id}
+                  className="hover:bg-gray-800/30 transition-colors cursor-pointer"
+                  onClick={() => onViewDetails(form)}
+                >
+                  <td className="px-4 py-2.5">
+                    <span className="font-medium text-white text-xs">{form.title || 'Untitled'}</span>
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
+                      style={{ background: `${getCategoryColor(form.category)}22`, color: getCategoryColor(form.category) }}>
+                      {(form.category || 'general').replace(/_/g, ' ')}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2.5 text-gray-400 font-mono text-xs">v{form.version ?? 1}</td>
+                  <td className="px-3 py-2.5"><StatusBadge status={form.status || 'draft'} /></td>
+                  <td className="px-3 py-2.5 text-center">
+                    {form.is_iview_enabled ? <span className="text-indigo-400 text-xs font-medium">Yes</span> : <span className="text-gray-600 text-xs">—</span>}
+                  </td>
+                  <td className="px-3 py-2.5 text-center">
+                    {form.requires_cosign ? <span className="text-orange-400 text-xs font-medium">Yes</span> : <span className="text-gray-600 text-xs">—</span>}
+                  </td>
+                  <td className="px-3 py-2.5 text-center">
+                    {form.is_template || form.status === 'template' ? <span className="text-blue-400 text-xs font-medium">Yes</span> : <span className="text-gray-600 text-xs">—</span>}
+                  </td>
+                </tr>
+              ))
             )}
           </tbody>
         </table>
@@ -709,7 +553,7 @@ function FormsTable({ forms, onViewDetails }) {
   )
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// ─── Main Component ─────────────────────────────────────────────────────────────────────────
 
 export default function FormAnalytics() {
   const navigate = useNavigate()
@@ -732,14 +576,12 @@ export default function FormAnalytics() {
       .finally(() => setLoading(false))
   }, [])
 
-  // Computed stats
   const totalForms = forms.length
   const publishedCount = forms.filter((f) => f.status === 'published').length
   const draftCount = forms.filter((f) => f.status === 'draft').length
   const retiredCount = forms.filter((f) => f.status === 'retired').length
   const templateCount = forms.filter((f) => f.is_template || f.status === 'template').length
 
-  // Donut segments
   const donutSegments = [
     { label: 'Published', value: publishedCount, color: STATUS_COLORS.published },
     { label: 'Draft', value: draftCount, color: STATUS_COLORS.draft },
@@ -747,7 +589,6 @@ export default function FormAnalytics() {
     { label: 'Template', value: templateCount, color: STATUS_COLORS.template },
   ].filter((s) => s.value > 0)
 
-  // Category bar chart
   const categoryMap = {}
   forms.forEach((f) => {
     const cat = f.category || 'general'
@@ -757,148 +598,98 @@ export default function FormAnalytics() {
     .map(([label, value]) => ({ label, value, color: getCategoryColor(label) }))
     .sort((a, b) => b.value - a.value)
 
-  // ── Render ────────────────────────────────────────────────────────────────
-
   return (
-    <div className="min-h-screen bg-gray-950 text-white flex flex-col">
-      {/* Header */}
-      <header className="sticky top-0 z-30 bg-gray-900 border-b border-gray-800 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate('/forms')}
-              className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
-            >
-              <ArrowLeft size={18} />
-            </button>
-            <div>
-              <h1 className="text-2xl font-bold text-white">Form Analytics</h1>
-              <p className="text-sm text-gray-500 mt-0.5">
-                Usage insights across all assessment forms
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => navigate('/forms')}
-            className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors border border-gray-700"
-          >
-            <FileText size={15} />
-            Back to Forms
-          </button>
+    <div className="space-y-3">
+      {/* Compact top bar */}
+      <div className="flex items-center gap-2">
+        <button onClick={() => navigate('/forms')}
+          className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors">
+          <ArrowLeft size={15} />
+        </button>
+        <span className="text-sm font-semibold text-white">Form Analytics</span>
+        <div className="flex items-center gap-1.5 ml-2 text-blue-300 bg-blue-950/40 border border-blue-800/50 rounded-lg px-2.5 py-1 text-xs">
+          <Info size={11} className="text-blue-400 flex-shrink-0" />
+          Illustrative data — live submissions update after first form responses
         </div>
-      </header>
-
-      {/* Illustrative data notice */}
-      <div className="mx-6 mt-5 flex items-start gap-3 bg-blue-950/40 border border-blue-800/50 rounded-xl px-4 py-3">
-        <Info size={16} className="text-blue-400 flex-shrink-0 mt-0.5" />
-        <p className="text-sm text-blue-300">
-          Analytics data shown is illustrative — live submission data available after first
-          submissions are recorded.
-        </p>
       </div>
 
-      <div className="flex-1 px-6 py-6 space-y-6">
-        {error ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <AlertCircle size={40} className="text-gray-600 mb-3" />
-            <p className="text-gray-400 font-medium mb-1">{error}</p>
-            <button
-              onClick={() => window.location.reload()}
-              className="mt-3 text-sm text-[#F5821E] hover:underline"
-            >
-              Try again
-            </button>
+      {error ? (
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <AlertCircle size={40} className="text-gray-600 mb-3" />
+          <p className="text-gray-400 font-medium mb-1">{error}</p>
+          <button onClick={() => window.location.reload()} className="mt-3 text-sm text-[#F5821E] hover:underline">Try again</button>
+        </div>
+      ) : loading ? (
+        <div className="flex items-center justify-center py-32">
+          <div className="w-7 h-7 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#F5821E', borderTopColor: 'transparent' }} />
+        </div>
+      ) : (
+        <>
+          {/* Stat chips */}
+          <div className="flex flex-wrap gap-2">
+            {[
+              { icon: FileText, label: 'Total', value: totalForms, color: '#F5821E' },
+              { icon: CheckCircle2, label: 'Published', value: publishedCount, color: '#22c55e' },
+              { icon: Layers, label: 'Templates', value: templateCount, color: '#3b82f6' },
+              { icon: Archive, label: 'Retired', value: retiredCount, color: '#6b7280' },
+              { icon: BarChart2, label: 'Draft', value: draftCount, color: '#eab308' },
+            ].map(({ icon: Icon, label, value, color }) => (
+              <div key={label} className="flex items-center gap-2 bg-gray-900 border border-gray-800 rounded-xl px-3 py-2">
+                <Icon size={13} style={{ color }} />
+                <span className="text-xs text-gray-500">{label}</span>
+                <span className="text-lg font-bold text-white leading-none">{value}</span>
+              </div>
+            ))}
           </div>
-        ) : loading ? (
-          <div className="flex items-center justify-center py-32">
-            <Loader2 size={32} className="animate-spin text-gray-500" />
-          </div>
-        ) : (
-          <>
-            {/* Summary Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <SummaryCard
-                icon={FileText}
-                label="Total Forms"
-                value={totalForms}
-                color="#F5821E"
-                sub="All forms in the platform"
-              />
-              <SummaryCard
-                icon={CheckCircle2}
-                label="Published"
-                value={publishedCount}
-                color="#22c55e"
-                sub="Live and assignable to clinics"
-              />
-              <SummaryCard
-                icon={Layers}
-                label="Templates"
-                value={templateCount}
-                color="#3b82f6"
-                sub="Reusable form templates"
-              />
-              <SummaryCard
-                icon={BarChart2}
-                label="Total Submissions"
-                value="—"
-                color="#6b7280"
-                sub="Needs backend analytics endpoint"
-              />
-            </div>
 
-            {/* Charts Row */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {/* Donut: Status Distribution */}
-              <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
-                <h2 className="text-base font-semibold text-white mb-5">
-                  Form Status Distribution
-                </h2>
-                <div className="flex items-center gap-8">
-                  <DonutChart segments={donutSegments} size={140} thickness={32} />
-                  <div className="flex-1 space-y-3">
-                    {[
-                      { label: 'Published', value: publishedCount, color: STATUS_COLORS.published },
-                      { label: 'Draft', value: draftCount, color: STATUS_COLORS.draft },
-                      { label: 'Retired', value: retiredCount, color: STATUS_COLORS.retired },
-                      { label: 'Template', value: templateCount, color: STATUS_COLORS.template },
-                    ].map((s) => (
-                      <div key={s.label} className="flex items-center gap-2.5">
-                        <div
-                          className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                          style={{ background: s.color }}
-                        />
-                        <span className="text-sm text-gray-300 flex-1">{s.label}</span>
-                        <span className="text-sm font-semibold text-white">{s.value}</span>
-                        <span className="text-xs text-gray-500 w-10 text-right">
-                          {totalForms > 0
-                            ? `${Math.round((s.value / totalForms) * 100)}%`
-                            : '0%'}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+          {/* Charts Row */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+              <h2 className="text-base font-semibold text-white mb-5">
+                Form Status Distribution
+              </h2>
+              <div className="flex items-center gap-8">
+                <DonutChart segments={donutSegments} size={140} thickness={32} />
+                <div className="flex-1 space-y-3">
+                  {[
+                    { label: 'Published', value: publishedCount, color: STATUS_COLORS.published },
+                    { label: 'Draft', value: draftCount, color: STATUS_COLORS.draft },
+                    { label: 'Retired', value: retiredCount, color: STATUS_COLORS.retired },
+                    { label: 'Template', value: templateCount, color: STATUS_COLORS.template },
+                  ].map((s) => (
+                    <div key={s.label} className="flex items-center gap-2.5">
+                      <div
+                        className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                        style={{ background: s.color }}
+                      />
+                      <span className="text-sm text-gray-300 flex-1">{s.label}</span>
+                      <span className="text-sm font-semibold text-white">{s.value}</span>
+                      <span className="text-xs text-gray-500 w-10 text-right">
+                        {totalForms > 0
+                          ? `${Math.round((s.value / totalForms) * 100)}%`
+                          : '0%'}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
-
-              {/* HBar: Forms by Category */}
-              <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
-                <h2 className="text-base font-semibold text-white mb-5">Forms by Category</h2>
-                {categoryData.length === 0 ? (
-                  <p className="text-gray-500 text-sm">No category data available.</p>
-                ) : (
-                  <HBarChart data={categoryData} />
-                )}
-              </div>
             </div>
 
-            {/* Forms Table */}
-            <FormsTable forms={forms} onViewDetails={setDrawerForm} />
-          </>
-        )}
-      </div>
+            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+              <h2 className="text-base font-semibold text-white mb-5">Forms by Category</h2>
+              {categoryData.length === 0 ? (
+                <p className="text-gray-500 text-sm">No category data available.</p>
+              ) : (
+                <HBarChart data={categoryData} />
+              )}
+            </div>
+          </div>
 
-      {/* Detail Drawer */}
+          {/* Forms Table */}
+          <FormsTable forms={forms} onViewDetails={setDrawerForm} />
+        </>
+      )}
+
       {drawerForm && (
         <FormDetailDrawer
           form={drawerForm}

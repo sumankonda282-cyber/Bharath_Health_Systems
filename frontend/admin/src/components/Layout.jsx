@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import {
   LayoutDashboard, Clock, Building2, ShieldCheck,
   ClipboardList, BarChart3, LogOut, Menu, X, Search, CreditCard, Hospital,
-  FileText, Users, Bell, RefreshCw, PlusCircle, ChevronDown
+  FileText, Users, Bell, RefreshCw, PlusCircle, ChevronDown, ChevronRight,
 } from 'lucide-react'
 import api from '../api/client'
 import BrandLogo from './BrandLogo'
@@ -35,6 +35,7 @@ const PAGE_TITLES = {
   '/reports':           'Reports',
   '/bhid':              'BH ID Lookup',
   '/hospital-settings': 'Hospital Setup',
+  '/forms/analytics':   'Form Analytics',
 }
 
 function getInitials(email) {
@@ -42,28 +43,78 @@ function getInitials(email) {
   return email.slice(0, 2).toUpperCase()
 }
 
-function Sidebar({ onClose }) {
+function RailSidebar() {
+  const [expanded, setExpanded] = useState(false)
+
   return (
-    <aside className="w-60 flex flex-col h-full bg-gray-900 border-r border-gray-800">
-      <div className="px-5 py-5 border-b border-gray-800 flex items-center justify-between">
-        <div>
-          <BrandLogo size="sm" />
-          <div className="text-xs font-bold mt-1.5 tracking-widest uppercase" style={{ color: '#F5821E' }}>
-            Super Admin
+    <aside
+      className="flex flex-col h-full bg-gray-900 border-r border-gray-800 transition-all duration-200 ease-in-out overflow-hidden flex-shrink-0"
+      style={{ width: expanded ? 220 : 44 }}
+      onMouseEnter={() => setExpanded(true)}
+      onMouseLeave={() => setExpanded(false)}
+    >
+      {/* Logo area */}
+      <div className="flex items-center border-b border-gray-800 overflow-hidden" style={{ minHeight: 52, padding: expanded ? '0 12px' : '0 10px' }}>
+        {expanded ? (
+          <div>
+            <BrandLogo size="sm" />
+            <div className="text-[10px] font-bold tracking-widest uppercase mt-1" style={{ color: '#F5821E' }}>
+              Super Admin
+            </div>
           </div>
-        </div>
-        {onClose && (
-          <button onClick={onClose} className="md:hidden text-gray-500 hover:text-white">
-            <X size={20} />
-          </button>
+        ) : (
+          <div className="w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold" style={{ background: 'rgba(245,130,30,0.2)', color: '#F5821E' }}>
+            B
+          </div>
         )}
       </div>
-      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+
+      {/* Nav */}
+      <nav className="flex-1 py-2 overflow-y-auto overflow-x-hidden">
         {NAV.map(({ to, icon: Icon, label }) => (
-          <NavLink key={to} to={to}
-            onClick={onClose}
-            className={({ isActive }) => isActive ? 'sidebar-link-active' : 'sidebar-link'}>
-            <Icon size={16} />{label}
+          <NavLink
+            key={to}
+            to={to}
+            title={!expanded ? label : undefined}
+            className={({ isActive }) =>
+              `flex items-center gap-3 mx-1 my-0.5 rounded-lg transition-colors ${
+                isActive
+                  ? 'bg-[#F5821E]/15 text-[#F5821E]'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-800'
+              }`
+            }
+            style={{ padding: expanded ? '7px 10px' : '7px 11px', minHeight: 36 }}
+          >
+            <Icon size={16} className="flex-shrink-0" />
+            {expanded && (
+              <span className="text-sm font-medium whitespace-nowrap truncate">{label}</span>
+            )}
+          </NavLink>
+        ))}
+      </nav>
+    </aside>
+  )
+}
+
+function MobileSidebar({ onClose }) {
+  return (
+    <aside className="w-56 flex flex-col h-full bg-gray-900 border-r border-gray-800">
+      <div className="px-4 py-4 border-b border-gray-800 flex items-center justify-between">
+        <div>
+          <BrandLogo size="sm" />
+          <div className="text-[10px] font-bold mt-1 tracking-widest uppercase" style={{ color: '#F5821E' }}>Super Admin</div>
+        </div>
+        <button onClick={onClose} className="text-gray-500 hover:text-white"><X size={18} /></button>
+      </div>
+      <nav className="flex-1 px-2 py-2 space-y-0.5 overflow-y-auto">
+        {NAV.map(({ to, icon: Icon, label }) => (
+          <NavLink key={to} to={to} onClick={onClose}
+            className={({ isActive }) =>
+              `flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                isActive ? 'bg-[#F5821E]/15 text-[#F5821E]' : 'text-gray-400 hover:text-white hover:bg-gray-800'
+              }`
+            }>
+            <Icon size={15} />{label}
           </NavLink>
         ))}
       </nav>
@@ -113,49 +164,37 @@ function FeedbackBell() {
 
   return (
     <div ref={ref} className="relative">
-      <button
-        onClick={() => setOpen(v => !v)}
-        className="relative p-1.5 rounded-lg text-gray-400 hover:bg-gray-800 flex items-center justify-center"
-        title="Feedback"
-      >
-        <Bell size={20} />
+      <button onClick={() => setOpen(v => !v)}
+        className="relative p-1.5 rounded-lg text-gray-400 hover:bg-gray-800 flex items-center justify-center" title="Feedback">
+        <Bell size={18} />
         {items.length > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-0.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+          <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-3.5 px-0.5 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
             {items.length}
           </span>
         )}
       </button>
-
       {open && (
-        <div className="absolute right-0 top-10 w-80 bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl z-50 overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-800 flex items-center justify-between">
+        <div className="absolute right-0 top-9 w-72 bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl z-50 overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-gray-800 flex items-center justify-between">
             <span className="text-white font-semibold text-sm">Unread Feedback</span>
             <span className="text-gray-500 text-xs">{items.length} unread</span>
           </div>
           {items.length === 0 ? (
-            <div className="px-4 py-8 text-center text-gray-500 text-sm">No unread feedback</div>
+            <div className="px-4 py-6 text-center text-gray-500 text-sm">No unread feedback</div>
           ) : (
-            <ul className="max-h-96 overflow-y-auto divide-y divide-gray-800">
+            <ul className="max-h-80 overflow-y-auto divide-y divide-gray-800">
               {items.map(item => {
                 const tc = TYPE_COLORS[item.type] || TYPE_COLORS.general
                 return (
-                  <li key={item.id} className="px-4 py-3 hover:bg-gray-800/50 transition-colors">
+                  <li key={item.id} className="px-4 py-2.5 hover:bg-gray-800/50 transition-colors">
                     <div className="flex items-start justify-between gap-2 mb-1">
-                      <span className="font-medium text-white text-sm truncate">{item.name}</span>
+                      <span className="font-medium text-white text-xs truncate">{item.name}</span>
                       <span className="text-gray-500 text-xs whitespace-nowrap flex-shrink-0">{timeAgo(item.created_at)}</span>
                     </div>
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: tc.bg, color: tc.color }}>
-                        {tc.label}
-                      </span>
-                    </div>
-                    <p className="text-gray-400 text-xs leading-relaxed mb-2 line-clamp-2">
+                    <p className="text-gray-400 text-xs leading-relaxed mb-1.5 line-clamp-2">
                       {item.message.length > 80 ? item.message.slice(0, 80) + '…' : item.message}
                     </p>
-                    <button
-                      onClick={() => markRead(item.id)}
-                      className="text-xs text-blue-400 hover:text-blue-300 font-medium"
-                    >
+                    <button onClick={() => markRead(item.id)} className="text-xs text-blue-400 hover:text-blue-300 font-medium">
                       Mark Read
                     </button>
                   </li>
@@ -182,32 +221,24 @@ function ProfileDropdown() {
 
   return (
     <div ref={ref} className="relative">
-      <button
-        onClick={() => setOpen(v => !v)}
-        className="flex items-center gap-1.5 p-1 rounded-lg hover:bg-gray-800 transition-colors"
-        title={user?.email}
-      >
-        <div
-          className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-          style={{ background: 'rgba(245,130,30,0.2)', color: '#F5821E' }}
-        >
+      <button onClick={() => setOpen(v => !v)}
+        className="flex items-center gap-1 p-1 rounded-lg hover:bg-gray-800 transition-colors" title={user?.email}>
+        <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+          style={{ background: 'rgba(245,130,30,0.2)', color: '#F5821E' }}>
           {getInitials(user?.email || user?.full_name)}
         </div>
-        <ChevronDown size={14} className="text-gray-500" />
+        <ChevronDown size={12} className="text-gray-500" />
       </button>
-
       {open && (
-        <div className="absolute right-0 top-12 w-56 bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl z-50 overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-800">
+        <div className="absolute right-0 top-10 w-52 bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl z-50 overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-gray-800">
             <div className="text-white text-sm font-semibold truncate">{user?.email || user?.full_name}</div>
             <div className="text-gray-500 text-xs">Super Admin</div>
           </div>
-          <div className="p-2">
-            <button
-              onClick={logout}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300 text-sm font-medium transition-colors"
-            >
-              <LogOut size={15} />Sign Out
+          <div className="p-1.5">
+            <button onClick={logout}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300 text-sm font-medium transition-colors">
+              <LogOut size={14} />Sign Out
             </button>
           </div>
         </div>
@@ -229,16 +260,19 @@ export default function Layout() {
         </div>
       )}
       <div className={`fixed inset-y-0 left-0 z-50 md:hidden transition-transform duration-300 ${open ? 'translate-x-0' : '-translate-x-full'}`}>
-        <Sidebar onClose={() => setOpen(false)} />
+        <MobileSidebar onClose={() => setOpen(false)} />
       </div>
+
+      {/* Desktop rail sidebar */}
       <div className="hidden md:flex flex-shrink-0">
-        <Sidebar />
+        <RailSidebar />
       </div>
+
       <main className="flex-1 overflow-y-auto">
         {/* Mobile header */}
-        <div className="md:hidden flex items-center gap-3 px-4 py-3 border-b border-gray-800 bg-gray-900 sticky top-0 z-30">
+        <div className="md:hidden flex items-center gap-2 px-3 py-2.5 border-b border-gray-800 bg-gray-900 sticky top-0 z-30">
           <button onClick={() => setOpen(true)} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-800">
-            <Menu size={22} />
+            <Menu size={20} />
           </button>
           <div className="flex-1 min-w-0">
             {pageTitle
@@ -248,37 +282,32 @@ export default function Layout() {
           </div>
           <div className="flex items-center gap-1">
             <button onClick={() => window.location.reload()} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-800" title="Refresh">
-              <RefreshCw size={18} />
+              <RefreshCw size={16} />
             </button>
             <FeedbackBell />
             <ProfileDropdown />
           </div>
         </div>
+
         {/* Desktop header */}
-        <div className="hidden md:flex items-center gap-3 px-6 py-2 border-b border-gray-800 bg-gray-900 sticky top-0 z-30 min-h-[52px]">
-          <span className="text-white font-bold text-base flex-1">{pageTitle}</span>
-          <a
-            href="https://bharathhealthsystems.com/register"
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+        <div className="hidden md:flex items-center gap-2 px-4 py-2 border-b border-gray-800 bg-gray-900 sticky top-0 z-30 min-h-[46px]">
+          <span className="text-white font-bold text-sm flex-1">{pageTitle}</span>
+          <a href="https://bharathhealthsystems.com/register" target="_blank" rel="noreferrer"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors"
             style={{ background: 'rgba(245,130,30,0.15)', border: '1px solid rgba(245,130,30,0.3)', color: '#F5821E' }}
-            title="Register Health Center"
-          >
-            <PlusCircle size={14} />
+            title="Register Health Center">
+            <PlusCircle size={12} />
             <span className="hidden lg:inline">Register</span>
           </a>
-          <button
-            onClick={() => window.location.reload()}
-            className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-800 flex items-center justify-center"
-            title="Refresh page"
-          >
-            <RefreshCw size={18} />
+          <button onClick={() => window.location.reload()}
+            className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-800 flex items-center justify-center" title="Refresh page">
+            <RefreshCw size={16} />
           </button>
           <FeedbackBell />
           <ProfileDropdown />
         </div>
-        <div className="p-4 md:p-6">
+
+        <div className="p-3">
           <Outlet />
         </div>
       </main>
