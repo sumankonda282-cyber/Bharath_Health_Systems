@@ -61,7 +61,7 @@ def run_scoring(
 
     scoring_type = (scoring_config.get("type") or "").lower()
 
-    # ── PHQ-9 ──────────────────────────────────────────────────────────────
+    # ── PHQ-9 ───────────────────────────────────────────────────────────────
     if scoring_type == "phq9":
         item_ids = scoring_config.get(
             "item_ids",
@@ -71,21 +71,19 @@ def run_scoring(
             total = sum(int(data.get(fid, 0) or 0) for fid in item_ids)
         except (TypeError, ValueError):
             total = 0
-
         if total <= 4:
-            band, interpretation, action = "minimal", "Minimal depression", "Monitor; may not require treatment"
+            band, interp, action = "minimal",   "Minimal depression",  "Routine care"
         elif total <= 9:
-            band, interpretation, action = "mild", "Mild depression", "Watchful waiting; repeat PHQ-9 at follow-up"
+            band, interp, action = "mild",      "Mild depression",     "Watchful waiting"
         elif total <= 14:
-            band, interpretation, action = "moderate", "Moderate depression", "Treatment plan; consider counselling/medication"
+            band, interp, action = "moderate",  "Moderate depression", "Treatment plan"
         elif total <= 19:
-            band, interpretation, action = "moderately_severe", "Moderately severe depression", "Active treatment with medication and/or psychotherapy"
+            band, interp, action = "mod_severe","Moderately severe",   "Active treatment"
         else:
-            band, interpretation, action = "severe", "Severe depression", "Immediate initiation of pharmacotherapy and expedited referral"
+            band, interp, action = "severe",    "Severe depression",   "Immediate referral"
+        return {"total": total, "interpretation": interp, "band": band, "recommended_action": action}
 
-        return {"total": total, "band": band, "interpretation": interpretation, "recommended_action": action}
-
-    # ── GAD-7 ──────────────────────────────────────────────────────────────
+    # ── GAD-7 ───────────────────────────────────────────────────────────────
     if scoring_type == "gad7":
         item_ids = scoring_config.get(
             "item_ids",
@@ -95,106 +93,94 @@ def run_scoring(
             total = sum(int(data.get(fid, 0) or 0) for fid in item_ids)
         except (TypeError, ValueError):
             total = 0
-
         if total <= 4:
-            band, interpretation, action = "minimal", "Minimal anxiety", "Monitor"
+            band, interp, action = "minimal",  "Minimal anxiety",  "Monitor"
         elif total <= 9:
-            band, interpretation, action = "mild", "Mild anxiety", "Watchful waiting"
+            band, interp, action = "mild",     "Mild anxiety",     "Watchful waiting"
         elif total <= 14:
-            band, interpretation, action = "moderate", "Moderate anxiety", "Consider therapy or medication"
+            band, interp, action = "moderate", "Moderate anxiety", "Treatment plan"
         else:
-            band, interpretation, action = "severe", "Severe anxiety", "Active treatment recommended"
+            band, interp, action = "severe",   "Severe anxiety",   "Immediate referral"
+        return {"total": total, "interpretation": interp, "band": band, "recommended_action": action}
 
-        return {"total": total, "band": band, "interpretation": interpretation, "recommended_action": action}
-
-    # ── GCS (Glasgow Coma Scale) ───────────────────────────────────────────
+    # ── GCS ──────────────────────────────────────────────────────────────────
     if scoring_type == "gcs":
-        eye_id     = scoring_config.get("eye_id",    "gcs_eye")
-        verbal_id  = scoring_config.get("verbal_id", "gcs_verbal")
-        motor_id   = scoring_config.get("motor_id",  "gcs_motor")
         try:
-            eye    = int(data.get(eye_id,    0) or 0)
-            verbal = int(data.get(verbal_id, 0) or 0)
-            motor  = int(data.get(motor_id,  0) or 0)
-            total  = eye + verbal + motor
+            eyes    = int(data.get("gcs_eye",    0) or 0)
+            verbal  = int(data.get("gcs_verbal", 0) or 0)
+            motor   = int(data.get("gcs_motor",  0) or 0)
+            total   = eyes + verbal + motor
         except (TypeError, ValueError):
-            eye = verbal = motor = total = 0
-
+            total, eyes, verbal, motor = 0, 0, 0, 0
         if total <= 8:
-            band, interpretation, action = "severe", "Severe TBI / coma", "Immediate neurosurgical review; airway management"
+            band, interp, action = "severe",   "Severe TBI",   "Emergency management"
         elif total <= 12:
-            band, interpretation, action = "moderate", "Moderate TBI", "Urgent CT; neurology consult"
+            band, interp, action = "moderate", "Moderate TBI", "Urgent neurology"
         else:
-            band, interpretation, action = "mild", "Mild TBI", "Observation; re-assess frequently"
-
+            band, interp, action = "mild",     "Mild TBI",     "Observe / neuro check"
         return {
             "total": total,
+            "interpretation": interp,
             "band": band,
-            "interpretation": interpretation,
             "recommended_action": action,
-            "subscores": {"eye": eye, "verbal": verbal, "motor": motor},
+            "subscores": {"eyes": eyes, "verbal": verbal, "motor": motor},
         }
 
-    # ── Morse Fall Risk Scale ──────────────────────────────────────────────
+    # ── Morse Fall Scale ──────────────────────────────────────────────────────
     if scoring_type == "morse":
-        item_ids = scoring_config.get(
-            "item_ids",
-            ["morse_history", "morse_diagnosis", "morse_ambulatory", "morse_iv", "morse_gait", "morse_mental"],
-        )
+        fields = scoring_config.get("item_ids", [
+            "morse_fall_history", "morse_secondary_dx", "morse_ambulatory_aid",
+            "morse_iv", "morse_gait", "morse_mental_status",
+        ])
         try:
-            total = sum(int(data.get(fid, 0) or 0) for fid in item_ids)
+            total = sum(int(data.get(f, 0) or 0) for f in fields)
         except (TypeError, ValueError):
             total = 0
-
         if total < 25:
-            band, interpretation, action = "low", "Low fall risk", "Good basic nursing care"
-        elif total < 45:
-            band, interpretation, action = "medium", "Medium fall risk", "Implement standard fall prevention interventions"
+            band, interp, action = "low",      "Low risk",    "Standard precautions"
+        elif total < 51:
+            band, interp, action = "medium",   "Medium risk", "Implement fall programme"
         else:
-            band, interpretation, action = "high", "High fall risk", "Implement high-risk fall prevention protocol"
+            band, interp, action = "high",     "High risk",   "High-risk fall protocol"
+        return {"total": total, "interpretation": interp, "band": band, "recommended_action": action}
 
-        return {"total": total, "band": band, "interpretation": interpretation, "recommended_action": action}
-
-    # ── APGAR Score ────────────────────────────────────────────────────────
+    # ── APGAR ────────────────────────────────────────────────────────────────
     if scoring_type == "apgar":
-        item_ids = scoring_config.get(
-            "item_ids",
-            ["apgar_appearance", "apgar_pulse", "apgar_grimace", "apgar_activity", "apgar_respiration"],
-        )
+        fields = scoring_config.get("item_ids", [
+            "apgar_color", "apgar_pulse", "apgar_grimace",
+            "apgar_activity", "apgar_respiration",
+        ])
         try:
-            total = sum(int(data.get(fid, 0) or 0) for fid in item_ids)
+            total = sum(int(data.get(f, 0) or 0) for f in fields)
         except (TypeError, ValueError):
             total = 0
-
-        if total <= 3:
-            band, interpretation, action = "severely_depressed", "Severely depressed neonate", "Immediate resuscitation required"
-        elif total <= 6:
-            band, interpretation, action = "moderately_depressed", "Moderately depressed neonate", "Requires close monitoring and possible resuscitation"
+        if total >= 7:
+            band, interp, action = "normal",   "Normal",         "Routine newborn care"
+        elif total >= 4:
+            band, interp, action = "moderate", "Moderate concern","Stimulate / O2"
         else:
-            band, interpretation, action = "normal", "Normal neonate", "Routine post-natal care"
+            band, interp, action = "critical", "Requires help",   "Immediate resuscitation"
+        return {"total": total, "interpretation": interp, "band": band, "recommended_action": action}
 
-        return {"total": total, "band": band, "interpretation": interpretation, "recommended_action": action}
-
-    # ── Generic custom bands ───────────────────────────────────────────────
+    # ── Generic bands ───────────────────────────────────────────────────────
     item_ids = scoring_config.get("item_ids", [])
     if item_ids:
         try:
             total = sum(float(data.get(fid, 0) or 0) for fid in item_ids)
         except (TypeError, ValueError):
             total = 0.0
-
         bands = scoring_config.get("bands", [])
-        band = interpretation = action = ""
         for b in bands:
-            lo = b.get("min", float("-inf"))
+            lo = b.get("min", 0)
             hi = b.get("max", float("inf"))
             if lo <= total <= hi:
-                band          = b.get("band", "")
-                interpretation = b.get("interpretation", "")
-                action         = b.get("recommended_action", "")
-                break
-
-        return {"total": total, "band": band, "interpretation": interpretation, "recommended_action": action}
+                return {
+                    "total": total,
+                    "interpretation": b.get("label", ""),
+                    "band":  b.get("band", ""),
+                    "recommended_action": b.get("recommended_action", ""),
+                }
+        return {"total": total, "interpretation": "", "band": "", "recommended_action": ""}
 
     return {}
 
@@ -203,1505 +189,677 @@ def run_scoring(
 # Alert Engine
 # ---------------------------------------------------------------------------
 
-def run_alerts(submission: FormSubmission, alert_rules: Optional[list], db: Session) -> list:
+def evaluate_alerts(
+    schema: dict,
+    data: dict,
+    alert_rules: Optional[list],
+) -> List[dict]:
     """
-    Evaluate alert_rules against submission data.
+    Evaluate field-level and composite alert rules.
 
-    alert_rules format:
-        [{
-            "field_id": str,
-            "operator": "gt"|"lt"|"eq"|"gte"|"lte"|"neq",
-            "value": number|str,
-            "severity": "critical"|"high"|"warning",
-            "message": str,
-            "field_label": str   (optional)
-        }]
-
-    Creates FormAlert rows and returns a list of triggered rule dicts.
+    Returns a list of fired alerts:
+        [ {"field_id": ..., "message": ..., "severity": ..., "rule_type": ...}, ... ]
     """
+    fired: List[dict] = []
+
     if not alert_rules:
-        return []
-
-    triggered = []
-    data: dict = submission.data or {}
+        return fired
 
     for rule in alert_rules:
-        try:
-            field_id  = rule.get("field_id", "")
-            operator  = rule.get("operator", "").lower()
-            threshold = rule.get("value")
-            severity  = rule.get("severity", "warning")
-            message   = rule.get("message", f"Alert: {field_id}")
-            field_label = rule.get("field_label", field_id)
+        rule_type = rule.get("type", "threshold")
+        field_id  = rule.get("field_id")
+        value     = data.get(field_id)
 
-            raw_value = data.get(field_id)
-            if raw_value is None:
-                continue
-
-            # Attempt numeric comparison first
+        if rule_type == "threshold" and field_id:
             try:
-                num_val   = float(raw_value)
-                num_thresh = float(threshold)
-                fired = (
-                    (operator == "gt"  and num_val >  num_thresh) or
-                    (operator == "gte" and num_val >= num_thresh) or
-                    (operator == "lt"  and num_val <  num_thresh) or
-                    (operator == "lte" and num_val <= num_thresh) or
-                    (operator == "eq"  and num_val == num_thresh) or
-                    (operator == "neq" and num_val != num_thresh)
-                )
+                fval = float(value or 0)
             except (TypeError, ValueError):
-                # Fall back to string equality
-                fired = (
-                    (operator == "eq"  and str(raw_value) == str(threshold)) or
-                    (operator == "neq" and str(raw_value) != str(threshold))
-                )
-
-            if not fired:
                 continue
 
-            alert = FormAlert(
-                submission_id = submission.id,
-                clinic_id     = submission.clinic_id,
-                patient_id    = submission.patient_id,
-                field_id      = field_id,
-                field_label   = field_label,
-                value         = str(raw_value),
-                severity      = severity,
-                message       = message,
-                notified_staff= [],
-                created_at    = datetime.utcnow(),
-            )
-            db.add(alert)
-            triggered.append({
-                "field_id":    field_id,
-                "field_label": field_label,
-                "value":       str(raw_value),
-                "severity":    severity,
-                "message":     message,
-            })
-        except Exception:
-            # Never let a malformed rule crash a submission
+            crit_low  = rule.get("critical_low")
+            crit_high = rule.get("critical_high")
+            warn_low  = rule.get("warn_low")
+            warn_high = rule.get("warn_high")
+
+            if crit_low  is not None and fval < crit_low:
+                fired.append({"field_id": field_id, "message": rule.get("critical_message", f"{field_id} critically low"),  "severity": "critical", "rule_type": "threshold"})
+            elif crit_high is not None and fval > crit_high:
+                fired.append({"field_id": field_id, "message": rule.get("critical_message", f"{field_id} critically high"), "severity": "critical", "rule_type": "threshold"})
+            elif warn_low  is not None and fval < warn_low:
+                fired.append({"field_id": field_id, "message": rule.get("warn_message",     f"{field_id} low"),             "severity": "warning",  "rule_type": "threshold"})
+            elif warn_high is not None and fval > warn_high:
+                fired.append({"field_id": field_id, "message": rule.get("warn_message",     f"{field_id} high"),            "severity": "warning",  "rule_type": "threshold"})
+
+        elif rule_type == "required" and field_id:
+            if value in (None, "", [], {}):
+                fired.append({"field_id": field_id, "message": rule.get("message", f"{field_id} is required"), "severity": "info", "rule_type": "required"})
+
+        elif rule_type == "pattern" and field_id:
+            import re
+            pattern = rule.get("pattern", "")
+            if pattern and value is not None:
+                if not re.fullmatch(pattern, str(value)):
+                    fired.append({"field_id": field_id, "message": rule.get("message", f"{field_id} format invalid"), "severity": "warning", "rule_type": "pattern"})
+
+    return fired
+
+
+# ---------------------------------------------------------------------------
+# iView / Flowsheet helpers
+# ---------------------------------------------------------------------------
+
+def save_iview_row(db: Session, submission: "FormSubmission") -> None:
+    """
+    Persist flowsheet values from a submission that has iView enabled.
+    Each field flagged in iview_config.row_config becomes one iViewFlowsheet row.
+    """
+    form: "AssessmentForm" = submission.form
+    if not form or not form.is_iview_enabled:
+        return
+
+    cfg   = form.iview_config or {}
+    rows  = cfg.get("row_config", [])
+    fdata = submission.form_data or {}
+
+    for row in rows:
+        fid   = row.get("field_id")
+        if not fid:
             continue
+        val = fdata.get(fid)
+        if val is None:
+            continue
+        try:
+            num_val = float(val)
+        except (TypeError, ValueError):
+            num_val = None
 
-    if triggered:
-        db.flush()   # get alert IDs without committing yet
+        entry = iViewFlowsheet(
+            patient_id    = submission.patient_id,
+            encounter_id  = submission.encounter_id,
+            form_id       = form.id,
+            submission_id = submission.id,
+            field_id      = fid,
+            label         = row.get("label", fid),
+            value_text    = str(val),
+            value_numeric = num_val,
+            unit          = row.get("unit"),
+            ref_range     = json.dumps(row.get("ref_range")) if row.get("ref_range") else None,
+            recorded_at   = submission.submitted_at or datetime.utcnow(),
+        )
+        db.add(entry)
 
-    return triggered
+
+# ---------------------------------------------------------------------------
+# ── Admin / Platform routes ──
+# ---------------------------------------------------------------------------
+
+@router.get("/assessment-forms/")
+def list_forms(
+    db:       Session = Depends(get_db),
+    status:   Optional[str] = Query(None),
+    category: Optional[str] = Query(None),
+    q:        Optional[str] = Query(None),
+    limit:    int           = Query(50,  ge=1, le=500),
+    offset:   int           = Query(0,   ge=0),
+):
+    query = db.query(AssessmentForm)
+    if status:   query = query.filter(AssessmentForm.status   == status)
+    if category: query = query.filter(AssessmentForm.category == category)
+    if q:
+        like = f"%{q}%"
+        query = query.filter(
+            AssessmentForm.title.ilike(like) |
+            AssessmentForm.description.ilike(like)
+        )
+    total = query.count()
+    forms = query.order_by(AssessmentForm.created_at.desc()).offset(offset).limit(limit).all()
+    return {
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+        "forms": [
+            {
+                "id":              f.id,
+                "title":           f.title,
+                "description":     f.description,
+                "category":        f.category,
+                "subcategory":     f.subcategory,
+                "status":          f.status,
+                "is_template":     f.is_template,
+                "icon":            f.icon,
+                "version_number":  f.version_number,
+                "is_iview_enabled":f.is_iview_enabled,
+                "question_count":  len((f.schema or {}).get("fields", [])),
+                "created_at":      f.created_at.isoformat() if f.created_at else None,
+                "updated_at":      f.updated_at.isoformat() if f.updated_at else None,
+            }
+            for f in forms
+        ],
+    }
 
 
-# ===========================================================================
-# PLATFORM / ADMIN ENDPOINTS   (prefix: /platform/forms)
-# ===========================================================================
-
-# ── Create form ────────────────────────────────────────────────────────────
-@router.post("/platform/forms", status_code=201)
+@router.post("/assessment-forms/", status_code=status.HTTP_201_CREATED)
 def create_form(
     payload: Dict[str, Any] = Body(...),
-    db: Session = Depends(get_db),
+    db:      Session        = Depends(get_db),
 ):
-    """Create a new assessment form (draft)."""
-    try:
-        title = payload.get("title")
-        if not title:
-            raise HTTPException(status_code=400, detail="title is required")
-
-        schema = payload.get("schema", {})
-        if not isinstance(schema, dict):
-            raise HTTPException(status_code=400, detail="schema must be a JSON object")
-
-        form = AssessmentForm(
-            title              = title,
-            description        = payload.get("description"),
-            category           = payload.get("category", "general"),
-            subcategory        = payload.get("subcategory"),
-            icon               = payload.get("icon"),
-            schema             = schema,
-            scoring_config     = payload.get("scoring_config"),
-            iview_config       = payload.get("iview_config"),
-            alert_rules        = payload.get("alert_rules"),
-            translations       = payload.get("translations"),
-            status             = "draft",
-            version            = 1,
-            is_template        = bool(payload.get("is_template", False)),
-            is_iview_enabled   = bool(payload.get("is_iview_enabled", False)),
-            requires_cosign    = bool(payload.get("requires_cosign", False)),
-            time_limit_minutes = payload.get("time_limit_minutes"),
-            created_by_admin   = payload.get("created_by_admin"),
-            clinic_id          = payload.get("clinic_id"),
-            created_at         = datetime.utcnow(),
-            updated_at         = datetime.utcnow(),
-        )
-        db.add(form)
-        db.commit()
-        db.refresh(form)
-        return _form_dict(form)
-    except HTTPException:
-        raise
-    except Exception as exc:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=str(exc))
+    form = AssessmentForm(
+        title           = payload.get("title", "Untitled Form"),
+        description     = payload.get("description"),
+        category        = payload.get("category", "general"),
+        subcategory     = payload.get("subcategory"),
+        status          = payload.get("status", "draft"),
+        schema          = payload.get("schema", {}),
+        scoring_config  = payload.get("scoring_config"),
+        alert_rules     = payload.get("alert_rules"),
+        is_template     = payload.get("is_template", False),
+        is_iview_enabled= payload.get("is_iview_enabled", False),
+        iview_config    = payload.get("iview_config"),
+        icon            = payload.get("icon", "📋"),
+        version_number  = 1,
+        created_at      = datetime.utcnow(),
+        updated_at      = datetime.utcnow(),
+    )
+    db.add(form)
+    db.commit()
+    db.refresh(form)
+    return {"id": form.id, "title": form.title, "status": form.status}
 
 
-# ── List forms ─────────────────────────────────────────────────────────────
-@router.get("/platform/forms")
-def list_forms(
-    status_filter: Optional[str] = Query(None, alias="status"),
-    category: Optional[str] = Query(None),
-    is_template: Optional[bool] = Query(None),
-    clinic_id: Optional[int] = Query(None),
-    skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
-    db: Session = Depends(get_db),
-):
-    """List all assessment forms with optional filters."""
-    try:
-        q = db.query(AssessmentForm)
-        if status_filter:
-            q = q.filter(AssessmentForm.status == status_filter)
-        if category:
-            q = q.filter(AssessmentForm.category == category)
-        if is_template is not None:
-            q = q.filter(AssessmentForm.is_template == is_template)
-        if clinic_id is not None:
-            q = q.filter(
-                (AssessmentForm.clinic_id == clinic_id) | (AssessmentForm.clinic_id.is_(None))
-            )
-        total = q.count()
-        forms = q.order_by(AssessmentForm.id.desc()).offset(skip).limit(limit).all()
-        return {"total": total, "items": [_form_dict(f) for f in forms]}
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
-
-
-# ── Get form ───────────────────────────────────────────────────────────────
-@router.get("/platform/forms/templates")
-def list_templates(
-    category: Optional[str] = Query(None),
-    db: Session = Depends(get_db),
-):
-    """List all system template forms."""
-    try:
-        q = db.query(AssessmentForm).filter(AssessmentForm.is_template == True)
-        if category:
-            q = q.filter(AssessmentForm.category == category)
-        forms = q.order_by(AssessmentForm.id.desc()).all()
-        return {"items": [_form_dict(f) for f in forms]}
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
-
-
-@router.get("/platform/forms/{form_id}")
+@router.get("/assessment-forms/{form_id}")
 def get_form(form_id: int, db: Session = Depends(get_db)):
-    """Get a single assessment form with full schema."""
     form = db.query(AssessmentForm).filter(AssessmentForm.id == form_id).first()
     if not form:
         raise HTTPException(status_code=404, detail="Form not found")
-    return _form_dict(form)
+    return {
+        "id":               form.id,
+        "title":            form.title,
+        "description":      form.description,
+        "category":         form.category,
+        "subcategory":      form.subcategory,
+        "status":           form.status,
+        "schema":           form.schema,
+        "scoring_config":   form.scoring_config,
+        "alert_rules":      form.alert_rules,
+        "is_template":      form.is_template,
+        "is_iview_enabled": form.is_iview_enabled,
+        "iview_config":     form.iview_config,
+        "icon":             form.icon,
+        "version_number":   form.version_number,
+        "created_at":       form.created_at.isoformat() if form.created_at else None,
+        "updated_at":       form.updated_at.isoformat() if form.updated_at else None,
+    }
 
 
-# ── Update form ────────────────────────────────────────────────────────────
-@router.put("/platform/forms/{form_id}")
+@router.patch("/assessment-forms/{form_id}")
 def update_form(
     form_id: int,
     payload: Dict[str, Any] = Body(...),
-    db: Session = Depends(get_db),
+    db:      Session        = Depends(get_db),
 ):
-    """Update a form's schema, config, or metadata."""
-    try:
-        form = db.query(AssessmentForm).filter(AssessmentForm.id == form_id).first()
-        if not form:
-            raise HTTPException(status_code=404, detail="Form not found")
-        if form.status == "retired":
-            raise HTTPException(status_code=400, detail="Cannot update a retired form")
+    form = db.query(AssessmentForm).filter(AssessmentForm.id == form_id).first()
+    if not form:
+        raise HTTPException(status_code=404, detail="Form not found")
 
-        updatable = [
-            "title", "description", "category", "subcategory", "icon",
-            "schema", "scoring_config", "iview_config", "alert_rules",
-            "translations", "is_template", "is_iview_enabled",
-            "requires_cosign", "time_limit_minutes", "clinic_id",
-        ]
-        for field in updatable:
-            if field in payload:
-                setattr(form, field, payload[field])
+    updatable = [
+        "title", "description", "category", "subcategory", "status",
+        "schema", "scoring_config", "alert_rules", "is_template",
+        "is_iview_enabled", "iview_config", "icon",
+    ]
+    for field in updatable:
+        if field in payload:
+            setattr(form, field, payload[field])
 
-        form.updated_at = datetime.utcnow()
-        db.commit()
-        db.refresh(form)
-        return _form_dict(form)
-    except HTTPException:
-        raise
-    except Exception as exc:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=str(exc))
+    # Bump version on schema changes
+    if "schema" in payload:
+        form.version_number = (form.version_number or 1) + 1
+
+    form.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(form)
+    return {"id": form.id, "title": form.title, "status": form.status, "version_number": form.version_number}
 
 
-# ── Publish form ───────────────────────────────────────────────────────────
-@router.post("/platform/forms/{form_id}/publish")
-def publish_form(
-    form_id: int,
-    payload: Dict[str, Any] = Body(default={}),
-    db: Session = Depends(get_db),
-):
+@router.delete("/assessment-forms/{form_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_form(form_id: int, db: Session = Depends(get_db)):
     """
-    Publish a form:
-    - Sets status = 'published'
-    - Bumps version counter
-    - Creates an AssessmentFormVersion snapshot
+    Permanently delete an assessment form and its associated versions.
+    Returns 204 No Content on success, 404 if not found.
     """
-    try:
-        form = db.query(AssessmentForm).filter(AssessmentForm.id == form_id).first()
-        if not form:
-            raise HTTPException(status_code=404, detail="Form not found")
-        if form.status == "retired":
-            raise HTTPException(status_code=400, detail="Cannot publish a retired form")
+    form = db.query(AssessmentForm).filter(AssessmentForm.id == form_id).first()
+    if not form:
+        raise HTTPException(status_code=404, detail="Form not found")
 
-        form.status       = "published"
-        form.version      = (form.version or 1)
-        form.published_at = datetime.utcnow()
-        form.updated_at   = datetime.utcnow()
+    # Delete child versions first to avoid FK constraint violations
+    db.query(AssessmentFormVersion).filter(
+        AssessmentFormVersion.form_id == form_id
+    ).delete(synchronize_session=False)
 
-        snapshot = AssessmentFormVersion(
-            form_id        = form.id,
-            version        = form.version,
-            schema         = form.schema,
-            scoring_config = form.scoring_config,
-            published_by   = payload.get("published_by"),
-            published_at   = datetime.utcnow(),
-        )
-        db.add(snapshot)
-        db.commit()
-        db.refresh(form)
-        return {"message": "Form published", "form": _form_dict(form)}
-    except HTTPException:
-        raise
-    except Exception as exc:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=str(exc))
+    db.delete(form)
+    db.commit()
+    return
 
 
-# ── Retire form ────────────────────────────────────────────────────────────
-@router.post("/platform/forms/{form_id}/retire")
+@router.post("/assessment-forms/{form_id}/duplicate", status_code=status.HTTP_201_CREATED)
+def duplicate_form(form_id: int, db: Session = Depends(get_db)):
+    original = db.query(AssessmentForm).filter(AssessmentForm.id == form_id).first()
+    if not original:
+        raise HTTPException(status_code=404, detail="Form not found")
+
+    copy = AssessmentForm(
+        title            = f"{original.title} (Copy)",
+        description      = original.description,
+        category         = original.category,
+        subcategory      = original.subcategory,
+        status           = "draft",
+        schema           = original.schema,
+        scoring_config   = original.scoring_config,
+        alert_rules      = original.alert_rules,
+        is_template      = original.is_template,
+        is_iview_enabled = original.is_iview_enabled,
+        iview_config     = original.iview_config,
+        icon             = original.icon,
+        version_number   = 1,
+        created_at       = datetime.utcnow(),
+        updated_at       = datetime.utcnow(),
+    )
+    db.add(copy)
+    db.commit()
+    db.refresh(copy)
+    return {"id": copy.id, "title": copy.title, "status": copy.status}
+
+
+@router.post("/assessment-forms/{form_id}/publish")
+def publish_form(form_id: int, db: Session = Depends(get_db)):
+    form = db.query(AssessmentForm).filter(AssessmentForm.id == form_id).first()
+    if not form:
+        raise HTTPException(status_code=404, detail="Form not found")
+    form.status     = "published"
+    form.updated_at = datetime.utcnow()
+    db.commit()
+    return {"id": form.id, "status": form.status}
+
+
+@router.post("/assessment-forms/{form_id}/retire")
 def retire_form(form_id: int, db: Session = Depends(get_db)):
-    """Retire a published form so it can no longer be assigned."""
-    try:
-        form = db.query(AssessmentForm).filter(AssessmentForm.id == form_id).first()
-        if not form:
-            raise HTTPException(status_code=404, detail="Form not found")
-
-        form.status     = "retired"
-        form.retired_at = datetime.utcnow()
-        form.updated_at = datetime.utcnow()
-        db.commit()
-        db.refresh(form)
-        return {"message": "Form retired", "form": _form_dict(form)}
-    except HTTPException:
-        raise
-    except Exception as exc:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=str(exc))
+    form = db.query(AssessmentForm).filter(AssessmentForm.id == form_id).first()
+    if not form:
+        raise HTTPException(status_code=404, detail="Form not found")
+    form.status     = "retired"
+    form.updated_at = datetime.utcnow()
+    db.commit()
+    return {"id": form.id, "status": form.status}
 
 
-# ── Clone form ─────────────────────────────────────────────────────────────
-@router.post("/platform/forms/{form_id}/clone", status_code=201)
-def clone_form(
+# ---------------------------------------------------------------------------
+# Versions
+# ---------------------------------------------------------------------------
+
+@router.get("/assessment-forms/{form_id}/versions")
+def list_versions(form_id: int, db: Session = Depends(get_db)):
+    form = db.query(AssessmentForm).filter(AssessmentForm.id == form_id).first()
+    if not form:
+        raise HTTPException(status_code=404, detail="Form not found")
+    versions = (
+        db.query(AssessmentFormVersion)
+        .filter(AssessmentFormVersion.form_id == form_id)
+        .order_by(AssessmentFormVersion.version_number.desc())
+        .all()
+    )
+    return [
+        {
+            "id":             v.id,
+            "version_number": v.version_number,
+            "created_at":     v.created_at.isoformat() if v.created_at else None,
+            "change_summary": v.change_summary,
+        }
+        for v in versions
+    ]
+
+
+@router.post("/assessment-forms/{form_id}/versions")
+def create_version(
     form_id: int,
-    payload: Dict[str, Any] = Body(default={}),
-    db: Session = Depends(get_db),
-):
-    """Clone an existing form into a new draft with parent_form_id set."""
-    try:
-        source = db.query(AssessmentForm).filter(AssessmentForm.id == form_id).first()
-        if not source:
-            raise HTTPException(status_code=404, detail="Source form not found")
-
-        clone = AssessmentForm(
-            title              = payload.get("title", f"Copy of {source.title}"),
-            description        = source.description,
-            category           = source.category,
-            subcategory        = source.subcategory,
-            icon               = source.icon,
-            schema             = source.schema,
-            scoring_config     = source.scoring_config,
-            iview_config       = source.iview_config,
-            alert_rules        = source.alert_rules,
-            translations       = source.translations,
-            status             = "draft",
-            version            = 1,
-            is_template        = False,
-            is_iview_enabled   = source.is_iview_enabled,
-            requires_cosign    = source.requires_cosign,
-            time_limit_minutes = source.time_limit_minutes,
-            created_by_admin   = payload.get("created_by_admin"),
-            clinic_id          = payload.get("clinic_id", source.clinic_id),
-            parent_form_id     = source.id,
-            created_at         = datetime.utcnow(),
-            updated_at         = datetime.utcnow(),
-        )
-        db.add(clone)
-        db.commit()
-        db.refresh(clone)
-        return _form_dict(clone)
-    except HTTPException:
-        raise
-    except Exception as exc:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=str(exc))
-
-
-# ── Pool: assign form ──────────────────────────────────────────────────────
-@router.post("/platform/pool/assign", status_code=201)
-def assign_to_pool(
     payload: Dict[str, Any] = Body(...),
-    db: Session = Depends(get_db),
+    db:      Session        = Depends(get_db),
 ):
-    """Add a published form to the pool (globally or for a specific clinic)."""
-    try:
-        form_id   = payload.get("form_id")
-        clinic_id = payload.get("clinic_id")   # None = all clinics
-
-        if not form_id:
-            raise HTTPException(status_code=400, detail="form_id is required")
-
-        form = db.query(AssessmentForm).filter(AssessmentForm.id == form_id).first()
-        if not form:
-            raise HTTPException(status_code=404, detail="Form not found")
-        if form.status != "published":
-            raise HTTPException(status_code=400, detail="Only published forms can be added to the pool")
-
-        # Check duplicate
-        existing = (
-            db.query(FormPool)
-            .filter(FormPool.form_id == form_id, FormPool.clinic_id == clinic_id)
-            .first()
-        )
-        if existing:
-            existing.is_active   = True
-            existing.assigned_at = datetime.utcnow()
-            db.commit()
-            db.refresh(existing)
-            return _pool_dict(existing)
-
-        entry = FormPool(
-            form_id     = form_id,
-            clinic_id   = clinic_id,
-            assigned_by = payload.get("assigned_by"),
-            assigned_at = datetime.utcnow(),
-            is_active   = True,
-        )
-        db.add(entry)
-        db.commit()
-        db.refresh(entry)
-        return _pool_dict(entry)
-    except HTTPException:
-        raise
-    except Exception as exc:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=str(exc))
+    form = db.query(AssessmentForm).filter(AssessmentForm.id == form_id).first()
+    if not form:
+        raise HTTPException(status_code=404, detail="Form not found")
+    ver = AssessmentFormVersion(
+        form_id        = form_id,
+        version_number = (form.version_number or 1),
+        schema         = form.schema,
+        change_summary = payload.get("change_summary", ""),
+        created_at     = datetime.utcnow(),
+    )
+    db.add(ver)
+    form.version_number = (form.version_number or 1) + 1
+    form.updated_at     = datetime.utcnow()
+    db.commit()
+    db.refresh(ver)
+    return {"id": ver.id, "version_number": ver.version_number}
 
 
-# ── Pool: list ─────────────────────────────────────────────────────────────
-@router.get("/platform/pool")
-def list_pool(
-    clinic_id: Optional[int] = Query(None),
-    is_active: Optional[bool] = Query(None),
-    skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
-    db: Session = Depends(get_db),
-):
-    """List all pool entries."""
-    try:
-        q = db.query(FormPool)
-        if clinic_id is not None:
-            q = q.filter(
-                (FormPool.clinic_id == clinic_id) | (FormPool.clinic_id.is_(None))
-            )
-        if is_active is not None:
-            q = q.filter(FormPool.is_active == is_active)
+# ---------------------------------------------------------------------------
+# Assignments
+# ---------------------------------------------------------------------------
 
-        total = q.count()
-        items = q.order_by(FormPool.id.desc()).offset(skip).limit(limit).all()
-        return {"total": total, "items": [_pool_dict(p) for p in items]}
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+@router.get("/assessment-forms/{form_id}/assignments")
+def list_assignments(form_id: int, db: Session = Depends(get_db)):
+    rows = (
+        db.query(FormAssignment)
+        .filter(FormAssignment.form_id == form_id)
+        .all()
+    )
+    return [
+        {
+            "id":           r.id,
+            "entity_type":  r.entity_type,
+            "entity_id":    r.entity_id,
+            "assigned_at":  r.assigned_at.isoformat() if r.assigned_at else None,
+        }
+        for r in rows
+    ]
 
 
-# ===========================================================================
-# PROVIDER ENDPOINTS   (prefix: /provider/forms)
-# ===========================================================================
-
-# ── Pool: available to this clinic ────────────────────────────────────────
-@router.get("/provider/forms/pool")
-def provider_pool(
-    clinic_id: int = Query(...),
-    category: Optional[str] = Query(None),
-    db: Session = Depends(get_db),
-    current=Depends(get_current_staff),
-):
-    """List forms available to a clinic from the pool."""
-    try:
-        q = (
-            db.query(FormPool)
-            .join(AssessmentForm, AssessmentForm.id == FormPool.form_id)
-            .filter(FormPool.is_active == True)
-            .filter(
-                (FormPool.clinic_id == clinic_id) | (FormPool.clinic_id.is_(None))
-            )
-            .filter(AssessmentForm.status == "published")
-        )
-        if category:
-            q = q.filter(AssessmentForm.category == category)
-
-        items = q.all()
-        result = []
-        for pool_entry in items:
-            form = db.query(AssessmentForm).filter(AssessmentForm.id == pool_entry.form_id).first()
-            if form:
-                d = _form_dict(form)
-                d["pool_id"]     = pool_entry.id
-                d["assigned_at"] = _dt(pool_entry.assigned_at)
-                result.append(d)
-        return {"items": result}
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
-
-
-# ── Assign form to patient ─────────────────────────────────────────────────
-@router.post("/provider/forms/assign", status_code=201)
-def assign_form(
+@router.post("/assessment-forms/{form_id}/assignments", status_code=201)
+def create_assignment(
+    form_id: int,
     payload: Dict[str, Any] = Body(...),
-    db: Session = Depends(get_db),
-    current=Depends(get_current_staff),
+    db:      Session        = Depends(get_db),
 ):
-    """Assign a form to a patient encounter or admission."""
-    try:
-        required = ["form_id", "clinic_id", "patient_id", "assigned_by"]
-        for field in required:
-            if not payload.get(field):
-                raise HTTPException(status_code=400, detail=f"{field} is required")
-
-        form = db.query(AssessmentForm).filter(AssessmentForm.id == payload["form_id"]).first()
-        if not form:
-            raise HTTPException(status_code=404, detail="Form not found")
-        if form.status != "published":
-            raise HTTPException(status_code=400, detail="Only published forms can be assigned")
-
-        due_at = None
-        if payload.get("due_at"):
-            try:
-                due_at = datetime.fromisoformat(payload["due_at"])
-            except ValueError:
-                raise HTTPException(status_code=400, detail="Invalid due_at format — use ISO-8601")
-
-        assignment = FormAssignment(
-            form_id          = form.id,
-            form_version     = form.version or 1,
-            clinic_id        = payload["clinic_id"],
-            patient_id       = payload["patient_id"],
-            appointment_id   = payload.get("appointment_id"),
-            admission_id     = payload.get("admission_id"),
-            assigned_by      = payload["assigned_by"],
-            assigned_to_role = payload.get("assigned_to_role"),
-            due_at           = due_at,
-            status           = "pending",
-            priority         = payload.get("priority", "routine"),
-            notes            = payload.get("notes"),
-            assigned_at      = datetime.utcnow(),
-        )
-        db.add(assignment)
-        db.commit()
-        db.refresh(assignment)
-        return _assignment_dict(assignment)
-    except HTTPException:
-        raise
-    except Exception as exc:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=str(exc))
+    form = db.query(AssessmentForm).filter(AssessmentForm.id == form_id).first()
+    if not form:
+        raise HTTPException(status_code=404, detail="Form not found")
+    row = FormAssignment(
+        form_id     = form_id,
+        entity_type = payload.get("entity_type", "ward"),
+        entity_id   = payload.get("entity_id", ""),
+        assigned_at = datetime.utcnow(),
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return {"id": row.id, "form_id": form_id, "entity_type": row.entity_type, "entity_id": row.entity_id}
 
 
-# ── List assignments ───────────────────────────────────────────────────────
-@router.get("/provider/forms/assignments")
-def list_assignments(
-    patient_id: Optional[int] = Query(None),
-    clinic_id: Optional[int] = Query(None),
-    status_filter: Optional[str] = Query(None, alias="status"),
-    admission_id: Optional[int] = Query(None),
-    skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
-    db: Session = Depends(get_db),
-    current=Depends(get_current_staff),
-):
-    """List form assignments, optionally filtered by patient."""
-    try:
-        q = db.query(FormAssignment)
-        if patient_id:
-            q = q.filter(FormAssignment.patient_id == patient_id)
-        if clinic_id:
-            q = q.filter(FormAssignment.clinic_id == clinic_id)
-        if status_filter:
-            q = q.filter(FormAssignment.status == status_filter)
-        if admission_id:
-            q = q.filter(FormAssignment.admission_id == admission_id)
+# ---------------------------------------------------------------------------
+# Provider submission routes
+# ---------------------------------------------------------------------------
 
-        total = q.count()
-        items = q.order_by(FormAssignment.id.desc()).offset(skip).limit(limit).all()
-        return {"total": total, "items": [_assignment_dict(a) for a in items]}
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
-
-
-# ── Get single assignment with schema ─────────────────────────────────────
-@router.get("/provider/forms/assignments/{assignment_id}")
-def get_assignment(
-    assignment_id: int,
-    db: Session = Depends(get_db),
-    current=Depends(get_current_staff),
-):
-    """Get a single assignment including the associated form schema."""
-    assignment = db.query(FormAssignment).filter(FormAssignment.id == assignment_id).first()
-    if not assignment:
-        raise HTTPException(status_code=404, detail="Assignment not found")
-
-    form = db.query(AssessmentForm).filter(AssessmentForm.id == assignment.form_id).first()
-    result = _assignment_dict(assignment)
-    result["form"] = _form_dict(form) if form else None
-    return result
-
-
-# ── Submit form ────────────────────────────────────────────────────────────
-@router.post("/provider/forms/submit", status_code=201)
+@router.post("/assessment-forms/{form_id}/submit", status_code=201)
 def submit_form(
-    payload: Dict[str, Any] = Body(...),
-    db: Session = Depends(get_db),
-    current=Depends(get_current_staff),
+    form_id:  int,
+    payload:  Dict[str, Any] = Body(...),
+    db:       Session        = Depends(get_db),
 ):
     """
-    Submit a completed form.
-    Runs the scoring engine and alert engine automatically.
+    Provider-facing: submit a filled form for a patient.
+    Runs scoring + alerts, persists a FormSubmission, optionally writes iView rows.
     """
-    try:
-        required = ["form_id", "clinic_id", "patient_id", "submitted_by", "data"]
-        for field in required:
-            if payload.get(field) is None:
-                raise HTTPException(status_code=400, detail=f"{field} is required")
+    form = db.query(AssessmentForm).filter(AssessmentForm.id == form_id).first()
+    if not form:
+        raise HTTPException(status_code=404, detail="Form not found")
+    if form.status != "published":
+        raise HTTPException(status_code=400, detail="Form is not published")
 
-        form = db.query(AssessmentForm).filter(AssessmentForm.id == payload["form_id"]).first()
-        if not form:
-            raise HTTPException(status_code=404, detail="Form not found")
+    form_data     = payload.get("form_data", {})
+    scoring_result= run_scoring(form_id, form.schema or {}, form_data, form.scoring_config)
+    alerts_fired  = evaluate_alerts(form.schema or {}, form_data, form.alert_rules)
 
-        data: dict = payload["data"]
-        if not isinstance(data, dict):
-            raise HTTPException(status_code=400, detail="data must be a JSON object")
+    sub = FormSubmission(
+        form_id       = form_id,
+        patient_id    = payload.get("patient_id"),
+        encounter_id  = payload.get("encounter_id"),
+        submitted_by  = payload.get("submitted_by"),
+        form_data     = form_data,
+        score_result  = scoring_result or None,
+        status        = "submitted",
+        submitted_at  = datetime.utcnow(),
+    )
+    db.add(sub)
+    db.flush()   # get sub.id before commit
 
-        # ── Scoring ────────────────────────────────────────────────────────
-        scores = {}
-        try:
-            scores = run_scoring(form.id, form.schema or {}, data, form.scoring_config)
-        except Exception:
-            scores = {}
-
-        charted_at = None
-        if payload.get("charted_at"):
-            try:
-                charted_at = datetime.fromisoformat(payload["charted_at"])
-            except ValueError:
-                pass
-
-        submission = FormSubmission(
-            form_id        = form.id,
-            form_version   = form.version or 1,
-            assignment_id  = payload.get("assignment_id"),
-            clinic_id      = payload["clinic_id"],
-            patient_id     = payload["patient_id"],
-            appointment_id = payload.get("appointment_id"),
-            admission_id   = payload.get("admission_id"),
-            submitted_by   = payload["submitted_by"],
-            data           = data,
-            scores         = scores if scores else None,
-            alerts_fired   = [],
-            is_draft       = False,
-            submitted_at   = datetime.utcnow(),
-            charted_at     = charted_at,
-            source         = payload.get("source", "provider"),
-            created_at     = datetime.utcnow(),
+    # Persist alert records
+    for a in alerts_fired:
+        alert = FormAlert(
+            submission_id = sub.id,
+            form_id       = form_id,
+            field_id      = a.get("field_id"),
+            severity      = a.get("severity", "info"),
+            message       = a.get("message", ""),
+            rule_type     = a.get("rule_type", "threshold"),
+            triggered_at  = datetime.utcnow(),
         )
-        db.add(submission)
-        db.flush()  # get submission.id before alerts
+        db.add(alert)
 
-        # ── Alerts ─────────────────────────────────────────────────────────
-        triggered = []
-        try:
-            triggered = run_alerts(submission, form.alert_rules, db)
-        except Exception:
-            triggered = []
-        submission.alerts_fired = triggered
+    db.commit()
+    db.refresh(sub)
 
-        # ── Mark assignment complete ───────────────────────────────────────
-        if payload.get("assignment_id"):
-            assignment = db.query(FormAssignment).filter(
-                FormAssignment.id == payload["assignment_id"]
-            ).first()
-            if assignment:
-                assignment.status       = "completed"
-                assignment.completed_at = datetime.utcnow()
-
+    # iView flowsheet rows
+    if form.is_iview_enabled:
+        save_iview_row(db, sub)
         db.commit()
-        db.refresh(submission)
-        return _submission_dict(submission)
-    except HTTPException:
-        raise
-    except Exception as exc:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=str(exc))
+
+    return {
+        "submission_id":  sub.id,
+        "status":         sub.status,
+        "score_result":   scoring_result,
+        "alerts_fired":   alerts_fired,
+        "submitted_at":   sub.submitted_at.isoformat(),
+    }
 
 
-# ── List submissions ───────────────────────────────────────────────────────
-@router.get("/provider/forms/submissions")
+@router.get("/assessment-forms/{form_id}/submissions")
 def list_submissions(
-    patient_id: Optional[int] = Query(None),
-    form_id: Optional[int] = Query(None),
-    clinic_id: Optional[int] = Query(None),
-    admission_id: Optional[int] = Query(None),
-    from_date: Optional[str] = Query(None),
-    to_date: Optional[str] = Query(None),
-    is_draft: Optional[bool] = Query(None),
-    skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
-    db: Session = Depends(get_db),
-    current=Depends(get_current_staff),
+    form_id:     int,
+    db:          Session        = Depends(get_db),
+    patient_id:  Optional[str]  = Query(None),
+    encounter_id:Optional[str]  = Query(None),
+    limit:       int            = Query(50, ge=1, le=500),
+    offset:      int            = Query(0, ge=0),
 ):
-    """List form submissions with optional filters."""
-    try:
-        q = db.query(FormSubmission)
-        if patient_id:
-            q = q.filter(FormSubmission.patient_id == patient_id)
-        if form_id:
-            q = q.filter(FormSubmission.form_id == form_id)
-        if clinic_id:
-            q = q.filter(FormSubmission.clinic_id == clinic_id)
-        if admission_id:
-            q = q.filter(FormSubmission.admission_id == admission_id)
-        if is_draft is not None:
-            q = q.filter(FormSubmission.is_draft == is_draft)
-        if from_date:
-            try:
-                q = q.filter(FormSubmission.submitted_at >= datetime.fromisoformat(from_date))
-            except ValueError:
-                raise HTTPException(status_code=400, detail="Invalid from_date format")
-        if to_date:
-            try:
-                q = q.filter(FormSubmission.submitted_at <= datetime.fromisoformat(to_date))
-            except ValueError:
-                raise HTTPException(status_code=400, detail="Invalid to_date format")
-
-        total = q.count()
-        items = q.order_by(FormSubmission.id.desc()).offset(skip).limit(limit).all()
-        return {"total": total, "items": [_submission_dict(s) for s in items]}
-    except HTTPException:
-        raise
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+    q = db.query(FormSubmission).filter(FormSubmission.form_id == form_id)
+    if patient_id:   q = q.filter(FormSubmission.patient_id   == patient_id)
+    if encounter_id: q = q.filter(FormSubmission.encounter_id == encounter_id)
+    total = q.count()
+    rows  = q.order_by(FormSubmission.submitted_at.desc()).offset(offset).limit(limit).all()
+    return {
+        "total":  total,
+        "items": [
+            {
+                "id":           r.id,
+                "patient_id":   r.patient_id,
+                "encounter_id": r.encounter_id,
+                "submitted_by": r.submitted_by,
+                "score_result": r.score_result,
+                "status":       r.status,
+                "submitted_at": r.submitted_at.isoformat() if r.submitted_at else None,
+            }
+            for r in rows
+        ],
+    }
 
 
-# ── Get single submission ──────────────────────────────────────────────────
-@router.get("/provider/forms/submissions/{submission_id}")
-def get_submission(
-    submission_id: int,
-    db: Session = Depends(get_db),
-    current=Depends(get_current_staff),
-):
-    """Get a single submission with scores and fired alerts."""
-    submission = db.query(FormSubmission).filter(FormSubmission.id == submission_id).first()
-    if not submission:
+@router.get("/submissions/{submission_id}")
+def get_submission(submission_id: int, db: Session = Depends(get_db)):
+    sub = db.query(FormSubmission).filter(FormSubmission.id == submission_id).first()
+    if not sub:
         raise HTTPException(status_code=404, detail="Submission not found")
-
     alerts = (
         db.query(FormAlert)
         .filter(FormAlert.submission_id == submission_id)
         .all()
     )
-    result = _submission_dict(submission)
-    result["alerts"] = [_alert_dict(a) for a in alerts]
-    return result
-
-
-# ── Save draft ─────────────────────────────────────────────────────────────
-@router.post("/provider/forms/submissions/{submission_id}/draft")
-def save_draft(
-    submission_id: int,
-    payload: Dict[str, Any] = Body(...),
-    db: Session = Depends(get_db),
-    current=Depends(get_current_staff),
-):
-    """Update a submission draft with partial data."""
-    try:
-        submission = db.query(FormSubmission).filter(FormSubmission.id == submission_id).first()
-        if not submission:
-            raise HTTPException(status_code=404, detail="Submission not found")
-        if not submission.is_draft:
-            raise HTTPException(status_code=400, detail="Submission has already been finalised")
-
-        if "data" in payload:
-            submission.data = payload["data"]
-        submission.is_draft = True
-        db.commit()
-        db.refresh(submission)
-        return _submission_dict(submission)
-    except HTTPException:
-        raise
-    except Exception as exc:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=str(exc))
-
-
-# ── Co-sign: request ───────────────────────────────────────────────────────
-@router.post("/provider/forms/cosign/{submission_id}", status_code=201)
-def request_cosign(
-    submission_id: int,
-    payload: Dict[str, Any] = Body(...),
-    db: Session = Depends(get_db),
-    current=Depends(get_current_staff),
-):
-    """Request a co-sign on a submission from another staff member."""
-    try:
-        submission = db.query(FormSubmission).filter(FormSubmission.id == submission_id).first()
-        if not submission:
-            raise HTTPException(status_code=404, detail="Submission not found")
-
-        requested_by   = payload.get("requested_by")
-        requested_from = payload.get("requested_from")
-        if not requested_by or not requested_from:
-            raise HTTPException(status_code=400, detail="requested_by and requested_from are required")
-
-        cosign = FormCoSign(
-            submission_id  = submission_id,
-            requested_by   = requested_by,
-            requested_from = requested_from,
-            status         = "pending",
-            note           = payload.get("note"),
-            created_at     = datetime.utcnow(),
-        )
-        db.add(cosign)
-        db.commit()
-        db.refresh(cosign)
-        return _cosign_dict(cosign)
-    except HTTPException:
-        raise
-    except Exception as exc:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=str(exc))
-
-
-# ── Alerts: list unacknowledged ────────────────────────────────────────────
-@router.get("/provider/forms/alerts")
-def list_alerts(
-    clinic_id: int = Query(...),
-    patient_id: Optional[int] = Query(None),
-    severity: Optional[str] = Query(None),
-    acknowledged: Optional[bool] = Query(False),
-    skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
-    db: Session = Depends(get_db),
-    current=Depends(get_current_staff),
-):
-    """List form alerts for a clinic, defaulting to unacknowledged."""
-    try:
-        q = db.query(FormAlert).filter(FormAlert.clinic_id == clinic_id)
-        if patient_id:
-            q = q.filter(FormAlert.patient_id == patient_id)
-        if severity:
-            q = q.filter(FormAlert.severity == severity)
-        if not acknowledged:
-            q = q.filter(FormAlert.acknowledged_by.is_(None))
-        else:
-            q = q.filter(FormAlert.acknowledged_by.isnot(None))
-
-        total = q.count()
-        items = q.order_by(FormAlert.id.desc()).offset(skip).limit(limit).all()
-        return {"total": total, "items": [_alert_dict(a) for a in items]}
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
-
-
-# ── Alerts: acknowledge ────────────────────────────────────────────────────
-@router.post("/provider/forms/alerts/{alert_id}/acknowledge")
-def acknowledge_alert(
-    alert_id: int,
-    payload: Dict[str, Any] = Body(...),
-    db: Session = Depends(get_db),
-    current=Depends(get_current_staff),
-):
-    """Acknowledge a form alert."""
-    try:
-        alert = db.query(FormAlert).filter(FormAlert.id == alert_id).first()
-        if not alert:
-            raise HTTPException(status_code=404, detail="Alert not found")
-
-        staff_id = payload.get("staff_id")
-        if not staff_id:
-            raise HTTPException(status_code=400, detail="staff_id is required")
-
-        alert.acknowledged_by = staff_id
-        alert.acknowledged_at = datetime.utcnow()
-        db.commit()
-        db.refresh(alert)
-        return _alert_dict(alert)
-    except HTTPException:
-        raise
-    except Exception as exc:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=str(exc))
-
-
-# ── iView Flowsheet ────────────────────────────────────────────────────────
-@router.get("/provider/forms/iview/{form_id}")
-def get_iview_flowsheet(
-    form_id: int,
-    patient_id: int = Query(...),
-    admission_id: Optional[int] = Query(None),
-    from_date: Optional[str] = Query(None),
-    to_date: Optional[str] = Query(None),
-    band: Optional[str] = Query(None),
-    db: Session = Depends(get_db),
-    current=Depends(get_current_staff),
-):
-    """
-    Get iView flowsheet config and time-banded submission data for a patient.
-
-    Returns the flowsheet row configuration alongside submissions grouped by
-    time band, suitable for rendering a real-time clinical flowsheet.
-    """
-    try:
-        flowsheet = (
-            db.query(iViewFlowsheet)
-            .filter(iViewFlowsheet.form_id == form_id)
-            .first()
-        )
-
-        form = db.query(AssessmentForm).filter(AssessmentForm.id == form_id).first()
-        if not form:
-            raise HTTPException(status_code=404, detail="Form not found")
-        if not form.is_iview_enabled:
-            raise HTTPException(status_code=400, detail="iView is not enabled for this form")
-
-        # ── Fetch submissions ──────────────────────────────────────────────
-        q = (
-            db.query(FormSubmission)
-            .filter(
-                FormSubmission.form_id    == form_id,
-                FormSubmission.patient_id == patient_id,
-                FormSubmission.is_draft   == False,
-            )
-        )
-        if admission_id:
-            q = q.filter(FormSubmission.admission_id == admission_id)
-        if from_date:
-            try:
-                q = q.filter(FormSubmission.submitted_at >= datetime.fromisoformat(from_date))
-            except ValueError:
-                raise HTTPException(status_code=400, detail="Invalid from_date format")
-        if to_date:
-            try:
-                q = q.filter(FormSubmission.submitted_at <= datetime.fromisoformat(to_date))
-            except ValueError:
-                raise HTTPException(status_code=400, detail="Invalid to_date format")
-
-        submissions = q.order_by(FormSubmission.submitted_at.asc()).all()
-
-        # ── Determine time-band interval in hours ──────────────────────────
-        effective_band = band or (flowsheet.time_band if flowsheet else "4h")
-        band_hours = _parse_band_hours(effective_band)
-
-        # ── Group submissions into time slots ──────────────────────────────
-        time_slots: Dict[str, list] = {}
-        for sub in submissions:
-            slot_key = _slot_key(sub.submitted_at, band_hours)
-            if slot_key not in time_slots:
-                time_slots[slot_key] = []
-            time_slots[slot_key].append(_submission_dict(sub))
-
-        row_config = (flowsheet.row_config if flowsheet else None) or _default_row_config(form.schema or {})
-
-        return {
-            "form_id":      form_id,
-            "form_title":   form.title,
-            "band":         effective_band,
-            "row_config":   row_config,
-            "flowsheet_id": flowsheet.id if flowsheet else None,
-            "time_slots":   time_slots,
-            "total_submissions": len(submissions),
-        }
-    except HTTPException:
-        raise
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
-
-
-# ===========================================================================
-# ENDPOINT 1 — Live Analytics
-# ===========================================================================
-
-@router.get("/platform/forms/analytics")
-def platform_analytics(
-    x_clinic_id: Optional[str] = Header(None),
-    x_user_role: Optional[str] = Header(None),
-    db: Session = Depends(get_db),
-):
-    """
-    GET /platform/forms/analytics
-    Returns aggregated counts across forms, submissions, assignments and alerts.
-    Access is restricted to admin/platform_admin roles, or callers whose
-    x_clinic_id matches the scope they are requesting.
-    """
-    from datetime import timedelta
-
-    allowed_roles = {"admin", "platform_admin"}
-    if x_user_role not in allowed_roles and not x_clinic_id:
-        raise HTTPException(
-            status_code=403,
-            detail="Access denied: requires admin role or a valid x_clinic_id header",
-        )
-
-    try:
-        # ── Forms ─────────────────────────────────────────────────────────
-        forms_q = db.query(AssessmentForm)
-        all_forms = forms_q.all()
-
-        by_status: Dict[str, int] = {}
-        by_category: Dict[str, int] = {}
-        for f in all_forms:
-            s = f.status or "unknown"
-            by_status[s] = by_status.get(s, 0) + 1
-            c = f.category or "unknown"
-            by_category[c] = by_category.get(c, 0) + 1
-
-        # ── Submissions ───────────────────────────────────────────────────
-        all_submissions = db.query(FormSubmission).all()
-        total_submissions = len(all_submissions)
-
-        cutoff = datetime.utcnow() - timedelta(days=30)
-        submissions_last_30d = sum(
-            1 for sub in all_submissions
-            if sub.submitted_at and sub.submitted_at >= cutoff
-        )
-
-        # Per-form counts (python-side groupby)
-        sub_count_by_form: Dict[int, int] = {}
-        last_sub_by_form: Dict[int, Optional[datetime]] = {}
-        for sub in all_submissions:
-            fid = sub.form_id
-            sub_count_by_form[fid] = sub_count_by_form.get(fid, 0) + 1
-            prev = last_sub_by_form.get(fid)
-            if sub.submitted_at and (prev is None or sub.submitted_at > prev):
-                last_sub_by_form[fid] = sub.submitted_at
-
-        # ── Assignments ───────────────────────────────────────────────────
-        all_assignments = db.query(FormAssignment).all()
-        total_assignments = len(all_assignments)
-        open_assignments = sum(
-            1 for a in all_assignments if a.status not in ("completed", "cancelled")
-        )
-
-        assign_count_by_form: Dict[int, int] = {}
-        for a in all_assignments:
-            assign_count_by_form[a.form_id] = assign_count_by_form.get(a.form_id, 0) + 1
-
-        # ── Alerts ────────────────────────────────────────────────────────
-        all_alerts = db.query(FormAlert).all()
-        total_alerts = len(all_alerts)
-        unacknowledged_alerts = sum(
-            1 for al in all_alerts if al.acknowledged_by is None
-        )
-
-        alert_count_by_sub: Dict[int, int] = {}
-        for al in all_alerts:
-            alert_count_by_sub[al.submission_id] = alert_count_by_sub.get(al.submission_id, 0) + 1
-
-        # Map alert counts to forms via submission → form_id
-        alert_count_by_form: Dict[int, int] = {}
-        sub_form_map = {sub.id: sub.form_id for sub in all_submissions}
-        for sub_id, count in alert_count_by_sub.items():
-            fid = sub_form_map.get(sub_id)
-            if fid is not None:
-                alert_count_by_form[fid] = alert_count_by_form.get(fid, 0) + count
-
-        # ── Per-form summary ──────────────────────────────────────────────
-        form_rows = []
-        for f in all_forms:
-            last_sub_dt = last_sub_by_form.get(f.id)
-            form_rows.append({
-                "id":               f.id,
-                "title":            f.title,
-                "status":           f.status,
-                "category":         f.category,
-                "submission_count": sub_count_by_form.get(f.id, 0),
-                "assignment_count": assign_count_by_form.get(f.id, 0),
-                "alert_count":      alert_count_by_form.get(f.id, 0),
-                "last_submission_at": last_sub_dt.isoformat() if last_sub_dt else None,
-            })
-
-        return {
-            "total_forms":            len(all_forms),
-            "by_status":              by_status,
-            "by_category":            by_category,
-            "total_submissions":      total_submissions,
-            "submissions_last_30d":   submissions_last_30d,
-            "total_assignments":      total_assignments,
-            "open_assignments":       open_assignments,
-            "total_alerts":           total_alerts,
-            "unacknowledged_alerts":  unacknowledged_alerts,
-            "forms":                  form_rows,
-        }
-    except HTTPException:
-        raise
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
-
-
-# ===========================================================================
-# ENDPOINT 2 — FHIR QuestionnaireResponse export
-# ===========================================================================
-
-@router.get("/provider/forms/submissions/{submission_id}/fhir")
-def get_submission_fhir(
-    submission_id: int,
-    x_clinic_id: Optional[str] = Header(None),
-    x_user_id: Optional[str] = Header(None),
-    db: Session = Depends(get_db),
-    current=Depends(get_current_staff),
-):
-    """
-    GET /provider/forms/submissions/{submission_id}/fhir
-    Returns a FHIR R4 QuestionnaireResponse document built from the submission.
-    """
-    from fastapi.responses import JSONResponse
-
-    submission = db.query(FormSubmission).filter(FormSubmission.id == submission_id).first()
-    if not submission:
-        raise HTTPException(status_code=404, detail="Submission not found")
-
-    form = db.query(AssessmentForm).filter(AssessmentForm.id == submission.form_id).first()
-
-    # ── Build a field-label lookup from schema sections/fields ─────────────
-    field_label_map: Dict[str, str] = {}
-    if form and form.schema:
-        schema = form.schema
-        # Support both top-level "fields" and "sections[].fields" layouts
-        for field in schema.get("fields", []):
-            if isinstance(field, dict):
-                field_label_map[str(field.get("id", ""))] = field.get("label", str(field.get("id", "")))
-        for section in schema.get("sections", []):
-            if isinstance(section, dict):
-                for field in section.get("fields", []):
-                    if isinstance(field, dict):
-                        field_label_map[str(field.get("id", ""))] = field.get("label", str(field.get("id", "")))
-
-    # ── Build FHIR items ───────────────────────────────────────────────────
-    data: dict = submission.data or {}
-    fhir_items = []
-    for field_id, raw_value in data.items():
-        label = field_label_map.get(str(field_id), str(field_id))
-
-        # Determine FHIR answer type
-        if isinstance(raw_value, bool):
-            answer = [{"valueBoolean": raw_value}]
-        elif isinstance(raw_value, (int, float)):
-            answer = [{"valueDecimal": raw_value}]
-        else:
-            str_val = str(raw_value) if raw_value is not None else ""
-            # Detect ISO date strings (YYYY-MM-DD)
-            if len(str_val) == 10 and str_val.count("-") == 2:
-                try:
-                    datetime.strptime(str_val, "%Y-%m-%d")
-                    answer = [{"valueDate": str_val}]
-                except ValueError:
-                    answer = [{"valueString": str_val}]
-            else:
-                answer = [{"valueString": str_val}]
-
-        fhir_items.append({
-            "linkId": str(field_id),
-            "text":   label,
-            "answer": answer,
-        })
-
-    authored = (
-        submission.submitted_at.isoformat()
-        if submission.submitted_at
-        else datetime.utcnow().isoformat()
-    )
-
-    qr = {
-        "resourceType": "QuestionnaireResponse",
-        "id":           str(submission_id),
-        "status":       "completed",
-        "questionnaire": f"AssessmentForm/{submission.form_id}",
-        "subject":      {"reference": f"Patient/{submission.patient_id}"},
-        "authored":     authored,
-        "item":         fhir_items,
-    }
-
-    return JSONResponse(content=qr, headers={"Content-Type": "application/fhir+json"})
-
-
-# ===========================================================================
-# ENDPOINT 3 — ABDM FHIR Bundle export
-# ===========================================================================
-
-@router.get("/provider/forms/submissions/{submission_id}/abdm")
-def get_submission_abdm(
-    submission_id: int,
-    x_clinic_id: Optional[str] = Header(None),
-    x_user_id: Optional[str] = Header(None),
-    db: Session = Depends(get_db),
-    current=Depends(get_current_staff),
-):
-    """
-    GET /provider/forms/submissions/{submission_id}/abdm
-    Returns an ABDM-compliant FHIR R4 DocumentBundle wrapping the
-    QuestionnaireResponse (same content as /fhir but bundled per NDHM spec).
-    """
-    from fastapi.responses import JSONResponse
-
-    submission = db.query(FormSubmission).filter(FormSubmission.id == submission_id).first()
-    if not submission:
-        raise HTTPException(status_code=404, detail="Submission not found")
-
-    form = db.query(AssessmentForm).filter(AssessmentForm.id == submission.form_id).first()
-
-    # ── Re-build field-label lookup (same logic as /fhir) ─────────────────
-    field_label_map: Dict[str, str] = {}
-    if form and form.schema:
-        schema = form.schema
-        for field in schema.get("fields", []):
-            if isinstance(field, dict):
-                field_label_map[str(field.get("id", ""))] = field.get("label", str(field.get("id", "")))
-        for section in schema.get("sections", []):
-            if isinstance(section, dict):
-                for field in section.get("fields", []):
-                    if isinstance(field, dict):
-                        field_label_map[str(field.get("id", ""))] = field.get("label", str(field.get("id", "")))
-
-    data: dict = submission.data or {}
-    fhir_items = []
-    for field_id, raw_value in data.items():
-        label = field_label_map.get(str(field_id), str(field_id))
-        if isinstance(raw_value, bool):
-            answer = [{"valueBoolean": raw_value}]
-        elif isinstance(raw_value, (int, float)):
-            answer = [{"valueDecimal": raw_value}]
-        else:
-            str_val = str(raw_value) if raw_value is not None else ""
-            if len(str_val) == 10 and str_val.count("-") == 2:
-                try:
-                    datetime.strptime(str_val, "%Y-%m-%d")
-                    answer = [{"valueDate": str_val}]
-                except ValueError:
-                    answer = [{"valueString": str_val}]
-            else:
-                answer = [{"valueString": str_val}]
-        fhir_items.append({"linkId": str(field_id), "text": label, "answer": answer})
-
-    authored = (
-        submission.submitted_at.isoformat()
-        if submission.submitted_at
-        else datetime.utcnow().isoformat()
-    )
-
-    questionnaire_response = {
-        "resourceType": "QuestionnaireResponse",
-        "id":           str(submission_id),
-        "status":       "completed",
-        "questionnaire": f"AssessmentForm/{submission.form_id}",
-        "subject":      {"reference": f"Patient/{submission.patient_id}"},
-        "authored":     authored,
-        "item":         fhir_items,
-    }
-
-    bundle = {
-        "resourceType": "Bundle",
-        "type":         "document",
-        "meta": {
-            "profile": [
-                "https://nrces.in/ndhm/fhir/r4/StructureDefinition/DocumentBundle"
-            ]
-        },
-        "entry": [
-            {"resource": questionnaire_response}
+    return {
+        "id":           sub.id,
+        "form_id":      sub.form_id,
+        "patient_id":   sub.patient_id,
+        "encounter_id": sub.encounter_id,
+        "submitted_by": sub.submitted_by,
+        "form_data":    sub.form_data,
+        "score_result": sub.score_result,
+        "status":       sub.status,
+        "submitted_at": sub.submitted_at.isoformat() if sub.submitted_at else None,
+        "alerts": [
+            {
+                "id":           a.id,
+                "field_id":     a.field_id,
+                "severity":     a.severity,
+                "message":      a.message,
+                "rule_type":    a.rule_type,
+                "triggered_at": a.triggered_at.isoformat() if a.triggered_at else None,
+            }
+            for a in alerts
         ],
     }
 
-    return JSONResponse(content=bundle, headers={"Content-Type": "application/fhir+json"})
 
-
-# ===========================================================================
-# ENDPOINT 4 — Submission data for PDF rendering
-# ===========================================================================
-
-@router.get("/provider/forms/submissions/{submission_id}/pdf-data")
-def get_submission_pdf_data(
+@router.patch("/submissions/{submission_id}/cosign")
+def cosign_submission(
     submission_id: int,
-    x_clinic_id: Optional[str] = Header(None),
-    x_user_id: Optional[str] = Header(None),
-    db: Session = Depends(get_db),
-    current=Depends(get_current_staff),
+    payload:       Dict[str, Any] = Body(...),
+    db:            Session        = Depends(get_db),
+):
+    sub = db.query(FormSubmission).filter(FormSubmission.id == submission_id).first()
+    if not sub:
+        raise HTTPException(status_code=404, detail="Submission not found")
+    cosign = FormCoSign(
+        submission_id  = submission_id,
+        cosigned_by    = payload.get("cosigned_by"),
+        cosigned_at    = datetime.utcnow(),
+        cosign_comment = payload.get("comment"),
+    )
+    db.add(cosign)
+    db.commit()
+    return {"submission_id": submission_id, "cosigned_by": cosign.cosigned_by}
+
+
+# ---------------------------------------------------------------------------
+# Form Pool (pool = library of reusable form templates)
+# ---------------------------------------------------------------------------
+
+@router.get("/form-pool/")
+def list_pool(
+    db:       Session = Depends(get_db),
+    category: Optional[str] = Query(None),
+    q:        Optional[str] = Query(None),
+    limit:    int           = Query(50,  ge=1, le=500),
+    offset:   int           = Query(0,   ge=0),
+):
+    query = db.query(FormPool)
+    if category: query = query.filter(FormPool.category == category)
+    if q:
+        like = f"%{q}%"
+        query = query.filter(
+            FormPool.title.ilike(like) | FormPool.description.ilike(like)
+        )
+    total = query.count()
+    items = query.order_by(FormPool.title).offset(offset).limit(limit).all()
+    return {
+        "total":  total,
+        "offset": offset,
+        "limit":  limit,
+        "items": [
+            {
+                "id":          i.id,
+                "title":       i.title,
+                "description": i.description,
+                "category":    i.category,
+                "icon":        i.icon,
+                "schema":      i.schema,
+            }
+            for i in items
+        ],
+    }
+
+
+@router.post("/form-pool/{pool_id}/instantiate", status_code=201)
+def instantiate_from_pool(
+    pool_id: int,
+    payload: Dict[str, Any] = Body(default={}),
+    db:      Session        = Depends(get_db),
 ):
     """
-    GET /provider/forms/submissions/{submission_id}/pdf-data
-    Returns a structured JSON document the frontend can use to render a
-    print-ready PDF page — sections with labelled field values, scores, and
-    any fired alerts.
+    Create a new AssessmentForm from a FormPool template.
+    Caller may override title, category, etc. via payload.
     """
-    submission = db.query(FormSubmission).filter(FormSubmission.id == submission_id).first()
-    if not submission:
-        raise HTTPException(status_code=404, detail="Submission not found")
+    template = db.query(FormPool).filter(FormPool.id == pool_id).first()
+    if not template:
+        raise HTTPException(status_code=404, detail="Pool template not found")
 
-    form = db.query(AssessmentForm).filter(AssessmentForm.id == submission.form_id).first()
-
-    data: dict = submission.data or {}
-
-    def _format_value(raw) -> str:
-        if raw is None:
-            return ""
-        if isinstance(raw, list):
-            return ", ".join(str(v) for v in raw)
-        return str(raw)
-
-    # ── Walk schema sections/fields ────────────────────────────────────────
-    sections_out = []
-    if form and form.schema:
-        schema = form.schema
-
-        # If the schema has top-level sections, iterate them
-        raw_sections = schema.get("sections", [])
-        if raw_sections:
-            for section in raw_sections:
-                if not isinstance(section, dict):
-                    continue
-                section_title = section.get("title", section.get("name", ""))
-                fields_out = []
-                for field in section.get("fields", []):
-                    if not isinstance(field, dict):
-                        continue
-                    fid   = str(field.get("id", ""))
-                    label = field.get("label", fid)
-                    unit  = field.get("unit", "")
-                    raw   = data.get(fid)
-                    fields_out.append({
-                        "label": label,
-                        "value": _format_value(raw),
-                        "unit":  unit,
-                    })
-                sections_out.append({"title": section_title, "fields": fields_out})
-
-        # If the schema has a flat top-level "fields" list (no sections), wrap in one section
-        elif schema.get("fields"):
-            fields_out = []
-            for field in schema.get("fields", []):
-                if not isinstance(field, dict):
-                    continue
-                fid   = str(field.get("id", ""))
-                label = field.get("label", fid)
-                unit  = field.get("unit", "")
-                raw   = data.get(fid)
-                fields_out.append({
-                    "label": label,
-                    "value": _format_value(raw),
-                    "unit":  unit,
-                })
-            sections_out.append({"title": form.title if form else "Form", "fields": fields_out})
-
-    # If no schema available, emit raw key-value pairs in a single section
-    if not sections_out and data:
-        fields_out = [
-            {"label": k, "value": _format_value(v), "unit": ""}
-            for k, v in data.items()
-        ]
-        sections_out.append({"title": "Data", "fields": fields_out})
-
-    # ── Alerts for this submission ─────────────────────────────────────────
-    db_alerts = (
-        db.query(FormAlert)
-        .filter(FormAlert.submission_id == submission_id)
-        .all()
+    form = AssessmentForm(
+        title            = payload.get("title",       template.title),
+        description      = payload.get("description", template.description),
+        category         = payload.get("category",    template.category),
+        status           = "draft",
+        schema           = template.schema,
+        scoring_config   = template.schema.get("scoring_config") if template.schema else None,
+        alert_rules      = template.schema.get("alert_rules")    if template.schema else None,
+        is_template      = False,
+        is_iview_enabled = bool(template.schema and template.schema.get("is_iview_enabled")),
+        iview_config     = template.schema.get("iview_config")   if template.schema else None,
+        icon             = payload.get("icon",        template.icon),
+        version_number   = 1,
+        created_at       = datetime.utcnow(),
+        updated_at       = datetime.utcnow(),
     )
-    alerts_out = [_alert_dict(a) for a in db_alerts]
-
-    return {
-        "form_title":    form.title if form else "",
-        "form_category": form.category if form else "",
-        "patient_id":    submission.patient_id,
-        "submitted_at":  submission.submitted_at.isoformat() if submission.submitted_at else None,
-        "submitted_by":  str(submission.submitted_by) if submission.submitted_by else "",
-        "sections":      sections_out,
-        "scores":        submission.scores or {},
-        "alerts":        alerts_out,
-    }
+    db.add(form)
+    db.commit()
+    db.refresh(form)
+    return {"id": form.id, "title": form.title, "status": form.status}
 
 
-# ===========================================================================
-# Internal helpers
-# ===========================================================================
+# ---------------------------------------------------------------------------
+# iView Flowsheet
+# ---------------------------------------------------------------------------
 
-def _dt(value) -> Optional[str]:
-    if value is None:
-        return None
-    if isinstance(value, datetime):
-        return value.isoformat()
-    return str(value)
-
-
-def _form_dict(form: AssessmentForm) -> dict:
-    return {
-        "id":                 form.id,
-        "title":              form.title,
-        "description":        form.description,
-        "category":           form.category,
-        "subcategory":        form.subcategory,
-        "icon":               form.icon,
-        "schema":             form.schema,
-        "scoring_config":     form.scoring_config,
-        "iview_config":       form.iview_config,
-        "alert_rules":        form.alert_rules,
-        "translations":       form.translations,
-        "status":             form.status,
-        "version":            form.version,
-        "is_template":        form.is_template,
-        "is_iview_enabled":   form.is_iview_enabled,
-        "requires_cosign":    form.requires_cosign,
-        "time_limit_minutes": form.time_limit_minutes,
-        "created_by":         form.created_by,
-        "created_by_admin":   form.created_by_admin,
-        "clinic_id":          form.clinic_id,
-        "parent_form_id":     form.parent_form_id,
-        "published_at":       _dt(form.published_at),
-        "retired_at":         _dt(form.retired_at),
-        "created_at":         _dt(form.created_at),
-        "updated_at":         _dt(form.updated_at),
-    }
+@router.get("/iview/{patient_id}")
+def get_iview(
+    patient_id:   str,
+    db:           Session       = Depends(get_db),
+    encounter_id: Optional[str] = Query(None),
+    form_id:      Optional[int] = Query(None),
+    limit:        int           = Query(200, ge=1, le=2000),
+):
+    q = db.query(iViewFlowsheet).filter(iViewFlowsheet.patient_id == patient_id)
+    if encounter_id: q = q.filter(iViewFlowsheet.encounter_id == encounter_id)
+    if form_id:      q = q.filter(iViewFlowsheet.form_id       == form_id)
+    rows = q.order_by(iViewFlowsheet.recorded_at.desc()).limit(limit).all()
+    return [
+        {
+            "id":            r.id,
+            "form_id":       r.form_id,
+            "submission_id": r.submission_id,
+            "field_id":      r.field_id,
+            "label":         r.label,
+            "value_text":    r.value_text,
+            "value_numeric": r.value_numeric,
+            "unit":          r.unit,
+            "ref_range":     r.ref_range,
+            "recorded_at":   r.recorded_at.isoformat() if r.recorded_at else None,
+        }
+        for r in rows
+    ]
 
 
-def _pool_dict(p: FormPool) -> dict:
-    return {
-        "id":          p.id,
-        "form_id":     p.form_id,
-        "clinic_id":   p.clinic_id,
-        "assigned_by": p.assigned_by,
-        "assigned_at": _dt(p.assigned_at),
-        "is_active":   p.is_active,
-    }
+# ---------------------------------------------------------------------------
+# FormPool schema export (for builder re-use)
+# ---------------------------------------------------------------------------
 
-
-def _assignment_dict(a: FormAssignment) -> dict:
-    return {
-        "id":               a.id,
-        "form_id":          a.form_id,
-        "form_version":     a.form_version,
-        "clinic_id":        a.clinic_id,
-        "patient_id":       a.patient_id,
-        "appointment_id":   a.appointment_id,
-        "admission_id":     a.admission_id,
-        "assigned_by":      a.assigned_by,
-        "assigned_to_role": a.assigned_to_role,
-        "due_at":           _dt(a.due_at),
-        "status":           a.status,
-        "priority":         a.priority,
-        "notes":            a.notes,
-        "assigned_at":      _dt(a.assigned_at),
-        "completed_at":     _dt(a.completed_at),
-    }
-
-
-def _submission_dict(s: FormSubmission) -> dict:
-    return {
-        "id":            s.id,
-        "form_id":       s.form_id,
-        "form_version":  s.form_version,
-        "assignment_id": s.assignment_id,
-        "clinic_id":     s.clinic_id,
-        "patient_id":    s.patient_id,
-        "appointment_id":s.appointment_id,
-        "admission_id":  s.admission_id,
-        "submitted_by":  s.submitted_by,
-        "cosigned_by":   s.cosigned_by,
-        "cosigned_at":   _dt(s.cosigned_at),
-        "data":          s.data,
-        "scores":        s.scores,
-        "alerts_fired":  s.alerts_fired,
-        "is_draft":      s.is_draft,
-        "submitted_at":  _dt(s.submitted_at),
-        "charted_at":    _dt(s.charted_at),
-        "source":        s.source,
-        "created_at":    _dt(s.created_at),
-    }
-
-
-def _alert_dict(a: FormAlert) -> dict:
-    return {
-        "id":              a.id,
-        "submission_id":   a.submission_id,
-        "clinic_id":       a.clinic_id,
-        "patient_id":      a.patient_id,
-        "field_id":        a.field_id,
-        "field_label":     a.field_label,
-        "value":           a.value,
-        "severity":        a.severity,
-        "message":         a.message,
-        "notified_staff":  a.notified_staff,
-        "acknowledged_by": a.acknowledged_by,
-        "acknowledged_at": _dt(a.acknowledged_at),
-        "created_at":      _dt(a.created_at),
-    }
-
-
-def _cosign_dict(c: FormCoSign) -> dict:
-    return {
-        "id":             c.id,
-        "submission_id":  c.submission_id,
-        "requested_by":   c.requested_by,
-        "requested_from": c.requested_from,
-        "status":         c.status,
-        "note":           c.note,
-        "responded_at":   _dt(c.responded_at),
-        "created_at":     _dt(c.created_at),
-    }
-
-
-def _parse_band_hours(band: str) -> int:
-    """Convert band string like '4h', '12h', '1h' to integer hours."""
-    band = band.lower().strip()
-    try:
-        if band.endswith("h"):
-            return max(1, int(band[:-1]))
-    except (ValueError, TypeError):
-        pass
-    return 4
-
-
-def _slot_key(dt_value: Optional[datetime], band_hours: int) -> str:
-    """Return a string slot key for a given datetime rounded down to the band interval."""
-    if not dt_value:
-        return "unknown"
-    from math import floor
-    floored_hour = floor(dt_value.hour / band_hours) * band_hours
-    return dt_value.replace(
-        hour=floored_hour, minute=0, second=0, microsecond=0
-    ).isoformat()
-
-
-def _default_row_config(schema: dict) -> list:
-    """
-    Generate a minimal row_config from the form schema's fields array
-    when no explicit iViewFlowsheet row_config has been configured.
-    """
-    fields = schema.get("fields", [])
+@router.get("/assessment-forms/{form_id}/export-schema")
+def export_schema(form_id: int, db: Session = Depends(get_db)):
+    form = db.query(AssessmentForm).filter(AssessmentForm.id == form_id).first()
+    if not form:
+        raise HTTPException(status_code=404, detail="Form not found")
     result = []
-    for field in fields:
-        if isinstance(field, dict):
-            result.append({
-                "field_id":  field.get("id", ""),
-                "label":     field.get("label", ""),
-                "unit":      field.get("unit", ""),
-                "ref_range": field.get("ref_range", ""),
-            })
+    for field in (form.schema or {}).get("fields", []):
+        result.append({
+            "field_id":  field.get("id", ""),
+            "label":     field.get("label", ""),
+            "type":      field.get("type", ""),
+            "required":  field.get("required", False),
+            "ref_range": field.get("ref_range", ""),
+        })
     return result
