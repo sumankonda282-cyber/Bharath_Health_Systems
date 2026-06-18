@@ -2186,13 +2186,6 @@ class DiseaseCounselling(Base):
     created_at   = Column(DateTime, server_default=func.now())
 
 
-class PlatformSetting(Base):
-    __tablename__ = "platform_settings"
-    key        = Column(String(100), primary_key=True)
-    value      = Column(JSON, nullable=False)
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
-
-
 class SubscriptionPayment(Base):
     __tablename__ = "subscription_payments"
     id          = Column(Integer, primary_key=True, index=True)
