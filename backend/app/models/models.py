@@ -2184,3 +2184,24 @@ class DiseaseCounselling(Base):
     tip          = Column(Text, nullable=False)
     sort_order   = Column(Integer, default=0)
     created_at   = Column(DateTime, server_default=func.now())
+
+
+class PlatformSetting(Base):
+    __tablename__ = "platform_settings"
+    key        = Column(String(100), primary_key=True)
+    value      = Column(JSON, nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class SubscriptionPayment(Base):
+    __tablename__ = "subscription_payments"
+    id          = Column(Integer, primary_key=True, index=True)
+    clinic_id   = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    amount      = Column(Numeric(12, 2), nullable=False)
+    method      = Column(String(20), nullable=False, default="cash")
+    reference   = Column(String(200), nullable=True)
+    notes       = Column(Text, nullable=True)
+    period_from = Column(Date, nullable=True)
+    period_to   = Column(Date, nullable=True)
+    recorded_by = Column(Integer, nullable=True)
+    created_at  = Column(DateTime, server_default=func.now())
