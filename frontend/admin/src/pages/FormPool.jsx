@@ -188,8 +188,7 @@ function AssignModal({ assignModal, onClose, onAssigned, addToast }) {
   async function handleAssign() {
     setAssigning(true)
     try {
-      await api.post('/platform/pool/assign', {
-        form_id: assignModal.formId,
+      await api.post(`/assessment-forms/${assignModal.formId}/assignments`, {
         clinic_id: selectedClinic === 'all' ? null : selectedClinic,
       })
       addToast(`"${assignModal.formTitle}" assigned successfully.`, 'success')
@@ -386,7 +385,7 @@ export default function FormPool() {
 
   useEffect(() => {
     setLoading(true)
-    api.get('/platform/forms')
+    api.get('/assessment-forms/')
       .then((data) => {
         const list = Array.isArray(data) ? data : (data?.items ?? data?.results ?? [])
         setForms(list)
@@ -403,7 +402,7 @@ export default function FormPool() {
   async function handlePublish(form) {
     setActionBusy(form.id, 'publish', true)
     try {
-      await api.post(`/platform/forms/${form.id}/publish`)
+      await api.post(`/assessment-forms/${form.id}/publish`)
       setForms(prev => prev.map(f => f.id === form.id ? { ...f, status: 'published' } : f))
       addToast(`"${form.title}" published.`)
     } catch (err) {
@@ -417,7 +416,7 @@ export default function FormPool() {
     if (!window.confirm(`Retire "${form.title}"? It will no longer be assignable.`)) return
     setActionBusy(form.id, 'retire', true)
     try {
-      await api.post(`/platform/forms/${form.id}/retire`)
+      await api.post(`/assessment-forms/${form.id}/retire`)
       setForms(prev => prev.map(f => f.id === form.id ? { ...f, status: 'retired' } : f))
       addToast(`"${form.title}" retired.`)
     } catch (err) {
@@ -430,12 +429,12 @@ export default function FormPool() {
   async function handleClone(form) {
     setActionBusy(form.id, 'clone', true)
     try {
-      const cloned = await api.post(`/platform/forms/${form.id}/clone`)
+      const cloned = await api.post(`/assessment-forms/${form.id}/duplicate`)
       const newForm = cloned?.form ?? cloned?.data ?? cloned
       if (newForm?.id) {
         setForms(prev => [newForm, ...prev])
       } else {
-        const data = await api.get('/platform/forms')
+        const data = await api.get('/assessment-forms/')
         const list = Array.isArray(data) ? data : (data?.items ?? data?.results ?? [])
         setForms(list)
       }

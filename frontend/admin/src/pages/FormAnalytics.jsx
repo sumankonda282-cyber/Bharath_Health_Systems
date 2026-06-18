@@ -209,7 +209,7 @@ function FormDetailDrawer({ form, onClose, navigate }) {
     setLoading(true)
     setError('')
     api
-      .get(`/platform/forms/${form.id}`)
+      .get(`/assessment-forms/${form.id}`)
       .then((data) => {
         setDetail(data?.form ?? data?.data ?? data)
       })
@@ -566,7 +566,7 @@ export default function FormAnalytics() {
   useEffect(() => {
     setLoading(true)
     api
-      .get('/platform/forms')
+      .get('/assessment-forms/')
       .then((data) => {
         const list = Array.isArray(data) ? data : (data?.items ?? data?.results ?? [])
         setForms(list)

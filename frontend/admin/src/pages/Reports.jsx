@@ -56,7 +56,7 @@ function exportCsv(rows, columns, filename = 'report.csv') {
   const header = columns.map(c => c.label).join(',')
   const lines  = rows.map(row =>
     columns.map(c => {
-      const v = String(c.render ? c.render(row) : (row[c.key] ?? '')).replace(/"/g, '""')
+      const v = String(row[c.key] ?? '').replace(/"/g, '""')
       return `"${v}"`
     }).join(',')
   )
@@ -66,6 +66,69 @@ function exportCsv(rows, columns, filename = 'report.csv') {
   const a    = document.createElement('a')
   a.href = url; a.download = filename; a.click()
   URL.revokeObjectURL(url)
+}
+
+function getDateRange(preset) {
+  const now = new Date()
+  const today = now.toISOString().split('T')[0]
+  switch (preset) {
+    case 'today': return { from: today, to: today }
+    case 'yesterday': {
+      const d = new Date(); d.setDate(d.getDate() - 1)
+      const s = d.toISOString().split('T')[0]
+      return { from: s, to: s }
+    }
+    case 'week': {
+      const d = new Date()
+      const day = d.getDay()
+      d.setDate(d.getDate() - day + (day === 0 ? -6 : 1))
+      return { from: d.toISOString().split('T')[0], to: today }
+    }
+    case 'month': {
+      const d = new Date(now.getFullYear(), now.getMonth(), 1)
+      return { from: d.toISOString().split('T')[0], to: today }
+    }
+    case 'quarter': {
+      const d = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1)
+      return { from: d.toISOString().split('T')[0], to: today }
+    }
+    case 'year': {
+      const d = new Date(now.getFullYear(), 0, 1)
+      return { from: d.toISOString().split('T')[0], to: today }
+    }
+    default: return null
+  }
+}
+
+function exportExcel(rows, columns, filename) {
+  const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const cell = v => `<Cell><Data ss:Type="String">${esc(v)}</Data></Cell>`
+  const header = `<Row>${columns.map(c => cell(c.label)).join('')}</Row>`
+  const dataRows = rows.map(row =>
+    `<Row>${columns.map(c => cell(String(row[c.key] ?? ''))).join('')}</Row>`
+  ).join('')
+  const xml = `<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="Report"><Table>${header}${dataRows}</Table></Worksheet></Workbook>`
+  const blob = new Blob([xml], { type: 'application/vnd.ms-excel' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a'); a.href = url; a.download = filename + '.xls'; a.click()
+  URL.revokeObjectURL(url)
+}
+
+function exportPdf(rows, columns, title, dateRange) {
+  const thStyle = 'border:1px solid #ccc;padding:6px 10px;background:#f0f0f0;text-align:left;font-size:12px'
+  const tdStyle = 'border:1px solid #ccc;padding:6px 10px;font-size:12px'
+  const ths = columns.map(c => `<th style="${thStyle}">${c.label}</th>`).join('')
+  const trs = rows.map(row =>
+    `<tr>${columns.map(c => `<td style="${tdStyle}">${String(row[c.key] ?? '')}</td>`).join('')}</tr>`
+  ).join('')
+  const html = `<html><head><title>${title}</title><style>@media print{body{margin:20px}}</style></head><body>
+    <h2 style="margin-bottom:4px;font-size:16px">${title}</h2>
+    <p style="color:#666;font-size:12px;margin-bottom:14px">${dateRange}</p>
+    <table style="width:100%;border-collapse:collapse"><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>
+    <script>window.onload=function(){window.print();}<\/script>
+  </body></html>`
+  const w = window.open('', '_blank')
+  if (w) { w.document.write(html); w.document.close() }
 }
 
 function SortIcon({ active, dir }) {
@@ -164,6 +227,41 @@ function ReportTable({ columns, rows, emptyMsg = 'No data available.' }) {
             )}
           </tbody>
         </table>
+      </div>
+    </div>
+  )
+}
+
+function ExportModal({ onClose, onCsv, onExcel, onPdf }) {
+  const options = [
+    { label: 'CSV', desc: 'Comma-separated values (.csv)', action: onCsv },
+    { label: 'Excel', desc: 'Microsoft Excel format (.xls)', action: onExcel },
+    { label: 'PDF', desc: 'Print / Save as PDF', action: onPdf },
+  ]
+  return (
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-xs p-5 shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold text-white">Export Report</h2>
+          <button onClick={onClose} className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800">
+            <X size={15} />
+          </button>
+        </div>
+        <div className="space-y-2">
+          {options.map(({ label, desc, action }) => (
+            <button
+              key={label}
+              onClick={() => { action(); onClose() }}
+              className="w-full flex items-center gap-3 p-3.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl text-left transition-colors"
+            >
+              <Download size={18} className="text-gray-400 flex-shrink-0" />
+              <div>
+                <p className="text-white font-semibold text-sm">{label}</p>
+                <p className="text-gray-500 text-xs">{desc}</p>
+              </div>
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -303,6 +401,8 @@ export default function Reports() {
 
   const [openSections, setOpenSections] = useState({ financial: true, clinical: false, patient: false, operations: false, compliance: false })
   const [activeReport, setActiveReport] = useState('billing_by_plan')
+  const [quickFilter, setQuickFilter] = useState('')
+  const [showExport, setShowExport] = useState(false)
 
   const load = () => {
     setLoading(true)
@@ -311,6 +411,19 @@ export default function Reports() {
       .finally(() => setLoading(false))
   }
   useEffect(() => { load() }, [])
+
+  function applyQuickFilter(preset) {
+    setQuickFilter(preset)
+    if (!preset) return
+    const range = getDateRange(preset)
+    if (!range) return
+    setDateFrom(range.from)
+    setDateTo(range.to)
+    setLoading(true)
+    adminApi.getReports({ date_from: range.from, date_to: range.to })
+      .then(d => setData(d))
+      .finally(() => setLoading(false))
+  }
 
   function toggleSection(key) {
     setOpenSections(prev => ({ ...prev, [key]: !prev[key] }))
@@ -324,19 +437,32 @@ export default function Reports() {
       {/* Single control line */}
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="text-base font-bold text-white flex-1">Reports</h1>
+        <select
+          value={quickFilter}
+          onChange={e => applyQuickFilter(e.target.value)}
+          className="bg-gray-900 border border-gray-800 text-gray-300 text-xs rounded-lg px-2.5 py-1.5 outline-none focus:border-gray-600"
+        >
+          <option value="">Quick Filter</option>
+          <option value="today">Today</option>
+          <option value="yesterday">Yesterday</option>
+          <option value="week">This Week</option>
+          <option value="month">This Month</option>
+          <option value="quarter">This Quarter</option>
+          <option value="year">This Year</option>
+        </select>
         <div className="flex items-center gap-1.5 bg-gray-900 border border-gray-800 rounded-lg px-2.5 py-1.5">
           <Calendar size={12} className="text-gray-500" />
           <input
             type="date"
             value={dateFrom}
-            onChange={e => setDateFrom(e.target.value)}
+            onChange={e => { setDateFrom(e.target.value); setQuickFilter('') }}
             className="bg-transparent text-xs text-white outline-none w-28"
           />
           <span className="text-gray-600 text-xs">–</span>
           <input
             type="date"
             value={dateTo}
-            onChange={e => setDateTo(e.target.value)}
+            onChange={e => { setDateTo(e.target.value); setQuickFilter('') }}
             className="bg-transparent text-xs text-white outline-none w-28"
           />
         </div>
@@ -348,11 +474,11 @@ export default function Reports() {
         </button>
         {data && def && rows.length > 0 && (
           <button
-            onClick={() => exportCsv(rows, def.columns, `${activeReport}.csv`)}
+            onClick={() => setShowExport(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 border border-gray-800 hover:bg-gray-800 text-gray-300 hover:text-white text-xs font-medium rounded-lg transition-colors"
           >
             <Download size={12} />
-            Export CSV
+            Export
           </button>
         )}
       </div>
@@ -417,6 +543,15 @@ export default function Reports() {
           ) : null}
         </div>
       </div>
+
+      {showExport && def && (
+        <ExportModal
+          onClose={() => setShowExport(false)}
+          onCsv={() => exportCsv(rows, def.columns, `${activeReport}.csv`)}
+          onExcel={() => exportExcel(rows, def.columns, activeReport)}
+          onPdf={() => exportPdf(rows, def.columns, def.title, `${dateFrom} → ${dateTo}`)}
+        />
+      )}
     </div>
   )
 }

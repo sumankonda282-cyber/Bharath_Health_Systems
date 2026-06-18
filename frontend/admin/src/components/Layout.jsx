@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import {
   LayoutDashboard, Clock, Building2, ShieldCheck,
   ClipboardList, BarChart3, LogOut, Menu, X, Search, CreditCard, Hospital,
-  FileText, Users, Bell, RefreshCw, PlusCircle, ChevronDown
+  FileText, Users, Bell, RefreshCw, PlusCircle, ChevronDown, ChevronLeft
 } from 'lucide-react'
 import api from '../api/client'
 import BrandLogo from './BrandLogo'
@@ -42,7 +42,7 @@ function getInitials(email) {
   return email.slice(0, 2).toUpperCase()
 }
 
-function Sidebar({ onClose, expanded = true }) {
+function Sidebar({ onClose, expanded = true, onToggle }) {
   return (
     <aside className={`flex flex-col h-full bg-gray-900 border-r border-gray-800 overflow-hidden transition-[width] duration-200 ease-in-out flex-shrink-0 ${expanded ? 'w-56' : 'w-11'}`}>
       <div className={`border-b border-gray-800 flex items-center overflow-hidden transition-all duration-200 ${expanded ? 'px-4 py-4 justify-between' : 'px-2 py-4 justify-center'}`}>
@@ -54,13 +54,23 @@ function Sidebar({ onClose, expanded = true }) {
             </div>
           </div>
         ) : (
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(245,130,30,0.15)' }}>
+          <button
+            onClick={onToggle}
+            className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 hover:opacity-75 transition-opacity"
+            style={{ background: 'rgba(245,130,30,0.15)' }}
+            title="Expand sidebar"
+          >
             <span className="text-[9px] font-black" style={{ color: '#F5821E' }}>BC</span>
-          </div>
+          </button>
         )}
         {onClose && expanded && (
           <button onClick={onClose} className="md:hidden text-gray-500 hover:text-white">
             <X size={20} />
+          </button>
+        )}
+        {!onClose && onToggle && expanded && (
+          <button onClick={onToggle} className="text-gray-500 hover:text-white transition-colors" title="Collapse sidebar">
+            <ChevronLeft size={18} />
           </button>
         )}
       </div>
@@ -229,7 +239,7 @@ function ProfileDropdown() {
 
 export default function Layout() {
   const [open, setOpen] = useState(false)
-  const [sidebarExpanded, setSidebarExpanded] = useState(false)
+  const [sidebarPinned, setSidebarPinned] = useState(false)
   const location = useLocation()
   const pageTitle = PAGE_TITLES[location.pathname] || ''
 
@@ -243,12 +253,8 @@ export default function Layout() {
       <div className={`fixed inset-y-0 left-0 z-50 md:hidden transition-transform duration-300 ${open ? 'translate-x-0' : '-translate-x-full'}`}>
         <Sidebar onClose={() => setOpen(false)} expanded={true} />
       </div>
-      <div
-        className="hidden md:flex flex-shrink-0"
-        onMouseEnter={() => setSidebarExpanded(true)}
-        onMouseLeave={() => setSidebarExpanded(false)}
-      >
-        <Sidebar expanded={sidebarExpanded} />
+      <div className="hidden md:flex flex-shrink-0">
+        <Sidebar expanded={sidebarPinned} onToggle={() => setSidebarPinned(v => !v)} />
       </div>
       <main className="flex-1 overflow-y-auto">
         {/* Mobile header */}
@@ -284,6 +290,9 @@ export default function Layout() {
             <PlusCircle size={14} />
             <span className="hidden lg:inline">Register</span>
           </a>
+          <button onClick={() => window.location.reload()} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-800" title="Refresh">
+            <RefreshCw size={18} />
+          </button>
           <FeedbackBell />
           <ProfileDropdown />
         </div>
