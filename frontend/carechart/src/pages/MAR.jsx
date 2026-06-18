@@ -202,12 +202,14 @@ function AdminPanel({ med, slot, dose, onClose, onSave, admissionId }) {
   const [pinStep, setPinStep] = useState(false)
   const [done, setDone]     = useState(false)
   const [loading, setLoading] = useState(false)
+  const [submitError, setSubmitError] = useState('')
 
   const isIV  = (med?.route || '').toUpperCase() === 'IV'
   const set   = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
   const submit = async () => {
     setLoading(true)
+    setSubmitError('')
     try {
       await api.post(`/inpatient/admissions/${admissionId}/medications/${med.id}/administer`, {
         ...form, pin,
@@ -215,10 +217,13 @@ function AdminPanel({ med, slot, dose, onClose, onSave, admissionId }) {
       })
       setDone(true)
       setTimeout(() => { onSave(); onClose() }, 1000)
-    } catch {
-      setDone(true)
-      setTimeout(() => { onSave(); onClose() }, 1000)
-    } finally { setLoading(false) }
+    } catch (err) {
+      setSubmitError(err.message || 'Failed to record. Please try again.')
+      setPinStep(false)
+      setPin('')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const SITES  = ['PIVC Left arm', 'PIVC Right arm', 'CVC', 'PICC', 'Port', 'IM Deltoid L', 'IM Deltoid R', 'SC Abdomen', 'Oral']
@@ -325,6 +330,13 @@ function AdminPanel({ med, slot, dose, onClose, onSave, admissionId }) {
                 placeholder="Additional notes…" rows={2}
                 className="border rounded-lg px-2.5 py-1.5 text-xs resize-none focus:outline-none mt-1"
                 style={{ borderColor: '#d1d5db' }} />
+            </div>
+          )}
+
+          {submitError && (
+            <div className="px-3 py-2 rounded-lg text-[11px] font-semibold text-red-700"
+              style={{ background: '#fef2f2', border: '1px solid #fecaca' }}>
+              {submitError}
             </div>
           )}
 
@@ -480,7 +492,7 @@ export default function MAR({ admission }) {
   const [meds, setMeds]         = useState([])
   const [loading, setLoading]   = useState(true)
   const [date, setDate]         = useState(new Date())
-  const [interval, setInterval] = useState(2)
+  const [colInterval, setColInterval] = useState(2)
   const [now, setNow]           = useState(new Date())
   const [panel, setPanel]       = useState(null) // { med, slot, dose }
   const [shiftMenu, setShiftMenu] = useState(false)
@@ -488,8 +500,8 @@ export default function MAR({ admission }) {
 
   // Tick every minute
   useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 60000)
-    return () => clearInterval(t)
+    const t = window.setInterval(() => setNow(new Date()), 60000)
+    return () => window.clearInterval(t)
   }, [])
 
   const load = useCallback(async () => {
@@ -503,13 +515,14 @@ export default function MAR({ admission }) {
       setMeds(list.length ? list : buildMock(date))
     } catch {
       setMeds(buildMock(date))
-    } finally { setLoading(false) }
+    } finally {
+      setLoading(false)
+    }
   }, [admissionId, date])
 
   useEffect(() => { load() }, [load])
 
-  const slots = buildMock ? buildSlots(date, interval) : []
-  const builtSlots = buildSlots(date, interval)
+  const builtSlots = buildSlots(date, colInterval)
 
   // Group meds
   const continuous = meds.filter(m => m.status === 'continuous')
@@ -540,16 +553,14 @@ export default function MAR({ admission }) {
   // Current time column position
   const dayStart  = startOfDay(date)
   const nowOffset = (now - dayStart) / 3600000
-  const colW      = cellWidth(interval)
-  const nowLeft   = (nowOffset / interval) * colW + 210 // 210 = left panel width
+  const colW      = cellWidth(colInterval)
+  const nowLeft   = (nowOffset / colInterval) * colW + 210 // 210 = left panel width
 
   const jumpShift = (shift) => {
-    const d = new Date(date)
-    d.setHours(shift === 'morning' ? 6 : shift === 'evening' ? 14 : 22, 0, 0, 0)
     if (tableRef.current) {
-      const pxPerHour = colW / interval
-      const scrollTo  = (shift === 'morning' ? 6 : shift === 'evening' ? 14 : 22) * pxPerHour - 210
-      tableRef.current.scrollLeft = Math.max(0, scrollTo)
+      const pxPerHour = colW / colInterval
+      const startHour = shift === 'morning' ? 6 : shift === 'evening' ? 14 : 22
+      tableRef.current.scrollLeft = Math.max(0, startHour * pxPerHour - 210)
     }
     setShiftMenu(false)
   }
@@ -580,7 +591,7 @@ export default function MAR({ admission }) {
               </td>
             ) : (
               builtSlots.map((slot, si) => (
-                <Cell key={si} med={med} slot={slot} now={now} intervalHours={interval}
+                <Cell key={si} med={med} slot={slot} now={now} intervalHours={colInterval}
                   onClick={(m, s, d) => setPanel({ med: m, slot: s, dose: d })} />
               ))
             )}
@@ -622,9 +633,9 @@ export default function MAR({ admission }) {
           <div className="flex items-center gap-1">
             <span className="text-[10px] text-gray-400 font-semibold mr-1">Interval</span>
             {INTERVALS.map(h => (
-              <button key={h} onClick={() => setInterval(h)}
+              <button key={h} onClick={() => setColInterval(h)}
                 className="px-2 py-0.5 rounded-md text-[10px] font-bold border transition-all"
-                style={interval === h
+                style={colInterval === h
                   ? { background: '#f0fdf4', color: GREEN, borderColor: '#d1fae5' }
                   : { background: 'white', color: '#9ca3af', borderColor: '#e5e7eb' }}>
                 {h}h
@@ -727,7 +738,7 @@ export default function MAR({ admission }) {
                       className="border-r border-b text-center text-[9px] font-semibold text-gray-400 py-1"
                       style={{ borderColor: '#f0f0f0', minWidth: colW, width: colW }}>
                       {slot.label}
-                      {interval >= 4 && (
+                      {colInterval >= 4 && (
                         <span className="block text-[8px] opacity-60">–{slot.endLabel}</span>
                       )}
                     </th>
