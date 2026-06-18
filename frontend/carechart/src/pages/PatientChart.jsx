@@ -241,35 +241,50 @@ function ComingSoon({ label }) {
   )
 }
 
-// ── Assessment panel ─────────────────────────────────────────────────────────
-function AssessmentPanel({ admissionId }) {
+// ── Full-page assessment form modal ──────────────────────────────────────────
+function AssessmentFullPageModal({ form, admissionId, patientName, onClose }) {
   const { requestPin } = usePin()
-  const [pinned, setPinned]         = useState(['Vital Signs', 'MAR Quick Entry', 'Pain Score', 'Fluid Balance'])
-  const [poolSearch, setPoolSearch] = useState('')
-  const [activeForm, setActiveForm] = useState(null)  // form name string
-  const [pinSearch, setPinSearch]   = useState('')
-  const [showPinSearch, setShowPinSearch] = useState(false)
+
+  // PIN gate state
+  const [signer, setSigner]     = useState(null)   // { staff_id, full_name, verified_at }
+  const [verifying, setVerifying] = useState(false)
+  const [saved, setSaved]       = useState(false)
+
+  // Simple-form state (for forms without a registry key)
   const [simpleValue, setSimpleValue] = useState('')
   const [simpleNotes, setSimpleNotes] = useState('')
   const [simpleError, setSimpleError] = useState('')
   const [simpleSaving, setSimpleSaving] = useState(false)
 
-  const submitSimpleForm = async () => {
+  const formKey = form?.key ? FORM_KEY_MAP[form.name] || form.key : null
+
+  const verifyPin = async () => {
+    setVerifying(true)
+    try {
+      const identity = await requestPin(`Open form: ${form.name} — ${patientName || ''}`)
+      if (identity?.verified) {
+        setSigner({ staff_id: identity.staff_id, full_name: identity.full_name, verified_at: new Date() })
+      }
+    } finally {
+      setVerifying(false)
+    }
+  }
+
+  const submitSimple = async () => {
+    if (!simpleValue.trim()) return
     setSimpleError('')
     setSimpleSaving(true)
     try {
-      const identity = await requestPin(`Sign: ${activeForm}`)
-      if (!identity?.verified) { setSimpleSaving(false); return }
       await api.post(`/inpatient/admissions/${admissionId}/nursing-entries`, {
-        form_name: activeForm,
+        form_name: form.name,
         value: simpleValue,
         notes: simpleNotes,
-        signed_by: identity.staff_id,
-        signer_name: identity.full_name,
+        signed_by: signer.staff_id,
+        signer_name: signer.full_name,
+        signed_at: signer.verified_at.toISOString(),
       })
-      setActiveForm(null)
-      setSimpleValue('')
-      setSimpleNotes('')
+      setSaved(true)
+      setTimeout(onClose, 1200)
     } catch (err) {
       setSimpleError(err.message || 'Failed to save. Try again.')
     } finally {
@@ -277,7 +292,169 @@ function AssessmentPanel({ admissionId }) {
     }
   }
 
-  // FORM_POOL is now [{name, key?}] — flatten to names for search/pin operations
+  const onFormSaved = () => {
+    setSaved(true)
+    setTimeout(onClose, 1200)
+  }
+
+  const fmtTime = (d) => d
+    ? d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
+    : ''
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ background: 'rgba(15,37,87,0.6)' }}>
+      <div className="flex flex-col w-full h-full bg-white overflow-hidden">
+
+        {/* Modal header */}
+        <div className="flex-shrink-0 flex items-center justify-between px-6 py-3.5 border-b shadow-sm"
+          style={{ background: NAVY, borderColor: '#1e3a6e' }}>
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-blue-300">
+              Assessment Form
+            </span>
+            <span className="text-lg font-extrabold text-white leading-tight">{form.name}</span>
+            {patientName && (
+              <span className="text-[11px] text-blue-200">Patient: {patientName}</span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* Signature badge — shown after PIN verified */}
+            {signer ? (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-xl border"
+                style={{ background: '#f0fdf4', borderColor: '#86efac' }}>
+                <CheckCircle size={14} style={{ color: GREEN }} />
+                <div className="flex flex-col">
+                  <span className="text-[11px] font-bold" style={{ color: GREEN }}>
+                    {signer.full_name}
+                  </span>
+                  <span className="text-[9px] text-gray-500">
+                    Verified {fmtTime(signer.verified_at)}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-yellow-400"
+                style={{ background: '#fefce8' }}>
+                <Lock size={13} className="text-yellow-600" />
+                <span className="text-[11px] font-semibold text-yellow-700">PIN required to sign</span>
+              </div>
+            )}
+
+            {saved && (
+              <span className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-lg"
+                style={{ background: '#f0fdf4', color: GREEN }}>
+                <CheckCircle size={12} /> Saved
+              </span>
+            )}
+
+            <button onClick={onClose}
+              className="w-8 h-8 flex items-center justify-center rounded-lg text-blue-300 hover:text-white hover:bg-white/10 transition-colors">
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+
+        {/* PIN gate — shown until verified */}
+        {!signer ? (
+          <div className="flex-1 flex flex-col items-center justify-center gap-5 p-8">
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
+              style={{ background: '#f0fdf4' }}>
+              <Lock size={28} style={{ color: GREEN }} />
+            </div>
+            <div className="text-center">
+              <p className="text-base font-bold text-gray-800">Verify your identity to open this form</p>
+              <p className="text-sm text-gray-500 mt-1">
+                Enter your PIN to unlock <span className="font-semibold text-gray-700">{form.name}</span>
+              </p>
+            </div>
+            <button
+              onClick={verifyPin}
+              disabled={verifying}
+              className="flex items-center gap-2 px-8 py-3 rounded-xl text-sm font-bold text-white disabled:opacity-60"
+              style={{ background: GREEN }}>
+              <Lock size={14} />
+              {verifying ? 'Verifying…' : 'Enter PIN & Open Form'}
+            </button>
+          </div>
+        ) : (
+          /* Form content — shown after PIN verified */
+          <div className="flex-1 overflow-y-auto">
+            {formKey ? (
+              <div className="max-w-4xl mx-auto px-6 py-6">
+                <FormRenderer
+                  formKey={formKey}
+                  patientId={null}
+                  encounterId={admissionId}
+                  onSaved={onFormSaved}
+                />
+              </div>
+            ) : (
+              /* Simple entry form */
+              <div className="max-w-xl mx-auto px-6 py-10 flex flex-col gap-4">
+                <div>
+                  <label className="text-xs font-bold text-gray-600 uppercase tracking-wider">
+                    Value / Observation
+                  </label>
+                  <textarea
+                    rows={4}
+                    placeholder="Enter value or observation…"
+                    value={simpleValue}
+                    onChange={e => { setSimpleValue(e.target.value); setSimpleError('') }}
+                    className="mt-2 w-full border rounded-xl px-4 py-3 text-sm focus:outline-none resize-none"
+                    style={{ borderColor: '#d1d5db' }}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-600 uppercase tracking-wider">
+                    Notes (optional)
+                  </label>
+                  <textarea
+                    rows={3}
+                    placeholder="Additional notes…"
+                    value={simpleNotes}
+                    onChange={e => setSimpleNotes(e.target.value)}
+                    className="mt-2 w-full border rounded-xl px-4 py-3 text-sm focus:outline-none resize-none"
+                    style={{ borderColor: '#d1d5db' }}
+                  />
+                </div>
+                {simpleError && <p className="text-sm text-red-600">{simpleError}</p>}
+                <button
+                  onClick={submitSimple}
+                  disabled={!simpleValue.trim() || simpleSaving || saved}
+                  className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-bold text-white disabled:opacity-50"
+                  style={{ background: GREEN }}>
+                  <Save size={14} />
+                  {saved ? 'Saved ✓' : simpleSaving ? 'Saving…' : 'Save Entry'}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Footer — signature footer when form is open */}
+        {signer && (
+          <div className="flex-shrink-0 border-t px-6 py-3 flex items-center gap-3"
+            style={{ borderColor: '#e9eaec', background: '#f9fafb' }}>
+            <CheckCircle size={13} style={{ color: GREEN }} />
+            <span className="text-xs text-gray-500">
+              Signed by <span className="font-semibold text-gray-800">{signer.full_name}</span>
+              {' '}· Verified {fmtTime(signer.verified_at)} · {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Assessment panel (search + browse only — forms open full-page) ─────────────
+function AssessmentPanel({ admissionId, patientName, onOpenForm }) {
+  const [pinned, setPinned]         = useState(['Vital Signs', 'MAR Quick Entry', 'Pain Score', 'Fluid Balance'])
+  const [poolSearch, setPoolSearch] = useState('')
+  const [pinSearch, setPinSearch]   = useState('')
+  const [showPinSearch, setShowPinSearch] = useState(false)
+
   const filteredPool = FORM_POOL.filter(f =>
     f.name.toLowerCase().includes(poolSearch.toLowerCase()) && !pinned.includes(f.name)
   )
@@ -285,23 +462,13 @@ function AssessmentPanel({ admissionId }) {
     f.name.toLowerCase().includes(pinSearch.toLowerCase()) && !pinned.includes(f.name)
   )
 
-  const addPin = (name) => { setPinned(p => [...p, name]); setShowPinSearch(false); setPinSearch('') }
-  const removePin = (name) => { setPinned(p => p.filter(x => x !== name)); if (activeForm === name) setActiveForm(null) }
-
-  const openForm = (name) => {
-    setActiveForm(name === activeForm ? null : name)
-    setSimpleValue('')
-    setSimpleNotes('')
-    setSimpleError('')
-  }
-
-  // Look up registry key for active form (may be undefined for simple forms)
-  const activeFormKey = activeForm ? FORM_KEY_MAP[activeForm] : null
+  const addPin  = (name) => { setPinned(p => [...p, name]); setShowPinSearch(false); setPinSearch('') }
+  const removePin = (name) => setPinned(p => p.filter(x => x !== name))
 
   return (
     <div className="flex flex-col h-full overflow-hidden" style={{ background: '#fafaf9' }}>
 
-      {/* Pinned forms section */}
+      {/* Pinned forms */}
       <div className="flex-shrink-0 border-b" style={{ borderColor: '#e9eaec' }}>
         <div className="flex items-center justify-between px-3 py-2.5 border-b" style={{ borderColor: '#f0f0f0' }}>
           <div className="flex items-center gap-1.5">
@@ -338,92 +505,34 @@ function AssessmentPanel({ admissionId }) {
           </div>
         )}
 
-        {/* Pinned form chips — multi-row wrap */}
+        {/* Pinned chips — clicking opens full-page form */}
         <div className="px-3 py-2.5 flex flex-wrap gap-1.5">
-          {pinned.map(f => (
-            <div key={f}
-              className="group flex items-center gap-1 px-2 py-1 rounded-lg border cursor-pointer transition-all text-[10px] font-semibold"
-              style={{
-                borderColor: activeForm === f ? GREEN : '#d1fae5',
-                background: activeForm === f ? '#f0fdf4' : 'white',
-                color: activeForm === f ? GREEN : '#374151',
-              }}
-              onClick={() => openForm(f)}>
-              {f}
-              {FORM_KEY_MAP[f] && <span className="text-[8px] text-green-400">●</span>}
-              <button onClick={e => { e.stopPropagation(); removePin(f) }}
-                className="opacity-0 group-hover:opacity-100 transition-opacity ml-0.5 text-gray-400 hover:text-red-400">
-                <X size={9} />
-              </button>
-            </div>
-          ))}
+          {pinned.map(name => {
+            const form = FORM_POOL.find(f => f.name === name) || { name }
+            return (
+              <div key={name}
+                className="group flex items-center gap-1 px-2 py-1 rounded-lg border cursor-pointer transition-all text-[10px] font-semibold hover:border-green-400 hover:bg-green-50"
+                style={{ borderColor: '#d1fae5', background: 'white', color: '#374151' }}
+                onClick={() => onOpenForm(form)}>
+                {name}
+                {form.key && <span className="text-[8px] text-green-400">●</span>}
+                <button onClick={e => { e.stopPropagation(); removePin(name) }}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity ml-0.5 text-gray-400 hover:text-red-400">
+                  <X size={9} />
+                </button>
+              </div>
+            )
+          })}
           {pinned.length === 0 && (
             <span className="text-[10px] text-gray-400 italic">No forms pinned — click + Pin to add</span>
           )}
         </div>
-
-        {/* Active form — JSX component if registered, simple entry otherwise */}
-        {activeForm && (
-          activeFormKey ? (
-            <div className="mx-3 mb-3 rounded-xl border bg-white overflow-hidden"
-              style={{ borderColor: '#d1fae5' }}>
-              <div className="flex items-center justify-between px-3 py-2 border-b" style={{ borderColor: '#e9eaec' }}>
-                <span className="text-xs font-bold text-gray-800">{activeForm}</span>
-                <button onClick={() => setActiveForm(null)} className="text-gray-400 hover:text-gray-600">
-                  <X size={12} />
-                </button>
-              </div>
-              <div className="overflow-y-auto max-h-[60vh] p-1">
-                <FormRenderer
-                  formKey={activeFormKey}
-                  patientId={null}
-                  encounterId={admissionId}
-                  onSaved={() => setActiveForm(null)}
-                />
-              </div>
-            </div>
-          ) : (
-            <div className="mx-3 mb-3 p-3 rounded-xl border bg-white"
-              style={{ borderColor: '#d1fae5' }}>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold text-gray-800">{activeForm}</span>
-                <button onClick={() => setActiveForm(null)} className="text-gray-400 hover:text-gray-600">
-                  <X size={12} />
-                </button>
-              </div>
-              <div className="flex flex-col gap-2">
-                <input placeholder="Value / observation…"
-                  value={simpleValue}
-                  onChange={e => { setSimpleValue(e.target.value); setSimpleError('') }}
-                  className="w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none"
-                  style={{ borderColor: '#d1d5db' }} />
-                <input placeholder="Notes (optional)"
-                  value={simpleNotes}
-                  onChange={e => setSimpleNotes(e.target.value)}
-                  className="w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none"
-                  style={{ borderColor: '#d1d5db' }} />
-                {simpleError && (
-                  <p className="text-[10px] text-red-600">{simpleError}</p>
-                )}
-                <button
-                  onClick={submitSimpleForm}
-                  disabled={!simpleValue.trim() || simpleSaving}
-                  className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded-lg text-xs font-bold text-white disabled:opacity-50"
-                  style={{ background: GREEN }}>
-                  <Lock size={10} />
-                  {simpleSaving ? 'Saving…' : 'Submit (PIN required)'}
-                </button>
-              </div>
-            </div>
-          )
-        )}
       </div>
 
-      {/* Pool search section */}
+      {/* Browse all forms */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="flex items-center justify-between px-3 py-2.5 border-b flex-shrink-0"
-          style={{ borderColor: '#f0f0f0' }}>
-          <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">All Forms</span>
+        <div className="px-3 pt-2.5 pb-1 flex-shrink-0">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">All Forms</span>
         </div>
         <div className="px-3 py-2 flex-shrink-0">
           <div className="relative">
@@ -437,21 +546,24 @@ function AssessmentPanel({ admissionId }) {
         <div className="flex-1 overflow-y-auto px-3 pb-3 flex flex-col gap-1">
           {filteredPool.map(f => (
             <div key={f.name}
-              className="flex items-center justify-between px-2.5 py-2 rounded-lg border bg-white hover:border-green-300 cursor-pointer transition-colors group"
+              className="flex items-center justify-between px-2.5 py-2 rounded-lg border bg-white hover:border-green-300 hover:bg-green-50 cursor-pointer transition-colors group"
               style={{ borderColor: '#f0f0f0' }}
-              onClick={() => openForm(f.name)}>
+              onClick={() => onOpenForm(f)}>
               <div className="flex items-center gap-1.5 min-w-0">
                 <span className="text-[11px] text-gray-700 group-hover:text-gray-900 truncate">{f.name}</span>
                 {f.key && <span className="text-[8px] text-green-500 flex-shrink-0" title="Rich clinical form">●</span>}
               </div>
-              <button onClick={e => { e.stopPropagation(); addPin(f.name) }}
-                className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-green-600 flex-shrink-0">
-                <Pin size={10} />
-              </button>
+              <div className="flex items-center gap-1.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button onClick={e => { e.stopPropagation(); addPin(f.name) }}
+                  className="text-gray-400 hover:text-green-600" title="Pin">
+                  <Pin size={10} />
+                </button>
+                <ChevronDown size={10} className="text-gray-300 -rotate-90" />
+              </div>
             </div>
           ))}
           {filteredPool.length === 0 && poolSearch && (
-            <p className="text-[10px] text-gray-400 text-center mt-4">No forms match "{poolSearch}"</p>
+            <p className="text-[10px] text-gray-400 text-center mt-4">No forms match &ldquo;{poolSearch}&rdquo;</p>
           )}
         </div>
       </div>
@@ -807,6 +919,7 @@ export default function PatientChart() {
   const [loading, setLoading]     = useState(true)
   const [activeNav, setNav]       = useState('dashboard')
   const [headerExpanded, setHeaderExpanded] = useState(false)
+  const [openForm, setOpenForm]   = useState(null)  // { name, key? } | null
 
   const load = useCallback(async () => {
     if (!id) return
@@ -836,6 +949,14 @@ export default function PatientChart() {
 
   return (
     <div className="flex flex-col h-full" style={{ background: '#f4f5f7' }}>
+      {openForm && (
+        <AssessmentFullPageModal
+          form={openForm}
+          admissionId={id}
+          patientName={adm.patient_name}
+          onClose={() => setOpenForm(null)}
+        />
+      )}
 
       {/* ── Sticky patient header ── */}
       <div className="bg-white border-b flex-shrink-0 shadow-sm" style={{ borderColor: '#e9eaec' }}>
@@ -1017,7 +1138,11 @@ export default function PatientChart() {
         {activeNav !== 'medications' && activeNav !== 'mar' && activeNav !== 'orders' && activeNav !== 'food' && activeNav !== 'docs' && activeNav !== 'preop' && activeNav !== 'flowsheet' && activeNav !== 'discharge' && activeNav !== 'notes' && (
           <div className="flex-shrink-0 border-l overflow-hidden flex flex-col"
             style={{ width: 272, borderColor: '#e9eaec' }}>
-            <AssessmentPanel admissionId={id} />
+            <AssessmentPanel
+              admissionId={id}
+              patientName={adm.patient_name}
+              onOpenForm={setOpenForm}
+            />
           </div>
         )}
       </div>
