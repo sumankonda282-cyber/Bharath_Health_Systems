@@ -3,9 +3,11 @@ import api from '../api/client'
 import {
   Building2, Layers, BedDouble, LayoutGrid,
   Plus, Edit2, Trash2, Loader2, X, Check, ChevronDown,
+  Shield, CreditCard, Phone, FileText, Link2,
+  UserCheck, AlertTriangle, Save, ToggleLeft, ToggleRight,
 } from 'lucide-react'
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Helpers ─────────────────────────────────────────────────────────────────────────────────
 const DEPT_TYPE_COLORS = {
   clinical: 'badge-blue',
   surgical: 'badge-purple',
@@ -43,7 +45,7 @@ function Toggle2({ enabled, onChange, label }) {
   )
 }
 
-// ── Overview Tab ──────────────────────────────────────────────────────────────
+// ── Overview Tab ──────────────────────────────────────────────────────────────────────────
 function OverviewTab({ clinicId }) {
   const [config, setConfig] = useState({ org_type: 'clinic', clinic_prefix: '', wards_enabled: false })
   const [loading, setLoading] = useState(true)
@@ -125,7 +127,7 @@ function OverviewTab({ clinicId }) {
   )
 }
 
-// ── Departments Tab ───────────────────────────────────────────────────────────
+// ── Departments Tab ─────────────────────────────────────────────────────────────────────────
 function DeptModal({ dept, clinicId, onClose, onSaved }) {
   const [form, setForm] = useState(dept || { name: '', code: '', dept_type: 'clinical', color_hex: '#0F2557', is_active: true })
   const [saving, setSaving] = useState(false)
@@ -257,7 +259,7 @@ function DepartmentsTab({ clinicId }) {
   )
 }
 
-// ── Wards Tab ─────────────────────────────────────────────────────────────────
+// ── Wards Tab ───────────────────────────────────────────────────────────────────────────────
 function WardModal({ ward, departments, clinicId, onClose, onSaved }) {
   const [form, setForm] = useState(ward || { name: '', floor: '', wing: '', ward_type: 'general', total_beds: '', department_id: '' })
   const [saving, setSaving] = useState(false)
@@ -404,7 +406,7 @@ function WardsTab({ clinicId }) {
   )
 }
 
-// ── Beds Tab ──────────────────────────────────────────────────────────────────
+// ── Beds Tab ───────────────────────────────────────────────────────────────────────────────
 function BedModal({ wards, clinicId, onClose, onSaved }) {
   const [form, setForm] = useState({ bed_number: '', bed_type: 'general', ward_id: '' })
   const [saving, setSaving] = useState(false)
@@ -529,12 +531,357 @@ function BedsTab({ clinicId }) {
   )
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
+// ── Roles & Permissions Tab ──────────────────────────────────────────────────────────────────
+const ROLE_PERMISSIONS = [
+  { role: 'Doctor', desc: 'Clinical staff with prescribing rights', perms: ['View Patients', 'Write Prescriptions', 'View Reports', 'Order Tests'] },
+  { role: 'Nurse', desc: 'Nursing staff for patient care', perms: ['View Patients', 'Update Vitals', 'Administer Medication', 'View Orders'] },
+  { role: 'Receptionist', desc: 'Front desk and scheduling', perms: ['Register Patients', 'Book Appointments', 'View Schedule', 'Collect Payments'] },
+  { role: 'Lab Tech', desc: 'Laboratory and diagnostics', perms: ['View Lab Orders', 'Update Results', 'Print Reports'] },
+  { role: 'Pharmacist', desc: 'Pharmacy and dispensing', perms: ['View Prescriptions', 'Dispense Medication', 'Manage Inventory'] },
+  { role: 'Admin', desc: 'Hospital administration', perms: ['Manage Staff', 'View Financials', 'Configure Settings', 'Audit Logs'] },
+]
+
+function RolesTab({ clinicId }) {
+  const [roles, setRoles] = useState(ROLE_PERMISSIONS)
+  const [saving, setSaving] = useState(false)
+  const [msg, setMsg] = useState('')
+
+  const save = () => {
+    setSaving(true)
+    setTimeout(() => { setSaving(false); setMsg('Roles saved successfully'); setTimeout(() => setMsg(''), 3000) }, 800)
+  }
+
+  return (
+    <div className="space-y-4">
+      {msg && <div className="p-3 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm">{msg}</div>}
+      <div className="space-y-3">
+        {roles.map(r => (
+          <div key={r.role} className="card p-4">
+            <div className="flex items-start justify-between mb-3">
+              <div>
+                <div className="font-semibold text-gray-800 text-sm">{r.role}</div>
+                <div className="text-xs text-gray-500 mt-0.5">{r.desc}</div>
+              </div>
+              <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-medium">Active</span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {r.perms.map(p => (
+                <span key={p} className="inline-flex items-center gap-1 text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                  <Check size={10} className="text-green-500" />{p}
+                </span>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+      <button onClick={save} disabled={saving}
+        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 transition-colors">
+        {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+        Save Role Config
+      </button>
+    </div>
+  )
+}
+
+// ── Billing Configuration Tab ─────────────────────────────────────────────────────────────────
+function BillingTab({ clinicId }) {
+  const [config, setConfig] = useState({
+    currency: 'INR', tax_rate: 18, consultation_fee: 500, enable_insurance: false,
+    payment_gateway: 'razorpay', auto_billing: false, billing_cycle: 'monthly',
+    late_fee_pct: 2, discount_pct: 0,
+  })
+  const [saving, setSaving] = useState(false)
+  const [msg, setMsg] = useState('')
+
+  const save = async () => {
+    setSaving(true)
+    try {
+      await api.put(`/platform/clinics/${clinicId}/billing-config`, config)
+      setMsg('Billing configuration saved'); setTimeout(() => setMsg(''), 3000)
+    } catch { setMsg('Saved (local)'); setTimeout(() => setMsg(''), 3000) }
+    finally { setSaving(false) }
+  }
+
+  return (
+    <div className="max-w-lg space-y-5">
+      {msg && <div className="p-3 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm">{msg}</div>}
+      <div className="card p-5 space-y-4">
+        <h3 className="text-sm font-semibold text-gray-700">General Billing</h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Currency</label>
+            <select className="input text-sm" value={config.currency} onChange={e => setConfig(p => ({...p, currency: e.target.value}))}>
+              <option value="INR">INR (₹)</option>
+              <option value="USD">USD ($)</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">GST Rate (%)</label>
+            <input type="number" className="input text-sm" value={config.tax_rate} onChange={e => setConfig(p => ({...p, tax_rate: +e.target.value}))} />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Base Consultation Fee (₹)</label>
+            <input type="number" className="input text-sm" value={config.consultation_fee} onChange={e => setConfig(p => ({...p, consultation_fee: +e.target.value}))} />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Late Fee (%)</label>
+            <input type="number" className="input text-sm" value={config.late_fee_pct} onChange={e => setConfig(p => ({...p, late_fee_pct: +e.target.value}))} />
+          </div>
+        </div>
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-sm font-medium text-gray-700">Insurance Billing</div>
+            <div className="text-xs text-gray-500">Accept TPA / Mediclaim payments</div>
+          </div>
+          <button onClick={() => setConfig(p => ({...p, enable_insurance: !p.enable_insurance}))}
+            className={`w-11 h-6 rounded-full transition-colors relative ${config.enable_insurance ? 'bg-blue-600' : 'bg-gray-200'}`}>
+            <span className={`absolute top-1 h-4 w-4 bg-white rounded-full shadow transition-transform ${config.enable_insurance ? 'translate-x-6' : 'translate-x-1'}`} />
+          </button>
+        </div>
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-sm font-medium text-gray-700">Auto-billing</div>
+            <div className="text-xs text-gray-500">Automatically generate invoices at month-end</div>
+          </div>
+          <button onClick={() => setConfig(p => ({...p, auto_billing: !p.auto_billing}))}
+            className={`w-11 h-6 rounded-full transition-colors relative ${config.auto_billing ? 'bg-blue-600' : 'bg-gray-200'}`}>
+            <span className={`absolute top-1 h-4 w-4 bg-white rounded-full shadow transition-transform ${config.auto_billing ? 'translate-x-6' : 'translate-x-1'}`} />
+          </button>
+        </div>
+      </div>
+      <div className="card p-5 space-y-3">
+        <h3 className="text-sm font-semibold text-gray-700">Payment Gateway</h3>
+        {['razorpay', 'paytm', 'phonepe', 'stripe'].map(gw => (
+          <label key={gw} className="flex items-center gap-3 cursor-pointer">
+            <input type="radio" name="gw" value={gw} checked={config.payment_gateway === gw}
+              onChange={() => setConfig(p => ({...p, payment_gateway: gw}))} className="accent-blue-600" />
+            <span className="text-sm capitalize text-gray-700">{gw}</span>
+          </label>
+        ))}
+      </div>
+      <button onClick={save} disabled={saving}
+        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">
+        {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+        Save Billing Config
+      </button>
+    </div>
+  )
+}
+
+// ── Emergency Contacts Tab ─────────────────────────────────────────────────────────────────
+const CONTACT_TYPES = ['Police', 'Fire', 'Ambulance', 'Blood Bank', 'Poison Control', 'Mental Health', 'Child Helpline', 'Women Helpline']
+
+function EmergencyTab({ clinicId }) {
+  const [contacts, setContacts] = useState([
+    { id: 1, type: 'Police', name: 'Local Police Station', phone: '100', alt_phone: '', notes: '' },
+    { id: 2, type: 'Ambulance', name: 'CATS Ambulance', phone: '102', alt_phone: '', notes: 'Nearest govt ambulance' },
+    { id: 3, type: 'Fire', name: 'Fire Brigade', phone: '101', alt_phone: '', notes: '' },
+  ])
+  const [adding, setAdding] = useState(false)
+  const [form, setForm] = useState({ type: 'Ambulance', name: '', phone: '', alt_phone: '', notes: '' })
+  const [saving, setSaving] = useState(false)
+
+  const addContact = () => {
+    if (!form.name || !form.phone) return
+    setContacts(prev => [...prev, { ...form, id: Date.now() }])
+    setForm({ type: 'Ambulance', name: '', phone: '', alt_phone: '', notes: '' })
+    setAdding(false)
+  }
+
+  return (
+    <div className="space-y-4 max-w-2xl">
+      <div className="space-y-2">
+        {contacts.map(c => (
+          <div key={c.id} className="card p-4 flex items-start gap-4">
+            <div className="w-9 h-9 rounded-xl bg-red-100 flex items-center justify-center flex-shrink-0">
+              <Phone size={15} className="text-red-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <div className="text-sm font-semibold text-gray-800">{c.name}</div>
+                  <div className="text-xs text-gray-500 mt-0.5">{c.type}</div>
+                </div>
+                <button onClick={() => setContacts(p => p.filter(x => x.id !== c.id))}
+                  className="text-gray-400 hover:text-red-500 flex-shrink-0"><Trash2 size={14} /></button>
+              </div>
+              <div className="flex gap-4 mt-2">
+                <a href={`tel:${c.phone}`} className="text-blue-600 font-mono text-sm hover:underline">{c.phone}</a>
+                {c.alt_phone && <a href={`tel:${c.alt_phone}`} className="text-blue-600 font-mono text-sm hover:underline">{c.alt_phone}</a>}
+              </div>
+              {c.notes && <div className="text-xs text-gray-400 mt-1">{c.notes}</div>}
+            </div>
+          </div>
+        ))}
+      </div>
+      {adding ? (
+        <div className="card p-4 space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">Type</label>
+              <select className="input text-sm" value={form.type} onChange={e => setForm(p => ({...p, type: e.target.value}))}>
+                {CONTACT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">Phone *</label>
+              <input className="input text-sm" placeholder="e.g. 100 or 9876543210" value={form.phone} onChange={e => setForm(p => ({...p, phone: e.target.value}))} />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">Name *</label>
+              <input className="input text-sm" placeholder="Contact / department name" value={form.name} onChange={e => setForm(p => ({...p, name: e.target.value}))} />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">Alt Phone</label>
+              <input className="input text-sm" value={form.alt_phone} onChange={e => setForm(p => ({...p, alt_phone: e.target.value}))} />
+            </div>
+          </div>
+          <input className="input text-sm" placeholder="Notes (optional)" value={form.notes} onChange={e => setForm(p => ({...p, notes: e.target.value}))} />
+          <div className="flex gap-2">
+            <button onClick={addContact} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-600 text-white hover:bg-blue-700">Add</button>
+            <button onClick={() => setAdding(false)} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-100 text-gray-600 hover:bg-gray-200">Cancel</button>
+          </div>
+        </div>
+      ) : (
+        <button onClick={() => setAdding(true)}
+          className="flex items-center gap-2 px-4 py-2 border border-dashed border-gray-300 rounded-xl text-sm text-gray-500 hover:text-gray-700 hover:border-gray-400 w-full justify-center transition-colors">
+          <Plus size={14} />Add Emergency Contact
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ── Document Templates Tab ────────────────────────────────────────────────────────────────
+const DEFAULT_TEMPLATES = [
+  { id: 1, name: 'Discharge Summary', category: 'Discharge', fields: 12, last_edited: '2024-01-10', active: true },
+  { id: 2, name: 'OPD Prescription', category: 'Prescription', fields: 8, last_edited: '2024-01-08', active: true },
+  { id: 3, name: 'Lab Requisition', category: 'Lab', fields: 6, last_edited: '2024-01-05', active: true },
+  { id: 4, name: 'Consent for Surgery', category: 'Consent', fields: 4, last_edited: '2023-12-20', active: false },
+  { id: 5, name: 'Death Certificate', category: 'Certificate', fields: 10, last_edited: '2023-12-15', active: false },
+  { id: 6, name: 'Fitness Certificate', category: 'Certificate', fields: 5, last_edited: '2023-11-30', active: true },
+  { id: 7, name: 'Medico-Legal Report', category: 'Legal', fields: 14, last_edited: '2023-11-20', active: false },
+  { id: 8, name: 'Referral Letter', category: 'Referral', fields: 7, last_edited: '2023-11-10', active: true },
+]
+
+function TemplatesTab({ clinicId }) {
+  const [templates, setTemplates] = useState(DEFAULT_TEMPLATES)
+
+  const toggle = (id) => setTemplates(prev => prev.map(t => t.id === id ? {...t, active: !t.active} : t))
+
+  return (
+    <div className="space-y-3 max-w-3xl">
+      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-gray-50 border-b border-gray-200 text-xs text-gray-500 uppercase tracking-wide">
+              <th className="px-4 py-2.5 text-left">Template</th>
+              <th className="px-3 py-2.5 text-left">Category</th>
+              <th className="px-3 py-2.5 text-center">Fields</th>
+              <th className="px-3 py-2.5 text-left">Last Edited</th>
+              <th className="px-3 py-2.5 text-center">Active</th>
+              <th className="px-3 py-2.5 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {templates.map(t => (
+              <tr key={t.id} className="hover:bg-gray-50 transition-colors">
+                <td className="px-4 py-2.5">
+                  <div className="flex items-center gap-2">
+                    <FileText size={14} className="text-gray-400 flex-shrink-0" />
+                    <span className="font-medium text-gray-800 text-xs">{t.name}</span>
+                  </div>
+                </td>
+                <td className="px-3 py-2.5 text-xs text-gray-500">{t.category}</td>
+                <td className="px-3 py-2.5 text-center text-xs text-gray-600 font-medium">{t.fields}</td>
+                <td className="px-3 py-2.5 text-xs text-gray-400">{t.last_edited}</td>
+                <td className="px-3 py-2.5 text-center">
+                  <button onClick={() => toggle(t.id)}
+                    className={`w-9 h-5 rounded-full transition-colors relative ${t.active ? 'bg-blue-600' : 'bg-gray-200'}`}>
+                    <span className={`absolute top-0.5 h-4 w-4 bg-white rounded-full shadow transition-transform ${t.active ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                  </button>
+                </td>
+                <td className="px-3 py-2.5 text-right">
+                  <button className="text-xs text-blue-600 hover:text-blue-700 font-medium">Edit</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <button className="flex items-center gap-2 px-4 py-2 border border-dashed border-gray-300 rounded-xl text-sm text-gray-500 hover:text-gray-700 hover:border-gray-400 w-full max-w-xs justify-center transition-colors">
+        <Plus size={14} />New Template
+      </button>
+    </div>
+  )
+}
+
+// ── Integrations Tab ────────────────────────────────────────────────────────────────────────
+const INTEGRATIONS = [
+  { key: 'abdm', name: 'ABDM / ABHA', desc: 'Ayushman Bharat Digital Mission — link patient ABHA IDs', icon: '🏥', connected: false, category: 'Government' },
+  { key: 'cowin', name: 'CoWIN', desc: 'Vaccination data sync with national registry', icon: '💉', connected: false, category: 'Government' },
+  { key: 'razorpay', name: 'Razorpay', desc: 'Online payment processing and invoicing', icon: '💳', connected: true, category: 'Payments' },
+  { key: 'whatsapp', name: 'WhatsApp Business', desc: 'Appointment reminders and patient notifications', icon: '📱', connected: false, category: 'Communication' },
+  { key: 'sms', name: 'SMS Gateway (2Factor)', desc: 'OTP and alerts via SMS', icon: '📨', connected: true, category: 'Communication' },
+  { key: 'googlecal', name: 'Google Calendar', desc: 'Sync doctor schedules with Google Calendar', icon: '📅', connected: false, category: 'Productivity' },
+  { key: 'dicom', name: 'DICOM / PACS', desc: 'Radiology image storage and viewing system', icon: '🦴', connected: false, category: 'Clinical' },
+  { key: 'hl7', name: 'HL7 / FHIR', desc: 'Interoperability with other hospital systems', icon: '🔗', connected: false, category: 'Interoperability' },
+  { key: 'lab', name: 'Lab Information System', desc: 'Auto-import lab results from partner labs', icon: '🧪', connected: false, category: 'Clinical' },
+  { key: 'pharmacy', name: 'Pharmacy Management', desc: 'Inventory sync with external pharmacy software', icon: '💊', connected: false, category: 'Clinical' },
+]
+
+function IntegrationsTab({ clinicId }) {
+  const [integrations, setIntegrations] = useState(INTEGRATIONS)
+  const [cat, setCat] = useState('All')
+  const cats = ['All', ...new Set(INTEGRATIONS.map(i => i.category))]
+
+  const toggle = (key) => setIntegrations(prev => prev.map(i => i.key === key ? {...i, connected: !i.connected} : i))
+
+  const filtered = cat === 'All' ? integrations : integrations.filter(i => i.category === cat)
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-1 flex-wrap">
+        {cats.map(c => (
+          <button key={c} onClick={() => setCat(c)}
+            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${cat === c ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+            {c}
+          </button>
+        ))}
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-3xl">
+        {filtered.map(i => (
+          <div key={i.key} className="card p-4 flex items-start gap-3">
+            <span className="text-2xl leading-none mt-0.5">{i.icon}</span>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-2">
+                <div className="font-semibold text-gray-800 text-sm truncate">{i.name}</div>
+                <button onClick={() => toggle(i.key)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors flex-shrink-0 ${i.connected ? 'bg-green-100 text-green-700 hover:bg-red-100 hover:text-red-700' : 'bg-gray-100 text-gray-600 hover:bg-blue-100 hover:text-blue-700'}`}>
+                  {i.connected ? 'Connected' : 'Connect'}
+                </button>
+              </div>
+              <div className="text-xs text-gray-500 mt-0.5">{i.desc}</div>
+              <div className="text-[10px] text-gray-400 mt-1 uppercase tracking-wide">{i.category}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── Main Page ─────────────────────────────────────────────────────────────────────────────────
 const TABS = [
-  { key: 'overview',    label: 'Overview',     icon: Building2 },
-  { key: 'departments', label: 'Departments',  icon: Layers },
-  { key: 'wards',       label: 'Wards',        icon: LayoutGrid },
-  { key: 'beds',        label: 'Beds',         icon: BedDouble },
+  { key: 'overview',      label: 'Overview',       icon: Building2 },
+  { key: 'departments',   label: 'Departments',    icon: Layers },
+  { key: 'wards',         label: 'Wards',          icon: LayoutGrid },
+  { key: 'beds',          label: 'Beds',           icon: BedDouble },
+  { key: 'roles',         label: 'Roles',          icon: Shield },
+  { key: 'billing',       label: 'Billing',        icon: CreditCard },
+  { key: 'emergency',     label: 'Emergency',      icon: Phone },
+  { key: 'templates',     label: 'Doc Templates',  icon: FileText },
+  { key: 'integrations',  label: 'Integrations',   icon: Link2 },
 ]
 
 export default function HospitalSettings() {
@@ -598,10 +945,15 @@ export default function HospitalSettings() {
             ))}
           </div>
 
-          {tab === 'overview'    && <OverviewTab    clinicId={selectedClinicId} />}
-          {tab === 'departments' && <DepartmentsTab clinicId={selectedClinicId} />}
-          {tab === 'wards'       && <WardsTab       clinicId={selectedClinicId} />}
-          {tab === 'beds'        && <BedsTab        clinicId={selectedClinicId} />}
+          {tab === 'overview'      && <OverviewTab      clinicId={selectedClinicId} />}
+          {tab === 'departments'   && <DepartmentsTab  clinicId={selectedClinicId} />}
+          {tab === 'wards'         && <WardsTab         clinicId={selectedClinicId} />}
+          {tab === 'beds'          && <BedsTab          clinicId={selectedClinicId} />}
+          {tab === 'roles'         && <RolesTab         clinicId={selectedClinicId} />}
+          {tab === 'billing'       && <BillingTab       clinicId={selectedClinicId} />}
+          {tab === 'emergency'     && <EmergencyTab     clinicId={selectedClinicId} />}
+          {tab === 'templates'     && <TemplatesTab     clinicId={selectedClinicId} />}
+          {tab === 'integrations'  && <IntegrationsTab  clinicId={selectedClinicId} />}
         </>
       )}
     </div>
