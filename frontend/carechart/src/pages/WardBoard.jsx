@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Loader2, AlertTriangle, Wrench, RefreshCw, X } from 'lucide-react'
+import { Search, Loader2, AlertTriangle, Wrench, RefreshCw, X, BedDouble, CalendarClock } from 'lucide-react'
 import { useWardSession } from '../contexts/WardSessionContext'
 import api from '../api/client'
 
-const GREEN   = '#065F46'
+import { GREEN } from '../constants/colors'
 const ORANGE  = '#ea580c'
 
 // ── Bed state config ──────────────────────────────────────────────
@@ -17,16 +17,7 @@ const STATE = {
   maintenance: { label: 'Maintenance', dot: ORANGE,    border: ORANGE,    bg: 'white' },
 }
 
-const CAUTION_STYLE = {
-  nbm:        { label: 'NBM',         bg: '#fff7ed', color: '#c2410c' },
-  post_op:    { label: 'Post-op',     bg: '#eff6ff', color: '#1d4ed8' },
-  blood_thin: { label: 'Blood Thin.', bg: '#fef2f2', color: '#b91c1c' },
-  intubated:  { label: 'Intubated',   bg: '#f5f3ff', color: '#7c3aed' },
-  pre_surg:   { label: 'Pre-surgery', bg: '#fefce8', color: '#a16207' },
-  critical:   { label: 'Critical',    bg: '#fef2f2', color: '#b91c1c' },
-  isolation:  { label: 'Isolation',   bg: '#f0fdf4', color: '#15803d' },
-  fall_risk:  { label: 'Fall Risk',   bg: '#fffbeb', color: '#92400e' },
-}
+import CautionBadge from '../components/CautionBadge'
 
 // Resolve a bed's display state from API data
 function resolveState(bed) {
@@ -51,21 +42,12 @@ function dayCount(iso) {
 
 // ── Sub-components ────────────────────────────────────────────────
 
-function CautionBadge({ flag }) {
-  const s = CAUTION_STYLE[flag] || { label: flag, bg: '#f3f4f6', color: '#374151' }
-  return (
-    <span className="inline-flex text-[8px] font-bold px-1 py-0.5 rounded whitespace-nowrap"
-      style={{ background: s.bg, color: s.color }}>
-      {s.label}
-    </span>
-  )
-}
-
 function EmptyIcon({ state }) {
-  if (state === 'maintenance') return <span className="text-xl opacity-30">🔧</span>
-  if (state === 'cleaning')    return <span className="text-xl opacity-30">🧹</span>
-  if (state === 'reserved')    return <span className="text-xl opacity-30">📋</span>
-  return <span className="text-xl opacity-30">🛏</span>
+  const cls = "opacity-30 text-gray-400"
+  if (state === 'maintenance') return <Wrench size={20} className={cls} />
+  if (state === 'cleaning')    return <RefreshCw size={20} className={cls} />
+  if (state === 'reserved')    return <CalendarClock size={20} className={cls} />
+  return <BedDouble size={20} className={cls} />
 }
 
 function EmptyText({ state, bed }) {
@@ -123,7 +105,7 @@ function BedCard({ bed, onClick }) {
       </div>
 
       {/* Status label */}
-      <span className="text-[8.5px] font-bold uppercase tracking-wider mb-1.5"
+      <span className="text-[10px] font-bold uppercase tracking-wider mb-1.5"
         style={{ color: cfg.dot }}>
         {cfg.label}
       </span>
@@ -137,15 +119,15 @@ function BedCard({ bed, onClick }) {
           <span className="text-[12px] font-bold text-gray-900 leading-tight truncate">
             {adm.patient_name || '—'}
           </span>
-          <span className="text-[9.5px] text-gray-500">
+          <span className="text-xs text-gray-500">
             {adm.age && adm.gender
               ? `${adm.age}${adm.gender[0]?.toUpperCase()} · ${dayCount(adm.admitted_at) || ''}`
               : adm.age_sex || ''}
           </span>
-          <span className="text-[9.5px] text-gray-700 truncate">
+          <span className="text-xs text-gray-700 truncate">
             {adm.primary_diagnosis || adm.diagnosis || '—'}
           </span>
-          <span className="text-[9.5px] text-gray-500 truncate">
+          <span className="text-xs text-gray-500 truncate">
             {adm.doctor_name || '—'}
           </span>
           {cautions.length > 0 && (

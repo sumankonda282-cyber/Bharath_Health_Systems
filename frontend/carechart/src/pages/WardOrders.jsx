@@ -8,9 +8,7 @@ import {
 import { useWardSession } from '../contexts/WardSessionContext'
 import api from '../api/client'
 
-const GREEN = '#065F46'
-const NAVY  = '#0F2557'
-const RED   = '#CC1414'
+import { GREEN, NAVY, RED } from '../constants/colors'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 function fmtAgo(iso) {

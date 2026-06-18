@@ -5,8 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useWardSession } from '../contexts/WardSessionContext'
 import BrandLogo from '../components/BrandLogo'
 import api from '../api/client'
-
-const GREEN = '#065F46'
+import { GREEN } from '../constants/colors'
 
 const MOCK_HOSPITALS    = [{ id: 1, name: 'BHarath Health Systems — Main Campus' }]
 const MOCK_DEPARTMENTS  = [

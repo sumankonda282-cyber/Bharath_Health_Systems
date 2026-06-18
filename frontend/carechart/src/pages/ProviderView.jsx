@@ -1,11 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Loader2, AlertTriangle, PlusCircle, XCircle, AlertOctagon, Stethoscope, Pill, ClipboardCheck, FlaskConical, ArrowRight, ShieldAlert, Thermometer, Heart, Wind, Droplets, Activity } from 'lucide-react'
 import api from '../api/client'
+import { GREEN, NAVY, RED } from '../constants/colors'
 
-const GREEN  = '#065F46'
-const RED    = '#dc2626'
 const AMBER  = '#d97706'
-const NAVY   = '#0F2557'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 function fmtDateTime(iso) {

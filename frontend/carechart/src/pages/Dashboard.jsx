@@ -3,28 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { BedDouble, Activity, ShieldAlert, UserPlus, ChevronRight, Loader2, AlertTriangle } from 'lucide-react'
 import { useWardSession } from '../contexts/WardSessionContext'
 import api from '../api/client'
-
-const GREEN = '#065F46'
-
-const CAUTION_STYLE = {
-  nbm:        { label: 'NBM',         bg: '#fff7ed', color: '#c2410c' },
-  post_op:    { label: 'Post-op',     bg: '#eff6ff', color: '#1d4ed8' },
-  blood_thin: { label: 'Blood Thin.', bg: '#fef2f2', color: '#b91c1c' },
-  intubated:  { label: 'Intubated',   bg: '#f5f3ff', color: '#7c3aed' },
-  pre_surg:   { label: 'Pre-surgery', bg: '#fefce8', color: '#a16207' },
-  critical:   { label: 'Critical',    bg: '#fef2f2', color: '#b91c1c' },
-  isolation:  { label: 'Isolation',   bg: '#f0fdf4', color: '#15803d' },
-}
-
-function CautionBadge({ flag }) {
-  const s = CAUTION_STYLE[flag] || { label: flag, bg: '#f3f4f6', color: '#374151' }
-  return (
-    <span className="inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded"
-      style={{ background: s.bg, color: s.color }}>
-      {s.label}
-    </span>
-  )
-}
+import { GREEN } from '../constants/colors'
+import CautionBadge from '../components/CautionBadge'
 
 function StatCard({ icon: Icon, label, value, color, loading, active, onClick }) {
   return (
@@ -73,11 +53,11 @@ function PatientTable({ rows, loading, onRowClick }) {
   )
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-sm">
+      <table className="table">
         <thead>
-          <tr className="border-b border-gray-100">
+          <tr>
             {TABLE_COLS.map(c => (
-              <th key={c} className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider px-3 py-2 whitespace-nowrap">{c}</th>
+              <th key={c} className="th whitespace-nowrap">{c}</th>
             ))}
             <th />
           </tr>
@@ -224,7 +204,7 @@ export default function Dashboard() {
       </div>
 
       {activeCard && (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="card overflow-hidden">
           <div className="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
             <h2 className="text-sm font-bold text-gray-800">
               {COL_CFG[activeCard]?.title}

@@ -4,7 +4,7 @@ import { Search, ChevronLeft, ChevronRight, Loader2, AlertTriangle, Calendar } f
 import { useWardSession } from '../contexts/WardSessionContext'
 import api from '../api/client'
 
-const GREEN = '#065F46'
+import { GREEN } from '../constants/colors'
 
 const CAUTION_STYLE = {
   nbm:        { label: 'NBM',         bg: '#fff7ed', color: '#c2410c' },
