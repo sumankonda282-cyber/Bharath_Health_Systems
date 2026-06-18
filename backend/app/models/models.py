@@ -382,6 +382,12 @@ class OnlineBooking(Base):
     status            = Column(String(50), default="pending")
     confirmation_code = Column(String(20), nullable=True)
     notes             = Column(Text, nullable=True)
+    mode              = Column(String(20), default="offline", nullable=True)  # offline | telehealth
+    patient_state     = Column(String(100), nullable=True)
+    bh_id_ref         = Column(String(20), nullable=True)   # BHProfile.bh_id of the patient
+    payment_mode      = Column(String(30), default="pay_at_clinic", nullable=True)
+    payment_status    = Column(String(30), default="pending", nullable=True)
+    amount_due        = Column(Numeric(10, 2), nullable=True)
     created_at        = Column(DateTime, server_default=func.now())
 
     clinic = relationship("Clinic", back_populates="online_bookings")

@@ -364,6 +364,12 @@ class OnlineBookingCreate(BaseModel):
     booking_date: date
     booking_time: str
     reason: Optional[str] = None
+    mode: Optional[str] = "offline"
+    patient_state: Optional[str] = None
+    bh_id_ref: Optional[str] = None
+    payment_mode: Optional[str] = "pay_at_clinic"
+    payment_status: Optional[str] = "pending"
+    amount_due: Optional[Decimal] = None
 
 
 class OnlineBookingOut(BaseModel):
@@ -378,6 +384,13 @@ class OnlineBookingOut(BaseModel):
     status: str
     confirmation_code: Optional[str]
     created_at: datetime
+    reason: Optional[str] = None
+    mode: Optional[str] = None
+    patient_state: Optional[str] = None
+    bh_id_ref: Optional[str] = None
+    payment_mode: Optional[str] = None
+    payment_status: Optional[str] = None
+    amount_due: Optional[Decimal] = None
 
     class Config:
         from_attributes = True

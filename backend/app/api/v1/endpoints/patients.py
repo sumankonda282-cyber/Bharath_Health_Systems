@@ -11,7 +11,7 @@ from app.models.models import (
     Patient, Staff, PatientUser,
     Appointment, SoapNote, Prescription, PrescriptionItem,
     LabOrder, DoctorProfile, Clinic,
-    BHStateGroup, BHIDSequence, PatientTag, AuditLog,
+    BHStateGroup, BHIDSequence, PatientTag, AuditLog, BHProfile,
 )
 from app.api.v1.endpoints.encounters import _assign_clinic_patient_id
 from app.schemas.schemas import PatientCreate, PatientUpdate, PatientOut
@@ -122,6 +122,93 @@ def list_patients(
             "created_at":        str(p.created_at),
             "tags":              [{"id": t.id, "tag_name": t.tag_name, "icd10_code": t.icd10_code} for t in tags],
         })
+    return result
+
+
+@router.get("/lookup")
+def lookup_patient(
+    mobile: Optional[str] = Query(None),
+    bh_id: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """
+    Look up a patient by mobile number or BH ID across any clinic.
+    Returns BHProfile demographics + linked Patient record for this clinic if exists.
+    Used by reception/CareChart for auto-fill on admission.
+    """
+    if current.role not in ALLOWED:
+        raise HTTPException(status_code=403, detail="Access denied")
+    if not mobile and not bh_id:
+        raise HTTPException(status_code=400, detail="Provide mobile or bh_id")
+
+    bh_profile = None
+    patient_user = None
+
+    if bh_id:
+        bh_profile = db.query(BHProfile).filter(
+            BHProfile.bh_id == bh_id.upper().strip(),
+            BHProfile.is_active == True,
+        ).first()
+        if bh_profile:
+            patient_user = db.query(PatientUser).filter(
+                PatientUser.id == bh_profile.patient_user_id
+            ).first()
+    elif mobile:
+        patient_user = db.query(PatientUser).filter(PatientUser.mobile == mobile.strip()).first()
+        if patient_user:
+            bh_profile = db.query(BHProfile).filter(
+                BHProfile.patient_user_id == patient_user.id,
+                BHProfile.is_active == True,
+            ).first()
+
+    # Look for existing Patient record in this clinic
+    clinic_patient = None
+    if patient_user:
+        clinic_patient = db.query(Patient).filter(
+            Patient.portal_user_id == patient_user.id,
+            Patient.clinic_id == current.clinic_id,
+            Patient.is_active == True,
+        ).first()
+    if not clinic_patient and mobile:
+        clinic_patient = db.query(Patient).filter(
+            Patient.mobile == (mobile or "").strip(),
+            Patient.clinic_id == current.clinic_id,
+            Patient.is_active == True,
+        ).first()
+
+    if not bh_profile and not clinic_patient:
+        return {"found": False}
+
+    result = {"found": True}
+
+    if bh_profile:
+        result["bh_id"] = bh_profile.bh_id
+        result["first_name"] = bh_profile.first_name
+        result["last_name"] = bh_profile.last_name
+        result["full_name"] = f"{bh_profile.first_name} {bh_profile.last_name}".strip()
+        result["gender"] = bh_profile.gender
+        result["date_of_birth"] = str(bh_profile.date_of_birth) if bh_profile.date_of_birth else None
+        result["state"] = bh_profile.state
+
+    if patient_user:
+        result["mobile"] = patient_user.mobile
+        result["email"] = patient_user.email
+
+    if clinic_patient:
+        result["clinic_patient_id"] = clinic_patient.clinic_patient_id
+        result["patient_id"] = clinic_patient.id
+        result["full_name"] = result.get("full_name") or clinic_patient.full_name
+        result["blood_group"] = clinic_patient.blood_group
+        result["allergies"] = clinic_patient.allergies
+        result["address"] = clinic_patient.address
+        result["city"] = clinic_patient.city
+        result["pincode"] = clinic_patient.pincode
+        result["emergency_contact_name"] = clinic_patient.emergency_contact_name
+        result["emergency_contact_phone"] = clinic_patient.emergency_contact_phone
+        result["insurance_provider"] = clinic_patient.insurance_provider
+        result["insurance_policy_number"] = clinic_patient.insurance_policy_number
+
     return result
 
 
