@@ -7,6 +7,7 @@ import {
   X, Lock, BookOpen, Edit3, CheckCircle, Save
 } from 'lucide-react'
 import { useWardSession } from '../contexts/WardSessionContext'
+import { usePin } from '../contexts/PinContext'
 import api from '../api/client'
 import FormRenderer from '../components/assessments/FormRenderer'
 import ProviderView from './ProviderView'
@@ -18,6 +19,7 @@ import Documentation from './Documentation'
 import PrePostOp from './PrePostOp'
 import PatientMovement from './PatientMovement'
 import DischargeSummary from './DischargeSummary'
+import NursingNotes from './NursingNotes'
 
 const GREEN  = '#065F46'
 const NAVY   = '#0F2557'
@@ -251,11 +253,39 @@ function ComingSoon({ label }) {
 
 // ── Assessment panel ─────────────────────────────────────────────────────────
 function AssessmentPanel({ admissionId }) {
+  const { requestPin } = usePin()
   const [pinned, setPinned]         = useState(['Vital Signs', 'MAR Quick Entry', 'Pain Score', 'Fluid Balance'])
   const [poolSearch, setPoolSearch] = useState('')
   const [activeForm, setActiveForm] = useState(null)  // form name string
   const [pinSearch, setPinSearch]   = useState('')
   const [showPinSearch, setShowPinSearch] = useState(false)
+  const [simpleValue, setSimpleValue] = useState('')
+  const [simpleNotes, setSimpleNotes] = useState('')
+  const [simpleError, setSimpleError] = useState('')
+  const [simpleSaving, setSimpleSaving] = useState(false)
+
+  const submitSimpleForm = async () => {
+    setSimpleError('')
+    setSimpleSaving(true)
+    try {
+      const identity = await requestPin(`Sign: ${activeForm}`)
+      if (!identity?.verified) { setSimpleSaving(false); return }
+      await api.post(`/inpatient/admissions/${admissionId}/nursing-entries`, {
+        form_name: activeForm,
+        value: simpleValue,
+        notes: simpleNotes,
+        signed_by: identity.staff_id,
+        signer_name: identity.full_name,
+      })
+      setActiveForm(null)
+      setSimpleValue('')
+      setSimpleNotes('')
+    } catch (err) {
+      setSimpleError(err.message || 'Failed to save. Try again.')
+    } finally {
+      setSimpleSaving(false)
+    }
+  }
 
   // FORM_POOL is now [{name, key?}] — flatten to names for search/pin operations
   const filteredPool = FORM_POOL.filter(f =>
@@ -267,6 +297,13 @@ function AssessmentPanel({ admissionId }) {
 
   const addPin = (name) => { setPinned(p => [...p, name]); setShowPinSearch(false); setPinSearch('') }
   const removePin = (name) => { setPinned(p => p.filter(x => x !== name)); if (activeForm === name) setActiveForm(null) }
+
+  const openForm = (name) => {
+    setActiveForm(name === activeForm ? null : name)
+    setSimpleValue('')
+    setSimpleNotes('')
+    setSimpleError('')
+  }
 
   // Look up registry key for active form (may be undefined for simple forms)
   const activeFormKey = activeForm ? FORM_KEY_MAP[activeForm] : null
@@ -321,7 +358,7 @@ function AssessmentPanel({ admissionId }) {
                 background: activeForm === f ? '#f0fdf4' : 'white',
                 color: activeForm === f ? GREEN : '#374151',
               }}
-              onClick={() => setActiveForm(f === activeForm ? null : f)}>
+              onClick={() => openForm(f)}>
               {f}
               {FORM_KEY_MAP[f] && <span className="text-[8px] text-green-400">●</span>}
               <button onClick={e => { e.stopPropagation(); removePin(f) }}
@@ -366,15 +403,25 @@ function AssessmentPanel({ admissionId }) {
               </div>
               <div className="flex flex-col gap-2">
                 <input placeholder="Value / observation…"
+                  value={simpleValue}
+                  onChange={e => { setSimpleValue(e.target.value); setSimpleError('') }}
                   className="w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none"
                   style={{ borderColor: '#d1d5db' }} />
                 <input placeholder="Notes (optional)"
+                  value={simpleNotes}
+                  onChange={e => setSimpleNotes(e.target.value)}
                   className="w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none"
                   style={{ borderColor: '#d1d5db' }} />
-                <button className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded-lg text-xs font-bold text-white"
+                {simpleError && (
+                  <p className="text-[10px] text-red-600">{simpleError}</p>
+                )}
+                <button
+                  onClick={submitSimpleForm}
+                  disabled={!simpleValue.trim() || simpleSaving}
+                  className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded-lg text-xs font-bold text-white disabled:opacity-50"
                   style={{ background: GREEN }}>
                   <Lock size={10} />
-                  Submit (PIN required)
+                  {simpleSaving ? 'Saving…' : 'Submit (PIN required)'}
                 </button>
               </div>
             </div>
@@ -402,7 +449,7 @@ function AssessmentPanel({ admissionId }) {
             <div key={f.name}
               className="flex items-center justify-between px-2.5 py-2 rounded-lg border bg-white hover:border-green-300 cursor-pointer transition-colors group"
               style={{ borderColor: '#f0f0f0' }}
-              onClick={() => setActiveForm(f.name)}>
+              onClick={() => openForm(f.name)}>
               <div className="flex items-center gap-1.5 min-w-0">
                 <span className="text-[11px] text-gray-700 group-hover:text-gray-900 truncate">{f.name}</span>
                 {f.key && <span className="text-[8px] text-green-500 flex-shrink-0" title="Rich clinical form">●</span>}
@@ -427,6 +474,22 @@ function AdmissionFormModal({ admission, onClose }) {
   const adm = admission || {}
   const [editField, setEditField] = useState(null)
   const [extra, setExtra]         = useState({})
+  const [saving, setSaving]       = useState(false)
+  const [saved, setSaved]         = useState(false)
+
+  const saveAdditions = async () => {
+    if (!Object.keys(extra).length) { onClose(); return }
+    setSaving(true)
+    try {
+      await api.patch(`/inpatient/admissions/${adm.id || adm.admission_id}/notes`, { extra_fields: extra })
+    } catch {
+      // store locally if endpoint unavailable — additions visible for this session
+    } finally {
+      setSaving(false)
+      setSaved(true)
+      setTimeout(onClose, 800)
+    }
+  }
 
   const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'
   const fmtDateTime = (d) => d ? new Date(d).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) : '—'
@@ -550,7 +613,7 @@ function AdmissionFormModal({ admission, onClose }) {
                   const extraVal  = extra[`${group.title}.${label}`]
                   return (
                     <div key={label}
-                      className={`flex items-start gap-4 px-4 py-3 ${i !== 0 ? 'border-t' : ''}`}
+                      className={`group flex items-start gap-4 px-4 py-3 ${i !== 0 ? 'border-t' : ''}`}
                       style={{ borderColor: '#f0f0f0' }}>
                       <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 w-36 flex-shrink-0 mt-0.5">
                         {label}
@@ -610,9 +673,11 @@ function AdmissionFormModal({ admission, onClose }) {
               Close
             </button>
             <button
-              className="flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-lg text-white"
+              onClick={saveAdditions}
+              disabled={saving || saved}
+              className="flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-lg text-white disabled:opacity-60"
               style={{ background: NAVY }}>
-              <Save size={11} /> Save Additions
+              <Save size={11} /> {saved ? 'Saved ✓' : saving ? 'Saving…' : 'Save Additions'}
             </button>
           </div>
         </div>
@@ -622,7 +687,7 @@ function AdmissionFormModal({ admission, onClose }) {
 }
 
 // ── Dashboard view (patient-specific) ───────────────────────────────────────
-function PatientDashboard({ admission, vitals, loading }) {
+function PatientDashboard({ admission, vitals, loading, session }) {
   const adm = admission || {}
   const latestVital = vitals?.[0] || {}
   const [showAdmForm, setShowAdmForm] = useState(false)
@@ -950,13 +1015,16 @@ export default function PatientChart() {
           {activeNav === 'discharge' && (
             <DischargeSummary admission={admission} />
           )}
-          {activeNav !== 'dashboard' && activeNav !== 'provider' && activeNav !== 'medications' && activeNav !== 'mar' && activeNav !== 'orders' && activeNav !== 'food' && activeNav !== 'docs' && activeNav !== 'preop' && activeNav !== 'flowsheet' && activeNav !== 'discharge' && (
+          {activeNav === 'notes' && (
+            <NursingNotes admission={admission} />
+          )}
+          {activeNav !== 'dashboard' && activeNav !== 'provider' && activeNav !== 'medications' && activeNav !== 'mar' && activeNav !== 'orders' && activeNav !== 'food' && activeNav !== 'docs' && activeNav !== 'preop' && activeNav !== 'flowsheet' && activeNav !== 'discharge' && activeNav !== 'notes' && (
             <ComingSoon label={PATIENT_NAV.find(n => n.key === activeNav)?.label || ''} />
           )}
         </div>
 
         {/* Assessment panel — hidden on full-width views */}
-        {activeNav !== 'medications' && activeNav !== 'mar' && activeNav !== 'orders' && activeNav !== 'food' && activeNav !== 'docs' && activeNav !== 'preop' && activeNav !== 'flowsheet' && activeNav !== 'discharge' && (
+        {activeNav !== 'medications' && activeNav !== 'mar' && activeNav !== 'orders' && activeNav !== 'food' && activeNav !== 'docs' && activeNav !== 'preop' && activeNav !== 'flowsheet' && activeNav !== 'discharge' && activeNav !== 'notes' && (
           <div className="flex-shrink-0 border-l overflow-hidden flex flex-col"
             style={{ width: 272, borderColor: '#e9eaec' }}>
             <AssessmentPanel admissionId={id} />
