@@ -4,7 +4,7 @@ import { Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Loader2, Ale
 import { useWardSession } from '../contexts/WardSessionContext'
 import api from '../api/client'
 
-const GREEN = '#065F46'
+import { GREEN } from '../constants/colors'
 
 const ROUND_STATUS = {
   pending:     { label: 'Pending',     dot: '#9ca3af', bg: '#f9fafb', color: '#6b7280', border: '#e5e7eb' },

@@ -6,11 +6,9 @@ import {
 } from 'lucide-react'
 import api from '../api/client'
 
-const GREEN = '#065F46'
-const RED   = '#dc2626'
+import { GREEN, NAVY, RED } from '../constants/colors'
 const AMBER = '#d97706'
 const BLUE  = '#2563eb'
-const NAVY  = '#0F2557'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 function fmt(iso) {

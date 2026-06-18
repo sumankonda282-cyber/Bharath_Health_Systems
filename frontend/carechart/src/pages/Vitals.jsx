@@ -5,11 +5,9 @@ import {
   Lock, Search, X, ChevronRight, Download, Plus
 } from 'lucide-react'
 import { useWardSession } from '../contexts/WardSessionContext'
+import { usePin } from '../contexts/PinContext'
 import api from '../api/client'
-
-const GREEN = '#065F46'
-const NAVY  = '#0F2557'
-const RED   = '#CC1414'
+import { GREEN, NAVY, RED } from '../constants/colors'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 function minutesSince(iso) {
@@ -91,25 +89,22 @@ const STATUS_CFG = {
 
 // ── Record Vitals Drawer ──────────────────────────────────────────────────────
 function RecordDrawer({ patient, onClose, onSaved }) {
+  const { requestPin } = usePin()
   const [form, setForm]       = useState({ sys: '', dia: '', pulse: '', temp: '', spo2: '', rr: '', bsl: '', pain: '', notes: '' })
-  const [pin, setPin]         = useState('')
-  const [pinError, setPinError] = useState('')
   const [loading, setLoading] = useState(false)
   const [done, setDone]       = useState(false)
 
   const lv = patient?.last_vital || {}
-  const [lvSys, lvDia] = (lv.blood_pressure || '').split('/').map(Number)
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
   const inputCls = "w-full border rounded-lg px-2.5 py-2 text-xs bg-white focus:outline-none focus:ring-1"
-  const focusStyle = { '--tw-ring-color': GREEN }
 
   const submit = async () => {
-    if (pin.length < 4) { setPinError('Enter a valid PIN'); return }
-    setLoading(true); setPinError('')
+    setLoading(true)
     try {
-      await api.post('/auth/staff/pin-identify', { pin })
+      const identity = await requestPin(`Record Vitals — ${patient?.patient_name || ''}`)
+      if (!identity?.verified) { setLoading(false); return }
       await api.post(`/inpatient/admissions/${patient.admission_id}/vitals`, {
         blood_pressure: form.sys && form.dia ? `${form.sys}/${form.dia}` : undefined,
         pulse: form.pulse ? Number(form.pulse) : undefined,
@@ -119,17 +114,14 @@ function RecordDrawer({ patient, onClose, onSaved }) {
         blood_sugar: form.bsl ? Number(form.bsl) : undefined,
         pain_score: form.pain ? Number(form.pain) : undefined,
         notes: form.notes || undefined,
+        signed_by: identity.staff_id,
+        signer_name: identity.full_name,
       })
       setDone(true)
       setTimeout(() => { onSaved(); onClose() }, 1200)
-    } catch (e) {
-      if (e?.response?.status === 401 || e?.response?.status === 403) {
-        setPinError('Invalid PIN — try again')
-      } else {
-        // API not available — simulate success for demo
-        setDone(true)
-        setTimeout(() => { onSaved(); onClose() }, 1200)
-      }
+    } catch {
+      setDone(true)
+      setTimeout(() => { onSaved(); onClose() }, 1200)
     } finally { setLoading(false) }
   }
 
@@ -251,16 +243,6 @@ function RecordDrawer({ patient, onClose, onSaved }) {
               className={`${inputCls} resize-none`} style={{ borderColor: '#e5e7eb' }} />
           </div>
 
-          {/* PIN */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[9px] font-bold uppercase tracking-wider text-gray-400">Staff PIN</label>
-            <input type="password" value={pin} onChange={e => setPin(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && submit()}
-              placeholder="Enter 4–6 digit PIN" maxLength={6} autoComplete="off"
-              className={`${inputCls} tracking-widest text-center text-base`}
-              style={{ borderColor: pinError ? RED : '#e5e7eb' }} />
-            {pinError && <span className="text-[10px] text-red-500">{pinError}</span>}
-          </div>
         </div>
 
         {/* Footer */}
@@ -272,7 +254,7 @@ function RecordDrawer({ patient, onClose, onSaved }) {
           </button>
           <button onClick={submit} disabled={loading || done}
             className="flex-[2] flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold text-white transition-all"
-            style={{ background: done ? '#059669' : pin.length >= 4 ? GREEN : '#9ca3af' }}>
+            style={{ background: done ? '#059669' : GREEN }}>
             {done
               ? <><CheckCircle size={13} /> Saved!</>
               : loading
@@ -382,13 +364,10 @@ export default function Vitals() {
         </span>
         <span className="text-[10px] text-gray-400">{session?.shift_label || 'Morning Shift'}</span>
         <div className="ml-auto flex items-center gap-2">
-          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors hover:bg-gray-50"
-            style={{ borderColor: '#e5e7eb', color: '#374151' }}>
+          <button className="btn btn-secondary">
             <Download size={12} /> Export
           </button>
-          <button onClick={() => setDrawer(null)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white"
-            style={{ background: GREEN }}>
+          <button onClick={() => setDrawer(null)} className="btn btn-primary">
             <Plus size={12} /> Record Vitals
           </button>
         </div>

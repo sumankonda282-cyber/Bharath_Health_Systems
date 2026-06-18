@@ -9,9 +9,7 @@ import { useWardSession } from '../contexts/WardSessionContext'
 import api from '../api/client'
 import FormRenderer from '../components/assessments/FormRenderer'
 
-const GREEN = '#065F46'
-const NAVY  = '#0F2557'
-const RED   = '#CC1414'
+import { GREEN, NAVY, RED } from '../constants/colors'
 
 // ── Category config ───────────────────────────────────────────────────────────
 const CAT_CFG = {

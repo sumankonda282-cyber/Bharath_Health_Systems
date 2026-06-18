@@ -9,10 +9,8 @@ import {
 import api from '../api/client'
 import { useWardSession } from '../contexts/WardSessionContext'
 
-const GREEN = '#065F46'
-const NAVY = '#0F2557'
+import { GREEN, NAVY, RED } from '../constants/colors'
 const AMBER = '#b45309'
-const RED = '#b91c1c'
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
 const NOW = new Date()

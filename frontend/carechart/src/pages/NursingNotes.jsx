@@ -4,8 +4,7 @@ import { Plus, Lock, Search, Filter, ChevronDown, ChevronUp,
 import api from '../api/client'
 import { useWardSession } from '../contexts/WardSessionContext'
 
-const GREEN = '#065F46'
-const NAVY  = '#0F2557'
+import { GREEN, NAVY } from '../constants/colors'
 
 const NOTE_TYPES = [
   { value: 'general',     label: 'General Note',      color: '#6b7280' },

@@ -7,9 +7,7 @@ import {
 } from 'lucide-react'
 import api from '../api/client'
 
-const GREEN = '#065F46'
-const NAVY  = '#0F2557'
-const RED   = '#b91c1c'
+import { GREEN, NAVY, RED } from '../constants/colors'
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 const fmt = d => new Date(d).toLocaleString('en-IN', {

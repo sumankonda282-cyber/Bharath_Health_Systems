@@ -4,7 +4,7 @@ import {
   ArrowLeft, Search, Pin, PinOff, ChevronDown, ChevronUp,
   Loader2, AlertTriangle, Activity, Pill, ClipboardList,
   FileText, Heart, Bed, TrendingUp, ShieldAlert, Droplets, Utensils, Navigation,
-  X, Lock, BookOpen, Edit3, CheckCircle, Save
+  X, Lock, BookOpen, Edit3, CheckCircle, Save, ShoppingBag, MessageSquare
 } from 'lucide-react'
 import { useWardSession } from '../contexts/WardSessionContext'
 import { usePin } from '../contexts/PinContext'
@@ -21,29 +21,19 @@ import PatientMovement from './PatientMovement'
 import DischargeSummary from './DischargeSummary'
 import NursingNotes from './NursingNotes'
 
-const GREEN  = '#065F46'
-const NAVY   = '#0F2557'
-
-// ── Badge helpers ────────────────────────────────────────────────────────────
-const CAUTION_CFG = {
-  critical:   { label: 'Critical',     bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' },
-  nbm:        { label: 'NBM',          bg: '#fff7ed', color: '#c2410c', border: '#fed7aa' },
-  post_op:    { label: 'Post-op',      bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
-  blood_thin: { label: 'Blood Thin.',  bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' },
-  intubated:  { label: 'Intubated',    bg: '#f5f3ff', color: '#7c3aed', border: '#ddd6fe' },
-  pre_surg:   { label: 'Pre-surgery',  bg: '#fefce8', color: '#a16207', border: '#fde68a' },
-  isolation:  { label: '⚠ Isolation',  bg: '#fef9c3', color: '#854d0e', border: '#fde047' },
-  fall_risk:  { label: '↕ Fall Risk',  bg: '#fffbeb', color: '#92400e', border: '#fcd34d' },
-}
+import { GREEN, NAVY } from '../constants/colors'
+import CautionBadge from '../components/CautionBadge'
 
 function Badge({ flag, label }) {
-  const s = CAUTION_CFG[flag] || { label: label || flag, bg: '#f3f4f6', color: '#374151', border: '#e5e7eb' }
-  return (
-    <span className="inline-flex items-center text-[9px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap border"
-      style={{ background: s.bg, color: s.color, borderColor: s.border }}>
-      {s.label}
-    </span>
-  )
+  if (label && !flag) {
+    return (
+      <span className="inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded whitespace-nowrap border"
+        style={{ background: '#f3f4f6', color: '#374151', borderColor: '#e5e7eb' }}>
+        {label}
+      </span>
+    )
+  }
+  return <CautionBadge flag={flag} />
 }
 
 // ── Patient sidebar items ────────────────────────────────────────────────────
@@ -52,11 +42,11 @@ const PATIENT_NAV = [
   { key: 'provider',     icon: Heart,         label: 'Provider View' },
   { key: 'medications',  icon: Pill,          label: 'Medication List' },
   { key: 'mar',          icon: ClipboardList, label: 'MAR' },
-  { key: 'orders',       icon: FileText,      label: 'Orders' },
-  { key: 'docs',         icon: FileText,      label: 'Documentation' },
+  { key: 'orders',       icon: ShoppingBag,   label: 'Orders' },
+  { key: 'docs',         icon: Edit3,         label: 'Documentation' },
   { key: 'food',         icon: Utensils,      label: 'Diet & Nutrition' },
   { key: 'preop',        icon: Bed,           label: 'Pre / Post-Op Care' },
-  { key: 'notes',        icon: FileText,      label: 'Notes' },
+  { key: 'notes',        icon: MessageSquare, label: 'Notes' },
   { key: 'flowsheet',    icon: Navigation,    label: 'Patient Movement' },
   { key: 'discharge',    icon: ShieldAlert,   label: 'Discharge Summary' },
 ]

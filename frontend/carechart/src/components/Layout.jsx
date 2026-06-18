@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, BedDouble,
   Activity, Pill, FileText, ClipboardList, LogOut as LogOutIcon, ArrowRightFromLine,
   Stethoscope, ShoppingBag, FileEdit, GitBranch,
-  Bell, RefreshCw, HelpCircle, ChevronDown, Menu, X,
+  UserPlus, RefreshCw, HelpCircle, ChevronDown, Menu, X,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useWardSession } from '../contexts/WardSessionContext'
@@ -12,8 +12,7 @@ import EmergencyAlertBanner from './EmergencyAlertBanner'
 import ChatWidget from './ChatWidget'
 import BrandLogo from './BrandLogo'
 import api from '../api/client'
-
-const GREEN = '#065F46'
+import { GREEN } from '../constants/colors'
 
 const NAV = [
   {
@@ -211,9 +210,9 @@ export default function Layout({ children }) {
           <div className="relative" ref={notifRef}>
             <button onClick={() => setNotifOpen(o => !o)} title="Advance Admissions"
               className="relative p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
-              <Bell size={16} />
+              <UserPlus size={16} />
               {unread > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full text-white text-[10px] font-bold flex items-center justify-center" style={{ background: 'var(--green)' }}>
                   {unread > 9 ? '9+' : unread}
                 </span>
               )}
