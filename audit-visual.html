@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CareChart — Design Audit</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Inter, system-ui, sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; padding: 40px 24px; }
+
+  h1 { font-size: 22px; font-weight: 800; color: #fff; letter-spacing: -0.5px; }
+  .subtitle { font-size: 13px; color: #64748b; margin-top: 4px; margin-bottom: 36px; }
+
+  .section-label {
+    display: inline-flex; align-items: center; gap-8px;
+    font-size: 10px; font-weight: 800; letter-spacing: 2px;
+    text-transform: uppercase; margin-bottom: 16px; padding: 4px 10px;
+    border-radius: 4px;
+  }
+  .section-label.critical { background: #450a0a; color: #f87171; border: 1px solid #7f1d1d; }
+  .section-label.high     { background: #431407; color: #fb923c; border: 1px solid #7c2d12; }
+
+  .grid { display: grid; gap: 14px; margin-bottom: 32px; }
+  .grid-2 { grid-template-columns: 1fr 1fr; }
+  .grid-1 { grid-template-columns: 1fr; }
+
+  .card {
+    background: #1a1d27;
+    border-radius: 14px;
+    border: 1px solid #252836;
+    padding: 20px 22px;
+    position: relative;
+    overflow: hidden;
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 4px;
+    border-radius: 14px 0 0 14px;
+  }
+  .card.critical::before { background: #ef4444; }
+  .card.high::before     { background: #f97316; }
+
+  .card-id {
+    font-size: 10px; font-weight: 700; letter-spacing: 1.5px;
+    text-transform: uppercase; margin-bottom: 6px;
+  }
+  .card.critical .card-id { color: #f87171; }
+  .card.high     .card-id { color: #fb923c; }
+
+  .card-title { font-size: 14px; font-weight: 700; color: #f1f5f9; margin-bottom: 8px; line-height: 1.3; }
+  .card-where { font-size: 11px; color: #475569; margin-bottom: 10px; }
+  .card-where span { background: #0f172a; border: 1px solid #334155; border-radius: 4px; padding: 1px 6px; font-family: monospace; font-size: 10px; color: #94a3b8; }
+
+  .card-body { font-size: 12px; color: #94a3b8; line-height: 1.65; }
+
+  /* Visual diagrams inside cards */
+  .diagram { margin-top: 14px; border-radius: 10px; overflow: hidden; border: 1px solid #252836; }
+  .diagram-title { font-size: 9px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: #475569; background: #0d0f18; padding: 6px 12px; }
+
+  /* C1 — Token diagram */
+  .token-grid { display: grid; grid-template-columns: 1fr 1fr; background: #0d0f18; padding: 12px; gap: 8px; }
+  .token-box { background: #1a1d27; border-radius: 8px; padding: 10px 12px; }
+  .token-box-bad  { border: 1px solid #7f1d1d; }
+  .token-box-good { border: 1px solid #14532d; }
+  .token-label { font-size: 9px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; }
+  .token-label.bad  { color: #f87171; }
+  .token-label.good { color: #4ade80; }
+  .token-file { font-size: 10px; color: #64748b; font-family: monospace; padding: 2px 0; }
+  .token-value { font-size: 10px; color: #f97316; font-family: monospace; }
+  .token-arrow { display: flex; align-items: center; justify-content: center; color: #334155; font-size: 18px; }
+
+  /* C2 — Badge comparison */
+  .badge-compare { display: flex; flex-direction: column; gap: 0; background: #0d0f18; }
+  .badge-row { display: flex; align-items: center; gap: 12px; padding: 9px 14px; border-bottom: 1px solid #1a1d27; }
+  .badge-row:last-child { border-bottom: none; }
+  .badge-file { font-size: 10px; font-family: monospace; color: #475569; width: 120px; flex-shrink: 0; }
+  .badge-sample { display: inline-flex; align-items: center; padding: 2px 6px; border-radius: 4px; font-weight: 700; white-space: nowrap; }
+  .badge-note { font-size: 10px; color: #ef4444; margin-left: auto; }
+  .badge-note.ok { color: #4ade80; }
+
+  /* C3 — Layout bug diagram */
+  .layout-diagram { background: #0d0f18; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .flex-row-demo { display: flex; gap: 8px; align-items: center; border: 1px dashed #7f1d1d; border-radius: 8px; padding: 10px; }
+  .flex-row-demo .form-box { background: #1a1d27; border: 1px solid #334155; border-radius: 6px; padding: 10px 16px; flex: 1; font-size: 11px; color: #64748b; text-align: center; }
+  .flex-row-demo .p-box { background: #450a0a; border: 1px solid #7f1d1d; border-radius: 6px; padding: 6px 10px; font-size: 9px; color: #f87171; white-space: nowrap; }
+  .flex-col-demo { display: flex; flex-direction: column; gap: 6px; border: 1px dashed #14532d; border-radius: 8px; padding: 10px; }
+  .flex-col-demo .form-box { background: #1a1d27; border: 1px solid #334155; border-radius: 6px; padding: 10px 16px; font-size: 11px; color: #64748b; text-align: center; }
+  .flex-col-demo .p-box { background: #052e16; border: 1px solid #14532d; border-radius: 6px; padding: 5px 10px; font-size: 9px; color: #4ade80; text-align: center; }
+  .layout-label { font-size: 9px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+  .layout-label.bad { color: #ef4444; }
+  .layout-label.good { color: #4ade80; }
+
+  /* C4 — PIN split */
+  .pin-compare { display: grid; grid-template-columns: 1fr 1fr; background: #0d0f18; }
+  .pin-col { padding: 12px 14px; }
+  .pin-col:first-child { border-right: 1px solid #1a1d27; }
+  .pin-col-label { font-size: 9px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px; }
+  .pin-col-label.bad { color: #f87171; }
+  .pin-col-label.good { color: #4ade80; }
+  .pin-page { background: #1a1d27; border-radius: 6px; padding: 6px 10px; margin-bottom: 4px; font-size: 10px; color: #94a3b8; display: flex; align-items: center; gap: 6px; }
+  .pin-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .pin-dot.bad  { background: #ef4444; }
+  .pin-dot.good { background: #4ade80; }
+  .pin-code { font-family: monospace; font-size: 9px; color: #64748b; }
+
+  /* H1 — icon table */
+  .icon-table { background: #0d0f18; }
+  .icon-row { display: flex; align-items: center; gap: 12px; padding: 8px 14px; border-bottom: 1px solid #1a1d27; }
+  .icon-row:last-child { border-bottom: none; }
+  .icon-key { font-family: monospace; font-size: 10px; color: #94a3b8; width: 100px; flex-shrink: 0; }
+  .icon-before { font-size: 10px; color: #f87171; display: flex; align-items: center; gap: 4px; }
+  .icon-after  { font-size: 10px; color: #4ade80; display: flex; align-items: center; gap: 4px; margin-left: 12px; }
+  .icon-arrow { color: #334155; font-size: 12px; }
+
+  /* H2 — emoji vs lucide */
+  .emoji-compare { display: grid; grid-template-columns: 1fr 1fr; background: #0d0f18; }
+  .emoji-col { padding: 12px 14px; }
+  .emoji-col:first-child { border-right: 1px solid #1a1d27; }
+  .emoji-col-label { font-size: 9px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px; }
+  .emoji-col-label.bad  { color: #f87171; }
+  .emoji-col-label.good { color: #4ade80; }
+  .emoji-item { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 12px; color: #94a3b8; }
+
+  /* H3 — CSS class usage */
+  .class-table { background: #0d0f18; }
+  .class-row { display: flex; align-items: flex-start; gap: 10px; padding: 8px 14px; border-bottom: 1px solid #1a1d27; font-size: 10px; }
+  .class-row:last-child { border-bottom: none; }
+  .class-name { font-family: monospace; color: #818cf8; width: 110px; flex-shrink: 0; padding-top: 1px; }
+  .class-defined { color: #4ade80; font-size: 9px; flex-shrink: 0; width: 60px; }
+  .class-used { color: #f87171; font-size: 9px; }
+
+  /* H4 — Bell icon */
+  .bell-compare { display: grid; grid-template-columns: 1fr 1fr; background: #0d0f18; }
+  .bell-col { padding: 14px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .bell-col:first-child { border-right: 1px solid #1a1d27; }
+  .bell-icon-wrap { position: relative; display: inline-flex; }
+  .bell-badge { position: absolute; top: -4px; right: -4px; width: 14px; height: 14px; border-radius: 50%; font-size: 8px; font-weight: 900; display: flex; align-items: center; justify-content: center; }
+  .bell-desc { font-size: 10px; color: #64748b; text-align: center; }
+  .bell-col-label { font-size: 9px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+
+  /* H5 — type scale */
+  .type-scale { background: #0d0f18; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
+  .type-row { display: flex; align-items: baseline; gap: 10px; }
+  .type-row.bad-size  { opacity: 0.5; }
+  .type-row.good-size { }
+  .type-label { font-size: 10px; font-family: monospace; color: #475569; width: 110px; flex-shrink: 0; }
+  .type-sample { color: #e2e8f0; }
+  .type-verdict { font-size: 9px; margin-left: auto; flex-shrink: 0; }
+  .type-verdict.bad  { color: #f87171; }
+  .type-verdict.good { color: #4ade80; }
+  .type-divider { height: 1px; background: #1e2330; margin: 6px 0; }
+
+  /* H6 — SelectLocation steps */
+  .steps-compare { display: grid; grid-template-columns: 1fr 1fr; background: #0d0f18; gap: 0; }
+  .steps-col { padding: 16px 14px; }
+  .steps-col:first-child { border-right: 1px solid #1a1d27; }
+  .steps-col-label { font-size: 9px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px; }
+  .step-row { display: flex; align-items: center; gap: 0; margin-bottom: 12px; }
+  .step-circle { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; }
+  .step-line { flex: 1; height: 2px; }
+  .step-label { font-size: 10px; color: #64748b; margin-top: 4px; text-align: center; }
+
+  .steps-bad .step-circle  { background: #1a1d27; border: 1.5px solid #334155; color: #475569; }
+  .steps-bad .step-line    { background: #1e2330; }
+
+  .steps-good .step-circle.done    { background: #052e16; border: 1.5px solid #16a34a; color: #4ade80; }
+  .steps-good .step-circle.active  { background: #065f46; border: 1.5px solid #065f46; color: #fff; }
+  .steps-good .step-circle.future  { background: #1a1d27; border: 1.5px dashed #334155; color: #475569; }
+  .steps-good .step-line.done      { background: #16a34a; }
+  .steps-good .step-line.future    { background: #1e2330; }
+
+  .step-with-label { display: flex; flex-direction: column; align-items: center; }
+
+  @media (max-width: 700px) {
+    .grid-2 { grid-template-columns: 1fr; }
+    .token-grid, .pin-compare, .emoji-compare, .bell-compare, .steps-compare, .badge-compare .badge-row { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<h1>CareChart — Design Audit</h1>
+<p class="subtitle">Visual findings · Critical &amp; High priority only · Based on source code review</p>
+
+<!-- ════════════════════════════════════════════
+     CRITICAL
+═══════════════════════════════════════════════ -->
+<div class="section-label critical">🔴 &nbsp;Critical</div>
+
+<div class="grid grid-2">
+
+  <!-- C1 -->
+  <div class="card critical">
+    <div class="card-id">C1</div>
+    <div class="card-title">Brand tokens defined in 10+ files — CSS variables ignored</div>
+    <div class="card-where">Affects: <span>Dashboard.jsx</span> <span>WardBoard.jsx</span> <span>Vitals.jsx</span> <span>PatientChart.jsx</span> <span>+6 more</span></div>
+    <div class="card-body">
+      <code style="font-size:11px;color:#f97316;">index.css</code> defines <code style="font-size:11px;color:#4ade80;">--green: #065F46</code> but every page re-declares <code style="font-size:11px;color:#f87171;">const GREEN = '#065F46'</code> and uses inline styles. Color change = 10 file edits.
+    </div>
+    <div class="diagram">
+      <div class="diagram-title">Current vs Correct</div>
+      <div class="token-grid">
+        <div class="token-box token-box-bad">
+          <div class="token-label bad">❌ Now — 10 files each say:</div>
+          <div class="token-file">Dashboard.jsx</div>
+          <div class="token-value">const GREEN = '#065F46'</div>
+          <div class="token-file" style="margin-top:4px">WardBoard.jsx</div>
+          <div class="token-value">const GREEN = '#065F46'</div>
+          <div class="token-file" style="margin-top:4px">Vitals.jsx</div>
+          <div class="token-value">const GREEN = '#065F46'</div>
+          <div class="token-file" style="margin-top:4px;color:#64748b">+ 7 more…</div>
+        </div>
+        <div class="token-box token-box-good">
+          <div class="token-label good">✓ Fix — one source of truth:</div>
+          <div class="token-file">index.css (already exists)</div>
+          <div class="token-value">--green: #065F46</div>
+          <div style="margin-top:8px;font-size:10px;color:#475569;">Every component uses:</div>
+          <div class="token-value" style="margin-top:2px">style="background: var(--green)"</div>
+          <div style="margin-top:6px;font-size:10px;color:#475569;">Or Tailwind config:</div>
+          <div class="token-value" style="margin-top:2px">bg-brand-green</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- C2 -->
+  <div class="card critical">
+    <div class="card-id">C2</div>
+    <div class="card-title">CautionBadge defined 4 times — different sizes on every page</div>
+    <div class="card-where">Affects: <span>Dashboard.jsx</span> <span>WardBoard.jsx</span> <span>PatientChart.jsx</span> <span>Vitals.jsx</span></div>
+    <div class="card-body">Same clinical badge, 4 separate definitions. WardBoard renders at 8px — below readable threshold. PatientChart adds emoji prefixes. No shared component.</div>
+    <div class="diagram">
+      <div class="diagram-title">Badge rendering per file</div>
+      <div class="badge-compare">
+        <div class="badge-row">
+          <div class="badge-file">Dashboard.jsx</div>
+          <div class="badge-sample" style="font-size:10px;background:#fef2f2;color:#b91c1c;">Critical</div>
+          <div class="badge-sample" style="font-size:10px;background:#fff7ed;color:#c2410c;margin-left:4px;">NBM</div>
+          <div class="badge-note" style="color:#f59e0b;">10px · no border</div>
+        </div>
+        <div class="badge-row">
+          <div class="badge-file">WardBoard.jsx</div>
+          <div class="badge-sample" style="font-size:8px;background:#fef2f2;color:#b91c1c;">Critical</div>
+          <div class="badge-sample" style="font-size:8px;background:#fff7ed;color:#c2410c;margin-left:4px;">NBM</div>
+          <div class="badge-note">8px — too small ⚠</div>
+        </div>
+        <div class="badge-row">
+          <div class="badge-file">PatientChart.jsx</div>
+          <div class="badge-sample" style="font-size:9px;background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;">Critical</div>
+          <div class="badge-sample" style="font-size:9px;background:#fef9c3;color:#854d0e;border:1px solid #fde047;margin-left:4px;">⚠ Isolation</div>
+          <div class="badge-note" style="color:#f59e0b;">9px · has border · emoji</div>
+        </div>
+        <div class="badge-row" style="border-bottom:none">
+          <div class="badge-file">Vitals.jsx</div>
+          <div class="badge-sample" style="font-size:10px;background:#fef2f2;color:#b91c1c;">Critical</div>
+          <div class="badge-sample" style="font-size:10px;background:#fff7ed;color:#c2410c;margin-left:4px;">NBM</div>
+          <div class="badge-note" style="color:#f59e0b;">10px · diff object shape</div>
+        </div>
+        <div class="badge-row" style="background:#052e16;border-top:1px solid #14532d;">
+          <div class="badge-file" style="color:#4ade80;">✓ Fix — shared</div>
+          <div class="badge-sample" style="font-size:10px;background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;">Critical</div>
+          <div class="badge-sample" style="font-size:10px;background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;margin-left:4px;">NBM</div>
+          <div class="badge-note ok">10px · border · one component</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="grid grid-2">
+
+  <!-- C3 -->
+  <div class="card critical">
+    <div class="card-id">C3</div>
+    <div class="card-title">Login copyright footer broken by flex row layout</div>
+    <div class="card-where">Affects: <span>Login.jsx</span> lines 115, 228–230</div>
+    <div class="card-body">
+      Right panel is <code style="font-size:11px;color:#fb923c;">flex items-center justify-center</code> (row direction). The form div and the <code style="font-size:11px;color:#fb923c;">&lt;p&gt;</code> copyright tag are siblings in that row — they render side-by-side, not stacked. The <code style="font-size:11px;color:#fb923c;">mt-5</code> does nothing.
+    </div>
+    <div class="diagram">
+      <div class="diagram-title">What renders vs what was intended</div>
+      <div class="layout-diagram">
+        <div class="layout-label bad">❌ Current — flex row, siblings side by side</div>
+        <div class="flex-row-demo">
+          <div class="form-box">Login Form<br/><span style="font-size:9px;color:#334155;">w-full max-w-sm</span></div>
+          <div class="p-box">BHarath Health Systems · CareChart Portal</div>
+        </div>
+        <div class="layout-label good" style="margin-top:8px;">✓ Fix — flex column</div>
+        <div class="flex-col-demo">
+          <div class="form-box">Login Form</div>
+          <div class="p-box" style="text-align:center;">BHarath Health Systems · CareChart Portal</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- C4 -->
+  <div class="card critical">
+    <div class="card-id">C4</div>
+    <div class="card-title">Vitals page has its own PIN flow — split from every other page</div>
+    <div class="card-where">Affects: <span>Vitals.jsx</span> RecordDrawer · line 112</div>
+    <div class="card-body">All other pages use the shared <code style="font-size:11px;color:#4ade80;">usePin()</code> context. Vitals manually manages its own pin state and calls <code style="font-size:11px;color:#f87171;">api.post('/auth/staff/pin-identify')</code> directly. Two different PIN UIs for nurses.</div>
+    <div class="diagram">
+      <div class="diagram-title">PIN implementation per page</div>
+      <div class="pin-compare">
+        <div class="pin-col">
+          <div class="pin-col-label bad">❌ Vitals — own implementation</div>
+          <div class="pin-page"><div class="pin-dot bad"></div>Vitals.jsx<div class="pin-code" style="margin-left:auto;">api.post('/pin-identify')</div></div>
+          <div style="font-size:9px;color:#475569;margin-top:4px;font-family:monospace;">const [pin, setPin] = useState('')<br/>const [pinError, setPinError]…<br/>&lt;input value={pin} onChange…/&gt;</div>
+        </div>
+        <div class="pin-col">
+          <div class="pin-col-label good">✓ All other pages — shared hook</div>
+          <div class="pin-page"><div class="pin-dot good"></div>MAR.jsx<div class="pin-code" style="margin-left:auto;">usePin()</div></div>
+          <div class="pin-page"><div class="pin-dot good"></div>PatientChart.jsx<div class="pin-code" style="margin-left:auto;">usePin()</div></div>
+          <div class="pin-page"><div class="pin-dot good"></div>NursingNotes.jsx<div class="pin-code" style="margin-left:auto;">usePin()</div></div>
+          <div style="font-size:9px;color:#4ade80;margin-top:6px;">const { requestPin } = usePin()<br/>→ consistent modal UI</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ════════════════════════════════════════════
+     HIGH
+═══════════════════════════════════════════════ -->
+<div class="section-label high" style="margin-top:8px;">🟠 &nbsp;High</div>
+
+<div class="grid grid-2">
+
+  <!-- H1 -->
+  <div class="card high">
+    <div class="card-id">H1</div>
+    <div class="card-title">PatientChart sidebar: 3 nav items share the same icon</div>
+    <div class="card-where">Affects: <span>PatientChart.jsx</span> PATIENT_NAV array lines 55–59</div>
+    <div class="card-body">On the <code style="font-size:11px;color:#fb923c;">/chart/</code> route the sidebar collapses to icon-only (56px). Orders, Documentation and Notes all show the same <code style="font-size:11px;color:#fb923c;">FileText</code> icon — three consecutive identical icons.</div>
+    <div class="diagram">
+      <div class="diagram-title">Icon before → after</div>
+      <div class="icon-table">
+        <div class="icon-row">
+          <div class="icon-key">orders</div>
+          <div class="icon-before">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            FileText
+          </div>
+          <span class="icon-arrow">→</span>
+          <div class="icon-after">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+            ShoppingBag
+          </div>
+        </div>
+        <div class="icon-row">
+          <div class="icon-key">docs</div>
+          <div class="icon-before">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            FileText
+          </div>
+          <span class="icon-arrow">→</span>
+          <div class="icon-after">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            FileEdit
+          </div>
+        </div>
+        <div class="icon-row">
+          <div class="icon-key">notes</div>
+          <div class="icon-before">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            FileText
+          </div>
+          <span class="icon-arrow">→</span>
+          <div class="icon-after">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            MessageSquare
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- H2 -->
+  <div class="card high">
+    <div class="card-id">H2</div>
+    <div class="card-title">WardBoard uses emoji for bed-state icons; rest of app uses lucide-react</div>
+    <div class="card-where">Affects: <span>WardBoard.jsx</span> EmptyIcon component lines 64–69</div>
+    <div class="card-body">Emoji render differently across Windows / macOS / Android. The same file already imports <code style="font-size:11px;color:#4ade80;">Wrench</code> from lucide for the maintenance modal but uses <code style="font-size:11px;color:#f87171;">🔧</code> emoji in the bed card.</div>
+    <div class="diagram">
+      <div class="diagram-title">Emoji (current) vs Lucide icons (fix)</div>
+      <div class="emoji-compare">
+        <div class="emoji-col">
+          <div class="emoji-col-label bad">❌ Now — emoji</div>
+          <div class="emoji-item"><span style="font-size:20px;">🔧</span> Maintenance</div>
+          <div class="emoji-item"><span style="font-size:20px;">🧹</span> Cleaning</div>
+          <div class="emoji-item"><span style="font-size:20px;">📋</span> Reserved</div>
+          <div class="emoji-item"><span style="font-size:20px;">🛏</span> Vacant</div>
+        </div>
+        <div class="emoji-col">
+          <div class="emoji-col-label good">✓ Fix — lucide-react</div>
+          <div class="emoji-item">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fb923c" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+            Wrench (already imported)
+          </div>
+          <div class="emoji-item">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            RefreshCw — Cleaning
+          </div>
+          <div class="emoji-item">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            CalendarClock — Reserved
+          </div>
+          <div class="emoji-item">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 0 4H2"/><path d="M2 12h18a2 2 0 0 1 0 4H2"/></svg>
+            BedDouble — Vacant
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="grid grid-2">
+
+  <!-- H3 -->
+  <div class="card high">
+    <div class="card-id">H3</div>
+    <div class="card-title">Shared CSS classes defined in index.css but never used in pages</div>
+    <div class="card-where">Affects: <span>index.css</span> · all page files</div>
+    <div class="card-body">A complete component class system exists — <code style="font-size:11px;color:#818cf8;">.btn-primary</code>, <code style="font-size:11px;color:#818cf8;">.card</code>, <code style="font-size:11px;color:#818cf8;">.badge-red</code>, etc. — but every page builds buttons and cards with raw inline Tailwind strings. Buttons diverge visually across pages as a result.</div>
+    <div class="diagram">
+      <div class="diagram-title">CSS classes: defined vs actually used in components</div>
+      <div class="class-table">
+        <div class="class-row">
+          <div class="class-name">.btn-primary</div>
+          <div class="class-defined">✓ Defined</div>
+          <div class="class-used">✗ Not used — pages use style={{ background: '#065F46' }} inline</div>
+        </div>
+        <div class="class-row">
+          <div class="class-name">.btn-secondary</div>
+          <div class="class-defined">✓ Defined</div>
+          <div class="class-used">✗ Not used — pages repeat border/hover classes manually</div>
+        </div>
+        <div class="class-row">
+          <div class="class-name">.card</div>
+          <div class="class-defined">✓ Defined</div>
+          <div class="class-used">✗ Not used — bg-white rounded-xl border shadow-sm repeated everywhere</div>
+        </div>
+        <div class="class-row">
+          <div class="class-name">.badge-red</div>
+          <div class="class-defined">✓ Defined</div>
+          <div class="class-used">✗ Not used — inline bg/color/border on each badge separately</div>
+        </div>
+        <div class="class-row" style="border-bottom:none">
+          <div class="class-name">.th / .td</div>
+          <div class="class-defined">✓ Defined</div>
+          <div class="class-used">✗ Not used — every table re-applies px-3 py-2.5 text-xs etc.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- H4 -->
+  <div class="card high">
+    <div class="card-id">H4</div>
+    <div class="card-title">Notification bell signals urgency but shows scheduled admissions</div>
+    <div class="card-where">Affects: <span>Layout.jsx</span> lines 212–248</div>
+    <div class="card-body">Bell icon + red badge count = universal "urgent alert" signal. But the dropdown shows advance/scheduled admissions. Nurses will tap urgently expecting critical alerts and see intake scheduling instead.</div>
+    <div class="diagram">
+      <div class="diagram-title">Icon signal vs actual content</div>
+      <div class="bell-compare">
+        <div class="bell-col">
+          <div class="bell-col-label" style="color:#f87171;">❌ Current</div>
+          <div class="bell-icon-wrap">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            <div class="bell-badge" style="background:#ef4444;color:#fff;">3</div>
+          </div>
+          <div class="bell-desc" style="color:#f87171;">Looks like: urgent alerts</div>
+          <div class="bell-desc" style="margin-top:4px;">Shows: scheduled admissions<br/>ETA times, triage level</div>
+        </div>
+        <div class="bell-col">
+          <div class="bell-col-label" style="color:#4ade80;">✓ Fix — match icon to content</div>
+          <div class="bell-icon-wrap">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+            <div class="bell-badge" style="background:#065f46;color:#fff;">3</div>
+          </div>
+          <div class="bell-desc" style="color:#4ade80;">UserPlus icon — Incoming patients</div>
+          <div class="bell-desc" style="margin-top:4px;">Green badge — not urgent<br/>Clear purpose at a glance</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="grid grid-2">
+
+  <!-- H5 -->
+  <div class="card high">
+    <div class="card-id">H5</div>
+    <div class="card-title">11 arbitrary font sizes — no defined type scale</div>
+    <div class="card-where">Affects: All pages</div>
+    <div class="card-body">Sub-pixel sizes like <code style="font-size:11px;color:#f87171;">text-[8.5px]</code> and <code style="font-size:11px;color:#f87171;">text-[9.5px]</code> exist nowhere in standard type scales. No documented hierarchy exists — each component picks a size independently.</div>
+    <div class="diagram">
+      <div class="diagram-title">Current sizes in use vs proposed scale</div>
+      <div class="type-scale">
+        <div class="type-row bad-size">
+          <div class="type-label" style="color:#f87171;">text-[8px]</div>
+          <div class="type-sample" style="font-size:8px;">Badge label (WardBoard)</div>
+          <div class="type-verdict bad">remove</div>
+        </div>
+        <div class="type-row bad-size">
+          <div class="type-label" style="color:#f87171;">text-[8.5px]</div>
+          <div class="type-sample" style="font-size:8.5px;">Bed status label</div>
+          <div class="type-verdict bad">remove</div>
+        </div>
+        <div class="type-row bad-size">
+          <div class="type-label" style="color:#f87171;">text-[9.5px]</div>
+          <div class="type-sample" style="font-size:9.5px;">Patient age / diagnosis</div>
+          <div class="type-verdict bad">remove</div>
+        </div>
+        <div class="type-divider"></div>
+        <div class="type-row good-size">
+          <div class="type-label" style="color:#4ade80;">10px — labels/badges</div>
+          <div class="type-sample" style="font-size:10px;">NBM · Post-op · OVERDUE</div>
+          <div class="type-verdict good">keep</div>
+        </div>
+        <div class="type-row good-size">
+          <div class="type-label" style="color:#4ade80;">12px — secondary text</div>
+          <div class="type-sample" style="font-size:12px;">Dr. Rao · Day 3 · 08:30 AM</div>
+          <div class="type-verdict good">keep</div>
+        </div>
+        <div class="type-row good-size">
+          <div class="type-label" style="color:#4ade80;">14px — body / table</div>
+          <div class="type-sample" style="font-size:14px;">Ramesh Mehta · Bed 4 · Acute Appendicitis</div>
+          <div class="type-verdict good">keep</div>
+        </div>
+        <div class="type-row good-size">
+          <div class="type-label" style="color:#4ade80;">20px — page titles</div>
+          <div class="type-sample" style="font-size:20px;font-weight:800;">Good morning, Ward 3B</div>
+          <div class="type-verdict good">keep</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- H6 -->
+  <div class="card high">
+    <div class="card-id">H6</div>
+    <div class="card-title">SelectLocation has no visual step-progress indicator</div>
+    <div class="card-where">Affects: <span>SelectLocation.jsx</span></div>
+    <div class="card-body">Three sequential steps (Hospital → Department → Ward) with no step indicator. Users can't tell where they are in the flow, or how many steps remain. Step 2 and 3 inputs are simply disabled — there's no visual affordance for sequence.</div>
+    <div class="diagram">
+      <div class="diagram-title">No steps UI (current) vs Step indicator (fix)</div>
+      <div class="steps-compare">
+        <div class="steps-col steps-bad">
+          <div class="steps-col-label" style="color:#f87171;">❌ Current — no indicator</div>
+          <div style="font-size:11px;color:#475569;margin-bottom:10px;">Three inputs stacked. No progress. No sequence signal.</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="background:#1a1d27;border:1px solid #334155;border-radius:8px;padding:8px 12px;font-size:11px;color:#94a3b8;">🏥 Hospital selected</div>
+            <div style="background:#1a1d27;border:1px dashed #334155;border-radius:8px;padding:8px 12px;font-size:11px;color:#475569;">Department — disabled</div>
+            <div style="background:#1a1d27;border:1px dashed #334155;border-radius:8px;padding:8px 12px;font-size:11px;color:#475569;">Ward — disabled</div>
+          </div>
+        </div>
+        <div class="steps-col steps-good">
+          <div class="steps-col-label" style="color:#4ade80;">✓ Fix — step progress</div>
+          <div style="display:flex;align-items:center;margin-bottom:14px;">
+            <div style="display:flex;flex-direction:column;align-items:center;">
+              <div class="step-circle done" style="background:#052e16;border:1.5px solid #16a34a;color:#4ade80;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;">✓</div>
+              <div style="font-size:9px;color:#4ade80;margin-top:3px;">Hospital</div>
+            </div>
+            <div style="flex:1;height:2px;background:#16a34a;"></div>
+            <div style="display:flex;flex-direction:column;align-items:center;">
+              <div class="step-circle active" style="background:#065f46;border:1.5px solid #065f46;color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;">2</div>
+              <div style="font-size:9px;color:#fff;margin-top:3px;">Department</div>
+            </div>
+            <div style="flex:1;height:2px;background:#1e2330;"></div>
+            <div style="display:flex;flex-direction:column;align-items:center;">
+              <div class="step-circle future" style="background:#1a1d27;border:1.5px dashed #334155;color:#475569;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;">3</div>
+              <div style="font-size:9px;color:#475569;margin-top:3px;">Ward</div>
+            </div>
+          </div>
+          <div style="background:#1a1d27;border:1px solid #334155;border-radius:8px;padding:8px 12px;font-size:11px;color:#94a3b8;">Select Department…</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div style="margin-top:32px;padding:16px 20px;background:#1a1d27;border-radius:12px;border:1px solid #252836;display:flex;gap:24px;flex-wrap:wrap;align-items:center;">
+  <div style="font-size:11px;color:#64748b;font-weight:700;letter-spacing:1px;text-transform:uppercase;">Build order</div>
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <span style="background:#450a0a;color:#f87171;font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;border:1px solid #7f1d1d;">C1 tokens</span>
+    <span style="color:#334155;">→</span>
+    <span style="background:#450a0a;color:#f87171;font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;border:1px solid #7f1d1d;">C2 shared badge</span>
+    <span style="color:#334155;">→</span>
+    <span style="background:#450a0a;color:#f87171;font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;border:1px solid #7f1d1d;">C4 Vitals PIN</span>
+    <span style="color:#334155;">→</span>
+    <span style="background:#450a0a;color:#f87171;font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;border:1px solid #7f1d1d;">C3 login layout</span>
+    <span style="color:#334155;">→</span>
+    <span style="background:#431407;color:#fb923c;font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;border:1px solid #7c2d12;">H3 CSS classes</span>
+    <span style="color:#334155;">→</span>
+    <span style="background:#431407;color:#fb923c;font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;border:1px solid #7c2d12;">H1 icons</span>
+    <span style="color:#334155;">→</span>
+    <span style="background:#431407;color:#fb923c;font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;border:1px solid #7c2d12;">H2 emoji</span>
+    <span style="color:#334155;">→</span>
+    <span style="background:#431407;color:#fb923c;font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;border:1px solid #7c2d12;">H5 type scale</span>
+    <span style="color:#334155;">→</span>
+    <span style="background:#431407;color:#fb923c;font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;border:1px solid #7c2d12;">H4 bell</span>
+    <span style="color:#334155;">→</span>
+    <span style="background:#431407;color:#fb923c;font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;border:1px solid #7c2d12;">H6 steps</span>
+  </div>
+</div>
+
+</body>
+</html>
