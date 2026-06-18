@@ -554,7 +554,7 @@ export default function MAR({ admission }) {
   const dayStart  = startOfDay(date)
   const nowOffset = (now - dayStart) / 3600000
   const colW      = cellWidth(colInterval)
-  const nowLeft   = (nowOffset / interval) * colW + 210 // 210 = left panel width
+  const nowLeft   = (nowOffset / colInterval) * colW + 210 // 210 = left panel width
 
   const jumpShift = (shift) => {
     if (tableRef.current) {
