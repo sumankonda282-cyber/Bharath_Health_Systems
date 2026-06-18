@@ -336,7 +336,7 @@ export default function FractureTraumaAssessmentForm({ patientId, encounterId })
           <Pills label="Skeletal Stabilisation" options={[['ex_fix','External fixator (temp)'],['intramedullary','IM nail'],['plate_screw','Plate & screws'],['k_wires','K-wires'],['splint','Splint (temp)']]} value={openFxManage.definitiveFixation} onChange={v => setOpenFxManage(p => ({...p, definitiveFixation: v}))}/>
           <FL label="Time to Surgery (hours from injury)"><Inp type="number" value={openFxManage.timeToSurgery} onChange={v => setOpenFxManage(p => ({...p, timeToSurgery: v}))} placeholder="hours"/></FL>
           {parseFloat(openFxManage.timeToSurgery) > 6 && fracData.gustilo?.startsWith('III') && (
-            <div className="text-xs text-red-600 font-semibold mt-1">⚠ Gustilo III fracture with >6h delay to surgery — significantly increased infection risk.</div>
+            <div className="text-xs text-red-600 font-semibold mt-1">⚠ Gustilo III fracture with {'>'}6h delay to surgery — significantly increased infection risk.</div>
           )}
         </Gate>
       </div>
