@@ -5,11 +5,12 @@ from typing import Optional
 from datetime import datetime, date, timedelta
 from app.db.session import get_db
 from app.core.security import get_current_platform_admin, hash_password
-from app.models.models import Clinic, Branch, Staff, Patient, Appointment, PlatformAdmin, AuditLog, Invoice, Feedback, Department, Ward, Bed
+from app.models.models import Clinic, Branch, Staff, Patient, Appointment, PlatformAdmin, AuditLog, Invoice, Feedback, Department, Ward, Bed, PlatformSetting, SubscriptionPayment
 
 import re
 import secrets
 import string as _string
+from decimal import Decimal
 
 router = APIRouter(prefix="/platform", tags=["platform-admin"])
 
@@ -54,12 +55,56 @@ def _generate_username(full_name: str, db) -> str:
             return username
     raise Exception("Could not generate unique username")
 
-# ── Rate Card ─────────────────────────────────────────────────────────────────
+# ── Rate Card (fallback — authoritative copy lives in platform_settings table) ─
 RATE_CARD = {
     "free":       {"price_per_doctor": 0,    "max_doctors": 2,   "label": "Free"},
     "basic":      {"price_per_doctor": 999,  "max_doctors": 10,  "label": "Basic"},
     "pro":        {"price_per_doctor": 799,  "max_doctors": 999, "label": "Pro"},
     "enterprise": {"price_per_doctor": 0,    "max_doctors": 999, "label": "Enterprise"},
+}
+
+DEFAULT_PLAN_CONFIG = {
+    "plans": {
+        "free": {
+            "label": "Free",
+            "color": "#6B7280",
+            "price_per_doctor": 0,
+            "max_doctors": 2,
+            "trial_days": 0,
+            "features": ["OPD", "Basic Reports"],
+        },
+        "basic": {
+            "label": "Basic",
+            "color": "#3B82F6",
+            "price_per_doctor": 999,
+            "max_doctors": 10,
+            "trial_days": 14,
+            "features": ["OPD", "Appointments", "Patient Records", "Reports", "SMS Alerts"],
+        },
+        "pro": {
+            "label": "Pro",
+            "color": "#8B5CF6",
+            "price_per_doctor": 799,
+            "max_doctors": 999,
+            "trial_days": 14,
+            "features": ["OPD", "IPD", "Lab", "Pharmacy", "Imaging", "Telehealth", "Reports", "API Access"],
+        },
+        "enterprise": {
+            "label": "Enterprise",
+            "color": "#F59E0B",
+            "price_per_doctor": 0,
+            "max_doctors": 999,
+            "trial_days": 30,
+            "features": ["All Pro Features", "Dedicated Support", "Custom Integrations", "SLA Guarantee", "Custom Branding"],
+        },
+    },
+    "modules": {
+        "has_pharmacy":  {"label": "Pharmacy",   "description": "Pharmacy inventory and billing"},
+        "has_lab":       {"label": "Laboratory",  "description": "Lab orders and reports"},
+        "has_imaging":   {"label": "Imaging",     "description": "Radiology and imaging"},
+        "has_telehealth":{"label": "Telehealth",  "description": "Video consultations"},
+        "has_inpatient": {"label": "Inpatient",   "description": "IPD / ward management"},
+    },
 }
 
 ROLES_NEEDING_VERIFICATION = ['pharmacist', 'lab_technician', 'imaging_tech', 'nurse']
@@ -70,6 +115,29 @@ SUSPENSION_REASONS = [
     "compliance_issue",
     "other",
 ]
+
+# ── Plan Config Helpers ───────────────────────────────────────────────────────
+
+def _get_plan_config(db) -> dict:
+    """Return plan config from DB; fall back to DEFAULT_PLAN_CONFIG."""
+    row = db.query(PlatformSetting).filter(PlatformSetting.key == "plan_config").first()
+    if row and isinstance(row.value, dict):
+        return row.value
+    return DEFAULT_PLAN_CONFIG
+
+
+def _get_rate_card(db) -> dict:
+    """Flatten plan config into the legacy RATE_CARD shape."""
+    cfg = _get_plan_config(db)
+    return {
+        key: {
+            "price_per_doctor": plan.get("price_per_doctor", 0),
+            "max_doctors":      plan.get("max_doctors", 999),
+            "label":            plan.get("label", key.capitalize()),
+        }
+        for key, plan in cfg.get("plans", {}).items()
+    }
+
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -108,11 +176,13 @@ def _doctor_count(db, clinic_id):
     ).scalar()
 
 
-def _clinic_summary(c, db):
+def _clinic_summary(c, db, rate_card: dict = None):
+    if rate_card is None:
+        rate_card = _get_rate_card(db)
     admin = db.query(Staff).filter(Staff.clinic_id == c.id, Staff.role == "clinic_admin").first()
     doctors = _doctor_count(db, c.id)
     plan = c.subscription_plan or "free"
-    rate = RATE_CARD.get(plan, RATE_CARD["free"])
+    rate = rate_card.get(plan, {"price_per_doctor": 0, "max_doctors": 2, "label": "Free"})
     monthly_bill = doctors * rate["price_per_doctor"]
     return {
         "id":            c.id,
@@ -125,6 +195,8 @@ def _clinic_summary(c, db):
         "email":         c.email,
         "status":        c.status or ("active" if c.is_verified else "pending"),
         "plan":          plan,
+        "subscription_status":     c.subscription_status or "active",
+        "subscription_expires_at": str(c.subscription_expires_at) if c.subscription_expires_at else None,
         "doctor_count":  doctors,
         "monthly_bill":  monthly_bill,
         "is_active":     c.is_active,
@@ -137,6 +209,11 @@ def _clinic_summary(c, db):
         "admin_name":    admin.full_name if admin else None,
         "admin_email":   admin.email if admin else None,
         "admin_mobile":  admin.mobile if admin else None,
+        "has_pharmacy":  bool(c.has_pharmacy),
+        "has_lab":       bool(c.has_lab),
+        "has_imaging":   bool(c.has_imaging),
+        "has_telehealth":bool(c.has_telehealth),
+        "has_inpatient": bool(c.has_inpatient),
     }
 
 
@@ -165,11 +242,12 @@ def platform_dashboard(db: Session = Depends(get_db), current=Depends(get_curren
     ).scalar()
 
     # Estimated MRR across all active clinics
+    rc = _get_rate_card(db)
     clinics = db.query(Clinic).filter(Clinic.status == "active").all()
     mrr = 0
     for c in clinics:
         plan = c.subscription_plan or "free"
-        rate = RATE_CARD.get(plan, RATE_CARD["free"])
+        rate = rc.get(plan, {"price_per_doctor": 0})
         doctors = _doctor_count(db, c.id)
         mrr += doctors * rate["price_per_doctor"]
 
@@ -184,7 +262,7 @@ def platform_dashboard(db: Session = Depends(get_db), current=Depends(get_curren
         "pending_staff":    pending_staff,
         "new_this_month":   new_this_month,
         "mrr":              mrr,
-        "rate_card":        RATE_CARD,
+        "rate_card":        rc,
     }
 
 
@@ -195,7 +273,8 @@ def pending_clinics(db: Session = Depends(get_db), current=Depends(get_current_p
     clinics = db.query(Clinic).filter(
         Clinic.status == "pending"
     ).order_by(Clinic.created_at.desc()).all()
-    return [_clinic_summary(c, db) for c in clinics]
+    rc = _get_rate_card(db)
+    return [_clinic_summary(c, db, rc) for c in clinics]
 
 
 @router.get("/clinics")
@@ -216,7 +295,8 @@ def list_all_clinics(
     if plan:
         q = q.filter(Clinic.subscription_plan == plan)
     clinics = q.order_by(Clinic.created_at.desc()).offset(skip).limit(limit).all()
-    return [_clinic_summary(c, db) for c in clinics]
+    rc = _get_rate_card(db)
+    return [_clinic_summary(c, db, rc) for c in clinics]
 
 
 @router.get("/clinics/{clinic_id}")
@@ -249,15 +329,16 @@ def get_clinic_detail(
     summary["branches"] = [{"id": b.id, "name": b.name, "city": b.city, "is_active": b.is_active} for b in branches]
 
     # Billing breakdown
+    rc = _get_rate_card(db)
     plan = clinic.subscription_plan or "free"
-    rate = RATE_CARD.get(plan, RATE_CARD["free"])
+    rate = rc.get(plan, {"price_per_doctor": 0, "max_doctors": 2, "label": "Free"})
     doctor_count = _doctor_count(db, clinic_id)
     summary["billing"] = {
         "plan":              plan,
         "price_per_doctor":  rate["price_per_doctor"],
         "active_doctors":    doctor_count,
         "monthly_total":     doctor_count * rate["price_per_doctor"],
-        "rate_card":         RATE_CARD,
+        "rate_card":         rc,
     }
 
     # Audit log for this clinic
@@ -457,14 +538,15 @@ def change_plan(
     current=Depends(get_current_platform_admin),
 ):
     plan = body.get("plan")
-    if plan not in RATE_CARD:
-        raise HTTPException(400, f"Plan must be one of {list(RATE_CARD.keys())}")
+    rc = _get_rate_card(db)
+    if plan not in rc:
+        raise HTTPException(400, f"Plan must be one of {list(rc.keys())}")
     clinic = db.query(Clinic).filter(Clinic.id == clinic_id).first()
     if not clinic:
         raise HTTPException(404, "Clinic not found")
     old_plan = clinic.subscription_plan
     active_doctors = _doctor_count(db, clinic_id)
-    max_allowed = RATE_CARD[plan]["max_doctors"]
+    max_allowed = rc[plan]["max_doctors"]
     if active_doctors > max_allowed:
         raise HTTPException(400,
             f"Cannot downgrade to {plan}: clinic has {active_doctors} active doctors "
@@ -474,7 +556,7 @@ def change_plan(
     _log(db, "changed_plan", "clinic", clinic_id, clinic.name, current,
          reason=f"{old_plan} → {plan}")
     db.commit()
-    return {"message": f"Plan changed to {plan}", "monthly_bill": active_doctors * RATE_CARD[plan]["price_per_doctor"]}
+    return {"message": f"Plan changed to {plan}", "monthly_bill": active_doctors * rc[plan]["price_per_doctor"]}
 
 
 # ── Staff Verification ────────────────────────────────────────────────────────
@@ -668,8 +750,9 @@ def get_reports(
     }
 
     # Plan distribution
+    rc = _get_rate_card(db)
     plan_dist = {}
-    for plan in RATE_CARD:
+    for plan in rc:
         plan_dist[plan] = db.query(func.count(Clinic.id)).filter(
             Clinic.subscription_plan == plan, Clinic.status == "active"
         ).scalar()
@@ -686,7 +769,7 @@ def get_reports(
     total_mrr = 0
     for c in active_clinics:
         plan = c.subscription_plan or "free"
-        rate = RATE_CARD.get(plan, RATE_CARD["free"])
+        rate = rc.get(plan, {"price_per_doctor": 0})
         doctors = _doctor_count(db, c.id)
         bill = doctors * rate["price_per_doctor"]
         total_mrr += bill
@@ -1058,3 +1141,186 @@ def admin_update_bed(
             setattr(bed, field, body[field])
     db.commit()
     return {"detail": "updated"}
+
+
+# ── Plan Config (editable pricing) ───────────────────────────────────────────
+
+@router.get("/plan-config")
+def get_plan_config(
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    return _get_plan_config(db)
+
+
+@router.put("/plan-config")
+def update_plan_config(
+    body: dict,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    if "plans" not in body:
+        raise HTTPException(400, "Body must contain a 'plans' key")
+    row = db.query(PlatformSetting).filter(PlatformSetting.key == "plan_config").first()
+    if row:
+        row.value = body
+    else:
+        row = PlatformSetting(key="plan_config", value=body)
+        db.add(row)
+    _log(db, "updated_plan_config", "platform", 0, "plan_config", current)
+    db.commit()
+    return {"message": "Plan configuration saved", "config": body}
+
+
+# ── Subscription Payments ─────────────────────────────────────────────────────
+
+@router.post("/clinics/{clinic_id}/payment")
+def record_payment(
+    clinic_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    clinic = db.query(Clinic).filter(Clinic.id == clinic_id).first()
+    if not clinic:
+        raise HTTPException(404, "Clinic not found")
+
+    amount = body.get("amount")
+    if not amount or float(amount) <= 0:
+        raise HTTPException(400, "amount must be > 0")
+
+    method = body.get("method", "cash")
+    valid_methods = ["upi", "neft", "imps", "cash", "cheque", "razorpay", "bank_transfer"]
+    if method not in valid_methods:
+        raise HTTPException(400, f"method must be one of {valid_methods}")
+
+    payment = SubscriptionPayment(
+        clinic_id   = clinic_id,
+        amount      = Decimal(str(amount)),
+        method      = method,
+        reference   = body.get("reference"),
+        notes       = body.get("notes"),
+        period_from = body.get("period_from"),
+        period_to   = body.get("period_to"),
+        recorded_by = current.id,
+    )
+    db.add(payment)
+
+    # Optionally activate or extend the subscription
+    if body.get("activate"):
+        clinic.subscription_status = "active"
+        if body.get("period_to"):
+            try:
+                clinic.subscription_expires_at = datetime.fromisoformat(str(body["period_to"]))
+            except Exception:
+                pass
+
+    _log(db, "recorded_payment", "clinic", clinic_id, clinic.name, current,
+         reason=f"₹{amount} via {method}", comment=body.get("notes"))
+    db.commit()
+    db.refresh(payment)
+    return {
+        "id":          payment.id,
+        "clinic_id":   payment.clinic_id,
+        "amount":      float(payment.amount),
+        "method":      payment.method,
+        "reference":   payment.reference,
+        "period_from": str(payment.period_from) if payment.period_from else None,
+        "period_to":   str(payment.period_to) if payment.period_to else None,
+        "created_at":  str(payment.created_at),
+        "message":     "Payment recorded",
+    }
+
+
+@router.get("/clinics/{clinic_id}/payments")
+def get_clinic_payments(
+    clinic_id: int,
+    skip: int = 0,
+    limit: int = 50,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    clinic = db.query(Clinic).filter(Clinic.id == clinic_id).first()
+    if not clinic:
+        raise HTTPException(404, "Clinic not found")
+    payments = db.query(SubscriptionPayment).filter(
+        SubscriptionPayment.clinic_id == clinic_id
+    ).order_by(SubscriptionPayment.created_at.desc()).offset(skip).limit(limit).all()
+    return [
+        {
+            "id":          p.id,
+            "amount":      float(p.amount),
+            "method":      p.method,
+            "reference":   p.reference,
+            "notes":       p.notes,
+            "period_from": str(p.period_from) if p.period_from else None,
+            "period_to":   str(p.period_to) if p.period_to else None,
+            "created_at":  str(p.created_at),
+        }
+        for p in payments
+    ]
+
+
+@router.get("/payments")
+def get_all_payments(
+    method: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    q = db.query(SubscriptionPayment)
+    if method:
+        q = q.filter(SubscriptionPayment.method == method)
+    if date_from:
+        q = q.filter(SubscriptionPayment.created_at >= datetime.fromisoformat(date_from))
+    if date_to:
+        q = q.filter(SubscriptionPayment.created_at <= datetime.fromisoformat(date_to))
+    payments = q.order_by(SubscriptionPayment.created_at.desc()).offset(skip).limit(limit).all()
+    result = []
+    for p in payments:
+        clinic = db.query(Clinic).filter(Clinic.id == p.clinic_id).first()
+        result.append({
+            "id":           p.id,
+            "clinic_id":    p.clinic_id,
+            "clinic_name":  clinic.name if clinic else "—",
+            "clinic_city":  clinic.city if clinic else None,
+            "amount":       float(p.amount),
+            "method":       p.method,
+            "reference":    p.reference,
+            "notes":        p.notes,
+            "period_from":  str(p.period_from) if p.period_from else None,
+            "period_to":    str(p.period_to) if p.period_to else None,
+            "created_at":   str(p.created_at),
+        })
+    total = db.query(func.sum(SubscriptionPayment.amount)).scalar() or 0
+    return {"payments": result, "total_collected": float(total)}
+
+
+@router.put("/clinics/{clinic_id}/extend")
+def extend_subscription(
+    clinic_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    clinic = db.query(Clinic).filter(Clinic.id == clinic_id).first()
+    if not clinic:
+        raise HTTPException(404, "Clinic not found")
+    days = int(body.get("days", 30))
+    if days <= 0:
+        raise HTTPException(400, "days must be > 0")
+    base = clinic.subscription_expires_at or datetime.utcnow()
+    if base < datetime.utcnow():
+        base = datetime.utcnow()
+    clinic.subscription_expires_at = base + timedelta(days=days)
+    clinic.subscription_status = "active"
+    _log(db, "extended_subscription", "clinic", clinic_id, clinic.name, current,
+         reason=f"+{days} days")
+    db.commit()
+    return {
+        "message": f"Subscription extended by {days} days",
+        "new_expiry": str(clinic.subscription_expires_at.date()),
+    }
