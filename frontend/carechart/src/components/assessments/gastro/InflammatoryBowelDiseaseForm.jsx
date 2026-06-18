@@ -172,7 +172,7 @@ export default function InflammatoryBowelDiseaseForm({patientId,encounterId,onSa
         </FL>
         <div className={`p-3 rounded-lg text-sm ${A.amber.bg} ${A.amber.border} border`}>
           <p className={`font-semibold ${A.amber.text}`}>India context</p>
-          <p className="text-gray-600 mt-1">IBD incidence rising in India — urban > rural. Critical to exclude intestinal TB before starting immunosuppressives. Mantoux test, IGRA (QuantiFERON), chest X-ray, and colonoscopic biopsy for granulomas mandatory. Parasitic colitis (Entamoeba, Giardia) must also be ruled out.</p>
+          <p className="text-gray-600 mt-1">IBD incidence rising in India — urban {'>'}  rural. Critical to exclude intestinal TB before starting immunosuppressives. Mantoux test, IGRA (QuantiFERON), chest X-ray, and colonoscopic biopsy for granulomas mandatory. Parasitic colitis (Entamoeba, Giardia) must also be ruled out.</p>
         </div>
       </Section>
 

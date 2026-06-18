@@ -374,7 +374,7 @@ export default function AudiologyAndHearingForm({ patientId, encounterId, onSave
         </div>
         <div className="rounded-lg bg-white border border-indigo-200 p-3 space-y-2">
           <div className="text-sm font-bold text-indigo-700">Acoustic Reflex Thresholds</div>
-          <div className="text-xs text-gray-500">Normal: 70–100 dB HL. Absent if SNHL >70dB, conductive loss, or retrocochlear pathology</div>
+          <div className="text-xs text-gray-500">Normal: 70–100 dB HL. Absent if SNHL {'>'}70dB, conductive loss, or retrocochlear pathology</div>
           <div className="grid grid-cols-4 gap-2">
             <FL label="500 Hz"><input className={inp} value={reflex500} onChange={e => setReflex500(e.target.value)} placeholder="dB" /></FL>
             <FL label="1000 Hz"><input className={inp} value={reflex1k} onChange={e => setReflex1k(e.target.value)} placeholder="dB" /></FL>
