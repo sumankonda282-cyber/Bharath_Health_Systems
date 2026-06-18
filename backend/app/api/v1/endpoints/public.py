@@ -12,7 +12,8 @@ from datetime import date, datetime, timedelta
 from app.db.session import get_db
 from app.models.models import (
     Clinic, Branch, Staff, DoctorProfile, DoctorSchedule,
-    Appointment, OnlineBooking, Feedback, PatientUser
+    Appointment, OnlineBooking, Feedback, PatientUser, BHProfile,
+    BHStateGroup, BHIDSequence
 )
 from app.schemas.schemas import OnlineBookingCreate, OnlineBookingOut
 from app.core.security import hash_password
@@ -283,6 +284,160 @@ def get_available_slots(
     }
 
 
+# ── Patient Lookup (Tier 0 — no OTP needed, no sensitive data) ───────────────
+
+@router.get("/patient-lookup")
+def patient_lookup(mobile: str, db: Session = Depends(get_db)):
+    """
+    Check if a mobile number has an existing patient profile.
+    Returns only masked info — no OTP needed.
+    """
+    mobile = mobile.strip()
+    user = db.query(PatientUser).filter(PatientUser.mobile == mobile).first()
+    if not user:
+        return {"found": False}
+
+    profiles = db.query(BHProfile).filter(
+        BHProfile.patient_user_id == user.id,
+        BHProfile.is_active == True,
+    ).all()
+
+    if not profiles:
+        # PatientUser exists but no BHProfile yet
+        masked = f"{user.full_name[:1]}{'*' * (len(user.full_name) - 2)}{user.full_name[-1:]}" if user.full_name and len(user.full_name) > 2 else None
+        return {"found": bool(user.full_name), "masked_name": masked, "has_profile": False}
+
+    # Return masked names for each profile (family members)
+    result = []
+    for p in profiles:
+        full = f"{p.first_name} {p.last_name}".strip()
+        masked = f"{full[:1]}{'*' * max(0, len(full) - 2)}{full[-1:]}" if len(full) > 2 else full
+        result.append({
+            "bh_id": p.bh_id,
+            "masked_name": masked,
+            "gender": p.gender,
+            "state": p.state,
+        })
+    return {"found": True, "has_profile": True, "profiles": result}
+
+
+# ── Patient Profile (full — requires OTP verified_token) ─────────────────────
+
+def _resolve_public_verified_token(verified_token: str, db: Session) -> PatientUser:
+    """Validates the verified_token issued by /otp/verify or /auth/patient/verify-otp."""
+    from datetime import datetime
+    user = db.query(PatientUser).filter(
+        PatientUser.otp_verified_token == verified_token
+    ).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid or expired session. Please verify OTP again.")
+    if not user.otp_token_expiry or datetime.utcnow() > user.otp_token_expiry:
+        raise HTTPException(status_code=401, detail="Session expired. Please verify OTP again.")
+    return user
+
+
+@router.get("/patient-profile")
+def get_public_patient_profile(verified_token: str, db: Session = Depends(get_db)):
+    """
+    Returns full BHProfile after OTP verification.
+    verified_token issued by POST /otp/verify or POST /auth/patient/verify-otp.
+    """
+    user = _resolve_public_verified_token(verified_token, db)
+    profiles = db.query(BHProfile).filter(
+        BHProfile.patient_user_id == user.id,
+        BHProfile.is_active == True,
+    ).all()
+
+    return {
+        "mobile": user.mobile,
+        "email": user.email,
+        "profiles": [
+            {
+                "id": p.id,
+                "bh_id": p.bh_id,
+                "first_name": p.first_name,
+                "last_name": p.last_name,
+                "full_name": f"{p.first_name} {p.last_name}".strip(),
+                "gender": p.gender,
+                "date_of_birth": str(p.date_of_birth) if p.date_of_birth else None,
+                "state": p.state,
+            }
+            for p in profiles
+        ],
+        "is_new_patient": len(profiles) == 0,
+    }
+
+
+@router.patch("/patient-profile")
+def upsert_public_patient_profile(body: dict, db: Session = Depends(get_db)):
+    """
+    Create or update BHProfile after OTP verification.
+    Body: { verified_token, first_name, last_name, gender, date_of_birth, state, profile_id? }
+    On creation assigns BHID from state.
+    """
+    from app.api.v1.endpoints.auth import _get_state_digit, _next_bh_seq, _make_bh_id
+    from datetime import date as date_type
+
+    verified_token = body.get("verified_token", "")
+    user = _resolve_public_verified_token(verified_token, db)
+
+    profile_id = body.get("profile_id")
+    profile = None
+    if profile_id:
+        profile = db.query(BHProfile).filter(
+            BHProfile.id == int(profile_id),
+            BHProfile.patient_user_id == user.id,
+        ).first()
+
+    if not profile:
+        # Create new BHProfile with BHID
+        state = body.get("state", "")
+        digit = _get_state_digit(state, db) if state else 9
+        seq = _next_bh_seq(digit, db)
+        bh_id = _make_bh_id(digit, seq)
+        profile = BHProfile(
+            patient_user_id = user.id,
+            bh_id           = bh_id,
+            first_name      = body.get("first_name", ""),
+            last_name       = body.get("last_name", ""),
+            gender          = body.get("gender"),
+            state           = state,
+            state_digit     = digit,
+        )
+        if body.get("date_of_birth"):
+            try:
+                profile.date_of_birth = date_type.fromisoformat(body["date_of_birth"])
+            except Exception:
+                pass
+        db.add(profile)
+    else:
+        # Update existing
+        for field in ("first_name", "last_name", "gender", "state"):
+            if body.get(field) is not None:
+                setattr(profile, field, body[field])
+        if body.get("date_of_birth"):
+            try:
+                profile.date_of_birth = date_type.fromisoformat(body["date_of_birth"])
+            except Exception:
+                pass
+
+    # Update PatientUser email if provided
+    if body.get("email") and not user.email:
+        user.email = body["email"]
+
+    db.commit()
+    db.refresh(profile)
+
+    return {
+        "id": profile.id,
+        "bh_id": profile.bh_id,
+        "full_name": f"{profile.first_name} {profile.last_name}".strip(),
+        "state": profile.state,
+        "gender": profile.gender,
+        "date_of_birth": str(profile.date_of_birth) if profile.date_of_birth else None,
+    }
+
+
 # ── Online Booking ────────────────────────────────────────────────────────────
 
 @router.post("/book", response_model=OnlineBookingOut)
@@ -354,6 +509,12 @@ def book_appointment_online(
         reason=payload.reason,
         status="pending",
         confirmation_code=_gen_confirmation_code(),
+        mode=payload.mode or "offline",
+        patient_state=payload.patient_state,
+        bh_id_ref=payload.bh_id_ref,
+        payment_mode=payload.payment_mode or "pay_at_clinic",
+        payment_status=payload.payment_status or "pending",
+        amount_due=payload.amount_due,
     )
     db.add(booking)
     db.commit()

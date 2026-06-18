@@ -143,7 +143,7 @@ function SlotPicker({ doctor, onBack, onBooked }) {
 
   const fetchSlots = (d) => {
     setLoadingSlots(true); setSlots([]); setSlot(null)
-    api.get(`/public/doctors/${doctor.doctor_profile_id || doctor.id}/slots`, { params: { booking_date: d } })
+    api.get(`/public/doctors/${doctor.doctor_profile_id || doctor.id}/slots`, { params: { booking_date: d, branch_id: doctor.branch_id || undefined } })
       .then(r => setSlots(Array.isArray(r) ? r : r.slots || []))
       .catch(() => setSlots([]))
       .finally(() => setLoadingSlots(false))

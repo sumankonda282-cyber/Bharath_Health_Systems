@@ -160,11 +160,16 @@ def portal_appointments(current=Depends(get_current_patient), db: Session = Depe
             "clinic_city": clinic.city if clinic else None,
             "reason": b.reason,
             "token_number": None,
-            "mode": "online",
+            "mode": b.mode or "offline",
             "source": "online_booking",
             "confirmation_code": b.confirmation_code,
             "patient_name": b.patient_name,
             "doctor_profile_id": b.doctor_id,
+            "payment_mode": b.payment_mode or "pay_at_clinic",
+            "payment_status": b.payment_status or "pending",
+            "amount_due": float(b.amount_due) if b.amount_due else None,
+            "patient_state": b.patient_state,
+            "bh_id_ref": b.bh_id_ref,
             "booking_id": b.id,
         })
 
@@ -322,6 +327,12 @@ def portal_book_appointment(
             booking_date=body.get("booking_date"),
             booking_time=body.get("booking_time"),
             reason=body.get("reason"),
+            mode=body.get("mode", "offline"),
+            patient_state=body.get("patient_state"),
+            bh_id_ref=body.get("bh_id_ref"),
+            payment_mode=body.get("payment_mode", "pay_at_clinic"),
+            payment_status="pending",
+            amount_due=body.get("amount_due"),
         )
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Invalid booking details: {e}")
@@ -876,3 +887,101 @@ def seed_demo_data(current: PatientUser = Depends(get_current_patient), db: Sess
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to save demo data: {exc}")
     return {"seeded": True, "prescriptions": created_rx, "lab_orders": created_lab, "bills": created_bills}
+
+
+@router.get("/patient-profile")
+def portal_patient_profile(auth=Depends(get_current_patient_with_profile), db: Session = Depends(get_db)):
+    """Returns the BHProfile linked to the logged-in patient user."""
+    current, bh_profile = auth
+
+    if not bh_profile:
+        # Try to get first profile
+        bh_profile = db.query(BHProfile).filter(
+            BHProfile.patient_user_id == current.id,
+            BHProfile.is_active == True,
+        ).first()
+
+    if not bh_profile:
+        return {
+            "found": False,
+            "mobile": current.mobile,
+            "email": current.email,
+        }
+
+    return {
+        "found": True,
+        "id": bh_profile.id,
+        "bh_id": bh_profile.bh_id,
+        "first_name": bh_profile.first_name,
+        "last_name": bh_profile.last_name,
+        "full_name": f"{bh_profile.first_name} {bh_profile.last_name}".strip(),
+        "gender": bh_profile.gender,
+        "date_of_birth": str(bh_profile.date_of_birth) if bh_profile.date_of_birth else None,
+        "state": bh_profile.state,
+        "mobile": current.mobile,
+        "email": current.email,
+    }
+
+
+@router.patch("/patient-profile")
+def portal_update_patient_profile(
+    body: dict,
+    auth=Depends(get_current_patient_with_profile),
+    db: Session = Depends(get_db),
+):
+    """Update BHProfile for the logged-in patient user. Creates one if not exists."""
+    from app.api.v1.endpoints.auth import _get_state_digit, _next_bh_seq, _make_bh_id
+    from datetime import date as date_type
+
+    current, bh_profile = auth
+
+    if not bh_profile:
+        bh_profile = db.query(BHProfile).filter(
+            BHProfile.patient_user_id == current.id,
+            BHProfile.is_active == True,
+        ).first()
+
+    if not bh_profile:
+        state = body.get("state", "")
+        digit = _get_state_digit(state, db) if state else 9
+        seq = _next_bh_seq(digit, db)
+        bh_id = _make_bh_id(digit, seq)
+        bh_profile = BHProfile(
+            patient_user_id = current.id,
+            bh_id           = bh_id,
+            first_name      = body.get("first_name", ""),
+            last_name       = body.get("last_name", ""),
+            gender          = body.get("gender"),
+            state           = state,
+            state_digit     = digit,
+        )
+        if body.get("date_of_birth"):
+            try:
+                bh_profile.date_of_birth = date_type.fromisoformat(body["date_of_birth"])
+            except Exception:
+                pass
+        db.add(bh_profile)
+    else:
+        for field in ("first_name", "last_name", "gender", "state"):
+            if body.get(field) is not None:
+                setattr(bh_profile, field, body[field])
+        if body.get("date_of_birth"):
+            try:
+                bh_profile.date_of_birth = date_type.fromisoformat(body["date_of_birth"])
+            except Exception:
+                pass
+
+    if body.get("email") and not current.email:
+        current.email = body["email"]
+
+    db.commit()
+    db.refresh(bh_profile)
+
+    return {
+        "id": bh_profile.id,
+        "bh_id": bh_profile.bh_id,
+        "full_name": f"{bh_profile.first_name} {bh_profile.last_name}".strip(),
+        "state": bh_profile.state,
+        "gender": bh_profile.gender,
+        "date_of_birth": str(bh_profile.date_of_birth) if bh_profile.date_of_birth else None,
+    }

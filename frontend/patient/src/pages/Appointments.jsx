@@ -149,6 +149,8 @@ function ApptDrawer({ a, onClose, onRefresh }) {
                 ...(a.token_number ? [['Token', `#${a.token_number}`]] : []),
                 ...(a.confirmation_code ? [['Confirmation Code', a.confirmation_code]] : []),
                 ...(a.patient_name ? [['Patient', a.patient_name]] : []),
+                ...(a.payment_mode ? [['Payment', a.payment_mode === 'pay_at_clinic' ? 'Pay at Clinic' : a.payment_mode]] : []),
+                ...(a.amount_due ? [['Amount Due', `₹${a.amount_due}`]] : []),
               ].map(([k, v]) => (
                 <div key={k} className="flex justify-between text-sm">
                   <span className="text-gray-500">{k}</span>
