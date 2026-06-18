@@ -579,6 +579,106 @@ function AdmissionFormModal({ admission, onClose }) {
   const [saving, setSaving]       = useState(false)
   const [saved, setSaved]         = useState(false)
 
+  // Patient lookup + OTP states
+  const [phoneInput, setPhoneInput]     = useState('')
+  const [lookupResult, setLookupResult] = useState(null)
+  const [lookupLoading, setLookupLoading] = useState(false)
+  const [lookupError, setLookupError]   = useState('')
+  const [otpStep, setOtpStep]           = useState(false)
+  const [otpValue, setOtpValue]         = useState('')
+  const [otpToken, setOtpToken]         = useState(null)
+  const [otpLoading, setOtpLoading]     = useState(false)
+  const [otpError, setOtpError]         = useState('')
+  const [prefilled, setPrefilled]       = useState({})
+  const [profileBanner, setProfileBanner] = useState(false)
+
+  const handleLookup = async () => {
+    if (!phoneInput.trim()) return
+    setLookupLoading(true); setLookupError(''); setLookupResult(null)
+    try {
+      const res = await api.get('/patients/lookup', { params: { mobile: phoneInput.trim() } })
+      if (res.data && (res.data.name || res.data.patient_name)) {
+        setLookupResult(res.data)
+      } else {
+        setLookupError('No patient found with that mobile number.')
+      }
+    } catch {
+      setLookupError('Lookup failed. Please check the number and try again.')
+    } finally {
+      setLookupLoading(false)
+    }
+  }
+
+  const handleSendOtp = async () => {
+    setOtpLoading(true); setOtpError('')
+    try {
+      await api.post('/api/v1/otp/send', { mobile: phoneInput.trim() })
+      setOtpStep(true)
+    } catch {
+      setOtpError('Failed to send OTP. Please try again.')
+    } finally {
+      setOtpLoading(false)
+    }
+  }
+
+  const handleVerifyOtp = async () => {
+    setOtpLoading(true); setOtpError('')
+    try {
+      const res = await api.post('/api/v1/otp/verify', { mobile: phoneInput.trim(), otp: otpValue })
+      const token = res.data?.verified_token || res.data?.token
+      setOtpToken(token)
+      // Fetch patient profile
+      let profile = null
+      try {
+        const profileRes = await api.get('/patients/profile', { params: { verified_token: token } })
+        profile = profileRes.data
+      } catch {
+        try {
+          const profileRes = await api.get('/public/patient-profile', { params: { verified_token: token } })
+          profile = profileRes.data
+        } catch {
+          profile = res.data?.patient || res.data || {}
+        }
+      }
+      // Build prefilled map using label keys matching GROUPS
+      const p = profile
+      const filled = {
+        'Full Name':            p.patient_name || p.name || p.full_name,
+        'Date of Birth':        p.dob,
+        'Gender':               p.gender,
+        'Blood Group':          p.blood_group,
+        'UHID / MRN':           p.mrn || p.uhid,
+        'Nationality':          p.nationality,
+        'Religion':             p.religion,
+        'Occupation':           p.occupation,
+        'Mobile':               p.mobile || p.contact_number || p.phone,
+        'Email':                p.email,
+        'Address':              p.address,
+        'Emergency Contact':    p.emergency_contact,
+        'Relationship':         p.emergency_relation,
+      }
+      // Remove undefined keys
+      Object.keys(filled).forEach(k => filled[k] === undefined && delete filled[k])
+      setPrefilled(filled)
+      setExtra(prev => ({ ...prev, ...Object.fromEntries(
+        Object.entries(filled).map(([k, v]) => [`Patient Identity.${k}`, v])
+          .concat(Object.entries(filled).map(([k, v]) => [`Contact & Address.${k}`, v]))
+      )}))
+      setOtpStep(false)
+      setProfileBanner(true)
+    } catch {
+      setOtpError('Invalid OTP. Please try again.')
+    } finally {
+      setOtpLoading(false)
+    }
+  }
+
+  const maskedName = (name) => {
+    if (!name) return '***'
+    const parts = name.split(' ')
+    return parts.map(p => p.length <= 2 ? p : p[0] + '*'.repeat(p.length - 2) + p[p.length - 1]).join(' ')
+  }
+
   const saveAdditions = async () => {
     if (!Object.keys(extra).length) { onClose(); return }
     setSaving(true)
@@ -703,6 +803,95 @@ function AdmissionFormModal({ admission, onClose }) {
 
         {/* Body */}
         <div className="p-6 flex flex-col gap-6 max-h-[80vh] overflow-y-auto">
+
+          {/* Patient Lookup Bar */}
+          <div className="rounded-xl border p-3 flex flex-col gap-2" style={{ borderColor: '#dbe4f0', background: '#f4f7fc' }}>
+            <div className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: NAVY }}>🔍 Look up patient by mobile / BHID</div>
+            <div className="flex items-center gap-2">
+              <input
+                type="tel"
+                value={phoneInput}
+                onChange={e => { setPhoneInput(e.target.value); setLookupResult(null); setLookupError(''); setProfileBanner(false) }}
+                placeholder="Enter 10-digit mobile number"
+                maxLength={10}
+                onKeyDown={e => e.key === 'Enter' && handleLookup()}
+                className="flex-1 border rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1"
+                style={{ borderColor: NAVY, minWidth: 0 }}
+              />
+              <button
+                onClick={handleLookup}
+                disabled={lookupLoading || !phoneInput.trim()}
+                className="text-xs font-bold px-4 py-2 rounded-lg text-white transition-opacity disabled:opacity-50"
+                style={{ background: NAVY }}
+              >
+                {lookupLoading ? 'Looking…' : 'Look up'}
+              </button>
+            </div>
+
+            {lookupError && (
+              <p className="text-[11px] text-red-600 font-medium">{lookupError}</p>
+            )}
+
+            {lookupResult && !profileBanner && (
+              <div className="flex items-center justify-between bg-white border rounded-lg px-3 py-2" style={{ borderColor: '#c3d6f0' }}>
+                <div>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase">Patient found: </span>
+                  <span className="text-xs font-semibold text-gray-800">{maskedName(lookupResult.patient_name || lookupResult.name)}</span>
+                </div>
+                <button
+                  onClick={handleSendOtp}
+                  disabled={otpLoading}
+                  className="text-xs font-bold px-3 py-1.5 rounded-lg text-white disabled:opacity-50"
+                  style={{ background: GREEN }}
+                >
+                  {otpLoading ? 'Sending…' : 'Verify OTP'}
+                </button>
+              </div>
+            )}
+
+            {profileBanner && (
+              <div className="flex items-center gap-2 bg-green-50 border border-green-300 rounded-lg px-3 py-2">
+                <CheckCircle size={13} className="text-green-600 flex-shrink-0" />
+                <span className="text-[11px] font-semibold text-green-700">Auto-filled from verified profile</span>
+              </div>
+            )}
+          </div>
+
+          {/* OTP Modal Overlay */}
+          {otpStep && (
+            <div className="fixed inset-0 z-60 flex items-center justify-center" style={{ background: 'rgba(15,37,87,0.6)' }}>
+              <div className="bg-white rounded-2xl shadow-2xl p-6 w-80 flex flex-col gap-4" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-bold" style={{ color: NAVY }}>Enter OTP</span>
+                  <button onClick={() => { setOtpStep(false); setOtpError('') }} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
+                </div>
+                <p className="text-[11px] text-gray-500">OTP sent to <span className="font-semibold">{phoneInput}</span></p>
+                <p className="text-[10px] text-blue-500 font-medium">Dev hint: use <code className="bg-blue-50 px-1 rounded">1234</code></p>
+                <input
+                  autoFocus
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={otpValue}
+                  onChange={e => { setOtpValue(e.target.value); setOtpError('') }}
+                  onKeyDown={e => e.key === 'Enter' && handleVerifyOtp()}
+                  placeholder="Enter OTP"
+                  className="border rounded-lg px-3 py-2.5 text-sm text-center tracking-widest font-bold focus:outline-none focus:ring-1"
+                  style={{ borderColor: NAVY }}
+                />
+                {otpError && <p className="text-[11px] text-red-600 font-medium -mt-2">{otpError}</p>}
+                <button
+                  onClick={handleVerifyOtp}
+                  disabled={otpLoading || !otpValue.trim()}
+                  className="w-full text-sm font-bold py-2.5 rounded-lg text-white disabled:opacity-50 transition-opacity"
+                  style={{ background: GREEN }}
+                >
+                  {otpLoading ? 'Verifying…' : 'Verify & Auto-fill'}
+                </button>
+              </div>
+            </div>
+          )}
+
           {GROUPS.map(group => (
             <div key={group.title}>
               <div className="flex items-center gap-2 mb-3">
@@ -713,6 +902,7 @@ function AdmissionFormModal({ admission, onClose }) {
                 {group.fields.map(([label, value], i) => {
                   const isEditing = editField === `${group.title}.${label}`
                   const extraVal  = extra[`${group.title}.${label}`]
+                  const displayVal = prefilled[label] !== undefined ? prefilled[label] : value
                   return (
                     <div key={label}
                       className={`group flex items-start gap-4 px-4 py-3 ${i !== 0 ? 'border-t' : ''}`}
@@ -721,7 +911,7 @@ function AdmissionFormModal({ admission, onClose }) {
                         {label}
                       </span>
                       <div className="flex-1">
-                        <span className="text-xs font-semibold text-gray-800">{value}</span>
+                        <span className={`text-xs font-semibold ${prefilled[label] !== undefined ? 'text-green-700' : 'text-gray-800'}`}>{displayVal}</span>
                         {extraVal && (
                           <div className="mt-1 text-xs text-gray-600 bg-yellow-50 border border-yellow-200 rounded-lg px-2 py-1">
                             <span className="text-[9px] font-bold text-yellow-700 uppercase">Added: </span>{extraVal}
