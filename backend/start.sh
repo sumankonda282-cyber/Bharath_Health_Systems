@@ -89,6 +89,7 @@ safe_cols = [
     \"ALTER TABLE imaging_orders ADD COLUMN IF NOT EXISTS order_id VARCHAR(20)\",
     \"ALTER TABLE imaging_orders ADD COLUMN IF NOT EXISTS study_description TEXT\",
     \"ALTER TABLE imaging_orders ADD COLUMN IF NOT EXISTS priority VARCHAR(20) DEFAULT 'routine'\",
+    \"ALTER TABLE online_bookings ADD COLUMN IF NOT EXISTS patient_user_id INTEGER REFERENCES patient_users(id)\",
     \"ALTER TABLE online_bookings ADD COLUMN IF NOT EXISTS mode VARCHAR(20) DEFAULT 'offline'\",
     \"ALTER TABLE online_bookings ADD COLUMN IF NOT EXISTS patient_state VARCHAR(100)\",
     \"ALTER TABLE online_bookings ADD COLUMN IF NOT EXISTS bh_id_ref VARCHAR(20)\",

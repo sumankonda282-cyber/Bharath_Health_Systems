@@ -418,7 +418,7 @@ function RequestsPanel({ requests, doctorsById, onApprove, onReject, busyId }) {
               <div className="flex items-center gap-3 flex-wrap">
                 <div className="text-xs font-semibold text-gray-700 w-24 flex-shrink-0">
                   {r.booking_date === today ? 'Today' : fmtDay(r.booking_date)}
-                  <span className="block font-mono text-gray-500">{(r.booking_time || '').slice(0, 5)}</span>
+                  <span className="block font-mono text-gray-500">{fmt12(r.booking_time) || '—'}</span>
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-gray-800 truncate">{r.patient_name}

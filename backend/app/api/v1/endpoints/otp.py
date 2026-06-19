@@ -1,4 +1,5 @@
 import random
+import secrets
 import httpx
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -8,6 +9,8 @@ from app.core.config import settings
 from app.core.security import create_access_token
 from app.core.limiter import limiter
 from app.models.models import PatientUser
+
+OTP_VERIFIED_TOKEN_TTL_MINUTES = 30
 
 router = APIRouter(prefix="/otp", tags=["otp"])
 
@@ -80,6 +83,12 @@ def verify_otp(request: Request, body: dict, db: Session = Depends(get_db)):
     user.otp_expiry = None
     if not user.is_active:
         user.is_active = True
+
+    # Issue a short-lived verified_token so /public/patient-profile can be called
+    verified_token = secrets.token_urlsafe(32)
+    user.otp_verified_token = verified_token
+    user.otp_token_expiry   = datetime.utcnow() + timedelta(minutes=OTP_VERIFIED_TOKEN_TTL_MINUTES)
+
     db.commit()
 
     token = create_access_token({
@@ -89,7 +98,8 @@ def verify_otp(request: Request, body: dict, db: Session = Depends(get_db)):
     })
 
     return {
-        "access_token": token,
-        "token_type":   "bearer",
-        "is_new_user":  False,
+        "access_token":   token,
+        "token_type":     "bearer",
+        "verified_token": verified_token,
+        "is_new_user":    False,
     }

@@ -318,7 +318,7 @@ function OtpModal({ mobile, onVerified, onCancel }) {
     setVerifying(true); setError('')
     try {
       const data = await publicApi.verifyOtp(mobile, otp)
-      onVerified(data.access_token || data.verified_token || data.token)
+      onVerified(data.verified_token || data.access_token || data.token)
     } catch (err) {
       setError(err.message || 'Invalid OTP')
     } finally {
@@ -377,6 +377,7 @@ function Step3({ data, onNext, onBack }) {
     age: '',
     gender: '',
     patient_state: '',
+    bh_id: '',
   })
   const [errors, setErrors] = useState({})
   const [lookupLoading, setLookupLoading] = useState(false)
@@ -431,24 +432,38 @@ function Step3({ data, onNext, onBack }) {
     }
   }
 
+  const [selectedBhId, setSelectedBhId] = useState(null)
+
   const selectSuggestion = (s) => {
     setShowDropdown(false)
-    if (s.found) setShowOtp(true)
+    if (s.found) {
+      setSelectedBhId(s.bh_id || null)
+      setShowOtp(true)
+    }
   }
 
   const handleOtpVerified = async (token) => {
     setShowOtp(false)
     setVerifiedToken(token)
     try {
-      const profile = await publicApi.getPatientProfile(token)
-      if (profile) {
+      const resp = await publicApi.getPatientProfile(token)
+      if (resp) {
+        // profiles[0] is the primary BHProfile; resp.email is on the PatientUser root
+        const p = (resp.profiles && resp.profiles[0]) || {}
+        let ageStr = ''
+        if (p.date_of_birth) {
+          const dob = new Date(p.date_of_birth)
+          const today = new Date()
+          ageStr = String(today.getFullYear() - dob.getFullYear())
+        }
         setForm(prev => ({
           ...prev,
-          patient_name: profile.full_name || prev.patient_name,
-          email: profile.email || prev.email,
-          age: profile.age ? String(profile.age) : prev.age,
-          gender: profile.gender || prev.gender,
-          patient_state: profile.state || profile.patient_state || prev.patient_state,
+          patient_name: p.full_name || prev.patient_name,
+          email: resp.email || p.email || prev.email,
+          age: ageStr || prev.age,
+          gender: p.gender || prev.gender,
+          patient_state: p.state || prev.patient_state,
+          bh_id: selectedBhId || p.bh_id || prev.bh_id,
         }))
         setProfileFilled(true)
       }
