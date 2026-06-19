@@ -417,9 +417,8 @@ function Step3({ data, onNext, onBack }) {
     try {
       const d = await publicApi.patientLookup(mobile)
       if (d?.found) {
-        // Build suggestions list — backend may return one or multiple names
-        const names = d.names || (d.masked_name ? [d.masked_name] : [])
-        setSuggestions(names.map(n => ({ masked_name: n, found: true })))
+        const profiles = d.profiles || (d.masked_name ? [{ masked_name: d.masked_name, bh_id: d.bh_id }] : [])
+        setSuggestions(profiles.map(p => ({ masked_name: p.masked_name, bh_id: p.bh_id, found: true })))
         setShowDropdown(true)
       } else {
         setSuggestions([{ found: false }])
@@ -844,7 +843,7 @@ export default function BookAppointment() {
       reason: patientData.reason || undefined,
       patient_state: patientData.patient_state || undefined,
       bh_id_ref: patientData.bh_id || undefined,
-      mode: 'offline',
+      mode: 'online',
       payment_mode: payData.payment_mode,
       payment_status: 'pending',
       amount_due: payData.amount_due || undefined,

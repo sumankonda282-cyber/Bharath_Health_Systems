@@ -7,6 +7,7 @@ from sqlalchemy import text
 from app.db.session import engine
 
 safe_cols = [
+    \"ALTER TABLE patient_users ADD COLUMN IF NOT EXISTS otp_verified_token VARCHAR(255)\",
     \"ALTER TABLE patient_users ADD COLUMN IF NOT EXISTS otp_token_expiry TIMESTAMP WITHOUT TIME ZONE\",
     \"ALTER TABLE patient_users ADD COLUMN IF NOT EXISTS disclosure_pin VARCHAR(255)\",
     \"ALTER TABLE patient_users ADD COLUMN IF NOT EXISTS disclosure_pin_plain VARCHAR(10)\",
