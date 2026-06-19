@@ -598,7 +598,7 @@ function AdmissionFormModal({ admission, onClose }) {
     if (!m) return
     setLookupLoading(true); setLookupError(''); setLookupResult(null)
     try {
-      const res = await api.get('/patients/lookup', { params: { mobile: m } })
+      const res = await api.get('/public/patient-lookup', { params: { mobile: m } })
       const data = res?.data || res
       if (data && (data.name || data.patient_name)) {
         setLookupResult(data)
@@ -627,7 +627,7 @@ function AdmissionFormModal({ admission, onClose }) {
   const handleSendOtp = async () => {
     setOtpLoading(true); setOtpError('')
     try {
-      await api.post('/api/v1/otp/send', { mobile: phoneInput.trim() })
+      await api.post('/otp/send', { mobile: phoneInput.trim() })
       setOtpStep(true)
     } catch {
       setOtpError('Failed to send OTP. Please try again.')
@@ -639,13 +639,13 @@ function AdmissionFormModal({ admission, onClose }) {
   const handleVerifyOtp = async () => {
     setOtpLoading(true); setOtpError('')
     try {
-      const res = await api.post('/api/v1/otp/verify', { mobile: phoneInput.trim(), otp: otpValue })
+      const res = await api.post('/otp/verify', { mobile: phoneInput.trim(), otp: otpValue })
       const token = res.data?.verified_token || res.data?.token
       setOtpToken(token)
       // Fetch patient profile
       let profile = null
       try {
-        const profileRes = await api.get('/patients/profile', { params: { verified_token: token } })
+        const profileRes = await api.get('/public/patient-profile', { params: { verified_token: token } })
         profile = profileRes.data
       } catch {
         try {

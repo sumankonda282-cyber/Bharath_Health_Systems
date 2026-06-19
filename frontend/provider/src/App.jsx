@@ -78,7 +78,7 @@ function AppRoutes() {
         <Route path="/inpatient-admin"  element={user?.user_type === 'platform_admin' ? <Navigate to="/platform" replace /> : <Suspense fallback={<PageLoader />}><InpatientAdmin /></Suspense>} />
         <Route path="/inpatient"        element={user?.user_type === 'platform_admin' ? <Navigate to="/platform" replace /> : <Suspense fallback={<PageLoader />}><InpatientDesk /></Suspense>} />
         <Route path="/inpatient/admission/:admissionId" element={user?.user_type === 'platform_admin' ? <Navigate to="/platform" replace /> : <Suspense fallback={<PageLoader />}><AdmissionChart /></Suspense>} />
-        <Route path="/platform"        element={<Suspense fallback={<PageLoader />}><PlatformAdmin /></Suspense>} />
+        <Route path="/platform"        element={user?.user_type === 'platform_admin' ? <Suspense fallback={<PageLoader />}><PlatformAdmin /></Suspense> : <Navigate to="/dashboard" replace />} />
         <Route path="/forms/iview"           element={<Suspense fallback={<PageLoader />}><IViewSelector /></Suspense>} />
         <Route path="/forms/iview/:formId"   element={<Suspense fallback={<PageLoader />}><IViewFlowsheet /></Suspense>} />
         <Route path="/forms"                 element={<Suspense fallback={<PageLoader />}><FormTaskList /></Suspense>} />

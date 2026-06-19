@@ -16,7 +16,7 @@ function PrimaryDrModal({ admission, onClose, onSuccess }) {
   const [err, setErr]           = useState('')
 
   useEffect(() => {
-    api.get('/staff/?role=doctor')
+    api.get('/clinic/staff', { params: { role: 'doctor' } })
       .then(r => setDoctors(Array.isArray(r) ? r : (r?.items || r?.data || [])))
       .catch(() => {})
   }, [])
@@ -29,15 +29,10 @@ function PrimaryDrModal({ admission, onClose, onSuccess }) {
     if (!selected) return
     setSaving(true); setErr('')
     try {
-      await api.patch(`/inpatient/admissions/${admission.id}/primary-doctor`, { primary_doctor_id: selected.id })
+      await api.patch(`/inpatient/admissions/${admission.id}`, { primary_doctor_id: selected.id })
       onSuccess(`Primary doctor assigned: ${selected.full_name || selected.email}`)
-    } catch (_) {
-      try {
-        await api.patch(`/inpatient/admissions/${admission.id}`, { primary_doctor_id: selected.id })
-        onSuccess(`Primary doctor assigned: ${selected.full_name || selected.email}`)
-      } catch (ex2) {
-        setErr(ex2?.response?.data?.detail || ex2.message || 'Failed to assign doctor')
-      }
+    } catch (ex) {
+      setErr(ex?.response?.data?.detail || ex.message || 'Failed to assign doctor')
     } finally { setSaving(false) }
   }
 
@@ -154,7 +149,7 @@ function AdmitPatientModal({ onClose, onSuccess }) {
   })
 
   useEffect(() => {
-    api.get('/staff/?role=doctor')
+    api.get('/clinic/staff', { params: { role: 'doctor' } })
       .then(r => setDoctors(Array.isArray(r) ? r : (r?.items || r?.data || [])))
       .catch(() => {})
     api.get('/inpatient/departments')

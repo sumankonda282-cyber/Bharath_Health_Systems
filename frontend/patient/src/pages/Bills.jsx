@@ -140,8 +140,6 @@ export default function Bills() {
   const [bills, setBills] = useState([])
   const [loading, setLoading] = useState(true)
   const [expandedId, setExpandedId] = useState(null)
-  const [seeding, setSeeding] = useState(false)
-
   // Filters
   const [statusFilter, setStatusFilter] = useState('all')
   const [sort, setSort] = useState('latest')
@@ -154,21 +152,6 @@ export default function Bills() {
       r => { setBills(r?.bills || r?.data?.bills || []); setLoading(false) }
     ).catch(() => setLoading(false))
   }, [])
-
-  const seedDemo = async () => {
-    setSeeding(true)
-    try {
-      await api.post('/portal/seed-demo')
-      await cacheClear()
-      window.location.reload()
-    } catch (e) {
-      const msg = (e.message === 'Network Error' || e.code === 'ECONNABORTED')
-        ? 'The server is waking up — please wait 30 seconds and try again.'
-        : (e.message || 'Failed to load demo data')
-      alert(msg)
-    }
-    finally { setSeeding(false) }
-  }
 
   const clinics = useMemo(() => [...new Set(bills.map(b => b.clinic_name).filter(Boolean))], [bills])
 
@@ -268,10 +251,6 @@ export default function Bills() {
           <Receipt size={40} className="mx-auto mb-3 opacity-30" />
           <p className="font-medium">No bills on record</p>
           <p className="text-sm mt-1 text-gray-300">Invoices from your visits will appear here</p>
-          <button onClick={seedDemo} disabled={seeding}
-            className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border border-dashed border-gray-300 text-gray-400 hover:border-orange-300 hover:text-orange-500 transition-colors disabled:opacity-50">
-            {seeding ? 'Loading…' : '⚗ Load demo data'}
-          </button>
         </div>
       ) : filtered.length === 0 ? (
         <div className="card p-10 text-center text-gray-400 text-sm">No bills match the current filters.</div>

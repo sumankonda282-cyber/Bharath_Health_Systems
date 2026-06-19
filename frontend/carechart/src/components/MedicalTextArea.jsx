@@ -35,7 +35,7 @@ export default function MedicalTextArea({
   const fetchSuggestions = useCallback(async (word) => {
     try {
       const data = await api.get(
-        `/medical-library/terms?q=${encodeURIComponent(word)}&categories=${categories}&limit=${MAX_ITEMS}`
+        `/terminology/search?q=${encodeURIComponent(word)}&category=${categories}&limit=${MAX_ITEMS}`
       )
       const list = Array.isArray(data) ? data : (data.items || [])
       setSuggestions(list)

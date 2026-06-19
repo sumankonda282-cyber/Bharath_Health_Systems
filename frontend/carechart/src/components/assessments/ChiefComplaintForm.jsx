@@ -55,7 +55,7 @@ function ComplaintSearch({ value, onChange }) {
     if (!q.trim()) { setResults([]); setOpen(false); return }
     timer.current = setTimeout(async () => {
       try {
-        const data = await api.get(`/medical-library/terms?q=${encodeURIComponent(q)}&categories=symptom,condition&limit=10`)
+        const data = await api.get(`/terminology/search?q=${encodeURIComponent(q)}&category=symptom&limit=10`)
         const list = Array.isArray(data) ? data : (data.items || [])
         setResults(list)
         setOpen(list.length > 0)

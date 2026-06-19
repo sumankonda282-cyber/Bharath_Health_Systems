@@ -652,11 +652,80 @@ def get_booking_status(confirmation_code: str, db: Session = Depends(get_db)):
     }
 
 
+@router.get("/previsit/{token}")
+def get_previsit_form(token: str, db: Session = Depends(get_db)):
+    """Load pre-visit assessment form for a patient via tokenised link."""
+    from app.models.models import Appointment as Appt, Patient, DoctorProfile as DP, Staff as ST
+    appt = db.query(Appt).filter(Appt.previsit_token == token).first()
+    if not appt:
+        raise HTTPException(status_code=404, detail="This link is invalid or has expired.")
+    if appt.previsit_submitted_at:
+        raise HTTPException(status_code=410, detail="You have already submitted this form.")
+    patient = db.query(Patient).filter(Patient.id == appt.patient_id).first()
+    doctor = db.query(DP).filter(DP.id == appt.doctor_id).first()
+    doctor_name = ""
+    if doctor:
+        staff = db.query(ST).filter(ST.id == doctor.staff_id).first()
+        doctor_name = staff.full_name if staff else ""
+    return {
+        "token": token,
+        "patient": {"name": patient.full_name if patient else "Patient"},
+        "appointment_date": str(appt.appointment_date),
+        "appointment_time": appt.appointment_time,
+        "doctor_name": doctor_name,
+        "form": {
+            "schema": {
+                "sections": [
+                    {
+                        "title": "Chief Complaint",
+                        "fields": [
+                            {"id": "chief_complaint", "type": "textarea", "label": "What is your main concern today?", "required": True, "rows": 3},
+                            {"id": "symptom_duration", "type": "text", "label": "How long have you had this symptom?", "required": False},
+                        ]
+                    },
+                    {
+                        "title": "Medical History",
+                        "fields": [
+                            {"id": "current_medications", "type": "textarea", "label": "List any medications you are currently taking", "required": False, "rows": 3},
+                            {"id": "allergies", "type": "text", "label": "Known allergies (or write NKDA)", "required": False},
+                            {"id": "past_conditions", "type": "textarea", "label": "Past medical conditions or surgeries", "required": False, "rows": 3},
+                        ]
+                    },
+                    {
+                        "title": "Current Symptoms",
+                        "fields": [
+                            {"id": "pain_scale", "type": "select", "label": "Pain level (0 = none, 10 = worst)", "required": False,
+                             "options": [{"value": str(i), "label": str(i)} for i in range(11)]},
+                            {"id": "additional_notes", "type": "textarea", "label": "Anything else you want the doctor to know?", "required": False, "rows": 3},
+                        ]
+                    }
+                ]
+            }
+        }
+    }
+
+
+@router.post("/previsit/{token}/submit")
+def submit_previsit_form(token: str, body: dict, db: Session = Depends(get_db)):
+    """Patient submits their pre-visit form responses."""
+    from app.models.models import Appointment as Appt
+    from datetime import datetime
+    appt = db.query(Appt).filter(Appt.previsit_token == token).first()
+    if not appt:
+        raise HTTPException(status_code=404, detail="This link is invalid.")
+    if appt.previsit_submitted_at:
+        raise HTTPException(status_code=410, detail="Already submitted.")
+    appt.previsit_data = body.get("data", {})
+    appt.previsit_submitted_at = datetime.utcnow()
+    db.commit()
+    return {"ok": True, "message": "Responses saved successfully."}
+
+
 @router.get("/cities")
 def get_active_cities(db: Session = Depends(get_db)):
     """Return distinct cities that have active clinics."""
     cities = db.query(Clinic.city).filter(
-        Clinic.is_active == True
+        Clinic.is_active == True,
         Clinic.city != None,
     ).distinct().all()
     return {"cities": [c[0] for c in cities if c[0]]}

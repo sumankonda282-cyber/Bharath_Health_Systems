@@ -739,6 +739,40 @@ def pin_verify(body: dict, db: Session = Depends(get_db)):
     }
 
 
+@router.post("/staff/pin-identify")
+def pin_identify(body: dict, db: Session = Depends(get_db)):
+    """Identify a staff member by PIN alone (used by CareChart PIN gate)."""
+    pin = str(body.get("pin", ""))
+    if not pin:
+        raise HTTPException(status_code=400, detail="PIN required")
+
+    # Search all staff that have a pin_hash set
+    staff_list = db.query(Staff).filter(Staff.pin_hash != None).all()
+    matched = None
+    for s in staff_list:
+        if getattr(s, 'pin_locked_until', None) and s.pin_locked_until > datetime.utcnow():
+            continue
+        if getattr(s, 'pin_hash', None) and verify_password(pin, s.pin_hash):
+            matched = s
+            break
+
+    if not matched:
+        raise HTTPException(status_code=401, detail="Invalid PIN")
+
+    if hasattr(matched, 'pin_failed_attempts'):
+        matched.pin_failed_attempts = 0
+    if hasattr(matched, 'pin_locked_until'):
+        matched.pin_locked_until = None
+    db.commit()
+
+    return {
+        "verified":  True,
+        "staff_id":  matched.id,
+        "full_name": matched.full_name,
+        "role":      matched.role,
+    }
+
+
 # ── Platform Admin — Forgot / Reset Password ─────────────────────────────────
 
 class ForgotPasswordRequest(BaseModel):

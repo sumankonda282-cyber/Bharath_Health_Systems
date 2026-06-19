@@ -337,7 +337,6 @@ function OtpModal({ mobile, onVerified, onCancel }) {
           <p className="text-sm text-gray-500 mt-1">
             {sent ? `OTP sent to ${mobile}` : 'Sending OTP...'}
           </p>
-          <p className="text-xs text-amber-600 mt-1 font-medium">(Dev mode: use 1234)</p>
         </div>
 
         <div className="mb-4">
@@ -846,12 +845,17 @@ export default function BookAppointment() {
   const handleStep4 = async (payData) => {
     setSubmitting(true); setSubmitError('')
     const { patientData, clinic, doctor, date, slot } = bookingData
+    const nameParts = (patientData.patient_name || '').trim().split(/\s+/)
+    const first_name = nameParts[0] || ''
+    const last_name = nameParts.slice(1).join(' ') || nameParts[0] || ''
     const payload = {
       clinic_id: clinic?.id,
       branch_id: clinic?.default_branch_id || null,
       doctor_id: doctor?.id,
       booking_date: date,
       booking_time: slot,
+      first_name,
+      last_name,
       patient_name: patientData.patient_name,
       patient_mobile: patientData.mobile,
       patient_email: patientData.email || undefined,
@@ -867,7 +871,7 @@ export default function BookAppointment() {
       const result = await publicApi.bookAppointment(payload)
       const booking = result.booking || result
       setConfirmedBooking({
-        confirmation_code: booking.confirmation_code || booking.code || 'BH' + Math.random().toString(36).substr(2, 6).toUpperCase(),
+        confirmation_code: booking.confirmation_code || booking.code,
         doctor_name: doctor?.name,
         clinic_name: clinic?.name,
         date,

@@ -7,6 +7,10 @@ from sqlalchemy import text
 from app.db.session import engine
 
 safe_cols = [
+    \"ALTER TABLE admissions ADD COLUMN IF NOT EXISTS primary_doctor_id INTEGER REFERENCES staff(id)\",
+    \"ALTER TABLE appointments ADD COLUMN IF NOT EXISTS previsit_token VARCHAR(64)\",
+    \"ALTER TABLE appointments ADD COLUMN IF NOT EXISTS previsit_data JSONB\",
+    \"ALTER TABLE appointments ADD COLUMN IF NOT EXISTS previsit_submitted_at TIMESTAMP WITHOUT TIME ZONE\",
     \"ALTER TABLE patient_users ADD COLUMN IF NOT EXISTS otp_verified_token VARCHAR(255)\",
     \"ALTER TABLE patient_users ADD COLUMN IF NOT EXISTS otp_token_expiry TIMESTAMP WITHOUT TIME ZONE\",
     \"ALTER TABLE patient_users ADD COLUMN IF NOT EXISTS disclosure_pin VARCHAR(255)\",

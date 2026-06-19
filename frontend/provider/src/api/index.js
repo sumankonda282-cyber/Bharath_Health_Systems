@@ -92,7 +92,7 @@ export const pharmacyApi = {
 export const labApi = {
   getOrders:   (params) => api.get('/lab/orders', { params }),
   updateStatus:(id, status) => api.put(`/lab/orders/${id}/status`, { status }),
-  addResults:  (id, items) => api.post(`/lab/orders/${id}/results`, { items }),
+  addResults:  (id, items) => api.put(`/lab/orders/${id}/results`, { items }),
   searchTests: (q, type, branchId) => api.get('/lab/tests/search', { params: { q, type, branch_id: branchId } }),
 }
 
@@ -125,11 +125,12 @@ export const platformApi = {
   getDashboard: () => api.get('/platform/dashboard'),
   getClinics:   (params) => api.get('/platform/clinics', { params }),
   getPending:   () => api.get('/platform/clinics/pending'),
-  verify:       (id) => api.put(`/platform/clinics/${id}/verify`),
+  verify:       (id) => api.put(`/platform/clinics/${id}/approve`),
   reject:       (id) => api.put(`/platform/clinics/${id}/reject`),
-  toggle:       (id) => api.put(`/platform/clinics/${id}/toggle`),
+  suspend:      (id) => api.put(`/platform/clinics/${id}/suspend`),
+  reactivate:   (id) => api.put(`/platform/clinics/${id}/reactivate`),
   setSubscription: (id, plan, status) =>
-    api.put(`/platform/clinics/${id}/subscription`, null, { params: { plan, status } }),
+    api.put(`/platform/clinics/${id}/plan`, null, { params: { plan, status } }),
   getPendingStaff: () => api.get('/platform/staff/pending'),
   verifyStaff:     (id) => api.put(`/platform/staff/${id}/verify`),
   rejectStaff:     (id) => api.put(`/platform/staff/${id}/reject`),

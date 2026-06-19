@@ -39,6 +39,8 @@ from app.api.v1.endpoints.form_templates import router as forms_router
 from app.api.v1.endpoints.assessment_forms import router as assessment_forms_router
 from app.api.v1.endpoints.terminology import router as terminology_router
 from app.api.v1.endpoints.scheduler import router as scheduler_router
+from app.api.v1.endpoints.support import router as support_router
+from app.api.v1.endpoints.carechart import router as carechart_router
 
 app = FastAPI(
     title="BHarath Health API v2",
@@ -136,6 +138,8 @@ app.include_router(clinic_billing_router, prefix=PREFIX)
 app.include_router(forms_router, prefix=PREFIX)
 app.include_router(assessment_forms_router, prefix=PREFIX)
 app.include_router(terminology_router, prefix=PREFIX)
+app.include_router(support_router, prefix=PREFIX)
+app.include_router(carechart_router, prefix=PREFIX)
 
 # -----------------------------
 # Static Uploads

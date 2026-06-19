@@ -227,18 +227,6 @@ export default function LabResults() {
   const [imagingOrders, setImagingOrders] = useState([])
   const [loading, setLoading]             = useState(true)
   const [tab, setTab]                     = useState('lab')
-  const [seeding, setSeeding]             = useState(false)
-
-  const seedDemo = async () => {
-    setSeeding(true)
-    try {
-      await api.post('/portal/seed-demo')
-      await cacheClear()
-      window.location.reload()
-    } catch (e) { alert(e.message || 'Seed failed') }
-    finally { setSeeding(false) }
-  }
-
   // Lab filters
   const [sort, setSort]             = useState('latest')
   const [statusFilter, setStatusFilter] = useState('')
@@ -345,12 +333,6 @@ export default function LabResults() {
           <Icon size={40} className="mx-auto mb-3 opacity-30" />
           <p className="font-medium text-sm">No signed {tab === 'lab' ? 'lab results' : 'imaging reports'} yet</p>
           <p className="text-xs mt-1 text-gray-300">Results appear here once your doctor signs the report</p>
-          {tab === 'lab' && (
-            <button onClick={seedDemo} disabled={seeding}
-              className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border border-dashed border-gray-300 text-gray-400 hover:border-orange-300 hover:text-orange-500 transition-colors disabled:opacity-50">
-              {seeding ? 'Loading…' : '⚗ Load demo data'}
-            </button>
-          )}
         </div>
       )}
 

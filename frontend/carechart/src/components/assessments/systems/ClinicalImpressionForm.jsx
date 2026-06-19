@@ -22,7 +22,7 @@ function useICD10Search() {
       try {
         // Local medical_terms first
         const data = await api.get(
-          `/medical-library/terms?q=${encodeURIComponent(q)}&categories=condition&limit=12`
+          `/terminology/search?q=${encodeURIComponent(q)}&category=condition&limit=12`
         )
         const local = Array.isArray(data) ? data : (data.items || [])
         if (local.length >= 6) { setResults(local); setLoading(false); return }

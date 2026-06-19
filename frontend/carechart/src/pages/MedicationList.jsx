@@ -315,7 +315,7 @@ function MedDrawer({ mode, med, onClose, onSave, admissionId }) {
   const searchDrug = useCallback(async (q) => {
     if (!q || q.length < 2) { setDrugResults([]); return }
     try {
-      const data = await api.get('/pharmacy/drugs', { params: { search: q, limit: 8 } })
+      const data = await api.get('/pharmacy/drugs/search', { params: { q, limit: 8 } })
       const list = Array.isArray(data) ? data : (data.items || [])
       setDrugResults(list)
     } catch {
