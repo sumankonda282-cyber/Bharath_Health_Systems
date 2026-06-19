@@ -16,7 +16,7 @@ function PrimaryDrModal({ admission, onClose, onSuccess }) {
   const [err, setErr]           = useState('')
 
   useEffect(() => {
-    api.get('/staff/?role=doctor')
+    api.get('/clinic/staff', { params: { role: 'doctor' } })
       .then(r => setDoctors(Array.isArray(r) ? r : (r?.items || r?.data || [])))
       .catch(() => {})
   }, [])
@@ -149,7 +149,7 @@ function AdmitPatientModal({ onClose, onSuccess }) {
   })
 
   useEffect(() => {
-    api.get('/staff/?role=doctor')
+    api.get('/clinic/staff', { params: { role: 'doctor' } })
       .then(r => setDoctors(Array.isArray(r) ? r : (r?.items || r?.data || [])))
       .catch(() => {})
     api.get('/inpatient/departments')
