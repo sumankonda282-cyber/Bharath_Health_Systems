@@ -242,6 +242,7 @@ safe_cols = [
         updated_at TIMESTAMP DEFAULT NOW()
     )\"\"\",
     \"CREATE INDEX IF NOT EXISTS idx_barcode_master_barcode ON barcode_master(barcode)\",
+    \"ALTER TABLE drugs ADD COLUMN IF NOT EXISTS primary_brand VARCHAR(100)\",
 ]
 try:
     with engine.begin() as conn:

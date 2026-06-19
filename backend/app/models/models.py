@@ -2098,6 +2098,7 @@ class Drug(Base):
     drug_class = Column(String(150), nullable=True)
     routes     = Column(String(150), nullable=True)   # pipe-separated
     brands     = Column(Text, nullable=True)          # pipe-separated Indian brands
+    primary_brand = Column(String(100), nullable=True) # most-used Indian brand name
     rx_only    = Column(Boolean, default=True)
     clinic_id  = Column(Integer, ForeignKey("clinics.id"), nullable=True)
     is_active  = Column(Boolean, default=True)
