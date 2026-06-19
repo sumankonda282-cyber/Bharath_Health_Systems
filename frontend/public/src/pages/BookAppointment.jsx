@@ -294,11 +294,7 @@ function OtpModal({ mobile, onVerified, onCancel }) {
   const sendOtp = async () => {
     setSending(true); setError('')
     try {
-      await fetch('/api/v1/otp/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mobile }),
-      })
+      await publicApi.sendOtp(mobile)
       setSent(true)
       setTimeout(() => inputRef.current?.focus(), 100)
     } catch {
@@ -314,13 +310,7 @@ function OtpModal({ mobile, onVerified, onCancel }) {
     if (otp.length < 4) return
     setVerifying(true); setError('')
     try {
-      const res = await fetch('/api/v1/otp/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mobile, otp }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.detail || 'Invalid OTP')
+      const data = await publicApi.verifyOtp(mobile, otp)
       onVerified(data.access_token || data.verified_token || data.token)
     } catch (err) {
       setError(err.message || 'Invalid OTP')
@@ -398,13 +388,8 @@ function Step3({ data, onNext, onBack }) {
     if (!/^[6-9]\d{9}$/.test(mobile)) return
     setLookupLoading(true); setLookupResult(null)
     try {
-      const res = await fetch(`/api/v1/public/patient-lookup?mobile=${mobile}`)
-      const d = await res.json()
-      if (res.ok && d.found) {
-        setLookupResult(d)
-      } else {
-        setLookupResult({ found: false })
-      }
+      const d = await publicApi.patientLookup(mobile)
+      setLookupResult(d?.found ? d : { found: false })
     } catch {
       setLookupResult({ found: false })
     } finally {
@@ -415,18 +400,16 @@ function Step3({ data, onNext, onBack }) {
   const handleOtpVerified = async (token) => {
     setShowOtp(false)
     setVerifiedToken(token)
-    // Fetch full profile
     try {
-      const res = await fetch(`/api/v1/public/patient-profile?verified_token=${token}`)
-      const profile = await res.json()
-      if (res.ok && profile) {
+      const profile = await publicApi.getPatientProfile(token)
+      if (profile) {
         setForm(prev => ({
           ...prev,
           patient_name: profile.full_name || prev.patient_name,
           email: profile.email || prev.email,
           age: profile.age ? String(profile.age) : prev.age,
           gender: profile.gender || prev.gender,
-          patient_state: profile.state || prev.patient_state,
+          patient_state: profile.state || profile.patient_state || prev.patient_state,
         }))
         setProfileFilled(true)
       }
