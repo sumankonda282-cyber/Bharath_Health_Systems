@@ -58,8 +58,13 @@ export default function PlatformAdmin() {
     try { await platformApi.rejectStaff(id); load() } finally { setSaving(false) }
   }
 
-  const handleToggle = async (id) => {
-    await platformApi.toggle(id); load()
+  const handleToggle = async (clinic) => {
+    if (clinic.is_active) {
+      await platformApi.suspend(clinic.id)
+    } else {
+      await platformApi.reactivate(clinic.id)
+    }
+    load()
   }
 
   const handleSubscription = async () => {
@@ -236,7 +241,7 @@ export default function PlatformAdmin() {
                         : <XCircle size={16} className="text-gray-300" />}
                     </td>
                     <td className="td">
-                      <button onClick={() => handleToggle(c.id)} className="flex items-center gap-1 text-xs">
+                      <button onClick={() => handleToggle(c)} className="flex items-center gap-1 text-xs">
                         {c.is_active
                           ? <ToggleRight size={18} className="text-green-500" />
                           : <ToggleLeft size={18} className="text-gray-400" />}
