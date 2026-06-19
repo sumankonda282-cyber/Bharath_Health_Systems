@@ -153,7 +153,7 @@ function ApptDrawer({ a, onClose, onRefresh }) {
             <div className="rounded-xl p-4 space-y-2.5" style={{ background: '#EEF2FF' }}>
               {[
                 ['Date', fmtDate(a.date)],
-                ['Time', a.time || '—'],
+                ['Time', fmt12(a.time) || '—'],
                 ['Mode', modeLabel(a.mode)],
                 ...(a.token_number ? [['Token', `#${a.token_number}`]] : []),
                 ...(a.confirmation_code ? [['Confirmation Code', a.confirmation_code]] : []),

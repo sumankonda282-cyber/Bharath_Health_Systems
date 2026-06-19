@@ -548,8 +548,8 @@ export default function Appointments() {
                       <div>
                         <div className="font-medium text-sm text-gray-900">{b.patient_name || '—'}</div>
                         <div className="text-xs text-gray-400">
-                          {b.booking_date && <span className="font-medium text-gray-600 mr-1">{b.booking_date}</span>} 
-                          {b.booking_time} · {b.doctor_name || 'Doctor not assigned'}
+                          {b.booking_date && <span className="font-medium text-gray-600 mr-1">{b.booking_date}</span>}
+                          {fmt12(b.booking_time)} · {b.doctor_name || 'Doctor not assigned'}
                           {b.patient_mobile && ` · ${b.patient_mobile}`}
                         </div>
                         {b.reason && <div className="text-xs text-gray-400 italic">{b.reason}</div>}
