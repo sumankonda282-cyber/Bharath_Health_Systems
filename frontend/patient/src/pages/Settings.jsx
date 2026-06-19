@@ -7,7 +7,7 @@ const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
 const GENDERS = ['male', 'female', 'other']
 
 export default function Settings() {
-  const { user, setUser } = useAuth()
+  const { user } = useAuth()
   const [form, setForm] = useState({
     email: '', date_of_birth: '', gender: '', blood_group: '',
     address: '', emergency_contact_name: '', emergency_contact_phone: '',
@@ -37,7 +37,7 @@ export default function Settings() {
     setSaving(true)
     setError('')
     try {
-      await api.patch('/portal/me', form)
+      await api.put('/portal/profile', form)
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
     } catch (e) {
