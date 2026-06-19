@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, MapPin, Stethoscope, Clock, Star, Shield,
@@ -92,7 +92,7 @@ function SlotStep({ doctor, onNext }) {
                     !avail ? 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed'
                     : selected === time ? 'text-white border-transparent' : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300'
                   }`} style={selected === time ? { background: '#0F2557' } : {}}>
-                  {time}
+                  {fmt12(time)}
                 </button>
               )
             })}
@@ -120,10 +120,114 @@ function SlotStep({ doctor, onNext }) {
   )
 }
 
-// Step 2: Patient details
+// OTP Modal
+function OtpModal({ mobile, onVerified, onCancel }) {
+  const [otp, setOtp] = useState('')
+  const [sending, setSending] = useState(false)
+  const [verifying, setVerifying] = useState(false)
+  const [error, setError] = useState('')
+  const [sent, setSent] = useState(false)
+  const inputRef = useRef(null)
+
+  const sendOtp = async () => {
+    setSending(true); setError('')
+    try { await publicApi.sendOtp(mobile); setSent(true); setTimeout(() => inputRef.current?.focus(), 100) }
+    catch { setError('Could not send OTP. Try again.') }
+    finally { setSending(false) }
+  }
+  useEffect(() => { sendOtp() }, []) // eslint-disable-line
+
+  const verify = async () => {
+    if (otp.length < 4) return
+    setVerifying(true); setError('')
+    try {
+      const data = await publicApi.verifyOtp(mobile, otp)
+      onVerified(data.verified_token || data.access_token)
+    } catch (err) { setError(err.message || 'Invalid OTP') }
+    finally { setVerifying(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="bg-white rounded-2xl p-6 w-full max-w-sm mx-4 shadow-2xl">
+        <h3 className="font-bold text-gray-900 text-lg text-center mb-1">Verify Mobile</h3>
+        <p className="text-sm text-gray-500 text-center mb-1">{sent ? `OTP sent to ${mobile}` : 'Sending OTP...'}</p>
+        <p className="text-xs text-amber-600 text-center mb-4">(Dev mode: use 1234)</p>
+        <input ref={inputRef} type="text" inputMode="numeric" maxLength={6} value={otp}
+          onChange={e => setOtp(e.target.value.replace(/\D/g, ''))}
+          onKeyDown={e => e.key === 'Enter' && verify()}
+          placeholder="Enter OTP"
+          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-center text-2xl tracking-[0.5em] font-bold mb-3 focus:outline-none focus:ring-2" />
+        {error && <p className="text-red-500 text-sm text-center mb-3">{error}</p>}
+        <button onClick={verify} disabled={otp.length < 4 || verifying}
+          className="w-full py-3 rounded-xl font-semibold text-sm text-white mb-3 disabled:opacity-50" style={{ background: '#0F2557' }}>
+          {verifying ? 'Verifying…' : 'Verify OTP'}
+        </button>
+        <div className="flex gap-3">
+          <button onClick={sendOtp} disabled={sending} className="flex-1 py-2.5 rounded-xl border text-sm font-medium text-gray-600">Resend</button>
+          <button onClick={onCancel} className="flex-1 py-2.5 rounded-xl border text-sm font-medium text-gray-500">Cancel</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Step 2: Patient details with phone auto-lookup
 function DetailsStep({ onNext, onBack }) {
   const [form, setForm] = useState({ patient_name: '', mobile: '', email: '', age: '', gender: '', reason: '' })
   const [errors, setErrors] = useState({})
+  const [suggestions, setSuggestions] = useState([])
+  const [showDrop, setShowDrop] = useState(false)
+  const [showOtp, setShowOtp] = useState(false)
+  const [profileFilled, setProfileFilled] = useState(false)
+  const lookupTimer = useRef(null)
+  const dropRef = useRef(null)
+
+  useEffect(() => {
+    const h = e => { if (dropRef.current && !dropRef.current.contains(e.target)) setShowDrop(false) }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [])
+
+  const doLookup = async (mobile) => {
+    try {
+      const d = await publicApi.patientLookup(mobile)
+      if (d?.found) {
+        const profiles = d.profiles || (d.masked_name ? [{ masked_name: d.masked_name, bh_id: d.bh_id }] : [])
+        setSuggestions(profiles)
+        setShowDrop(true)
+      }
+    } catch {}
+  }
+
+  const handleMobileChange = e => {
+    const val = e.target.value.replace(/\D/g, '').slice(0, 10)
+    setForm(p => ({ ...p, mobile: val }))
+    setSuggestions([]); setShowDrop(false); setProfileFilled(false)
+    clearTimeout(lookupTimer.current)
+    if (/^[6-9]\d{9}$/.test(val)) lookupTimer.current = setTimeout(() => doLookup(val), 30)
+  }
+
+  const handleOtpVerified = async (token) => {
+    setShowOtp(false)
+    try {
+      const resp = await publicApi.getPatientProfile(token)
+      const p = resp?.profiles?.[0] || {}
+      let ageStr = ''
+      if (p.date_of_birth) {
+        const dob = new Date(p.date_of_birth)
+        ageStr = String(new Date().getFullYear() - dob.getFullYear())
+      }
+      setForm(prev => ({
+        ...prev,
+        patient_name: p.full_name || prev.patient_name,
+        email: resp.email || p.email || prev.email,
+        age: ageStr || prev.age,
+        gender: p.gender || prev.gender,
+      }))
+      setProfileFilled(true)
+    } catch {}
+  }
 
   const validate = () => {
     const e = {}
@@ -138,19 +242,38 @@ function DetailsStep({ onNext, onBack }) {
 
   return (
     <div>
+      {showOtp && <OtpModal mobile={form.mobile} onVerified={handleOtpVerified} onCancel={() => setShowOtp(false)} />}
       <h3 className="font-bold text-lg mb-4" style={{ color: '#0F2557' }}>Patient Details</h3>
       <div className="space-y-3">
+        {/* Mobile first with auto-lookup */}
+        <div ref={dropRef}>
+          <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Mobile *</label>
+          <input value={form.mobile} onChange={handleMobileChange} type="tel" maxLength={10} placeholder="10-digit mobile — auto-fills your details"
+            className={`mt-1 w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none ${errors.mobile ? 'border-red-400' : 'border-gray-200'}`} />
+          {errors.mobile && <p className="text-red-500 text-xs mt-0.5">{errors.mobile}</p>}
+          {showDrop && suggestions.length > 0 && (
+            <div className="border border-gray-200 rounded-xl mt-1 overflow-hidden shadow-lg bg-white z-10 relative">
+              {suggestions.map((s, i) => (
+                <button key={i} onMouseDown={() => { setShowDrop(false); setShowOtp(true) }}
+                  className="w-full text-left px-4 py-3 text-sm hover:bg-blue-50 flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center font-bold text-blue-700 text-sm flex-shrink-0">
+                    {(s.masked_name || '?')[0].toUpperCase()}
+                  </div>
+                  <div>
+                    <div className="font-semibold text-gray-800">{s.masked_name}</div>
+                    <div className="text-xs text-gray-400">Tap to verify & auto-fill</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+          {profileFilled && <p className="text-green-600 text-xs mt-1">✓ Profile auto-filled</p>}
+        </div>
         <div>
           <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Full Name *</label>
           <input {...f('patient_name')} type="text" placeholder="Patient's full name"
             className={`mt-1 w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 ${errors.patient_name ? 'border-red-400' : 'border-gray-200'}`} />
           {errors.patient_name && <p className="text-red-500 text-xs mt-0.5">{errors.patient_name}</p>}
-        </div>
-        <div>
-          <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Mobile *</label>
-          <input {...f('mobile')} type="tel" maxLength={10} placeholder="10-digit mobile"
-            className={`mt-1 w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none ${errors.mobile ? 'border-red-400' : 'border-gray-200'}`} />
-          {errors.mobile && <p className="text-red-500 text-xs mt-0.5">{errors.mobile}</p>}
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -167,6 +290,12 @@ function DetailsStep({ onNext, onBack }) {
               <option value="other">Other</option>
             </select>
           </div>
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Email</label>
+          <input {...f('email')} type="email" placeholder="Email (optional)"
+            className={`mt-1 w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none ${errors.email ? 'border-red-400' : 'border-gray-200'}`} />
+          {errors.email && <p className="text-red-500 text-xs mt-0.5">{errors.email}</p>}
         </div>
         <div>
           <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Reason for Visit</label>
