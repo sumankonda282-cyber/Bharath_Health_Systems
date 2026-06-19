@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from app.core.auth import get_current_staff
+from app.core.security import get_current_staff
 from app.models.models import Staff
 
 router = APIRouter(prefix="/support", tags=["support"])
