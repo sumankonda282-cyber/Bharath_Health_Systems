@@ -7,6 +7,7 @@ from sqlalchemy import text
 from app.db.session import engine
 
 safe_cols = [
+    \"ALTER TABLE admissions ADD COLUMN IF NOT EXISTS primary_doctor_id INTEGER REFERENCES staff(id)\",
     \"ALTER TABLE appointments ADD COLUMN IF NOT EXISTS previsit_token VARCHAR(64)\",
     \"ALTER TABLE appointments ADD COLUMN IF NOT EXISTS previsit_data JSONB\",
     \"ALTER TABLE appointments ADD COLUMN IF NOT EXISTS previsit_submitted_at TIMESTAMP WITHOUT TIME ZONE\",

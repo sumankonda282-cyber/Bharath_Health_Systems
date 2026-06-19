@@ -481,6 +481,29 @@ def get_admission(
     return result
 
 
+@router.patch("/admissions/{admission_id}")
+def patch_admission(
+    admission_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Update mutable admission fields: primary_doctor_id, primary_diagnosis, expected_discharge, notes."""
+    adm = db.query(Admission).filter(
+        Admission.id == admission_id,
+        Admission.clinic_id == current.clinic_id,
+    ).first()
+    if not adm:
+        raise HTTPException(status_code=404, detail="Admission not found")
+    allowed = {"primary_doctor_id", "primary_diagnosis", "expected_discharge", "insurance_company",
+               "policy_number", "pre_auth_number", "tpa_id"}
+    for key, val in body.items():
+        if key in allowed:
+            setattr(adm, key, val)
+    db.commit()
+    return {"ok": True}
+
+
 @router.post("/admissions/{admission_id}/transfer")
 def transfer_admission(
     admission_id: int,

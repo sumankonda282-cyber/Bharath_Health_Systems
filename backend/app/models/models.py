@@ -1137,6 +1137,7 @@ class Admission(Base):
     admission_type        = Column(String(20), default='opd_referred')
     source_appointment_id = Column(Integer, ForeignKey("appointments.id"), nullable=True)
     admitting_doctor_id   = Column(Integer, ForeignKey("staff.id"), nullable=False)
+    primary_doctor_id     = Column(Integer, ForeignKey("staff.id"), nullable=True)
     primary_diagnosis     = Column(Text, nullable=True)
     admitted_at           = Column(DateTime, server_default=func.now())
     discharged_at         = Column(DateTime, nullable=True)
