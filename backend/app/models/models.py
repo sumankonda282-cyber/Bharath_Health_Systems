@@ -354,6 +354,9 @@ class Appointment(Base):
     telehealth_room      = Column(String(120), nullable=True)
     triage_complaint   = Column(Text, nullable=True)
     visit_type         = Column(String(20), default="fresh")  # fresh|followup|emergency
+    previsit_token     = Column(String(64), nullable=True, unique=True, index=True)
+    previsit_data      = Column(JSON, nullable=True)
+    previsit_submitted_at = Column(DateTime, nullable=True)
     created_at         = Column(DateTime, server_default=func.now())
     updated_at         = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
