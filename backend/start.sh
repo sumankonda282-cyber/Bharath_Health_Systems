@@ -227,6 +227,14 @@ try:
 except Exception as e:
     print(f'[startup] Safe column additions failed: {e}')
 
+# Auto-verify all active clinics so they appear on the public portal
+try:
+    with engine.begin() as conn:
+        conn.execute(text(\"UPDATE clinics SET is_verified = TRUE WHERE is_active = TRUE AND is_verified = FALSE\"))
+    print('[startup] Auto-verified active clinics.')
+except Exception as e:
+    print(f'[startup] Clinic verify migration warning: {e}')
+
 # Migrate existing patient_name to first_name/last_name
 try:
     _sql = (

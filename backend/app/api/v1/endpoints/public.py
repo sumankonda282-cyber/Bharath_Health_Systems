@@ -827,8 +827,8 @@ def register_clinic(body: dict, db: Session = Depends(get_db)):
         city                = clinic_data.get("city"),
         state               = clinic_data.get("state"),
         pincode             = clinic_data.get("pincode"),
-        is_active           = True,   # Clinic is active so admin can login
-        is_verified         = False,  # Not verified = not visible publicly yet
+        is_active           = True,
+        is_verified         = True,  # Auto-verified — admin can revoke if needed
         subscription_plan   = 'free',
         subscription_status = 'active',
     )
