@@ -35,12 +35,14 @@ import PublishLog from './pages/scheduler/PublishLog'
 import { Loader2 } from 'lucide-react'
 
 function ManagerOnly({ children }) {
-  const { user } = useAuth()
+  const { user, loading } = useAuth()
+  if (loading) return <div className="h-screen flex items-center justify-center"><Loader2 size={36} className="animate-spin text-gray-400" /></div>
   return ['clinic_manager', 'clinic_admin'].includes(user?.role) ? children : <Navigate to="/" replace />
 }
 
 function SchedulerOnly({ children }) {
-  const { user } = useAuth()
+  const { user, loading } = useAuth()
+  if (loading) return <div className="h-screen flex items-center justify-center"><Loader2 size={36} className="animate-spin text-gray-400" /></div>
   return ['clinic_manager', 'clinic_admin'].includes(user?.role) ? children : <Navigate to="/" replace />
 }
 
