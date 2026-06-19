@@ -167,7 +167,7 @@ function SlotPicker({ doctor, onBack, onBooked }) {
     if (!mobile || mobile.replace(/\D/g, '').length !== 10) return
     setLookupLoading(true)
     try {
-      const res = await api.get('/patients/lookup', { params: { mobile } })
+      const res = await api.get('/public/patient-lookup', { params: { mobile } })
       const data = res?.data || res
       if (data && (data.name || data.patient_name)) {
         setSuggestions([data])
