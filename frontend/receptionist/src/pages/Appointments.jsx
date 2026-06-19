@@ -3,6 +3,15 @@ import api from '../api/client'
 import { cachedGet, TTL } from '../utils/cache'
 import { Plus, Search, Loader2, CalendarDays, X } from 'lucide-react'
 
+const fmt12 = (t) => {
+  if (!t) return t
+  const str = String(t).slice(0, 5)
+  const [h, m] = str.split(':').map(Number)
+  if (isNaN(h) || isNaN(m)) return t
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`
+}
+
 const STATUS_COLORS = { scheduled:'badge-yellow', waiting:'badge-yellow', in_progress:'badge-purple', completed:'badge-green', cancelled:'badge-red', no_show:'badge-gray' }
 const VISIT_TYPES = ['walk_in', 'scheduled', 'follow_up', 'emergency']
 const STATUSES = ['scheduled', 'waiting', 'in_progress', 'completed', 'cancelled', 'no_show']
@@ -164,7 +173,7 @@ export default function Appointments() {
                     <td className="td font-bold" style={{ color: '#0F2557' }}>#{a.token_number || a.id}</td>
                     <td className="td font-medium">{a.patient_name || '—'}</td>
                     <td className="td text-gray-500">{a.doctor_name || '—'}</td>
-                    <td className="td">{a.appointment_time || '—'}</td>
+                    <td className="td">{fmt12(a.appointment_time) || '—'}</td>
                     <td className="td capitalize">{a.visit_type?.replace('_', ' ') || '—'}</td>
                     <td className="td"><span className={`badge ${STATUS_COLORS[a.status] || 'badge-gray'}`}>{a.status}</span></td>
                     <td className="td">

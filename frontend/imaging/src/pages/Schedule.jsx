@@ -2,6 +2,15 @@ import { useState, useEffect, useCallback } from 'react'
 import api from '../api/client'
 import { Calendar, Plus, Loader2, AlertCircle, X, Clock } from 'lucide-react'
 
+const fmt12 = (t) => {
+  if (!t) return t
+  const str = String(t).slice(0, 5)
+  const [h, m] = str.split(':').map(Number)
+  if (isNaN(h) || isNaN(m)) return t
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`
+}
+
 const MODALITIES = ['CR','DX','CT','MR','MRI','US','NM','PT','MG','RF','XA','OT']
 const MODALITY_LABELS = {
   CR:'X-Ray', DX:'X-Ray (Digital)', CT:'CT Scan', MR:'MRI', MRI:'MRI',
@@ -50,7 +59,7 @@ function BookModal({ slot, onClose, onBooked }) {
         <div className="flex items-center justify-between mb-5">
           <div>
             <h2 className="text-lg font-bold text-gray-900">Book Appointment</h2>
-            <p className="text-xs text-gray-500 mt-0.5">{slot?.date} at {slot?.time} — {MODALITY_LABELS[slot?.modality] || slot?.modality}</p>
+            <p className="text-xs text-gray-500 mt-0.5">{slot?.date} at {fmt12(slot?.time)} — {MODALITY_LABELS[slot?.modality] || slot?.modality}</p>
           </div>
           <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100"><X size={18}/></button>
         </div>
@@ -203,7 +212,7 @@ export default function Schedule() {
             return (
               <div key={slot.id} className="card flex items-center gap-4">
                 <div className="w-16 text-center">
-                  <div className="text-lg font-bold" style={{ color: '#0F2557' }}>{slot.time}</div>
+                  <div className="text-lg font-bold" style={{ color: '#0F2557' }}>{fmt12(slot.time)}</div>
                   <div className="text-xs text-gray-500">{slot.date}</div>
                 </div>
                 <div className="w-px h-10 bg-gray-200"/>

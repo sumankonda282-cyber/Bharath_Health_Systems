@@ -11,6 +11,15 @@ import CancelAppointmentModal from '../frontdesk/CancelAppointmentModal'
 
 // ── helpers ────────────────────────────────────────────────────────────────────
 
+const fmt12 = (t) => {
+  if (!t) return t
+  const str = String(t).slice(0, 5)
+  const [h, m] = str.split(':').map(Number)
+  if (isNaN(h) || isNaN(m)) return t
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`
+}
+
 const istNow = () => new Date(Date.now() + 5.5 * 3600000)
 const istToday = () => istNow().toISOString().slice(0, 10)
 const addDays = (iso, n) => {
@@ -140,7 +149,7 @@ function DayPanel({ doctor, dates, requests, onBookSlot, onApprove, onReject, on
                   disabled={chip.type === 'past' || chip.type === 'taken'}
                   onClick={() => { setSelected({ ...chip, time: s.time }); setShowReject(false) }}
                   className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-semibold border transition ${chip.cls} ${isSel ? 'ring-2 ring-blue-400' : ''}`}>
-                  {s.time}
+                  {fmt12(s.time)}
                 </button>
               )
             })}
@@ -158,7 +167,7 @@ function DayPanel({ doctor, dates, requests, onBookSlot, onApprove, onReject, on
               {selected.type === 'open' && (
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <div className="text-sm text-gray-700">
-                    <span className="font-bold font-mono">{selected.time}</span> on {fmtDay(day)} — open slot
+                    <span className="font-bold font-mono">{fmt12(selected.time)}</span> on {fmtDay(day)} — open slot
                   </div>
                   <button onClick={() => onBookSlot(doctor, day, selected.time)}
                     className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white text-xs font-medium rounded-lg hover:bg-emerald-700">
@@ -174,7 +183,7 @@ function DayPanel({ doctor, dates, requests, onBookSlot, onApprove, onReject, on
                       <p className="text-sm font-semibold text-gray-800">{selected.booking.patient_name}</p>
                       <p className="text-xs text-gray-500 flex items-center gap-2 mt-0.5">
                         <Phone size={11} /> {selected.booking.patient_mobile}
-                        <Clock size={11} className="ml-1" /> {selected.time} · {fmtDay(day)}
+                        <Clock size={11} className="ml-1" /> {fmt12(selected.time)} · {fmtDay(day)}
                       </p>
                       {selected.booking.reason && <p className="text-xs text-gray-400 mt-1">"{selected.booking.reason}"</p>}
                     </div>
@@ -215,7 +224,7 @@ function DayPanel({ doctor, dates, requests, onBookSlot, onApprove, onReject, on
                         {selected.appt.token_number != null && <span className="ml-2 text-xs text-indigo-600 font-bold">#{selected.appt.token_number}</span>}
                       </p>
                       <p className="text-xs text-gray-500 mt-0.5">
-                        {selected.appt.bh_id || selected.appt.clinic_patient_id || ''} · {selected.time} · {fmtDay(day)}
+                        {selected.appt.bh_id || selected.appt.clinic_patient_id || ''} · {fmt12(selected.time)} · {fmtDay(day)}
                       </p>
                     </div>
                     <span className={`text-xs font-semibold px-2 py-0.5 rounded-full capitalize ${APPT_STATUS_CLS[selected.appt.status] || 'bg-gray-100 text-gray-500'}`}>
@@ -257,7 +266,7 @@ function DayPanel({ doctor, dates, requests, onBookSlot, onApprove, onReject, on
               <div className="divide-y divide-gray-50 max-h-56 overflow-auto">
                 {visibleAppts.map(a => (
                   <div key={a.id} className="flex items-center gap-3 px-3 py-2 text-xs hover:bg-gray-50">
-                    <span className="font-mono font-semibold text-gray-600 w-11">{(a.appointment_time || '—').slice(0, 5)}</span>
+                    <span className="font-mono font-semibold text-gray-600 w-11">{fmt12(a.appointment_time) || '—'}</span>
                     <span className="font-semibold text-gray-800 flex-1 truncate">{a.patient_name}</span>
                     <span className={`font-semibold px-2 py-0.5 rounded-full capitalize ${APPT_STATUS_CLS[a.status] || 'bg-gray-100 text-gray-500'}`}>
                       {(a.status || '').replace(/_/g, ' ')}

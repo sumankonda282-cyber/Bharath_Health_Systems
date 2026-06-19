@@ -2,6 +2,15 @@ import { useState } from 'react'
 import { X, AlertTriangle, Loader2 } from 'lucide-react'
 import api from '../../api/client'
 
+const fmt12 = (t) => {
+  if (!t) return t
+  const str = String(t).slice(0, 5)
+  const [h, m] = str.split(':').map(Number)
+  if (isNaN(h) || isNaN(m)) return t
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`
+}
+
 export default function CancelAppointmentModal({ appointment, open, onClose, onCancelled }) {
   const [reason, setReason] = useState('')
   const [saving, setSaving] = useState(false)
@@ -39,7 +48,7 @@ export default function CancelAppointmentModal({ appointment, open, onClose, onC
           <div className="bg-rose-50 border border-rose-100 rounded-xl px-4 py-3">
             <p className="text-sm font-semibold text-gray-800">{appointment.patient_name}</p>
             <p className="text-xs text-gray-500">
-              {appointment.appointment_date} {appointment.appointment_time} · {appointment.doctor_name || 'Unknown doctor'}
+              {appointment.appointment_date} {fmt12(appointment.appointment_time)} · {appointment.doctor_name || 'Unknown doctor'}
             </p>
           </div>
 

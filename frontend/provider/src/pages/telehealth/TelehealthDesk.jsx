@@ -13,6 +13,15 @@ function todayIST() {
   return d.toISOString().slice(0, 10)
 }
 
+const fmt12 = (t) => {
+  if (!t) return t
+  const str = String(t).slice(0, 5)
+  const [h, m] = str.split(':').map(Number)
+  if (isNaN(h) || isNaN(m)) return t
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`
+}
+
 const STATE_META = {
   scheduled:   { label: 'Scheduled',   color: '#64748b', bg: '#f1f5f9' },
   ready:       { label: 'Waiting',     color: '#d97706', bg: '#fffbeb' },
@@ -170,7 +179,7 @@ export default function TelehealthDesk() {
                     <td className="px-4 py-3.5">
                       <div className="flex items-center gap-1.5 text-sm font-semibold text-gray-800">
                         <Clock size={13} className="text-gray-400" />
-                        {a.appointment_time || '—'}
+                        {fmt12(a.appointment_time) || '—'}
                       </div>
                     </td>
                     <td className="px-4 py-3.5">
