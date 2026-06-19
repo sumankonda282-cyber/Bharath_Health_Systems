@@ -8,6 +8,15 @@ import {
   ExternalLink, ChevronRight, RefreshCw
 } from 'lucide-react'
 
+const fmt12 = (t) => {
+  if (!t) return t
+  const str = String(t).slice(0, 5)
+  const [h, m] = str.split(':').map(Number)
+  if (isNaN(h) || isNaN(m)) return t
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`
+}
+
 const STATUS_BADGE = {
   pending: 'badge-yellow', confirmed: 'badge-blue', completed: 'badge-green',
   cancelled: 'badge-gray', in_progress: 'badge-blue',
@@ -356,7 +365,7 @@ function ApptCard({ a, onClick }) {
               {new Date(a.date + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
             </span>
           )}
-          {a.time && <span className="flex items-center gap-1 text-xs text-gray-400"><Clock size={11} /> {a.time}</span>}
+          {a.time && <span className="flex items-center gap-1 text-xs text-gray-400"><Clock size={11} /> {fmt12(a.time)}</span>}
           {a.token_number && (
             <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full" style={{ background: '#EEF2FF', color: '#0F2557' }}>
               Token #{a.token_number}

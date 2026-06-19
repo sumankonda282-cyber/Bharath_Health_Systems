@@ -9,6 +9,15 @@ import {
 import { publicApi } from '../api/client'
 import Navbar from '../components/Navbar'
 import { PATIENT_URL } from '../constants/urls'
+const fmt12 = (t) => {
+  if (!t) return t
+  const str = String(t).slice(0, 5)
+  const [h, m] = str.split(':').map(Number)
+  if (isNaN(h) || isNaN(m)) return t
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`
+}
+
 const PLATFORM_FEE = 29
 
 // ── Booking Steps ─────────────────────────────────────────────────────────────
@@ -347,7 +356,7 @@ function DoctorPanel({ doctor, slotData }) {
           <div className="text-xs text-gray-400 mb-1">Selected Appointment</div>
           <div className="flex items-center gap-2 text-sm font-semibold" style={{ color: '#0F2557' }}>
             <Calendar className="w-4 h-4" />
-            {slotData.date} at {slotData.slot}
+            {slotData.date} at {fmt12(slotData.slot)}
           </div>
         </div>
       )}

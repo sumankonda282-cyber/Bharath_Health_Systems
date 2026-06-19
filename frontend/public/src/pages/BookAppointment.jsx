@@ -616,7 +616,7 @@ function Step4({ data, onNext, onBack }) {
           <span>Doctor</span><span className="font-medium text-gray-900">{data.doctor.name}</span>
         </div>
         <div className="flex justify-between text-gray-600">
-          <span>Date & Time</span><span className="font-medium text-gray-900">{data.date} · {data.slot}</span>
+          <span>Date & Time</span><span className="font-medium text-gray-900">{data.date} · {fmt12(data.slot)}</span>
         </div>
         {data.doctor.fee && (
           <div className="flex justify-between font-semibold border-t border-[#93c5fd] pt-2 mt-2 text-gray-900">
@@ -747,7 +747,7 @@ function Step5({ booking }) {
         {booking.slot && (
           <div className="flex justify-between">
             <span className="text-gray-500">Time</span>
-            <span className="font-medium">{booking.slot}</span>
+            <span className="font-medium">{fmt12(booking.slot)}</span>
           </div>
         )}
         {booking.patient_name && (

@@ -3,6 +3,15 @@ import { useNavigate } from 'react-router-dom'
 import { Video, Clock, Loader2, AlertTriangle, Calendar, CheckCircle2, Wifi, Info } from 'lucide-react'
 import api from '../api/client'
 
+const fmt12 = (t) => {
+  if (!t) return t
+  const str = String(t).slice(0, 5)
+  const [h, m] = str.split(':').map(Number)
+  if (isNaN(h) || isNaN(m)) return t
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`
+}
+
 const STATE_META = {
   scheduled:   { label: 'Scheduled',    color: 'text-slate-600',  bg: 'bg-slate-100' },
   ready:       { label: 'Doctor Ready', color: 'text-green-700',  bg: 'bg-green-100' },
@@ -135,7 +144,7 @@ export default function Telehealth() {
                           </div>
                           <div className="flex flex-wrap gap-3 text-xs text-gray-500">
                             <span className="flex items-center gap-1"><Calendar size={11} />{a.appointment_date || a.date}</span>
-                            <span className="flex items-center gap-1"><Clock size={11} />{a.appointment_time || a.time || '—'}</span>
+                            <span className="flex items-center gap-1"><Clock size={11} />{fmt12(a.appointment_time || a.time) || '—'}</span>
                           </div>
                           {isReady && (
                             <p className="text-xs text-green-600 font-medium mt-1.5 flex items-center gap-1">
@@ -180,7 +189,7 @@ export default function Telehealth() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-800">{a.doctor_name || 'Doctor'}</p>
-                      <p className="text-xs text-gray-400">{a.appointment_date || a.date} · {a.appointment_time || a.time}</p>
+                      <p className="text-xs text-gray-400">{a.appointment_date || a.date} · {fmt12(a.appointment_time || a.time)}</p>
                     </div>
                     <span className="text-xs text-gray-400">Completed</span>
                   </div>
