@@ -360,7 +360,7 @@ function OtpModal({ mobile, onVerified, onCancel }) {
   )
 }
 
-// Step 3: Patient details with phone-first lookup
+// Step 3: Patient details with auto phone lookup + dropdown
 function Step3({ data, onNext, onBack }) {
   const [form, setForm] = useState({
     patient_name: '',
@@ -373,28 +373,61 @@ function Step3({ data, onNext, onBack }) {
   })
   const [errors, setErrors] = useState({})
   const [lookupLoading, setLookupLoading] = useState(false)
-  const [lookupResult, setLookupResult] = useState(null) // { masked_name, has_profile }
+  const [suggestions, setSuggestions] = useState([])   // [{ masked_name, name_hint, found }]
+  const [showDropdown, setShowDropdown] = useState(false)
   const [showOtp, setShowOtp] = useState(false)
   const [verifiedToken, setVerifiedToken] = useState(null)
   const [profileFilled, setProfileFilled] = useState(false)
+  const lookupRef = useRef(null)
+  const lookupTimer = useRef(null)
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const h = (e) => { if (lookupRef.current && !lookupRef.current.contains(e.target)) setShowDropdown(false) }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [])
 
   const f = (k) => ({
     value: form[k],
     onChange: e => setForm(prev => ({ ...prev, [k]: e.target.value }))
   })
 
-  const lookupPhone = async () => {
-    const mobile = form.mobile.trim()
-    if (!/^[6-9]\d{9}$/.test(mobile)) return
-    setLookupLoading(true); setLookupResult(null)
+  // Auto-lookup as soon as 10 valid digits are entered
+  const handleMobileChange = (e) => {
+    const val = e.target.value.replace(/\D/g, '').slice(0, 10)
+    setForm(prev => ({ ...prev, mobile: val }))
+    setSuggestions([]); setShowDropdown(false); setProfileFilled(false); setVerifiedToken(null)
+
+    clearTimeout(lookupTimer.current)
+    if (/^[6-9]\d{9}$/.test(val)) {
+      lookupTimer.current = setTimeout(() => doLookup(val), 300)
+    }
+  }
+
+  const doLookup = async (mobile) => {
+    setLookupLoading(true)
     try {
       const d = await publicApi.patientLookup(mobile)
-      setLookupResult(d?.found ? d : { found: false })
+      if (d?.found) {
+        // Build suggestions list — backend may return one or multiple names
+        const names = d.names || (d.masked_name ? [d.masked_name] : [])
+        setSuggestions(names.map(n => ({ masked_name: n, found: true })))
+        setShowDropdown(true)
+      } else {
+        setSuggestions([{ found: false }])
+        setShowDropdown(true)
+      }
     } catch {
-      setLookupResult({ found: false })
+      setSuggestions([])
     } finally {
       setLookupLoading(false)
     }
+  }
+
+  const selectSuggestion = (s) => {
+    setShowDropdown(false)
+    if (s.found) setShowOtp(true)
   }
 
   const handleOtpVerified = async (token) => {
@@ -448,48 +481,53 @@ function Step3({ data, onNext, onBack }) {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Mobile — phone-first lookup */}
-        <div className="md:col-span-2">
+        {/* Mobile — auto-lookup with dropdown */}
+        <div className="md:col-span-2" ref={lookupRef}>
           <label className="label">Mobile Number <span className="text-red-500">*</span></label>
-          <div className="flex gap-2">
-            <input {...f('mobile')} type="tel" maxLength={10}
-              placeholder="10-digit mobile number"
-              className={`input flex-1 ${errors.mobile ? 'border-red-400' : ''}`}
-              onChange={e => {
-                setForm(prev => ({ ...prev, mobile: e.target.value }))
-                setLookupResult(null); setProfileFilled(false); setVerifiedToken(null)
-              }} />
-            <button
-              type="button"
-              onClick={lookupPhone}
-              disabled={!/^[6-9]\d{9}$/.test(form.mobile) || lookupLoading}
-              className="px-4 py-2.5 rounded-xl text-sm font-semibold border-2 border-[#0F2557] text-[#0F2557] hover:bg-[#EEF2FF] disabled:opacity-40 transition-colors whitespace-nowrap">
-              {lookupLoading ? 'Looking up…' : 'Look up'}
-            </button>
+          <div className="relative">
+            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="tel" maxLength={10} value={form.mobile}
+              onChange={handleMobileChange}
+              onFocus={() => suggestions.length > 0 && setShowDropdown(true)}
+              placeholder="Enter 10-digit mobile — names auto-suggest"
+              className={`input pl-9 ${errors.mobile ? 'border-red-400' : ''}`}
+            />
+            {lookupLoading && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-[#0F2557] border-t-transparent rounded-full animate-spin" />
+            )}
+
+            {/* Auto-suggest dropdown */}
+            {showDropdown && (
+              <div className="absolute left-0 top-full mt-1 w-full bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden">
+                {suggestions.map((s, i) =>
+                  s.found ? (
+                    <button key={i} onMouseDown={() => selectSuggestion(s)}
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-blue-50 transition-colors text-left">
+                      <div className="w-8 h-8 bg-[#EEF2FF] rounded-full flex items-center justify-center flex-shrink-0">
+                        <User className="w-4 h-4 text-[#0F2557]" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-semibold text-gray-900 text-sm">{s.masked_name}</div>
+                        <div className="text-xs text-blue-600">Tap to verify & auto-fill all details</div>
+                      </div>
+                      <CheckCircle className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                    </button>
+                  ) : (
+                    <div key={i} className="px-4 py-3 text-sm text-gray-400 flex items-center gap-2">
+                      <Phone className="w-4 h-4" />
+                      No account found — fill details below to register
+                    </div>
+                  )
+                )}
+              </div>
+            )}
           </div>
           {errors.mobile && <p className="text-red-500 text-xs mt-1">{errors.mobile}</p>}
 
-          {/* Lookup result */}
-          {lookupResult && lookupResult.found && !profileFilled && (
-            <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                <span className="text-sm text-blue-800">
-                  Found: <span className="font-semibold">{lookupResult.masked_name}</span> — verify to auto-fill
-                </span>
-              </div>
-              <button onClick={() => setShowOtp(true)}
-                className="text-xs font-bold px-3 py-1.5 rounded-lg bg-[#0F2557] text-white whitespace-nowrap">
-                Verify OTP
-              </button>
-            </div>
-          )}
-          {lookupResult && !lookupResult.found && (
-            <p className="mt-1.5 text-xs text-gray-400">No existing profile found — please fill in your details below.</p>
-          )}
           {profileFilled && (
-            <div className="mt-2 flex items-center gap-2 text-xs text-green-700 bg-green-50 px-3 py-1.5 rounded-lg">
-              <CheckCircle className="w-3.5 h-3.5" /> Profile auto-filled from verified account
+            <div className="mt-2 flex items-center gap-2 text-xs text-green-700 bg-green-50 px-3 py-1.5 rounded-lg border border-green-200">
+              <CheckCircle className="w-3.5 h-3.5" /> Profile auto-filled — review and edit if needed
             </div>
           )}
         </div>
