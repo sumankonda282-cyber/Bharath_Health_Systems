@@ -8,6 +8,15 @@ import { Calendar, Clock, CheckCircle, Activity } from 'lucide-react'
 import { format, subDays } from 'date-fns'
 import { Link } from 'react-router-dom'
 
+const fmt12 = (t) => {
+  if (!t) return t
+  const str = String(t).slice(0, 5)
+  const [h, m] = str.split(':').map(Number)
+  if (isNaN(h) || isNaN(m)) return t
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`
+}
+
 const STATUS_BADGE = {
   pending:     'badge-yellow',
   confirmed:   'badge-blue',
@@ -72,7 +81,7 @@ function DrillModal({ title, appointments, onClose }) {
                       <div className="font-medium">{appt.patient_name || appt.patient?.full_name}</div>
                       <div className="text-xs text-gray-400">{appt.patient?.mobile}</div>
                     </td>
-                    <td className="td font-mono">{appt.appointment_time}</td>
+                    <td className="td font-mono">{fmt12(appt.appointment_time)}</td>
                     <td className="td">
                       <span className={STATUS_BADGE[appt.status] || 'badge-gray'}>
                         {appt.status}

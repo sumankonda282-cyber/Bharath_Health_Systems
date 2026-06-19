@@ -6,6 +6,15 @@ import { Stethoscope, Clock, CheckCircle, Calendar, Video, ClipboardList, Play }
 import { format } from 'date-fns'
 import QuickAssign from '../forms/QuickAssign'
 
+const fmt12 = (t) => {
+  if (!t) return t
+  const str = String(t).slice(0, 5)
+  const [h, m] = str.split(':').map(Number)
+  if (isNaN(h) || isNaN(m)) return t
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`
+}
+
 const STATUS_COLORS = {
   pending: 'badge-yellow', confirmed: 'badge-blue',
   in_progress: 'badge-purple', completed: 'badge-green',
@@ -222,7 +231,7 @@ export default function DoctorDesk() {
                         : appt.age ?? '—'}
                     </td>
                     <td className="td text-center text-gray-600 whitespace-nowrap">
-                      {appt.appointment_time ?? '—'}
+                      {fmt12(appt.appointment_time) ?? '—'}
                     </td>
                     <td className="td text-center">
                       <span className={STATUS_COLORS[appt.status] || 'badge-gray'}>

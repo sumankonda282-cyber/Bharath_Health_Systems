@@ -3,6 +3,15 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft, CalendarPlus, Search, Loader2, CheckCircle2, Phone, Footprints, Globe, X } from 'lucide-react'
 import api from '../api/client'
 
+const fmt12 = (t) => {
+  if (!t) return t
+  const str = String(t).slice(0, 5)
+  const [h, m] = str.split(':').map(Number)
+  if (isNaN(h) || isNaN(m)) return t
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`
+}
+
 const istToday = () => new Date(Date.now() + 5.5 * 3600000).toISOString().slice(0, 10)
 
 const SOURCES = [
@@ -117,7 +126,7 @@ export default function BookAppointment() {
           <CheckCircle2 size={52} className="mx-auto text-emerald-500 mb-4" />
           <p className="text-xl font-bold text-gray-800">Appointment Booked!</p>
           <p className="text-sm text-gray-500 mt-2">
-            {patient?.full_name} · {done.appointment_date} at {done.appointment_time}
+            {patient?.full_name} · {done.appointment_date} at {fmt12(done.appointment_time)}
           </p>
           {done.token_number != null && (
             <div className="mt-4">

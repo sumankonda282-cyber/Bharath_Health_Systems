@@ -9,6 +9,15 @@ import { format } from 'date-fns'
 import { useSearchParams } from 'react-router-dom'
 import { Link } from 'react-router-dom'
 
+const fmt12 = (t) => {
+  if (!t) return t
+  const str = String(t).slice(0, 5)
+  const [h, m] = str.split(':').map(Number)
+  if (isNaN(h) || isNaN(m)) return t
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`
+}
+
 const STATUS_COLORS = {
   pending: 'badge-yellow', confirmed: 'badge-blue',
   in_progress: 'badge-purple', completed: 'badge-green', cancelled: 'badge-gray',
@@ -608,7 +617,7 @@ export default function Appointments() {
                             </td>
                             <td className="td font-mono text-sm text-gray-700">
                               <div>{date}</div>
-                              <div className="text-xs text-gray-400">{a.appointment_time}</div>
+                              <div className="text-xs text-gray-400">{fmt12(a.appointment_time)}</div>
                             </td>
                             <td className="td text-sm text-gray-600">
                               {a.clinic_name || '—'}

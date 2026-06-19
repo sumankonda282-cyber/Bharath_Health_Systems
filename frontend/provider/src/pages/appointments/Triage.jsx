@@ -5,6 +5,15 @@ import { format } from 'date-fns'
 import { Activity, User, Clock, ChevronLeft } from 'lucide-react'
 import VitalsForm from '../../components/clinical/VitalsForm'
 
+const fmt12 = (t) => {
+  if (!t) return t
+  const str = String(t).slice(0, 5)
+  const [h, m] = str.split(':').map(Number)
+  if (isNaN(h) || isNaN(m)) return t
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`
+}
+
 const STATUS_COLORS = {
   pending: 'badge-yellow', confirmed: 'badge-blue',
   in_progress: 'badge-purple', completed: 'badge-green',
@@ -74,7 +83,7 @@ export default function Triage() {
                   </span>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-gray-400">
-                  <Clock size={11} /> {a.appointment_time}
+                  <Clock size={11} /> {fmt12(a.appointment_time)}
                   {a.doctor_name && <span>· {a.doctor_name}</span>}
                 </div>
                 {a.reason && <div className="text-xs text-gray-400 italic mt-0.5 truncate">"{a.reason}"</div>}
@@ -101,7 +110,7 @@ export default function Triage() {
               <div className="flex-1 min-w-0">
                 <div className="font-bold text-lg text-gray-900">{selected.patient_name}</div>
                 <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500 mt-0.5">
-                  <span className="flex items-center gap-1"><Clock size={13} /> {selected.appointment_time}</span>
+                  <span className="flex items-center gap-1"><Clock size={13} /> {fmt12(selected.appointment_time)}</span>
                   {selected.doctor_name && <span>Dr. {selected.doctor_name}</span>}
                   {selected.reason && <span className="italic truncate max-w-xs">"{selected.reason}"</span>}
                 </div>
