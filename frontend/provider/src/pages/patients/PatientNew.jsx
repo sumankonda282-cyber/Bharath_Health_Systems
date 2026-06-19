@@ -125,7 +125,7 @@ function PhoneLookupBar({ onAutoFill }) {
     setMobile(val); setSuggestions([]); setShowDropdown(false); setFilled(false)
     clearTimeout(timerRef.current)
     if (/^[6-9]\d{9}$/.test(val)) {
-      timerRef.current = setTimeout(() => doLookup(val), 300)
+      timerRef.current = setTimeout(() => doLookup(val), 30)
     }
   }
 
