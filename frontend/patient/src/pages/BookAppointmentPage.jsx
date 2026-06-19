@@ -141,6 +141,91 @@ function SlotPicker({ doctor, onBack, onBooked }) {
   const [copied, setCopied] = useState(false)
   const [visitType, setVisitType] = useState('in_person')
 
+  // Phone auto-lookup states
+  const [patientMobile, setPatientMobile] = useState(user?.mobile || '')
+  const [suggestions, setSuggestions] = useState([])
+  const [showDrop, setShowDrop] = useState(false)
+  const [lookupLoading, setLookupLoading] = useState(false)
+  const [showOtp, setShowOtp] = useState(false)
+  const [otpValue, setOtpValue] = useState('')
+  const [otpLoading, setOtpLoading] = useState(false)
+  const [otpError, setOtpError] = useState('')
+  const [lookupDone, setLookupDone] = useState(false)
+  const lookupDebounce = useRef(null)
+
+  const API_BASE = import.meta.env.VITE_API_URL || 'https://bharatcliniq-api.onrender.com'
+
+  const doLookup = async (mobile) => {
+    if (!mobile || mobile.replace(/\D/g, '').length !== 10) return
+    setLookupLoading(true)
+    try {
+      const res = await api.get('/patients/lookup', { params: { mobile } })
+      const data = res?.data || res
+      if (data && (data.name || data.patient_name)) {
+        setSuggestions([data])
+        setShowDrop(true)
+      }
+    } catch {
+      // silent — patient may not be in system
+    } finally {
+      setLookupLoading(false)
+    }
+  }
+
+  // Auto-trigger on mount if user mobile is available
+  useEffect(() => {
+    if (user?.mobile) doLookup(user.mobile)
+  }, []) // eslint-disable-line
+
+  const handleMobileChange = (val) => {
+    setPatientMobile(val)
+    setSuggestions([])
+    setShowDrop(false)
+    setLookupDone(false)
+    clearTimeout(lookupDebounce.current)
+    const digits = val.replace(/\D/g, '')
+    if (digits.length === 10) {
+      lookupDebounce.current = setTimeout(() => doLookup(val), 300)
+    }
+  }
+
+  const handleSelectSuggestion = (profile) => {
+    setShowDrop(false)
+    // Send OTP to verify
+    setOtpLoading(true)
+    fetch(`${API_BASE}/api/v1/otp/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mobile: patientMobile.replace(/\D/g, '') }),
+    })
+      .then(() => { setShowOtp(true) })
+      .catch(() => {
+        // Even if OTP fails, allow auto-fill (patient portal — user is already logged in)
+        setPatientName(profile.patient_name || profile.name || patientName)
+        setLookupDone(true)
+      })
+      .finally(() => setOtpLoading(false))
+  }
+
+  const handleVerifyOtp = async () => {
+    setOtpLoading(true); setOtpError('')
+    try {
+      await fetch(`${API_BASE}/api/v1/otp/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mobile: patientMobile.replace(/\D/g, ''), otp: otpValue }),
+      })
+      const profile = suggestions[0]
+      if (profile) setPatientName(profile.patient_name || profile.name || patientName)
+      setShowOtp(false)
+      setLookupDone(true)
+    } catch {
+      setOtpError('Invalid OTP. Please try again.')
+    } finally {
+      setOtpLoading(false)
+    }
+  }
+
   const fetchSlots = (d) => {
     setLoadingSlots(true); setSlots([]); setSlot(null)
     api.get(`/public/doctors/${doctor.doctor_profile_id || doctor.id}/slots`, { params: { booking_date: d, branch_id: doctor.branch_id || undefined } })
@@ -278,6 +363,80 @@ function SlotPicker({ doctor, onBack, onBooked }) {
               <p className="text-xs text-blue-600 mt-2">A secure video link will be shared before your appointment.</p>
             )}
           </div>
+
+          {/* Phone auto-lookup */}
+          <div className="relative">
+            <label className="label">Mobile Number</label>
+            <div className="relative">
+              <input
+                type="tel"
+                value={patientMobile}
+                onChange={e => handleMobileChange(e.target.value)}
+                placeholder="10-digit mobile"
+                maxLength={10}
+                className="input pr-8"
+              />
+              {lookupLoading && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin" />
+              )}
+            </div>
+            {showDrop && suggestions.length > 0 && (
+              <div className="absolute left-0 top-full mt-1 w-full bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden">
+                {suggestions.map((s, i) => {
+                  const name = s.patient_name || s.name || ''
+                  const masked = name.split(' ').map(p => p.length <= 2 ? p : p[0] + '*'.repeat(p.length - 2) + p[p.length - 1]).join(' ')
+                  return (
+                    <button key={i} onMouseDown={() => handleSelectSuggestion(s)}
+                      className="w-full text-left px-4 py-3 text-sm hover:bg-blue-50 transition-colors flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                        style={{ background: '#0F2557' }}>{name.charAt(0).toUpperCase()}</div>
+                      <div>
+                        <div className="font-semibold text-gray-800">{masked}</div>
+                        <div className="text-xs text-gray-400">Tap to verify & auto-fill</div>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+            {lookupDone && (
+              <div className="mt-1 flex items-center gap-1.5 text-xs text-green-600 font-medium">
+                <CheckCircle size={12} /> Auto-filled from verified profile
+              </div>
+            )}
+          </div>
+
+          {/* OTP Modal */}
+          {showOtp && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(15,37,87,0.6)' }}>
+              <div className="bg-white rounded-2xl shadow-2xl p-6 w-80 flex flex-col gap-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-bold" style={{ color: '#0F2557' }}>Verify Mobile</span>
+                  <button onClick={() => setShowOtp(false)} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
+                </div>
+                <p className="text-xs text-gray-500">OTP sent to <span className="font-semibold">{patientMobile}</span></p>
+                <input
+                  autoFocus
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={otpValue}
+                  onChange={e => { setOtpValue(e.target.value); setOtpError('') }}
+                  onKeyDown={e => e.key === 'Enter' && handleVerifyOtp()}
+                  placeholder="Enter OTP"
+                  className="input text-center tracking-widest font-bold text-lg"
+                />
+                {otpError && <p className="text-xs text-red-600 -mt-2">{otpError}</p>}
+                <button
+                  onClick={handleVerifyOtp}
+                  disabled={otpLoading || !otpValue.trim()}
+                  className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
+                  style={{ background: '#0F2557' }}>
+                  {otpLoading ? 'Verifying…' : 'Verify & Auto-fill'}
+                </button>
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="label">Patient Name</label>

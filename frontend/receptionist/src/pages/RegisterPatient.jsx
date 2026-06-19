@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, UserPlus, Loader2, CheckCircle2, Copy, CalendarPlus, X } from 'lucide-react'
+import { ArrowLeft, UserPlus, Loader2, CheckCircle2, Copy, CalendarPlus, X, CheckCircle, Smartphone } from 'lucide-react'
 import api from '../api/client'
 import TermSearch from '../components/TermSearch'
 
@@ -20,6 +20,63 @@ const empty = {
   emergency_contact_name: '', emergency_contact_phone: '', abha_id: '',
 }
 
+const API_BASE = import.meta.env.VITE_API_URL || 'https://bharatcliniq-api.onrender.com'
+
+function OtpModal({ mobile, onVerified, onCancel, apiBase }) {
+  const [otp, setOtp] = useState('')
+  const [sent, setSent] = useState(false)
+  const [verifying, setVerifying] = useState(false)
+  const [error, setError] = useState('')
+  const ref = useRef(null)
+
+  useEffect(() => {
+    fetch(`${apiBase}/api/v1/otp/send`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ mobile })
+    }).then(() => { setSent(true); setTimeout(() => ref.current?.focus(), 100) }).catch(() => {})
+  }, []) // eslint-disable-line
+
+  const verify = async () => {
+    setVerifying(true); setError('')
+    try {
+      const res = await fetch(`${apiBase}/api/v1/otp/verify`, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ mobile, otp })
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.detail || 'Invalid OTP')
+      onVerified(data.access_token || data.verified_token || data.token)
+    } catch (e) { setError(e.message) }
+    finally { setVerifying(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="bg-white rounded-2xl p-6 w-full max-w-sm mx-4 shadow-2xl">
+        <div className="text-center mb-4">
+          <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-2">
+            <Smartphone size={24} className="text-blue-700" />
+          </div>
+          <h3 className="font-bold text-gray-900">Verify Mobile</h3>
+          <p className="text-sm text-gray-500 mt-1">{sent ? `OTP sent to ${mobile}` : 'Sending OTP…'}</p>
+          <p className="text-xs text-amber-600 font-medium mt-1">(Dev: use 1234)</p>
+        </div>
+        <input ref={ref} type="text" inputMode="numeric" maxLength={6}
+          value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g,''))}
+          onKeyDown={e => e.key === 'Enter' && otp.length >= 4 && verify()}
+          placeholder="Enter OTP"
+          className="w-full text-center text-2xl tracking-[0.5em] font-bold px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400 mb-3" />
+        {error && <p className="text-red-500 text-sm text-center mb-2">{error}</p>}
+        <button onClick={verify} disabled={otp.length < 4 || verifying}
+          className="w-full py-2.5 rounded-xl font-semibold text-white bg-blue-700 disabled:opacity-40 mb-2">
+          {verifying ? 'Verifying…' : 'Verify & Auto-fill'}
+        </button>
+        <button onClick={onCancel} className="w-full py-2 text-sm text-gray-500">Cancel</button>
+      </div>
+    </div>
+  )
+}
+
 export default function RegisterPatient() {
   const navigate = useNavigate()
   const [form, setForm] = useState(empty)
@@ -35,10 +92,27 @@ export default function RegisterPatient() {
   const [error, setError] = useState('')
   const [created, setCreated] = useState(null)
 
+  const [suggestions, setSuggestions] = useState([])
+  const [showDrop, setShowDrop] = useState(false)
+  const [showOtp, setShowOtp] = useState(false)
+  const [lookupLoading, setLookupLoading] = useState(false)
+  const mobileWrapRef = useRef(null)
+  const lookupTimer = useRef(null)
+
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
   useEffect(() => {
     api.get('/clinic/doctors').then(r => setDoctors(Array.isArray(r) ? r : [])).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    const handleClick = (e) => {
+      if (mobileWrapRef.current && !mobileWrapRef.current.contains(e.target)) {
+        setShowDrop(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
   useEffect(() => {
@@ -82,6 +156,33 @@ export default function RegisterPatient() {
 
   return (
     <div className="max-w-3xl mx-auto">
+      {showOtp && (
+        <OtpModal
+          mobile={form.mobile}
+          apiBase={API_BASE}
+          onCancel={() => setShowOtp(false)}
+          onVerified={async (token) => {
+            setShowOtp(false)
+            try {
+              const r = await api.get('/patients/lookup', { params: { mobile: form.mobile } })
+              if (r?.found) {
+                set('full_name', r.full_name || '')
+                set('email', r.email || '')
+                set('date_of_birth', r.date_of_birth || '')
+                set('gender', r.gender || '')
+                set('blood_group', r.blood_group || '')
+                set('address', r.address || '')
+                set('city', r.city || '')
+                set('state', r.state || '')
+                set('pincode', r.pincode || '')
+                set('emergency_contact_name', r.emergency_contact_name || '')
+                set('emergency_contact_phone', r.emergency_contact_phone || '')
+              }
+            } catch {}
+          }}
+        />
+      )}
+
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <button onClick={() => navigate('/front-desk')}
@@ -137,7 +238,52 @@ export default function RegisterPatient() {
               </div>
               <div>
                 <label className={labelCls}>Mobile *</label>
-                <input className={inputCls} value={form.mobile} onChange={e => set('mobile', e.target.value)} placeholder="10-digit mobile" />
+                <div className="relative" ref={mobileWrapRef}>
+                  <input
+                    className={inputCls}
+                    type="tel" maxLength={10} placeholder="10-digit mobile *"
+                    value={form.mobile}
+                    onChange={e => {
+                      const val = e.target.value.replace(/\D/g,'').slice(0,10)
+                      set('mobile', val)
+                      setSuggestions([]); setShowDrop(false)
+                      clearTimeout(lookupTimer.current)
+                      if (/^[6-9]\d{9}$/.test(val)) {
+                        lookupTimer.current = setTimeout(async () => {
+                          setLookupLoading(true)
+                          try {
+                            const r = await api.get('/patients/lookup', { params: { mobile: val } })
+                            const names = r?.names || (r?.masked_name ? [r.masked_name] : [])
+                            setSuggestions(r?.found ? names.map(n => ({ label: n, data: r })) : [{ label: null, data: null }])
+                            setShowDrop(true)
+                          } catch { setSuggestions([]) }
+                          finally { setLookupLoading(false) }
+                        }, 300)
+                      }
+                    }}
+                  />
+                  {lookupLoading && <div className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />}
+                  {showDrop && suggestions.length > 0 && (
+                    <div className="absolute left-0 top-full mt-1 w-full bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden">
+                      {suggestions.map((s, i) => s.label ? (
+                        <button key={i} type="button"
+                          onMouseDown={() => { setShowDrop(false); setShowOtp(true) }}
+                          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-blue-50 text-left transition-colors">
+                          <div className="w-8 h-8 bg-blue-50 rounded-full flex items-center justify-center flex-shrink-0 text-blue-700 font-bold text-sm">
+                            {s.label.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <div className="font-semibold text-sm text-gray-900">{s.label}</div>
+                            <div className="text-xs text-blue-600">Verify OTP to auto-fill all details</div>
+                          </div>
+                          <CheckCircle size={14} className="text-blue-400 ml-auto" />
+                        </button>
+                      ) : (
+                        <div key={i} className="px-4 py-3 text-sm text-gray-400">No existing patient — fill details below</div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
               <div>
                 <label className={labelCls}>Date of Birth</label>

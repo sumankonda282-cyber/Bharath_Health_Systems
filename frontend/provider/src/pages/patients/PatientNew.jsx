@@ -103,22 +103,45 @@ function OtpModal({ mobile, onVerified, onCancel }) {
   )
 }
 
-// Phone-first lookup bar
+// Phone-first lookup bar — auto-suggests on 10 digits
 function PhoneLookupBar({ onAutoFill }) {
   const [mobile, setMobile] = useState('')
   const [lookupLoading, setLookupLoading] = useState(false)
-  const [lookupResult, setLookupResult] = useState(null)
+  const [suggestions, setSuggestions] = useState([])
+  const [showDropdown, setShowDropdown] = useState(false)
   const [showOtp, setShowOtp] = useState(false)
   const [filled, setFilled] = useState(false)
+  const wrapRef = useRef(null)
+  const timerRef = useRef(null)
 
-  const lookup = async () => {
-    if (!/^[6-9]\d{9}$/.test(mobile)) return
-    setLookupLoading(true); setLookupResult(null)
+  useEffect(() => {
+    const h = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setShowDropdown(false) }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [])
+
+  const handleChange = (e) => {
+    const val = e.target.value.replace(/\D/g, '').slice(0, 10)
+    setMobile(val); setSuggestions([]); setShowDropdown(false); setFilled(false)
+    clearTimeout(timerRef.current)
+    if (/^[6-9]\d{9}$/.test(val)) {
+      timerRef.current = setTimeout(() => doLookup(val), 300)
+    }
+  }
+
+  const doLookup = async (mob) => {
+    setLookupLoading(true)
     try {
-      const data = await api.get('/patients/lookup', { params: { mobile } })
-      setLookupResult(data?.found ? data : { found: false })
+      const data = await api.get('/patients/lookup', { params: { mobile: mob } })
+      if (data?.found) {
+        const names = data.names || (data.masked_name ? [data.masked_name] : [])
+        setSuggestions(names.map(n => ({ masked_name: n, bh_id: data.bh_id, found: true })))
+      } else {
+        setSuggestions([{ found: false }])
+      }
+      setShowDropdown(true)
     } catch {
-      setLookupResult({ found: false })
+      setSuggestions([])
     } finally {
       setLookupLoading(false)
     }
@@ -128,16 +151,9 @@ function PhoneLookupBar({ onAutoFill }) {
     setShowOtp(false)
     try {
       const profile = await api.get('/public/patient-profile', { params: { verified_token: token } })
-      if (profile) {
-        onAutoFill({ ...profile, mobile })
-        setFilled(true)
-      }
+      if (profile) { onAutoFill({ ...profile, mobile }); setFilled(true); setShowDropdown(false) }
     } catch {
-      // Use whatever the lookup returned
-      if (lookupResult) {
-        onAutoFill({ full_name: lookupResult.full_name, mobile })
-        setFilled(true)
-      }
+      onAutoFill({ mobile }); setFilled(true)
     }
   }
 
@@ -149,7 +165,7 @@ function PhoneLookupBar({ onAutoFill }) {
           <p className="text-sm font-semibold text-green-800">Profile auto-filled from verified account</p>
           <p className="text-xs text-green-600">Review and edit any field below before saving</p>
         </div>
-        <button onClick={() => { setFilled(false); setLookupResult(null); setMobile('') }}
+        <button onClick={() => { setFilled(false); setSuggestions([]); setMobile('') }}
           className="text-xs text-green-700 underline">Reset</button>
       </div>
     )
@@ -158,46 +174,50 @@ function PhoneLookupBar({ onAutoFill }) {
   return (
     <>
       {showOtp && <OtpModal mobile={mobile} onVerified={handleOtpVerified} onCancel={() => setShowOtp(false)} />}
-      <div className="card p-4">
+      <div className="card p-4" ref={wrapRef}>
         <div className="flex items-center gap-2 mb-3">
           <Phone size={15} className="text-blue-700" />
-          <span className="text-sm font-semibold text-gray-800">Lookup existing patient by mobile</span>
-          <span className="text-xs text-gray-400 ml-auto">Auto-fill from BharatClinicQ Health ID</span>
+          <span className="text-sm font-semibold text-gray-800">Find patient by mobile number</span>
+          <span className="text-xs text-gray-400 ml-auto">Names auto-suggest when 10 digits entered</span>
         </div>
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              type="tel" maxLength={10} value={mobile}
-              onChange={e => { setMobile(e.target.value); setLookupResult(null) }}
-              onKeyDown={e => e.key === 'Enter' && lookup()}
-              placeholder="10-digit mobile number"
-              className="input pl-9" />
-          </div>
-          <button onClick={lookup} disabled={!/^[6-9]\d{9}$/.test(mobile) || lookupLoading}
-            className="btn-primary px-4 disabled:opacity-40">
-            {lookupLoading ? 'Looking…' : 'Look up'}
-          </button>
-        </div>
+        <div className="relative">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 z-10" />
+          <input
+            type="tel" maxLength={10} value={mobile}
+            onChange={handleChange}
+            onFocus={() => suggestions.length > 0 && setShowDropdown(true)}
+            placeholder="Enter 10-digit mobile number…"
+            className="input pl-9 w-full" />
+          {lookupLoading && (
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+          )}
 
-        {lookupResult && lookupResult.found && (
-          <div className="mt-3 flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-xl">
-            <div className="flex items-center gap-2">
-              <CheckCircle size={15} className="text-blue-600" />
-              <span className="text-sm text-blue-800">
-                Found: <strong>{lookupResult.masked_name || lookupResult.full_name}</strong>
-                {lookupResult.bh_id && <span className="ml-2 text-xs text-blue-500">BHID: {lookupResult.bh_id}</span>}
-              </span>
+          {showDropdown && suggestions.length > 0 && (
+            <div className="absolute left-0 top-full mt-1 w-full bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden">
+              {suggestions.map((s, i) =>
+                s.found ? (
+                  <button key={i} onMouseDown={() => { setShowDropdown(false); setShowOtp(true) }}
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-blue-50 transition-colors text-left">
+                    <div className="w-9 h-9 bg-blue-50 rounded-full flex items-center justify-center flex-shrink-0">
+                      <User size={16} className="text-blue-700" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-semibold text-sm text-gray-900">{s.masked_name}</div>
+                      {s.bh_id && <div className="text-xs text-blue-500">BHID: {s.bh_id}</div>}
+                      <div className="text-xs text-blue-600">Verify OTP to auto-fill all details</div>
+                    </div>
+                    <CheckCircle size={15} className="text-blue-400" />
+                  </button>
+                ) : (
+                  <div key={i} className="px-4 py-3 text-sm text-gray-400 flex items-center gap-2">
+                    <Search size={14} />
+                    No existing patient found — fill details below
+                  </div>
+                )
+              )}
             </div>
-            <button onClick={() => setShowOtp(true)}
-              className="text-xs font-bold px-3 py-1.5 rounded-lg bg-blue-700 text-white">
-              Verify OTP to auto-fill
-            </button>
-          </div>
-        )}
-        {lookupResult && !lookupResult.found && (
-          <p className="mt-2 text-xs text-gray-400">No existing profile found — fill in details below to register.</p>
-        )}
+          )}
+        </div>
       </div>
     </>
   )

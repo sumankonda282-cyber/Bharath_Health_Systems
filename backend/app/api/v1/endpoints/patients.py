@@ -178,36 +178,87 @@ def lookup_patient(
         ).first()
 
     if not bh_profile and not clinic_patient:
-        return {"found": False}
+        # Build a consistent null-safe response so the frontend never crashes on missing keys
+        full_name_fallback = patient_user.full_name if patient_user else None
+        masked_fallback = None
+        if full_name_fallback and len(full_name_fallback) > 2:
+            masked_fallback = f"{full_name_fallback[:1]}{'*' * (len(full_name_fallback) - 2)}{full_name_fallback[-1:]}"
+        return {
+            "found": False,
+            "masked_name": masked_fallback,
+            "names": [masked_fallback] if masked_fallback else [],
+            "bh_id": None,
+            "full_name": None,
+            "mobile": mobile or (patient_user.mobile if patient_user else None),
+            "email": None,
+            "date_of_birth": None,
+            "gender": None,
+            "blood_group": None,
+            "address": None,
+            "city": None,
+            "state": None,
+            "pincode": None,
+            "allergies": None,
+            "emergency_contact_name": None,
+            "emergency_contact_phone": None,
+            "patient_id": None,
+            "mrn": None,
+            "clinic_patient_id": None,
+            "insurance_provider": None,
+            "insurance_policy_number": None,
+        }
 
-    result = {"found": True}
-
+    # Build full_name from bh_profile or fallback sources
     if bh_profile:
-        result["bh_id"] = bh_profile.bh_id
-        result["first_name"] = bh_profile.first_name
-        result["last_name"] = bh_profile.last_name
-        result["full_name"] = f"{bh_profile.first_name} {bh_profile.last_name}".strip()
-        result["gender"] = bh_profile.gender
-        result["date_of_birth"] = str(bh_profile.date_of_birth) if bh_profile.date_of_birth else None
-        result["state"] = bh_profile.state
+        full_name = f"{bh_profile.first_name} {bh_profile.last_name}".strip()
+    elif clinic_patient:
+        full_name = clinic_patient.full_name
+    elif patient_user:
+        full_name = patient_user.full_name
+    else:
+        full_name = None
 
-    if patient_user:
-        result["mobile"] = patient_user.mobile
-        result["email"] = patient_user.email
+    # Build masked name
+    masked = None
+    if full_name and len(full_name) > 2:
+        masked = f"{full_name[:1]}{'*' * (len(full_name) - 2)}{full_name[-1:]}"
+    elif full_name:
+        masked = full_name
 
-    if clinic_patient:
-        result["clinic_patient_id"] = clinic_patient.clinic_patient_id
-        result["patient_id"] = clinic_patient.id
-        result["full_name"] = result.get("full_name") or clinic_patient.full_name
-        result["blood_group"] = clinic_patient.blood_group
-        result["allergies"] = clinic_patient.allergies
-        result["address"] = clinic_patient.address
-        result["city"] = clinic_patient.city
-        result["pincode"] = clinic_patient.pincode
-        result["emergency_contact_name"] = clinic_patient.emergency_contact_name
-        result["emergency_contact_phone"] = clinic_patient.emergency_contact_phone
-        result["insurance_provider"] = clinic_patient.insurance_provider
-        result["insurance_policy_number"] = clinic_patient.insurance_policy_number
+    result = {
+        "found": True,
+        "masked_name": masked,
+        "names": [masked] if masked else [],
+        # Identity
+        "bh_id": bh_profile.bh_id if bh_profile else None,
+        "first_name": bh_profile.first_name if bh_profile else None,
+        "last_name": bh_profile.last_name if bh_profile else None,
+        "full_name": full_name,
+        "gender": bh_profile.gender if bh_profile else (clinic_patient.gender if clinic_patient else None),
+        "date_of_birth": str(bh_profile.date_of_birth) if bh_profile and bh_profile.date_of_birth else (
+            str(clinic_patient.date_of_birth) if clinic_patient and clinic_patient.date_of_birth else None
+        ),
+        # Contact
+        "mobile": (patient_user.mobile if patient_user else None) or mobile or (clinic_patient.mobile if clinic_patient else None),
+        "email": (bh_profile.email if bh_profile else None) or (patient_user.email if patient_user else None) or (clinic_patient.email if clinic_patient else None),
+        # Medical
+        "blood_group": (bh_profile.blood_group if bh_profile else None) or (clinic_patient.blood_group if clinic_patient else None),
+        "allergies": (bh_profile.allergies if bh_profile else None) or (clinic_patient.allergies if clinic_patient else None),
+        # Address — prefer BHProfile, fall back to clinic patient
+        "address": (bh_profile.address if bh_profile else None) or (clinic_patient.address if clinic_patient else None),
+        "city": (bh_profile.city if bh_profile else None) or (clinic_patient.city if clinic_patient else None),
+        "state": (bh_profile.state if bh_profile else None) or (clinic_patient.state if clinic_patient else None),
+        "pincode": (bh_profile.pincode if bh_profile else None) or (clinic_patient.pincode if clinic_patient else None),
+        # Emergency contact — prefer BHProfile, fall back to clinic patient
+        "emergency_contact_name": (bh_profile.emergency_contact_name if bh_profile else None) or (clinic_patient.emergency_contact_name if clinic_patient else None),
+        "emergency_contact_phone": (bh_profile.emergency_contact_phone if bh_profile else None) or (clinic_patient.emergency_contact_phone if clinic_patient else None),
+        # Local clinic record
+        "patient_id": clinic_patient.id if clinic_patient else None,
+        "mrn": clinic_patient.mrn if clinic_patient else None,
+        "clinic_patient_id": clinic_patient.clinic_patient_id if clinic_patient else None,
+        "insurance_provider": clinic_patient.insurance_provider if clinic_patient else None,
+        "insurance_policy_number": clinic_patient.insurance_policy_number if clinic_patient else None,
+    }
 
     return result
 

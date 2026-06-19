@@ -50,6 +50,15 @@ export const publicApi = {
   // Telehealth
   getTelehealthDoctors: (params) => api.get('/public/telehealth-doctors', { params }),
   // available_date: 'YYYY-MM-DD' — filters both to doctors with schedules on that day
+
+  // Patient identity
+  patientLookup: (mobile) => api.get('/public/patient-lookup', { params: { mobile } }),
+  getPatientProfile: (verified_token) => api.get('/public/patient-profile', { params: { verified_token } }),
+  patchPatientProfile: (data) => api.patch('/public/patient-profile', data),
+
+  // OTP (public, no auth)
+  sendOtp: (mobile) => api.post('/otp/send', { mobile }),
+  verifyOtp: (mobile, otp) => api.post('/otp/verify', { mobile, otp }),
 }
 
 export default api
