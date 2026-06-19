@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { BrowserMultiFormatReader } from '@zxing/browser'
-import { Camera, CameraOff, Keyboard, X, ScanLine } from 'lucide-react'
+import { Camera, Keyboard, X, ScanLine } from 'lucide-react'
 
 /**
  * BarcodeScanner — camera + USB/keyboard barcode input
@@ -9,61 +9,54 @@ import { Camera, CameraOff, Keyboard, X, ScanLine } from 'lucide-react'
  *   onClose() — called when user dismisses
  */
 export default function BarcodeScanner({ onScan, onClose }) {
-  const [mode, setMode]         = useState('camera') // 'camera' | 'manual'
+  const [mode, setMode]               = useState('camera') // 'camera' | 'manual'
   const [manualInput, setManualInput] = useState('')
-  const [error, setError]       = useState('')
-  const [scanning, setScanning] = useState(false)
+  const [error, setError]             = useState('')
   const videoRef  = useRef(null)
   const readerRef = useRef(null)
   const manualRef = useRef(null)
 
-  // Camera scanning
+  const stopScan = useCallback(() => {
+    try { readerRef.current?.reset() } catch {}
+  }, [])
+
+  // Camera scanning — starts after video element is mounted
+  const startScan = useCallback(async () => {
+    if (!videoRef.current) return
+    setError('')
+    try {
+      const reader = new BrowserMultiFormatReader()
+      readerRef.current = reader
+      const devices = await BrowserMultiFormatReader.listVideoInputDevices()
+      if (!devices.length) {
+        setError('No camera found. Use manual entry below.')
+        setMode('manual')
+        return
+      }
+      // Prefer back/environment camera on mobile
+      const device = devices.find(d => /back|rear|environment/i.test(d.label)) || devices[devices.length - 1]
+      await reader.decodeFromVideoDevice(device.deviceId, videoRef.current, (result) => {
+        if (result) {
+          stopScan()
+          onScan(result.getText())
+        }
+      })
+    } catch {
+      setError('Camera access denied. Use manual entry.')
+      setMode('manual')
+    }
+  }, [onScan, stopScan])
+
+  // videoRef callback — fires once the <video> element is actually in the DOM
+  const videoCallbackRef = useCallback((el) => {
+    videoRef.current = el
+    if (el && mode === 'camera') startScan()
+  }, [mode, startScan])
+
   useEffect(() => {
     if (mode !== 'camera') return
-    let mounted = true
-
-    const startScan = async () => {
-      setError('')
-      setScanning(true)
-      try {
-        const reader = new BrowserMultiFormatReader()
-        readerRef.current = reader
-        const devices = await BrowserMultiFormatReader.listVideoInputDevices()
-        if (!devices.length) {
-          setError('No camera found. Use manual entry below.')
-          setMode('manual')
-          return
-        }
-        // Prefer back camera on mobile
-        const device = devices.find(d => /back|rear|environment/i.test(d.label)) || devices[devices.length - 1]
-        await reader.decodeFromVideoDevice(device.deviceId, videoRef.current, (result, err) => {
-          if (!mounted) return
-          if (result) {
-            const code = result.getText()
-            stopScan()
-            onScan(code)
-          }
-        })
-      } catch (e) {
-        if (mounted) {
-          setError('Camera access denied. Use manual entry.')
-          setMode('manual')
-        }
-      } finally {
-        if (mounted) setScanning(false)
-      }
-    }
-
-    startScan()
-    return () => {
-      mounted = false
-      stopScan()
-    }
-  }, [mode])
-
-  const stopScan = () => {
-    try { readerRef.current?.reset() } catch {}
-  }
+    return () => stopScan()
+  }, [mode, stopScan])
 
   // USB scanner (types barcode as keyboard input ending with Enter)
   useEffect(() => {
@@ -101,7 +94,7 @@ export default function BarcodeScanner({ onScan, onClose }) {
             <Camera size={15} /> Camera
           </button>
           <button
-            onClick={() => { stopScan(); setMode('manual') }}
+            onClick={() => { stopScan(); setMode('manual'); setTimeout(() => manualRef.current?.focus(), 50) }}
             className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-colors ${mode === 'manual' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'}`}
           >
             <Keyboard size={15} /> Manual / USB
@@ -111,7 +104,7 @@ export default function BarcodeScanner({ onScan, onClose }) {
         {/* Camera view */}
         {mode === 'camera' && (
           <div className="relative bg-black">
-            <video ref={videoRef} className="w-full h-64 object-cover" autoPlay muted playsInline />
+            <video ref={videoCallbackRef} className="w-full h-64 object-cover" autoPlay muted playsInline />
             {/* Scan overlay */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div className="w-56 h-32 border-2 border-blue-400 rounded-lg relative">

@@ -96,15 +96,15 @@ export default function StockIn() {
     setBarcodeData(null)
     // If medicine_id known, pre-select it; otherwise create new medicine entry
     if (details.medicine_id) {
-      setForm(f => ({
-        ...f,
+      setForm({
+        ...EMPTY_FORM,
         medicine_id:  details.medicine_id,
         operation:    'add',
         quantity:     details.quantity || '',
         batch_number: details.batch_number || '',
         expiry_date:  details.expiry_date || '',
         unit_cost:    details.unit_cost || '',
-      }))
+      })
     } else {
       // Create a new medicine record from the scanned details, then stock it
       try {
@@ -123,15 +123,15 @@ export default function StockIn() {
         // Update barcode mapping with the new medicine_id
         await api.put(`/pharmacy/barcode/${encodeURIComponent(details.barcode)}`, { medicine_id: med.id })
         await loadMedicines(true)
-        setForm(f => ({
-          ...f,
+        setForm({
+          ...EMPTY_FORM,
           medicine_id:  med.id,
           operation:    'add',
           quantity:     details.quantity || '',
           batch_number: details.batch_number || '',
           expiry_date:  details.expiry_date || '',
           unit_cost:    details.unit_cost || '',
-        }))
+        })
         setSuccess(`New medicine "${details.drug_name}" added to your library and linked to barcode.`)
       } catch {
         setError('Could not create medicine record. Please select manually.')

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { CheckCircle, Search, X, Save, AlertCircle, Package } from 'lucide-react'
+import { CheckCircle, Search, X, Save, AlertCircle } from 'lucide-react'
 import api from '../api/client'
 
 const FORMS = ['Tablet', 'Capsule', 'Syrup', 'Suspension', 'Injection', 'Ointment', 'Cream', 'Drops', 'Inhaler', 'Patch', 'Powder', 'Gel', 'Spray', 'Suppository', 'Other']
@@ -45,7 +45,6 @@ export default function BarcodeLookupModal({ barcode, data, mode, onConfirm, onC
   const [searchResults, setResults] = useState([])
   const [searching, setSearching]   = useState(false)
   const [saving, setSaving]         = useState(false)
-  const [saved, setSaved]           = useState(false)
   const searchTimer = useRef(null)
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
@@ -103,7 +102,6 @@ export default function BarcodeLookupModal({ barcode, data, mode, onConfirm, onC
         gst_rate:     form.gst_rate ? parseFloat(form.gst_rate) : null,
         medicine_id:  form.medicine_id,
       })
-      setSaved(true)
       onConfirm({ ...form, barcode })
     } catch {
       // Even if save fails, proceed with the details
@@ -218,7 +216,7 @@ export default function BarcodeLookupModal({ barcode, data, mode, onConfirm, onC
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Quantity Received *</label>
-                  <input className="input text-sm" type="number" min="1" value={form.quantity} onChange={e => set('quantity', e.target.value)} placeholder="0" autoFocus />
+                  <input className="input text-sm" type="number" min="1" value={form.quantity} onChange={e => set('quantity', e.target.value)} placeholder="0" autoFocus={!isNew} />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Purchase Price (₹)</label>
@@ -243,7 +241,7 @@ export default function BarcodeLookupModal({ barcode, data, mode, onConfirm, onC
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Quantity *</label>
-                  <input className="input text-sm" type="number" min="1" value={form.quantity} onChange={e => set('quantity', e.target.value)} placeholder="1" autoFocus />
+                  <input className="input text-sm" type="number" min="1" value={form.quantity} onChange={e => set('quantity', e.target.value)} placeholder="1" autoFocus={!isNew} />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Selling Price (₹)</label>
