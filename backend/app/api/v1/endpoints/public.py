@@ -360,7 +360,18 @@ def get_public_patient_profile(verified_token: str, db: Session = Depends(get_db
                 "full_name": f"{p.first_name} {p.last_name}".strip(),
                 "gender": p.gender,
                 "date_of_birth": str(p.date_of_birth) if p.date_of_birth else None,
+                "blood_group": p.blood_group if hasattr(p, "blood_group") else None,
+                "address": p.address if hasattr(p, "address") else None,
+                "city": p.city if hasattr(p, "city") else None,
                 "state": p.state,
+                "pincode": p.pincode if hasattr(p, "pincode") else None,
+                "allergies": p.allergies if hasattr(p, "allergies") else None,
+                "emergency_contact_name": p.emergency_contact_name if hasattr(p, "emergency_contact_name") else None,
+                "emergency_contact_phone": p.emergency_contact_phone if hasattr(p, "emergency_contact_phone") else None,
+                "email": p.email if hasattr(p, "email") else user.email,
+                "mobile": user.mobile,
+                "occupation": p.occupation if hasattr(p, "occupation") else None,
+                "nationality": p.nationality if hasattr(p, "nationality") else None,
             }
             for p in profiles
         ],

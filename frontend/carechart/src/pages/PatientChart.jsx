@@ -591,14 +591,17 @@ function AdmissionFormModal({ admission, onClose }) {
   const [otpError, setOtpError]         = useState('')
   const [prefilled, setPrefilled]       = useState({})
   const [profileBanner, setProfileBanner] = useState(false)
+  const lookupDebounceRef               = useRef(null)
 
-  const handleLookup = async () => {
-    if (!phoneInput.trim()) return
+  const handleLookup = async (mobile) => {
+    const m = (mobile || phoneInput).trim()
+    if (!m) return
     setLookupLoading(true); setLookupError(''); setLookupResult(null)
     try {
-      const res = await api.get('/patients/lookup', { params: { mobile: phoneInput.trim() } })
-      if (res.data && (res.data.name || res.data.patient_name)) {
-        setLookupResult(res.data)
+      const res = await api.get('/patients/lookup', { params: { mobile: m } })
+      const data = res?.data || res
+      if (data && (data.name || data.patient_name)) {
+        setLookupResult(data)
       } else {
         setLookupError('No patient found with that mobile number.')
       }
@@ -606,6 +609,18 @@ function AdmissionFormModal({ admission, onClose }) {
       setLookupError('Lookup failed. Please check the number and try again.')
     } finally {
       setLookupLoading(false)
+    }
+  }
+
+  const handlePhoneChange = (val) => {
+    setPhoneInput(val)
+    setLookupResult(null)
+    setLookupError('')
+    setProfileBanner(false)
+    clearTimeout(lookupDebounceRef.current)
+    const digits = val.replace(/\D/g, '')
+    if (digits.length === 10) {
+      lookupDebounceRef.current = setTimeout(() => handleLookup(val), 300)
     }
   }
 
@@ -807,25 +822,19 @@ function AdmissionFormModal({ admission, onClose }) {
           {/* Patient Lookup Bar */}
           <div className="rounded-xl border p-3 flex flex-col gap-2" style={{ borderColor: '#dbe4f0', background: '#f4f7fc' }}>
             <div className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: NAVY }}>🔍 Look up patient by mobile / BHID</div>
-            <div className="flex items-center gap-2">
+            <div className="relative">
               <input
                 type="tel"
                 value={phoneInput}
-                onChange={e => { setPhoneInput(e.target.value); setLookupResult(null); setLookupError(''); setProfileBanner(false) }}
-                placeholder="Enter 10-digit mobile number"
+                onChange={e => handlePhoneChange(e.target.value)}
+                placeholder="Enter 10-digit mobile — auto-searches"
                 maxLength={10}
-                onKeyDown={e => e.key === 'Enter' && handleLookup()}
-                className="flex-1 border rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1"
+                className="w-full border rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 pr-8"
                 style={{ borderColor: NAVY, minWidth: 0 }}
               />
-              <button
-                onClick={handleLookup}
-                disabled={lookupLoading || !phoneInput.trim()}
-                className="text-xs font-bold px-4 py-2 rounded-lg text-white transition-opacity disabled:opacity-50"
-                style={{ background: NAVY }}
-              >
-                {lookupLoading ? 'Looking…' : 'Look up'}
-              </button>
+              {lookupLoading && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin" />
+              )}
             </div>
 
             {lookupError && (

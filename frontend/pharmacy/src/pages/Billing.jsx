@@ -135,6 +135,69 @@ function BillingCounter({ onBillCreated }) {
   const [printInvoice, setPrintInvoice] = useState(null)
   const searchDebounce = useRef(null)
 
+  // Phone auto-lookup states
+  const [lookupSuggestions, setLookupSuggestions] = useState([])
+  const [showLookupDrop, setShowLookupDrop] = useState(false)
+  const [lookupLoading, setLookupLoading] = useState(false)
+  const [lookupVerified, setLookupVerified] = useState(false)
+  const [showOtp, setShowOtp] = useState(false)
+  const [otpValue, setOtpValue] = useState('')
+  const [otpLoading, setOtpLoading] = useState(false)
+  const [otpError, setOtpError] = useState('')
+  const [pendingProfile, setPendingProfile] = useState(null)
+  const mobileLookupDebounce = useRef(null)
+
+  const handleMobileChange = (val) => {
+    setCustomerMobile(val)
+    setLookupSuggestions([])
+    setShowLookupDrop(false)
+    setLookupVerified(false)
+    clearTimeout(mobileLookupDebounce.current)
+    const digits = val.replace(/\D/g, '')
+    if (digits.length === 10) {
+      mobileLookupDebounce.current = setTimeout(async () => {
+        setLookupLoading(true)
+        try {
+          const res = await api.get('/patients/lookup', { params: { mobile: val.trim() } })
+          const data = res?.data || res
+          if (data && (data.name || data.patient_name)) {
+            setLookupSuggestions([data])
+            setShowLookupDrop(true)
+          }
+        } catch { /* silent */ } finally {
+          setLookupLoading(false)
+        }
+      }, 300)
+    }
+  }
+
+  const handleSelectLookup = (profile) => {
+    setShowLookupDrop(false)
+    setPendingProfile(profile)
+    // Send OTP
+    api.post('/otp/send', { mobile: customerMobile.trim() })
+      .then(() => setShowOtp(true))
+      .catch(() => {
+        // Auto-fill without OTP if send fails (graceful degradation)
+        setCustomerName(profile.patient_name || profile.name || customerName)
+        setLookupVerified(true)
+      })
+  }
+
+  const handleVerifyOtp = async () => {
+    setOtpLoading(true); setOtpError('')
+    try {
+      await api.post('/otp/verify', { mobile: customerMobile.trim(), otp: otpValue })
+      if (pendingProfile) setCustomerName(pendingProfile.patient_name || pendingProfile.name || customerName)
+      setShowOtp(false)
+      setLookupVerified(true)
+    } catch {
+      setOtpError('Invalid OTP. Please try again.')
+    } finally {
+      setOtpLoading(false)
+    }
+  }
+
   useEffect(() => {
     if (!medSearch.trim()) { setMedResults([]); return }
     clearTimeout(searchDebounce.current)
@@ -266,13 +329,78 @@ function BillingCounter({ onBillCreated }) {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="label">Customer Name <span className="text-gray-400 font-normal">(Optional)</span></label>
-                <input className="input" placeholder="Walk-in customer name" value={customerName} onChange={e => setCustomerName(e.target.value)} />
+                <div className="relative flex items-center gap-1">
+                  <input className="input flex-1" placeholder="Walk-in customer name" value={customerName} onChange={e => setCustomerName(e.target.value)} />
+                  {lookupVerified && <span className="text-green-600 text-xs font-semibold whitespace-nowrap">✓ Verified</span>}
+                </div>
               </div>
               <div>
                 <label className="label">Mobile <span className="text-gray-400 font-normal">(Optional)</span></label>
-                <input className="input" placeholder="Customer mobile" value={customerMobile} onChange={e => setCustomerMobile(e.target.value)} />
+                <div className="relative">
+                  <input
+                    className="input pr-7"
+                    placeholder="10-digit mobile — auto-lookup"
+                    value={customerMobile}
+                    maxLength={10}
+                    onChange={e => handleMobileChange(e.target.value)}
+                  />
+                  {lookupLoading && (
+                    <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 animate-spin" />
+                  )}
+                  {showLookupDrop && lookupSuggestions.length > 0 && (
+                    <div className="absolute left-0 top-full mt-1 w-full bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden">
+                      {lookupSuggestions.map((s, i) => {
+                        const name = s.patient_name || s.name || ''
+                        const masked = name.split(' ').map(p => p.length <= 2 ? p : p[0] + '*'.repeat(p.length - 2) + p[p.length - 1]).join(' ')
+                        return (
+                          <button key={i} onMouseDown={() => handleSelectLookup(s)}
+                            className="w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 transition-colors flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                              style={{ background: '#0F2557' }}>{name.charAt(0).toUpperCase() || '?'}</div>
+                            <div>
+                              <div className="font-semibold text-gray-800">{masked}</div>
+                              <div className="text-xs text-gray-400">Tap to verify & auto-fill name</div>
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
+
+            {/* OTP Modal */}
+            {showOtp && (
+              <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+                <div className="bg-white rounded-2xl shadow-xl w-80 p-6 flex flex-col gap-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-bold text-[#0F2557]">Verify Mobile</span>
+                    <button onClick={() => setShowOtp(false)} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
+                  </div>
+                  <p className="text-xs text-gray-500">OTP sent to <span className="font-semibold">{customerMobile}</span></p>
+                  <input
+                    autoFocus
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={otpValue}
+                    onChange={e => { setOtpValue(e.target.value); setOtpError('') }}
+                    onKeyDown={e => e.key === 'Enter' && handleVerifyOtp()}
+                    placeholder="Enter OTP"
+                    className="input text-center tracking-widest font-bold text-lg"
+                  />
+                  {otpError && <p className="text-xs text-red-600 -mt-2">{otpError}</p>}
+                  <button
+                    onClick={handleVerifyOtp}
+                    disabled={otpLoading || !otpValue.trim()}
+                    className="btn-primary w-full justify-center disabled:opacity-50"
+                  >
+                    {otpLoading ? 'Verifying…' : 'Verify & Auto-fill'}
+                  </button>
+                </div>
+              </div>
+            )}
             {saleType === 'otc' && (
               <div className="mt-3">
                 <label className="label">Prescription Reference <span className="text-gray-400 font-normal">(Optional)</span></label>
