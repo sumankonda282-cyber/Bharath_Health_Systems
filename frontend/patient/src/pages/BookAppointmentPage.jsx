@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import api from '../api/client'
+import api, { bookingApi } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 import {
-  Stethoscope, Building2, Calendar, Clock, Search, ChevronRight,
-  ArrowLeft, CheckCircle, Copy, Check, X, MapPin, Filter, Video
+  Stethoscope, Building2, Search, ChevronRight,
+  ArrowLeft, X, Filter,
 } from 'lucide-react'
+import BookingFlow from '../components/BookingFlow'
 
 const today = new Date().toISOString().split('T')[0]
 
@@ -603,7 +604,7 @@ export default function BookAppointmentPage() {
 
   const hasFilters = search || specialty || cityFilter
 
-  // Doctor selected — show slot picker
+  // Doctor selected — show unified booking flow
   if (doctor) {
     return (
       <div>
@@ -611,7 +612,14 @@ export default function BookAppointmentPage() {
           className="inline-flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-gray-800 mb-5">
           <ArrowLeft size={16} /> Back to doctors
         </button>
-        <SlotPicker doctor={doctor} onBooked={() => setBooked(true)} />
+        <BookingFlow
+          doctor={doctor}
+          context="patient"
+          apiClient={bookingApi}
+          prefill={user ? { mobile: user.mobile, first_name: user.first_name, last_name: user.last_name } : undefined}
+          onBooked={() => setBooked(true)}
+          onClose={() => setDoctor(null)}
+        />
       </div>
     )
   }

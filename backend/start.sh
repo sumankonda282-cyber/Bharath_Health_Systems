@@ -96,6 +96,9 @@ safe_cols = [
     \"ALTER TABLE online_bookings ADD COLUMN IF NOT EXISTS payment_mode VARCHAR(30) DEFAULT 'pay_at_clinic'\",
     \"ALTER TABLE online_bookings ADD COLUMN IF NOT EXISTS payment_status VARCHAR(30) DEFAULT 'pending'\",
     \"ALTER TABLE online_bookings ADD COLUMN IF NOT EXISTS amount_due NUMERIC(10,2)\",
+    \"ALTER TABLE online_bookings ADD COLUMN IF NOT EXISTS first_name VARCHAR(100)\",
+    \"ALTER TABLE online_bookings ADD COLUMN IF NOT EXISTS last_name VARCHAR(100)\",
+    \"ALTER TABLE doctor_profiles ADD COLUMN IF NOT EXISTS auto_confirm BOOLEAN DEFAULT true\",
     \"CREATE TABLE IF NOT EXISTS imaging_report_templates (id SERIAL PRIMARY KEY, clinic_id INTEGER REFERENCES clinics(id), modality VARCHAR(10) NOT NULL, name VARCHAR(200) NOT NULL, findings_template TEXT, impression_template TEXT, body_part VARCHAR(100), is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW())\",
     \"CREATE TABLE IF NOT EXISTS imaging_critical_alerts (id SERIAL PRIMARY KEY, clinic_id INTEGER REFERENCES clinics(id), order_id INTEGER REFERENCES imaging_orders(id), alert_type VARCHAR(50), description TEXT, alerted_by INTEGER REFERENCES staff(id), alerted_at TIMESTAMP DEFAULT NOW(), acknowledged_by INTEGER REFERENCES staff(id), acknowledged_at TIMESTAMP)\",
     \"CREATE TABLE IF NOT EXISTS referring_doctors (id SERIAL PRIMARY KEY, clinic_id INTEGER REFERENCES clinics(id) NOT NULL, name VARCHAR(200) NOT NULL, registration_number VARCHAR(100), specialization VARCHAR(200), hospital VARCHAR(200), mobile VARCHAR(20), email VARCHAR(150), address TEXT, notes TEXT, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW())\",
@@ -223,6 +226,21 @@ try:
     print('[startup] Safe column additions complete.')
 except Exception as e:
     print(f'[startup] Safe column additions failed: {e}')
+
+# Migrate existing patient_name to first_name/last_name
+try:
+    _sql = (
+        \"UPDATE online_bookings \"
+        \"SET first_name = SPLIT_PART(patient_name, ' ', 1), \"
+        \"last_name = TRIM(SUBSTRING(patient_name FROM POSITION(' ' IN patient_name) + 1)) \"
+        \"WHERE (first_name IS NULL OR first_name = '') \"
+        \"AND patient_name IS NOT NULL AND patient_name != ''\"
+    )
+    with engine.begin() as conn:
+        conn.execute(text(_sql))
+    print('Migrated patient_name to first_name/last_name')
+except Exception as e:
+    print(f'Migration warning (non-fatal): {e}')
 
 indexes = [
     \"CREATE INDEX IF NOT EXISTS idx_appointments_clinic_date ON appointments(clinic_id, booking_date)\",

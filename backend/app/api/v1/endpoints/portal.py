@@ -164,6 +164,8 @@ def portal_appointments(current=Depends(get_current_patient), db: Session = Depe
             "source": "online_booking",
             "confirmation_code": b.confirmation_code,
             "patient_name": b.patient_name,
+            "first_name": b.first_name,
+            "last_name": b.last_name,
             "doctor_profile_id": b.doctor_id,
             "payment_mode": b.payment_mode or "pay_at_clinic",
             "payment_status": b.payment_status or "pending",
@@ -316,12 +318,21 @@ def portal_book_appointment(
     from app.schemas.schemas import OnlineBookingCreate
     from app.api.v1.endpoints.public import book_appointment_online
 
+    # Resolve first_name/last_name from body or full_name
+    _first = (body.get("first_name") or "").strip()
+    _last = (body.get("last_name") or "").strip()
+    if not _first and not _last:
+        _parts = (body.get("patient_name") or current.full_name or "Patient").strip().split(" ", 1)
+        _first = _parts[0]
+        _last = _parts[1] if len(_parts) > 1 else ""
+
     try:
         payload = OnlineBookingCreate(
             clinic_id=body.get("clinic_id"),
             branch_id=body.get("branch_id"),
             doctor_id=body.get("doctor_id"),
-            patient_name=(body.get("patient_name") or current.full_name or "Patient").strip(),
+            first_name=_first,
+            last_name=_last,
             patient_mobile=current.mobile,
             patient_email=body.get("patient_email") or current.email or None,
             booking_date=body.get("booking_date"),
@@ -337,17 +348,16 @@ def portal_book_appointment(
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Invalid booking details: {e}")
 
-    booking = book_appointment_online(payload, db)
-    if not booking.patient_user_id:
-        booking.patient_user_id = current.id
-        db.commit()
-        db.refresh(booking)
+    result = book_appointment_online(payload, db)
+    # result is now a dict from the updated endpoint
     return {
-        "id": booking.id,
-        "confirmation_code": booking.confirmation_code,
-        "status": booking.status,
-        "booking_date": str(booking.booking_date),
-        "booking_time": booking.booking_time,
+        "id": result["id"],
+        "confirmation_code": result["confirmation_code"],
+        "status": result["status"],
+        "booking_date": result["booking_date"],
+        "booking_time": result["booking_time"],
+        "bh_id": result.get("bh_id"),
+        "is_new_patient": result.get("is_new_patient"),
     }
 
 

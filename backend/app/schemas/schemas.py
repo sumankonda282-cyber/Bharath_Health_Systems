@@ -358,7 +358,9 @@ class OnlineBookingCreate(BaseModel):
     clinic_id: int
     branch_id: Optional[int] = None
     doctor_id: int
-    patient_name: str
+    first_name: str
+    last_name: str
+    patient_name: Optional[str] = None  # auto-built in endpoint
     patient_mobile: str
     patient_email: Optional[EmailStr] = None
     booking_date: date
@@ -378,6 +380,8 @@ class OnlineBookingOut(BaseModel):
     branch_id: Optional[int] = None
     doctor_id: Optional[int] = None
     patient_name: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     patient_mobile: str
     booking_date: date
     booking_time: str
@@ -391,6 +395,8 @@ class OnlineBookingOut(BaseModel):
     payment_mode: Optional[str] = None
     payment_status: Optional[str] = None
     amount_due: Optional[Decimal] = None
+    bh_id: Optional[str] = None  # returned when new patient created
+    is_new_patient: Optional[bool] = None
 
     class Config:
         from_attributes = True
