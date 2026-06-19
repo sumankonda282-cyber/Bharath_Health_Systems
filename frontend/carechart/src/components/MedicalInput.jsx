@@ -21,7 +21,7 @@ export default function MedicalInput({
   const fetchSuggestions = useCallback(async (q) => {
     try {
       const data = await api.get(
-        `/medical-library/terms?q=${encodeURIComponent(q)}&categories=${categories}&limit=${MAX_ITEMS}`
+        `/terminology/search?q=${encodeURIComponent(q)}&category=${categories}&limit=${MAX_ITEMS}`
       )
       const list = Array.isArray(data) ? data : (data.items || [])
       setSuggestions(list)

@@ -92,7 +92,7 @@ export const pharmacyApi = {
 export const labApi = {
   getOrders:   (params) => api.get('/lab/orders', { params }),
   updateStatus:(id, status) => api.put(`/lab/orders/${id}/status`, { status }),
-  addResults:  (id, items) => api.post(`/lab/orders/${id}/results`, { items }),
+  addResults:  (id, items) => api.put(`/lab/orders/${id}/results`, { items }),
   searchTests: (q, type, branchId) => api.get('/lab/tests/search', { params: { q, type, branch_id: branchId } }),
 }
 

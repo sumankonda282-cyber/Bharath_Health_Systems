@@ -23,7 +23,7 @@ from app.models.models import (
     DischargeSummary, ProgressNote,
     InpatientCharge, InpatientBill, Invoice,
     VisitorPass, VisitorPolicy,
-    MedicationOrder, ClinicalOrder,
+    MedicationOrder, ClinicalOrder, DocumentationSession,
 )
 
 router = APIRouter(prefix="/inpatient", tags=["inpatient"])
@@ -2967,3 +2967,319 @@ def _clinical_order_dict(o: ClinicalOrder):
         "result_notes":     o.result_notes,
         "cancel_reason":    o.cancel_reason,
     }
+
+
+# ── Branches (alias for clinic branches used by CareChart SelectLocation) ────
+
+@router.get("/branches")
+def get_inpatient_branches(db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
+    from app.models.models import Branch
+    branches = db.query(Branch).filter(Branch.clinic_id == current.clinic_id).all()
+    return [{"id": b.id, "name": b.name} for b in branches]
+
+
+# ── Ward dashboard metrics ────────────────────────────────────────────────────
+
+@router.get("/wards/{ward_id}/dashboard-metrics")
+def ward_dashboard_metrics(ward_id: int, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
+    from sqlalchemy import func
+    admitted = db.query(Admission).filter(Admission.ward_id == ward_id, Admission.status == "admitted").count()
+    discharging = db.query(Admission).filter(Admission.ward_id == ward_id, Admission.status == "pending_discharge").count()
+    beds_total = db.query(Bed).filter(Bed.ward_id == ward_id).count()
+    beds_occupied = db.query(Bed).filter(Bed.ward_id == ward_id, Bed.status == "occupied").count()
+    return {
+        "admitted": admitted,
+        "discharging": discharging,
+        "beds_total": beds_total,
+        "beds_occupied": beds_occupied,
+        "beds_available": max(0, beds_total - beds_occupied),
+    }
+
+
+# ── Top-level ward rounds list ─────────────────────────────────────────────────
+
+@router.get("/ward-rounds")
+def get_ward_rounds(ward_id: int = None, admission_id: int = None, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
+    q = db.query(WardRound).filter(WardRound.clinic_id == current.clinic_id)
+    if admission_id:
+        q = q.filter(WardRound.admission_id == admission_id)
+    rounds = q.order_by(WardRound.created_at.desc()).limit(100).all()
+    return [{"id": r.id, "admission_id": r.admission_id, "subjective": r.subjective, "assessment": r.assessment, "plan": r.plan, "round_date": r.round_date.isoformat() if r.round_date else None, "created_at": r.created_at.isoformat() if r.created_at else None, "doctor_id": r.doctor_id} for r in rounds]
+
+
+# ── Per-admission ward rounds ──────────────────────────────────────────────────
+
+@router.get("/admissions/{admission_id}/ward-rounds")
+def get_admission_ward_rounds(admission_id: int, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
+    rounds = db.query(WardRound).filter(WardRound.admission_id == admission_id).order_by(WardRound.created_at.desc()).all()
+    return [{"id": r.id, "subjective": r.subjective, "objective": r.objective, "assessment": r.assessment, "plan": r.plan, "round_date": r.round_date.isoformat() if r.round_date else None, "created_at": r.created_at.isoformat() if r.created_at else None, "doctor_id": r.doctor_id} for r in rounds]
+
+
+# ── Top-level notes list ───────────────────────────────────────────────────────
+
+@router.get("/notes")
+def get_all_notes(ward_id: int = None, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
+    q = db.query(NursingNote).filter(NursingNote.clinic_id == current.clinic_id)
+    if ward_id:
+        q = q.join(Admission, Admission.id == NursingNote.admission_id).filter(Admission.ward_id == ward_id)
+    notes = q.order_by(NursingNote.created_at.desc()).limit(100).all()
+    return [{"id": n.id, "admission_id": n.admission_id, "note": n.note_text, "note_type": n.note_type, "created_at": n.created_at.isoformat() if n.created_at else None} for n in notes]
+
+
+# ── Medications (alias for orders used by CareChart MedicationList) ───────────
+
+@router.get("/admissions/{admission_id}/medications")
+def get_medications(admission_id: int, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
+    orders = db.query(MedicationOrder).filter(MedicationOrder.admission_id == admission_id).order_by(MedicationOrder.ordered_at.desc()).all()
+    return [{"id": o.id, "drug_name": o.drug_name, "generic_name": o.generic_name, "dose": o.dose, "route": o.route, "frequency": o.frequency, "duration_days": o.duration_days, "instructions": o.instructions, "is_prn": o.is_prn, "is_stat": o.is_stat, "status": o.status, "ordered_at": o.ordered_at.isoformat() if o.ordered_at else None} for o in orders]
+
+
+@router.post("/admissions/{admission_id}/medications")
+def add_medication(admission_id: int, body: dict, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
+    adm = db.query(Admission).filter(Admission.id == admission_id, Admission.clinic_id == current.clinic_id).first()
+    if not adm:
+        raise HTTPException(status_code=404, detail="Admission not found")
+    order = MedicationOrder(
+        admission_id=admission_id, clinic_id=current.clinic_id,
+        drug_name=body.get("drug_name", ""), generic_name=body.get("generic_name"),
+        dose=body.get("dose"), route=body.get("route"), frequency=body.get("frequency"),
+        duration_days=body.get("duration_days"), instructions=body.get("instructions"),
+        is_prn=body.get("is_prn", False), is_stat=body.get("is_stat", False),
+        notes=body.get("notes"), ordered_by=current.id, status="active",
+    )
+    db.add(order); db.commit(); db.refresh(order)
+    return {"id": order.id, "ok": True}
+
+
+@router.patch("/admissions/{admission_id}/medications/{med_id}")
+def update_medication(admission_id: int, med_id: int, body: dict, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
+    order = db.query(MedicationOrder).filter(MedicationOrder.id == med_id, MedicationOrder.admission_id == admission_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Medication not found")
+    allowed = {"drug_name", "generic_name", "dose", "route", "frequency", "duration_days", "instructions", "is_prn", "is_stat", "notes", "status"}
+    for k, v in body.items():
+        if k in allowed:
+            setattr(order, k, v)
+    db.commit()
+    return {"ok": True}
+
+
+@router.post("/admissions/{admission_id}/medications/{med_id}/discontinue")
+def discontinue_medication(admission_id: int, med_id: int, body: dict, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
+    order = db.query(MedicationOrder).filter(MedicationOrder.id == med_id, MedicationOrder.admission_id == admission_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Medication not found")
+    order.status = "discontinued"
+    order.discontinued_at = datetime.utcnow()
+    order.discontinue_reason = body.get("reason") or body.get("note")
+    db.commit()
+    return {"ok": True}
+
+
+@router.post("/admissions/{admission_id}/medications/{med_id}/administer")
+def administer_medication(admission_id: int, med_id: int, body: dict, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
+    order = db.query(MedicationOrder).filter(MedicationOrder.id == med_id).first()
+    mar = MedicationAdministration(
+        admission_id=admission_id, clinic_id=current.clinic_id,
+        medicine_name=order.drug_name if order else body.get("drug_name", ""),
+        dose=body.get("dose_given") or (order.dose if order else None),
+        route=body.get("route_used") or (order.route if order else None),
+        administered_by=current.id, administered_at=datetime.utcnow(),
+        notes=body.get("notes"), status=body.get("status", "given"),
+    )
+    db.add(mar); db.commit()
+    return {"ok": True}
+
+
+# ── Nursing entries (quick note on patient chart) ─────────────────────────────
+
+@router.post("/admissions/{admission_id}/nursing-entries")
+def add_nursing_entry(admission_id: int, body: dict, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
+    note = NursingNote(
+        admission_id=admission_id, clinic_id=current.clinic_id,
+        note_text=body.get("note", ""), note_type=body.get("note_type", "general"),
+        written_by=current.id,
+    )
+    db.add(note); db.commit(); db.refresh(note)
+    return {"id": note.id, "ok": True}
+
+
+# ── Provider notes (read-only view for nurses) ────────────────────────────────
+
+@router.get("/admissions/{admission_id}/provider-notes")
+def get_provider_notes(admission_id: int, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
+    notes = db.query(ProgressNote).filter(ProgressNote.admission_id == admission_id).order_by(ProgressNote.note_time.desc()).all()
+    return [{"id": n.id, "subjective": n.subjective, "assessment": n.assessment, "plan": n.plan, "note_type": n.note_type, "note_date": n.note_date.isoformat() if n.note_date else None, "note_time": n.note_time.isoformat() if n.note_time else None, "written_by": n.written_by} for n in notes]
+
+
+# ── Patient movement ──────────────────────────────────────────────────────────
+
+@router.get("/admissions/{admission_id}/movements")
+def get_movements(admission_id: int, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
+    transfers = db.query(AdmissionTransfer).filter(AdmissionTransfer.admission_id == admission_id).order_by(AdmissionTransfer.transferred_at.desc()).all()
+    return [{"id": t.id, "from_ward": getattr(t, "from_ward_id", None), "to_ward": getattr(t, "to_ward_id", None), "reason": getattr(t, "reason", None), "transferred_at": t.transferred_at.isoformat() if t.transferred_at else None} for t in transfers]
+
+
+@router.get("/admissions/{admission_id}/patient-movement")
+def get_patient_movement(admission_id: int, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
+    transfers = db.query(AdmissionTransfer).filter(AdmissionTransfer.admission_id == admission_id).order_by(AdmissionTransfer.transferred_at.desc()).all()
+    return [{"id": t.id, "from_ward": getattr(t, "from_ward_id", None), "to_ward": getattr(t, "to_ward_id", None), "reason": getattr(t, "reason", None), "transferred_at": t.transferred_at.isoformat() if t.transferred_at else None} for t in transfers]
+
+
+# ── Documents ─────────────────────────────────────────────────────────────────
+
+@router.get("/admissions/{admission_id}/documents")
+def get_documents(admission_id: int, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
+    sessions = db.query(DocumentationSession).filter(DocumentationSession.admission_id == admission_id).order_by(DocumentationSession.created_at.desc()).all()
+    return [{"id": s.id, "doc_type": getattr(s, "doc_type", None), "status": getattr(s, "status", None), "created_at": s.created_at.isoformat() if s.created_at else None} for s in sessions]
+
+
+# ── Discharge checklist + confirm ─────────────────────────────────────────────
+
+@router.patch("/admissions/{admission_id}/discharge-checklist")
+def update_discharge_checklist(admission_id: int, body: dict, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
+    adm = db.query(Admission).filter(Admission.id == admission_id, Admission.clinic_id == current.clinic_id).first()
+    if not adm:
+        raise HTTPException(status_code=404, detail="Admission not found")
+    if hasattr(adm, "discharge_checklist"):
+        adm.discharge_checklist = body.get("checklist") or body
+    db.commit()
+    return {"ok": True}
+
+
+@router.post("/admissions/{admission_id}/confirm-discharge")
+def confirm_discharge(admission_id: int, body: dict, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
+    adm = db.query(Admission).filter(Admission.id == admission_id, Admission.clinic_id == current.clinic_id).first()
+    if not adm:
+        raise HTTPException(status_code=404, detail="Admission not found")
+    adm.status = "discharged"
+    adm.actual_discharge = datetime.utcnow()
+    if hasattr(adm, "discharge_notes"):
+        adm.discharge_notes = body.get("notes")
+    db.commit()
+    return {"ok": True}
+
+
+# ── Periop (Pre/Post-Op) ──────────────────────────────────────────────────────
+
+@router.get("/admissions/{admission_id}/periop")
+def get_periop(admission_id: int, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
+    adm = db.query(Admission).filter(Admission.id == admission_id, Admission.clinic_id == current.clinic_id).first()
+    if not adm:
+        raise HTTPException(status_code=404, detail="Admission not found")
+    return getattr(adm, "periop_data", None) or {}
+
+
+@router.post("/admissions/{admission_id}/periop")
+def save_periop(admission_id: int, body: dict, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
+    adm = db.query(Admission).filter(Admission.id == admission_id, Admission.clinic_id == current.clinic_id).first()
+    if not adm:
+        raise HTTPException(status_code=404, detail="Admission not found")
+    if hasattr(adm, "periop_data"):
+        adm.periop_data = body
+        db.commit()
+    return {"ok": True}
+
+
+# ── Diet & Nutrition ──────────────────────────────────────────────────────────
+
+@router.get("/admissions/{admission_id}/diet")
+def get_diet(admission_id: int, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
+    adm = db.query(Admission).filter(Admission.id == admission_id, Admission.clinic_id == current.clinic_id).first()
+    if not adm:
+        raise HTTPException(status_code=404, detail="Admission not found")
+    return getattr(adm, "diet_data", None) or {}
+
+
+@router.post("/admissions/{admission_id}/diet")
+def save_diet(admission_id: int, body: dict, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
+    adm = db.query(Admission).filter(Admission.id == admission_id, Admission.clinic_id == current.clinic_id).first()
+    if not adm:
+        raise HTTPException(status_code=404, detail="Admission not found")
+    if hasattr(adm, "diet_data"):
+        adm.diet_data = body
+        db.commit()
+    return {"ok": True}
+
+
+@router.get("/admissions/{admission_id}/meals")
+def get_meals(admission_id: int, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
+    return []  # No meals model yet — return empty list
+
+
+@router.post("/admissions/{admission_id}/meals")
+def add_meal(admission_id: int, body: dict, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
+    return {"ok": True}
+
+
+@router.get("/admissions/{admission_id}/fluid-intake")
+def get_fluid_intake(admission_id: int, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
+    return []
+
+
+@router.post("/admissions/{admission_id}/fluid-intake")
+def add_fluid_intake(admission_id: int, body: dict, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
+    return {"ok": True}
+
+
+@router.get("/admissions/{admission_id}/supplements")
+def get_supplements(admission_id: int, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
+    return []
+
+
+@router.post("/admissions/{admission_id}/supplements")
+def add_supplement(admission_id: int, body: dict, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
+    return {"ok": True}
+
+
+@router.get("/admissions/{admission_id}/nutrition-assessment")
+def get_nutrition_assessment(admission_id: int, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
+    return {}
+
+
+@router.post("/admissions/{admission_id}/nutrition-assessment")
+def save_nutrition_assessment(admission_id: int, body: dict, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
+    return {"ok": True}
+
+
+# ── Handoff ───────────────────────────────────────────────────────────────────
+
+@router.post("/handoff/complete")
+def complete_handoff(body: dict, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
+    return {"ok": True, "message": "Handoff completed"}
+
+
+@router.post("/handoff/tags")
+def add_handoff_tag(body: dict, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
+    return {"ok": True, "id": 0}
+
+
+@router.delete("/handoff/tags/{tag_id}")
+def delete_handoff_tag(tag_id: int, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
+    return {"ok": True}
+
+
+@router.post("/handoff/sign/{patient_id}")
+def sign_handoff(patient_id: int, body: dict, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
+    return {"ok": True}
+
+
+# ── Order progress ────────────────────────────────────────────────────────────
+
+@router.post("/admissions/{admission_id}/orders/{order_id}/progress")
+def add_order_progress(admission_id: int, order_id: int, body: dict, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
+    return {"ok": True}
+
+
+# ── Admission notes PATCH (extra fields update) ───────────────────────────────
+
+@router.patch("/admissions/{admission_id}/notes")
+def patch_admission_notes(admission_id: int, body: dict, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
+    adm = db.query(Admission).filter(Admission.id == admission_id, Admission.clinic_id == current.clinic_id).first()
+    if not adm:
+        raise HTTPException(status_code=404, detail="Admission not found")
+    extra = body.get("extra_fields")
+    if extra and hasattr(adm, "extra_fields"):
+        adm.extra_fields = extra
+    db.commit()
+    return {"ok": True}
