@@ -40,7 +40,7 @@ export default function BedBoard() {
   const load = useCallback(() => {
     setLoading(true)
     const params = deptFilter ? `?department_id=${deptFilter}` : ''
-    api.get(`/inpatient/beds/board${params}`)
+    api.get(`/inpatient/bed-board${params}`)
       .then(r => {
         setBoard(Array.isArray(r) ? r : (r?.items || r?.data || []))
         setLastRefreshed(new Date())
