@@ -656,7 +656,7 @@ def get_booking_status(confirmation_code: str, db: Session = Depends(get_db)):
 def get_active_cities(db: Session = Depends(get_db)):
     """Return distinct cities that have active clinics."""
     cities = db.query(Clinic.city).filter(
-        Clinic.is_active == True
+        Clinic.is_active == True,
         Clinic.city != None,
     ).distinct().all()
     return {"cities": [c[0] for c in cities if c[0]]}
