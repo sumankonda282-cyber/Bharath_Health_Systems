@@ -6,6 +6,15 @@ import {
 import api from '../api/client'
 import { cachedFetch } from '../utils/cache'
 
+const fmt12 = (t) => {
+  if (!t) return t
+  const str = String(t).slice(0, 5)
+  const [h, m] = str.split(':').map(Number)
+  if (isNaN(h) || isNaN(m)) return t
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`
+}
+
 const fmtDate = (d) =>
   d ? new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : ''
 
@@ -78,7 +87,7 @@ function VisitRow({ visit, open, onToggle }) {
       {open && (
         <div className="px-5 pb-4 border-t border-gray-100" style={{ background: '#FAFBFD' }}>
           <div className="flex flex-wrap gap-x-6 gap-y-1 py-3 text-xs text-gray-500">
-            <span><strong className="text-gray-700">Date:</strong> {fmtDate(visit.date)} {visit.time && `· ${visit.time}`}</span>
+            <span><strong className="text-gray-700">Date:</strong> {fmtDate(visit.date)} {visit.time && <>· {fmt12(visit.time)}</>}</span>
             <span><strong className="text-gray-700">Doctor:</strong> {visit.doctor_name}{visit.doctor_specialty && ` (${visit.doctor_specialty})`}</span>
             {visit.doctor_specialty && <span><strong className="text-gray-700">Specialty:</strong> {visit.doctor_specialty}</span>}
             <span><strong className="text-gray-700">Health Center:</strong> {visit.clinic_name}{visit.clinic_city && `, ${visit.clinic_city}`}</span>

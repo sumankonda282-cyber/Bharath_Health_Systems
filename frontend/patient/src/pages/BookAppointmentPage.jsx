@@ -9,6 +9,13 @@ import {
 
 const today = new Date().toISOString().split('T')[0]
 
+const fmt12 = (t) => {
+  if (!t) return t
+  const [h, m] = t.split(':').map(Number)
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`
+}
+
 const SPECIALTIES = [
   'General Medicine', 'Cardiology', 'Dermatology',
   'Pediatrics', 'Orthopedics', 'Gynecology', 'Psychiatry', 'ENT',
@@ -185,7 +192,7 @@ function SlotPicker({ doctor, onBack, onBooked }) {
     clearTimeout(lookupDebounce.current)
     const digits = val.replace(/\D/g, '')
     if (digits.length === 10) {
-      lookupDebounce.current = setTimeout(() => doLookup(val), 300)
+      lookupDebounce.current = setTimeout(() => doLookup(val), 30)
     }
   }
 
@@ -310,7 +317,7 @@ function SlotPicker({ doctor, onBack, onBooked }) {
                         : slot === time
                           ? { background: '#0F2557', color: 'white', borderColor: '#0F2557' }
                           : { background: 'white', color: '#374151', borderColor: '#e5e7eb' }}>
-                      {time}
+                      {fmt12(time)}
                     </button>
                   )
                 })}

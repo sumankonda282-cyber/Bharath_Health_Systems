@@ -11,6 +11,13 @@ import { PATIENT_URL } from '../constants/urls'
 
 const STEPS = ['Select Doctor', 'Choose Slot', 'Patient Details', 'Payment', 'Confirmation']
 
+const fmt12 = (t) => {
+  if (!t) return t
+  const [h, m] = t.split(':').map(Number)
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`
+}
+
 const INDIAN_STATES = [
   'Andhra Pradesh','Arunachal Pradesh','Assam','Bihar','Chhattisgarh',
   'Goa','Gujarat','Haryana','Himachal Pradesh','Jharkhand','Karnataka',
@@ -253,7 +260,7 @@ function Step2({ data, onNext, onBack }) {
                     : selectedSlot === time ? 'bg-[#0F2557] text-white border-[#0F2557]'
                     : 'bg-white text-gray-700 border-gray-200 hover:border-[#0F2557]/40'
                   }`}>
-                  {time}
+                  {fmt12(time)}
                 </button>
               )
             })}
@@ -401,7 +408,7 @@ function Step3({ data, onNext, onBack }) {
 
     clearTimeout(lookupTimer.current)
     if (/^[6-9]\d{9}$/.test(val)) {
-      lookupTimer.current = setTimeout(() => doLookup(val), 300)
+      lookupTimer.current = setTimeout(() => doLookup(val), 30)
     }
   }
 
@@ -475,7 +482,7 @@ function Step3({ data, onNext, onBack }) {
           <div><span className="font-medium">Doctor:</span> {data.doctor.name}</div>
           <div><span className="font-medium">Health Center:</span> {data.clinic.name}</div>
           <div><span className="font-medium">Date:</span> {data.date}</div>
-          <div><span className="font-medium">Time:</span> {data.slot}</div>
+          <div><span className="font-medium">Time:</span> {fmt12(data.slot)}</div>
           {data.doctor.fee && <div><span className="font-medium">Fee:</span> ₹{data.doctor.fee}</div>}
         </div>
       </div>
@@ -609,7 +616,7 @@ function Step4({ data, onNext, onBack }) {
           <span>Doctor</span><span className="font-medium text-gray-900">{data.doctor.name}</span>
         </div>
         <div className="flex justify-between text-gray-600">
-          <span>Date & Time</span><span className="font-medium text-gray-900">{data.date} · {data.slot}</span>
+          <span>Date & Time</span><span className="font-medium text-gray-900">{data.date} · {fmt12(data.slot)}</span>
         </div>
         {data.doctor.fee && (
           <div className="flex justify-between font-semibold border-t border-[#93c5fd] pt-2 mt-2 text-gray-900">
@@ -740,7 +747,7 @@ function Step5({ booking }) {
         {booking.slot && (
           <div className="flex justify-between">
             <span className="text-gray-500">Time</span>
-            <span className="font-medium">{booking.slot}</span>
+            <span className="font-medium">{fmt12(booking.slot)}</span>
           </div>
         )}
         {booking.patient_name && (

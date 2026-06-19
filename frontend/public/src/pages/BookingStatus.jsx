@@ -7,6 +7,15 @@ import {
 import { publicApi } from '../api/client'
 import Navbar from '../components/Navbar'
 
+const fmt12 = (t) => {
+  if (!t) return t
+  const str = String(t).slice(0, 5)
+  const [h, m] = str.split(':').map(Number)
+  if (isNaN(h) || isNaN(m)) return t
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`
+}
+
 const STATUS_CONFIG = {
   confirmed: {
     icon: CheckCircle,
@@ -110,7 +119,7 @@ function BookingCard({ booking }) {
             <div>
               <p className="text-xs text-gray-400">Date & Time</p>
               <p className="font-semibold text-gray-900">{booking.date}</p>
-              {booking.slot && <p className="text-xs text-gray-500">{booking.slot}</p>}
+              {booking.slot && <p className="text-xs text-gray-500">{fmt12(booking.slot)}</p>}
             </div>
           </div>
         )}
