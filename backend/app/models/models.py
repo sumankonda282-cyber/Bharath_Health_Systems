@@ -176,6 +176,7 @@ class DoctorProfile(Base):
     languages          = Column(String(500), nullable=True)
     is_active          = Column(Boolean, default=True)
     accepting_appointments = Column(Boolean, default=True)   # receptionist can block new bookings
+    auto_confirm      = Column(Boolean, default=True)
     telehealth_enabled = Column(Boolean, default=False)
     telehealth_fee     = Column(Numeric(10, 2), nullable=True)
     telehealth_slots   = Column(JSON, nullable=True)
@@ -374,6 +375,8 @@ class OnlineBooking(Base):
     doctor_id         = Column(Integer, ForeignKey("doctor_profiles.id"), nullable=True)
     patient_user_id   = Column(Integer, ForeignKey("patient_users.id"), nullable=True)
     patient_name      = Column(String(200), nullable=False)
+    first_name        = Column(String(100), nullable=True)
+    last_name         = Column(String(100), nullable=True)
     patient_mobile    = Column(String(20), nullable=False)
     patient_email     = Column(String(150), nullable=True)
     booking_date      = Column(Date, nullable=False)

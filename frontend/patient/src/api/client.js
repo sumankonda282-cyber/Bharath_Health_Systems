@@ -39,4 +39,16 @@ api.interceptors.response.use(
   }
 )
 
+// Booking-specific method wrappers (compatible with BookingFlow apiClient interface)
+export const bookingApi = {
+  getDoctorSlots: (doctorId, date, branchId) =>
+    api.get('/public/slots', { params: { doctor_id: doctorId, date, branch_id: branchId } }),
+  bookAppointment: (data) => api.post('/public/book', data),
+  patientLookup: (mobile) => api.get('/public/patient-lookup', { params: { mobile } }),
+  sendOtp: (mobile) => api.post('/otp/send', { mobile }),
+  verifyOtp: (mobile, otp) => api.post('/otp/verify', { mobile, otp }),
+  getPatientProfile: (verified_token) =>
+    api.get('/public/patient-profile', { params: { verified_token } }),
+}
+
 export default api

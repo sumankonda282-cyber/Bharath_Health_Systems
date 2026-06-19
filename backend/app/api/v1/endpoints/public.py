@@ -16,6 +16,7 @@ from app.models.models import (
     BHStateGroup, BHIDSequence
 )
 from app.schemas.schemas import OnlineBookingCreate, OnlineBookingOut
+from app.core.config import settings
 from app.core.security import hash_password
 import random
 import string
@@ -451,16 +452,21 @@ def upsert_public_patient_profile(body: dict, db: Session = Depends(get_db)):
 
 # ── Online Booking ────────────────────────────────────────────────────────────
 
-@router.post("/book", response_model=OnlineBookingOut)
+@router.post("/book")
 def book_appointment_online(
     payload: OnlineBookingCreate,
     db: Session = Depends(get_db),
 ):
     """
     Book an appointment from the public website.
-    No login required — patient just fills name + mobile.
+    No login required — patient just fills first/last name + mobile.
     Clinic staff will confirm it.
     """
+    from app.api.v1.endpoints.auth import _get_state_digit, _next_bh_seq, _make_bh_id
+
+    # Build patient_name from first/last name
+    patient_name = f"{payload.first_name.strip()} {payload.last_name.strip()}"
+
     # Auto-resolve branch_id if not provided
     branch_id = payload.branch_id
     if not branch_id:
@@ -501,18 +507,59 @@ def book_appointment_online(
             detail="You already have a booking with this doctor on this date."
         )
 
-    # Link to a patient portal account if one exists for this mobile,
-    # so the booking shows up in their "My Appointments" immediately
-    portal_user = db.query(PatientUser).filter(
-        PatientUser.mobile == payload.patient_mobile
-    ).first()
+    # Look up or create PatientUser by mobile
+    portal_user = db.query(PatientUser).filter(PatientUser.mobile == payload.patient_mobile).first()
+    is_new_patient = False
+    bh_id_assigned = payload.bh_id_ref
+
+    if not portal_user:
+        portal_user = PatientUser(
+            mobile=payload.patient_mobile,
+            full_name=patient_name,
+            email=payload.patient_email,
+            is_active=True
+        )
+        db.add(portal_user)
+        db.flush()
+        is_new_patient = True
+
+    # Create BHProfile if none exists for this user
+    if not payload.bh_id_ref:
+        existing_profile = db.query(BHProfile).filter(
+            BHProfile.patient_user_id == portal_user.id,
+            BHProfile.is_active == True
+        ).first()
+        if not existing_profile:
+            state = payload.patient_state or ""
+            digit = _get_state_digit(state, db) if state else 9
+            seq = _next_bh_seq(digit, db)
+            bh_id_assigned = _make_bh_id(digit, seq)
+            new_profile = BHProfile(
+                patient_user_id=portal_user.id,
+                bh_id=bh_id_assigned,
+                first_name=payload.first_name.strip(),
+                last_name=payload.last_name.strip(),
+                state=state,
+                state_digit=digit,
+                is_active=True
+            )
+            db.add(new_profile)
+            db.flush()
+            is_new_patient = True
+        else:
+            bh_id_assigned = existing_profile.bh_id
+
+    # Get clinic for SMS
+    clinic = db.query(Clinic).filter(Clinic.id == payload.clinic_id).first()
 
     booking = OnlineBooking(
         clinic_id=payload.clinic_id,
         branch_id=branch_id,
         doctor_id=payload.doctor_id,
-        patient_user_id=portal_user.id if portal_user else None,
-        patient_name=payload.patient_name,
+        patient_user_id=portal_user.id,
+        patient_name=patient_name,
+        first_name=payload.first_name.strip(),
+        last_name=payload.last_name.strip(),
         patient_mobile=payload.patient_mobile,
         patient_email=payload.patient_email,
         booking_date=payload.booking_date,
@@ -522,7 +569,7 @@ def book_appointment_online(
         confirmation_code=_gen_confirmation_code(),
         mode=payload.mode or "offline",
         patient_state=payload.patient_state,
-        bh_id_ref=payload.bh_id_ref,
+        bh_id_ref=bh_id_assigned,
         payment_mode=payload.payment_mode or "pay_at_clinic",
         payment_status=payload.payment_status or "pending",
         amount_due=payload.amount_due,
@@ -530,7 +577,49 @@ def book_appointment_online(
     db.add(booking)
     db.commit()
     db.refresh(booking)
-    return booking
+
+    # Send confirmation SMS
+    try:
+        sms_msg = f"Appointment requested at {clinic.name if clinic else 'clinic'}. Code: {booking.confirmation_code}. BH ID: {bh_id_assigned or 'N/A'}"
+        if settings.FAST2SMS_API_KEY and not settings.OTP_MOCK:
+            import threading
+            def _send():
+                import requests
+                try:
+                    requests.post("https://www.fast2sms.com/dev/bulkV2",
+                        headers={"authorization": settings.FAST2SMS_API_KEY},
+                        data={"message": sms_msg, "language": "english", "route": "q", "numbers": payload.patient_mobile},
+                        timeout=8)
+                except Exception:
+                    pass
+            threading.Thread(target=_send, daemon=True).start()
+    except Exception:
+        pass
+
+    return {
+        "id": booking.id,
+        "clinic_id": booking.clinic_id,
+        "branch_id": booking.branch_id,
+        "doctor_id": booking.doctor_id,
+        "first_name": booking.first_name,
+        "last_name": booking.last_name,
+        "patient_name": booking.patient_name,
+        "patient_mobile": booking.patient_mobile,
+        "booking_date": str(booking.booking_date),
+        "booking_time": booking.booking_time,
+        "status": booking.status,
+        "confirmation_code": booking.confirmation_code,
+        "created_at": str(booking.created_at),
+        "reason": booking.reason,
+        "mode": booking.mode,
+        "patient_state": booking.patient_state,
+        "bh_id_ref": booking.bh_id_ref,
+        "payment_mode": booking.payment_mode,
+        "payment_status": booking.payment_status,
+        "amount_due": float(booking.amount_due) if booking.amount_due else None,
+        "bh_id": bh_id_assigned,
+        "is_new_patient": is_new_patient,
+    }
 
 
 @router.get("/booking/{confirmation_code}")
