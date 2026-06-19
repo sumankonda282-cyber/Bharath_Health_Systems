@@ -11,8 +11,16 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const token = localStorage.getItem('access_token')
     if (token) {
+      const allowed = ['receptionist', 'clinic_admin', 'clinic_manager']
       api.get('/auth/staff/me')
-        .then(u => setUser(u))
+        .then(u => {
+          if (!allowed.includes(u?.role)) {
+            localStorage.removeItem('access_token')
+            localStorage.removeItem('refresh_token')
+          } else {
+            setUser(u)
+          }
+        })
         .catch(err => { const s = err?.status || err?.response?.status; if (s === 401 || s === 403) localStorage.removeItem('access_token') })
         .finally(() => setLoading(false))
     } else {
