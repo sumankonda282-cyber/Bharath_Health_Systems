@@ -86,19 +86,6 @@ export default function Prescriptions() {
   const [prescriptions, setPrescriptions] = useState([])
   const [loading, setLoading] = useState(true)
   const [expandedKey, setExpandedKey] = useState(null)
-  const [seeding, setSeeding] = useState(false)
-
-  const seedDemo = async () => {
-    setSeeding(true)
-    try {
-      await api.post('/portal/seed-demo')
-      await cacheClear()
-      window.location.reload()
-    } catch (e) {
-      alert(e.message || 'Seed failed')
-    } finally { setSeeding(false) }
-  }
-
   // Controls
   const [view, setView] = useState('all') // 'active' | 'all' | 'past'
   const [sort, setSort] = useState('latest')
@@ -184,10 +171,6 @@ export default function Prescriptions() {
           <Pill size={40} className="mx-auto mb-3 opacity-30" />
           <p className="font-medium">No prescriptions on record</p>
           <p className="text-sm mt-1 text-gray-300">Medications prescribed at your visits will appear here</p>
-          <button onClick={seedDemo} disabled={seeding}
-            className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border border-dashed border-gray-300 text-gray-400 hover:border-orange-300 hover:text-orange-500 transition-colors disabled:opacity-50">
-            {seeding ? 'Loading…' : '⚗ Load demo data'}
-          </button>
         </div>
       ) : filtered.length === 0 ? (
         <div className="card p-10 text-center text-gray-400 text-sm">No medications match the current filters.</div>
