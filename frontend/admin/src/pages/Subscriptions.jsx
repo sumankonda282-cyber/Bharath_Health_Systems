@@ -368,7 +368,7 @@ function ClinicDrawer({ clinic, planConfig, onClose, onAction, addToast }) {
 
   useEffect(() => {
     api.get(`/platform/clinics/${clinic.id}/payments?limit=10`).then(r => {
-      setPayments(Array.isArray(r.data) ? r.data : [])
+      setPayments(Array.isArray(r) ? r : [])
     }).catch(() => setPayments([])).finally(() => setLoadingPay(false))
   }, [clinic.id])
 
@@ -544,7 +544,7 @@ function ClinicDrawer({ clinic, planConfig, onClose, onAction, addToast }) {
           onClose={() => setShowPayModal(false)}
           onSaved={() => {
             api.get(`/platform/clinics/${clinic.id}/payments?limit=10`).then(r => {
-              setPayments(Array.isArray(r.data) ? r.data : [])
+              setPayments(Array.isArray(r) ? r : [])
             })
             onAction()
           }} />
@@ -664,7 +664,7 @@ function PaymentsTab({ addToast }) {
     const params = new URLSearchParams({ limit: 200 })
     if (method) params.set('method', method)
     api.get(`/platform/payments?${params}`).then(r => {
-      setData(r.data || { payments: [], total_collected: 0 })
+      setData(r || { payments: [], total_collected: 0 })
     }).catch(() => addToast('Failed to load payments', 'error')).finally(() => setLoading(false))
   }, [method])
 
@@ -874,8 +874,8 @@ export default function Subscriptions() {
       api.get('/platform/clinics?limit=500'),
       api.get('/platform/plan-config'),
     ]).then(([cl, pc]) => {
-      setClinics(Array.isArray(cl.data) ? cl.data : [])
-      setPlanConfig(pc.data || null)
+      setClinics(Array.isArray(cl) ? cl : [])
+      setPlanConfig(pc || null)
     }).catch(() => addToast('Failed to load data', 'error')).finally(() => setLoading(false))
   }, [])
 
@@ -900,8 +900,8 @@ export default function Subscriptions() {
 
   function refreshDrawerClinic(id) {
     api.get(`/platform/clinics/${id}`).then(r => {
-      setClinics(cs => cs.map(c => c.id === id ? { ...c, ...r.data } : c))
-      setDrawerClinic(prev => prev?.id === id ? { ...prev, ...r.data } : prev)
+      setClinics(cs => cs.map(c => c.id === id ? { ...c, ...r } : c))
+      setDrawerClinic(prev => prev?.id === id ? { ...prev, ...r } : prev)
     }).catch(() => {})
   }
 
