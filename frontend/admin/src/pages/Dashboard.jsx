@@ -128,10 +128,19 @@ export default function Dashboard() {
     )
   }
 
+  const reload = () => {
+    let active = true
+    setLoading(true)
+    setError(false)
+    adminApi.getDashboard().then(d => { if (active) setData(d) }).catch(() => { if (active) setError(true) }).finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }
+
   if (error || !data) {
     return (
-      <div className="card-sm border border-red-500/40 p-4 text-sm text-red-400">
-        Failed to load dashboard.
+      <div className="card-sm border border-red-500/40 p-4 text-sm text-red-400 flex items-center gap-3">
+        <span>Failed to load dashboard.</span>
+        <button onClick={reload} className="ml-auto px-3 py-1 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-300 text-xs font-medium transition-colors">Retry</button>
       </div>
     )
   }
@@ -151,6 +160,8 @@ export default function Dashboard() {
   const invoices_today = data.invoices_today ?? '—'
   const new_patients_today = data.new_patients_today ?? '—'
   const module_adoption = data.module_adoption || {}
+  const expiring_soon = data.expiring_soon ?? null
+  const oldest_pending_days = data.oldest_pending_days ?? null
 
   const statusSegments = [
     { key: 'active', label: 'Active', value: active_clinics, color: STATUS_COLORS.active },
@@ -202,10 +213,10 @@ export default function Dashboard() {
       sub: 'Est. monthly',
     },
     {
-      to: null,
+      to: '/health-centers',
       label: 'Expiring <7d',
-      value: '—',
-      sub: <span className="text-[#F5821E]">At risk</span>,
+      value: expiring_soon ?? '—',
+      sub: <span className={expiring_soon > 0 ? 'text-[#F5821E]' : 'text-gray-500'}>At risk</span>,
     },
     {
       to: '/pending',

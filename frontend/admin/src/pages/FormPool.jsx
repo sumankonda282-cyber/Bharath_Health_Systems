@@ -353,7 +353,7 @@ export default function FormPool() {
 
       {deleteTarget && (
         <ConfirmModal
-          message={`Delete "${deleteTarget.title}"? This cannot be undone.`}
+          message={`Delete "${deleteTarget.title}"? All submissions and assignments for this form will also be deleted. This cannot be undone.`}
           onConfirm={handleDeleteConfirm}
           onCancel={handleDeleteCancel}
         />

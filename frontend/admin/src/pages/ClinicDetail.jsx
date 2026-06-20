@@ -4,7 +4,7 @@ import { adminApi } from '../api'
 import { ArrowLeft, CheckCircle, XCircle, PauseCircle, RefreshCw, FileText, ExternalLink, IndianRupee, KeyRound, Copy, UserPlus, CreditCard, Activity, Users, CalendarCheck, FlaskConical, Pill, Stethoscope } from 'lucide-react'
 import ActionModal from '../components/ActionModal'
 
-const MANAGER_EMPTY = { full_name: '', email: '', mobile: '', password: '' }
+const MANAGER_EMPTY = { full_name: '', email: '', mobile: '' }
 
 const STATUS_BADGE = { active: 'badge-active', pending: 'badge-pending', suspended: 'badge-suspended', revoked: 'badge-revoked' }
 const PLAN_COLORS  = { free: 'badge-free', basic: 'badge-basic', pro: 'badge-pro', enterprise: 'badge-enterprise' }
@@ -47,7 +47,7 @@ export default function ClinicDetail() {
   const [managerForm, setManagerForm]   = useState(MANAGER_EMPTY)
   const [managerSaving, setManagerSaving] = useState(false)
   const [managerError, setManagerError] = useState('')
-  const [managerSuccess, setManagerSuccess] = useState(null) // { full_name, password }
+  const [managerSuccess, setManagerSuccess] = useState(null) // { full_name, temp_password }
 
   const load = () => {
     setLoading(true)
@@ -92,8 +92,8 @@ export default function ClinicDetail() {
   const handleCreateManager = async e => {
     e.preventDefault(); setManagerError(''); setManagerSaving(true)
     try {
-      await adminApi.createManager(id, managerForm)
-      setManagerSuccess({ full_name: managerForm.full_name, password: managerForm.password })
+      const res = await adminApi.createManager(id, managerForm)
+      setManagerSuccess({ full_name: managerForm.full_name, temp_password: res.temp_password || res.password || '' })
       setManagerForm(MANAGER_EMPTY)
       if (activeTab === 'staff') loadStaff()
     } catch (ex) {
@@ -484,14 +484,14 @@ export default function ClinicDetail() {
               <>
                 <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4 mb-4">
                   <div className="text-green-400 font-semibold text-sm mb-2">Manager created: {managerSuccess.full_name}</div>
-                  <div className="text-xs text-gray-400 mb-1">Password (share privately):</div>
+                  <div className="text-xs text-gray-400 mb-1">Backend-generated temp password (shown once):</div>
                   <div className="bg-gray-800 rounded-lg p-2 font-mono text-indigo-300 text-center tracking-widest select-all">
-                    {managerSuccess.password}
+                    {managerSuccess.temp_password || '(not returned by server)'}
                   </div>
-                  <p className="text-xs text-amber-400 mt-2">Show once only — not stored in plain text.</p>
+                  <p className="text-xs text-amber-400 mt-2">Share privately — not stored in plain text after this.</p>
                 </div>
                 <div className="flex gap-3">
-                  <button onClick={() => { navigator.clipboard.writeText(managerSuccess.password) }} className="btn-secondary flex-1 justify-center text-sm"><Copy size={13} />Copy</button>
+                  <button onClick={() => { navigator.clipboard.writeText(managerSuccess.temp_password || '') }} className="btn-secondary flex-1 justify-center text-sm"><Copy size={13} />Copy</button>
                   <button onClick={() => { setManagerModal(false); setManagerSuccess(null) }} className="btn-primary flex-1 justify-center text-sm">Done</button>
                 </div>
               </>
@@ -514,12 +514,6 @@ export default function ClinicDetail() {
                   <input className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500"
                     placeholder="10-digit mobile" value={managerForm.mobile}
                     onChange={e => setManagerForm(f => ({ ...f, mobile: e.target.value }))} />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1">Password *</label>
-                  <input required type="text" className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm font-mono focus:outline-none focus:border-indigo-500"
-                    placeholder="Temporary password" value={managerForm.password}
-                    onChange={e => setManagerForm(f => ({ ...f, password: e.target.value }))} />
                 </div>
                 {managerError && <p className="text-red-400 text-xs">{managerError}</p>}
                 <div className="flex gap-3 pt-1">
