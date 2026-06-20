@@ -175,7 +175,7 @@ export default function FormPool() {
   const fetchForms = useCallback(async () => {
     setLoading(true); setError(null)
     try {
-      const data = await api.get('/assessment-forms/')
+      const data = await api.get('/assessment-forms')
       setForms(Array.isArray(data) ? data : (data.forms ?? data.items ?? []))
     } catch (e) {
       setError(e.message || 'Failed to load forms')
@@ -206,6 +206,7 @@ export default function FormPool() {
   const withAction = (id, fn) => async () => {
     setActionLoading(p => ({ ...p, [id]: true }))
     try { await fn() }
+    catch (e) { toast(e.message || 'Action failed', 'error') }
     finally { setActionLoading(p => ({ ...p, [id]: false })) }
   }
 
@@ -246,7 +247,7 @@ export default function FormPool() {
       toast('Form deleted', 'success')
       fetchForms()
     } catch (e) {
-      toast(e?.response?.data?.detail ?? 'Delete failed', 'error')
+      toast(e.message ?? 'Delete failed', 'error')
     } finally {
       setActionLoading(p => ({ ...p, [form.id]: false }))
     }

@@ -35,6 +35,8 @@ export default function PendingClinics() {
       if (modal.action === 'reject')  await adminApi.reject(modal.clinic.id, { reason: comment })
       setModal(null)
       load()
+    } catch (ex) {
+      alert(ex.message || 'Action failed')
     } finally { setSaving(false) }
   }
 

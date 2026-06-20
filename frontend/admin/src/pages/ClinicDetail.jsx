@@ -34,6 +34,7 @@ export default function ClinicDetail() {
   const { id }          = useParams()
   const [clinic, setClinic]   = useState(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(null)
   const [modal, setModal]     = useState(null)
   const [saving, setSaving]   = useState(false)
   const [planModal, setPlanModal] = useState(false)
@@ -41,6 +42,7 @@ export default function ClinicDetail() {
   const [activeTab, setActiveTab] = useState('info')
   const [staffList, setStaffList] = useState([])
   const [staffLoading, setStaffLoading] = useState(false)
+  const [staffError, setStaffError] = useState('')
   const [pwdModal, setPwdModal] = useState(null) // { staffName, tempPassword }
   const [resettingId, setResettingId]   = useState(null)
   const [managerModal, setManagerModal] = useState(false)
@@ -51,13 +53,21 @@ export default function ClinicDetail() {
 
   const load = () => {
     setLoading(true)
-    adminApi.getClinic(id).then(setClinic).finally(() => setLoading(false))
+    setLoadError(null)
+    adminApi.getClinic(id)
+      .then(setClinic)
+      .catch(e => setLoadError(e.message || 'Failed to load clinic'))
+      .finally(() => setLoading(false))
   }
   useEffect(() => { load() }, [id])
 
   const loadStaff = () => {
     setStaffLoading(true)
-    adminApi.getClinicStaff(id).then(setStaffList).finally(() => setStaffLoading(false))
+    setStaffError('')
+    adminApi.getClinicStaff(id)
+      .then(setStaffList)
+      .catch(e => setStaffError(e.message || 'Failed to load staff'))
+      .finally(() => setStaffLoading(false))
   }
   useEffect(() => { if (activeTab === 'staff') loadStaff() }, [activeTab, id])
 
@@ -124,6 +134,8 @@ export default function ClinicDetail() {
       if (modal.action === 'revoke')     await adminApi.revoke(id, { reason, comment })
       if (modal.action === 'reactivate') await adminApi.reactivate(id)
       setModal(null); load()
+    } catch (ex) {
+      alert(ex.message || 'Action failed')
     } finally { setSaving(false) }
   }
 
@@ -134,6 +146,12 @@ export default function ClinicDetail() {
   }
 
   if (loading) return <div className="flex justify-center py-20"><div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" /></div>
+  if (loadError) return (
+    <div className="card-p py-12 text-center">
+      <p className="text-red-400 text-sm mb-3">{loadError}</p>
+      <button onClick={load} className="btn-secondary text-sm">Try Again</button>
+    </div>
+  )
   if (!clinic) return <div className="text-gray-500 p-8">Clinic not found</div>
 
   const { billing } = clinic
@@ -190,6 +208,8 @@ export default function ClinicDetail() {
           </div>
           {staffLoading ? (
             <div className="p-10 flex justify-center"><div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" /></div>
+          ) : staffError ? (
+            <div className="p-6 text-center text-red-400 text-sm">{staffError}</div>
           ) : (
             <table className="w-full text-sm">
               <thead>
@@ -284,7 +304,7 @@ export default function ClinicDetail() {
           <div className="card-p">
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4 flex items-center gap-1.5"><IndianRupee size={12} />Billing</h3>
             <div className="space-y-2 text-sm">
-              <div className="flex justify-between"><span className="text-gray-500">Active Doctors</span><span className="text-white font-semibold">{billing?.active_doctors}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">Active Doctors</span><span className="text-white font-semibold">{billing?.active_doctors ?? '—'}</span></div>
               <div className="flex justify-between"><span className="text-gray-500">Rate / Doctor</span><span className="text-white">₹{billing?.price_per_doctor}/mo</span></div>
               <div className="border-t border-gray-800 pt-2 flex justify-between"><span className="text-gray-400 font-semibold">Monthly Total</span><span className="text-emerald-400 font-bold text-lg">₹{billing?.monthly_total?.toLocaleString('en-IN')}</span></div>
             </div>
