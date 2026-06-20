@@ -300,7 +300,9 @@ const REPORT_DEFS = {
       { key: 'month', label: 'Month', render: r => <span className="font-medium text-white">{r.month}</span> },
       { key: 'count', label: 'Clinics Registered', align: 'right', render: r => <span className="text-white font-semibold">{r.count}</span> },
     ],
-    extract: data => data.monthly_registrations || [],
+    extract: data => (data.monthly_registrations || []).map(m =>
+      Array.isArray(m) ? { month: m[0], count: m[1] } : m
+    ),
   },
   clinic_status: {
     title: 'Clinic Status Breakdown',

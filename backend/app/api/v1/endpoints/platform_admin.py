@@ -789,6 +789,33 @@ def get_reports(
         AuditLog.created_at <= end,
     ).scalar()
 
+    # ── Additional aggregates for the admin Reports UI ──────────────────
+    total_doctors  = db.query(func.count(Staff.id)).filter(
+        Staff.role == "doctor", Staff.is_active == True
+    ).scalar()
+    total_patients = db.query(func.count(Patient.id)).scalar()
+    new_registrations = db.query(func.count(Clinic.id)).filter(
+        Clinic.created_at >= start, Clinic.created_at <= end
+    ).scalar()
+
+    # Billing aggregated by plan (one row per plan)
+    by_plan = {}
+    for c in active_clinics:
+        plan = c.subscription_plan or "free"
+        rate = rc.get(plan, {"price_per_doctor": 0})
+        doctors = _doctor_count(db, c.id)
+        agg = by_plan.setdefault(plan, {
+            "plan": plan,
+            "clinic_count": 0,
+            "total_doctors": 0,
+            "price_per_doctor": rate["price_per_doctor"],
+            "revenue": 0,
+        })
+        agg["clinic_count"]  += 1
+        agg["total_doctors"] += doctors
+        agg["revenue"]       += doctors * rate["price_per_doctor"]
+    billing_by_plan = list(by_plan.values())
+
     return {
         "period":          {"from": str(start.date()), "to": str(end.date())},
         "monthly_registrations": sorted(monthly_reg.items()),
@@ -798,6 +825,13 @@ def get_reports(
         "billing_summary":       billing_rows[:20],
         "total_mrr":             total_mrr,
         "staff_verified_period": verified_count,
+        # Aliases / extra keys consumed by the admin Reports page
+        "clinic_status_distribution": status_dist,
+        "mrr":                   total_mrr,
+        "total_doctors":         total_doctors,
+        "total_patients":        total_patients,
+        "new_registrations":     new_registrations,
+        "billing_by_plan":       billing_by_plan,
     }
 
 

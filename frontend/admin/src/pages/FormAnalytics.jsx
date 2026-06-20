@@ -568,7 +568,7 @@ export default function FormAnalytics() {
     api
       .get('/assessment-forms/')
       .then((data) => {
-        const list = Array.isArray(data) ? data : (data?.items ?? data?.results ?? [])
+        const list = Array.isArray(data) ? data : (data?.forms ?? data?.items ?? data?.results ?? [])
         setForms(list)
         setError('')
       })

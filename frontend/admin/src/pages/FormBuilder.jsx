@@ -374,7 +374,7 @@ export default function FormBuilder() {
 
   useEffect(() => {
     if (!routeId) return
-    api.get(`/platform/forms/${routeId}`)
+    api.get(`/assessment-forms/${routeId}`)
       .then((data) => {
         dispatch({ type: 'LOAD_FORM', payload: data })
       })
@@ -502,9 +502,9 @@ export default function FormBuilder() {
       }
       let result
       if (form.id) {
-        result = await api.put(`/platform/forms/${form.id}`, payload)
+        result = await api.patch(`/assessment-forms/${form.id}`, payload)
       } else {
-        result = await api.post('/platform/forms', payload)
+        result = await api.post('/assessment-forms/', payload)
       }
       dispatch({ type: 'SET_SAVED', payload: { id: result.id || result.data?.id || form.id } })
     } catch (err) {
@@ -520,7 +520,7 @@ export default function FormBuilder() {
       await saveDraft()
     }
     try {
-      await api.post(`/platform/forms/${form.id}/publish`)
+      await api.post(`/assessment-forms/${form.id}/publish`)
       dispatch({ type: 'SET_FORM_PROP', payload: { key: 'status', value: 'published' } })
     } catch (err) {
       console.error('Publish failed:', err)

@@ -563,7 +563,7 @@ export default function FormPreview() {
       return
     }
 
-    api.get(`/platform/forms/${id}`)
+    api.get(`/assessment-forms/${id}`)
       .then((data) => {
         setForm(data)
         setSchema(data.schema || { sections: [] })
