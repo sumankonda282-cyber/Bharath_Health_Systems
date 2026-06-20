@@ -1,364 +1,497 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { adminApi } from '../api'
 import {
-  Table, BarChart3, LineChart, PieChart, Download, Save,
-  FileSpreadsheet, FileText, ChevronUp, ChevronDown, Search, X,
-  PanelRightClose, PanelRightOpen, AlertTriangle, Database,
+  Search, X, ChevronDown, ChevronRight, Loader2, AlertTriangle,
+  Database, Download, BookMarked, Trash2, Plus,
 } from 'lucide-react'
 
 /* ------------------------------------------------------------------ *
- * Export helpers (preserved from original implementation)            *
+ * Table schema — 70 tables with their columns                        *
  * ------------------------------------------------------------------ */
 
-function exportCsv(rows, columns, filename = 'report.csv') {
-  const header = columns.map(c => c.label).join(',')
-  const lines  = rows.map(row =>
-    columns.map(c => {
-      const v = String(row[c.key] ?? '').replace(/"/g, '""')
+const TABLE_SCHEMA = [
+  { table: 'platform_admins',            columns: ['id', 'email', 'full_name', 'created_at'] },
+  { table: 'clinics',                    columns: ['id', 'name', 'status', 'plan', 'specialty', 'city', 'state', 'org_type', 'created_at'] },
+  { table: 'branches',                   columns: ['id', 'clinic_id', 'name', 'city', 'state'] },
+  { table: 'staff',                      columns: ['id', 'clinic_id', 'full_name', 'email', 'role', 'is_active', 'created_at'] },
+  { table: 'doctor_profiles',            columns: ['id', 'staff_id', 'specialization', 'license_number', 'consultation_fee'] },
+  { table: 'doctor_schedules',           columns: ['id', 'doctor_id', 'day_of_week', 'start_time', 'end_time'] },
+  { table: 'patients',                   columns: ['id', 'clinic_id', 'full_name', 'mobile', 'gender', 'state', 'blood_group', 'created_at'] },
+  { table: 'patient_users',              columns: ['id', 'patient_id', 'email', 'created_at'] },
+  { table: 'appointments',               columns: ['id', 'clinic_id', 'patient_id', 'doctor_id', 'status', 'appointment_date', 'appointment_time'] },
+  { table: 'online_bookings',            columns: ['id', 'clinic_id', 'patient_id', 'booking_date', 'status'] },
+  { table: 'vitals',                     columns: ['id', 'patient_id', 'clinic_id', 'temperature', 'bp_systolic', 'bp_diastolic', 'recorded_at'] },
+  { table: 'soap_notes',                 columns: ['id', 'patient_id', 'clinic_id', 'subjective', 'objective', 'assessment', 'plan', 'created_at'] },
+  { table: 'prescriptions',              columns: ['id', 'patient_id', 'clinic_id', 'doctor_id', 'status', 'created_at'] },
+  { table: 'prescription_items',         columns: ['id', 'prescription_id', 'drug_name', 'dosage', 'frequency', 'duration'] },
+  { table: 'medicines',                  columns: ['id', 'clinic_id', 'name', 'category', 'unit', 'reorder_level'] },
+  { table: 'medicine_batches',           columns: ['id', 'medicine_id', 'batch_number', 'expiry_date', 'quantity', 'purchase_price', 'sale_price'] },
+  { table: 'stock_transactions',         columns: ['id', 'medicine_id', 'type', 'quantity', 'created_at'] },
+  { table: 'pharmacy_orders',            columns: ['id', 'clinic_id', 'patient_id', 'status', 'total_amount', 'created_at'] },
+  { table: 'invoices',                   columns: ['id', 'clinic_id', 'patient_id', 'total_amount', 'status', 'created_at'] },
+  { table: 'invoice_items',              columns: ['id', 'invoice_id', 'description', 'quantity', 'unit_price', 'amount'] },
+  { table: 'invoice_payments',           columns: ['id', 'invoice_id', 'amount_paid', 'payment_mode', 'payment_date'] },
+  { table: 'lab_tests',                  columns: ['id', 'clinic_id', 'name', 'category', 'price'] },
+  { table: 'lab_orders',                 columns: ['id', 'clinic_id', 'patient_id', 'status', 'created_at'] },
+  { table: 'lab_order_items',            columns: ['id', 'lab_order_id', 'test_id', 'status'] },
+  { table: 'lab_results',                columns: ['id', 'lab_order_item_id', 'result_value', 'reference_range', 'is_abnormal'] },
+  { table: 'imaging_orders',             columns: ['id', 'clinic_id', 'patient_id', 'modality', 'status', 'created_at'] },
+  { table: 'imaging_results',            columns: ['id', 'imaging_order_id', 'report', 'radiologist_id', 'created_at'] },
+  { table: 'admissions',                 columns: ['id', 'clinic_id', 'patient_id', 'ward_id', 'bed_id', 'status', 'admitted_at', 'discharged_at'] },
+  { table: 'wards',                      columns: ['id', 'clinic_id', 'name', 'ward_type', 'total_beds'] },
+  { table: 'beds',                       columns: ['id', 'ward_id', 'bed_number', 'status'] },
+  { table: 'vital_signs',                columns: ['id', 'admission_id', 'temperature', 'bp_systolic', 'pulse', 'recorded_at'] },
+  { table: 'nursing_notes',              columns: ['id', 'admission_id', 'staff_id', 'note', 'created_at'] },
+  { table: 'medication_orders',          columns: ['id', 'admission_id', 'drug_name', 'dosage', 'frequency', 'status'] },
+  { table: 'medication_administrations', columns: ['id', 'medication_order_id', 'staff_id', 'administered_at'] },
+  { table: 'ward_rounds',                columns: ['id', 'admission_id', 'doctor_id', 'findings', 'created_at'] },
+  { table: 'progress_notes',             columns: ['id', 'admission_id', 'doctor_id', 'note', 'created_at'] },
+  { table: 'clinical_orders',            columns: ['id', 'admission_id', 'order_type', 'description', 'status'] },
+  { table: 'discharge_summaries',        columns: ['id', 'admission_id', 'diagnosis', 'discharge_date', 'condition_on_discharge'] },
+  { table: 'inpatient_charges',          columns: ['id', 'admission_id', 'description', 'amount', 'created_at'] },
+  { table: 'inpatient_bills',            columns: ['id', 'admission_id', 'total_amount', 'status'] },
+  { table: 'departments',                columns: ['id', 'clinic_id', 'name', 'dept_type'] },
+  { table: 'assessment_forms',           columns: ['id', 'title', 'category', 'status', 'is_template', 'created_at'] },
+  { table: 'form_submissions',           columns: ['id', 'form_id', 'patient_id', 'submitted_at', 'score'] },
+  { table: 'assessment_templates',       columns: ['id', 'name', 'category', 'created_at'] },
+  { table: 'chat_rooms',                 columns: ['id', 'clinic_id', 'name', 'created_at'] },
+  { table: 'internal_messages',          columns: ['id', 'room_id', 'sender_id', 'message', 'sent_at'] },
+  { table: 'telehealth_sessions',        columns: ['id', 'clinic_id', 'patient_id', 'doctor_id', 'status', 'started_at'] },
+  { table: 'referrals',                  columns: ['id', 'clinic_id', 'patient_id', 'referred_by', 'referred_to', 'status', 'created_at'] },
+  { table: 'audit_logs',                 columns: ['id', 'clinic_id', 'action', 'user_type', 'admin_name', 'ip_address', 'created_at'] },
+  { table: 'feedback',                   columns: ['id', 'name', 'email', 'type', 'message', 'created_at'] },
+  { table: 'subscription_payments',      columns: ['id', 'clinic_id', 'amount', 'plan', 'payment_date', 'status'] },
+  { table: 'suppliers',                  columns: ['id', 'clinic_id', 'name', 'contact', 'created_at'] },
+  { table: 'purchase_orders',            columns: ['id', 'clinic_id', 'supplier_id', 'total_amount', 'status', 'order_date'] },
+  { table: 'drug_register',              columns: ['id', 'clinic_id', 'drug_name', 'schedule', 'quantity'] },
+  { table: 'maintenance_requests',       columns: ['id', 'clinic_id', 'title', 'status', 'priority', 'created_at'] },
+  { table: 'imaging_slots',              columns: ['id', 'clinic_id', 'modality', 'date', 'start_time', 'is_available'] },
+  { table: 'imaging_bookings',           columns: ['id', 'slot_id', 'patient_id', 'status'] },
+  { table: 'doctor_ratings',             columns: ['id', 'patient_id', 'doctor_id', 'rating', 'created_at'] },
+  { table: 'leave_requests',             columns: ['id', 'staff_id', 'leave_type', 'start_date', 'end_date', 'status'] },
+  { table: 'schedule_entries',           columns: ['id', 'staff_id', 'date', 'shift_type_id', 'notes'] },
+  { table: 'visitor_passes',             columns: ['id', 'admission_id', 'visitor_name', 'relation', 'valid_from', 'valid_until'] },
+  { table: 'insurance_claims',           columns: ['id', 'invoice_id', 'insurer', 'claim_amount', 'status', 'created_at'] },
+  { table: 'billing_override_requests',  columns: ['id', 'invoice_id', 'requested_by', 'reason', 'status'] },
+  { table: 'patient_referrals',          columns: ['id', 'patient_id', 'referred_by', 'referred_to_clinic', 'reason', 'created_at'] },
+  { table: 'documentation_sessions',     columns: ['id', 'admission_id', 'staff_id', 'started_at', 'ended_at'] },
+  { table: 'platform_settings',          columns: ['id', 'key', 'value', 'updated_at'] },
+  { table: 'medical_terms',              columns: ['id', 'term', 'category', 'description'] },
+  { table: 'drugs',                      columns: ['id', 'generic_name', 'brand_names', 'category', 'schedule'] },
+]
+
+/* ------------------------------------------------------------------ *
+ * Helpers                                                            *
+ * ------------------------------------------------------------------ */
+
+function isoDay(d) { return d.toISOString().split('T')[0] }
+function todayStr() { return isoDay(new Date()) }
+function daysAgo(n) {
+  const d = new Date(); d.setDate(d.getDate() - n); return isoDay(d)
+}
+function colKey(table, column) { return `${table}.${column}` }
+
+function exportCsv(rows, selectedColumns) {
+  if (!rows.length || !selectedColumns.length) return
+  const header = selectedColumns.map(c => `"${c.table}.${c.column}"`).join(',')
+  const lines = rows.map(row =>
+    selectedColumns.map(c => {
+      const v = String(row[colKey(c.table, c.column)] ?? row[c.column] ?? '').replace(/"/g, '""')
       return `"${v}"`
     }).join(',')
   )
-  const csv  = [header, ...lines].join('\n')
+  const csv = [header, ...lines].join('\n')
   const blob = new Blob([csv], { type: 'text/csv' })
-  const url  = URL.createObjectURL(blob)
-  const a    = document.createElement('a')
-  a.href = url; a.download = filename; a.click()
-  URL.revokeObjectURL(url)
-}
-
-function exportExcel(rows, columns, filename) {
-  const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-  const cell = v => `<Cell><Data ss:Type="String">${esc(v)}</Data></Cell>`
-  const header = `<Row>${columns.map(c => cell(c.label)).join('')}</Row>`
-  const dataRows = rows.map(row =>
-    `<Row>${columns.map(c => cell(String(row[c.key] ?? ''))).join('')}</Row>`
-  ).join('')
-  const xml = `<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="Report"><Table>${header}${dataRows}</Table></Worksheet></Workbook>`
-  const blob = new Blob([xml], { type: 'application/vnd.ms-excel' })
   const url = URL.createObjectURL(blob)
-  const a = document.createElement('a'); a.href = url; a.download = filename + '.xls'; a.click()
+  const a = document.createElement('a')
+  a.href = url; a.download = `report_${todayStr()}.csv`; a.click()
   URL.revokeObjectURL(url)
 }
 
-function exportPdf(rows, columns, title, dateRange) {
-  const thStyle = 'border:1px solid #ccc;padding:6px 10px;background:#f0f0f0;text-align:left;font-size:12px'
-  const tdStyle = 'border:1px solid #ccc;padding:6px 10px;font-size:12px'
-  const ths = columns.map(c => `<th style="${thStyle}">${c.label}</th>`).join('')
-  const trs = rows.map(row =>
-    `<tr>${columns.map(c => `<td style="${tdStyle}">${String(row[c.key] ?? '')}</td>`).join('')}</tr>`
-  ).join('')
-  const html = `<html><head><title>${title}</title><style>@media print{body{margin:20px}}</style></head><body>
-    <h2 style="margin-bottom:4px;font-size:16px">${title}</h2>
-    <p style="color:#666;font-size:12px;margin-bottom:14px">${dateRange}</p>
-    <table style="width:100%;border-collapse:collapse"><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>
-    <script>window.onload=function(){window.print();}<\/script>
-  </body></html>`
-  const w = window.open('', '_blank')
-  if (w) { w.document.write(html); w.document.close() }
+const SAVED_KEY = 'bhs_admin_saved_reports_v2'
+function loadSaved() {
+  try { return JSON.parse(localStorage.getItem(SAVED_KEY) || '[]') } catch { return [] }
+}
+function persistSaved(list) {
+  try { localStorage.setItem(SAVED_KEY, JSON.stringify(list)) } catch { /* storage full */ }
 }
 
 /* ------------------------------------------------------------------ *
- * Dataset configuration                                              *
+ * Saved Reports Modal                                                *
  * ------------------------------------------------------------------ */
 
-const DATASETS = [
-  { key: 'health_centers', label: 'Health Centers' },
-  { key: 'patients',       label: 'Patients' },
-  { key: 'appointments',   label: 'Appointments' },
-  { key: 'revenue',        label: 'Revenue' },
-]
+function SavedReportsModal({ onClose, savedReports, onLoad, onDelete, onSaveCurrent, canSave }) {
+  const [saveName, setSaveName] = useState('')
 
-const PRESETS = [
-  { key: 'today', label: 'Today',  days: 0 },
-  { key: '7d',    label: '7D',     days: 6 },
-  { key: '30d',   label: '30D',    days: 29 },
-  { key: '90d',   label: '90D',    days: 89 },
-]
-
-const HC_STATUS = ['active', 'pending', 'suspended', 'revoked']
-const HC_PLAN   = ['free', 'basic', 'pro', 'enterprise']
-const GENDERS   = ['Male', 'Female', 'Other']
-const APPT_STATUS = ['scheduled', 'completed', 'cancelled']
-
-function isoDay(d) { return d.toISOString().split('T')[0] }
-
-function rangeFromDays(days) {
-  const to = new Date()
-  const from = new Date()
-  from.setDate(from.getDate() - days)
-  return { from: isoDay(from), to: isoDay(to) }
-}
-
-const DEFAULT_RANGE = rangeFromDays(29)
-
-const VIEWS = [
-  { key: 'table', label: 'Table', icon: Table },
-  { key: 'bar',   label: 'Bar',   icon: BarChart3 },
-  { key: 'line',  label: 'Line',  icon: LineChart },
-  { key: 'pie',   label: 'Pie',   icon: PieChart },
-]
-
-/* ------------------------------------------------------------------ *
- * Small UI primitives                                                *
- * ------------------------------------------------------------------ */
-
-function Chip({ active, onClick, children }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`filter-chip badge-xs rounded-md px-2 py-1 text-[11px] border transition-colors ${
-        active
-          ? 'bg-[#F5821E]/15 border-[#F5821E] text-[#F5821E]'
-          : 'bg-gray-800/60 border-gray-700 text-gray-400 hover:text-white hover:border-gray-600'
-      }`}
-    >
-      {children}
-    </button>
-  )
-}
-
-function SortIcon({ active, dir }) {
-  if (!active) return <ChevronDown size={10} className="text-gray-600" />
-  return dir === 'asc'
-    ? <ChevronUp size={10} className="text-[#F5821E]" />
-    : <ChevronDown size={10} className="text-[#F5821E]" />
-}
-
-/* ------------------------------------------------------------------ *
- * Results table (dense)                                              *
- * ------------------------------------------------------------------ */
-
-function ReportTable({ columns, rows }) {
-  const [search, setSearch]   = useState('')
-  const [sortKey, setSortKey] = useState('')
-  const [sortDir, setSortDir] = useState('asc')
-
-  const filtered = useMemo(() => {
-    let r = rows
-    if (search.trim()) {
-      const q = search.toLowerCase()
-      r = r.filter(row =>
-        columns.some(col => String(row[col.key] ?? '').toLowerCase().includes(q))
-      )
-    }
-    if (sortKey) {
-      r = [...r].sort((a, b) => {
-        const av = a[sortKey], bv = b[sortKey]
-        const an = Number(av), bn = Number(bv)
-        if (!Number.isNaN(an) && !Number.isNaN(bn) && av !== '' && bv !== '') {
-          return sortDir === 'asc' ? an - bn : bn - an
-        }
-        const as = String(av ?? '').toLowerCase()
-        const bs = String(bv ?? '').toLowerCase()
-        return sortDir === 'asc' ? as.localeCompare(bs) : bs.localeCompare(as)
-      })
-    }
-    return r
-  }, [rows, search, sortKey, sortDir, columns])
-
-  function toggleSort(key) {
-    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
-    else { setSortKey(key); setSortDir('asc') }
+  function handleSave() {
+    const name = saveName.trim()
+    if (!name) return
+    onSaveCurrent(name)
+    setSaveName('')
   }
 
   return (
-    <div className="card-sm bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-      <div className="px-3 py-2 border-b border-gray-800 flex items-center gap-2">
-        <div className="relative flex-1 max-w-xs">
-          <Search size={11} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-md mx-4 overflow-hidden shadow-2xl">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
+          <div className="flex items-center gap-2">
+            <BookMarked size={16} className="text-[#F5821E]" />
+            <span className="font-semibold text-white text-sm">Saved Reports</span>
+          </div>
+          <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors">
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Save current */}
+        {canSave && (
+          <div className="px-5 py-3 border-b border-gray-800 bg-gray-800/30">
+            <p className="text-xs text-gray-400 mb-2">Save current column selection as a named report</p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={saveName}
+                onChange={e => setSaveName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleSave()}
+                placeholder="Report name…"
+                className="input flex-1 text-xs py-1.5"
+              />
+              <button
+                onClick={handleSave}
+                disabled={!saveName.trim()}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#F5821E] hover:bg-[#e07319] disabled:opacity-50 text-white text-xs font-semibold rounded-xl transition-colors flex-shrink-0"
+              >
+                <Plus size={12} />
+                Save
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* List */}
+        <div className="overflow-y-auto max-h-80 divide-y divide-gray-800">
+          {savedReports.length === 0 ? (
+            <div className="px-5 py-10 text-center">
+              <BookMarked size={28} className="text-gray-700 mx-auto mb-2" />
+              <p className="text-sm text-gray-500">No saved reports yet.</p>
+              <p className="text-xs text-gray-600 mt-1">Select columns, then save the configuration here.</p>
+            </div>
+          ) : (
+            savedReports.map(r => (
+              <div key={r.id} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-800/40 transition-colors">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-white truncate">{r.name}</p>
+                  <p className="text-[11px] text-gray-500 mt-0.5">
+                    {r.columns.length} column{r.columns.length !== 1 ? 's' : ''}
+                    {r.filters?.date_from ? ` · ${r.filters.date_from} → ${r.filters.date_to}` : ''}
+                  </p>
+                </div>
+                <button
+                  onClick={() => { onLoad(r); onClose() }}
+                  className="text-xs px-2.5 py-1 bg-[#F5821E]/10 hover:bg-[#F5821E]/20 text-[#F5821E] border border-[#F5821E]/30 rounded-lg transition-colors flex-shrink-0"
+                >
+                  Load
+                </button>
+                <button
+                  onClick={() => onDelete(r.id)}
+                  className="text-gray-600 hover:text-red-400 transition-colors flex-shrink-0"
+                  title="Delete saved report"
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ *
+ * Left panel — table accordion                                       *
+ * ------------------------------------------------------------------ */
+
+function TablePanel({ selectedColumns, onToggle }) {
+  const [search, setSearch] = useState('')
+  const [expanded, setExpanded] = useState({})
+
+  const q = search.trim().toLowerCase()
+
+  const filtered = useMemo(() => {
+    if (!q) return TABLE_SCHEMA
+    return TABLE_SCHEMA.filter(t =>
+      t.table.includes(q) || t.columns.some(c => c.includes(q))
+    )
+  }, [q])
+
+  // Auto-expand matching tables when searching
+  useEffect(() => {
+    if (q) {
+      const map = {}
+      filtered.forEach(t => { map[t.table] = true })
+      setExpanded(map)
+    }
+  }, [q, filtered])
+
+  function toggleExpand(table) {
+    setExpanded(prev => ({ ...prev, [table]: !prev[table] }))
+  }
+
+  function isColumnSelected(table, column) {
+    return selectedColumns.some(c => c.table === table && c.column === column)
+  }
+
+  function selectedCountFor(table) {
+    return selectedColumns.filter(c => c.table === table).length
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Search — pinned at top */}
+      <div className="p-3 border-b border-gray-800 flex-shrink-0">
+        <div className="relative">
+          <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
           <input
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Filter rows…"
-            className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded-lg pl-7 pr-7 py-1.5 outline-none focus:border-[#F5821E] transition-colors placeholder-gray-500"
+            placeholder="Search tables & columns…"
+            className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded-lg pl-8 pr-7 py-1.5 outline-none focus:border-[#F5821E] transition-colors placeholder-gray-500"
           />
           {search && (
-            <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white">
+            <button
+              onClick={() => setSearch('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
+            >
               <X size={11} />
             </button>
           )}
         </div>
-        <span className="text-xs text-gray-600">{filtered.length} rows</span>
+        <p className="text-[10px] text-gray-600 mt-1.5 pl-0.5">
+          {filtered.length} table{filtered.length !== 1 ? 's' : ''}
+          {selectedColumns.length > 0 && (
+            <span className="ml-2 text-[#F5821E]">{selectedColumns.length} selected</span>
+          )}
+        </p>
       </div>
-      <div className="overflow-auto max-h-[calc(100vh-220px)]">
-        <table className="w-full text-sm">
-          <thead className="sticky top-0 bg-gray-900 z-10">
-            <tr className="border-b border-gray-800 text-[10px] text-gray-500 uppercase tracking-wider">
-              {columns.map(col => (
-                <th
-                  key={col.key}
-                  className="th-sm px-3 py-2 text-left select-none cursor-pointer hover:text-white"
-                  onClick={() => toggleSort(col.key)}
+
+      {/* Accordion list — scrollable */}
+      <div className="flex-1 overflow-y-auto">
+        {filtered.length === 0 ? (
+          <div className="px-3 py-8 text-center">
+            <p className="text-xs text-gray-600">No tables match &ldquo;{search}&rdquo;</p>
+          </div>
+        ) : (
+          filtered.map(t => {
+            const open = !!expanded[t.table]
+            const selCount = selectedCountFor(t.table)
+
+            return (
+              <div key={t.table} className="border-b border-gray-800/50">
+                {/* Table header row */}
+                <button
+                  type="button"
+                  className="w-full flex items-center gap-2 px-3 py-2 bg-gray-800/40 hover:bg-gray-800/70 transition-colors text-left"
+                  onClick={() => toggleExpand(t.table)}
                 >
-                  <span className="flex items-center gap-1">
-                    {col.label}
-                    <SortIcon active={sortKey === col.key} dir={sortDir} />
+                  {open
+                    ? <ChevronDown size={11} className="text-gray-500 flex-shrink-0" />
+                    : <ChevronRight size={11} className="text-gray-500 flex-shrink-0" />
+                  }
+                  <span className="flex-1 min-w-0 text-xs text-gray-200 truncate font-medium">
+                    {t.table}
                   </span>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-800/50">
-            {filtered.length === 0 ? (
-              <tr>
-                <td colSpan={columns.length} className="px-3 py-10 text-center text-gray-500 text-xs">
-                  No matching rows.
-                </td>
-              </tr>
-            ) : (
-              filtered.map((row, i) => (
-                <tr key={i} className="hover:bg-gray-800/30 transition-colors">
-                  {columns.map(col => (
-                    <td key={col.key} className="td-sm px-3 py-2 text-xs text-gray-200">
-                      {row[col.key] ?? '—'}
-                    </td>
-                  ))}
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+                  {selCount > 0 && (
+                    <span className="flex-shrink-0 text-[9px] bg-[#F5821E]/20 text-[#F5821E] border border-[#F5821E]/30 rounded px-1 py-0.5 font-semibold">
+                      {selCount}
+                    </span>
+                  )}
+                </button>
+
+                {/* Column checkboxes */}
+                {open && (
+                  <div className="py-1 bg-gray-900/30">
+                    {t.columns.map(col => {
+                      const selected = isColumnSelected(t.table, col)
+                      const colMatchesSearch = q && col.includes(q)
+
+                      return (
+                        <label
+                          key={col}
+                          className={`flex items-center gap-2.5 px-4 py-1 cursor-pointer transition-colors ${
+                            selected
+                              ? 'bg-[#F5821E]/10 text-[#F5821E]'
+                              : colMatchesSearch
+                              ? 'bg-yellow-500/5 text-yellow-200 hover:bg-gray-800/60'
+                              : 'text-gray-400 hover:bg-gray-800/50 hover:text-gray-200'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selected}
+                            onChange={() => onToggle(t.table, col)}
+                            className="accent-[#F5821E] w-3 h-3 flex-shrink-0"
+                          />
+                          <span className="text-[11px] truncate">{col}</span>
+                        </label>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )
+          })
+        )}
       </div>
     </div>
   )
 }
 
 /* ------------------------------------------------------------------ *
- * Inline SVG charts                                                  *
+ * Middle panel — data grid                                           *
  * ------------------------------------------------------------------ */
 
-const ACCENT = '#F5821E'
-const PIE_COLORS = ['#F5821E', '#3b82f6', '#22c55e', '#a855f7', '#ef4444', '#eab308', '#14b8a6', '#ec4899']
+function DataGrid({ selectedColumns, reportData, loading, error, onRetry, onRemoveColumn, onRemoveAll }) {
+  const rows = reportData?.rows || []
+  const total = reportData?.total ?? rows.length
 
-function pickSeries(columns, rows) {
-  const numericCol = columns.find(c =>
-    rows.length > 0 && rows.every(r => r[c.key] === null || r[c.key] === '' || !Number.isNaN(Number(r[c.key])))
-      && rows.some(r => !Number.isNaN(Number(r[c.key])) && r[c.key] !== '' && r[c.key] !== null)
-  )
-  const labelCol = columns.find(c => c.key !== numericCol?.key) || columns[0]
-  if (!numericCol) return null
-  const points = rows.slice(0, 40).map(r => ({
-    label: String(r[labelCol?.key] ?? ''),
-    value: Number(r[numericCol.key]) || 0,
-  }))
-  return { valueLabel: numericCol.label, labelKey: labelCol?.label, points }
-}
-
-function ChartShell({ children }) {
-  return (
-    <div className="card-sm bg-gray-900 border border-gray-800 rounded-xl p-4">
-      {children}
-    </div>
-  )
-}
-
-function NoNumeric() {
-  return (
-    <ChartShell>
-      <div className="text-center text-gray-500 text-xs py-10">
-        No numeric column available to chart. Switch to Table view.
+  if (selectedColumns.length === 0) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center text-center px-8">
+        <Database size={44} className="text-gray-800 mb-4" />
+        <p className="text-sm text-gray-400 font-medium">Select columns from the left panel to build your report</p>
+        <p className="text-xs text-gray-600 mt-1.5">Choose any combination of columns from the 70 available tables, then click Run.</p>
       </div>
-    </ChartShell>
-  )
-}
+    )
+  }
 
-function BarChartSvg({ series }) {
-  if (!series) return <NoNumeric />
-  const { points, valueLabel } = series
-  const w = 720, h = 280, pad = 32
-  const max = Math.max(1, ...points.map(p => p.value))
-  const bw = (w - pad * 2) / points.length
   return (
-    <ChartShell>
-      <p className="text-xs text-gray-400 mb-2">{valueLabel}</p>
-      <svg viewBox={`0 0 ${w} ${h}`} className="w-full">
-        <line x1={pad} y1={h - pad} x2={w - pad} y2={h - pad} stroke="#374151" />
-        {points.map((p, i) => {
-          const bh = ((h - pad * 2) * p.value) / max
-          const x = pad + i * bw + bw * 0.15
-          const y = h - pad - bh
-          return (
-            <g key={i}>
-              <rect x={x} y={y} width={bw * 0.7} height={bh} fill={ACCENT} rx="2" />
-              <text x={x + bw * 0.35} y={h - pad + 12} textAnchor="middle" fontSize="9" fill="#9ca3af">
-                {p.label.length > 8 ? p.label.slice(0, 7) + '…' : p.label}
-              </text>
-            </g>
-          )
-        })}
-      </svg>
-    </ChartShell>
-  )
-}
+    <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+      {/* Selected columns chips header */}
+      <div className="flex-shrink-0 px-4 py-2.5 border-b border-gray-800 bg-gray-900/50">
+        <div className="flex items-start gap-3 flex-wrap">
+          <div className="flex items-center gap-2 flex-shrink-0 pt-0.5">
+            <span className="text-xs text-gray-400">
+              <span className="text-white font-semibold">{selectedColumns.length}</span>
+              {' '}column{selectedColumns.length !== 1 ? 's' : ''}
+            </span>
+            {reportData && (
+              <span className="text-xs text-gray-600">
+                &middot; {total.toLocaleString()} row{total !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
 
-function LineChartSvg({ series }) {
-  if (!series) return <NoNumeric />
-  const { points, valueLabel } = series
-  const w = 720, h = 280, pad = 32
-  const max = Math.max(1, ...points.map(p => p.value))
-  const step = points.length > 1 ? (w - pad * 2) / (points.length - 1) : 0
-  const coords = points.map((p, i) => ({
-    x: pad + i * step,
-    y: h - pad - ((h - pad * 2) * p.value) / max,
-    p,
-  }))
-  const path = coords.map((c, i) => `${i === 0 ? 'M' : 'L'}${c.x},${c.y}`).join(' ')
-  return (
-    <ChartShell>
-      <p className="text-xs text-gray-400 mb-2">{valueLabel}</p>
-      <svg viewBox={`0 0 ${w} ${h}`} className="w-full">
-        <line x1={pad} y1={h - pad} x2={w - pad} y2={h - pad} stroke="#374151" />
-        <path d={path} fill="none" stroke={ACCENT} strokeWidth="2" />
-        {coords.map((c, i) => (
-          <g key={i}>
-            <circle cx={c.x} cy={c.y} r="3" fill={ACCENT} />
-            <text x={c.x} y={h - pad + 12} textAnchor="middle" fontSize="9" fill="#9ca3af">
-              {c.p.label.length > 8 ? c.p.label.slice(0, 7) + '…' : c.p.label}
-            </text>
-          </g>
-        ))}
-      </svg>
-    </ChartShell>
-  )
-}
+          <div className="flex flex-wrap gap-1.5 flex-1">
+            {selectedColumns.map(c => (
+              <span
+                key={colKey(c.table, c.column)}
+                className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-800 border border-gray-700 rounded-md text-[11px] text-gray-300"
+              >
+                <span className="text-gray-500">{c.table}.</span>
+                <span>{c.column}</span>
+                <button
+                  type="button"
+                  onClick={() => onRemoveColumn(c.table, c.column)}
+                  className="ml-0.5 text-gray-600 hover:text-red-400 transition-colors"
+                  title={`Remove ${c.table}.${c.column}`}
+                >
+                  <X size={10} />
+                </button>
+              </span>
+            ))}
+          </div>
 
-function PieChartSvg({ series }) {
-  if (!series) return <NoNumeric />
-  const { points, valueLabel } = series
-  const total = points.reduce((s, p) => s + p.value, 0) || 1
-  const cx = 130, cy = 130, r = 110
-  let angle = -Math.PI / 2
-  const slices = points.map((p, i) => {
-    const frac = p.value / total
-    const start = angle
-    const end = angle + frac * Math.PI * 2
-    angle = end
-    const large = end - start > Math.PI ? 1 : 0
-    const x1 = cx + r * Math.cos(start), y1 = cy + r * Math.sin(start)
-    const x2 = cx + r * Math.cos(end),   y2 = cy + r * Math.sin(end)
-    const d = `M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${large} 1 ${x2},${y2} Z`
-    return { d, color: PIE_COLORS[i % PIE_COLORS.length], p, frac }
-  })
-  return (
-    <ChartShell>
-      <p className="text-xs text-gray-400 mb-2">{valueLabel}</p>
-      <div className="flex flex-wrap items-center gap-6">
-        <svg viewBox="0 0 260 260" className="w-56 h-56 flex-shrink-0">
-          {slices.map((s, i) => <path key={i} d={s.d} fill={s.color} stroke="#0a0f1e" strokeWidth="1" />)}
-        </svg>
-        <div className="space-y-1">
-          {slices.map((s, i) => (
-            <div key={i} className="flex items-center gap-2 text-xs text-gray-300">
-              <span className="w-2.5 h-2.5 rounded-sm" style={{ background: s.color }} />
-              <span className="flex-1">{s.p.label || '—'}</span>
-              <span className="text-gray-500">{Math.round(s.frac * 100)}%</span>
-            </div>
-          ))}
+          <button
+            type="button"
+            onClick={onRemoveAll}
+            className="flex-shrink-0 text-[11px] text-gray-500 hover:text-red-400 transition-colors flex items-center gap-1 pt-0.5"
+          >
+            <X size={11} />
+            Remove all
+          </button>
         </div>
       </div>
-    </ChartShell>
+
+      {/* Content */}
+      <div className="flex-1 min-h-0 overflow-hidden">
+        {loading ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="flex flex-col items-center gap-3">
+              <Loader2 className="animate-spin text-[#F5821E]" size={24} />
+              <p className="text-xs text-gray-500">Running query&hellip;</p>
+            </div>
+          </div>
+        ) : error ? (
+          <div className="flex items-center justify-center h-full px-8">
+            <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-6 max-w-md w-full">
+              <div className="flex items-start gap-3">
+                <AlertTriangle size={18} className="text-red-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-red-300">Query failed</p>
+                  <p className="text-xs text-red-400/80 mt-1 break-all">{error}</p>
+                  <button
+                    onClick={onRetry}
+                    className="mt-3 text-xs px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-200 rounded-lg transition-colors"
+                  >
+                    Try Again
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : !reportData ? (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-xs text-gray-600">Click &ldquo;Run&rdquo; in the top bar to fetch data</p>
+          </div>
+        ) : rows.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full">
+            <Database size={32} className="text-gray-700 mb-3" />
+            <p className="text-sm text-gray-500">No rows returned</p>
+            <p className="text-xs text-gray-600 mt-1">Try adjusting the filters or date range.</p>
+          </div>
+        ) : (
+          <div className="overflow-auto h-full">
+            <table className="min-w-full text-sm">
+              <thead className="sticky top-0 z-10 bg-gray-900">
+                <tr className="border-b border-gray-800">
+                  {selectedColumns.map(c => (
+                    <th key={colKey(c.table, c.column)} className="th whitespace-nowrap">
+                      <span className="text-gray-600 font-normal">{c.table}.</span>
+                      {c.column}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-800/50">
+                {rows.map((row, i) => (
+                  <tr key={i} className="tr-hover">
+                    {selectedColumns.map(c => {
+                      const val = row[colKey(c.table, c.column)] ?? row[c.column] ?? null
+                      return (
+                        <td key={colKey(c.table, c.column)} className="td whitespace-nowrap max-w-[240px]">
+                          <span
+                            className="block truncate"
+                            title={val == null ? '' : String(val)}
+                          >
+                            {val == null
+                              ? <span className="text-gray-600">&mdash;</span>
+                              : String(val)
+                            }
+                          </span>
+                        </td>
+                      )
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -367,397 +500,239 @@ function PieChartSvg({ series }) {
  * ------------------------------------------------------------------ */
 
 export default function Reports() {
-  const [dataset, setDataset]   = useState('health_centers')
-  const [dateFrom, setDateFrom] = useState(DEFAULT_RANGE.from)
-  const [dateTo, setDateTo]     = useState(DEFAULT_RANGE.to)
-  const [preset, setPreset]     = useState('30d')
+  const [dateFrom, setDateFrom]                 = useState(daysAgo(29))
+  const [dateTo, setDateTo]                     = useState(todayStr())
+  const [clinics, setClinics]                   = useState([])
+  const [selectedClinicId, setSelectedClinicId] = useState('')
+  const [selectedColumns, setSelectedColumns]   = useState([])
+  const [reportData, setReportData]             = useState(null)
+  const [loading, setLoading]                   = useState(false)
+  const [error, setError]                       = useState('')
+  const [savedReports, setSavedReports]         = useState(loadSaved)
+  const [showSavedModal, setShowSavedModal]     = useState(false)
 
-  const [filters, setFilters]   = useState({})
-  const [clinics, setClinics]   = useState([])
-
-  const [view, setView]         = useState('table')
-  const [result, setResult]     = useState(null)
-  const [loading, setLoading]   = useState(false)
-  const [error, setError]       = useState('')
-
-  const [saved, setSaved]       = useState([])
-  const [rightOpen, setRightOpen] = useState(true)
-
+  // Load clinic list for Health Center dropdown
   useEffect(() => {
     let alive = true
     adminApi.getClinics()
-      .then(list => { if (alive) setClinics(Array.isArray(list) ? list : []) })
+      .then(data => {
+        if (!alive) return
+        const list = Array.isArray(data) ? data : (data?.clinics ?? [])
+        setClinics(list)
+      })
       .catch(() => { if (alive) setClinics([]) })
     return () => { alive = false }
   }, [])
 
-  // Reset dataset-specific filters when dataset changes
-  useEffect(() => { setFilters({}) }, [dataset])
+  // Persist saved reports to localStorage whenever the list changes
+  useEffect(() => { persistSaved(savedReports) }, [savedReports])
 
-  function applyPreset(p) {
-    setPreset(p.key)
-    const r = rangeFromDays(p.days)
-    setDateFrom(r.from)
-    setDateTo(r.to)
-  }
-
-  function toggleMulti(key, value) {
-    setFilters(prev => {
-      const arr = Array.isArray(prev[key]) ? prev[key] : []
-      const next = arr.includes(value) ? arr.filter(v => v !== value) : [...arr, value]
-      return { ...prev, [key]: next }
+  /* ---- Column selection ---- */
+  const toggleColumn = useCallback((table, column) => {
+    setSelectedColumns(prev => {
+      const exists = prev.some(c => c.table === table && c.column === column)
+      if (exists) return prev.filter(c => !(c.table === table && c.column === column))
+      return [...prev, { table, column }]
     })
-  }
+  }, [])
 
-  function isOn(key, value) {
-    return Array.isArray(filters[key]) && filters[key].includes(value)
-  }
+  const removeColumn = useCallback((table, column) => {
+    setSelectedColumns(prev => prev.filter(c => !(c.table === table && c.column === column)))
+  }, [])
 
-  function buildBody() {
-    return {
-      dataset,
-      date_from: dateFrom,
-      date_to: dateTo,
-      filters: { ...filters },
-      group_by: [],
-    }
-  }
+  const removeAllColumns = useCallback(() => {
+    setSelectedColumns([])
+    setReportData(null)
+    setError('')
+  }, [])
 
+  /* ---- Run query ---- */
   async function runReport() {
+    if (selectedColumns.length === 0) return
     setLoading(true)
     setError('')
     try {
-      const res = await adminApi.runQuery(buildBody())
-      setResult(res || { columns: [], rows: [], total_rows: 0 })
+      const body = {
+        columns: selectedColumns,
+        filters: {
+          ...(selectedClinicId ? { clinic_id: selectedClinicId } : {}),
+          date_from: dateFrom,
+          date_to:   dateTo,
+        },
+      }
+      const res = await adminApi.runQuery(body)
+      setReportData(res || { rows: [], total: 0 })
     } catch (e) {
-      setError(e?.message || 'Failed to run report. Please try again.')
-      setResult(null)
+      setError(e.message || 'Failed to run query. Please try again.')
+      setReportData(null)
     } finally {
       setLoading(false)
     }
   }
 
-  function saveReport() {
-    if (!result) return
-    const ds = DATASETS.find(d => d.key === dataset)
-    setSaved(prev => [
-      {
-        id: Date.now(),
-        name: `${ds?.label || dataset} · ${dateFrom}→${dateTo}`,
-        dataset,
-        dateFrom,
-        dateTo,
-        preset,
-        filters: { ...filters },
+  /* ---- Saved report actions ---- */
+  function handleSaveCurrent(name) {
+    const entry = {
+      id: Date.now(),
+      name,
+      columns: selectedColumns,
+      filters: {
+        clinic_id: selectedClinicId,
+        date_from: dateFrom,
+        date_to:   dateTo,
       },
-      ...prev,
-    ])
+    }
+    setSavedReports(prev => [entry, ...prev])
   }
 
-  function applySaved(s) {
-    setDataset(s.dataset)
-    setDateFrom(s.dateFrom)
-    setDateTo(s.dateTo)
-    setPreset(s.preset || '')
-    // setFilters after dataset reset effect — schedule on next tick
-    setTimeout(() => setFilters({ ...s.filters }), 0)
+  function handleLoadSaved(report) {
+    setSelectedColumns(report.columns || [])
+    if (report.filters) {
+      if (report.filters.date_from)  setDateFrom(report.filters.date_from)
+      if (report.filters.date_to)    setDateTo(report.filters.date_to)
+      setSelectedClinicId(report.filters.clinic_id || '')
+    }
+    setReportData(null)
+    setError('')
   }
 
-  function removeSaved(id) {
-    setSaved(prev => prev.filter(s => s.id !== id))
+  function handleDeleteSaved(id) {
+    setSavedReports(prev => prev.filter(r => r.id !== id))
   }
-
-  const columns = result?.columns || []
-  const rows    = result?.rows || []
-  const series  = useMemo(() => pickSeries(columns, rows), [columns, rows])
-  const datasetLabel = DATASETS.find(d => d.key === dataset)?.label || dataset
-
-  // KPI chips: portal_pct and single-row aggregates
-  const kpis = useMemo(() => {
-    const out = []
-    if (result?.portal_pct != null) {
-      out.push({ label: 'Portal Share', value: `${result.portal_pct}%` })
-    }
-    if (result?.total_rows != null) {
-      out.push({ label: 'Total Rows', value: result.total_rows })
-    }
-    if (rows.length === 1 && columns.length) {
-      columns.forEach(c => out.push({ label: c.label, value: rows[0][c.key] ?? '—' }))
-    }
-    return out
-  }, [result, rows, columns])
-
-  const dateRangeStr = `${dateFrom} → ${dateTo}`
-  const fileBase = `${dataset}_${dateFrom}_${dateTo}`
 
   return (
-    <div className="flex h-[calc(100vh-64px)] bg-[#0a0f1e] text-gray-200">
-      {/* ---------------- LEFT PANEL ---------------- */}
-      <div className="w-[200px] flex-shrink-0 bg-gray-900/40 border-r border-gray-800/60 p-3 space-y-3 overflow-y-auto">
-        {/* Dataset */}
-        <div>
-          <p className="text-[10px] uppercase tracking-wider text-gray-500 mb-1.5">Dataset</p>
-          <div className="space-y-1">
-            {DATASETS.map(d => (
-              <label
-                key={d.key}
-                className={`flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer text-xs transition-colors ${
-                  dataset === d.key ? 'bg-[#F5821E]/10 text-[#F5821E]' : 'text-gray-400 hover:bg-gray-800/60 hover:text-white'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="dataset"
-                  className="accent-[#F5821E]"
-                  checked={dataset === d.key}
-                  onChange={() => setDataset(d.key)}
-                />
-                {d.label}
-              </label>
-            ))}
-          </div>
+    <div
+      className="flex flex-col bg-[#0a0f1e] text-gray-200 overflow-hidden"
+      style={{ height: 'calc(100vh - 64px)' }}
+    >
+      {/* ================================================================ *
+       * TOP FILTER BAR — pinned below page header                        *
+       * ================================================================ */}
+      <div className="flex-shrink-0 flex items-center gap-3 px-4 py-2.5 border-b border-gray-800 bg-gray-900/80 backdrop-blur-sm flex-wrap">
+
+        {/* Date from */}
+        <div className="flex items-center gap-1.5">
+          <label className="text-xs text-gray-500 flex-shrink-0">From</label>
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={e => setDateFrom(e.target.value)}
+            className="bg-gray-800 border border-gray-700 text-white text-xs rounded-lg px-2.5 py-1.5 outline-none focus:border-[#F5821E] transition-colors"
+          />
         </div>
 
-        {/* Date range */}
-        <div>
-          <p className="text-[10px] uppercase tracking-wider text-gray-500 mb-1.5">Date Range</p>
-          <div className="flex flex-wrap gap-1 mb-2">
-            {PRESETS.map(p => (
-              <Chip key={p.key} active={preset === p.key} onClick={() => applyPreset(p)}>{p.label}</Chip>
-            ))}
-          </div>
-          <div className="space-y-1.5">
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={e => { setDateFrom(e.target.value); setPreset('') }}
-              className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded-md px-2 py-1.5 outline-none focus:border-[#F5821E]"
-            />
-            <input
-              type="date"
-              value={dateTo}
-              onChange={e => { setDateTo(e.target.value); setPreset('') }}
-              className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded-md px-2 py-1.5 outline-none focus:border-[#F5821E]"
-            />
-          </div>
+        {/* Date to */}
+        <div className="flex items-center gap-1.5">
+          <label className="text-xs text-gray-500 flex-shrink-0">To</label>
+          <input
+            type="date"
+            value={dateTo}
+            onChange={e => setDateTo(e.target.value)}
+            className="bg-gray-800 border border-gray-700 text-white text-xs rounded-lg px-2.5 py-1.5 outline-none focus:border-[#F5821E] transition-colors"
+          />
         </div>
 
-        {/* Dynamic filters */}
-        {dataset === 'health_centers' && (
-          <>
-            <FilterGroup label="Status">
-              {HC_STATUS.map(s => (
-                <Chip key={s} active={isOn('status', s)} onClick={() => toggleMulti('status', s)}>
-                  <span className="capitalize">{s}</span>
-                </Chip>
-              ))}
-            </FilterGroup>
-            <FilterGroup label="Plan">
-              {HC_PLAN.map(p => (
-                <Chip key={p} active={isOn('plan', p)} onClick={() => toggleMulti('plan', p)}>
-                  <span className="capitalize">{p}</span>
-                </Chip>
-              ))}
-            </FilterGroup>
-          </>
-        )}
+        {/* Health Center dropdown */}
+        <div className="flex items-center gap-1.5">
+          <label className="text-xs text-gray-500 flex-shrink-0">Health Center</label>
+          <select
+            value={selectedClinicId}
+            onChange={e => setSelectedClinicId(e.target.value)}
+            className="bg-gray-800 border border-gray-700 text-white text-xs rounded-lg px-2.5 py-1.5 outline-none focus:border-[#F5821E] transition-colors min-w-[160px] max-w-[220px]"
+          >
+            <option value="">All centers</option>
+            {clinics.map(c => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </div>
 
-        {dataset === 'patients' && (
-          <>
-            <HealthCenterFilter clinics={clinics} isOn={isOn} toggle={toggleMulti} />
-            <FilterGroup label="Gender">
-              {GENDERS.map(g => (
-                <Chip key={g} active={isOn('gender', g)} onClick={() => toggleMulti('gender', g)}>{g}</Chip>
-              ))}
-            </FilterGroup>
-          </>
-        )}
+        <div className="flex-1" />
 
-        {dataset === 'appointments' && (
-          <>
-            <HealthCenterFilter clinics={clinics} isOn={isOn} toggle={toggleMulti} />
-            <FilterGroup label="Status">
-              {APPT_STATUS.map(s => (
-                <Chip key={s} active={isOn('status', s)} onClick={() => toggleMulti('status', s)}>
-                  <span className="capitalize">{s}</span>
-                </Chip>
-              ))}
-            </FilterGroup>
-          </>
-        )}
-
-        {dataset === 'revenue' && (
-          <HealthCenterFilter clinics={clinics} isOn={isOn} toggle={toggleMulti} />
-        )}
-
+        {/* Saved Reports button */}
         <button
-          onClick={runReport}
-          disabled={loading}
-          className="w-full bg-[#F5821E] hover:bg-[#e07319] disabled:opacity-60 text-white text-xs font-semibold rounded-md py-2 transition-colors"
+          type="button"
+          onClick={() => setShowSavedModal(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 hover:text-white text-xs font-medium rounded-xl transition-colors"
         >
+          <BookMarked size={13} />
+          Saved Reports
+          {savedReports.length > 0 && (
+            <span className="bg-[#F5821E]/20 text-[#F5821E] text-[9px] px-1.5 py-0.5 rounded-full border border-[#F5821E]/30 font-semibold">
+              {savedReports.length}
+            </span>
+          )}
+        </button>
+
+        {/* Run button */}
+        <button
+          type="button"
+          onClick={runReport}
+          disabled={loading || selectedColumns.length === 0}
+          className="flex items-center gap-1.5 px-4 py-1.5 bg-[#F5821E] hover:bg-[#e07319] disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-xl transition-colors"
+        >
+          {loading && <Loader2 size={12} className="animate-spin" />}
           {loading ? 'Running…' : 'Run'}
+        </button>
+
+        {/* Export CSV button */}
+        <button
+          type="button"
+          onClick={() => exportCsv(reportData?.rows || [], selectedColumns)}
+          disabled={!reportData?.rows?.length}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed border border-gray-700 text-gray-300 hover:text-white text-xs font-medium rounded-xl transition-colors"
+        >
+          <Download size={13} />
+          Export CSV
         </button>
       </div>
 
-      {/* ---------------- MAIN PANEL ---------------- */}
-      <div className="flex-1 min-w-0 p-3 flex flex-col">
-        {/* Toolbar */}
-        <div className="toolbar flex items-center gap-2 mb-3 flex-wrap">
-          <div className="flex items-center bg-gray-900 border border-gray-800 rounded-lg p-0.5">
-            {VIEWS.map(v => {
-              const Icon = v.icon
-              return (
-                <button
-                  key={v.key}
-                  onClick={() => setView(v.key)}
-                  title={v.label}
-                  className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors ${
-                    view === v.key ? 'bg-[#F5821E] text-white' : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  <Icon size={13} />
-                </button>
-              )
-            })}
+      {/* ================================================================ *
+       * BODY — left accordion panel + middle data grid                   *
+       * ================================================================ */}
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+
+        {/* ---- LEFT PANEL ---- */}
+        <div
+          className="flex-shrink-0 flex flex-col bg-gray-900 border-r border-gray-800 overflow-hidden"
+          style={{ width: '260px' }}
+        >
+          <div className="px-3 py-2 border-b border-gray-800 flex-shrink-0 flex items-center justify-between">
+            <p className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">Tables &amp; Columns</p>
+            <Database size={12} className="text-gray-700" />
           </div>
-
-          <div className="flex-1" />
-
-          <ToolbarBtn icon={Download}        label="CSV"   disabled={!result || !rows.length} onClick={() => exportCsv(rows, columns, `${fileBase}.csv`)} />
-          <ToolbarBtn icon={FileSpreadsheet} label="Excel" disabled={!result || !rows.length} onClick={() => exportExcel(rows, columns, fileBase)} />
-          <ToolbarBtn icon={FileText}        label="PDF"   disabled={!result || !rows.length} onClick={() => exportPdf(rows, columns, datasetLabel, dateRangeStr)} />
-          <ToolbarBtn icon={Save}            label="Save"  disabled={!result}                 onClick={saveReport} />
-
-          <button
-            onClick={() => setRightOpen(o => !o)}
-            title={rightOpen ? 'Hide saved reports' : 'Show saved reports'}
-            className="flex items-center px-2 py-1.5 bg-gray-900 border border-gray-800 hover:bg-gray-800 text-gray-300 rounded-lg transition-colors"
-          >
-            {rightOpen ? <PanelRightClose size={14} /> : <PanelRightOpen size={14} />}
-          </button>
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <TablePanel selectedColumns={selectedColumns} onToggle={toggleColumn} />
+          </div>
         </div>
 
-        {/* KPI strip */}
-        {result && kpis.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-3">
-            {kpis.map((k, i) => (
-              <div key={i} className="kpi-card bg-gray-900 border border-gray-800 rounded-lg px-3 py-1.5">
-                <p className="text-[10px] uppercase tracking-wide text-gray-500">{k.label}</p>
-                <p className="text-sm font-semibold text-white">{k.value}</p>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Results area */}
-        <div className="flex-1 min-h-0 overflow-auto">
-          {loading ? (
-            <div className="flex items-center justify-center py-24">
-              <div className="w-6 h-6 border-[3px] rounded-full animate-spin" style={{ borderColor: ACCENT, borderTopColor: 'transparent' }} />
-            </div>
-          ) : error ? (
-            <div className="bg-red-500/10 border border-red-500/40 rounded-xl p-5 flex items-start gap-3">
-              <AlertTriangle size={18} className="text-red-400 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-semibold text-red-300">Report failed</p>
-                <p className="text-xs text-red-400/80 mt-0.5">{error}</p>
-                <button onClick={runReport} className="mt-3 text-xs px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-200 rounded-md">
-                  Retry
-                </button>
-              </div>
-            </div>
-          ) : !result ? (
-            <div className="flex flex-col items-center justify-center py-24 text-center">
-              <Database size={34} className="text-gray-700 mb-3" />
-              <p className="text-sm text-gray-400">Select a dataset and click Run</p>
-              <p className="text-xs text-gray-600 mt-1">Results appear here as a table or chart.</p>
-            </div>
-          ) : view === 'table' ? (
-            <ReportTable columns={columns} rows={rows} />
-          ) : view === 'bar' ? (
-            <BarChartSvg series={series} />
-          ) : view === 'line' ? (
-            <LineChartSvg series={series} />
-          ) : (
-            <PieChartSvg series={series} />
-          )}
+        {/* ---- MIDDLE PANEL ---- */}
+        <div className="flex-1 min-w-0 flex flex-col bg-[#0a0f1e] overflow-hidden">
+          <DataGrid
+            selectedColumns={selectedColumns}
+            reportData={reportData}
+            loading={loading}
+            error={error}
+            onRetry={runReport}
+            onRemoveColumn={removeColumn}
+            onRemoveAll={removeAllColumns}
+          />
         </div>
       </div>
 
-      {/* ---------------- RIGHT PANEL ---------------- */}
-      {rightOpen && (
-        <div className="w-[160px] flex-shrink-0 bg-gray-900/40 border-l border-gray-800/60 p-3 overflow-y-auto">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-[10px] uppercase tracking-wider text-gray-500">Saved Reports</p>
-            <button onClick={() => setRightOpen(false)} className="text-gray-500 hover:text-white">
-              <PanelRightClose size={13} />
-            </button>
-          </div>
-          {saved.length === 0 ? (
-            <p className="text-[11px] text-gray-600">No saved reports yet. Run a report and click Save.</p>
-          ) : (
-            <div className="space-y-1.5">
-              {saved.map(s => (
-                <div key={s.id} className="card-sm group bg-gray-800/60 border border-gray-700 rounded-md px-2 py-1.5 hover:border-gray-600">
-                  <button onClick={() => applySaved(s)} className="w-full text-left">
-                    <p className="text-[11px] text-white truncate">{s.name}</p>
-                  </button>
-                  <div className="flex items-center justify-between mt-0.5">
-                    <span className="text-[9px] text-gray-500">{s.dateFrom}</span>
-                    <button onClick={() => removeSaved(s.id)} className="text-gray-600 hover:text-red-400">
-                      <X size={10} />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+      {/* ================================================================ *
+       * SAVED REPORTS MODAL                                              *
+       * ================================================================ */}
+      {showSavedModal && (
+        <SavedReportsModal
+          onClose={() => setShowSavedModal(false)}
+          savedReports={savedReports}
+          onLoad={handleLoadSaved}
+          onDelete={handleDeleteSaved}
+          onSaveCurrent={handleSaveCurrent}
+          canSave={selectedColumns.length > 0}
+        />
       )}
     </div>
-  )
-}
-
-/* ------------------------------------------------------------------ *
- * Sub-components                                                     *
- * ------------------------------------------------------------------ */
-
-function FilterGroup({ label, children }) {
-  return (
-    <div>
-      <p className="text-[10px] uppercase tracking-wider text-gray-500 mb-1.5">{label}</p>
-      <div className="flex flex-wrap gap-1">{children}</div>
-    </div>
-  )
-}
-
-function HealthCenterFilter({ clinics, isOn, toggle }) {
-  return (
-    <FilterGroup label="Health Center">
-      {clinics.length === 0 ? (
-        <span className="text-[11px] text-gray-600">No Health Centers</span>
-      ) : (
-        <div className="max-h-40 overflow-y-auto flex flex-wrap gap-1 w-full">
-          {clinics.map(c => (
-            <Chip key={c.id} active={isOn('clinic_ids', c.id)} onClick={() => toggle('clinic_ids', c.id)}>
-              <span className="truncate max-w-[120px] inline-block align-bottom">{c.name}</span>
-            </Chip>
-          ))}
-        </div>
-      )}
-    </FilterGroup>
-  )
-}
-
-function ToolbarBtn({ icon: Icon, label, onClick, disabled }) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className="btn-sm flex items-center gap-1 px-2 py-1.5 bg-gray-900 border border-gray-800 hover:bg-gray-800 disabled:opacity-40 disabled:hover:bg-gray-900 text-gray-300 hover:text-white text-xs font-medium rounded-lg transition-colors"
-    >
-      <Icon size={12} />
-      {label}
-    </button>
   )
 }
