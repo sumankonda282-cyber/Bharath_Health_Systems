@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import func, and_
+from sqlalchemy import func, and_, text
 from typing import Optional
 from datetime import datetime, date, timedelta
 def _years_between(d1: date, d2: date) -> int:
@@ -1565,8 +1565,170 @@ def get_population_analytics(db: Session = Depends(get_db), current=Depends(get_
 
 # ── Analytics Query (flexible report explorer) ────────────────────────────────
 
+# Whitelist of tables allowed in dynamic column queries (all model tables).
+_ALLOWED_TABLES = {
+    "platform_admins", "clinics", "branches", "staff", "doctor_profiles",
+    "doctor_schedules", "doctor_desk_assignments", "patients", "patient_users",
+    "bh_state_groups", "bh_id_sequences", "bh_profiles", "appointments",
+    "online_bookings", "vitals", "soap_notes", "clinic_patient_tags",
+    "patient_tags", "encounter_access_logs", "barcode_master", "medicines",
+    "prescriptions", "prescription_items", "lab_tests", "invoices",
+    "invoice_items", "patient_referrals", "lab_orders", "lab_order_items",
+    "lab_results", "imaging_orders", "imaging_results", "unmatched_results",
+    "doctor_ratings", "audit_logs", "billing_waiver_logs", "suppliers",
+    "purchase_orders", "purchase_order_items", "sales_returns",
+    "sales_return_items", "drug_register", "medicine_batches",
+    "stock_transactions", "chat_rooms", "chat_room_members",
+    "internal_messages", "message_reads", "imaging_report_templates",
+    "imaging_critical_alerts", "referring_doctors", "imaging_slots",
+    "imaging_bookings", "departments", "wards", "beds", "admissions",
+    "admission_transfers", "staff_departments", "appointment_token_sequences",
+    "referrals", "vital_signs", "nursing_notes", "medication_administrations",
+    "ward_rounds", "discharge_summaries", "progress_notes", "inpatient_charges",
+    "inpatient_bills", "medication_orders", "clinical_orders",
+    "documentation_sessions", "assessment_templates", "template_assignments",
+    "password_reset_requests", "pharmacy_orders", "dispense_sessions",
+    "dispense_items", "maintenance_requests", "platform_settings",
+    "telehealth_sessions", "telehealth_session_events", "shift_types",
+    "staff_groups", "staff_group_members", "schedule_entries", "leave_requests",
+    "schedule_patterns", "schedule_publish_logs", "scheduler_settings",
+    "insurance_claims", "billing_override_requests", "invoice_payments",
+    "feedback", "form_templates", "form_responses", "assessment_forms",
+    "assessment_form_versions", "form_pool", "form_assignments",
+    "form_submissions", "form_alerts", "form_cosigns", "iview_flowsheets",
+    "medical_terms", "drugs", "drug_interactions", "drug_dose_ranges",
+    "drug_contraindications", "drug_counselling", "imaging_catalog",
+    "visitor_policies", "visitor_passes", "disease_counselling",
+    "subscription_payments",
+}
+
+# Column name validation: only allow identifiers (letters, digits, underscores).
+_IDENT_RE = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
+
+
+def _validate_identifier(name: str) -> str:
+    """Raise 400 if name is not a safe SQL identifier; return it otherwise."""
+    if not _IDENT_RE.match(name):
+        raise HTTPException(status_code=400, detail=f"Invalid identifier: {name!r}")
+    return name
+
+
 @router.post("/analytics/query")
 def run_analytics_query(body: dict, db: Session = Depends(get_db), current=Depends(get_current_platform_admin)):
+    # ── Dynamic column-based query (frontend format) ──────────────────────────
+    columns_req = body.get("columns")
+    if columns_req:
+        filters = body.get("filters", {}) or {}
+        date_from = filters.get("date_from") or body.get("date_from")
+        date_to = filters.get("date_to") or body.get("date_to")
+        clinic_id = filters.get("clinic_id")
+
+        # Validate and group columns by table.
+        by_table: dict[str, list[str]] = {}
+        for item in columns_req:
+            tbl = item.get("table") or item.get("col", "").split(".")[0]
+            col = item.get("col") or item.get("column")
+            if not tbl or not col:
+                raise HTTPException(status_code=400, detail="Each column entry must have 'table' and 'col'.")
+            if tbl not in _ALLOWED_TABLES:
+                raise HTTPException(status_code=400, detail=f"Table not allowed: {tbl!r}")
+            _validate_identifier(tbl)
+            _validate_identifier(col)
+            by_table.setdefault(tbl, [])
+            if col not in by_table[tbl]:
+                by_table[tbl].append(col)
+
+        if not by_table:
+            return {"columns": [], "rows": [], "total": 0}
+
+        # Build SELECT across tables using UNIONs — one SELECT per table, aligned
+        # on a common set of output column keys.  Each table contributes rows with
+        # columns that exist in that table; missing columns come out as NULL.
+        all_col_keys = []
+        seen = set()
+        for tbl, cols in by_table.items():
+            for c in cols:
+                key = f"{tbl}.{c}"
+                if key not in seen:
+                    all_col_keys.append({"key": key, "label": f"{tbl}.{c}", "table": tbl, "col": c})
+                    seen.add(key)
+
+        union_parts = []
+        params: dict = {}
+
+        for tbl, cols in by_table.items():
+            select_exprs = []
+            for ck in all_col_keys:
+                if ck["table"] == tbl and ck["col"] in cols:
+                    select_exprs.append(f'CAST("{ck["col"]}" AS TEXT) AS "{ck["key"]}"')
+                else:
+                    select_exprs.append(f'NULL AS "{ck["key"]}"')
+
+            where_clauses = ["1=1"]
+
+            # Apply clinic_id filter if the table has a clinic_id column.
+            # We do a safe check: only add if explicitly requested table has the column.
+            # Since we cannot introspect without risk, we attempt it via SQL try approach —
+            # instead, we conservatively apply only to known clinic-scoped tables.
+            _clinic_scoped = {
+                "clinics", "patients", "appointments", "online_bookings", "vitals",
+                "soap_notes", "prescriptions", "lab_orders", "imaging_orders",
+                "invoices", "admissions", "referrals", "pharmacy_orders",
+                "discharge_summaries", "ward_rounds", "progress_notes",
+                "inpatient_charges", "inpatient_bills", "clinical_orders",
+                "medication_orders", "maintenance_requests", "staff", "branches",
+            }
+            if clinic_id and tbl in _clinic_scoped:
+                param_key = f"clinic_id_{tbl}"
+                where_clauses.append(f'clinic_id = :{param_key}')
+                params[param_key] = int(clinic_id)
+
+            if date_from:
+                # Apply date filter on created_at if column exists conceptually; we use
+                # a subquery-safe approach — only apply to tables known to have created_at.
+                _has_created_at = {
+                    "clinics", "patients", "appointments", "online_bookings",
+                    "prescriptions", "lab_orders", "imaging_orders", "invoices",
+                    "admissions", "referrals", "pharmacy_orders", "staff",
+                    "audit_logs", "internal_messages",
+                }
+                if tbl in _has_created_at:
+                    param_key = f"date_from_{tbl}"
+                    where_clauses.append(f"created_at >= :{param_key}")
+                    params[param_key] = date_from
+
+            if date_to:
+                _has_created_at = {
+                    "clinics", "patients", "appointments", "online_bookings",
+                    "prescriptions", "lab_orders", "imaging_orders", "invoices",
+                    "admissions", "referrals", "pharmacy_orders", "staff",
+                    "audit_logs", "internal_messages",
+                }
+                if tbl in _has_created_at:
+                    param_key = f"date_to_{tbl}"
+                    where_clauses.append(f"created_at <= :{param_key}")
+                    params[param_key] = date_to + "T23:59:59"
+
+            where_str = " AND ".join(where_clauses)
+            select_str = ", ".join(select_exprs)
+            union_parts.append(f'SELECT {select_str} FROM "{tbl}" WHERE {where_str}')
+
+        full_sql = " UNION ALL ".join(union_parts) + " LIMIT 1000"
+        result = db.execute(text(full_sql), params)
+        col_names = list(result.keys())
+        raw_rows = result.fetchall()
+
+        out_rows = []
+        for row in raw_rows:
+            out_rows.append({col_names[i]: row[i] for i in range(len(col_names))})
+
+        return {
+            "columns": [{"key": ck["key"], "label": ck["label"]} for ck in all_col_keys],
+            "rows": out_rows,
+            "total": len(out_rows),
+        }
+
+    # ── Legacy dataset-based query (backward compat) ──────────────────────────
     dataset = body.get("dataset", "health_centers")
     date_from = body.get("date_from")
     date_to = body.get("date_to")
@@ -1666,3 +1828,33 @@ def get_clinic_clinical_stats(clinic_id: int, db: Session = Depends(get_db), cur
         "total_lab_orders": total_lab, "total_prescriptions": total_rx,
         "top_doctors": [{"name": n, "appointments": c} for n, c in top_docs],
     }
+
+
+# ── Clinic Billing Config ─────────────────────────────────────────────────────
+
+@router.get("/clinics/{clinic_id}/billing-config")
+def get_clinic_billing_config(clinic_id: int, db: Session = Depends(get_db), current=Depends(get_current_platform_admin)):
+    setting = db.query(PlatformSetting).filter(PlatformSetting.key == f"billing_config_{clinic_id}").first()
+    if not setting:
+        return {
+            "currency": "INR", "tax_rate": 18, "consultation_fee": 500,
+            "enable_insurance": False, "payment_gateway": "razorpay",
+            "auto_billing": False, "billing_cycle": "monthly",
+            "late_fee_pct": 2, "discount_pct": 0,
+        }
+    return setting.value
+
+
+@router.put("/clinics/{clinic_id}/billing-config")
+def update_clinic_billing_config(clinic_id: int, body: dict, db: Session = Depends(get_db), current=Depends(get_current_platform_admin)):
+    key = f"billing_config_{clinic_id}"
+    setting = db.query(PlatformSetting).filter(PlatformSetting.key == key).first()
+    if setting:
+        setting.value = body
+        setting.updated_at = datetime.utcnow()
+        setting.updated_by = current.id
+    else:
+        setting = PlatformSetting(key=key, value=body, updated_at=datetime.utcnow(), updated_by=current.id)
+        db.add(setting)
+    db.commit()
+    return {"ok": True, "key": key}
