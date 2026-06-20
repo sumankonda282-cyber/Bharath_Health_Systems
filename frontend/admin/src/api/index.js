@@ -55,4 +55,15 @@ export const adminApi = {
   // Clinic clinical activity + payments
   getClinicClinicalStats: (id) => api.get(`/platform/clinics/${id}/clinical-stats`),
   getClinicPayments: (id) => api.get(`/platform/clinics/${id}/payments`),
+  recordPayment: (id, body) => api.post(`/platform/clinics/${id}/payment`, body),
+  extendSubscription: (id, days) => api.put(`/platform/clinics/${id}/extend`, { days }),
+  getAllPayments: (params) => api.get('/platform/payments', { params }),
+
+  // Billing config
+  getBillingConfig: (id) => api.get(`/platform/clinics/${id}/billing-config`),
+  updateBillingConfig: (id, body) => api.put(`/platform/clinics/${id}/billing-config`, body),
+
+  // Plan config (subscription pricing)
+  getPlanConfig: () => api.get('/platform/plan-config'),
+  updatePlanConfig: (body) => api.put('/platform/plan-config', body),
 }

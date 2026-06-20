@@ -266,6 +266,14 @@ function ChangePlanModal({ clinic, planConfig, onClose, onSaved, addToast }) {
   async function submit(e) {
     e.preventDefault()
     if (selected === clinic.plan) { onClose(); return }
+    const selPlanConfig = planConfig?.plans?.[selected]
+    if (selPlanConfig?.max_doctors && selPlanConfig.max_doctors < 999) {
+      const doctorCount = clinic.doctor_count || 0
+      if (doctorCount > selPlanConfig.max_doctors) {
+        addToast(`Cannot downgrade: clinic has ${doctorCount} doctors, plan allows max ${selPlanConfig.max_doctors}`, 'error')
+        return
+      }
+    }
     setSaving(true)
     try {
       await api.put(`/platform/clinics/${clinic.id}/plan`, { plan: selected })
@@ -279,7 +287,7 @@ function ChangePlanModal({ clinic, planConfig, onClose, onSaved, addToast }) {
     }
   }
 
-  const selPlan = planConfig?.plans?.[selected]
+  const selPlan = planConfig?.plans?.[selected] || {}
   const currentBill = calcMonthlyBill(clinic, planConfig)
   const newBill = selPlan ? (clinic.doctor_count || 0) * (selPlan.price_per_doctor || 0) : 0
 
