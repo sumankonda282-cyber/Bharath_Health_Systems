@@ -3,7 +3,11 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, and_
 from typing import Optional
 from datetime import datetime, date, timedelta
-from dateutil.relativedelta import relativedelta
+def _years_between(d1: date, d2: date) -> int:
+    years = d1.year - d2.year
+    if (d1.month, d1.day) < (d2.month, d2.day):
+        years -= 1
+    return years
 from sqlalchemy import or_
 from app.db.session import get_db
 from app.core.security import get_current_platform_admin, hash_password
@@ -1401,10 +1405,12 @@ def search_patients(
     if blood_group:
         q_obj = q_obj.filter(Patient.blood_group == blood_group)
     if age_from:
-        cutoff = date.today() - relativedelta(years=age_from)
+        today = date.today()
+        cutoff = today.replace(year=today.year - age_from)
         q_obj = q_obj.filter(Patient.date_of_birth <= cutoff)
     if age_to:
-        cutoff = date.today() - relativedelta(years=age_to)
+        today = date.today()
+        cutoff = today.replace(year=today.year - age_to)
         q_obj = q_obj.filter(Patient.date_of_birth >= cutoff)
     if reg_date_from:
         q_obj = q_obj.filter(Patient.created_at >= reg_date_from)
@@ -1425,7 +1431,7 @@ def search_patients(
         last_visit = db.query(func.max(Appointment.appointment_date)).filter(Appointment.patient_id == p.id).scalar()
         age = None
         if p.date_of_birth:
-            age = relativedelta(date.today(), p.date_of_birth).years
+            age = _years_between(date.today(), p.date_of_birth)
         results.append({
             "patient_id": p.id, "bh_id": p.bh_id or "", "uhid": p.uhid or "",
             "full_name": p.full_name, "mobile": p.mobile or "", "gender": p.gender or "",
@@ -1452,7 +1458,7 @@ def get_patient_detail(patient_id: int, db: Session = Depends(get_db), current=D
     if not p:
         raise HTTPException(404, "Patient not found")
     clinic = db.query(Clinic).filter(Clinic.id == p.clinic_id).first()
-    age = relativedelta(date.today(), p.date_of_birth).years if p.date_of_birth else None
+    age = _years_between(date.today(), p.date_of_birth) if p.date_of_birth else None
 
     appts = db.query(Appointment).filter(Appointment.patient_id == p.id).order_by(Appointment.appointment_date.desc()).limit(25).all()
     timeline = [{
@@ -1515,7 +1521,7 @@ def get_population_analytics(db: Session = Depends(get_db), current=Depends(get_
     all_pts = db.query(Patient.date_of_birth).filter(Patient.date_of_birth != None).all()
     age_buckets = {"0-10": 0, "11-20": 0, "21-30": 0, "31-40": 0, "41-50": 0, "51-60": 0, "61-70": 0, "71-80": 0, "81+": 0}
     for (dob,) in all_pts:
-        age = relativedelta(today, dob).years
+        age = _years_between(today, dob)
         if age <= 10: age_buckets["0-10"] += 1
         elif age <= 20: age_buckets["11-20"] += 1
         elif age <= 30: age_buckets["21-30"] += 1
