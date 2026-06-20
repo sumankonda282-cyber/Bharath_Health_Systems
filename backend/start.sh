@@ -1,7 +1,11 @@
 #!/bin/bash
 set -e
 
-echo "[startup] Applying safe column additions (idempotent)..."
+# Run migrations + seed in background so uvicorn binds the port immediately.
+# Render's port scan times out after ~5 min if uvicorn doesn't start first.
+(
+set +e  # don't let migration failures kill the background job
+echo "[bg-migrations] Applying safe column additions (idempotent)..."
 python -c "
 from sqlalchemy import text
 from app.db.session import engine
@@ -489,10 +493,12 @@ try:
     print('[startup] Indexes created/verified.')
 except Exception as e:
     print(f'[startup] Index creation failed: {e}')
-" || echo "[startup] Safe column migrations failed — continuing"
+" || echo "[bg-migrations] Column migrations failed — continuing"
 
-echo "[startup] Loading medical terminology library (idempotent)..."
-timeout 120 python -m app.seed_medical_library || echo "[startup] Medical library load failed (non-fatal) — continuing"
+echo "[bg-migrations] Loading medical terminology library (idempotent)..."
+timeout 120 python -m app.seed_medical_library || echo "[bg-migrations] Medical library load failed (non-fatal)"
+echo "[bg-migrations] Done."
+) &
 
 echo "[startup] Starting server..."
 exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8000}" --workers 1
