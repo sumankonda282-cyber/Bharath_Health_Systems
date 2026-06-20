@@ -245,6 +245,15 @@ safe_cols = [
     \"CREATE INDEX IF NOT EXISTS idx_barcode_master_barcode ON barcode_master(barcode)\",
     \"ALTER TABLE drugs ADD COLUMN IF NOT EXISTS primary_brand VARCHAR(100)\",
 
+    # ── tables present in models.py but previously missing from start.sh ──
+    \"CREATE TABLE IF NOT EXISTS clinic_patient_tags (id SERIAL PRIMARY KEY, clinic_id INTEGER NOT NULL REFERENCES clinics(id), tag_name VARCHAR(100) NOT NULL, icd10_code VARCHAR(20), specialty VARCHAR(100), usage_count INTEGER DEFAULT 0, created_by INTEGER REFERENCES staff(id), created_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE TABLE IF NOT EXISTS patient_tags (id SERIAL PRIMARY KEY, patient_id INTEGER NOT NULL REFERENCES patients(id), clinic_id INTEGER NOT NULL REFERENCES clinics(id), tag_name VARCHAR(100) NOT NULL, icd10_code VARCHAR(20), saved_tag_id INTEGER REFERENCES clinic_patient_tags(id), assigned_by INTEGER REFERENCES staff(id), assigned_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE TABLE IF NOT EXISTS encounter_access_logs (id SERIAL PRIMARY KEY, patient_id INTEGER NOT NULL REFERENCES patients(id), accessed_by INTEGER NOT NULL REFERENCES staff(id), accessing_clinic_id INTEGER NOT NULL REFERENCES clinics(id), session_expires_at TIMESTAMP, accessed_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE TABLE IF NOT EXISTS doctor_ratings (id SERIAL PRIMARY KEY, doctor_id INTEGER NOT NULL REFERENCES doctor_profiles(id), patient_id INTEGER NOT NULL REFERENCES patients(id), appointment_id INTEGER REFERENCES appointments(id), rating INTEGER NOT NULL, review TEXT, is_visible BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE TABLE IF NOT EXISTS subscription_payments (id SERIAL PRIMARY KEY, clinic_id INTEGER NOT NULL REFERENCES clinics(id), amount NUMERIC(12,2) NOT NULL, method VARCHAR(20) NOT NULL DEFAULT 'cash', reference VARCHAR(200), notes TEXT, period_from DATE, period_to DATE, recorded_by INTEGER, created_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE TABLE IF NOT EXISTS visitor_policies (id SERIAL PRIMARY KEY, clinic_id INTEGER NOT NULL REFERENCES clinics(id), ward_id INTEGER REFERENCES wards(id), visit_start VARCHAR(5) DEFAULT '10:00', visit_end VARCHAR(5) DEFAULT '20:00', max_active INTEGER DEFAULT 5, max_persons INTEGER DEFAULT 2, attender_allowed BOOLEAN DEFAULT TRUE, lockdown BOOLEAN DEFAULT FALSE, updated_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE TABLE IF NOT EXISTS visitor_passes (id SERIAL PRIMARY KEY, clinic_id INTEGER NOT NULL REFERENCES clinics(id), pass_code VARCHAR(12) UNIQUE NOT NULL, pass_type VARCHAR(10) DEFAULT 'visit', admission_id INTEGER NOT NULL REFERENCES admissions(id), patient_id INTEGER NOT NULL REFERENCES patients(id), visitor_name VARCHAR(200) NOT NULL, relation VARCHAR(50), visitor_mobile VARCHAR(20), id_proof_type VARCHAR(50), id_proof_number VARCHAR(100), persons INTEGER DEFAULT 1, valid_from TIMESTAMP NOT NULL, valid_until TIMESTAMP NOT NULL, status VARCHAR(20) DEFAULT 'active', checked_in_at TIMESTAMP, checked_out_at TIMESTAMP, revoked_by INTEGER REFERENCES staff(id), created_by INTEGER REFERENCES staff(id), created_at TIMESTAMP DEFAULT NOW())\",
+
     # ── platform_settings (key-value config, queried by _get_rate_card on every clinic endpoint) ──
     \"CREATE TABLE IF NOT EXISTS platform_settings (key VARCHAR(100) PRIMARY KEY, value JSONB NOT NULL DEFAULT '{}', updated_at TIMESTAMP DEFAULT NOW(), updated_by INTEGER REFERENCES platform_admins(id))\",
 
@@ -429,7 +438,7 @@ indexes = [
     \"CREATE INDEX IF NOT EXISTS idx_invoices_clinic ON invoices(clinic_id)\",
     \"CREATE INDEX IF NOT EXISTS idx_invoices_created ON invoices(clinic_id, created_at)\",
     \"CREATE INDEX IF NOT EXISTS idx_admissions_clinic_status ON admissions(clinic_id, status)\",
-    \"CREATE INDEX IF NOT EXISTS idx_audit_log_clinic ON audit_logs(clinic_id)\",
+    \"CREATE INDEX IF NOT EXISTS idx_audit_log_admin ON audit_logs(admin_id)\",
     \"CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_logs(created_at)\",
     \"CREATE INDEX IF NOT EXISTS idx_medicines_clinic ON medicines(clinic_id)\",
     \"CREATE INDEX IF NOT EXISTS idx_lab_orders_clinic ON lab_orders(clinic_id)\",
