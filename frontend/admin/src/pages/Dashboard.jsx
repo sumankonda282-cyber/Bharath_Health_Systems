@@ -87,7 +87,13 @@ function ChartCard({ title, children }) {
   )
 }
 
-const MODULES = ['Pharmacy', 'Lab', 'Imaging', 'Telehealth', 'Inpatient']
+const MODULES = [
+  { key: 'pharmacy',   label: 'Pharmacy' },
+  { key: 'lab',        label: 'Lab' },
+  { key: 'imaging',    label: 'Imaging' },
+  { key: 'telehealth', label: 'Telehealth' },
+  { key: 'inpatient',  label: 'Inpatient' },
+]
 
 export default function Dashboard() {
   const [data, setData] = useState(null)
@@ -141,6 +147,10 @@ export default function Dashboard() {
   const new_this_month = data.new_this_month || 0
   const mrr = data.mrr || 0
   const rate_card = data.rate_card || {}
+  const appointments_today = data.appointments_today ?? '—'
+  const invoices_today = data.invoices_today ?? '—'
+  const new_patients_today = data.new_patients_today ?? '—'
+  const module_adoption = data.module_adoption || {}
 
   const statusSegments = [
     { key: 'active', label: 'Active', value: active_clinics, color: STATUS_COLORS.active },
@@ -206,9 +216,9 @@ export default function Dashboard() {
   ]
 
   const activity = [
-    { label: 'Appointments Today', value: '—', sub: 'Today' },
-    { label: 'Invoices Today', value: '—', sub: 'Today' },
-    { label: 'New Patients Today', value: '—', sub: 'Today' },
+    { label: 'Appointments Today', value: appointments_today, sub: 'Today' },
+    { label: 'Invoices Today', value: invoices_today, sub: 'Today' },
+    { label: 'New Patients Today', value: new_patients_today, sub: 'Today' },
     { label: 'New HCs This Month', value: new_this_month, sub: 'This month' },
   ]
 
@@ -270,15 +280,18 @@ export default function Dashboard() {
           <div className="card-sm p-3">
             <div className="mb-2 text-[11px] uppercase tracking-wide text-gray-500">Module Adoption</div>
             <div className="flex flex-col gap-2">
-              {MODULES.map((m) => (
-                <div key={m} className="flex items-center gap-2 text-[11px]">
-                  <span className="w-20 shrink-0 text-gray-400">{m}</span>
-                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-800">
-                    <div className="h-full bg-[#F5821E]" style={{ width: '0%' }} />
+              {MODULES.map((m) => {
+                const pct = module_adoption[m.key] ?? 0
+                return (
+                  <div key={m.key} className="flex items-center gap-2 text-[11px]">
+                    <span className="w-20 shrink-0 text-gray-400">{m.label}</span>
+                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-800">
+                      <div className="h-full bg-[#F5821E]" style={{ width: `${pct}%` }} />
+                    </div>
+                    <span className="w-8 text-right text-gray-400">{pct}%</span>
                   </div>
-                  <span className="w-6 text-right text-gray-500">—</span>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
 

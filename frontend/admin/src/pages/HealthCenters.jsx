@@ -407,7 +407,7 @@ export default function HealthCenters() {
                         </span>
                       </td>
                       <td className="td-sm px-3 py-2.5 text-center text-white font-semibold">{c.doctor_count ?? '—'}</td>
-                      <td className="td-sm px-3 py-2.5 text-center text-gray-500">—</td>
+                      <td className="td-sm px-3 py-2.5 text-center text-gray-400">{c.patient_count ?? '—'}</td>
                       <td className="td-sm px-3 py-2.5 text-right text-emerald-400 font-semibold">{fmtMRR(c.monthly_bill)}</td>
                       <td className="td-sm px-3 py-2.5">
                         <div className="flex items-center gap-0.5 text-sm leading-none">

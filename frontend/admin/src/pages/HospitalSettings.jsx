@@ -584,27 +584,49 @@ function RolesTab({ clinicId }) {
 }
 
 // ── Billing Configuration Tab ─────────────────────────────────────────────────────────────────
+const BILLING_DEFAULTS = {
+  currency: 'INR', tax_rate: 18, consultation_fee: 500, enable_insurance: false,
+  payment_gateway: 'razorpay', auto_billing: false, billing_cycle: 'monthly',
+  late_fee_pct: 2, discount_pct: 0,
+}
+
 function BillingTab({ clinicId }) {
-  const [config, setConfig] = useState({
-    currency: 'INR', tax_rate: 18, consultation_fee: 500, enable_insurance: false,
-    payment_gateway: 'razorpay', auto_billing: false, billing_cycle: 'monthly',
-    late_fee_pct: 2, discount_pct: 0,
-  })
+  const [config, setConfig] = useState(BILLING_DEFAULTS)
+  const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (!clinicId) return
+    setLoading(true)
+    setError('')
+    api.get(`/platform/clinics/${clinicId}/billing-config`)
+      .then(res => setConfig({ ...BILLING_DEFAULTS, ...res.data }))
+      .catch(() => setError('Failed to load billing config. Showing defaults.'))
+      .finally(() => setLoading(false))
+  }, [clinicId])
 
   const save = async () => {
     setSaving(true)
+    setMsg('')
     try {
       await api.put(`/platform/clinics/${clinicId}/billing-config`, config)
-      setMsg('Billing configuration saved'); setTimeout(() => setMsg(''), 3000)
-    } catch { setMsg('Saved (local)'); setTimeout(() => setMsg(''), 3000) }
-    finally { setSaving(false) }
+      setMsg('Billing configuration saved')
+      setTimeout(() => setMsg(''), 3000)
+    } catch {
+      setMsg('Failed to save billing configuration. Please try again.')
+      setTimeout(() => setMsg(''), 4000)
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
     <div className="max-w-lg space-y-5">
-      {msg && <div className="p-3 bg-green-900/30 border border-green-700/40 rounded-xl text-green-400 text-sm">{msg}</div>}
+      {loading && <div className="p-3 bg-blue-900/20 border border-blue-700/40 rounded-xl text-blue-400 text-sm">Loading billing configuration…</div>}
+      {error && <div className="p-3 bg-red-900/30 border border-red-700/40 rounded-xl text-red-400 text-sm">{error}</div>}
+      {msg && <div className={`p-3 border rounded-xl text-sm ${msg.startsWith('Failed') ? 'bg-red-900/30 border-red-700/40 text-red-400' : 'bg-green-900/30 border-green-700/40 text-green-400'}`}>{msg}</div>}
       <div className="card p-5 space-y-4">
         <h3 className="text-sm font-semibold text-gray-200">General Billing</h3>
         <div className="grid grid-cols-2 gap-4">

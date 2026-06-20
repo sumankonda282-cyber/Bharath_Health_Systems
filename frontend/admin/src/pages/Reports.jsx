@@ -453,7 +453,14 @@ function DataGrid({ selectedColumns, reportData, loading, error, onRetry, onRemo
             <p className="text-xs text-gray-600 mt-1">Try adjusting the filters or date range.</p>
           </div>
         ) : (
-          <div className="overflow-auto h-full">
+          <div className="flex flex-col h-full overflow-hidden">
+            {rows.length >= 1000 && (
+              <div className="flex-shrink-0 flex items-center gap-2 px-4 py-2 bg-amber-500/10 border-b border-amber-500/30 text-xs text-amber-400">
+                <AlertTriangle size={13} className="flex-shrink-0" />
+                Showing first 1,000 rows{total > 1000 ? ` of ${total.toLocaleString()} total` : ''}. Refine your filters to see all data.
+              </div>
+            )}
+            <div className="overflow-auto flex-1">
             <table className="min-w-full text-sm">
               <thead className="sticky top-0 z-10 bg-gray-900">
                 <tr className="border-b border-gray-800">
@@ -488,6 +495,7 @@ function DataGrid({ selectedColumns, reportData, loading, error, onRetry, onRemo
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         )}
       </div>
