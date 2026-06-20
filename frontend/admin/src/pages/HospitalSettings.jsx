@@ -548,20 +548,11 @@ const ROLE_PERMISSIONS = [
 ]
 
 function RolesTab({ clinicId }) {
-  const [roles, setRoles] = useState(ROLE_PERMISSIONS)
-  const [saving, setSaving] = useState(false)
-  const [msg, setMsg] = useState('')
-
-  const save = () => {
-    setSaving(true)
-    setTimeout(() => { setSaving(false); setMsg('Roles saved successfully'); setTimeout(() => setMsg(''), 3000) }, 800)
-  }
-
   return (
     <div className="space-y-4">
-      {msg && <div className="p-3 bg-green-900/30 border border-green-700/40 rounded-xl text-green-400 text-sm">{msg}</div>}
+      <p className="text-xs text-gray-500">System-defined roles — permissions are enforced by the backend and cannot be modified here.</p>
       <div className="space-y-3">
-        {roles.map(r => (
+        {ROLE_PERMISSIONS.map(r => (
           <div key={r.role} className="card p-4">
             <div className="flex items-start justify-between mb-3">
               <div>
@@ -580,11 +571,6 @@ function RolesTab({ clinicId }) {
           </div>
         ))}
       </div>
-      <button onClick={save} disabled={saving}
-        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 transition-colors">
-        {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-        Save Role Config
-      </button>
     </div>
   )
 }
@@ -598,18 +584,21 @@ function BillingTab({ clinicId }) {
   })
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
+  const [err, setErr] = useState('')
 
   const save = async () => {
-    setSaving(true)
+    setSaving(true); setMsg(''); setErr('')
     try {
       await api.put(`/platform/clinics/${clinicId}/billing-config`, config)
-      setMsg('Billing configuration saved'); setTimeout(() => setMsg(''), 3000)
-    } catch { setMsg('Saved (local)'); setTimeout(() => setMsg(''), 3000) }
+      setMsg('Billing configuration saved')
+      setTimeout(() => setMsg(''), 3000)
+    } catch (e) { setErr(e.message || 'Save failed') }
     finally { setSaving(false) }
   }
 
   return (
     <div className="max-w-lg space-y-5">
+      {err && <div className="p-3 bg-red-900/30 border border-red-700/40 rounded-xl text-red-400 text-sm">{err}</div>}
       {msg && <div className="p-3 bg-green-900/30 border border-green-700/40 rounded-xl text-green-400 text-sm">{msg}</div>}
       <div className="card p-5 space-y-4">
         <h3 className="text-sm font-semibold text-gray-200">General Billing</h3>
@@ -808,7 +797,7 @@ function TemplatesTab({ clinicId }) {
                   </button>
                 </td>
                 <td className="px-3 py-2.5 text-right">
-                  <button className="text-xs text-blue-400 hover:text-blue-300 font-medium">Edit</button>
+                  <span className="text-xs text-gray-600">—</span>
                 </td>
               </tr>
             ))}
@@ -905,7 +894,7 @@ export default function HospitalSettings() {
         setAllClinics(list)
         setClinics(list)
       })
-      .catch(() => {})
+      .catch(e => console.error('Failed to load clinic list:', e.message))
       .finally(() => setLoadingClinics(false))
   }, [])
 

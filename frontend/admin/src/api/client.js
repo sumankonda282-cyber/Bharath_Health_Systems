@@ -9,7 +9,7 @@ const api = axios.create({
 })
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('admin_token')
+  const token = sessionStorage.getItem('admin_token')
   if (token) config.headers.Authorization = `Bearer ${token}`
   return config
 })
@@ -17,13 +17,11 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res.data,
   (err) => {
-    // Only redirect to login on 401 for non-auth endpoints
-    // Login endpoint returning 401 means wrong credentials — show error, don't redirect
     if (err.response?.status === 401) {
       const url = err.config?.url || ''
       const isExempt = url.includes('/login') || url.includes('/send-otp') || url.includes('/verify-otp') || url.includes('/me') || url.includes('/inpatient/')
       if (!isExempt) {
-        localStorage.removeItem('admin_token')
+        sessionStorage.removeItem('admin_token')
         window.location.href = '/login'
       }
     }

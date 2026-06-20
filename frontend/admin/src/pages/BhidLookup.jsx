@@ -41,9 +41,11 @@ export default function BhidLookup() {
 
       {results && (
         <div>
-          <p className="text-sm text-gray-500 mb-3">{results.total} record(s) found for <strong>{results.bh_id}</strong></p>
+          <p className="text-sm text-gray-500 mb-3">
+            {results.total} record(s) found{results.bh_id ? <> for <strong>{results.bh_id}</strong></> : ''}
+          </p>
           <div className="space-y-4">
-            {results.records.map((r, i) => (
+            {(results.records || []).map((r, i) => (
               <div key={i} className="card p-5">
                 <div className="flex items-start justify-between mb-4">
                   <div>

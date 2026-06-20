@@ -296,7 +296,7 @@ export default function AuditLog() {
   const failedLogins = logs.filter(l => {
     if ((l.action || '') !== 'login_failed') return false
     const t = new Date(l.created_at).getTime()
-    return Number.isNaN(t) ? true : t >= since24h
+    return Number.isNaN(t) ? false : t >= since24h
   })
 
   const handleRowClick = (log) => {
