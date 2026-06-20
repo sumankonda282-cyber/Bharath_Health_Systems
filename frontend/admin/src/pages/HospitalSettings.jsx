@@ -21,10 +21,10 @@ const WARD_TYPE_LABELS = {
 }
 
 const BED_STATUS_STYLE = {
-  vacant: 'bg-green-100 text-green-700 border-green-200',
-  occupied: 'bg-red-100 text-red-700 border-red-200',
-  pending_cleaning: 'bg-orange-100 text-orange-700 border-orange-200',
-  maintenance: 'bg-gray-100 text-gray-600 border-gray-200',
+  vacant: 'bg-green-900/30 text-green-400 border-green-700/40',
+  occupied: 'bg-red-900/30 text-red-400 border-red-700/40',
+  pending_cleaning: 'bg-orange-900/30 text-orange-400 border-orange-700/40',
+  maintenance: 'bg-gray-800 text-gray-400 border-gray-700',
 }
 
 const BED_STATUS_LABELS = {
@@ -37,7 +37,7 @@ function Toggle2({ enabled, onChange, label }) {
     <button
       type="button"
       onClick={() => onChange(!enabled)}
-      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${enabled ? 'bg-blue-600' : 'bg-gray-200'}`}
+      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${enabled ? 'bg-blue-600' : 'bg-gray-700'}`}
       aria-label={label}
     >
       <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow ${enabled ? 'translate-x-6' : 'translate-x-1'}`} />
@@ -75,8 +75,8 @@ function OverviewTab({ clinicId }) {
 
   return (
     <div className="max-w-lg space-y-5">
-      {err && <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">{err}</div>}
-      {msg && <div className="p-4 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm">{msg}</div>}
+      {err && <div className="p-4 bg-red-900/30 border border-red-700/40 rounded-xl text-red-400 text-sm">{err}</div>}
+      {msg && <div className="p-4 bg-green-900/30 border border-green-700/40 rounded-xl text-green-400 text-sm">{msg}</div>}
 
       <div className="card p-5 space-y-5">
         <div>
@@ -87,9 +87,9 @@ function OverviewTab({ clinicId }) {
                 key={type}
                 type="button"
                 onClick={() => setConfig(c => ({ ...c, org_type: type }))}
-                className={`flex-1 py-2.5 rounded-xl border text-sm font-medium transition-all capitalize ${config.org_type === type ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+                className={`flex-1 py-2.5 rounded-xl border text-sm font-medium transition-all capitalize ${config.org_type === type ? 'border-[#F5821E] bg-[#F5821E]/10 text-[#F5821E]' : 'border-gray-700 text-gray-400 hover:bg-gray-800/40'}`}
               >
-                {type === 'clinic' ? 'Clinic (Outpatient)' : 'Hospital (Inpatient + Outpatient)'}
+                {type === 'clinic' ? 'Outpatient' : 'Hospital'}
               </button>
             ))}
           </div>
@@ -104,13 +104,13 @@ function OverviewTab({ clinicId }) {
             placeholder="e.g. BHC, MED, GH"
             maxLength={6}
           />
-          <p className="text-xs text-gray-400 mt-1">Used as prefix for patient IDs (e.g. BHC-0001)</p>
+          <p className="text-xs text-gray-500 mt-1">Used as prefix for patient IDs (e.g. BHC-0001)</p>
         </div>
 
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-sm font-medium text-gray-700">Wards & Bed Management</div>
-            <div className="text-xs text-gray-400 mt-0.5">Enable ward/bed tracking for inpatient admissions</div>
+            <div className="text-sm font-medium text-gray-200">Wards & Bed Management</div>
+            <div className="text-xs text-gray-500 mt-0.5">Enable ward/bed tracking for inpatient admissions</div>
           </div>
           <Toggle2
             enabled={config.wards_enabled || false}
@@ -147,11 +147,11 @@ function DeptModal({ dept, clinicId, onClose, onSaved }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+      <div className="bg-gray-900 border border-gray-800 rounded-2xl shadow-xl w-full max-w-md p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold" style={{ color: '#0F2557' }}>{dept?.id ? 'Edit Department' : 'Add Department'}</h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500"><X size={16} /></button>
+          <h3 className="text-lg font-bold text-white">{dept?.id ? 'Edit Department' : 'Add Department'}</h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-800 text-gray-500"><X size={16} /></button>
         </div>
         <form onSubmit={submit} className="space-y-3">
           <div><label className="label">Name *</label><input className="input" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required /></div>
@@ -166,10 +166,10 @@ function DeptModal({ dept, clinicId, onClose, onSaved }) {
             <div className="flex-1"><label className="label">Color</label><input type="color" className="input h-10 p-1 cursor-pointer" value={form.color_hex || '#0F2557'} onChange={e => setForm(f => ({ ...f, color_hex: e.target.value }))} /></div>
             <div className="flex items-center gap-2 pt-5">
               <Toggle2 enabled={form.is_active !== false} onChange={v => setForm(f => ({ ...f, is_active: v }))} label="Active" />
-              <span className="text-sm text-gray-600">Active</span>
+              <span className="text-sm text-gray-400">Active</span>
             </div>
           </div>
-          {err && <p className="text-red-600 text-sm">{err}</p>}
+          {err && <p className="text-red-400 text-sm">{err}</p>}
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
             <button type="submit" disabled={saving} className="btn-primary flex-1 justify-center">{saving ? 'Saving…' : 'Save'}</button>
@@ -205,10 +205,10 @@ function DepartmentsTab({ clinicId }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-base font-semibold text-gray-700">Departments</h2>
+        <h2 className="text-base font-semibold text-gray-200">Departments</h2>
         <button onClick={() => setModal('new')} className="btn-primary"><Plus size={14} />Add Department</button>
       </div>
-      {err && <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm mb-4">{err}</div>}
+      {err && <div className="p-4 bg-red-900/30 border border-red-700/40 rounded-xl text-red-400 text-sm mb-4">{err}</div>}
       {loading ? <div className="flex justify-center py-16"><Loader2 size={28} className="animate-spin text-gray-400" /></div> : (
         <div className="card overflow-hidden">
           <table className="table">
@@ -219,9 +219,9 @@ function DepartmentsTab({ clinicId }) {
               <th className="th">Status</th>
               <th className="th"></th>
             </tr></thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-gray-800">
               {depts.length === 0 ? (
-                <tr><td colSpan={5} className="td text-center text-gray-400 py-8">No departments yet</td></tr>
+                <tr><td colSpan={5} className="td text-center text-gray-500 py-8">No departments yet</td></tr>
               ) : depts.map(d => (
                 <tr key={d.id} className="tr-hover">
                   <td className="td font-medium">
@@ -237,8 +237,8 @@ function DepartmentsTab({ clinicId }) {
                   </td>
                   <td className="td">
                     <div className="flex gap-1">
-                      <button onClick={() => setModal(d)} className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-500"><Edit2 size={14} /></button>
-                      <button onClick={() => remove(d.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500"><Trash2 size={14} /></button>
+                      <button onClick={() => setModal(d)} className="p-1.5 rounded-lg hover:bg-blue-900/30 text-blue-400"><Edit2 size={14} /></button>
+                      <button onClick={() => remove(d.id)} className="p-1.5 rounded-lg hover:bg-red-900/30 text-red-400"><Trash2 size={14} /></button>
                     </div>
                   </td>
                 </tr>
@@ -280,11 +280,11 @@ function WardModal({ ward, departments, clinicId, onClose, onSaved }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+      <div className="bg-gray-900 border border-gray-800 rounded-2xl shadow-xl w-full max-w-md p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold" style={{ color: '#0F2557' }}>{ward?.id ? 'Edit Ward' : 'Add Ward'}</h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500"><X size={16} /></button>
+          <h3 className="text-lg font-bold text-white">{ward?.id ? 'Edit Ward' : 'Add Ward'}</h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-800 text-gray-500"><X size={16} /></button>
         </div>
         <form onSubmit={submit} className="space-y-3">
           <div><label className="label">Name *</label><input className="input" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required /></div>
@@ -306,7 +306,7 @@ function WardModal({ ward, departments, clinicId, onClose, onSaved }) {
               {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
           </div>
-          {err && <p className="text-red-600 text-sm">{err}</p>}
+          {err && <p className="text-red-400 text-sm">{err}</p>}
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
             <button type="submit" disabled={saving} className="btn-primary flex-1 justify-center">{saving ? 'Saving…' : 'Save'}</button>
@@ -348,7 +348,7 @@ function WardsTab({ clinicId }) {
     <div>
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <h2 className="text-base font-semibold text-gray-700">Wards</h2>
+          <h2 className="text-base font-semibold text-gray-200">Wards</h2>
           <select className="input text-sm py-1.5 w-48" value={filterDept} onChange={e => setFilterDept(e.target.value)}>
             <option value="">All Departments</option>
             {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
@@ -356,7 +356,7 @@ function WardsTab({ clinicId }) {
         </div>
         <button onClick={() => setModal('new')} className="btn-primary"><Plus size={14} />Add Ward</button>
       </div>
-      {err && <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm mb-4">{err}</div>}
+      {err && <div className="p-4 bg-red-900/30 border border-red-700/40 rounded-xl text-red-400 text-sm mb-4">{err}</div>}
       {loading ? <div className="flex justify-center py-16"><Loader2 size={28} className="animate-spin text-gray-400" /></div> : (
         <div className="card overflow-hidden">
           <table className="table">
@@ -368,9 +368,9 @@ function WardsTab({ clinicId }) {
               <th className="th">Department</th>
               <th className="th"></th>
             </tr></thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-gray-800">
               {filtered.length === 0 ? (
-                <tr><td colSpan={6} className="td text-center text-gray-400 py-8">No wards found</td></tr>
+                <tr><td colSpan={6} className="td text-center text-gray-500 py-8">No wards found</td></tr>
               ) : filtered.map(w => {
                 const dept = departments.find(d => d.id === w.department_id)
                 return (
@@ -382,8 +382,8 @@ function WardsTab({ clinicId }) {
                     <td className="td text-sm text-gray-500">{dept?.name || '—'}</td>
                     <td className="td">
                       <div className="flex gap-1">
-                        <button onClick={() => setModal(w)} className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-500"><Edit2 size={14} /></button>
-                        <button onClick={() => remove(w.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500"><Trash2 size={14} /></button>
+                        <button onClick={() => setModal(w)} className="p-1.5 rounded-lg hover:bg-blue-900/30 text-blue-400"><Edit2 size={14} /></button>
+                        <button onClick={() => remove(w.id)} className="p-1.5 rounded-lg hover:bg-red-900/30 text-red-400"><Trash2 size={14} /></button>
                       </div>
                     </td>
                   </tr>
@@ -422,11 +422,11 @@ function BedModal({ wards, clinicId, onClose, onSaved }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+      <div className="bg-gray-900 border border-gray-800 rounded-2xl shadow-xl w-full max-w-sm p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold" style={{ color: '#0F2557' }}>Add Bed</h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500"><X size={16} /></button>
+          <h3 className="text-lg font-bold text-white">Add Bed</h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-800 text-gray-500"><X size={16} /></button>
         </div>
         <form onSubmit={submit} className="space-y-3">
           <div><label className="label">Bed Number *</label><input className="input" value={form.bed_number} onChange={e => setForm(f => ({ ...f, bed_number: e.target.value }))} required placeholder="e.g. B-101" /></div>
@@ -443,7 +443,7 @@ function BedModal({ wards, clinicId, onClose, onSaved }) {
               {wards.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
             </select>
           </div>
-          {err && <p className="text-red-600 text-sm">{err}</p>}
+          {err && <p className="text-red-400 text-sm">{err}</p>}
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
             <button type="submit" disabled={saving} className="btn-primary flex-1 justify-center">{saving ? 'Saving…' : 'Add Bed'}</button>
@@ -484,7 +484,7 @@ function BedsTab({ clinicId }) {
     <div>
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <h2 className="text-base font-semibold text-gray-700">Beds</h2>
+          <h2 className="text-base font-semibold text-gray-200">Beds</h2>
           <select className="input text-sm py-1.5 w-40" value={filterWard} onChange={e => setFilterWard(e.target.value)}>
             <option value="">All Wards</option>
             {wards.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
@@ -492,15 +492,15 @@ function BedsTab({ clinicId }) {
         </div>
         <button onClick={() => setShowAdd(true)} className="btn-primary"><Plus size={14} />Add Bed</button>
       </div>
-      {err && <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm mb-4">{err}</div>}
+      {err && <div className="p-4 bg-red-900/30 border border-red-700/40 rounded-xl text-red-400 text-sm mb-4">{err}</div>}
       {loading ? <div className="flex justify-center py-16"><Loader2 size={28} className="animate-spin text-gray-400" /></div> : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
           {filtered.length === 0 ? (
-            <div className="col-span-full py-16 text-center text-gray-400"><BedDouble size={32} className="mx-auto mb-2 opacity-30" /><p>No beds found</p></div>
+            <div className="col-span-full py-16 text-center text-gray-500"><BedDouble size={32} className="mx-auto mb-2 opacity-30" /><p>No beds found</p></div>
           ) : filtered.map(b => {
             const ward = wards.find(w => w.id === b.ward_id)
             return (
-              <div key={b.id} className={`rounded-xl border p-3 ${BED_STATUS_STYLE[b.status] || 'bg-gray-50 border-gray-200'}`}>
+              <div key={b.id} className={`rounded-xl border p-3 ${BED_STATUS_STYLE[b.status] || 'bg-gray-800/40 border-gray-700'}`}>
                 <div className="font-bold text-base mb-0.5">{b.bed_number}</div>
                 <div className="text-xs uppercase font-medium mb-1 opacity-70">{b.bed_type}</div>
                 <div className="text-xs opacity-60 mb-2 truncate">{ward?.name || '—'}</div>
@@ -508,7 +508,7 @@ function BedsTab({ clinicId }) {
                 {(b.status === 'maintenance' || b.status === 'pending_cleaning') && (
                   <button
                     onClick={() => updateStatus(b.id, 'vacant')}
-                    className="mt-2 w-full text-xs py-1 px-2 rounded-lg bg-white/60 hover:bg-white border border-current font-medium transition-colors"
+                    className="mt-2 w-full text-xs py-1 px-2 rounded-lg bg-gray-900/60 hover:bg-gray-900 border border-current font-medium transition-colors"
                   >
                     Mark Vacant
                   </button>
@@ -516,7 +516,7 @@ function BedsTab({ clinicId }) {
                 {b.status === 'vacant' && (
                   <button
                     onClick={() => updateStatus(b.id, 'maintenance')}
-                    className="mt-2 w-full text-xs py-1 px-2 rounded-lg bg-white/60 hover:bg-white border border-current font-medium transition-colors"
+                    className="mt-2 w-full text-xs py-1 px-2 rounded-lg bg-gray-900/60 hover:bg-gray-900 border border-current font-medium transition-colors"
                   >
                     Maintenance
                   </button>
@@ -553,20 +553,20 @@ function RolesTab({ clinicId }) {
 
   return (
     <div className="space-y-4">
-      {msg && <div className="p-3 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm">{msg}</div>}
+      {msg && <div className="p-3 bg-green-900/30 border border-green-700/40 rounded-xl text-green-400 text-sm">{msg}</div>}
       <div className="space-y-3">
         {roles.map(r => (
           <div key={r.role} className="card p-4">
             <div className="flex items-start justify-between mb-3">
               <div>
-                <div className="font-semibold text-gray-800 text-sm">{r.role}</div>
+                <div className="font-semibold text-white text-sm">{r.role}</div>
                 <div className="text-xs text-gray-500 mt-0.5">{r.desc}</div>
               </div>
-              <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-medium">Active</span>
+              <span className="text-xs bg-indigo-900/40 text-indigo-400 px-2 py-0.5 rounded-full font-medium">Active</span>
             </div>
             <div className="flex flex-wrap gap-1.5">
               {r.perms.map(p => (
-                <span key={p} className="inline-flex items-center gap-1 text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                <span key={p} className="inline-flex items-center gap-1 text-xs bg-gray-800 text-gray-400 px-2 py-0.5 rounded-full">
                   <Check size={10} className="text-green-500" />{p}
                 </span>
               ))}
@@ -604,58 +604,58 @@ function BillingTab({ clinicId }) {
 
   return (
     <div className="max-w-lg space-y-5">
-      {msg && <div className="p-3 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm">{msg}</div>}
+      {msg && <div className="p-3 bg-green-900/30 border border-green-700/40 rounded-xl text-green-400 text-sm">{msg}</div>}
       <div className="card p-5 space-y-4">
-        <h3 className="text-sm font-semibold text-gray-700">General Billing</h3>
+        <h3 className="text-sm font-semibold text-gray-200">General Billing</h3>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Currency</label>
+            <label className="block text-xs font-medium text-gray-400 mb-1">Currency</label>
             <select className="input text-sm" value={config.currency} onChange={e => setConfig(p => ({...p, currency: e.target.value}))}>
               <option value="INR">INR (₹)</option>
               <option value="USD">USD ($)</option>
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">GST Rate (%)</label>
+            <label className="block text-xs font-medium text-gray-400 mb-1">GST Rate (%)</label>
             <input type="number" className="input text-sm" value={config.tax_rate} onChange={e => setConfig(p => ({...p, tax_rate: +e.target.value}))} />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Base Consultation Fee (₹)</label>
+            <label className="block text-xs font-medium text-gray-400 mb-1">Base Consultation Fee (₹)</label>
             <input type="number" className="input text-sm" value={config.consultation_fee} onChange={e => setConfig(p => ({...p, consultation_fee: +e.target.value}))} />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Late Fee (%)</label>
+            <label className="block text-xs font-medium text-gray-400 mb-1">Late Fee (%)</label>
             <input type="number" className="input text-sm" value={config.late_fee_pct} onChange={e => setConfig(p => ({...p, late_fee_pct: +e.target.value}))} />
           </div>
         </div>
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-sm font-medium text-gray-700">Insurance Billing</div>
+            <div className="text-sm font-medium text-gray-200">Insurance Billing</div>
             <div className="text-xs text-gray-500">Accept TPA / Mediclaim payments</div>
           </div>
           <button onClick={() => setConfig(p => ({...p, enable_insurance: !p.enable_insurance}))}
-            className={`w-11 h-6 rounded-full transition-colors relative ${config.enable_insurance ? 'bg-blue-600' : 'bg-gray-200'}`}>
+            className={`w-11 h-6 rounded-full transition-colors relative ${config.enable_insurance ? 'bg-blue-600' : 'bg-gray-700'}`}>
             <span className={`absolute top-1 h-4 w-4 bg-white rounded-full shadow transition-transform ${config.enable_insurance ? 'translate-x-6' : 'translate-x-1'}`} />
           </button>
         </div>
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-sm font-medium text-gray-700">Auto-billing</div>
+            <div className="text-sm font-medium text-gray-200">Auto-billing</div>
             <div className="text-xs text-gray-500">Automatically generate invoices at month-end</div>
           </div>
           <button onClick={() => setConfig(p => ({...p, auto_billing: !p.auto_billing}))}
-            className={`w-11 h-6 rounded-full transition-colors relative ${config.auto_billing ? 'bg-blue-600' : 'bg-gray-200'}`}>
+            className={`w-11 h-6 rounded-full transition-colors relative ${config.auto_billing ? 'bg-blue-600' : 'bg-gray-700'}`}>
             <span className={`absolute top-1 h-4 w-4 bg-white rounded-full shadow transition-transform ${config.auto_billing ? 'translate-x-6' : 'translate-x-1'}`} />
           </button>
         </div>
       </div>
       <div className="card p-5 space-y-3">
-        <h3 className="text-sm font-semibold text-gray-700">Payment Gateway</h3>
+        <h3 className="text-sm font-semibold text-gray-200">Payment Gateway</h3>
         {['razorpay', 'paytm', 'phonepe', 'stripe'].map(gw => (
           <label key={gw} className="flex items-center gap-3 cursor-pointer">
             <input type="radio" name="gw" value={gw} checked={config.payment_gateway === gw}
               onChange={() => setConfig(p => ({...p, payment_gateway: gw}))} className="accent-blue-600" />
-            <span className="text-sm capitalize text-gray-700">{gw}</span>
+            <span className="text-sm capitalize text-gray-200">{gw}</span>
           </label>
         ))}
       </div>
@@ -693,23 +693,23 @@ function EmergencyTab({ clinicId }) {
       <div className="space-y-2">
         {contacts.map(c => (
           <div key={c.id} className="card p-4 flex items-start gap-4">
-            <div className="w-9 h-9 rounded-xl bg-red-100 flex items-center justify-center flex-shrink-0">
-              <Phone size={15} className="text-red-600" />
+            <div className="w-9 h-9 rounded-xl bg-red-900/30 flex items-center justify-center flex-shrink-0">
+              <Phone size={15} className="text-red-400" />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <div className="text-sm font-semibold text-gray-800">{c.name}</div>
+                  <div className="text-sm font-semibold text-white">{c.name}</div>
                   <div className="text-xs text-gray-500 mt-0.5">{c.type}</div>
                 </div>
                 <button onClick={() => setContacts(p => p.filter(x => x.id !== c.id))}
-                  className="text-gray-400 hover:text-red-500 flex-shrink-0"><Trash2 size={14} /></button>
+                  className="text-gray-500 hover:text-red-400 flex-shrink-0"><Trash2 size={14} /></button>
               </div>
               <div className="flex gap-4 mt-2">
-                <a href={`tel:${c.phone}`} className="text-blue-600 font-mono text-sm hover:underline">{c.phone}</a>
-                {c.alt_phone && <a href={`tel:${c.alt_phone}`} className="text-blue-600 font-mono text-sm hover:underline">{c.alt_phone}</a>}
+                <a href={`tel:${c.phone}`} className="text-blue-400 font-mono text-sm hover:underline">{c.phone}</a>
+                {c.alt_phone && <a href={`tel:${c.alt_phone}`} className="text-blue-400 font-mono text-sm hover:underline">{c.alt_phone}</a>}
               </div>
-              {c.notes && <div className="text-xs text-gray-400 mt-1">{c.notes}</div>}
+              {c.notes && <div className="text-xs text-gray-500 mt-1">{c.notes}</div>}
             </div>
           </div>
         ))}
@@ -718,33 +718,33 @@ function EmergencyTab({ clinicId }) {
         <div className="card p-4 space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Type</label>
+              <label className="text-xs font-medium text-gray-400 mb-1 block">Type</label>
               <select className="input text-sm" value={form.type} onChange={e => setForm(p => ({...p, type: e.target.value}))}>
                 {CONTACT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Phone *</label>
+              <label className="text-xs font-medium text-gray-400 mb-1 block">Phone *</label>
               <input className="input text-sm" placeholder="e.g. 100 or 9876543210" value={form.phone} onChange={e => setForm(p => ({...p, phone: e.target.value}))} />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Name *</label>
+              <label className="text-xs font-medium text-gray-400 mb-1 block">Name *</label>
               <input className="input text-sm" placeholder="Contact / department name" value={form.name} onChange={e => setForm(p => ({...p, name: e.target.value}))} />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Alt Phone</label>
+              <label className="text-xs font-medium text-gray-400 mb-1 block">Alt Phone</label>
               <input className="input text-sm" value={form.alt_phone} onChange={e => setForm(p => ({...p, alt_phone: e.target.value}))} />
             </div>
           </div>
           <input className="input text-sm" placeholder="Notes (optional)" value={form.notes} onChange={e => setForm(p => ({...p, notes: e.target.value}))} />
           <div className="flex gap-2">
             <button onClick={addContact} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-600 text-white hover:bg-blue-700">Add</button>
-            <button onClick={() => setAdding(false)} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-100 text-gray-600 hover:bg-gray-200">Cancel</button>
+            <button onClick={() => setAdding(false)} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-800 text-gray-400 hover:bg-gray-700">Cancel</button>
           </div>
         </div>
       ) : (
         <button onClick={() => setAdding(true)}
-          className="flex items-center gap-2 px-4 py-2 border border-dashed border-gray-300 rounded-xl text-sm text-gray-500 hover:text-gray-700 hover:border-gray-400 w-full justify-center transition-colors">
+          className="flex items-center gap-2 px-4 py-2 border border-dashed border-gray-700 rounded-xl text-sm text-gray-500 hover:text-gray-300 hover:border-gray-600 w-full justify-center transition-colors">
           <Plus size={14} />Add Emergency Contact
         </button>
       )}
@@ -771,10 +771,10 @@ function TemplatesTab({ clinicId }) {
 
   return (
     <div className="space-y-3 max-w-3xl">
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-gray-50 border-b border-gray-200 text-xs text-gray-500 uppercase tracking-wide">
+            <tr className="bg-gray-900/40 border-b border-gray-800 text-xs text-gray-500 uppercase tracking-wide">
               <th className="px-4 py-2.5 text-left">Template</th>
               <th className="px-3 py-2.5 text-left">Category</th>
               <th className="px-3 py-2.5 text-center">Fields</th>
@@ -783,33 +783,33 @@ function TemplatesTab({ clinicId }) {
               <th className="px-3 py-2.5 text-right">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-gray-800">
             {templates.map(t => (
-              <tr key={t.id} className="hover:bg-gray-50 transition-colors">
+              <tr key={t.id} className="hover:bg-gray-800/40 transition-colors">
                 <td className="px-4 py-2.5">
                   <div className="flex items-center gap-2">
-                    <FileText size={14} className="text-gray-400 flex-shrink-0" />
-                    <span className="font-medium text-gray-800 text-xs">{t.name}</span>
+                    <FileText size={14} className="text-gray-500 flex-shrink-0" />
+                    <span className="font-medium text-white text-xs">{t.name}</span>
                   </div>
                 </td>
                 <td className="px-3 py-2.5 text-xs text-gray-500">{t.category}</td>
-                <td className="px-3 py-2.5 text-center text-xs text-gray-600 font-medium">{t.fields}</td>
-                <td className="px-3 py-2.5 text-xs text-gray-400">{t.last_edited}</td>
+                <td className="px-3 py-2.5 text-center text-xs text-gray-400 font-medium">{t.fields}</td>
+                <td className="px-3 py-2.5 text-xs text-gray-500">{t.last_edited}</td>
                 <td className="px-3 py-2.5 text-center">
                   <button onClick={() => toggle(t.id)}
-                    className={`w-9 h-5 rounded-full transition-colors relative ${t.active ? 'bg-blue-600' : 'bg-gray-200'}`}>
+                    className={`w-9 h-5 rounded-full transition-colors relative ${t.active ? 'bg-blue-600' : 'bg-gray-700'}`}>
                     <span className={`absolute top-0.5 h-4 w-4 bg-white rounded-full shadow transition-transform ${t.active ? 'translate-x-4' : 'translate-x-0.5'}`} />
                   </button>
                 </td>
                 <td className="px-3 py-2.5 text-right">
-                  <button className="text-xs text-blue-600 hover:text-blue-700 font-medium">Edit</button>
+                  <button className="text-xs text-blue-400 hover:text-blue-300 font-medium">Edit</button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <button className="flex items-center gap-2 px-4 py-2 border border-dashed border-gray-300 rounded-xl text-sm text-gray-500 hover:text-gray-700 hover:border-gray-400 w-full max-w-xs justify-center transition-colors">
+      <button className="flex items-center gap-2 px-4 py-2 border border-dashed border-gray-700 rounded-xl text-sm text-gray-500 hover:text-gray-300 hover:border-gray-600 w-full max-w-xs justify-center transition-colors">
         <Plus size={14} />New Template
       </button>
     </div>
@@ -844,7 +844,7 @@ function IntegrationsTab({ clinicId }) {
       <div className="flex gap-1 flex-wrap">
         {cats.map(c => (
           <button key={c} onClick={() => setCat(c)}
-            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${cat === c ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${cat === c ? 'bg-[#F5821E] text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
             {c}
           </button>
         ))}
@@ -855,14 +855,14 @@ function IntegrationsTab({ clinicId }) {
             <span className="text-2xl leading-none mt-0.5">{i.icon}</span>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between gap-2">
-                <div className="font-semibold text-gray-800 text-sm truncate">{i.name}</div>
+                <div className="font-semibold text-white text-sm truncate">{i.name}</div>
                 <button onClick={() => toggle(i.key)}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors flex-shrink-0 ${i.connected ? 'bg-green-100 text-green-700 hover:bg-red-100 hover:text-red-700' : 'bg-gray-100 text-gray-600 hover:bg-blue-100 hover:text-blue-700'}`}>
+                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors flex-shrink-0 ${i.connected ? 'bg-green-900/30 text-green-400 hover:bg-red-900/30 hover:text-red-400' : 'bg-gray-800 text-gray-400 hover:bg-blue-900/30 hover:text-blue-400'}`}>
                   {i.connected ? 'Connected' : 'Connect'}
                 </button>
               </div>
               <div className="text-xs text-gray-500 mt-0.5">{i.desc}</div>
-              <div className="text-[10px] text-gray-400 mt-1 uppercase tracking-wide">{i.category}</div>
+              <div className="text-[10px] text-gray-600 mt-1 uppercase tracking-wide">{i.category}</div>
             </div>
           </div>
         ))}
@@ -921,24 +921,24 @@ export default function HospitalSettings() {
         </div>
         {selectedClinicId && (
           <span className="text-xs text-gray-500">
-            Configuring: <span className="font-semibold text-gray-700">{clinics.find(c => String(c.id) === selectedClinicId)?.name}</span>
+            Configuring: <span className="font-semibold text-gray-200">{clinics.find(c => String(c.id) === selectedClinicId)?.name}</span>
           </span>
         )}
       </div>
 
       {!selectedClinicId ? (
-        <div className="card-p py-16 text-center text-gray-400">
+        <div className="card-p py-16 text-center text-gray-500">
           <Building2 size={40} className="mx-auto mb-3 opacity-20" />
           <p className="font-medium">Select a health center above to configure its hospital settings</p>
         </div>
       ) : (
         <>
-          <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-6 w-fit overflow-x-auto">
+          <div className="flex gap-1 bg-gray-900 border border-gray-800 p-1 rounded-xl mb-6 w-fit overflow-x-auto">
             {TABS.map(t => (
               <button
                 key={t.key}
                 onClick={() => setTab(t.key)}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${tab === t.key ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${tab === t.key ? 'bg-gray-800 shadow text-white' : 'text-gray-500 hover:text-gray-300'}`}
               >
                 <t.icon size={14} />{t.label}
               </button>
