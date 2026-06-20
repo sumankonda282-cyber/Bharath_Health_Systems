@@ -28,7 +28,7 @@ export default function Login() {
   const handleForgotPassword = () => {
     alert(
       'Password Reset\n\n' +
-      'Please contact your clinic administrator or the BHaratCliniq super admin to reset your password.\n\n' +
+      'Please contact your health center administrator or the Bharath Health Systems super admin to reset your password.\n\n' +
       'Your new temporary password will be sent to your registered email and phone number.'
     )
   }
@@ -52,7 +52,7 @@ export default function Login() {
           <p className="text-blue-200 text-lg mb-8">
             {tab === 0
               ? 'Manage walk-ins, schedule appointments, and collect payments — all in one place.'
-              : 'Manage your clinic team, create staff accounts, and keep operations running smoothly.'}
+              : 'Manage your health center team, create staff accounts, and keep operations running smoothly.'}
           </p>
           {(tab === 0
             ? [
@@ -76,7 +76,7 @@ export default function Login() {
           ))}
         </div>
         <div className="text-xs" style={{ color: '#93c5fd' }}>
-          BHaratCliniq · {tab === 0 ? 'Staff Portal' : 'Manager Portal'}
+          Bharath Health Systems · {tab === 0 ? 'Staff Portal' : 'Manager Portal'}
         </div>
       </div>
 

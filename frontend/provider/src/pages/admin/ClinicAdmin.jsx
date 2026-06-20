@@ -88,13 +88,13 @@ function BrandingTab({ clinicId, profile }) {
     <div className="card p-6 space-y-6 max-w-lg">
       <div>
         <h2 className="font-semibold text-gray-800 mb-1">Portal Branding</h2>
-        <p className="text-xs text-gray-500">Customise how your clinic appears in all portals after login. The BHarath Health Systems platform name is replaced with your clinic's brand in the sidebar.</p>
+        <p className="text-xs text-gray-500">Customise how your health center appears in all portals after login. The BHarath Health Systems platform name is replaced with your clinic's brand in the sidebar.</p>
       </div>
 
       <div>
         <label className="label">Display Name in Portals</label>
         <input className="input" value={brandName} onChange={e => setBrandName(e.target.value)} placeholder={profile.name} />
-        <p className="text-xs text-gray-400 mt-1">Leave blank to show your clinic name.</p>
+        <p className="text-xs text-gray-400 mt-1">Leave blank to show your health center name.</p>
       </div>
 
       <div>
@@ -118,7 +118,7 @@ function BrandingTab({ clinicId, profile }) {
           <Upload size={13} />{uploading ? 'Uploading…' : 'Upload Logo (JPG/PNG/WEBP)'}
           <input type="file" accept=".jpg,.jpeg,.png,.webp" className="hidden" onChange={uploadLogo} />
         </label>
-        <p className="text-xs text-gray-400 mt-1">Displayed in portal sidebar next to your clinic name.</p>
+        <p className="text-xs text-gray-400 mt-1">Displayed in portal sidebar next to your health center name.</p>
       </div>
 
       <button onClick={saveBranding} disabled={saving} className="btn-primary w-full justify-center">

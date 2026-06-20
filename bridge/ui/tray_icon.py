@@ -1,5 +1,5 @@
 """
-System tray icon for BHaratCliniq Bridge Agent.
+System tray icon for Bharath Health Bridge Agent.
 Shows connection status, allows opening config, viewing log, and exit.
 """
 import threading
@@ -50,7 +50,7 @@ class BridgeTrayIcon:
 
     def _open_log(self, icon=None, item=None):
         import os
-        log_path = Path(os.environ.get('APPDATA', '.')) / 'BHaratCliniq' / 'bridge.log'
+        log_path = Path(os.environ.get('APPDATA', '.')) / 'BharathHealth' / 'bridge.log'
         try:
             os.startfile(str(log_path))
         except Exception:
@@ -63,7 +63,7 @@ class BridgeTrayIcon:
     def set_status(self, status: str):
         self._status = status
         if self._icon:
-            self._icon.title = f'BHaratCliniq Bridge — {status}'
+            self._icon.title = f'Bharath Health Bridge — {status}'
 
     def _build_menu(self):
         return pystray.Menu(
@@ -81,9 +81,9 @@ class BridgeTrayIcon:
 
         img = _load_icon_image()
         self._icon = pystray.Icon(
-            name='bharatcliniq_bridge',
+            name='bharath_health_bridge',
             icon=img,
-            title='BHaratCliniq Bridge — Running',
+            title='Bharath Health Bridge — Running',
             menu=self._build_menu(),
         )
         # Run tray in background thread so it doesn't block the agent

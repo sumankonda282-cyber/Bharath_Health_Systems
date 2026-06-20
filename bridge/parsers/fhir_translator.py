@@ -58,7 +58,7 @@ def to_fhir_diagnostic_report(parsed: dict, clinic_id: str, order_id: str) -> di
             for i in range(len(observations))
         ],
         'extension': [{
-            'url':         'https://bharatcliniq.com/fhir/ext/order-id',
+            'url':         'https://bharathhealthsystems.com/fhir/ext/order-id',
             'valueString': order_id,
         }],
     }
@@ -145,7 +145,7 @@ def to_fhir_imaging_study(parsed: dict, clinic_id: str, order_id: str) -> dict:
             }],
         }],
         'extension': [{
-            'url':         'https://bharatcliniq.com/fhir/ext/order-id',
+            'url':         'https://bharathhealthsystems.com/fhir/ext/order-id',
             'valueString': order_id,
         }],
     }
