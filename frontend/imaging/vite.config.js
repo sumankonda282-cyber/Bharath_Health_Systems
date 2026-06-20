@@ -9,9 +9,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico'],
       manifest: {
-        name: 'BHaratCliniq Imaging',
-        short_name: 'BH Imaging',
-        description: 'Radiology and imaging portal for BHaratCliniq',
+        name: 'Bharath Health Systems Imaging',
+        short_name: 'BHS Imaging',
+        description: 'Radiology and imaging portal for Bharath Health Systems',
         theme_color: '#0F2557',
         background_color: '#ffffff',
         display: 'standalone',

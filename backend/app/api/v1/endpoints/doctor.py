@@ -410,7 +410,7 @@ def log_telehealth_join(
     appt.status = "in_progress"
     db.commit()
     return {
-        "room": f"bharatcliniq-appt-{appointment_id}",
-        "url":  f"https://meet.jit.si/bharatcliniq-appt-{appointment_id}",
+        "room": f"bhs-appt-{appointment_id}",
+        "url":  f"https://meet.jit.si/bhs-appt-{appointment_id}",
         "joined_at": appt.telehealth_joined_at.isoformat(),
     }

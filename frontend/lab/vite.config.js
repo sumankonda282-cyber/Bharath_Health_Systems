@@ -9,9 +9,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico'],
       manifest: {
-        name: 'BHaratCliniq Lab',
-        short_name: 'BH Lab',
-        description: 'Laboratory portal for BHaratCliniq',
+        name: 'Bharath Health Systems Lab',
+        short_name: 'BHS Lab',
+        description: 'Laboratory portal for Bharath Health Systems',
         theme_color: '#0F2557',
         background_color: '#ffffff',
         display: 'standalone',

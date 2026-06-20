@@ -9,8 +9,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico'],
       manifest: {
-        name: 'BHaratCliniq Provider',
-        short_name: 'BH Provider',
+        name: 'Bharath Health Systems Provider',
+        short_name: 'BHS Provider',
         description: 'Doctor and clinical staff portal',
         theme_color: '#0F2557',
         background_color: '#ffffff',

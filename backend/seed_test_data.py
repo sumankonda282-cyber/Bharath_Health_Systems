@@ -6,7 +6,7 @@ Run once against the live backend. Safe to re-run (skips if email already exists
 
 Usage:
     python seed_test_data.py
-    python seed_test_data.py --api https://bharatcliniq-api.onrender.com
+    python seed_test_data.py --api https://bharathhealthsystems-api.onrender.com
 """
 import sys
 import json
@@ -14,7 +14,7 @@ import urllib.request
 import urllib.error
 import argparse
 
-API_BASE = "https://bharatcliniq-api.onrender.com"
+API_BASE = "https://bharathhealthsystems-api.onrender.com"
 
 
 def _parse(raw):
