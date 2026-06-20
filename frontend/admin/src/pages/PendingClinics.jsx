@@ -32,7 +32,7 @@ export default function PendingClinics() {
     setSaving(true)
     try {
       if (modal.action === 'approve') await adminApi.approve(modal.clinic.id)
-      if (modal.action === 'reject')  await adminApi.reject(modal.clinic.id, { reason: comment, comment })
+      if (modal.action === 'reject')  await adminApi.reject(modal.clinic.id, { reason: comment })
       setModal(null)
       load()
     } finally { setSaving(false) }

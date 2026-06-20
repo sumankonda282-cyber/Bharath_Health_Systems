@@ -187,6 +187,7 @@ def _clinic_summary(c, db, rate_card: dict = None):
         rate_card = _get_rate_card(db)
     admin = db.query(Staff).filter(Staff.clinic_id == c.id, Staff.role == "clinic_admin").first()
     doctors = _doctor_count(db, c.id)
+    patient_count = db.query(func.count(Patient.id)).filter(Patient.clinic_id == c.id).scalar()
     plan = c.subscription_plan or "free"
     rate = rate_card.get(plan, {"price_per_doctor": 0, "max_doctors": 2, "label": "Free"})
     monthly_bill = doctors * rate["price_per_doctor"]
@@ -204,6 +205,7 @@ def _clinic_summary(c, db, rate_card: dict = None):
         "subscription_status":     c.subscription_status or "active",
         "subscription_expires_at": str(c.subscription_expires_at) if c.subscription_expires_at else None,
         "doctor_count":  doctors,
+        "patient_count": patient_count,
         "monthly_bill":  monthly_bill,
         "is_active":     c.is_active,
         "is_verified":   c.is_verified,
@@ -257,18 +259,49 @@ def platform_dashboard(db: Session = Depends(get_db), current=Depends(get_curren
         doctors = _doctor_count(db, c.id)
         mrr += doctors * rate["price_per_doctor"]
 
+    # Today's activity metrics
+    today = date.today()
+    appts_today = db.query(func.count(Appointment.id)).filter(
+        Appointment.appointment_date == today
+    ).scalar()
+    invoices_today = db.query(func.count(Invoice.id)).filter(
+        func.date(Invoice.created_at) == today
+    ).scalar()
+    new_patients_today = db.query(func.count(Patient.id)).filter(
+        func.date(Patient.created_at) == today
+    ).scalar()
+
+    # Module adoption percentages across active clinics
+    module_adoption = {}
+    for mod, field in [
+        ("pharmacy",   "has_pharmacy"),
+        ("lab",        "has_lab"),
+        ("imaging",    "has_imaging"),
+        ("telehealth", "has_telehealth"),
+        ("inpatient",  "has_inpatient"),
+    ]:
+        count = db.query(func.count(Clinic.id)).filter(
+            Clinic.status == "active",
+            getattr(Clinic, field) == True,
+        ).scalar()
+        module_adoption[mod] = round((count / active) * 100, 1) if active else 0
+
     return {
-        "total_clinics":    total,
-        "active_clinics":   active,
-        "pending_clinics":  pending,
-        "suspended_clinics": suspended,
-        "revoked_clinics":  revoked,
-        "total_doctors":    total_doctors,
-        "total_patients":   total_patients,
-        "pending_staff":    pending_staff,
-        "new_this_month":   new_this_month,
-        "mrr":              mrr,
-        "rate_card":        rc,
+        "total_clinics":      total,
+        "active_clinics":     active,
+        "pending_clinics":    pending,
+        "suspended_clinics":  suspended,
+        "revoked_clinics":    revoked,
+        "total_doctors":      total_doctors,
+        "total_patients":     total_patients,
+        "pending_staff":      pending_staff,
+        "new_this_month":     new_this_month,
+        "mrr":                mrr,
+        "rate_card":          rc,
+        "appointments_today": appts_today,
+        "invoices_today":     invoices_today,
+        "new_patients_today": new_patients_today,
+        "module_adoption":    module_adoption,
     }
 
 
@@ -586,6 +619,7 @@ def pending_staff(db: Session = Depends(get_db), current=Depends(get_current_pla
             "license_number": s.license_number,
             "license_document_url": s.license_document_url,
             "created_at":    str(s.created_at),
+            "is_reapplicant": False,
         })
     return result
 
@@ -694,6 +728,7 @@ def get_audit_log(
     action: Optional[str] = None,
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
+    clinic_id: Optional[int] = None,
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
@@ -704,10 +739,15 @@ def get_audit_log(
         q = q.filter(AuditLog.target_type == target_type)
     if action:
         q = q.filter(AuditLog.action == action)
-    if date_from:
-        q = q.filter(AuditLog.created_at >= datetime.fromisoformat(date_from))
-    if date_to:
-        q = q.filter(AuditLog.created_at <= datetime.fromisoformat(date_to))
+    if clinic_id:
+        q = q.filter(AuditLog.target_id == clinic_id)
+    try:
+        if date_from:
+            q = q.filter(AuditLog.created_at >= datetime.fromisoformat(date_from))
+        if date_to:
+            q = q.filter(AuditLog.created_at <= datetime.fromisoformat(date_to))
+    except ValueError:
+        raise HTTPException(400, "Invalid date format. Use ISO 8601 (YYYY-MM-DD)")
     logs = q.order_by(AuditLog.created_at.desc()).offset(skip).limit(limit).all()
     return [{
         "id":          l.id,
@@ -734,10 +774,13 @@ def get_reports(
     # Default: last 30 days
     end = datetime.utcnow()
     start = end - timedelta(days=30)
-    if date_from:
-        start = datetime.fromisoformat(date_from)
-    if date_to:
-        end = datetime.fromisoformat(date_to)
+    try:
+        if date_from:
+            start = datetime.fromisoformat(date_from)
+        if date_to:
+            end = datetime.fromisoformat(date_to)
+    except ValueError:
+        raise HTTPException(400, "Invalid date format. Use ISO 8601 (YYYY-MM-DD)")
 
     # Clinics registered over time (by month)
     all_clinics = db.query(Clinic).all()

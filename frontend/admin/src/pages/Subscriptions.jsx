@@ -578,6 +578,13 @@ function PlansEditorTab({ planConfig, onSaved, addToast }) {
   }
 
   async function save() {
+    const plans = Object.entries(draft?.plans || {})
+    for (const [key, plan] of plans) {
+      if ((plan.price_per_doctor ?? 0) < 0) {
+        addToast(`Plan "${plan.label || key}": price cannot be negative`, 'error')
+        return
+      }
+    }
     setSaving(true)
     try {
       await api.put('/platform/plan-config', draft)
@@ -620,8 +627,8 @@ function PlansEditorTab({ planConfig, onSaved, addToast }) {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-[10px] text-gray-500 uppercase tracking-wider block mb-1">₹/Doctor/Month</label>
-                  <input type="number" min="0" value={plan.price_per_doctor ?? 0}
-                    onChange={e => setPlan(key, 'price_per_doctor', parseInt(e.target.value) || 0)}
+                  <input type="number" min="0" step="0.01" value={plan.price_per_doctor ?? 0}
+                    onChange={e => setPlan(key, 'price_per_doctor', parseFloat(e.target.value) || 0)}
                     className="w-full bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 outline-none focus:border-[#F5821E] transition-colors" />
                 </div>
                 <div>
