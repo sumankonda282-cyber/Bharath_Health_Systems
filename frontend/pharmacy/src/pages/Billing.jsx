@@ -1,7 +1,9 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import api from '../api/client'
 import { cachedGet, cachedFetch, cacheInvalidate, TTL } from '../utils/cache'
-import { CreditCard, Loader2, X, IndianRupee, Plus, Trash2, Search, Eye, Printer, RotateCcw } from 'lucide-react'
+import { CreditCard, Loader2, X, IndianRupee, Plus, Trash2, Search, Eye, Printer, RotateCcw, ScanLine } from 'lucide-react'
+import BarcodeScanner from '../components/BarcodeScanner'
+import BarcodeLookupModal from '../components/BarcodeLookupModal'
 
 const MAIN_TABS = ['Billing Counter', 'Invoice History', 'Sales Returns']
 const INV_TABS = ['Pending', 'Paid', 'All']
@@ -146,6 +148,56 @@ function BillingCounter({ onBillCreated }) {
   const [otpError, setOtpError] = useState('')
   const [pendingProfile, setPendingProfile] = useState(null)
   const mobileLookupDebounce = useRef(null)
+  const [showScanner, setShowScanner]     = useState(false)
+  const [scannedBarcode, setScannedBarcode] = useState(null)
+  const [barcodeData, setBarcodeData]     = useState(null)
+
+  const handleBarcodeScan = async (barcode) => {
+    setShowScanner(false)
+    setScannedBarcode(barcode)
+    try {
+      const data = await api.get(`/pharmacy/barcode/${encodeURIComponent(barcode)}`)
+      setBarcodeData(data)
+    } catch {
+      setBarcodeData(null)
+    }
+  }
+
+  const handleBarcodeDispense = (details) => {
+    setScannedBarcode(null)
+    setBarcodeData(null)
+    const qty = parseInt(details.quantity) || 1
+    const price = parseFloat(details.selling_price) || parseFloat(details.mrp) || 0
+    if (details.medicine_id) {
+      // Add directly to bill using existing medicine
+      setItems(prev => {
+        const existing = prev.find(i => i.medicine_id === details.medicine_id)
+        if (existing) return prev.map(i => i.medicine_id === details.medicine_id ? { ...i, quantity: i.quantity + qty } : i)
+        return [...prev, {
+          medicine_id:     details.medicine_id,
+          description:     details.drug_name,
+          quantity:        qty,
+          unit_price:      price,
+          mrp:             parseFloat(details.mrp) || null,
+          gst_rate:        parseFloat(details.gst_rate) || 0,
+          hsn_code:        details.hsn_code || '',
+          discount_amount: 0,
+        }]
+      })
+    } else {
+      // Unknown medicine — add as free-text line item
+      setItems(prev => [...prev, {
+        medicine_id:     null,
+        description:     details.drug_name,
+        quantity:        qty,
+        unit_price:      price,
+        mrp:             parseFloat(details.mrp) || null,
+        gst_rate:        parseFloat(details.gst_rate) || 0,
+        hsn_code:        details.hsn_code || '',
+        discount_amount: 0,
+      }])
+    }
+  }
 
   const handleMobileChange = (val) => {
     setCustomerMobile(val)
@@ -409,8 +461,30 @@ function BillingCounter({ onBillCreated }) {
             )}
           </div>
 
+          {/* Barcode Scanner Modals */}
+          {showScanner && (
+            <BarcodeScanner onScan={handleBarcodeScan} onClose={() => setShowScanner(false)} />
+          )}
+          {scannedBarcode && (
+            <BarcodeLookupModal
+              barcode={scannedBarcode}
+              data={barcodeData}
+              mode="dispense"
+              onConfirm={handleBarcodeDispense}
+              onClose={() => { setScannedBarcode(null); setBarcodeData(null) }}
+            />
+          )}
+
           <div className="card p-5">
-            <p className="text-sm font-semibold text-gray-700 mb-3">Add Medicine</p>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm font-semibold text-gray-700">Add Medicine</p>
+              <button
+                onClick={() => setShowScanner(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700 transition-colors"
+              >
+                <ScanLine size={13} /> Scan Barcode
+              </button>
+            </div>
             <div className="relative">
               <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input

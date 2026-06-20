@@ -485,6 +485,28 @@ class EncounterAccessLog(Base):
     accessed_at         = Column(DateTime, server_default=func.now())
 
 
+class BarcodeMaster(Base):
+    """Shared cross-clinic barcode → medicine mapping. Self-learning as pharmacists scan."""
+    __tablename__ = "barcode_master"
+    id           = Column(Integer, primary_key=True, index=True)
+    barcode      = Column(String(100), nullable=False, unique=True, index=True)
+    medicine_id  = Column(Integer, ForeignKey("medicines.id"), nullable=True)
+    # Snapshot of drug details at time of mapping (survives medicine record changes)
+    drug_name    = Column(String(200), nullable=False)
+    generic_name = Column(String(200), nullable=True)
+    manufacturer = Column(String(200), nullable=True)
+    form         = Column(String(50), nullable=True)   # tablet/capsule/syrup/injection/etc
+    strength     = Column(String(50), nullable=True)   # e.g. 500mg, 10mg/5ml
+    pack_size    = Column(String(50), nullable=True)   # e.g. 10 tablets, 100ml
+    mrp          = Column(Numeric(10, 2), nullable=True)
+    hsn_code     = Column(String(20), nullable=True)
+    gst_rate     = Column(Numeric(5, 2), nullable=True)
+    scan_count   = Column(Integer, default=1)          # how many times scanned across all clinics
+    added_by     = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    created_at   = Column(DateTime, server_default=func.now())
+    updated_at   = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
 class Medicine(Base):
     __tablename__ = "medicines"
     id             = Column(Integer, primary_key=True, index=True)
@@ -2076,6 +2098,7 @@ class Drug(Base):
     drug_class = Column(String(150), nullable=True)
     routes     = Column(String(150), nullable=True)   # pipe-separated
     brands     = Column(Text, nullable=True)          # pipe-separated Indian brands
+    primary_brand = Column(String(100), nullable=True) # most-used Indian brand name
     rx_only    = Column(Boolean, default=True)
     clinic_id  = Column(Integer, ForeignKey("clinics.id"), nullable=True)
     is_active  = Column(Boolean, default=True)

@@ -13,7 +13,7 @@ from app.models.models import (
     Invoice, InvoiceItem, Staff, StockTransaction,
     Supplier, PurchaseOrder, PurchaseOrderItem,
     SalesReturn, SalesReturnItem, DrugRegister, MedicineBatch,
-    ImagingCatalog,
+    ImagingCatalog, BarcodeMaster,
 )
 from app.schemas.schemas import (
     MedicineCreate, MedicineOut,
@@ -2319,6 +2319,97 @@ def hsn_gst_report(
         }
         for r in rows
     ]
+
+
+# ── Barcode Master ────────────────────────────────────────────────────────────
+
+@pharmacy_router.get("/barcode/{barcode}")
+def lookup_barcode(
+    barcode: str,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Look up a scanned barcode. Returns drug details if known, 404 if new."""
+    entry = db.query(BarcodeMaster).filter(BarcodeMaster.barcode == barcode).first()
+    if not entry:
+        raise HTTPException(status_code=404, detail="Barcode not found")
+    # Increment scan counter
+    entry.scan_count = (entry.scan_count or 0) + 1
+    db.commit()
+    return {
+        "barcode":      entry.barcode,
+        "medicine_id":  entry.medicine_id,
+        "drug_name":    entry.drug_name,
+        "generic_name": entry.generic_name,
+        "manufacturer": entry.manufacturer,
+        "form":         entry.form,
+        "strength":     entry.strength,
+        "pack_size":    entry.pack_size,
+        "mrp":          float(entry.mrp) if entry.mrp else None,
+        "hsn_code":     entry.hsn_code,
+        "gst_rate":     float(entry.gst_rate) if entry.gst_rate else None,
+        "scan_count":   entry.scan_count,
+    }
+
+
+@pharmacy_router.post("/barcode")
+def save_barcode(
+    body: dict,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Save a new barcode → drug mapping (called after pharmacist fills details for unknown barcode)."""
+    barcode = (body.get("barcode") or "").strip()
+    if not barcode:
+        raise HTTPException(status_code=400, detail="Barcode is required")
+
+    existing = db.query(BarcodeMaster).filter(BarcodeMaster.barcode == barcode).first()
+    if existing:
+        # Update existing mapping
+        for field in ["drug_name", "generic_name", "manufacturer", "form", "strength", "pack_size", "mrp", "hsn_code", "gst_rate", "medicine_id"]:
+            if body.get(field) is not None:
+                setattr(existing, field, body[field])
+        existing.scan_count = (existing.scan_count or 0) + 1
+        db.commit()
+        return {"id": existing.id, "updated": True}
+
+    entry = BarcodeMaster(
+        barcode=barcode,
+        drug_name=body.get("drug_name", ""),
+        generic_name=body.get("generic_name"),
+        manufacturer=body.get("manufacturer"),
+        form=body.get("form"),
+        strength=body.get("strength"),
+        pack_size=body.get("pack_size"),
+        mrp=body.get("mrp"),
+        hsn_code=body.get("hsn_code"),
+        gst_rate=body.get("gst_rate"),
+        medicine_id=body.get("medicine_id"),
+        added_by=current.id,
+        scan_count=1,
+    )
+    db.add(entry)
+    db.commit()
+    db.refresh(entry)
+    return {"id": entry.id, "created": True}
+
+
+@pharmacy_router.put("/barcode/{barcode}")
+def update_barcode(
+    barcode: str,
+    body: dict,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Update an existing barcode mapping."""
+    entry = db.query(BarcodeMaster).filter(BarcodeMaster.barcode == barcode).first()
+    if not entry:
+        raise HTTPException(status_code=404, detail="Barcode not found")
+    for field in ["drug_name", "generic_name", "manufacturer", "form", "strength", "pack_size", "mrp", "hsn_code", "gst_rate", "medicine_id"]:
+        if body.get(field) is not None:
+            setattr(entry, field, body[field])
+    db.commit()
+    return {"ok": True}
 
 
 # ── Referring Doctors ─────────────────────────────────────────────────────────

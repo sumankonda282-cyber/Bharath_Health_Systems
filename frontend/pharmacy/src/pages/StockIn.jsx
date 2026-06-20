@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import api from '../api/client'
 import { cachedFetch, cacheInvalidate, TTL } from '../utils/cache'
-import { PackagePlus, Loader2, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react'
+import { PackagePlus, Loader2, CheckCircle, AlertCircle, RefreshCw, ScanLine } from 'lucide-react'
+import BarcodeScanner from '../components/BarcodeScanner'
+import BarcodeLookupModal from '../components/BarcodeLookupModal'
 
 const TYPES = [
   { value: 'add',      label: 'Receive Stock', desc: 'Adds to current stock' },
@@ -44,6 +46,9 @@ export default function StockIn() {
   const [success, setSuccess] = useState('')
   const [transactions, setTransactions] = useState([])
   const [loadingTxns, setLoadingTxns] = useState(true)
+  const [showScanner, setShowScanner]   = useState(false)
+  const [scannedBarcode, setScannedBarcode] = useState(null)
+  const [barcodeData, setBarcodeData]   = useState(null)
 
   const loadMedicines = useCallback((invalidate = false) => {
     setLoadingMeds(true)
@@ -74,6 +79,65 @@ export default function StockIn() {
   }, [])
 
   useEffect(() => { loadMedicines(); loadTransactions() }, [loadMedicines, loadTransactions])
+
+  const handleBarcodeScan = async (barcode) => {
+    setShowScanner(false)
+    setScannedBarcode(barcode)
+    try {
+      const data = await api.get(`/pharmacy/barcode/${encodeURIComponent(barcode)}`)
+      setBarcodeData(data)
+    } catch {
+      setBarcodeData(null) // not found — show empty form
+    }
+  }
+
+  const handleBarcodeConfirm = async (details) => {
+    setScannedBarcode(null)
+    setBarcodeData(null)
+    // If medicine_id known, pre-select it; otherwise create new medicine entry
+    if (details.medicine_id) {
+      setForm({
+        ...EMPTY_FORM,
+        medicine_id:  details.medicine_id,
+        operation:    'add',
+        quantity:     details.quantity || '',
+        batch_number: details.batch_number || '',
+        expiry_date:  details.expiry_date || '',
+        unit_cost:    details.unit_cost || '',
+      })
+    } else {
+      // Create a new medicine record from the scanned details, then stock it
+      try {
+        const med = await api.post('/pharmacy/medicines', {
+          name:         details.drug_name,
+          generic_name: details.generic_name,
+          manufacturer: details.manufacturer,
+          form:         details.form,
+          strength:     details.strength,
+          mrp:          details.mrp ? parseFloat(details.mrp) : null,
+          unit_price:   details.unit_cost ? parseFloat(details.unit_cost) : null,
+          hsn_code:     details.hsn_code,
+          gst_rate:     details.gst_rate ? parseFloat(details.gst_rate) : null,
+          stock_quantity: 0,
+        })
+        // Update barcode mapping with the new medicine_id
+        await api.put(`/pharmacy/barcode/${encodeURIComponent(details.barcode)}`, { medicine_id: med.id })
+        await loadMedicines(true)
+        setForm({
+          ...EMPTY_FORM,
+          medicine_id:  med.id,
+          operation:    'add',
+          quantity:     details.quantity || '',
+          batch_number: details.batch_number || '',
+          expiry_date:  details.expiry_date || '',
+          unit_cost:    details.unit_cost || '',
+        })
+        setSuccess(`New medicine "${details.drug_name}" added to your library and linked to barcode.`)
+      } catch {
+        setError('Could not create medicine record. Please select manually.')
+      }
+    }
+  }
 
   const selectedMed = medicines.find(m => String(m.id) === String(form.medicine_id))
 
@@ -112,8 +176,33 @@ export default function StockIn() {
 
   return (
     <div>
+      {/* Barcode Scanner Modal */}
+      {showScanner && (
+        <BarcodeScanner
+          onScan={handleBarcodeScan}
+          onClose={() => setShowScanner(false)}
+        />
+      )}
+
+      {/* Barcode Lookup / Detail Modal */}
+      {scannedBarcode && (
+        <BarcodeLookupModal
+          barcode={scannedBarcode}
+          data={barcodeData}
+          mode="receive"
+          onConfirm={handleBarcodeConfirm}
+          onClose={() => { setScannedBarcode(null); setBarcodeData(null) }}
+        />
+      )}
+
       <div className="page-header">
         <h1 className="page-title">Receive / Adjust Stock</h1>
+        <button
+          onClick={() => setShowScanner(true)}
+          className="btn-primary flex items-center gap-2"
+        >
+          <ScanLine size={16} /> Scan Barcode
+        </button>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">

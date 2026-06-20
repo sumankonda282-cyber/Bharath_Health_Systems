@@ -193,13 +193,15 @@ def seed_drug_data():
     try:
         from app.seed_data.drugs import DRUGS
         loaders.append((
-            "drugs", DRUGS, 100,
-            "INSERT INTO drugs (generic, atc, drug_class, routes, brands, rx_only) "
-            "VALUES (:generic, :atc, :drug_class, :routes, :brands, :rx_only)",
+            "drugs", DRUGS, 4500,
+            "INSERT INTO drugs (generic, atc, drug_class, routes, brands, primary_brand, rx_only) "
+            "VALUES (:generic, :atc, :drug_class, :routes, :brands, :primary_brand, :rx_only) "
+            "ON CONFLICT DO NOTHING",
             lambda d: {
                 "generic": d["generic"][:200], "atc": d.get("atc"),
                 "drug_class": d.get("drug_class"), "routes": d.get("routes"),
-                "brands": d.get("brands"), "rx_only": d.get("rx_only", True),
+                "brands": d.get("brands"), "primary_brand": d.get("primary_brand"),
+                "rx_only": d.get("rx_only", True),
             },
         ))
     except ImportError as e:
