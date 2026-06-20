@@ -1908,6 +1908,7 @@ class Feedback(Base):
     email      = Column(String(150), nullable=True)
     message    = Column(Text, nullable=False)
     type       = Column(String(50), nullable=True)
+    is_read    = Column(Boolean, default=False, nullable=False, server_default="false")
     created_at = Column(DateTime, server_default=func.now())
 
 
