@@ -1536,10 +1536,17 @@ def get_patient_detail(patient_id: int, db: Session = Depends(get_db), current=D
     invoiced = db.query(func.sum(Invoice.total)).filter(Invoice.patient_id == p.id).scalar() or 0
     collected = db.query(func.sum(Invoice.amount_paid)).filter(Invoice.patient_id == p.id).scalar() or 0
 
-    # All clinics where this patient has appointments or is registered
+    # All clinics where this patient appears (by bh_id across all patient records + appointments)
     clinic_ids = set()
     if p.clinic_id:
         clinic_ids.add(p.clinic_id)
+    if p.bh_id:
+        bh_clinic_rows = db.query(Patient.clinic_id).filter(
+            Patient.bh_id == p.bh_id,
+            Patient.clinic_id != None,
+        ).distinct().all()
+        for (cid,) in bh_clinic_rows:
+            clinic_ids.add(cid)
     appt_clinic_ids = db.query(Appointment.clinic_id).filter(
         Appointment.patient_id == p.id, Appointment.clinic_id != None
     ).distinct().all()
@@ -1821,6 +1828,7 @@ def run_analytics_query(body: dict, db: Session = Depends(get_db), current=Depen
             "columns": [{"key": "name", "label": "Name"}, {"key": "status", "label": "Status"}, {"key": "plan", "label": "Plan"}, {"key": "city", "label": "City"}, {"key": "state", "label": "State"}],
             "rows": [{"name": r.name, "status": r.status, "plan": r.subscription_plan or "free", "city": r.city or "", "state": r.state or ""} for r in rows],
             "total_rows": len(rows),
+            "total": len(rows),
         }
 
     elif dataset == "patients":
@@ -1839,7 +1847,7 @@ def run_analytics_query(body: dict, db: Session = Depends(get_db), current=Depen
         return {
             "columns": [{"key": "full_name", "label": "Name"}, {"key": "gender", "label": "Gender"}, {"key": "city", "label": "City"}, {"key": "state", "label": "State"}, {"key": "created_at", "label": "Registered"}],
             "rows": [{"full_name": r.full_name, "gender": r.gender or "", "city": r.city or "", "state": r.state or "", "created_at": str(r.created_at.date()) if r.created_at else ""} for r in rows],
-            "total_rows": total, "portal_pct": round(portal / total * 100, 1) if total else 0,
+            "total_rows": total, "total": total, "portal_pct": round(portal / total * 100, 1) if total else 0,
         }
 
     elif dataset == "appointments":
@@ -1857,7 +1865,8 @@ def run_analytics_query(body: dict, db: Session = Depends(get_db), current=Depen
         return {
             "columns": [{"key": "count", "label": "Total"}, {"key": "completed", "label": "Completed"}, {"key": "completion_pct", "label": "Completion %"}],
             "rows": [{"count": total, "completed": completed, "completion_pct": round(completed / total * 100, 1) if total else 0}],
-            "total_rows": 1,
+            "total_rows": total,
+            "total": total,
         }
 
     elif dataset == "revenue":
@@ -1874,9 +1883,10 @@ def run_analytics_query(body: dict, db: Session = Depends(get_db), current=Depen
             "columns": [{"key": "invoiced", "label": "Total Invoiced"}, {"key": "collected", "label": "Collected"}, {"key": "outstanding", "label": "Outstanding"}],
             "rows": [{"invoiced": float(invoiced), "collected": float(collected), "outstanding": float(invoiced) - float(collected)}],
             "total_rows": 1,
+            "total": 1,
         }
 
-    return {"columns": [], "rows": [], "total_rows": 0}
+    return {"columns": [], "rows": [], "total_rows": 0, "total": 0}
 
 
 # ── Clinic Clinical Stats ─────────────────────────────────────────────────────
