@@ -175,7 +175,7 @@ export default function FormPool() {
   const fetchForms = useCallback(async () => {
     setLoading(true); setError(null)
     try {
-      const data = await api.get('/assessment-forms')
+      const data = await api.get('/assessment-forms/')
       setForms(Array.isArray(data) ? data : (data.forms ?? data.items ?? []))
     } catch (e) {
       setError(e.message || 'Failed to load forms')
@@ -210,13 +210,13 @@ export default function FormPool() {
   }
 
   const handlePublish = (form) => withAction(form.id, async () => {
-    await api.patch(`/assessment-forms/${form.id}`, { status: 'published' })
+    await api.post(`/assessment-forms/${form.id}/publish`)
     toast('Form published', 'success')
     fetchForms()
   })()
 
   const handleArchive = (form) => withAction(form.id, async () => {
-    await api.patch(`/assessment-forms/${form.id}`, { status: 'retired' })
+    await api.post(`/assessment-forms/${form.id}/retire`)
     toast('Form archived', 'success')
     fetchForms()
   })()

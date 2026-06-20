@@ -504,7 +504,7 @@ export default function FormBuilder() {
       if (form.id) {
         result = await api.patch(`/assessment-forms/${form.id}`, payload)
       } else {
-        result = await api.post('/assessment-forms', payload)
+        result = await api.post('/assessment-forms/', payload)
       }
       dispatch({ type: 'SET_SAVED', payload: { id: result.id || result.data?.id || form.id } })
     } catch (err) {
