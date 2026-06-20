@@ -286,22 +286,39 @@ def platform_dashboard(db: Session = Depends(get_db), current=Depends(get_curren
         ).scalar()
         module_adoption[mod] = round((count / active) * 100, 1) if active else 0
 
+    # Expiring within 7 days
+    week_ahead = datetime.utcnow() + timedelta(days=7)
+    expiring_soon = db.query(func.count(Clinic.id)).filter(
+        Clinic.status == 'active',
+        Clinic.subscription_expires_at != None,
+        Clinic.subscription_expires_at <= week_ahead,
+        Clinic.subscription_expires_at >= datetime.utcnow(),
+    ).scalar()
+
+    # Approval SLA: oldest pending clinic
+    oldest_pending = db.query(func.min(Clinic.created_at)).filter(Clinic.status == 'pending').scalar()
+    oldest_pending_days = None
+    if oldest_pending:
+        oldest_pending_days = (datetime.utcnow() - oldest_pending).days
+
     return {
-        "total_clinics":      total,
-        "active_clinics":     active,
-        "pending_clinics":    pending,
-        "suspended_clinics":  suspended,
-        "revoked_clinics":    revoked,
-        "total_doctors":      total_doctors,
-        "total_patients":     total_patients,
-        "pending_staff":      pending_staff,
-        "new_this_month":     new_this_month,
-        "mrr":                mrr,
-        "rate_card":          rc,
-        "appointments_today": appts_today,
-        "invoices_today":     invoices_today,
-        "new_patients_today": new_patients_today,
-        "module_adoption":    module_adoption,
+        "total_clinics":       total,
+        "active_clinics":      active,
+        "pending_clinics":     pending,
+        "suspended_clinics":   suspended,
+        "revoked_clinics":     revoked,
+        "total_doctors":       total_doctors,
+        "total_patients":      total_patients,
+        "pending_staff":       pending_staff,
+        "new_this_month":      new_this_month,
+        "mrr":                 mrr,
+        "rate_card":           rc,
+        "appointments_today":  appts_today,
+        "invoices_today":      invoices_today,
+        "new_patients_today":  new_patients_today,
+        "module_adoption":     module_adoption,
+        "expiring_soon":       expiring_soon,
+        "oldest_pending_days": oldest_pending_days,
     }
 
 
@@ -1519,6 +1536,18 @@ def get_patient_detail(patient_id: int, db: Session = Depends(get_db), current=D
     invoiced = db.query(func.sum(Invoice.total)).filter(Invoice.patient_id == p.id).scalar() or 0
     collected = db.query(func.sum(Invoice.amount_paid)).filter(Invoice.patient_id == p.id).scalar() or 0
 
+    # All clinics where this patient has appointments or is registered
+    clinic_ids = set()
+    if p.clinic_id:
+        clinic_ids.add(p.clinic_id)
+    appt_clinic_ids = db.query(Appointment.clinic_id).filter(
+        Appointment.patient_id == p.id, Appointment.clinic_id != None
+    ).distinct().all()
+    for (cid,) in appt_clinic_ids:
+        clinic_ids.add(cid)
+    hc_rows = db.query(Clinic).filter(Clinic.id.in_(clinic_ids)).all() if clinic_ids else []
+    health_centers = [{"clinic_id": c.id, "name": c.name, "city": c.city or ""} for c in hc_rows]
+
     return {
         "patient_id": p.id, "full_name": p.full_name, "bh_id": p.bh_id or "", "uhid": p.uhid or "",
         "mobile": p.mobile or "", "email": p.email or "", "gender": p.gender or "", "age": age,
@@ -1528,7 +1557,7 @@ def get_patient_detail(patient_id: int, db: Session = Depends(get_db), current=D
         "abha_id": p.abha_id or "", "has_portal_account": p.portal_user_id is not None,
         "created_at": str(p.created_at.date()) if p.created_at else "",
         "primary_clinic": clinic.name if clinic else "",
-        "health_centers": [{"clinic_id": clinic.id, "name": clinic.name, "city": clinic.city or ""}] if clinic else [],
+        "health_centers": health_centers,
         "timeline": timeline,
         "clinical": {
             "diagnoses": diagnoses,

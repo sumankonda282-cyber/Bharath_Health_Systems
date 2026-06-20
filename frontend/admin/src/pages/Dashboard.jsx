@@ -213,10 +213,10 @@ export default function Dashboard() {
       sub: 'Est. monthly',
     },
     {
-      to: null,
+      to: '/health-centers',
       label: 'Expiring <7d',
-      value: '—',
-      sub: <span className="text-[#F5821E]">At risk</span>,
+      value: expiring_soon ?? '—',
+      sub: <span className={expiring_soon > 0 ? 'text-[#F5821E]' : 'text-gray-500'}>At risk</span>,
     },
     {
       to: '/pending',
