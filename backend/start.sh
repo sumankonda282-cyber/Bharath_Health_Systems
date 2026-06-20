@@ -430,13 +430,17 @@ safe_cols = [
     )\"\"\",
     \"CREATE INDEX IF NOT EXISTS idx_iview_flowsheets_form_id ON iview_flowsheets(form_id)\",
 ]
-try:
-    with engine.begin() as conn:
-        for sql in safe_cols:
+ok = 0
+failed = 0
+for sql in safe_cols:
+    try:
+        with engine.begin() as conn:
             conn.execute(text(sql))
-    print('[startup] Safe column additions complete.')
-except Exception as e:
-    print(f'[startup] Safe column additions failed: {e}')
+        ok += 1
+    except Exception as e:
+        failed += 1
+        print(f'[startup] WARN skipped: {str(e)[:120]}')
+print(f'[startup] Safe column additions: {ok} ok, {failed} skipped.')
 
 # Auto-verify all active clinics so they appear on the public portal
 try:
