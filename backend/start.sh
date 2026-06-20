@@ -111,6 +111,7 @@ safe_cols = [
     \"ALTER TABLE clinics ADD COLUMN IF NOT EXISTS org_type VARCHAR(20) DEFAULT 'clinic'\",
     \"ALTER TABLE clinics ADD COLUMN IF NOT EXISTS wards_enabled BOOLEAN DEFAULT FALSE\",
     \"ALTER TABLE clinics ADD COLUMN IF NOT EXISTS admission_sequence INTEGER DEFAULT 0\",
+    \"ALTER TABLE clinics ADD COLUMN IF NOT EXISTS subscription_plan VARCHAR(20) DEFAULT 'free'\",
     \"ALTER TABLE clinics ADD COLUMN IF NOT EXISTS subscription_status VARCHAR(20) DEFAULT 'active'\",
     \"ALTER TABLE clinics ADD COLUMN IF NOT EXISTS subscription_expires_at TIMESTAMP\",
     \"ALTER TABLE clinics ADD COLUMN IF NOT EXISTS subscription_expiry TIMESTAMP\",
