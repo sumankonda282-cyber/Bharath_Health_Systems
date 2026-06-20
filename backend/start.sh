@@ -491,12 +491,6 @@ except Exception as e:
     print(f'[startup] Index creation failed: {e}')
 " || echo "[startup] Safe column migrations failed — continuing"
 
-echo "[startup] Syncing database schema..."
-timeout 30 alembic upgrade head || echo "[startup] Migration failed — continuing with existing schema"
-
-echo "[startup] Seeding database..."
-python seed.py || echo "[startup] Seed failed (non-fatal) — continuing with existing data"
-
 echo "[startup] Loading medical terminology library (idempotent)..."
 timeout 120 python -m app.seed_medical_library || echo "[startup] Medical library load failed (non-fatal) — continuing"
 
