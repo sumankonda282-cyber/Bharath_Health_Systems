@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import {
   LayoutDashboard, Clock, Building2, ShieldCheck,
   ClipboardList, BarChart3, LogOut, Menu, X, Search, CreditCard, Hospital,
-  FileText, Users, Bell, RefreshCw, ChevronDown, ChevronLeft
+  FileText, Users, Bell, RefreshCw, ChevronDown,
 } from 'lucide-react'
 import api from '../api/client'
 import BrandLogo from './BrandLogo'
@@ -42,70 +42,6 @@ function getInitials(email) {
   return email.slice(0, 2).toUpperCase()
 }
 
-function Sidebar({ onClose, expanded = true, onToggle }) {
-  const { user, logout } = useAuth()
-  return (
-    <aside className={`flex flex-col h-full bg-[#0a0f1e] border-r border-gray-800/60 overflow-hidden transition-[width] duration-200 ease-in-out flex-shrink-0 ${expanded ? 'w-[200px]' : 'w-[52px]'}`}>
-      <div className={`h-10 border-b border-gray-800/60 flex items-center overflow-hidden ${expanded ? 'px-3 justify-between' : 'px-2 justify-center'}`}>
-        {expanded ? (
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-black px-1.5 py-0.5 rounded" style={{ background: 'rgba(245,130,30,0.15)', color: '#F5821E' }}>BC</span>
-            <span className="text-[11px] font-bold tracking-widest uppercase" style={{ color: '#F5821E' }}>Admin</span>
-          </div>
-        ) : (
-          <button
-            onClick={onToggle}
-            className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 hover:opacity-75 transition-opacity"
-            style={{ background: 'rgba(245,130,30,0.15)' }}
-            title="Expand sidebar"
-          >
-            <span className="text-[9px] font-black" style={{ color: '#F5821E' }}>BC</span>
-          </button>
-        )}
-        {onClose && expanded && (
-          <button onClick={onClose} className="md:hidden text-gray-500 hover:text-white">
-            <X size={18} />
-          </button>
-        )}
-        {!onClose && onToggle && expanded && (
-          <button onClick={onToggle} className="text-gray-500 hover:text-white transition-colors" title="Collapse sidebar">
-            <ChevronLeft size={16} />
-          </button>
-        )}
-      </div>
-      <nav className="flex-1 py-1 overflow-y-auto overflow-x-hidden">
-        {NAV.map(({ to, icon: Icon, label }) => (
-          <NavLink key={to} to={to}
-            onClick={onClose}
-            title={!expanded ? label : undefined}
-            className={({ isActive }) =>
-              `flex items-center text-xs font-medium transition-colors whitespace-nowrap py-1.5 px-2 ${expanded ? 'gap-2.5' : 'justify-center'} ${isActive ? 'bg-[#F5821E]/15 text-[#F5821E] border-l-2 border-[#F5821E]' : 'text-gray-400 hover:text-white hover:bg-gray-800/60 border-l-2 border-transparent'}`
-            }
-          >
-            <Icon size={15} className="flex-shrink-0" />
-            {expanded && <span className="truncate">{label}</span>}
-          </NavLink>
-        ))}
-      </nav>
-      <div className={`h-9 border-t border-gray-800/60 flex items-center ${expanded ? 'px-2 gap-2 justify-between' : 'justify-center'}`}>
-        {expanded && (
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
-              style={{ background: 'rgba(245,130,30,0.2)', color: '#F5821E' }}>
-              {getInitials(user?.email || user?.full_name)}
-            </div>
-            <span className="text-[11px] text-gray-400 truncate">{user?.email || user?.full_name || 'Admin'}</span>
-          </div>
-        )}
-        <button onClick={logout} title="Sign Out"
-          className="p-1.5 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 flex-shrink-0">
-          <LogOut size={15} />
-        </button>
-      </div>
-    </aside>
-  )
-}
-
 function timeAgo(dateStr) {
   const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
   if (diff < 60) return `${diff}s ago`
@@ -115,8 +51,8 @@ function timeAgo(dateStr) {
 }
 
 const TYPE_COLORS = {
-  suggestion: { bg: '#0F255715', color: '#0F2557', label: 'Suggestion' },
-  bug:        { bg: '#CC141415', color: '#CC1414', label: 'Bug' },
+  suggestion: { bg: '#0F255715', color: '#93c5fd', label: 'Suggestion' },
+  bug:        { bg: '#CC141415', color: '#f87171', label: 'Bug' },
   general:    { bg: '#F5821E15', color: '#F5821E', label: 'General' },
 }
 
@@ -150,10 +86,10 @@ function FeedbackBell() {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(v => !v)}
-        className="relative p-1.5 rounded-lg text-gray-400 hover:bg-gray-800 flex items-center justify-center"
+        className="relative p-1.5 rounded-lg text-gray-400 hover:bg-white/10 flex items-center justify-center transition-colors"
         title="Feedback"
       >
-        <Bell size={20} />
+        <Bell size={18} />
         {items.length > 0 && (
           <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-0.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
             {items.length}
@@ -162,7 +98,7 @@ function FeedbackBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-10 w-80 bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl z-50 overflow-hidden">
+        <div className="absolute right-0 top-12 w-80 bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl z-50 overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-800 flex items-center justify-between">
             <span className="text-white font-semibold text-sm">Unread Feedback</span>
             <span className="text-gray-500 text-xs">{items.length} unread</span>
@@ -179,12 +115,10 @@ function FeedbackBell() {
                       <span className="font-medium text-white text-sm truncate">{item.name}</span>
                       <span className="text-gray-500 text-xs whitespace-nowrap flex-shrink-0">{timeAgo(item.created_at)}</span>
                     </div>
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: tc.bg, color: tc.color }}>
-                        {tc.label}
-                      </span>
-                    </div>
-                    <p className="text-gray-400 text-xs leading-relaxed mb-2 line-clamp-2">
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: tc.bg, color: tc.color }}>
+                      {tc.label}
+                    </span>
+                    <p className="text-gray-400 text-xs leading-relaxed mt-1.5 mb-2 line-clamp-2">
                       {item.message.length > 80 ? item.message.slice(0, 80) + '…' : item.message}
                     </p>
                     <button
@@ -204,8 +138,7 @@ function FeedbackBell() {
   )
 }
 
-function ProfileDropdown() {
-  const { user, logout } = useAuth()
+function ProfileDropdown({ user, logout }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
 
@@ -219,16 +152,22 @@ function ProfileDropdown() {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(v => !v)}
-        className="flex items-center gap-1.5 p-1 rounded-lg hover:bg-gray-800 transition-colors"
+        className="flex items-center gap-1.5 p-1 rounded-xl hover:bg-white/10 transition-colors"
         title={user?.email}
       >
         <div
           className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-          style={{ background: 'rgba(245,130,30,0.2)', color: '#F5821E' }}
+          style={{ background: 'rgba(245,130,30,0.25)', color: '#F5821E' }}
         >
           {getInitials(user?.email || user?.full_name)}
         </div>
-        <ChevronDown size={14} className="text-gray-500" />
+        <div className="hidden md:block text-left">
+          <div className="text-xs font-semibold text-white leading-tight max-w-[120px] truncate">
+            {user?.email || user?.full_name}
+          </div>
+          <div className="text-[11px] leading-tight" style={{ color: 'rgba(255,255,255,0.5)' }}>Super Admin</div>
+        </div>
+        <ChevronDown size={13} className="text-gray-400" />
       </button>
 
       {open && (
@@ -251,55 +190,103 @@ function ProfileDropdown() {
   )
 }
 
+function SidebarContent({ onClose }) {
+  return (
+    <div className="flex flex-col h-full" style={{ background: '#0F2557' }}>
+      {/* Brand header */}
+      <div className="px-4 py-4 flex items-center justify-between border-b" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
+        <div className="flex flex-col gap-1">
+          <BrandLogo size="sm" />
+          <span className="text-xs font-semibold tracking-wider uppercase" style={{ color: '#F5821E' }}>
+            Admin Portal
+          </span>
+        </div>
+        {onClose && (
+          <button onClick={onClose} className="md:hidden text-white/50 hover:text-white p-1">
+            <X size={18} />
+          </button>
+        )}
+      </div>
+
+      {/* Nav */}
+      <nav className="flex-1 px-2 py-3 overflow-y-auto">
+        {NAV.map(({ to, icon: Icon, label }) => (
+          <NavLink key={to} to={to}
+            onClick={onClose}
+            className={({ isActive }) => isActive ? 'sidebar-link-active' : 'sidebar-link'}
+          >
+            <Icon size={17} className="flex-shrink-0" />
+            <span className="flex-1 truncate">{label}</span>
+          </NavLink>
+        ))}
+      </nav>
+    </div>
+  )
+}
+
 export default function Layout() {
-  const [open, setOpen] = useState(false)
-  const [sidebarPinned, setSidebarPinned] = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const { user, logout } = useAuth()
   const location = useLocation()
   const pageTitle = PAGE_TITLES[location.pathname] || ''
+  const todayLabel = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#0a0f1e]">
-      {open && (
-        <div className="fixed inset-0 z-40 md:hidden" onClick={() => setOpen(false)}>
-          <div className="absolute inset-0 bg-black/60" />
+      {/* Desktop sidebar */}
+      <aside className="hidden md:flex flex-col w-52 flex-shrink-0">
+        <SidebarContent />
+      </aside>
+
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <div className="md:hidden fixed inset-0 z-50 flex">
+          <div className="w-52 flex flex-col">
+            <SidebarContent onClose={() => setMobileOpen(false)} />
+          </div>
+          <div className="flex-1 bg-black/50" onClick={() => setMobileOpen(false)} />
         </div>
       )}
-      <div className={`fixed inset-y-0 left-0 z-50 md:hidden transition-transform duration-300 ${open ? 'translate-x-0' : '-translate-x-full'}`}>
-        <Sidebar onClose={() => setOpen(false)} expanded={true} />
-      </div>
-      <div className="hidden md:flex flex-shrink-0">
-        <Sidebar expanded={sidebarPinned} onToggle={() => setSidebarPinned(v => !v)} />
-      </div>
-      <main className="flex-1 overflow-y-auto">
-        {/* Mobile header */}
-        <div className="md:hidden flex items-center gap-3 px-4 py-3 border-b border-gray-800 bg-gray-900 sticky top-0 z-30">
-          <button onClick={() => setOpen(true)} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-800">
-            <Menu size={22} />
+
+      {/* Right panel */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Top header */}
+        <header className="h-12 flex items-center gap-3 px-4 flex-shrink-0 z-30 border-b border-gray-800/60" style={{ background: '#0F2557' }}>
+          <button onClick={() => setMobileOpen(true)} className="md:hidden p-1.5 rounded-lg text-white/70 hover:bg-white/10">
+            <Menu size={20} />
           </button>
-          <div className="flex-1 min-w-0">
-            {pageTitle
-              ? <span className="text-white font-semibold text-sm truncate">{pageTitle}</span>
-              : <BrandLogo size="sm" />
-            }
+          <div className="md:hidden">
+            <BrandLogo size="sm" />
           </div>
-          <div className="flex items-center gap-1">
-            <button onClick={() => window.location.reload()} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-800" title="Refresh">
-              <RefreshCw size={18} />
-            </button>
-            <FeedbackBell />
-            <ProfileDropdown />
-          </div>
-        </div>
-        {/* Desktop header */}
-        <div className="hidden md:flex items-center gap-2 px-4 border-b border-gray-800/60 bg-[#0f172a] sticky top-0 z-30 h-11">
-          <span className="text-white font-semibold text-sm flex-1">{pageTitle}</span>
+
+          {pageTitle && (
+            <h1 className="hidden md:block text-sm font-bold text-white truncate">{pageTitle}</h1>
+          )}
+
+          <div className="flex-1" />
+
+          <span className="hidden md:block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.5)' }}>
+            {todayLabel}
+          </span>
+
+          <button
+            onClick={() => window.location.reload()}
+            className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-white/60"
+            title="Refresh"
+          >
+            <RefreshCw size={16} />
+          </button>
+
           <FeedbackBell />
-          <ProfileDropdown />
-        </div>
-        <div className="p-2">
-          <Outlet />
-        </div>
-      </main>
+          <ProfileDropdown user={user} logout={logout} />
+        </header>
+
+        <main className="flex-1 overflow-y-auto">
+          <div className="p-4 md:p-6">
+            <Outlet />
+          </div>
+        </main>
+      </div>
     </div>
   )
 }
