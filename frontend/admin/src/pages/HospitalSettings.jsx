@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import api from '../api/client'
 import {
   Building2, Layers, BedDouble, LayoutGrid,
-  Plus, Edit2, Trash2, Loader2, X, Check, ChevronDown,
+  Plus, Edit2, Trash2, Loader2, X, Check, ChevronDown, Search,
   Shield, CreditCard, Phone, FileText, Link2,
   UserCheck, AlertTriangle, Save, ToggleLeft, ToggleRight,
 } from 'lucide-react'
@@ -887,42 +887,79 @@ const TABS = [
 export default function HospitalSettings() {
   const [tab, setTab] = useState('overview')
   const [clinics, setClinics] = useState([])
+  const [allClinics, setAllClinics] = useState([])
   const [selectedClinicId, setSelectedClinicId] = useState('')
   const [loadingClinics, setLoadingClinics] = useState(true)
+  const [search, setSearch] = useState('')
 
   useEffect(() => {
-    api.get('/platform/clinics?status=active')
-      .then(data => setClinics(Array.isArray(data) ? data : []))
+    api.get('/platform/clinics')
+      .then(data => {
+        const list = Array.isArray(data) ? data : (data?.clinics ?? [])
+        setAllClinics(list)
+        setClinics(list)
+      })
       .catch(() => {})
       .finally(() => setLoadingClinics(false))
   }, [])
 
+  const filtered = search.trim()
+    ? allClinics.filter(c => {
+        const q = search.toLowerCase()
+        return (
+          c.name?.toLowerCase().includes(q) ||
+          c.city?.toLowerCase().includes(q) ||
+          c.state?.toLowerCase().includes(q) ||
+          c.specialty?.toLowerCase().includes(q) ||
+          c.org_type?.toLowerCase().includes(q)
+        )
+      })
+    : allClinics
+
   return (
     <div>
-      {/* Clinic selector */}
-      <div className="mb-6 flex items-center gap-3">
-        <div className="relative w-72">
-          <Building2 size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-          {loadingClinics ? (
-            <div className="input pl-9 flex items-center gap-2 text-gray-400 text-sm">
-              <Loader2 size={14} className="animate-spin" />Loading health centers…
-            </div>
-          ) : (
-            <select
-              className="input pl-9 pr-8 text-sm appearance-none"
-              value={selectedClinicId}
-              onChange={e => { setSelectedClinicId(e.target.value); setTab('overview') }}
-            >
-              <option value="">— Select a health center —</option>
-              {clinics.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
+      {/* Health Center selector with search */}
+      <div className="mb-6 space-y-2">
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="relative flex-1 min-w-[200px] max-w-xs">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search by name, city, state, type…"
+              className="input pl-9 text-sm w-full"
+            />
+          </div>
+          <div className="relative w-72">
+            <Building2 size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+            {loadingClinics ? (
+              <div className="input pl-9 flex items-center gap-2 text-gray-400 text-sm">
+                <Loader2 size={14} className="animate-spin" />Loading health centers…
+              </div>
+            ) : (
+              <select
+                className="input pl-9 pr-8 text-sm appearance-none"
+                value={selectedClinicId}
+                onChange={e => { setSelectedClinicId(e.target.value); setTab('overview') }}
+              >
+                <option value="">— Select a health center —</option>
+                {filtered.map(c => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}{c.city ? ` · ${c.city}` : ''}{c.state ? `, ${c.state}` : ''}
+                  </option>
+                ))}
+              </select>
+            )}
+            <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          </div>
+          {selectedClinicId && (
+            <span className="text-xs text-gray-500">
+              Configuring: <span className="font-semibold text-gray-200">{allClinics.find(c => String(c.id) === selectedClinicId)?.name}</span>
+            </span>
           )}
-          <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
         </div>
-        {selectedClinicId && (
-          <span className="text-xs text-gray-500">
-            Configuring: <span className="font-semibold text-gray-200">{clinics.find(c => String(c.id) === selectedClinicId)?.name}</span>
-          </span>
+        {search && (
+          <p className="text-xs text-gray-500">{filtered.length} health center{filtered.length !== 1 ? 's' : ''} match "{search}"</p>
         )}
       </div>
 

@@ -53,7 +53,7 @@ log = logging.getLogger('bridge')
 CONFIG_PATH = Path(os.environ.get('APPDATA', '.')) / 'BharathHealth' / 'config.json'
 
 DEFAULT_CONFIG = {
-    'api_url':          'https://api.bharatcliniq.com',
+    'api_url':          'https://bharatcliniq-api.onrender.com',
     'api_key':          '',
     'clinic_id':        '',
     'hl7_port':         2575,

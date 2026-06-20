@@ -9,9 +9,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico'],
       manifest: {
-        name: 'BHaratCliniq Pharmacy',
-        short_name: 'BH Pharmacy',
-        description: 'Pharmacy management portal for BHaratCliniq',
+        name: 'Bharath Health Systems Pharmacy',
+        short_name: 'BHS Pharmacy',
+        description: 'Pharmacy management portal for Bharath Health Systems',
         theme_color: '#0F2557',
         background_color: '#ffffff',
         display: 'standalone',

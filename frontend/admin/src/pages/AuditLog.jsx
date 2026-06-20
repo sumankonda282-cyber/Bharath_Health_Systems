@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { adminApi } from '../api'
-import { Search, Printer, ChevronLeft, ChevronRight, AlertTriangle, ChevronDown } from 'lucide-react'
+import { Search, Printer, ChevronLeft, ChevronRight, AlertTriangle, ChevronDown, X } from 'lucide-react'
 
 // ── Action badge config ────────────────────────────────────────────
 const ACTION_META = {
@@ -65,6 +65,127 @@ function ActionBadge({ action }) {
   )
 }
 
+// ── Detail Drawer ─────────────────────────────────────────────────
+function DetailRow({ label, value }) {
+  if (value === null || value === undefined || value === '') return null
+  return (
+    <div className="flex flex-col gap-0.5 py-2.5 border-b border-gray-800 last:border-0">
+      <span className="text-xs text-gray-500 uppercase tracking-wide">{label}</span>
+      <span className="text-sm text-gray-100 break-words">{value}</span>
+    </div>
+  )
+}
+
+function DetailsJson({ details }) {
+  if (!details || typeof details !== 'object' || Object.keys(details).length === 0) return null
+  return (
+    <div className="flex flex-col gap-0.5 py-2.5 border-b border-gray-800 last:border-0">
+      <span className="text-xs text-gray-500 uppercase tracking-wide">Details</span>
+      <div className="mt-1 space-y-1">
+        {Object.entries(details).map(([k, v]) => (
+          <div key={k} className="flex gap-2 text-xs">
+            <span className="text-gray-400 font-medium shrink-0">{k}:</span>
+            <span className="text-gray-200 break-all">
+              {typeof v === 'object' ? JSON.stringify(v) : String(v)}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// Fields handled explicitly in the drawer — skip in the "extra" catch-all
+const DRAWER_SHOWN_FIELDS = new Set([
+  'id', 'created_at', 'action', 'admin_name', 'user_name', 'user_id',
+  'user_type', 'entity_type', 'target_type', 'target_name', 'entity_id',
+  'clinic_name', 'clinic_id', 'ip_address', 'reason', 'comment', 'details',
+])
+
+function AuditDrawer({ log, onClose }) {
+  if (!log) return null
+
+  const fullTimestamp = new Date(log.created_at).toLocaleString('en-IN', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true,
+  })
+
+  const userName = log.admin_name || log.user_name || log.user_id || '—'
+  const extraEntries = Object.entries(log).filter(([k]) => !DRAWER_SHOWN_FIELDS.has(k))
+
+  return (
+    <>
+      {/* Mobile overlay */}
+      <div
+        className="fixed inset-0 z-40 bg-black/60 md:hidden"
+        onClick={onClose}
+      />
+
+      {/* Drawer */}
+      <div className="fixed top-0 right-0 bottom-0 z-50 w-full md:w-[400px] bg-gray-900 border-l border-gray-800 flex flex-col shadow-2xl">
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800 shrink-0">
+          <h2 className="text-base font-semibold text-white">Event Details</h2>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
+            title="Close"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Action badge prominent display */}
+        <div className="px-4 py-3 border-b border-gray-800 shrink-0">
+          <ActionBadge action={log.action} />
+        </div>
+
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto px-4 py-1">
+          <DetailRow label="Timestamp" value={fullTimestamp} />
+          <DetailRow label="User Name" value={userName} />
+          {log.user_id && log.admin_name && (
+            <DetailRow label="User ID" value={log.user_id} />
+          )}
+          <DetailRow
+            label="User Type"
+            value={log.user_type
+              ? log.user_type.charAt(0).toUpperCase() + log.user_type.slice(1)
+              : 'Admin'}
+          />
+          <DetailRow label="Entity Type" value={log.entity_type || log.target_type || null} />
+          <DetailRow label="Entity / Name" value={log.target_name || log.entity_id || null} />
+          {(log.clinic_name || log.clinic_id) && (
+            <DetailRow
+              label="Health Center"
+              value={log.clinic_name || `ID: ${log.clinic_id}`}
+            />
+          )}
+          <DetailRow label="IP Address" value={log.ip_address || null} />
+          <DetailRow label="Reason" value={log.reason ? log.reason.replace(/_/g, ' ') : null} />
+          <DetailRow label="Comment" value={log.comment || null} />
+          <DetailsJson details={typeof log.details === 'object' ? log.details : null} />
+
+          {/* Any remaining fields not explicitly shown above */}
+          {extraEntries.map(([k, v]) => (
+            <DetailRow
+              key={k}
+              label={k.replace(/_/g, ' ')}
+              value={typeof v === 'object' ? JSON.stringify(v) : String(v ?? '')}
+            />
+          ))}
+        </div>
+      </div>
+    </>
+  )
+}
+
 export default function AuditLog() {
   const range = defaultDateRange()
   const [logs, setLogs]           = useState([])
@@ -81,6 +202,7 @@ export default function AuditLog() {
   const [hasMore, setHasMore]     = useState(false)
   const [nabh30, setNabh30]       = useState(null)
   const [showFailed, setShowFailed] = useState(false)
+  const [selectedLog, setSelectedLog] = useState(null)
 
   const load = async (newOffset = 0) => {
     setLoading(true)
@@ -98,9 +220,9 @@ export default function AuditLog() {
       setLogs(arr)
       setHasMore(arr.length === PAGE_SIZE)
       setOffset(newOffset)
-    } catch {
+    } catch (e) {
       setLogs([])
-      setError(true)
+      setError(e.message || 'Failed to load activity log.')
     } finally {
       setLoading(false)
     }
@@ -176,6 +298,10 @@ export default function AuditLog() {
     const t = new Date(l.created_at).getTime()
     return Number.isNaN(t) ? true : t >= since24h
   })
+
+  const handleRowClick = (log) => {
+    setSelectedLog(prev => prev?.id === log.id ? null : log)
+  }
 
   return (
     <>
@@ -321,7 +447,7 @@ export default function AuditLog() {
                 <div className="w-7 h-7 border-4 rounded-full animate-spin" style={{ borderColor: '#F5821E', borderTopColor: 'transparent' }} />
               </div>
             ) : error ? (
-              <div className="p-12 text-center text-red-400">Failed to load activity log. Try again.</div>
+              <div className="p-12 text-center text-red-400">{error}</div>
             ) : filteredLogs.length === 0 ? (
               <div className="p-12 text-center text-gray-500">No activity records found</div>
             ) : (
@@ -340,7 +466,11 @@ export default function AuditLog() {
                   </thead>
                   <tbody className="divide-y divide-gray-800">
                     {filteredLogs.map(l => (
-                      <tr key={l.id} className="tr-hover">
+                      <tr
+                        key={l.id}
+                        className={`tr-hover cursor-pointer transition-colors ${selectedLog?.id === l.id ? 'bg-white/5' : ''}`}
+                        onClick={() => handleRowClick(l)}
+                      >
                         <td className="td-sm text-xs text-gray-400 whitespace-nowrap font-mono">
                           {new Date(l.created_at).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
                         </td>
@@ -413,6 +543,9 @@ export default function AuditLog() {
           </div>
         )}
       </div>
+
+      {/* Detail drawer — fixed, rendered outside scroll area */}
+      <AuditDrawer log={selectedLog} onClose={() => setSelectedLog(null)} />
     </>
   )
 }

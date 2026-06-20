@@ -1,5 +1,5 @@
 """
-BHaratCliniq Bridge Agent — Entry Point
+Bharath Health Systems Bridge Agent — Entry Point
 If not configured, shows the config UI first.
 If configured, runs the bridge agent with system tray icon.
 Can also be installed as a Windows service.
@@ -25,9 +25,9 @@ def run_as_service():
         import servicemanager
 
         class BridgeService(win32serviceutil.ServiceFramework):
-            _svc_name_         = 'BHaratCliniqBridge'
-            _svc_display_name_ = 'BHaratCliniq Bridge Agent'
-            _svc_description_  = 'Connects clinic lab/imaging machines to BHaratCliniq cloud'
+            _svc_name_         = 'BHSBridge'
+            _svc_display_name_ = 'Bharath Health Systems Bridge Agent'
+            _svc_description_  = 'Connects clinic lab/imaging machines to Bharath Health Systems cloud'
 
             def __init__(self, args):
                 win32serviceutil.ServiceFramework.__init__(self, args)

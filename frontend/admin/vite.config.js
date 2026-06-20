@@ -9,9 +9,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico'],
       manifest: {
-        name: 'BHaratCliniq Admin',
-        short_name: 'BH Admin',
-        description: 'BHaratCliniq Super Admin Portal',
+        name: 'Bharath Health Systems Admin',
+        short_name: 'BHS Admin',
+        description: 'Bharath Health Systems Super Admin Portal',
         theme_color: '#1e1b4b',
         background_color: '#ffffff',
         display: 'standalone',

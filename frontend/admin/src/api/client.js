@@ -9,7 +9,7 @@ const api = axios.create({
 })
 
 api.interceptors.request.use((config) => {
-  const token = sessionStorage.getItem('admin_token')
+  const token = localStorage.getItem('admin_token')
   if (token) config.headers.Authorization = `Bearer ${token}`
   return config
 })
@@ -23,7 +23,7 @@ api.interceptors.response.use(
       const url = err.config?.url || ''
       const isExempt = url.includes('/login') || url.includes('/send-otp') || url.includes('/verify-otp') || url.includes('/me') || url.includes('/inpatient/')
       if (!isExempt) {
-        sessionStorage.removeItem('admin_token')
+        localStorage.removeItem('admin_token')
         window.location.href = '/login'
       }
     }

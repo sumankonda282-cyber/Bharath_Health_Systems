@@ -1,6 +1,6 @@
 """
 Bridge Agent API endpoints
-Receives data from the BHaratCliniq Bridge Agent (.exe) running on clinic PCs.
+Receives data from the Bharath Health Systems Bridge Agent (.exe) running on clinic PCs.
 Auth: X-Bridge-Key header (per-clinic API key stored in Clinic.bridge_api_key)
 """
 import hashlib

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 
 const KEY = 'doctor_input_mode'
-const API = import.meta.env.VITE_API_URL || 'https://bharatcliniq.onrender.com'
+const API = import.meta.env.VITE_API_URL || 'https://bharatcliniq-api.onrender.com'
 
 async function fetchMode() {
   const token = sessionStorage.getItem('access_token')

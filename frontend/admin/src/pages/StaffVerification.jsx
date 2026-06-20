@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { adminApi } from '../api'
-import { Search, Check, X, Eye, ShieldCheck, Pill, HeartPulse, FlaskConical, ScanLine, AlertTriangle } from 'lucide-react'
+import { Search, Check, X, Eye, ShieldCheck, Pill, HeartPulse, FlaskConical, ScanLine, AlertTriangle, Stethoscope, ExternalLink } from 'lucide-react'
 
 const ROLE_LABELS = { pharmacist: 'Pharmacist', lab_technician: 'Lab Technician', imaging_tech: 'Imaging Tech', nurse: 'Nurse' }
 
@@ -14,6 +14,11 @@ const isReapplicant = (s) =>
   !!(s.is_reapplicant || s.reapplicant || s.re_applicant || s.previously_rejected || s.reapplication)
 
 const isImage = (url) => /\.(png|jpe?g|gif|webp|bmp|svg)(\?.*)?$/i.test(url || '')
+
+const isDoctor = (role) => {
+  const r = String(role || '').toLowerCase()
+  return r.includes('doctor') || r === 'physician'
+}
 
 export default function StaffVerification() {
   const [staff, setStaff] = useState([])
@@ -36,18 +41,20 @@ export default function StaffVerification() {
     setError(null)
     adminApi.getPendingStaff()
       .then(d => { setStaff(Array.isArray(d) ? d : []); setChecked(new Set()) })
-      .catch(() => setError('Failed to load staff awaiting verification.'))
+      .catch(e => setError(e.message || 'Failed to load staff awaiting verification.'))
       .finally(() => setLoading(false))
   }
   useEffect(() => { load() }, [])
 
   const kpis = useMemo(() => {
     const count = (frag) => staff.filter(s => String(s.role || '').toLowerCase().includes(frag)).length
+    const doctorCount = staff.filter(s => isDoctor(s.role)).length
     return {
       pharm: count('pharm'),
       nurse: count('nurse'),
       lab: count('lab'),
       imag: count('imag'),
+      doctor: doctorCount,
     }
   }, [staff])
 
@@ -98,9 +105,16 @@ export default function StaffVerification() {
   const clearChecked = () => setChecked(new Set())
 
   const handleVerify = async (id) => {
+    const member = staff.find(s => s.id === id)
+    if (member && isDoctor(member.role)) {
+      const confirmed = window.confirm(
+        'Please verify the medical license before approving.\n\nProceed with approving this doctor?'
+      )
+      if (!confirmed) return
+    }
     setSaving(id)
     try { await adminApi.verifyStaff(id); load() }
-    catch { setError('Failed to approve staff.') }
+    catch (e) { setError(e.message || 'Failed to approve staff.') }
     finally { setSaving(null) }
   }
 
@@ -109,7 +123,7 @@ export default function StaffVerification() {
     try {
       await adminApi.rejectStaff(rejectModal, { comment: rejectComment })
       setRejectModal(null); setRejectComment(''); load()
-    } catch { setError('Failed to reject staff.') }
+    } catch (e) { setError(e.message || 'Failed to reject staff.') }
     finally { setSaving(null) }
   }
 
@@ -118,7 +132,7 @@ export default function StaffVerification() {
     if (ids.length === 0) return
     setSaving('batch')
     try { for (const id of ids) await adminApi.verifyStaff(id); load() }
-    catch { setError('One or more approvals failed.') }
+    catch (e) { setError(e.message || 'One or more approvals failed.') }
     finally { setSaving(null) }
   }
 
@@ -129,7 +143,7 @@ export default function StaffVerification() {
     if (comment === null) return
     setSaving('batch')
     try { for (const id of ids) await adminApi.rejectStaff(id, { comment }); load() }
-    catch { setError('One or more rejections failed.') }
+    catch (e) { setError(e.message || 'One or more rejections failed.') }
     finally { setSaving(null) }
   }
 
@@ -144,13 +158,14 @@ export default function StaffVerification() {
     { key: 'nurse', label: 'Nurse', value: kpis.nurse, Icon: HeartPulse },
     { key: 'lab', label: 'Lab Tech', value: kpis.lab, Icon: FlaskConical },
     { key: 'imag', label: 'Imaging Tech', value: kpis.imag, Icon: ScanLine },
+    { key: 'doctor', label: 'Doctor', value: kpis.doctor, Icon: Stethoscope },
   ]
 
   const selectedCount = checked.size
 
   return (
     <div className="bg-[#0a0f1e] min-h-full text-gray-200 pb-20">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
         {kpiItems.map(({ key, label, value, Icon }) => (
           <div key={key} className="kpi-card flex items-center gap-3">
             <div className="p-2 rounded-lg bg-[#F5821E]/10">
@@ -242,6 +257,7 @@ export default function StaffVerification() {
               <tbody className="divide-y divide-gray-800">
                 {filtered.map(s => {
                   const d = daysSince(s.created_at)
+                  const docUrl = s.document_url || s.license_document_url
                   return (
                     <tr key={s.id} className="hover:bg-white/5">
                       <td className="td-sm">
@@ -259,7 +275,26 @@ export default function StaffVerification() {
                         <span className="badge-xs bg-[#10182e] border border-gray-700 text-gray-300">{ROLE_LABELS[s.role] || s.role}</span>
                       </td>
                       <td className="td-sm text-gray-400">{s.clinic_name}</td>
-                      <td className="td-sm text-gray-300">{s.license_number || <span className="text-gray-600">—</span>}</td>
+                      <td className="td-sm">
+                        {isDoctor(s.role) && s.license_number ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                            {s.license_number}
+                          </span>
+                        ) : null}
+                        {docUrl ? (
+                          <a
+                            href={docUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 mt-0.5"
+                            onClick={e => e.stopPropagation()}
+                          >
+                            <ExternalLink size={11} />View Doc
+                          </a>
+                        ) : !isDoctor(s.role) || !s.license_number ? (
+                          <span className="text-gray-600">—</span>
+                        ) : null}
+                      </td>
                       <td className="td-sm text-gray-500">{s.created_at ? new Date(s.created_at).toLocaleDateString('en-IN') : '—'}</td>
                       <td className={`td-sm font-medium ${dayCellClass(d)}`}>{d}d</td>
                       <td className="td-sm">

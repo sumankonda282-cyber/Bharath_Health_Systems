@@ -9,9 +9,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico'],
       manifest: {
-        name: 'BHaratCliniq Staff',
-        short_name: 'BH Staff',
-        description: 'Staff and reception portal for BHaratCliniq',
+        name: 'Bharath Health Systems Staff',
+        short_name: 'BHS Staff',
+        description: 'Staff and reception portal for Bharath Health Systems',
         theme_color: '#0F2557',
         background_color: '#ffffff',
         display: 'standalone',

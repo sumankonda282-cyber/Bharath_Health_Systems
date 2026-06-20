@@ -1,5 +1,5 @@
 """
-BHaratCliniq Bridge Agent — Configuration UI
+Bharath Health Systems Bridge Agent — Configuration UI
 Simple Tkinter window for clinic staff to configure the agent.
 No technical knowledge required.
 """
@@ -15,7 +15,7 @@ from bridge_agent import load_config, save_config
 class BridgeConfigUI:
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title('BHaratCliniq Bridge Agent — Setup')
+        self.root.title('Bharath Health Systems Bridge Agent — Setup')
         self.root.geometry('580x700')
         self.root.resizable(False, False)
         self.root.configure(bg='#f8fafc')
@@ -67,9 +67,9 @@ class BridgeConfigUI:
         # Header
         hdr = tk.Frame(self.root, bg='#0F2557', pady=14)
         hdr.pack(fill='x')
-        tk.Label(hdr, text='BHaratCliniq Bridge Agent', fg='white',
+        tk.Label(hdr, text='Bharath Health Systems Bridge Agent', fg='white',
                  font=('Segoe UI', 13, 'bold'), bg='#0F2557').pack()
-        tk.Label(hdr, text='Connect your clinic machines to the BHaratCliniq cloud',
+        tk.Label(hdr, text='Connect your clinic machines to the Bharath Health Systems cloud',
                  fg='#93c5fd', font=('Segoe UI', 9), bg='#0F2557').pack()
 
         # Status bar
@@ -100,7 +100,7 @@ class BridgeConfigUI:
         self._entry(frame, 'api_key', r, show='*'); r += 1
         self._label(frame, 'Clinic ID', r)
         self._entry(frame, 'clinic_id', r); r += 1
-        self._hint(frame, 'Get API Key and Clinic ID from BHaratCliniq portal → Settings → Bridge.', r); r += 1
+        self._hint(frame, 'Get API Key and Clinic ID from Bharath Health Systems portal → Settings → Bridge.', r); r += 1
 
         self._section(frame, '  Step 2 — HL7 Lab Machines (Beckman, Siemens, Abbott, Roche)', r); r += 1
         self._label(frame, 'TCP Port', r)
@@ -171,7 +171,7 @@ class BridgeConfigUI:
                 clinic_name = r.json().get('clinic', '')
                 self._status_var.set(f'✓ Connected — Clinic: {clinic_name}')
                 self._status_label.config(bg='#d1fae5', fg='#065f46')
-                messagebox.showinfo('Success', f'Connected to BHaratCliniq!\nClinic: {clinic_name}')
+                messagebox.showinfo('Success', f'Connected to Bharath Health Systems!\nClinic: {clinic_name}')
             else:
                 self._status_var.set(f'✗ Failed: HTTP {r.status_code}')
                 self._status_label.config(bg='#fee2e2', fg='#991b1b')
@@ -189,7 +189,7 @@ class BridgeConfigUI:
         save_config(cfg)
         messagebox.showinfo(
             'Configuration Saved',
-            'Settings saved successfully.\n\nThe bridge agent will now start and run in the background.\nLook for the BHaratCliniq icon in the system tray (bottom-right taskbar).'
+            'Settings saved successfully.\n\nThe bridge agent will now start and run in the background.\nLook for the Bharath Health Systems icon in the system tray (bottom-right taskbar).'
         )
         self.root.destroy()
 
