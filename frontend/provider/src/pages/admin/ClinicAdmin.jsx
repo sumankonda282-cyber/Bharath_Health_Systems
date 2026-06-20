@@ -53,7 +53,7 @@ function TelehealthFeeInput({ doc, saving, onSave }) {
   )
 }
 
-const API_BASE = import.meta.env.VITE_API_URL || 'https://bharatcliniq-api.onrender.com'
+const API_BASE = import.meta.env.VITE_API_URL || 'https://BharathHealthSystems-api.onrender.com'
 
 function BrandingTab({ clinicId, profile }) {
   const [brandName, setBrandName]   = useState(profile.brand_name || '')

@@ -34,17 +34,17 @@ class Settings(BaseSettings):
 
     CORS_ORIGINS: str = (
         "http://localhost:3000,http://localhost:5173,http://localhost:5174,http://localhost:5175,"
-        "https://bharatcliniq.com,https://www.bharatcliniq.com,"
-        "https://provider.bharathhealthsystems.com,https://my.bharatcliniq.com,"
-        "https://lab.bharatcliniq.com,https://pharmacy.bharatcliniq.com,"
-        "https://receptionist.bharatcliniq.com,https://staff.bharatcliniq.com,"
-        "https://admin.bharatcliniq.com,https://doctor.bharatcliniq.com,"
-        "https://imaging.bharatcliniq.com,"
-        "https://bharatcliniq-public.vercel.app,https://bharatcliniq-provider.vercel.app,"
-        "https://bharatcliniq-patient.vercel.app,https://bharatcliniq-lab.vercel.app,"
-        "https://bharatcliniq-imaging.vercel.app,https://bharatcliniq-pharmacy.vercel.app,"
-        "https://bharatcliniq-receptionist.vercel.app,https://bharatcliniq-admin.vercel.app,"
-        "https://bharatcliniq-staff.vercel.app,"
+        "https://bharathhealthsystems.com,https://www.bharathhealthsystems.com,"
+        "https://provider.bharathhealthsystems.com,https://my.bharathhealthsystems.com,"
+        "https://lab.bharathhealthsystems.com,https://pharmacy.bharathhealthsystems.com,"
+        "https://receptionist.bharathhealthsystems.com,https://staff.bharathhealthsystems.com,"
+        "https://admin.bharathhealthsystems.com,https://doctor.bharathhealthsystems.com,"
+        "https://imaging.bharathhealthsystems.com,"
+        "https://bharath-health-public.vercel.app,https://bharath-health-provider.vercel.app,"
+        "https://bharath-health-patient.vercel.app,https://bharath-health-lab.vercel.app,"
+        "https://bharath-health-imaging.vercel.app,https://bharath-health-pharmacy.vercel.app,"
+        "https://bharath-health-receptionist.vercel.app,https://bharath-health-admin.vercel.app,"
+        "https://bharath-health-staff.vercel.app,"
         "https://bharathhealthsystems.com,https://www.bharathhealthsystems.com,"
         "https://staff.bharathhealthsystems.com,https://provider.bharathhealthsystems.com,"
         "https://my.bharathhealthsystems.com,https://admin.bharathhealthsystems.com,"
@@ -65,21 +65,21 @@ class Settings(BaseSettings):
     CLOUDINARY_API_SECRET: str = ""
 
     DAILY_API_KEY: str = ""
-    DAILY_DOMAIN: str = "bharatcliniq.daily.co"
+    DAILY_DOMAIN: str = "bharathhealthsystems.daily.co"
 
     @property
     def cors_origins_list(self) -> List[str]:
         defaults = [
-            "https://bharatcliniq.com",
-            "https://www.bharatcliniq.com",
-            "https://bharatcliniq-provider.vercel.app",
-            "https://bharatcliniq-patient.vercel.app",
-            "https://bharatcliniq-admin.vercel.app",
-            "https://bharatcliniq-public.vercel.app",
-            "https://bharatcliniq-pharmacy.vercel.app",
-            "https://bharatcliniq-lab.vercel.app",
-            "https://bharatcliniq-receptionist.vercel.app",
-            "https://bharatcliniq-imaging.vercel.app",
+            "https://bharathhealthsystems.com",
+            "https://www.bharathhealthsystems.com",
+            "https://bharath-health-provider.vercel.app",
+            "https://bharath-health-patient.vercel.app",
+            "https://bharath-health-admin.vercel.app",
+            "https://bharath-health-public.vercel.app",
+            "https://bharath-health-pharmacy.vercel.app",
+            "https://bharath-health-lab.vercel.app",
+            "https://bharath-health-receptionist.vercel.app",
+            "https://bharath-health-imaging.vercel.app",
             "https://bharathhealthsystems.com",
             "https://www.bharathhealthsystems.com",
             "https://staff.bharathhealthsystems.com",

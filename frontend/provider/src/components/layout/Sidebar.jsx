@@ -29,7 +29,7 @@ const ALL_NAV = [
   { to: '/platform',         label: 'Platform',        icon: ShieldCheck,  userType: 'platform_admin' },
 ]
 
-const API_BASE = import.meta.env.VITE_API_URL || 'https://bharatcliniq-api.onrender.com'
+const API_BASE = import.meta.env.VITE_API_URL || 'https://BharathHealthSystems-api.onrender.com'
 
 export default function Sidebar({ onClose }) {
   const { user, branding, isPlatformAdmin } = useAuth()

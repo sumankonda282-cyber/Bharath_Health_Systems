@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom'
 import { ChevronRight, ChevronLeft, CheckCircle, AlertCircle, Clock } from 'lucide-react'
 import BrandLogo from '../components/BrandLogo'
 
-const API_BASE = import.meta.env.VITE_API_URL || 'https://bharatcliniq-api.onrender.com'
+const API_BASE = import.meta.env.VITE_API_URL || 'https://BharathHealthSystems-api.onrender.com'
 
 function evaluateConditions(field, values) {
   if (!field.conditions || field.conditions.length === 0) return true
