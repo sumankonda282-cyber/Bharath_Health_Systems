@@ -170,7 +170,7 @@ function RecordPaymentModal({ clinic, planConfig, onClose, onSaved, addToast }) 
       onSaved()
       onClose()
     } catch (err) {
-      addToast(err?.response?.data?.detail || 'Failed to record payment', 'error')
+      addToast(err?.message || 'Failed to record payment', 'error')
     } finally {
       setSaving(false)
     }
@@ -281,7 +281,7 @@ function ChangePlanModal({ clinic, planConfig, onClose, onSaved, addToast }) {
       onSaved()
       onClose()
     } catch (err) {
-      addToast(err?.response?.data?.detail || 'Failed to change plan', 'error')
+      addToast(err?.message || 'Failed to change plan', 'error')
     } finally {
       setSaving(false)
     }
@@ -387,7 +387,7 @@ function ClinicDrawer({ clinic, planConfig, onClose, onAction, addToast }) {
       addToast(`Extended ${clinic.name} subscription by 30 days`)
       onAction()
     } catch (err) {
-      addToast(err?.response?.data?.detail || 'Failed to extend', 'error')
+      addToast(err?.message || 'Failed to extend', 'error')
     } finally {
       setActionLoading(s => ({ ...s, extend: false }))
     }
@@ -400,7 +400,7 @@ function ClinicDrawer({ clinic, planConfig, onClose, onAction, addToast }) {
       addToast(`${clinic.name} suspended`)
       onAction()
     } catch (err) {
-      addToast(err?.response?.data?.detail || 'Failed to suspend', 'error')
+      addToast(err?.message || 'Failed to suspend', 'error')
     } finally {
       setActionLoading(s => ({ ...s, suspend: false }))
     }
@@ -413,7 +413,7 @@ function ClinicDrawer({ clinic, planConfig, onClose, onAction, addToast }) {
       addToast(`${clinic.name} reactivated`)
       onAction()
     } catch (err) {
-      addToast(err?.response?.data?.detail || 'Failed to reactivate', 'error')
+      addToast(err?.message || 'Failed to reactivate', 'error')
     } finally {
       setActionLoading(s => ({ ...s, reactivate: false }))
     }
@@ -600,7 +600,7 @@ function PlansEditorTab({ planConfig, onSaved, addToast }) {
       onSaved(draft)
       setDirty(false)
     } catch (err) {
-      addToast(err?.response?.data?.detail || 'Failed to save', 'error')
+      addToast(err?.message || 'Failed to save', 'error')
     } finally {
       setSaving(false)
     }
