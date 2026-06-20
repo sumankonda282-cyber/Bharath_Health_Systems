@@ -1,1 +1,1 @@
-# BharatCliniq Receptionist Portal
+# Bharath Health Systems Receptionist Portal

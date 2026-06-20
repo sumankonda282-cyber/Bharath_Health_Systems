@@ -1,1 +1,1 @@
-# BharatCliniq Provider Portal
+# Bharath Health Systems Provider Portal

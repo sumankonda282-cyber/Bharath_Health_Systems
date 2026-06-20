@@ -1,1 +1,1 @@
-# BharatCliniq Admin Portal
+# Bharath Health Systems Admin Portal

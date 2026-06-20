@@ -45,8 +45,8 @@ export default function EmergencyAlertBanner() {
     fetchAlerts()
     const id = setInterval(fetchAlerts, 10000)
     const h = () => fetchAlerts()
-    window.addEventListener('bharatcliniq:refresh', h)
-    return () => { clearInterval(id); window.removeEventListener('bharatcliniq:refresh', h) }
+    window.addEventListener('bharathhealthsystems:refresh', h)
+    return () => { clearInterval(id); window.removeEventListener('bharathhealthsystems:refresh', h) }
   }, [fetchAlerts])
 
   useEffect(() => {
@@ -77,7 +77,7 @@ export default function EmergencyAlertBanner() {
     try {
       await api.post(`/inpatient/emergency/${a.id}/acknowledge`)
       setAlerts(prev => prev.filter(x => x.id !== a.id))
-      window.dispatchEvent(new CustomEvent('bharatcliniq:refresh'))
+      window.dispatchEvent(new CustomEvent('bharathhealthsystems:refresh'))
     } catch {}
     setAcking(p => ({ ...p, [a.id]: false }))
   }

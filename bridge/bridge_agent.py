@@ -1,9 +1,9 @@
 """
-BHaratCliniq Bridge Agent
+Bharath Health Bridge Agent
 =========================
 Universal clinic-to-cloud connector. Runs as a Windows service.
 Handles: HL7 v2.x, ASTM LIS02-A2, DICOM, PDF
-Translates to FHIR R4 before posting to BHaratCliniq API.
+Translates to FHIR R4 before posting to Bharath Health API.
 ABHA-ready: maps patient identifiers from all formats.
 
 Architecture:
@@ -37,7 +37,7 @@ from parsers import (
 )
 
 # ── Logging ────────────────────────────────────────────────────────────────────
-log_path = Path(os.environ.get('APPDATA', '.')) / 'BHaratCliniq' / 'bridge.log'
+log_path = Path(os.environ.get('APPDATA', '.')) / 'BharathHealth' / 'bridge.log'
 log_path.parent.mkdir(parents=True, exist_ok=True)
 logging.basicConfig(
     level=logging.INFO,
@@ -50,7 +50,7 @@ logging.basicConfig(
 log = logging.getLogger('bridge')
 
 # ── Config ─────────────────────────────────────────────────────────────────────
-CONFIG_PATH = Path(os.environ.get('APPDATA', '.')) / 'BHaratCliniq' / 'config.json'
+CONFIG_PATH = Path(os.environ.get('APPDATA', '.')) / 'BharathHealth' / 'config.json'
 
 DEFAULT_CONFIG = {
     'api_url':          'https://api.bharatcliniq.com',
@@ -472,7 +472,7 @@ def main(tray: bool = False):
     if not cfg['api_key'] or not cfg['clinic_id']:
         log.warning('Bridge agent not configured. Please run the config UI.')
     else:
-        log.info(f'Starting BHaratCliniq Bridge Agent for clinic {cfg["clinic_id"]}')
+        log.info(f'Starting Bharath Health Bridge Agent for clinic {cfg["clinic_id"]}')
 
     # Start system tray icon (desktop mode only, not service)
     tray_icon = None

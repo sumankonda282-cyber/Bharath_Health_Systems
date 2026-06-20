@@ -248,7 +248,7 @@ export default function Layout() {
           <span className="hidden md:block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.5)' }}>{todayLabel}</span>
 
           <button
-            onClick={() => window.dispatchEvent(new CustomEvent('bharatcliniq:refresh'))}
+            onClick={() => window.dispatchEvent(new CustomEvent('bharathhealthsystems:refresh'))}
             className="p-1.5 rounded-lg hover:bg-white/10 transition-colors" style={{ color: 'rgba(255,255,255,0.6)' }} title="Refresh data">
             <RefreshCw size={16} />
           </button>

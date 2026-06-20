@@ -62,7 +62,7 @@ function PrintSlip({ pass, clinicName, onClose }) {
 
         {/* Printable slip */}
         <div id="visitor-slip" className="p-5 font-mono text-xs space-y-1 border-b border-dashed border-gray-300">
-          <div className="text-center font-bold text-sm mb-1">{clinicName || 'BharatCliniq'}</div>
+          <div className="text-center font-bold text-sm mb-1">{clinicName || 'Bharath Health Systems'}</div>
           <div className="text-center text-gray-500 mb-2">— VISITOR PASS —</div>
           <div className="flex justify-between"><span>Pass Code</span><span className="font-bold tracking-widest">{pass.pass_code}</span></div>
           <div className="flex justify-between"><span>Type</span><span className="capitalize">{pass.pass_type === 'attender' ? 'Attender Pass' : 'Visit Pass'}</span></div>
@@ -634,8 +634,8 @@ function GateLogTab({ user }) {
 
   useEffect(() => {
     const h = () => load()
-    window.addEventListener('bharatcliniq:refresh', h)
-    return () => window.removeEventListener('bharatcliniq:refresh', h)
+    window.addEventListener('bharathhealthsystems:refresh', h)
+    return () => window.removeEventListener('bharathhealthsystems:refresh', h)
   }, [load])
 
   const verify = async () => {

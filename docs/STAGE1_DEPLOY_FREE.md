@@ -7,10 +7,10 @@
 ## OVERVIEW
 
 ```
-bharatcliniq.in          → Vercel (website frontend)
-app.bharatcliniq.in      → Vercel (clinic app)
-my.bharatcliniq.in       → Vercel (patient portal)
-bharatcliniq.in/api      → Railway (FastAPI backend + MySQL)
+bharathhealthsystems.com          → Vercel (website frontend)
+bharathhealthsystems.com      → Vercel (clinic app)
+bharathhealthsystems.com       → Vercel (patient portal)
+bharathhealthsystems.com/api      → Railway (FastAPI backend + MySQL)
 ```
 
 Everything free except the domain (₹699/year on Hostinger).
@@ -21,9 +21,9 @@ Everything free except the domain (₹699/year on Hostinger).
 
 ### Step 1: Go to hostinger.in
 1. Open **hostinger.in** in browser
-2. In search bar type: `bharatcliniq.in`
+2. In search bar type: `bharathhealthsystems.com`
 3. If available → click **Add to Cart**
-4. Also search `bharatcliniq.co.in` → add that too
+4. Also search `bharathhealthsystems.com` → add that too
 5. Proceed to checkout
 6. **IMPORTANT**: Remove any add-ons (hosting, SSL, website builder) — you don't need them
 7. Pay via UPI / Net Banking: ~₹1,400 for both domains for 1 year
@@ -61,7 +61,7 @@ In Anaconda Prompt:
 cd C:\BMH\bharatcliniq_SaaS
 git init
 git add .
-git commit -m "Initial commit - BharatCliniq Stage 1"
+git commit -m "Initial commit - Bharath Health Systems Stage 1"
 git branch -M main
 git remote add origin https://github.com/YOUR_USERNAME/bharatcliniq.git
 git push -u origin main
@@ -105,7 +105,7 @@ ALGORITHM = HS256
 ACCESS_TOKEN_EXPIRE_MINUTES = 1440
 OTP_MOCK = true
 MOCK_OTP_VALUE = 123456
-CORS_ORIGINS = https://bharatcliniq.in,https://app.bharatcliniq.in,https://my.bharatcliniq.in
+CORS_ORIGINS = https://bharathhealthsystems.com,https://bharathhealthsystems.com,https://bharathhealthsystems.com
 ```
 
 **For DATABASE_URL**: Use the MYSQL_URL Railway gave you, but change the start from `mysql://` to `mysql+pymysql://`
@@ -144,7 +144,7 @@ You'll create 3 separate Vercel projects — one for each frontend.
 2. Click **Continue with GitHub** → connect your GitHub account
 3. Free forever for hobby/startup use
 
-### Step 2: Deploy Website (bharatcliniq.in)
+### Step 2: Deploy Website (bharathhealthsystems.com)
 1. Vercel dashboard → **New Project**
 2. Import your `bharatcliniq` repo
 3. **Root Directory**: `frontend/website`
@@ -181,23 +181,23 @@ After deploy → Vercel gives URL like `bharatcliniq-website.vercel.app`
 
 ### Step 1: Add Domain to Each Vercel Project
 
-**For website project (bharatcliniq.in):**
+**For website project (bharathhealthsystems.com):**
 1. Vercel → your website project → **Settings** → **Domains**
-2. Add: `bharatcliniq.in`
-3. Add: `www.bharatcliniq.in`
+2. Add: `bharathhealthsystems.com`
+3. Add: `bharathhealthsystems.com`
 4. Vercel shows you DNS records to add
 
-**For clinic app (app.bharatcliniq.in):**
+**For clinic app (bharathhealthsystems.com):**
 1. Vercel → clinic-app project → **Settings** → **Domains**
-2. Add: `app.bharatcliniq.in`
+2. Add: `bharathhealthsystems.com`
 
-**For patient portal (my.bharatcliniq.in):**
+**For patient portal (bharathhealthsystems.com):**
 1. Vercel → patient-portal project → **Settings** → **Domains**
-2. Add: `my.bharatcliniq.in`
+2. Add: `bharathhealthsystems.com`
 
 ### Step 2: Add DNS Records in Hostinger
 
-1. Login to **hostinger.in** → hPanel → **Domains** → bharatcliniq.in → **DNS Zone**
+1. Login to **hostinger.in** → hPanel → **Domains** → bharathhealthsystems.com → **DNS Zone**
 2. Delete all existing A records and CNAME records
 3. Add these records (Vercel tells you exactly what to add, but typically):
 
@@ -221,18 +221,18 @@ Once DNS propagates, test these URLs:
 
 | URL | Expected |
 |-----|---------|
-| https://bharatcliniq.in | Public website with search |
-| https://app.bharatcliniq.in | Clinic login page |
-| https://my.bharatcliniq.in | Patient OTP login |
+| https://bharathhealthsystems.com | Public website with search |
+| https://bharathhealthsystems.com | Clinic login page |
+| https://bharathhealthsystems.com | Patient OTP login |
 | https://bharatcliniq-production.up.railway.app/api/v1/docs | API docs |
 
 **Test the full booking flow:**
-1. Go to bharatcliniq.in
+1. Go to bharathhealthsystems.com
 2. Click on Apollo Demo Clinic
 3. Select a doctor → pick a date → pick a time slot
 4. Fill patient details → confirm
 5. Note your BH ID (should be BH0000001 or similar)
-6. Go to app.bharatcliniq.in → login as `admin@apollodemo.com` / `Admin@123`
+6. Go to bharathhealthsystems.com → login as `admin@apollodemo.com` / `Admin@123`
 7. Check if the booking appears under Appointments
 
 ---
@@ -284,8 +284,8 @@ Railway and Vercel automatically detect the push and redeploy within 2–3 minut
 
 | Item | Cost |
 |------|------|
-| bharatcliniq.in domain | ₹699/year = ₹58/month |
-| bharatcliniq.co.in | ₹699/year = ₹58/month |
+| bharathhealthsystems.com domain | ₹699/year = ₹58/month |
+| bharathhealthsystems.com | ₹699/year = ₹58/month |
 | Railway (backend + DB) | FREE |
 | Vercel (3 frontends) | FREE |
 | SMS OTP | ₹100 recharge (lasts months) |

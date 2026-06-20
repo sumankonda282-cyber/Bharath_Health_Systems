@@ -89,7 +89,7 @@ export default function Setup() {
     <div className="max-w-3xl mx-auto">
       <div className="mb-6">
         <h1 className="text-xl font-extrabold text-gray-800">Scheduler Setup</h1>
-        <p className="text-sm text-gray-500">Configure shifts and rules for your clinic — once set, you can schedule every week in minutes</p>
+        <p className="text-sm text-gray-500">Configure shifts and rules for your health center — once set, you can schedule every week in minutes</p>
       </div>
 
       {/* Step indicator */}
@@ -115,7 +115,7 @@ export default function Setup() {
 
       {step === 1 && (
         <div className="card p-6">
-          <h2 className="font-bold text-gray-800 mb-1">Define your clinic's shifts</h2>
+          <h2 className="font-bold text-gray-800 mb-1">Define your health center's shifts</h2>
           <p className="text-sm text-gray-500 mb-5">Start from the suggestions or create your own — these become the chips you drag onto the schedule board</p>
 
           {/* Existing shifts */}

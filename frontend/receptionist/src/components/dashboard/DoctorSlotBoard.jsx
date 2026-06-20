@@ -534,9 +534,9 @@ export default function DoctorSlotBoard({ onPendingCount }) {
   }, [])
   useEffect(() => {
     const h = () => { load(true); setReloadKey(k => k + 1) }
-    window.addEventListener('bharatcliniq:refresh', h)
+    window.addEventListener('bharathhealthsystems:refresh', h)
     const id = setInterval(() => load(true), 60000)
-    return () => { window.removeEventListener('bharatcliniq:refresh', h); clearInterval(id) }
+    return () => { window.removeEventListener('bharathhealthsystems:refresh', h); clearInterval(id) }
   }, [load])
 
   const refreshAll = () => { load(true); setReloadKey(k => k + 1) }

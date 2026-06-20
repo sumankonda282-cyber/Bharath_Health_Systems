@@ -108,8 +108,8 @@ function EmergencyBoard({ onNavigate }) {
     load()
     const id = setInterval(load, 30000)
     const h = () => load()
-    window.addEventListener('bharatcliniq:refresh', h)
-    return () => { clearInterval(id); window.removeEventListener('bharatcliniq:refresh', h) }
+    window.addEventListener('bharathhealthsystems:refresh', h)
+    return () => { clearInterval(id); window.removeEventListener('bharathhealthsystems:refresh', h) }
   }, [load])
 
   return (
@@ -200,8 +200,8 @@ export default function Dashboard() {
     load()
     timerRef.current = setInterval(load, 30000)
     const h = () => load()
-    window.addEventListener('bharatcliniq:refresh', h)
-    return () => { clearInterval(timerRef.current); window.removeEventListener('bharatcliniq:refresh', h) }
+    window.addEventListener('bharathhealthsystems:refresh', h)
+    return () => { clearInterval(timerRef.current); window.removeEventListener('bharathhealthsystems:refresh', h) }
   }, [load])
 
   const waiting    = appts.filter(a => ['scheduled', 'waiting'].includes(a.status)).length

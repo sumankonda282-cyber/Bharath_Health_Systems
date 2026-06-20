@@ -20,7 +20,7 @@ const empty = {
   emergency_contact_name: '', emergency_contact_phone: '', abha_id: '',
 }
 
-const API_BASE = import.meta.env.VITE_API_URL || 'https://bharatcliniq-api.onrender.com'
+const API_BASE = import.meta.env.VITE_API_URL || 'https://BharathHealthSystems-api.onrender.com'
 
 function OtpModal({ mobile, onVerified, onCancel, apiBase }) {
   const [otp, setOtp] = useState('')

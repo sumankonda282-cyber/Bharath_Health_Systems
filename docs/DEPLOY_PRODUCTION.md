@@ -1,4 +1,4 @@
-# BharatCliniq — Production Deployment Guide
+# Bharath Health Systems — Production Deployment Guide
 ## Stack: Render (Backend) + Supabase (Database) + Vercel (3 Frontends)
 
 ---
@@ -146,7 +146,7 @@ Test these URLs after deployment:
 ## UPDATING CODE AFTER CHANGES
 
 ```cmd
-cd C:\BMH\BharatCliniq
+cd C:\BMH\Bharath Health Systems
 git add .
 git commit -m "Description of change"
 git push

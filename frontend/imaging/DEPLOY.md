@@ -1,1 +1,1 @@
-# BharatCliniq Imaging Portal
+# Bharath Health Systems Imaging Portal

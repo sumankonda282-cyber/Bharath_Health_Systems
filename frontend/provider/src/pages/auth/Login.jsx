@@ -21,7 +21,7 @@ export default function Login() {
   const handleForgotPassword = () => {
     alert(
       'Password Reset\n\n' +
-      'Please contact your clinic administrator or the BHarath Health Systems super admin to reset your password.\n\n' +
+      'Please contact your health center administrator or the BHarath Health Systems super admin to reset your password.\n\n' +
       'Your new temporary password will be sent to your registered email and phone number.'
     )
   }
@@ -206,7 +206,7 @@ export default function Login() {
               href={`${import.meta.env.VITE_PUBLIC_URL || 'https://www.bharathhealthsystems.com'}/register`}
               style={{ color: '#0F2557', textDecoration: 'underline' }}
             >
-              Register your clinic
+              Register your health center
             </a>
           </p>
 

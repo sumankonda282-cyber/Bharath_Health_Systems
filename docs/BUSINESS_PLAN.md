@@ -1,7 +1,7 @@
-# BharatCliniq — 4-Stage Deployment & Business Plan
+# Bharath Health Systems — 4-Stage Deployment & Business Plan
 
 **Platform:** SaaS EHR + Telehealth for Indian Clinics  
-**Domain:** bharatcliniq.com  
+**Domain:** bharathhealthsystems.com  
 **Stack:** React + FastAPI + MySQL  
 **Logo:** India map silhouette with medical plus sign inside  
 
@@ -28,9 +28,9 @@
 **Goal:** Get website live, acquire first 10 paying clinics
 
 ### What to Deploy
-1. **bharatcliniq.com** — Public marketing website + online booking
-2. **app.bharatcliniq.com** — Clinic staff dashboard
-3. **my.bharatcliniq.com** — Patient portal
+1. **bharathhealthsystems.com** — Public marketing website + online booking
+2. **app.bharathhealthsystems.com** — Clinic staff dashboard
+3. **my.bharathhealthsystems.com** — Patient portal
 4. **Telehealth** — Video consult via Daily.co or Jitsi (free tier)
 
 ### Telehealth — What to Add
@@ -98,20 +98,20 @@ cd frontend/patient-portal && npm install && npm run build
 ### Nginx Config (nginx.conf snippet)
 ```nginx
 server {
-    server_name bharatcliniq.com;
+    server_name bharathhealthsystems.com;
     root /var/www/bharatcliniq/frontend/website/dist;
     index index.html;
     location /api/ { proxy_pass http://127.0.0.1:8000/api/; }
     location / { try_files $uri $uri/ /index.html; }
 }
 server {
-    server_name app.bharatcliniq.com;
+    server_name app.bharathhealthsystems.com;
     root /var/www/bharatcliniq/frontend/clinic-app/dist;
     location /api/ { proxy_pass http://127.0.0.1:8000/api/; }
     location / { try_files $uri $uri/ /index.html; }
 }
 server {
-    server_name my.bharatcliniq.com;
+    server_name my.bharathhealthsystems.com;
     root /var/www/bharatcliniq/frontend/patient-portal/dist;
     location /api/ { proxy_pass http://127.0.0.1:8000/api/; }
     location / { try_files $uri $uri/ /index.html; }
@@ -175,7 +175,7 @@ server {
 
 ### New Features
 1. **Diagnostic Center Module**
-   - Standalone lab/radiology centers register on BharatCliniq
+   - Standalone lab/radiology centers register on Bharath Health Systems
    - Clinics refer patients to diagnostic centers
    - Results flow back to clinic automatically
 
@@ -208,7 +208,7 @@ server {
 ---
 
 ## STAGE 4 — Platform & Marketplace (Month 19+)
-**Goal:** BharatCliniq becomes the healthcare OS for tier-2/3 India
+**Goal:** Bharath Health Systems becomes the healthcare OS for tier-2/3 India
 
 ### What This Looks Like
 1. **Open API Platform**
@@ -216,10 +216,10 @@ server {
    - Pharmacy chains, insurance companies, diagnostic labs pay to integrate
    - Revenue: API usage fees + integration fees
 
-2. **BharatCliniq Marketplace**
+2. **Bharath Health Systems Marketplace**
    - Clinics list services (telehealth, home visits, health packages)
-   - Patients book and pay directly on bharatcliniq.com
-   - BharatCliniq takes 10–15% commission
+   - Patients book and pay directly on bharathhealthsystems.com
+   - Bharath Health Systems takes 10–15% commission
 
 3. **Franchise / White-label**
    - Hospital chains get white-labeled version
@@ -230,9 +230,9 @@ server {
    - Sold to pharma companies, insurance companies
    - Requires strict compliance (DPDP Act 2023)
 
-5. **BharatCliniq Credit**
+5. **Bharath Health Systems Credit**
    - Patients pay medical bills on EMI via BNPL partners
-   - BharatCliniq earns referral fee from lending partner
+   - Bharath Health Systems earns referral fee from lending partner
 
 ### Stage 4 Revenue Targets
 - SaaS subscriptions: ₹15–20 lakh/mo
@@ -279,7 +279,7 @@ server {
 ```
 Doctor A (Clinic A) sees patient
   → Creates referral (reason, urgency, clinical notes)
-  → Selects Clinic B from BharatCliniq network
+  → Selects Clinic B from Bharath Health Systems network
   → System generates referral code REF-XXXXXXXX
   → Patient and Clinic B notified by SMS/email
 
@@ -336,7 +336,7 @@ Referral Report (visible to both clinics)
 3. Test all pages at localhost:3001
 
 ### This Week
-1. Buy domain: bharatcliniq.com (GoDaddy ~₹800)
+1. Buy domain: bharathhealthsystems.com (GoDaddy ~₹800)
 2. Create account: DigitalOcean (get $200 free credit)
 3. Set up VPS: Ubuntu 22.04, 2 CPU, 4GB RAM
 4. Deploy backend + all 3 frontends
@@ -355,7 +355,7 @@ Add `/pricing` page to website showing the 4 plans with features comparison tabl
 
 ## COMPETITIVE ADVANTAGE
 
-| Feature | BharatCliniq | Practo | Clinikk |
+| Feature | Bharath Health Systems | Practo | Clinikk |
 |---------|-------------|--------|---------|
 | Price | ₹999–2499/mo | ₹8,000+/mo | ₹5,000+/mo |
 | Language support | 5 Indian languages | English only | English only |
@@ -365,7 +365,7 @@ Add `/pricing` page to website showing the 4 plans with features comparison tabl
 | Telehealth | ✅ Stage 1 | ✅ | ❌ |
 | Offline capable | Planned Stage 3 | ❌ | ❌ |
 
-**BharatCliniq wins on:** Price, Indian language support, referral network, and being purpose-built for tier-2/3 India clinics.
+**Bharath Health Systems wins on:** Price, Indian language support, referral network, and being purpose-built for tier-2/3 India clinics.
 
 ---
 

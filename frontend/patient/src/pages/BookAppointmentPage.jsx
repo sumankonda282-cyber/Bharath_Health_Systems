@@ -161,7 +161,7 @@ function SlotPicker({ doctor, onBack, onBooked }) {
   const [lookupDone, setLookupDone] = useState(false)
   const lookupDebounce = useRef(null)
 
-  const API_BASE = import.meta.env.VITE_API_URL || 'https://bharatcliniq-api.onrender.com'
+  const API_BASE = import.meta.env.VITE_API_URL || 'https://BharathHealthSystems-api.onrender.com'
 
   const doLookup = async (mobile) => {
     if (!mobile || mobile.replace(/\D/g, '').length !== 10) return

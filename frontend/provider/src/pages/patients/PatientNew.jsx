@@ -31,7 +31,7 @@ function OtpModal({ mobile, onVerified, onCancel }) {
   const sendOtp = async () => {
     setSending(true); setError('')
     try {
-      await fetch(`${import.meta.env.VITE_API_URL || 'https://bharatcliniq-api.onrender.com'}/api/v1/otp/send`, {
+      await fetch(`${import.meta.env.VITE_API_URL || 'https://BharathHealthSystems-api.onrender.com'}/api/v1/otp/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mobile }),
@@ -50,7 +50,7 @@ function OtpModal({ mobile, onVerified, onCancel }) {
     if (otp.length < 4) return
     setVerifying(true); setError('')
     try {
-      const base = import.meta.env.VITE_API_URL || 'https://bharatcliniq-api.onrender.com'
+      const base = import.meta.env.VITE_API_URL || 'https://BharathHealthSystems-api.onrender.com'
       const res = await fetch(`${base}/api/v1/otp/verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -475,7 +475,7 @@ export default function PatientNew() {
             </div>
             {form.bh_id && (
               <div>
-                <label className="label">BharatCliniq Health ID</label>
+                <label className="label">Bharath Health Systems Health ID</label>
                 <input className="input bg-green-50 text-green-800 font-mono" value={form.bh_id} readOnly />
               </div>
             )}
