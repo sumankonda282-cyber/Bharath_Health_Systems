@@ -566,7 +566,7 @@ export default function FormAnalytics() {
   useEffect(() => {
     setLoading(true)
     api
-      .get('/assessment-forms/')
+      .get('/assessment-forms')
       .then((data) => {
         const list = Array.isArray(data) ? data : (data?.forms ?? data?.items ?? data?.results ?? [])
         setForms(list)
