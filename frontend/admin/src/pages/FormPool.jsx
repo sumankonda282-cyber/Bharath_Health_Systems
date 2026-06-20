@@ -21,7 +21,8 @@ import {
   Activity,
   Syringe,
   HeartPulse,
-  BarChart2,
+  RefreshCw,
+  ChevronDown,
 } from 'lucide-react'
 import api from '../api/client'
 
@@ -74,10 +75,10 @@ const CATEGORIES = [
 ]
 
 const STATUS_BADGE = {
-  published: 'bg-green-100 text-green-700',
-  draft:     'bg-yellow-100 text-yellow-700',
-  template:  'bg-blue-100 text-blue-700',
-  retired:   'bg-gray-100 text-gray-600',
+  published: 'bg-emerald-900/40 text-emerald-400 border-emerald-800/50',
+  draft:     'bg-yellow-900/40 text-yellow-400 border-yellow-800/50',
+  template:  'bg-blue-900/40 text-blue-400 border-blue-800/50',
+  retired:   'bg-gray-800/60 text-gray-500 border-gray-700/50',
 }
 
 const CATEGORY_ICONS = {
@@ -91,9 +92,9 @@ const CATEGORY_ICONS = {
   assessment:   <ClipboardList className="w-4 h-4" />,
 }
 
-// ─── Tiny helpers ─────────────────────────────────────────────────────────────
+// ─── Toast hook ───────────────────────────────────────────────────────────────
 
-function useToast () {
+function useToast() {
   const [toasts, setToasts] = useState([])
   const add = useCallback((msg, type = 'info') => {
     const id = Date.now()
@@ -104,7 +105,7 @@ function useToast () {
   return { toasts, add, remove }
 }
 
-function ToastContainer ({ toasts, onRemove }) {
+function ToastContainer({ toasts, onRemove }) {
   if (!toasts.length) return null
   return (
     <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
@@ -112,9 +113,9 @@ function ToastContainer ({ toasts, onRemove }) {
         <div
           key={t.id}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg shadow-lg text-sm font-medium
-            ${ t.type === 'success' ? 'bg-green-600 text-white'
-             : t.type === 'error'   ? 'bg-red-600 text-white'
-             : 'bg-gray-800 text-white' }`}
+            ${t.type === 'success' ? 'bg-emerald-700 text-white'
+            : t.type === 'error'   ? 'bg-red-700 text-white'
+            : 'bg-gray-700 text-white'}`}
         >
           {t.msg}
           <button onClick={() => onRemove(t.id)} className="ml-1 opacity-70 hover:opacity-100">
@@ -126,24 +127,26 @@ function ToastContainer ({ toasts, onRemove }) {
   )
 }
 
-function ConfirmModal ({ message, onConfirm, onCancel }) {
+// ─── Confirm modal (dark) ─────────────────────────────────────────────────────
+
+function ConfirmModal({ message, onConfirm, onCancel }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-2xl shadow-2xl p-6 w-80 flex flex-col gap-4">
-        <div className="flex items-center gap-3 text-red-600">
-          <AlertTriangle className="w-6 h-6 shrink-0" />
-          <p className="text-sm font-medium text-gray-800">{message}</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+      <div className="bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl p-6 w-80 flex flex-col gap-4">
+        <div className="flex items-center gap-3 text-red-400">
+          <AlertTriangle className="w-5 h-5 shrink-0" />
+          <p className="text-sm text-gray-200">{message}</p>
         </div>
         <div className="flex justify-end gap-2">
           <button
             onClick={onCancel}
-            className="px-4 py-1.5 rounded-lg text-sm border border-gray-300 hover:bg-gray-50"
+            className="px-4 py-1.5 rounded-lg text-sm border border-gray-700 text-gray-300 hover:bg-gray-800 transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={onConfirm}
-            className="px-4 py-1.5 rounded-lg text-sm bg-red-600 text-white hover:bg-red-700"
+            className="px-4 py-1.5 rounded-lg text-sm bg-red-700 text-white hover:bg-red-600 transition-colors"
           >
             Delete
           </button>
@@ -155,18 +158,18 @@ function ConfirmModal ({ message, onConfirm, onCancel }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function FormPool () {
+export default function FormPool() {
   const navigate = useNavigate()
   const { toasts, add: toast, remove: removeToast } = useToast()
 
-  const [forms,        setForms]        = useState([])
-  const [loading,      setLoading]      = useState(true)
-  const [error,        setError]        = useState(null)
-  const [search,       setSearch]       = useState('')
-  const [activeTab,    setActiveTab]    = useState('all')
-  const [category,     setCategory]     = useState('all')
-  const [actionLoading,setActionLoading]= useState({})
-  const [deleteTarget, setDeleteTarget] = useState(null)   // form to confirm-delete
+  const [forms,         setForms]         = useState([])
+  const [loading,       setLoading]       = useState(true)
+  const [error,         setError]         = useState(null)
+  const [search,        setSearch]        = useState('')
+  const [activeTab,     setActiveTab]     = useState('all')
+  const [category,      setCategory]      = useState('all')
+  const [actionLoading, setActionLoading] = useState({})
+  const [deleteTarget,  setDeleteTarget]  = useState(null)
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
   const fetchForms = useCallback(async () => {
@@ -232,9 +235,8 @@ export default function FormPool () {
     )
   }
 
-  // Delete flow: open confirm → confirmed → call API
-  const handleDeleteClick  = (form) => setDeleteTarget(form)
-  const handleDeleteCancel = ()     => setDeleteTarget(null)
+  const handleDeleteClick   = (form) => setDeleteTarget(form)
+  const handleDeleteCancel  = ()     => setDeleteTarget(null)
   const handleDeleteConfirm = async () => {
     const form = deleteTarget
     setDeleteTarget(null)
@@ -252,115 +254,112 @@ export default function FormPool () {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="space-y-4">
 
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center">
-              <ClipboardList className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold text-gray-900">Form Pool</h1>
-              <p className="text-xs text-gray-500">Manage assessment forms & templates</p>
-            </div>
-          </div>
-          <button
-            onClick={() => navigate('/forms/builder')}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition"
-          >
-            <Plus className="w-4 h-4" /> New Form
-          </button>
-        </div>
-      </div>
+      {/* Toolbar — tabs + search + category + refresh + new */}
+      <div className="flex flex-wrap items-center gap-2">
 
-      {/* Tabs + Filters */}
-      <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col gap-3">
-
-        <div className="flex items-center gap-1 bg-white rounded-xl border border-gray-200 p-1 w-fit">
+        {/* Tabs */}
+        <div className="flex items-center gap-0.5 bg-gray-900 border border-gray-800 rounded-xl p-1">
           {TABS.map(t => (
             <button
               key={t.key}
               onClick={() => setActiveTab(t.key)}
-              className={`px-3.5 py-1.5 rounded-lg text-sm font-medium transition
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap
                 ${activeTab === t.key
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-gray-600 hover:bg-gray-100'}`}
+                  ? 'bg-[#F5821E] text-white shadow-sm'
+                  : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'}`}
             >
               {t.label}
             </button>
           ))}
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search forms…"
-              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+        {/* Search */}
+        <div className="relative flex-1 min-w-[160px] max-w-xs">
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search forms…"
+            className="input pl-9 py-1.5 text-sm w-full"
+          />
+        </div>
+
+        {/* Category */}
+        <div className="relative">
           <select
             value={category}
             onChange={e => setCategory(e.target.value)}
-            className="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            className="input appearance-none pr-7 py-1.5 text-sm"
           >
-            {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+            {CATEGORIES.map(c => (
+              <option key={c.value} value={c.value}>{c.label}</option>
+            ))}
           </select>
-          <button
-            onClick={fetchForms}
-            className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
-            title="Refresh"
-          >
-            <BarChart2 className="w-4 h-4 text-gray-500" />
-          </button>
+          <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
         </div>
+
+        {/* Refresh */}
+        <button
+          onClick={fetchForms}
+          title="Refresh"
+          className="p-1.5 rounded-lg border border-gray-700 text-gray-400 hover:text-gray-200 hover:bg-gray-800 transition-colors"
+        >
+          <RefreshCw size={14} />
+        </button>
+
+        {/* Count */}
+        <span className="text-xs text-gray-500 bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 font-medium">
+          {filtered.length} form{filtered.length !== 1 ? 's' : ''}
+        </span>
+
+        {/* New */}
+        <button
+          onClick={() => navigate('/forms/builder')}
+          className="btn-primary ml-auto"
+        >
+          <Plus size={14} /> New Form
+        </button>
       </div>
 
       {/* Body */}
-      <div className="max-w-7xl mx-auto px-6 pb-10">
+      {loading && (
+        <div className="flex justify-center py-20">
+          <Loader2 className="w-7 h-7 animate-spin text-[#F5821E]" />
+        </div>
+      )}
 
-        {loading && (
-          <div className="flex justify-center py-20">
-            <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-          </div>
-        )}
+      {error && !loading && (
+        <div className="card-p text-center py-16 text-red-400 text-sm">{error}</div>
+      )}
 
-        {error && !loading && (
-          <div className="text-center py-20 text-red-500 text-sm">{error}</div>
-        )}
+      {!loading && !error && filtered.length === 0 && (
+        <div className="card-p text-center py-16">
+          <ClipboardList className="w-10 h-10 mx-auto mb-3 text-gray-700" />
+          <p className="text-sm text-gray-500">No forms found</p>
+        </div>
+      )}
 
-        {!loading && !error && filtered.length === 0 && (
-          <div className="text-center py-20 text-gray-400">
-            <ClipboardList className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p className="text-sm">No forms found</p>
-          </div>
-        )}
+      {!loading && !error && filtered.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {filtered.map(form => (
+            <FormCard
+              key={form.id}
+              form={form}
+              loading={!!actionLoading[form.id]}
+              onEdit      ={() => navigate(`/forms/builder/${form.id}`)}
+              onPreview   ={() => navigate(`/forms/preview/${form.id}`)}
+              onPublish   ={() => handlePublish(form)}
+              onArchive   ={() => handleArchive(form)}
+              onDuplicate ={() => handleDuplicate(form)}
+              onShare     ={() => handleShare(form)}
+              onDelete    ={() => handleDeleteClick(form)}
+            />
+          ))}
+        </div>
+      )}
 
-        {!loading && !error && filtered.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filtered.map(form => (
-              <FormCard
-                key={form.id}
-                form={form}
-                loading={!!actionLoading[form.id]}
-                onEdit     ={() => navigate(`/forms/builder/${form.id}`)}
-                onPreview  ={() => navigate(`/forms/preview/${form.id}`)}
-                onPublish  ={() => handlePublish(form)}
-                onArchive  ={() => handleArchive(form)}
-                onDuplicate={() => handleDuplicate(form)}
-                onShare    ={() => handleShare(form)}
-                onDelete   ={() => handleDeleteClick(form)}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Delete confirm modal */}
       {deleteTarget && (
         <ConfirmModal
           message={`Delete "${deleteTarget.title}"? This cannot be undone.`}
@@ -376,88 +375,91 @@ export default function FormPool () {
 
 // ─── Form Card ────────────────────────────────────────────────────────────────
 
-function FormCard ({ form, loading, onEdit, onPreview, onPublish, onArchive, onDuplicate, onShare, onDelete }) {
-  const status    = form.status ?? 'draft'
-  const catIcon   = CATEGORY_ICONS[form.category] ?? <FileText className="w-4 h-4" />
-  const badgeCls  = STATUS_BADGE[status] ?? STATUS_BADGE.draft
+function FormCard({ form, loading, onEdit, onPreview, onPublish, onArchive, onDuplicate, onShare, onDelete }) {
+  const status      = form.status ?? 'draft'
+  const catIcon     = CATEGORY_ICONS[form.category] ?? <FileText className="w-4 h-4" />
+  const badgeCls    = STATUS_BADGE[status] ?? STATUS_BADGE.draft
   const isPublished = status === 'published'
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition flex flex-col">
+    <div className="bg-gray-900 border border-gray-800 rounded-xl hover:border-gray-700 transition-colors flex flex-col">
 
       {/* Card header */}
       <div className="p-4 flex items-start gap-3">
-        <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-xl shrink-0">
+        <div className="w-9 h-9 rounded-lg bg-gray-800 border border-gray-700 flex items-center justify-center text-lg shrink-0 select-none">
           {form.icon ?? '📋'}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="font-semibold text-gray-900 text-sm truncate">{form.title}</h3>
-            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${badgeCls}`}>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <h3 className="font-semibold text-gray-100 text-sm truncate">{form.title}</h3>
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium border ${badgeCls}`}>
               {status}
             </span>
             {form.is_template && (
-              <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-purple-100 text-purple-700">
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-purple-900/40 text-purple-400 border border-purple-800/50">
                 template
               </span>
             )}
           </div>
-          <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{form.description}</p>
+          {form.description && (
+            <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{form.description}</p>
+          )}
         </div>
       </div>
 
       {/* Meta */}
-      <div className="px-4 pb-3 flex items-center gap-3 text-xs text-gray-500">
-        <span className="flex items-center gap-1">{catIcon} {form.category ?? '—'}</span>
+      <div className="px-4 pb-3 flex items-center gap-2.5 text-xs text-gray-600">
+        <span className="flex items-center gap-1 text-gray-500">{catIcon} {form.category ?? '—'}</span>
         {form.version_number && (
-          <span className="bg-gray-100 px-1.5 py-0.5 rounded">v{form.version_number}</span>
+          <span className="bg-gray-800 border border-gray-700 px-1.5 py-0.5 rounded text-gray-400">
+            v{form.version_number}
+          </span>
         )}
         {form.question_count != null && (
-          <span>{form.question_count} Qs</span>
+          <span className="text-gray-500">{form.question_count} Qs</span>
         )}
         {form.is_iview_enabled && (
-          <span className="bg-cyan-50 text-cyan-600 px-1.5 py-0.5 rounded">iView</span>
+          <span className="bg-cyan-900/40 text-cyan-400 border border-cyan-800/50 px-1.5 py-0.5 rounded text-[10px]">
+            iView
+          </span>
         )}
       </div>
 
-      {/* Divider */}
-      <div className="border-t border-gray-100 mx-4" />
+      <div className="border-t border-gray-800 mx-4" />
 
       {/* Actions */}
       <div className="p-3 flex items-center justify-between">
-        <div className="flex items-center gap-1">
-          <IconBtn title="Edit"      onClick={onEdit}      disabled={loading}><Pencil  className="w-4 h-4" /></IconBtn>
-          <IconBtn title="Preview"   onClick={onPreview}   disabled={loading}><Eye     className="w-4 h-4" /></IconBtn>
-          <IconBtn title="Duplicate" onClick={onDuplicate} disabled={loading}><Copy    className="w-4 h-4" /></IconBtn>
-          <IconBtn title="Share"     onClick={onShare}     disabled={loading}><Share2  className="w-4 h-4" /></IconBtn>
+        <div className="flex items-center gap-0.5">
+          <IconBtn title="Edit"      onClick={onEdit}      disabled={loading}><Pencil  className="w-3.5 h-3.5" /></IconBtn>
+          <IconBtn title="Preview"   onClick={onPreview}   disabled={loading}><Eye     className="w-3.5 h-3.5" /></IconBtn>
+          <IconBtn title="Duplicate" onClick={onDuplicate} disabled={loading}><Copy    className="w-3.5 h-3.5" /></IconBtn>
+          <IconBtn title="Share"     onClick={onShare}     disabled={loading}><Share2  className="w-3.5 h-3.5" /></IconBtn>
           <IconBtn
             title="Delete"
             onClick={onDelete}
             disabled={loading}
-            className="text-red-500 hover:bg-red-50 hover:text-red-700"
+            className="text-red-500 hover:bg-red-900/30 hover:text-red-400"
           >
-            <Trash2 className="w-4 h-4" />
+            <Trash2 className="w-3.5 h-3.5" />
           </IconBtn>
         </div>
 
         {loading
-          ? <Loader2 className="w-4 h-4 animate-spin text-blue-400" />
+          ? <Loader2 className="w-3.5 h-3.5 animate-spin text-[#F5821E]" />
           : isPublished
             ? (
               <button
                 onClick={onArchive}
-                title="Archive"
-                className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 transition"
+                className="flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-lg border border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-gray-200 transition-colors"
               >
-                <Archive className="w-3.5 h-3.5" /> Archive
+                <Archive className="w-3 h-3" /> Archive
               </button>
             ) : (
               <button
                 onClick={onPublish}
-                title="Publish"
-                className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-green-600 text-white hover:bg-green-700 transition"
+                className="flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-lg bg-emerald-700 text-white hover:bg-emerald-600 transition-colors"
               >
-                <Check className="w-3.5 h-3.5" /> Publish
+                <Check className="w-3 h-3" /> Publish
               </button>
             )
         }
@@ -466,13 +468,13 @@ function FormCard ({ form, loading, onEdit, onPreview, onPublish, onArchive, onD
   )
 }
 
-function IconBtn ({ children, title, onClick, disabled, className = '' }) {
+function IconBtn({ children, title, onClick, disabled, className = '' }) {
   return (
     <button
       title={title}
       onClick={onClick}
       disabled={disabled}
-      className={`p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 transition disabled:opacity-40 ${className}`}
+      className={`p-1.5 rounded-lg text-gray-500 hover:text-gray-200 hover:bg-gray-800 transition-colors disabled:opacity-40 ${className}`}
     >
       {children}
     </button>

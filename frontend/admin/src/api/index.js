@@ -40,4 +40,19 @@ export const adminApi = {
 
   // Clinic Manager
   createManager: (clinicId, body) => api.post(`/platform/clinics/${clinicId}/create-manager`, body),
+
+  // Patient Lookup (platform-wide)
+  searchPatients: (params) => api.get('/platform/patients/search', { params }),
+  getPatientStates: () => api.get('/platform/patients/states'),
+  getPatientDetail: (id) => api.get(`/platform/patients/${id}/detail`),
+
+  // Population analytics
+  getPopulation: () => api.get('/platform/analytics/population'),
+
+  // Flexible report explorer
+  runQuery: (body) => api.post('/platform/analytics/query', body),
+
+  // Clinic clinical activity + payments
+  getClinicClinicalStats: (id) => api.get(`/platform/clinics/${id}/clinical-stats`),
+  getClinicPayments: (id) => api.get(`/platform/clinics/${id}/payments`),
 }

@@ -6,12 +6,12 @@ import Login from './pages/Login'
 import ResetPassword from './pages/ResetPassword'
 import Dashboard from './pages/Dashboard'
 import PendingClinics from './pages/PendingClinics'
-import AllClinics from './pages/AllClinics'
+import HealthCenters from './pages/HealthCenters'
 import ClinicDetail from './pages/ClinicDetail'
 import StaffVerification from './pages/StaffVerification'
 import AuditLog from './pages/AuditLog'
 import Reports from './pages/Reports'
-import BhidLookup from './pages/BhidLookup'
+import PatientLookup from './pages/PatientLookup'
 import Subscriptions from './pages/Subscriptions'
 import HospitalSettings from './pages/HospitalSettings'
 import FormBuilder from './pages/FormBuilder'
@@ -38,12 +38,13 @@ export default function App() {
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard"  element={<Dashboard />} />
           <Route path="pending"    element={<PendingClinics />} />
-          <Route path="clinics"    element={<AllClinics />} />
+          <Route path="clinics"    element={<HealthCenters />} />
           <Route path="clinics/:id" element={<ClinicDetail />} />
           <Route path="staff"      element={<StaffVerification />} />
           <Route path="audit"      element={<AuditLog />} />
           <Route path="reports"    element={<Reports />} />
-          <Route path="bhid"          element={<BhidLookup />} />
+          <Route path="patients"      element={<PatientLookup />} />
+          <Route path="bhid"          element={<Navigate to="/patients" replace />} />
           <Route path="subscriptions" element={<Subscriptions />} />
           <Route path="hospital-settings" element={<HospitalSettings />} />
           <Route path="forms"             element={<FormPool />} />

@@ -212,6 +212,7 @@ safe_cols = [
     \"ALTER TABLE appointments ADD COLUMN IF NOT EXISTS online_booking_id INTEGER\",
     \"ALTER TABLE patients ADD COLUMN IF NOT EXISTS clinic_patient_id VARCHAR(20)\",
     \"ALTER TABLE patients ADD COLUMN IF NOT EXISTS portal_user_id INTEGER\",
+    \"ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS ip_address VARCHAR(45)\",
 \"ALTER TABLE drug_interactions ADD COLUMN IF NOT EXISTS interaction_type VARCHAR(30) DEFAULT 'drug-drug'\",
     \"CREATE TABLE IF NOT EXISTS imaging_catalog (id SERIAL PRIMARY KEY, name VARCHAR(200) NOT NULL, modality VARCHAR(20) NOT NULL, body_part VARCHAR(100), category VARCHAR(100), turnaround_hours INTEGER DEFAULT 24, preparation TEXT, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW())\",
     \"CREATE INDEX IF NOT EXISTS idx_imaging_catalog_modality ON imaging_catalog(modality)\",

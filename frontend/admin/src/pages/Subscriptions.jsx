@@ -796,7 +796,7 @@ function AnalyticsTab({ clinics, planConfig }) {
                     <div className="flex items-center gap-2">
                       <div className="w-2.5 h-2.5 rounded-full" style={{ background: info.color || '#6B7280' }} />
                       <span className="text-sm text-white font-medium">{info.label || planKey}</span>
-                      <span className="text-xs text-gray-500">{count} clinic{count !== 1 ? 's' : ''}</span>
+                      <span className="text-xs text-gray-500">{count} health center{count !== 1 ? 's' : ''}</span>
                     </div>
                     <span className="text-sm font-semibold text-white">{fmtMoney(mrr)}</span>
                   </div>
@@ -851,7 +851,7 @@ function AnalyticsTab({ clinics, planConfig }) {
 // ── Main Subscriptions Page ───────────────────────────────────────────────────
 
 const TABS = [
-  { key: 'clinics',   label: 'All Clinics',     icon: Building2 },
+  { key: 'clinics',   label: 'Health Centers',   icon: Building2 },
   { key: 'plans',     label: 'Plans & Pricing',  icon: Layers },
   { key: 'payments',  label: 'Payments',         icon: Banknote },
   { key: 'analytics', label: 'Analytics',        icon: Activity },
@@ -931,7 +931,7 @@ export default function Subscriptions() {
       {/* KPI Strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <KpiCard icon={TrendingUp}    label="Est. MRR"       value={fmtMoney(totalMrr)}  color="#10B981" />
-        <KpiCard icon={Building2}     label="Active Clinics" value={activeClinics}         color="#F5821E" />
+        <KpiCard icon={Building2}     label="Active HCs"     value={activeClinics}         color="#F5821E" />
         <KpiCard icon={AlertTriangle} label="Overdue"        value={overdueClinics}        color="#EF4444" />
         <KpiCard icon={Clock}         label="Expiring ≤7d"   value={expiringClinics}       color="#F59E0B" />
       </div>
@@ -992,14 +992,14 @@ export default function Subscriptions() {
               <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
                 {filtered.length === 0 ? (
                   <div className="py-12 text-center text-gray-500 text-sm">
-                    {clinics.length === 0 ? 'No clinics found' : 'No clinics match your filters'}
+                    {clinics.length === 0 ? 'No health centers found' : 'No health centers match your filters'}
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-gray-800 text-[10px] uppercase tracking-wider text-gray-500">
-                          <th className="px-4 py-3 text-left">Clinic</th>
+                          <th className="px-4 py-3 text-left">Health Center</th>
                           <th className="px-3 py-3 text-left">Plan</th>
                           <th className="px-3 py-3 text-left">Status</th>
                           <th className="px-3 py-3 text-center">Doctors</th>
