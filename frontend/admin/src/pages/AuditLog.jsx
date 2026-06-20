@@ -81,8 +81,8 @@ export default function AuditLog() {
   const load = async (newOffset = 0) => {
     setLoading(true)
     const params = { limit: PAGE_SIZE, offset: newOffset }
-    if (startDate) params.start_date = startDate
-    if (endDate)   params.end_date   = endDate
+    if (startDate) params.date_from = startDate
+    if (endDate)   params.date_to   = endDate
     if (userType)  params.user_type  = userType
     if (action)    params.action     = action
     if (search)    params.search     = search
@@ -105,7 +105,7 @@ export default function AuditLog() {
     start.setDate(start.getDate() - 30)
     const fmt = d => d.toISOString().slice(0, 10)
     try {
-      const data = await adminApi.getAuditLog({ limit: 500, start_date: fmt(start), end_date: fmt(end) })
+      const data = await adminApi.getAuditLog({ limit: 500, date_from: fmt(start), date_to: fmt(end) })
       const arr  = Array.isArray(data) ? data : data?.logs ?? []
       const uniqueUsers = [...new Set(arr.map(l => l.user_id || l.admin_id).filter(Boolean))].length
       const staffActions = arr.filter(l =>
