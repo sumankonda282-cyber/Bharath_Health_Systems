@@ -244,6 +244,151 @@ safe_cols = [
     )\"\"\",
     \"CREATE INDEX IF NOT EXISTS idx_barcode_master_barcode ON barcode_master(barcode)\",
     \"ALTER TABLE drugs ADD COLUMN IF NOT EXISTS primary_brand VARCHAR(100)\",
+
+    # ── platform_settings (key-value config, queried by _get_rate_card on every clinic endpoint) ──
+    \"CREATE TABLE IF NOT EXISTS platform_settings (key VARCHAR(100) PRIMARY KEY, value JSONB NOT NULL DEFAULT '{}', updated_at TIMESTAMP DEFAULT NOW(), updated_by INTEGER REFERENCES platform_admins(id))\",
+
+    # ── assessment_forms family (PowerForms / CareChart assessments) ──
+    \"\"\"CREATE TABLE IF NOT EXISTS assessment_forms (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(300) NOT NULL,
+        description TEXT,
+        category VARCHAR(100) DEFAULT 'general',
+        subcategory VARCHAR(100),
+        icon VARCHAR(100),
+        schema JSONB DEFAULT '{}',
+        scoring_config JSONB,
+        iview_config JSONB,
+        alert_rules JSONB,
+        translations JSONB,
+        status VARCHAR(20) DEFAULT 'draft',
+        version INTEGER DEFAULT 1,
+        is_template BOOLEAN DEFAULT FALSE,
+        is_iview_enabled BOOLEAN DEFAULT FALSE,
+        requires_cosign BOOLEAN DEFAULT FALSE,
+        time_limit_minutes INTEGER,
+        created_by INTEGER REFERENCES staff(id),
+        created_by_admin INTEGER,
+        clinic_id INTEGER REFERENCES clinics(id),
+        parent_form_id INTEGER,
+        published_at TIMESTAMP,
+        retired_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+    )\"\"\",
+    \"CREATE INDEX IF NOT EXISTS idx_assessment_forms_category ON assessment_forms(category)\",
+    \"CREATE INDEX IF NOT EXISTS idx_assessment_forms_status ON assessment_forms(status)\",
+
+    \"\"\"CREATE TABLE IF NOT EXISTS assessment_form_versions (
+        id SERIAL PRIMARY KEY,
+        form_id INTEGER NOT NULL REFERENCES assessment_forms(id) ON DELETE CASCADE,
+        version INTEGER NOT NULL,
+        schema JSONB DEFAULT '{}',
+        scoring_config JSONB,
+        published_by INTEGER,
+        published_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW()
+    )\"\"\",
+    \"CREATE INDEX IF NOT EXISTS idx_afv_form_id ON assessment_form_versions(form_id)\",
+
+    \"\"\"CREATE TABLE IF NOT EXISTS form_pool (
+        id SERIAL PRIMARY KEY,
+        form_id INTEGER NOT NULL REFERENCES assessment_forms(id) ON DELETE CASCADE,
+        clinic_id INTEGER REFERENCES clinics(id),
+        assigned_by INTEGER,
+        assigned_at TIMESTAMP DEFAULT NOW(),
+        is_active BOOLEAN DEFAULT TRUE
+    )\"\"\",
+    \"CREATE INDEX IF NOT EXISTS idx_form_pool_form_id ON form_pool(form_id)\",
+    \"CREATE INDEX IF NOT EXISTS idx_form_pool_clinic_id ON form_pool(clinic_id)\",
+
+    \"\"\"CREATE TABLE IF NOT EXISTS form_assignments (
+        id SERIAL PRIMARY KEY,
+        form_id INTEGER NOT NULL REFERENCES assessment_forms(id) ON DELETE CASCADE,
+        form_version INTEGER DEFAULT 1,
+        clinic_id INTEGER NOT NULL REFERENCES clinics(id),
+        patient_id INTEGER NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+        appointment_id INTEGER REFERENCES appointments(id) ON DELETE SET NULL,
+        admission_id INTEGER,
+        assigned_by INTEGER NOT NULL,
+        assigned_to_role VARCHAR(50),
+        due_at TIMESTAMP,
+        status VARCHAR(20) DEFAULT 'pending',
+        priority VARCHAR(20) DEFAULT 'routine',
+        notes TEXT,
+        assigned_at TIMESTAMP DEFAULT NOW(),
+        completed_at TIMESTAMP
+    )\"\"\",
+    \"CREATE INDEX IF NOT EXISTS idx_form_assignments_form_id ON form_assignments(form_id)\",
+    \"CREATE INDEX IF NOT EXISTS idx_form_assignments_clinic_id ON form_assignments(clinic_id)\",
+    \"CREATE INDEX IF NOT EXISTS idx_form_assignments_patient_id ON form_assignments(patient_id)\",
+    \"CREATE INDEX IF NOT EXISTS idx_form_assignments_status ON form_assignments(status)\",
+
+    \"\"\"CREATE TABLE IF NOT EXISTS form_submissions (
+        id SERIAL PRIMARY KEY,
+        form_id INTEGER NOT NULL REFERENCES assessment_forms(id) ON DELETE CASCADE,
+        form_version INTEGER DEFAULT 1,
+        assignment_id INTEGER REFERENCES form_assignments(id) ON DELETE SET NULL,
+        clinic_id INTEGER NOT NULL REFERENCES clinics(id),
+        patient_id INTEGER NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+        appointment_id INTEGER REFERENCES appointments(id) ON DELETE SET NULL,
+        admission_id INTEGER,
+        submitted_by INTEGER NOT NULL,
+        cosigned_by INTEGER,
+        cosigned_at TIMESTAMP,
+        data JSONB DEFAULT '{}',
+        scores JSONB,
+        alerts_fired JSONB DEFAULT '[]',
+        is_draft BOOLEAN DEFAULT FALSE,
+        submitted_at TIMESTAMP,
+        charted_at TIMESTAMP,
+        source VARCHAR(30) DEFAULT 'provider',
+        created_at TIMESTAMP DEFAULT NOW()
+    )\"\"\",
+    \"CREATE INDEX IF NOT EXISTS idx_form_submissions_form_id ON form_submissions(form_id)\",
+    \"CREATE INDEX IF NOT EXISTS idx_form_submissions_clinic_id ON form_submissions(clinic_id)\",
+    \"CREATE INDEX IF NOT EXISTS idx_form_submissions_patient_id ON form_submissions(patient_id)\",
+
+    \"\"\"CREATE TABLE IF NOT EXISTS form_alerts (
+        id SERIAL PRIMARY KEY,
+        submission_id INTEGER NOT NULL REFERENCES form_submissions(id) ON DELETE CASCADE,
+        clinic_id INTEGER NOT NULL REFERENCES clinics(id),
+        patient_id INTEGER NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+        field_id VARCHAR(100),
+        field_label VARCHAR(200),
+        value VARCHAR(200),
+        severity VARCHAR(20) DEFAULT 'warning',
+        message TEXT,
+        notified_staff JSONB DEFAULT '[]',
+        acknowledged_by INTEGER,
+        acknowledged_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW()
+    )\"\"\",
+    \"CREATE INDEX IF NOT EXISTS idx_form_alerts_submission_id ON form_alerts(submission_id)\",
+    \"CREATE INDEX IF NOT EXISTS idx_form_alerts_clinic_id ON form_alerts(clinic_id)\",
+    \"CREATE INDEX IF NOT EXISTS idx_form_alerts_patient_id ON form_alerts(patient_id)\",
+
+    \"\"\"CREATE TABLE IF NOT EXISTS form_cosigns (
+        id SERIAL PRIMARY KEY,
+        submission_id INTEGER NOT NULL REFERENCES form_submissions(id) ON DELETE CASCADE,
+        requested_by INTEGER NOT NULL,
+        requested_from INTEGER NOT NULL,
+        status VARCHAR(20) DEFAULT 'pending',
+        note TEXT,
+        responded_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW()
+    )\"\"\",
+    \"CREATE INDEX IF NOT EXISTS idx_form_cosigns_submission_id ON form_cosigns(submission_id)\",
+
+    \"\"\"CREATE TABLE IF NOT EXISTS iview_flowsheets (
+        id SERIAL PRIMARY KEY,
+        form_id INTEGER NOT NULL UNIQUE REFERENCES assessment_forms(id) ON DELETE CASCADE,
+        time_band VARCHAR(10) DEFAULT '4h',
+        row_config JSONB,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+    )\"\"\",
+    \"CREATE INDEX IF NOT EXISTS idx_iview_flowsheets_form_id ON iview_flowsheets(form_id)\",
 ]
 try:
     with engine.begin() as conn:
