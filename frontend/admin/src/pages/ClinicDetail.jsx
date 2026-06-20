@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { adminApi } from '../api'
-import { ArrowLeft, CheckCircle, XCircle, PauseCircle, RefreshCw, FileText, ExternalLink, IndianRupee, KeyRound, Copy, UserPlus } from 'lucide-react'
+import { ArrowLeft, CheckCircle, XCircle, PauseCircle, RefreshCw, FileText, ExternalLink, IndianRupee, KeyRound, Copy, UserPlus, CreditCard, Activity, Users, CalendarCheck, FlaskConical, Pill, Stethoscope } from 'lucide-react'
 import ActionModal from '../components/ActionModal'
 
 const MANAGER_EMPTY = { full_name: '', email: '', mobile: '', password: '' }
@@ -9,6 +9,15 @@ const MANAGER_EMPTY = { full_name: '', email: '', mobile: '', password: '' }
 const STATUS_BADGE = { active: 'badge-active', pending: 'badge-pending', suspended: 'badge-suspended', revoked: 'badge-revoked' }
 const PLAN_COLORS  = { free: 'badge-free', basic: 'badge-basic', pro: 'badge-pro', enterprise: 'badge-enterprise' }
 const PLANS        = ['free', 'basic', 'pro', 'enterprise']
+
+const TABS = [
+  { key: 'info',         label: 'Overview' },
+  { key: 'staff',        label: 'Staff Roster' },
+  { key: 'subscription', label: 'Subscription' },
+  { key: 'clinical',     label: 'Clinical Activity' },
+]
+
+const ACCENT = '#F5821E'
 
 const ACTION_LABELS = {
   approved_clinic:    '✅ Approved',
@@ -51,6 +60,34 @@ export default function ClinicDetail() {
     adminApi.getClinicStaff(id).then(setStaffList).finally(() => setStaffLoading(false))
   }
   useEffect(() => { if (activeTab === 'staff') loadStaff() }, [activeTab, id])
+
+  const [payments, setPayments] = useState([])
+  const [paymentsLoading, setPaymentsLoading] = useState(false)
+  const [paymentsError, setPaymentsError] = useState('')
+  useEffect(() => {
+    if (activeTab !== 'subscription') return
+    let active = true
+    setPaymentsLoading(true); setPaymentsError('')
+    adminApi.getClinicPayments(id)
+      .then(data => { if (active) setPayments(Array.isArray(data) ? data : []) })
+      .catch(ex => { if (active) setPaymentsError(ex.message || 'Failed to load payment history') })
+      .finally(() => { if (active) setPaymentsLoading(false) })
+    return () => { active = false }
+  }, [activeTab, id])
+
+  const [clinicalStats, setClinicalStats] = useState(null)
+  const [clinicalLoading, setClinicalLoading] = useState(false)
+  const [clinicalError, setClinicalError] = useState('')
+  useEffect(() => {
+    if (activeTab !== 'clinical') return
+    let active = true
+    setClinicalLoading(true); setClinicalError('')
+    adminApi.getClinicClinicalStats(id)
+      .then(data => { if (active) setClinicalStats(data || null) })
+      .catch(ex => { if (active) setClinicalError(ex.message || 'Failed to load clinical activity') })
+      .finally(() => { if (active) setClinicalLoading(false) })
+    return () => { active = false }
+  }, [activeTab, id])
 
   const handleCreateManager = async e => {
     e.preventDefault(); setManagerError(''); setManagerSaving(true)
@@ -137,10 +174,10 @@ export default function ClinicDetail() {
 
       {/* Tabs */}
       <div className="flex gap-1 mb-5 border-b border-gray-800">
-        {['info', 'staff'].map(tab => (
-          <button key={tab} onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 text-sm font-medium capitalize transition-colors border-b-2 -mb-px ${activeTab === tab ? 'border-indigo-500 text-white' : 'border-transparent text-gray-400 hover:text-white'}`}>
-            {tab === 'info' ? 'Overview' : 'Staff Roster'}
+        {TABS.map(tab => (
+          <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+            className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${activeTab === tab.key ? 'border-indigo-500 text-white' : 'border-transparent text-gray-400 hover:text-white'}`}>
+            {tab.label}
           </button>
         ))}
       </div>
@@ -273,6 +310,143 @@ export default function ClinicDetail() {
           </div>
         </div>
       </div>}
+
+      {activeTab === 'subscription' && (() => {
+        const expiryRaw = clinic.subscription_expires_at
+        const expiry = expiryRaw ? new Date(expiryRaw) : null
+        const now = new Date()
+        const daysLeft = expiry ? Math.ceil((expiry - now) / 86400000) : null
+        const expiryUrgent = expiry && daysLeft !== null && daysLeft <= 7
+        const mrr = billing?.monthly_total ?? clinic.monthly_bill ?? 0
+        return (
+          <div className="space-y-5">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="kpi-card">
+                <div className="flex items-center gap-1.5 text-xs text-gray-500 uppercase tracking-wider mb-2"><CreditCard size={13} />Plan</div>
+                <span className={`badge ${PLAN_COLORS[clinic.plan] || 'badge-free'} capitalize`}>{clinic.plan || 'free'}</span>
+              </div>
+              <div className="kpi-card">
+                <div className="flex items-center gap-1.5 text-xs text-gray-500 uppercase tracking-wider mb-2"><CalendarCheck size={13} />Expiry</div>
+                <div className={`text-lg font-bold ${expiryUrgent ? 'text-red-400' : 'text-white'}`}>
+                  {expiry ? expiry.toLocaleDateString('en-IN') : '—'}
+                </div>
+                {expiry && daysLeft !== null && (
+                  <div className={`text-xs mt-0.5 ${expiryUrgent ? 'text-red-400' : 'text-gray-500'}`}>
+                    {daysLeft < 0 ? `Expired ${Math.abs(daysLeft)}d ago` : `${daysLeft}d left`}
+                  </div>
+                )}
+              </div>
+              <div className="kpi-card">
+                <div className="flex items-center gap-1.5 text-xs text-gray-500 uppercase tracking-wider mb-2"><IndianRupee size={13} />MRR</div>
+                <div className="text-lg font-bold text-emerald-400">₹{Number(mrr || 0).toLocaleString('en-IN')}</div>
+                <div className="text-xs text-gray-500 mt-0.5">per month</div>
+              </div>
+            </div>
+
+            <div className="card-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-800">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Payment History</h3>
+              </div>
+              {paymentsLoading ? (
+                <div className="p-10 flex justify-center"><div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: ACCENT, borderTopColor: 'transparent' }} /></div>
+              ) : paymentsError ? (
+                <div className="m-4 bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-sm text-red-400">{paymentsError}</div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-xs text-gray-500 uppercase tracking-wider border-b border-gray-800">
+                      <th className="th-sm">Date</th>
+                      <th className="th-sm">Amount</th>
+                      <th className="th-sm">Method</th>
+                      <th className="th-sm">Reference</th>
+                      <th className="th-sm">Period</th>
+                      <th className="th-sm">By</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-800">
+                    {payments.map(p => (
+                      <tr key={p.id}>
+                        <td className="td-sm text-gray-400">{p.created_at ? new Date(p.created_at).toLocaleDateString('en-IN') : '—'}</td>
+                        <td className="td-sm text-emerald-400 font-semibold">₹{Number(p.amount || 0).toLocaleString('en-IN')}</td>
+                        <td className="td-sm text-gray-400 capitalize">{p.method || '—'}</td>
+                        <td className="td-sm text-gray-400 font-mono text-xs">{p.reference || '—'}</td>
+                        <td className="td-sm text-gray-400">
+                          {p.period_from || p.period_to
+                            ? `${p.period_from ? new Date(p.period_from).toLocaleDateString('en-IN') : '—'} → ${p.period_to ? new Date(p.period_to).toLocaleDateString('en-IN') : '—'}`
+                            : '—'}
+                        </td>
+                        <td className="td-sm text-gray-400">{p.notes || '—'}</td>
+                      </tr>
+                    ))}
+                    {payments.length === 0 && (
+                      <tr><td colSpan={6} className="td-sm text-center text-gray-500 py-8">No payments recorded for this Health Center</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        )
+      })()}
+
+      {activeTab === 'clinical' && (
+        <div className="space-y-5">
+          {clinicalLoading ? (
+            <div className="p-10 flex justify-center"><div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: ACCENT, borderTopColor: 'transparent' }} /></div>
+          ) : clinicalError ? (
+            <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-sm text-red-400">{clinicalError}</div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="kpi-card">
+                  <div className="flex items-center gap-1.5 text-xs text-gray-500 uppercase tracking-wider mb-2"><Users size={13} />Total Patients</div>
+                  <div className="text-2xl font-bold text-white">{Number(clinicalStats?.total_patients || 0).toLocaleString('en-IN')}</div>
+                </div>
+                <div className="kpi-card">
+                  <div className="flex items-center gap-1.5 text-xs text-gray-500 uppercase tracking-wider mb-2"><CalendarCheck size={13} />Appointments</div>
+                  <div className="text-2xl font-bold text-white">{Number(clinicalStats?.total_appointments || 0).toLocaleString('en-IN')}</div>
+                </div>
+                <div className="kpi-card">
+                  <div className="flex items-center gap-1.5 text-xs text-gray-500 uppercase tracking-wider mb-2"><FlaskConical size={13} />Lab Orders</div>
+                  <div className="text-2xl font-bold text-white">{Number(clinicalStats?.total_lab_orders || 0).toLocaleString('en-IN')}</div>
+                </div>
+                <div className="kpi-card">
+                  <div className="flex items-center gap-1.5 text-xs text-gray-500 uppercase tracking-wider mb-2"><Pill size={13} />Prescriptions</div>
+                  <div className="text-2xl font-bold text-white">{Number(clinicalStats?.total_prescriptions || 0).toLocaleString('en-IN')}</div>
+                </div>
+              </div>
+
+              <div className="card-sm overflow-hidden">
+                <div className="px-5 py-4 border-b border-gray-800 flex items-center gap-1.5">
+                  <Stethoscope size={13} className="text-gray-500" />
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Top Doctors by Appointments</h3>
+                </div>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-xs text-gray-500 uppercase tracking-wider border-b border-gray-800">
+                      <th className="th-sm">Rank</th>
+                      <th className="th-sm">Doctor</th>
+                      <th className="th-sm">Appointments</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-800">
+                    {(clinicalStats?.top_doctors || []).map((d, i) => (
+                      <tr key={`${d.name}-${i}`}>
+                        <td className="td-sm text-gray-500 font-mono">{i + 1}</td>
+                        <td className="td-sm text-white font-medium">{d.name}</td>
+                        <td className="td-sm text-gray-300">{Number(d.appointments || 0).toLocaleString('en-IN')}</td>
+                      </tr>
+                    ))}
+                    {(clinicalStats?.top_doctors || []).length === 0 && (
+                      <tr><td colSpan={3} className="td-sm text-center text-gray-500 py-8">No doctor activity recorded</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Password Reset Modal */}
       {pwdModal && (

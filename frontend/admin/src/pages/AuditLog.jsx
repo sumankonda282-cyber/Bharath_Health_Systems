@@ -1,15 +1,15 @@
 import { useState, useEffect } from 'react'
 import { adminApi } from '../api'
-import { Search, Download, ChevronLeft, ChevronRight, ShieldCheck } from 'lucide-react'
+import { Search, Printer, ChevronLeft, ChevronRight, AlertTriangle, ChevronDown } from 'lucide-react'
 
 // ── Action badge config ────────────────────────────────────────────
 const ACTION_META = {
   // existing platform actions
-  approved_clinic:    { label: 'Approved Clinic',    badge: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' },
-  rejected_clinic:    { label: 'Rejected Clinic',    badge: 'bg-red-500/20 text-red-400 border border-red-500/30' },
-  suspended_clinic:   { label: 'Suspended Clinic',   badge: 'bg-amber-500/20 text-amber-400 border border-amber-500/30' },
-  revoked_clinic:     { label: 'Revoked Clinic',     badge: 'bg-red-600/20 text-red-500 border border-red-600/30' },
-  reactivated_clinic: { label: 'Reactivated Clinic', badge: 'bg-blue-500/20 text-blue-400 border border-blue-500/30' },
+  approved_clinic:    { label: 'Approved Health Center',    badge: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' },
+  rejected_clinic:    { label: 'Rejected Health Center',    badge: 'bg-red-500/20 text-red-400 border border-red-500/30' },
+  suspended_clinic:   { label: 'Suspended Health Center',   badge: 'bg-amber-500/20 text-amber-400 border border-amber-500/30' },
+  revoked_clinic:     { label: 'Revoked Health Center',     badge: 'bg-red-600/20 text-red-500 border border-red-600/30' },
+  reactivated_clinic: { label: 'Reactivated Health Center', badge: 'bg-blue-500/20 text-blue-400 border border-blue-500/30' },
   changed_plan:       { label: 'Changed Plan',       badge: 'bg-purple-500/20 text-purple-400 border border-purple-500/30' },
   verified_staff:     { label: 'Verified Staff',     badge: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' },
   rejected_staff:     { label: 'Rejected Staff',     badge: 'bg-red-500/20 text-red-400 border border-red-500/30' },
@@ -32,9 +32,9 @@ const ACTION_FILTER_OPTIONS = [
   { value: 'vital_entry', label: 'Vital Entry' },
   { value: 'appointment', label: 'Appointment' },
   { value: 'invoice', label: 'Invoice' },
-  { value: 'approved_clinic', label: 'Approved Clinic' },
-  { value: 'rejected_clinic', label: 'Rejected Clinic' },
-  { value: 'suspended_clinic', label: 'Suspended Clinic' },
+  { value: 'approved_clinic', label: 'Approved Health Center' },
+  { value: 'rejected_clinic', label: 'Rejected Health Center' },
+  { value: 'suspended_clinic', label: 'Suspended Health Center' },
   { value: 'verified_staff', label: 'Verified Staff' },
   { value: 'rejected_staff', label: 'Rejected Staff' },
 ]
@@ -69,20 +69,26 @@ export default function AuditLog() {
   const range = defaultDateRange()
   const [logs, setLogs]           = useState([])
   const [loading, setLoading]     = useState(true)
+  const [error, setError]         = useState(false)
   const [startDate, setStartDate] = useState(range.start)
   const [endDate, setEndDate]     = useState(range.end)
+  const [clinicId, setClinicId]   = useState('')
+  const [clinics, setClinics]     = useState([])
   const [userType, setUserType]   = useState('')
   const [action, setAction]       = useState('')
   const [search, setSearch]       = useState('')
   const [offset, setOffset]       = useState(0)
   const [hasMore, setHasMore]     = useState(false)
   const [nabh30, setNabh30]       = useState(null)
+  const [showFailed, setShowFailed] = useState(false)
 
   const load = async (newOffset = 0) => {
     setLoading(true)
+    setError(false)
     const params = { limit: PAGE_SIZE, offset: newOffset }
     if (startDate) params.date_from = startDate
     if (endDate)   params.date_to   = endDate
+    if (clinicId)  params.clinic_id  = clinicId
     if (userType)  params.user_type  = userType
     if (action)    params.action     = action
     if (search)    params.search     = search
@@ -94,8 +100,18 @@ export default function AuditLog() {
       setOffset(newOffset)
     } catch {
       setLogs([])
+      setError(true)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadClinics = async () => {
+    try {
+      const data = await adminApi.getClinics()
+      setClinics(Array.isArray(data) ? data : data?.clinics ?? [])
+    } catch {
+      setClinics([])
     }
   }
 
@@ -120,14 +136,23 @@ export default function AuditLog() {
       setNabh30({
         total: arr.length,
         uniqueUsers,
-        topStaff: topEntry ? `${topEntry[0]} (${topEntry[1]} actions)` : '—',
+        topStaff: topEntry ? `${topEntry[0]} (${topEntry[1]})` : '—',
       })
     } catch {
       setNabh30({ total: 0, uniqueUsers: 0, topStaff: '—' })
     }
   }
 
-  useEffect(() => { load(0); loadNabh30() }, [])
+  useEffect(() => { load(0); loadNabh30(); loadClinics() }, [])
+
+  const clearFilters = () => {
+    setStartDate(range.start)
+    setEndDate(range.end)
+    setClinicId('')
+    setUserType('')
+    setAction('')
+    setSearch('')
+  }
 
   // Client-side text filter on loaded page
   const filteredLogs = search
@@ -144,6 +169,14 @@ export default function AuditLog() {
       })
     : logs
 
+  // Failed logins in last 24h within current results
+  const since24h = Date.now() - 24 * 60 * 60 * 1000
+  const failedLogins = logs.filter(l => {
+    if ((l.action || '') !== 'login_failed') return false
+    const t = new Date(l.created_at).getTime()
+    return Number.isNaN(t) ? true : t >= since24h
+  })
+
   return (
     <>
       <style>{`
@@ -159,108 +192,179 @@ export default function AuditLog() {
         .print-header { display: none; }
       `}</style>
 
-      <div>
-        {/* Filters + Export */}
-        <div className="card-p mb-4 flex flex-wrap gap-3 items-end no-print">
-          <div>
-            <label className="text-xs text-gray-500 mb-1 block">Start Date</label>
-            <input type="date" className="input w-40 py-1.5 text-sm" value={startDate} onChange={e => setStartDate(e.target.value)} />
+      <div className="bg-[#0a0f1e] min-h-full">
+        <h1 className="text-lg font-bold text-white mb-3 no-print">Activity Log</h1>
+
+        {/* Consolidated toolbar */}
+        <div className="toolbar no-print">
+          <input
+            type="date"
+            className="input py-1 text-sm w-36"
+            value={startDate}
+            onChange={e => setStartDate(e.target.value)}
+          />
+          <span className="text-xs text-gray-500">to</span>
+          <input
+            type="date"
+            className="input py-1 text-sm w-36"
+            value={endDate}
+            onChange={e => setEndDate(e.target.value)}
+          />
+          <select
+            className="input py-1 text-sm w-44"
+            value={clinicId}
+            onChange={e => setClinicId(e.target.value)}
+          >
+            <option value="">All Health Centers</option>
+            {clinics.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+          <select
+            className="input py-1 text-sm w-32"
+            value={userType}
+            onChange={e => setUserType(e.target.value)}
+          >
+            {USER_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+          <select
+            className="input py-1 text-sm w-48"
+            value={action}
+            onChange={e => setAction(e.target.value)}
+          >
+            {ACTION_FILTER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+          <div className="relative">
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500" />
+            <input
+              type="text"
+              placeholder="Search..."
+              className="input py-1 text-sm pl-8 w-48"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && load(0)}
+            />
           </div>
-          <div>
-            <label className="text-xs text-gray-500 mb-1 block">End Date</label>
-            <input type="date" className="input w-40 py-1.5 text-sm" value={endDate} onChange={e => setEndDate(e.target.value)} />
-          </div>
-          <div>
-            <label className="text-xs text-gray-500 mb-1 block">User Type</label>
-            <select className="input w-36 py-1.5 text-sm" value={userType} onChange={e => setUserType(e.target.value)}>
-              {USER_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="text-xs text-gray-500 mb-1 block">Action Type</label>
-            <select className="input w-52 py-1.5 text-sm" value={action} onChange={e => setAction(e.target.value)}>
-              {ACTION_FILTER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
-          </div>
-          <div className="flex-1 min-w-48">
-            <label className="text-xs text-gray-500 mb-1 block">Search</label>
-            <div className="relative">
-              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500" />
-              <input
-                type="text"
-                placeholder="Search logs..."
-                className="input py-1.5 text-sm pl-8 w-full"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && load(0)}
-              />
+          <button onClick={() => load(0)} className="btn-primary py-1 px-3 text-sm flex items-center gap-1">
+            <Search size={14} />Apply
+          </button>
+          <button onClick={clearFilters} className="btn-secondary py-1 px-3 text-sm">Clear</button>
+          <div className="flex-1" />
+          <button
+            onClick={() => window.print()}
+            className="btn-secondary py-1 px-2 text-sm"
+            title="Print / Export PDF"
+          >
+            <Printer size={15} />
+          </button>
+        </div>
+
+        {/* Failed-login compact banner */}
+        {failedLogins.length > 0 && (
+          <div className="no-print mt-3">
+            <div className="flex items-center gap-2 text-sm bg-orange-500/10 border border-orange-500/30 text-orange-300 rounded-lg px-3 py-1.5">
+              <AlertTriangle size={15} className="flex-shrink-0" />
+              <span>{failedLogins.length} failed logins in last 24h</span>
+              <button
+                onClick={() => setShowFailed(s => !s)}
+                className="ml-auto inline-flex items-center gap-1 text-orange-200 hover:text-white font-semibold"
+              >
+                View Details
+                <ChevronDown size={14} className={`transition-transform ${showFailed ? 'rotate-180' : ''}`} />
+              </button>
             </div>
+            {showFailed && (
+              <div className="mt-1 bg-orange-500/5 border border-orange-500/20 rounded-lg divide-y divide-orange-500/10">
+                {failedLogins.map(l => (
+                  <div key={l.id} className="flex items-center gap-4 px-3 py-1.5 text-xs">
+                    <span className="font-mono text-gray-400 whitespace-nowrap">
+                      {new Date(l.created_at).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
+                    </span>
+                    <span className="text-gray-200">{l.admin_name || l.user_id || '—'}</span>
+                    <span className="font-mono text-gray-500 ml-auto">{l.ip_address || '—'}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-          <button onClick={() => load(0)} className="btn-primary py-1.5">
-            <Search size={14} />Filter
-          </button>
-          <button onClick={() => window.print()} className="btn-secondary py-1.5">
-            <Download size={15} />PDF
-          </button>
+        )}
+
+        {/* NABH 30-day summary chips */}
+        <div className="flex flex-wrap gap-2 mt-3 mb-3 no-print">
+          {nabh30 === null ? (
+            <span className="badge-xs text-gray-500">Loading 30-day summary…</span>
+          ) : (
+            <>
+              <span className="filter-chip text-emerald-300 border-emerald-500/30">
+                ✓ Total (30d): <strong className="text-white ml-1">{nabh30.total.toLocaleString()}</strong>
+              </span>
+              <span className="filter-chip text-gray-300">
+                Unique Users: <strong className="text-white ml-1">{nabh30.uniqueUsers}</strong>
+              </span>
+              <span className="filter-chip text-gray-300">
+                Top Staff: <strong className="text-white ml-1">{nabh30.topStaff}</strong>
+              </span>
+            </>
+          )}
         </div>
 
         {/* Print-only header */}
         <div className="print-header mb-4">
-          <h2 style={{ fontSize: 18, fontWeight: 'bold' }}>BHarath Health — Audit Trail Report</h2>
+          <h2 style={{ fontSize: 18, fontWeight: 'bold' }}>Bharath Health — Activity Log Report</h2>
           <p style={{ fontSize: 12 }}>Period: {startDate} to {endDate}{action ? ` | Action: ${action}` : ''}{userType ? ` | User: ${userType}` : ''}</p>
           <p style={{ fontSize: 11, color: '#666' }}>Generated: {new Date().toLocaleString('en-IN')}</p>
         </div>
 
         {/* Table */}
         <div id="audit-print-area">
-          <div className="card overflow-hidden">
+          <div className="card-sm overflow-hidden">
             {loading ? (
               <div className="flex justify-center py-16">
-                <div className="w-7 h-7 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                <div className="w-7 h-7 border-4 rounded-full animate-spin" style={{ borderColor: '#F5821E', borderTopColor: 'transparent' }} />
               </div>
+            ) : error ? (
+              <div className="p-12 text-center text-red-400">Failed to load activity log. Try again.</div>
             ) : filteredLogs.length === 0 ? (
-              <div className="p-12 text-center text-gray-500">No audit records found</div>
+              <div className="p-12 text-center text-gray-500">No activity records found</div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="table">
+                <table className="w-full">
                   <thead>
                     <tr>
-                      <th className="th">Timestamp</th>
-                      <th className="th">User</th>
-                      <th className="th">User Type</th>
-                      <th className="th">Action</th>
-                      <th className="th">Entity</th>
-                      <th className="th">Details</th>
-                      <th className="th">IP Address</th>
+                      <th className="th-sm">Timestamp</th>
+                      <th className="th-sm">User</th>
+                      <th className="th-sm">User Type</th>
+                      <th className="th-sm">Action</th>
+                      <th className="th-sm">Entity</th>
+                      <th className="th-sm">Details</th>
+                      <th className="th-sm">IP Address</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-800">
                     {filteredLogs.map(l => (
                       <tr key={l.id} className="tr-hover">
-                        <td className="td text-xs text-gray-400 whitespace-nowrap font-mono">
+                        <td className="td-sm text-xs text-gray-400 whitespace-nowrap font-mono">
                           {new Date(l.created_at).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
                         </td>
-                        <td className="td">
+                        <td className="td-sm">
                           <div className="text-white text-sm">{l.admin_name || l.user_id || '—'}</div>
                           {l.user_id && l.admin_name && (
                             <div className="text-xs text-gray-500">ID: {l.user_id}</div>
                           )}
                         </td>
-                        <td className="td">
+                        <td className="td-sm">
                           <span className="text-xs capitalize text-gray-400 bg-gray-800 px-2 py-0.5 rounded-full">
                             {l.user_type || 'admin'}
                           </span>
                         </td>
-                        <td className="td">
+                        <td className="td-sm">
                           <ActionBadge action={l.action} />
                         </td>
-                        <td className="td">
+                        <td className="td-sm">
                           <div className="text-white text-sm">{l.target_name || l.entity_id || '—'}</div>
                           <div className="text-xs text-gray-500 capitalize">
                             {l.entity_type || l.target_type || ''}
                           </div>
                         </td>
-                        <td className="td max-w-xs">
+                        <td className="td-sm max-w-xs">
                           {l.reason && <div className="text-sm text-gray-300">{l.reason.replace(/_/g, ' ')}</div>}
                           {l.comment && <div className="text-xs text-gray-500">{l.comment}</div>}
                           {l.details && typeof l.details === 'object' && Object.keys(l.details).length > 0 && (
@@ -272,7 +376,7 @@ export default function AuditLog() {
                             <span className="text-gray-600">—</span>
                           )}
                         </td>
-                        <td className="td text-xs text-gray-500 font-mono">
+                        <td className="td-sm text-xs text-gray-500 font-mono">
                           {l.ip_address || '—'}
                         </td>
                       </tr>
@@ -285,7 +389,7 @@ export default function AuditLog() {
         </div>
 
         {/* Pagination */}
-        {!loading && (filteredLogs.length > 0 || offset > 0) && (
+        {!loading && !error && (filteredLogs.length > 0 || offset > 0) && (
           <div className="flex items-center justify-between mt-3 no-print">
             <span className="text-sm text-gray-500">
               Showing {offset + 1}–{offset + filteredLogs.length}{hasMore ? '+' : ''}
@@ -308,68 +412,6 @@ export default function AuditLog() {
             </div>
           </div>
         )}
-
-        {/* NABH Compliance Section */}
-        <div className="mt-8 card p-5 no-print">
-          <div className="flex items-center gap-2 mb-4">
-            <ShieldCheck size={18} className="text-emerald-400" />
-            <h2 className="font-bold text-white">NABH Compliance Status</h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Compliance checks */}
-            <div>
-              <div className="text-xs font-semibold text-gray-400 mb-3 uppercase tracking-wider">
-                Active Controls
-              </div>
-              <div className="space-y-2">
-                {[
-                  'Audit logging enabled',
-                  'User authentication required',
-                  'Access control by role',
-                  'Data encrypted in transit (HTTPS)',
-                  'Session management enforced',
-                  'IP address tracking active',
-                ].map(item => (
-                  <div key={item} className="flex items-center gap-2.5 text-sm">
-                    <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0 text-xs font-bold">
-                      ✓
-                    </span>
-                    <span className="text-gray-300">{item}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* 30-day summary */}
-            <div>
-              <div className="text-xs font-semibold text-gray-400 mb-3 uppercase tracking-wider">
-                Last 30 Days Summary
-              </div>
-              {nabh30 === null ? (
-                <div className="flex items-center gap-2 text-gray-500 text-sm">
-                  <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-                  Loading...
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between p-3 bg-gray-800/60 rounded-xl">
-                    <span className="text-gray-400 text-sm">Total Actions Logged</span>
-                    <span className="text-white font-bold text-lg">{nabh30.total.toLocaleString()}</span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-gray-800/60 rounded-xl">
-                    <span className="text-gray-400 text-sm">Unique Users Active</span>
-                    <span className="text-white font-bold text-lg">{nabh30.uniqueUsers}</span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-gray-800/60 rounded-xl">
-                    <span className="text-gray-400 text-sm">Most Active Staff</span>
-                    <span className="text-white font-semibold text-sm text-right max-w-40 truncate">{nabh30.topStaff}</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
       </div>
     </>
   )
