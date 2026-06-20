@@ -36,7 +36,7 @@ function getTitle(pathname) {
   for (const { pattern, title } of ROUTE_TITLES) {
     if (pattern.test(pathname)) return title
   }
-  return 'BharatCliniq'
+  return 'Bharath Health Systems'
 }
 
 export default function TopBar({ onMenuClick, onRefresh }) {

@@ -50,8 +50,8 @@ export default function BillingList() {
   useEffect(() => { load() }, [load])
   useEffect(() => {
     const h = () => load()
-    window.addEventListener('bharatcliniq:refresh', h)
-    return () => window.removeEventListener('bharatcliniq:refresh', h)
+    window.addEventListener('bharathhealthsystems:refresh', h)
+    return () => window.removeEventListener('bharathhealthsystems:refresh', h)
   }, [load])
 
   const filtered = invoices.filter(inv => {

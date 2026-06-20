@@ -1,1 +1,1 @@
-# BharatCliniq Lab Portal
+# Bharath Health Systems Lab Portal

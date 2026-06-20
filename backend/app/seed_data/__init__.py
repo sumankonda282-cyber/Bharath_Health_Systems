@@ -1,1 +1,1 @@
-"""Seed data packages for BharatCliniq clinical decision support."""
+"""Seed data packages for Bharath Health Systems clinical decision support."""

@@ -293,7 +293,7 @@ export default function EmergencyAdmission() {
         initial_vitals: Object.keys(vitals).length ? vitals : null,
       })
       setDone(r)
-      window.dispatchEvent(new CustomEvent('bharatcliniq:refresh'))
+      window.dispatchEvent(new CustomEvent('bharathhealthsystems:refresh'))
     } catch (e) {
       setError(e?.message || 'Registration failed')
     }
@@ -307,7 +307,7 @@ export default function EmergencyAdmission() {
       const r = await api.post(`/inpatient/emergency/${done.id}/alert`)
       setDone(r)
       setAlertSent(true)
-      window.dispatchEvent(new CustomEvent('bharatcliniq:refresh'))
+      window.dispatchEvent(new CustomEvent('bharathhealthsystems:refresh'))
     } catch (e) {
       alert(e?.message || 'Failed to send alert')
     }

@@ -1,1 +1,1 @@
-# BharatCliniq Pharmacy Portal
+# Bharath Health Systems Pharmacy Portal

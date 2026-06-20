@@ -61,7 +61,7 @@ In Anaconda Prompt:
 cd C:\BMH\bharatcliniq_SaaS
 git init
 git add .
-git commit -m "Initial commit - BharatCliniq Stage 1"
+git commit -m "Initial commit - Bharath Health Systems Stage 1"
 git branch -M main
 git remote add origin https://github.com/YOUR_USERNAME/bharatcliniq.git
 git push -u origin main

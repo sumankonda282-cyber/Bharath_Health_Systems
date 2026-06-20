@@ -1,4 +1,4 @@
-# BharatCliniq SaaS — Windows Setup Guide
+# Bharath Health Systems SaaS — Windows Setup Guide
 
 ## Prerequisites
 

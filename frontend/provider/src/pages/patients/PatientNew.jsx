@@ -475,7 +475,7 @@ export default function PatientNew() {
             </div>
             {form.bh_id && (
               <div>
-                <label className="label">BharatCliniq Health ID</label>
+                <label className="label">Bharath Health Systems Health ID</label>
                 <input className="input bg-green-50 text-green-800 font-mono" value={form.bh_id} readOnly />
               </div>
             )}

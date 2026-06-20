@@ -55,7 +55,7 @@ function printReferral(r, form) {
   ${data.clinical_notes ? `<div class="section"><div class="label">Clinical Summary</div><div class="value" style="white-space:pre-wrap">${data.clinical_notes}</div></div>` : ''}
   ${data.current_medications ? `<div class="section"><div class="label">Current Medications</div><div class="value" style="white-space:pre-wrap">${data.current_medications}</div></div>` : ''}
   ${data.relevant_investigations ? `<div class="section"><div class="label">Relevant Investigations</div><div class="value" style="white-space:pre-wrap">${data.relevant_investigations}</div></div>` : ''}
-  <div class="sig">Referred by BharatCliniq Provider Portal · Printed ${new Date().toLocaleString('en-IN')}</div>
+  <div class="sig">Referred by Bharath Health Systems Provider Portal · Printed ${new Date().toLocaleString('en-IN')}</div>
   <script>window.onload=()=>{ window.print(); }<\/script>
   </body></html>`)
   win.document.close()
