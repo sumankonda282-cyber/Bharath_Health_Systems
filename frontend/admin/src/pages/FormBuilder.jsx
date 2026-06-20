@@ -504,7 +504,7 @@ export default function FormBuilder() {
       if (form.id) {
         result = await api.patch(`/assessment-forms/${form.id}`, payload)
       } else {
-        result = await api.post('/assessment-forms/', payload)
+        result = await api.post('/assessment-forms', payload)
       }
       dispatch({ type: 'SET_SAVED', payload: { id: result.id || result.data?.id || form.id } })
     } catch (err) {
@@ -524,6 +524,7 @@ export default function FormBuilder() {
       dispatch({ type: 'SET_FORM_PROP', payload: { key: 'status', value: 'published' } })
     } catch (err) {
       console.error('Publish failed:', err)
+      alert(err.message || 'Publish failed. Please try again.')
     }
   }
 
@@ -550,12 +551,10 @@ export default function FormBuilder() {
     let targetSection = sectionId
     if (!targetSection) {
       if (form.schema.sections.length === 0) {
-        const newSection = makeSection(1)
-        dispatch({ type: 'ADD_SECTION' })
-        targetSection = newSection.id
-      } else {
-        targetSection = form.schema.sections[form.schema.sections.length - 1].id
+        dispatchWithHistory({ type: 'ADD_SECTION' })
+        return
       }
+      targetSection = form.schema.sections[form.schema.sections.length - 1].id
     }
     dispatchWithHistory({ type: 'ADD_FIELD', payload: { sectionId: targetSection, fieldType: type } })
   }
