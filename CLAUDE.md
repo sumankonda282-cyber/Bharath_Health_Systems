@@ -6,6 +6,25 @@
 
 ---
 
+## 0. Professional Quality Standards (Non-Negotiable)
+
+These standards apply to **every task, every file, every change** — no exceptions.
+
+| Standard | What it means |
+|---|---|
+| **Completeness in first attempt** | Every feature must be fully built, wired, tested, and working before reporting done. No half-finished work. No "I'll add that later." |
+| **Never ignore possible issues** | If you spot a bug, broken pattern, or risk while working nearby — fix it or flag it immediately. Never walk past a problem. |
+| **High coding quality** | Clean, readable code. No dead code, no commented-out blocks, no `console.log` left in, no TODO without a resolution plan. |
+| **Professionalism** | Match the standard of a senior fullstack developer. No shortcuts, no "good enough", no placeholder logic in production code. |
+| **Attention to detail** | Every user-facing screen must handle all states: loading, empty, error, success. Check edge cases before marking done. |
+| **No silent failures** | Never swallow errors without logging or user feedback. Every API call must handle failure visibly with a message or fallback. |
+| **Cross-portal awareness** | Before any backend change, verify impact on all 9 portals. Never assume a change is isolated. Check the ownership map in Section 3. |
+| **Self-review before pushing** | Re-read every file changed as if reviewing someone else's code. If something looks wrong, fix it before committing. Never push and hope. |
+
+> These are not suggestions. A task is not complete until all 8 standards are met.
+
+---
+
 ## 1. Project Overview
 
 **Bharath Health Systems** (a.k.a. BharatCliniq) is a multi-portal SaaS platform for
