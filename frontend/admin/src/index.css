@@ -75,6 +75,20 @@
   .td       { @apply px-4 py-3 text-sm text-gray-200 align-middle; }
   .tr-hover { @apply hover:bg-white/[0.03] transition-colors; }
 
+  /* High-density table */
+  .td-sm { @apply px-3 py-1.5 text-sm text-gray-200 align-middle; }
+  .th-sm { @apply px-3 py-2 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider bg-gray-900/40; }
+  /* Compact card */
+  .card-sm { @apply bg-[#0f172a] border border-gray-800/60 rounded-xl; }
+  /* KPI card */
+  .kpi-card { @apply bg-[#0f172a] border border-gray-800/60 rounded-xl p-3 flex flex-col gap-1; }
+  /* Toolbar row */
+  .toolbar { @apply flex items-center gap-2 flex-wrap; }
+  /* Filter chip */
+  .filter-chip { @apply flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-800/60 border border-gray-700/60 rounded-lg text-xs text-gray-300 hover:border-orange-500/40 transition-colors; }
+  /* Dense badge */
+  .badge-xs { @apply inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold; }
+
   /* Sidebar */
   .sidebar-link {
     @apply flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium mb-0.5

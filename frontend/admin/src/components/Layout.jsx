@@ -4,36 +4,36 @@ import { useAuth } from '../contexts/AuthContext'
 import {
   LayoutDashboard, Clock, Building2, ShieldCheck,
   ClipboardList, BarChart3, LogOut, Menu, X, Search, CreditCard, Hospital,
-  FileText, Users, Bell, RefreshCw, PlusCircle, ChevronDown, ChevronLeft
+  FileText, Users, Bell, RefreshCw, ChevronDown, ChevronLeft
 } from 'lucide-react'
 import api from '../api/client'
 import BrandLogo from './BrandLogo'
 
 const NAV = [
-  { to: '/dashboard',         icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/dashboard',         icon: LayoutDashboard, label: 'Platform Analytics' },
   { to: '/pending',           icon: Clock,           label: 'Pending Approvals' },
-  { to: '/clinics',           icon: Building2,       label: 'All Health Centers' },
+  { to: '/clinics',           icon: Building2,       label: 'Health Centers' },
   { to: '/subscriptions',     icon: CreditCard,      label: 'Subscriptions' },
   { to: '/staff',             icon: ShieldCheck,     label: 'Staff Verification' },
   { to: '/forms',             icon: FileText,        label: 'Assessment Forms' },
   { to: '/population',        icon: Users,           label: 'Population' },
-  { to: '/audit',             icon: ClipboardList,   label: 'Audit Log' },
-  { to: '/reports',           icon: BarChart3,       label: 'Reports' },
-  { to: '/bhid',              icon: Search,          label: 'BH ID Lookup' },
+  { to: '/audit',             icon: ClipboardList,   label: 'Activity Log' },
+  { to: '/reports',           icon: BarChart3,       label: 'Analytics & Reports' },
+  { to: '/patients',          icon: Search,          label: 'Patient Lookup' },
   { to: '/hospital-settings', icon: Hospital,        label: 'Hospital Setup' },
 ]
 
 const PAGE_TITLES = {
-  '/dashboard':         'Dashboard',
+  '/dashboard':         'Platform Analytics',
   '/pending':           'Pending Approvals',
-  '/clinics':           'All Health Centers',
+  '/clinics':           'Health Centers',
   '/subscriptions':     'Subscriptions',
   '/staff':             'Staff Verification',
   '/forms':             'Assessment Forms',
   '/population':        'Population',
-  '/audit':             'Audit Log',
-  '/reports':           'Reports',
-  '/bhid':              'BH ID Lookup',
+  '/audit':             'Activity Log',
+  '/reports':           'Analytics & Reports',
+  '/patients':          'Patient Lookup',
   '/hospital-settings': 'Hospital Setup',
 }
 
@@ -43,15 +43,14 @@ function getInitials(email) {
 }
 
 function Sidebar({ onClose, expanded = true, onToggle }) {
+  const { user, logout } = useAuth()
   return (
-    <aside className={`flex flex-col h-full bg-gray-900 border-r border-gray-800 overflow-hidden transition-[width] duration-200 ease-in-out flex-shrink-0 ${expanded ? 'w-56' : 'w-11'}`}>
-      <div className={`border-b border-gray-800 flex items-center overflow-hidden transition-all duration-200 ${expanded ? 'px-4 py-4 justify-between' : 'px-2 py-4 justify-center'}`}>
+    <aside className={`flex flex-col h-full bg-[#0a0f1e] border-r border-gray-800/60 overflow-hidden transition-[width] duration-200 ease-in-out flex-shrink-0 ${expanded ? 'w-[200px]' : 'w-[52px]'}`}>
+      <div className={`h-10 border-b border-gray-800/60 flex items-center overflow-hidden ${expanded ? 'px-3 justify-between' : 'px-2 justify-center'}`}>
         {expanded ? (
-          <div>
-            <BrandLogo size="sm" />
-            <div className="text-xs font-bold mt-1.5 tracking-widest uppercase" style={{ color: '#F5821E' }}>
-              Super Admin
-            </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-black px-1.5 py-0.5 rounded" style={{ background: 'rgba(245,130,30,0.15)', color: '#F5821E' }}>BC</span>
+            <span className="text-[11px] font-bold tracking-widest uppercase" style={{ color: '#F5821E' }}>Admin</span>
           </div>
         ) : (
           <button
@@ -65,29 +64,44 @@ function Sidebar({ onClose, expanded = true, onToggle }) {
         )}
         {onClose && expanded && (
           <button onClick={onClose} className="md:hidden text-gray-500 hover:text-white">
-            <X size={20} />
+            <X size={18} />
           </button>
         )}
         {!onClose && onToggle && expanded && (
           <button onClick={onToggle} className="text-gray-500 hover:text-white transition-colors" title="Collapse sidebar">
-            <ChevronLeft size={18} />
+            <ChevronLeft size={16} />
           </button>
         )}
       </div>
-      <nav className="flex-1 py-3 overflow-y-auto overflow-x-hidden space-y-0.5 px-1.5">
+      <nav className="flex-1 py-1 overflow-y-auto overflow-x-hidden">
         {NAV.map(({ to, icon: Icon, label }) => (
           <NavLink key={to} to={to}
             onClick={onClose}
             title={!expanded ? label : undefined}
             className={({ isActive }) =>
-              `flex items-center rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${expanded ? 'gap-2.5 px-2.5 py-2' : 'justify-center p-2.5'} ${isActive ? 'bg-[#F5821E]/15 text-[#F5821E]' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`
+              `flex items-center text-xs font-medium transition-colors whitespace-nowrap py-1.5 px-2 ${expanded ? 'gap-2.5' : 'justify-center'} ${isActive ? 'bg-[#F5821E]/15 text-[#F5821E] border-l-2 border-[#F5821E]' : 'text-gray-400 hover:text-white hover:bg-gray-800/60 border-l-2 border-transparent'}`
             }
           >
-            <Icon size={16} className="flex-shrink-0" />
+            <Icon size={15} className="flex-shrink-0" />
             {expanded && <span className="truncate">{label}</span>}
           </NavLink>
         ))}
       </nav>
+      <div className={`h-9 border-t border-gray-800/60 flex items-center ${expanded ? 'px-2 gap-2 justify-between' : 'justify-center'}`}>
+        {expanded && (
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
+              style={{ background: 'rgba(245,130,30,0.2)', color: '#F5821E' }}>
+              {getInitials(user?.email || user?.full_name)}
+            </div>
+            <span className="text-[11px] text-gray-400 truncate">{user?.email || user?.full_name || 'Admin'}</span>
+          </div>
+        )}
+        <button onClick={logout} title="Sign Out"
+          className="p-1.5 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 flex-shrink-0">
+          <LogOut size={15} />
+        </button>
+      </div>
     </aside>
   )
 }
@@ -244,7 +258,7 @@ export default function Layout() {
   const pageTitle = PAGE_TITLES[location.pathname] || ''
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-950">
+    <div className="flex h-screen overflow-hidden bg-[#0a0f1e]">
       {open && (
         <div className="fixed inset-0 z-40 md:hidden" onClick={() => setOpen(false)}>
           <div className="absolute inset-0 bg-black/60" />
@@ -277,22 +291,8 @@ export default function Layout() {
           </div>
         </div>
         {/* Desktop header */}
-        <div className="hidden md:flex items-center gap-3 px-6 py-2 border-b border-gray-800 bg-gray-900 sticky top-0 z-30 min-h-[52px]">
-          <span className="text-white font-bold text-base flex-1">{pageTitle}</span>
-          <a
-            href="https://bharathhealthsystems.com/register"
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
-            style={{ background: 'rgba(245,130,30,0.15)', border: '1px solid rgba(245,130,30,0.3)', color: '#F5821E' }}
-            title="Register Health Center"
-          >
-            <PlusCircle size={14} />
-            <span className="hidden lg:inline">Register</span>
-          </a>
-          <button onClick={() => window.location.reload()} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-800" title="Refresh">
-            <RefreshCw size={18} />
-          </button>
+        <div className="hidden md:flex items-center gap-2 px-4 border-b border-gray-800/60 bg-[#0f172a] sticky top-0 z-30 h-11">
+          <span className="text-white font-semibold text-sm flex-1">{pageTitle}</span>
           <FeedbackBell />
           <ProfileDropdown />
         </div>

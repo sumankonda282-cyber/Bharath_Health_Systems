@@ -3,9 +3,11 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, and_
 from typing import Optional
 from datetime import datetime, date, timedelta
+from dateutil.relativedelta import relativedelta
+from sqlalchemy import or_
 from app.db.session import get_db
 from app.core.security import get_current_platform_admin, hash_password
-from app.models.models import Clinic, Branch, Staff, Patient, Appointment, PlatformAdmin, AuditLog, Invoice, Feedback, Department, Ward, Bed, PlatformSetting, SubscriptionPayment
+from app.models.models import Clinic, Branch, Staff, Patient, Appointment, PlatformAdmin, AuditLog, Invoice, Feedback, Department, Ward, Bed, PlatformSetting, SubscriptionPayment, PatientTag, LabOrder, Prescription, DoctorProfile, PatientUser
 
 import re
 import secrets
@@ -1357,4 +1359,304 @@ def extend_subscription(
     return {
         "message": f"Subscription extended by {days} days",
         "new_expiry": str(clinic.subscription_expires_at.date()),
+    }
+
+
+# ── Patient Lookup (platform-wide) ────────────────────────────────────────────
+
+@router.get("/patients/search")
+def search_patients(
+    q: Optional[str] = None,
+    clinic_id: Optional[int] = None,
+    state: Optional[str] = None,
+    city: Optional[str] = None,
+    gender: Optional[str] = None,
+    age_from: Optional[int] = None,
+    age_to: Optional[int] = None,
+    reg_date_from: Optional[str] = None,
+    reg_date_to: Optional[str] = None,
+    has_portal_account: Optional[str] = None,
+    blood_group: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 50,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    q_obj = db.query(Patient)
+    if q:
+        q_obj = q_obj.filter(or_(
+            Patient.full_name.ilike(f"%{q}%"),
+            Patient.mobile.ilike(f"%{q}%"),
+            Patient.bh_id.ilike(f"%{q}%"),
+            Patient.uhid.ilike(f"%{q}%"),
+        ))
+    if clinic_id:
+        q_obj = q_obj.filter(Patient.clinic_id == clinic_id)
+    if state:
+        q_obj = q_obj.filter(Patient.state == state)
+    if city:
+        q_obj = q_obj.filter(Patient.city.ilike(f"%{city}%"))
+    if gender:
+        q_obj = q_obj.filter(Patient.gender == gender)
+    if blood_group:
+        q_obj = q_obj.filter(Patient.blood_group == blood_group)
+    if age_from:
+        cutoff = date.today() - relativedelta(years=age_from)
+        q_obj = q_obj.filter(Patient.date_of_birth <= cutoff)
+    if age_to:
+        cutoff = date.today() - relativedelta(years=age_to)
+        q_obj = q_obj.filter(Patient.date_of_birth >= cutoff)
+    if reg_date_from:
+        q_obj = q_obj.filter(Patient.created_at >= reg_date_from)
+    if reg_date_to:
+        q_obj = q_obj.filter(Patient.created_at <= reg_date_to + "T23:59:59")
+    if has_portal_account == "yes":
+        q_obj = q_obj.filter(Patient.portal_user_id != None)
+    elif has_portal_account == "no":
+        q_obj = q_obj.filter(Patient.portal_user_id == None)
+
+    total = q_obj.count()
+    page = max(1, page)
+    patients = q_obj.order_by(Patient.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
+
+    results = []
+    for p in patients:
+        clinic = db.query(Clinic).filter(Clinic.id == p.clinic_id).first()
+        last_visit = db.query(func.max(Appointment.appointment_date)).filter(Appointment.patient_id == p.id).scalar()
+        age = None
+        if p.date_of_birth:
+            age = relativedelta(date.today(), p.date_of_birth).years
+        results.append({
+            "patient_id": p.id, "bh_id": p.bh_id or "", "uhid": p.uhid or "",
+            "full_name": p.full_name, "mobile": p.mobile or "", "gender": p.gender or "",
+            "age": age, "blood_group": p.blood_group or "",
+            "clinic_name": clinic.name if clinic else "", "city": p.city or "",
+            "state": p.state or "", "created_at": str(p.created_at.date()) if p.created_at else "",
+            "has_portal_account": p.portal_user_id is not None,
+            "last_visit": str(last_visit) if last_visit else None,
+        })
+    return {"total": total, "page": page, "page_size": page_size, "results": results}
+
+
+@router.get("/patients/states")
+def get_patient_states(db: Session = Depends(get_db), current=Depends(get_current_platform_admin)):
+    rows = db.query(Patient.state).filter(
+        Patient.state != None, Patient.state != ""
+    ).distinct().order_by(Patient.state).all()
+    return [r[0] for r in rows]
+
+
+@router.get("/patients/{patient_id}/detail")
+def get_patient_detail(patient_id: int, db: Session = Depends(get_db), current=Depends(get_current_platform_admin)):
+    p = db.query(Patient).filter(Patient.id == patient_id).first()
+    if not p:
+        raise HTTPException(404, "Patient not found")
+    clinic = db.query(Clinic).filter(Clinic.id == p.clinic_id).first()
+    age = relativedelta(date.today(), p.date_of_birth).years if p.date_of_birth else None
+
+    appts = db.query(Appointment).filter(Appointment.patient_id == p.id).order_by(Appointment.appointment_date.desc()).limit(25).all()
+    timeline = [{
+        "id": a.id, "date": str(a.appointment_date) if a.appointment_date else "",
+        "status": a.status or "", "clinic_id": a.clinic_id,
+    } for a in appts]
+
+    tags = db.query(PatientTag.tag_name, PatientTag.icd10_code).filter(PatientTag.patient_id == p.id).all()
+    diagnoses = [{"tag_name": t, "icd10_code": c or ""} for t, c in tags]
+
+    total_appts = db.query(func.count(Appointment.id)).filter(Appointment.patient_id == p.id).scalar() or 0
+    total_lab = db.query(func.count(LabOrder.id)).filter(LabOrder.patient_id == p.id).scalar() or 0
+    total_rx = db.query(func.count(Prescription.id)).filter(Prescription.patient_id == p.id).scalar() or 0
+
+    invoiced = db.query(func.sum(Invoice.total)).filter(Invoice.patient_id == p.id).scalar() or 0
+    collected = db.query(func.sum(Invoice.amount_paid)).filter(Invoice.patient_id == p.id).scalar() or 0
+
+    return {
+        "patient_id": p.id, "full_name": p.full_name, "bh_id": p.bh_id or "", "uhid": p.uhid or "",
+        "mobile": p.mobile or "", "email": p.email or "", "gender": p.gender or "", "age": age,
+        "date_of_birth": str(p.date_of_birth) if p.date_of_birth else "", "blood_group": p.blood_group or "",
+        "address": p.address or "", "city": p.city or "", "state": p.state or "", "pincode": p.pincode or "",
+        "emergency_contact_name": p.emergency_contact_name or "", "emergency_contact_phone": p.emergency_contact_phone or "",
+        "abha_id": p.abha_id or "", "has_portal_account": p.portal_user_id is not None,
+        "created_at": str(p.created_at.date()) if p.created_at else "",
+        "primary_clinic": clinic.name if clinic else "",
+        "health_centers": [{"clinic_id": clinic.id, "name": clinic.name, "city": clinic.city or ""}] if clinic else [],
+        "timeline": timeline,
+        "clinical": {
+            "diagnoses": diagnoses,
+            "total_appointments": total_appts,
+            "total_lab_orders": total_lab,
+            "total_prescriptions": total_rx,
+        },
+        "financial": {
+            "total_invoiced": float(invoiced),
+            "total_collected": float(collected),
+            "outstanding": float(invoiced) - float(collected),
+        },
+    }
+
+
+# ── Population Analytics ──────────────────────────────────────────────────────
+
+@router.get("/analytics/population")
+def get_population_analytics(db: Session = Depends(get_db), current=Depends(get_current_platform_admin)):
+    today = date.today()
+
+    gender = db.query(Patient.gender, func.count(Patient.id)).group_by(Patient.gender).all()
+
+    blood = db.query(Patient.blood_group, func.count(Patient.id)).filter(
+        Patient.blood_group != None
+    ).group_by(Patient.blood_group).all()
+
+    states = db.query(
+        Patient.state, func.count(Patient.id).label('cnt')
+    ).filter(Patient.state != None).group_by(Patient.state).order_by(func.count(Patient.id).desc()).limit(10).all()
+    total_pts = db.query(func.count(Patient.id)).scalar() or 1
+
+    all_pts = db.query(Patient.date_of_birth).filter(Patient.date_of_birth != None).all()
+    age_buckets = {"0-10": 0, "11-20": 0, "21-30": 0, "31-40": 0, "41-50": 0, "51-60": 0, "61-70": 0, "71-80": 0, "81+": 0}
+    for (dob,) in all_pts:
+        age = relativedelta(today, dob).years
+        if age <= 10: age_buckets["0-10"] += 1
+        elif age <= 20: age_buckets["11-20"] += 1
+        elif age <= 30: age_buckets["21-30"] += 1
+        elif age <= 40: age_buckets["31-40"] += 1
+        elif age <= 50: age_buckets["41-50"] += 1
+        elif age <= 60: age_buckets["51-60"] += 1
+        elif age <= 70: age_buckets["61-70"] += 1
+        elif age <= 80: age_buckets["71-80"] += 1
+        else: age_buckets["81+"] += 1
+
+    try:
+        tags = db.query(
+            PatientTag.tag_name, func.count(func.distinct(PatientTag.patient_id)).label('cnt')
+        ).group_by(PatientTag.tag_name).order_by(func.count(func.distinct(PatientTag.patient_id)).desc()).limit(20).all()
+        disease_burden = [{"tag_name": t, "count": c} for t, c in tags]
+    except Exception:
+        disease_burden = []
+
+    hc_perf = db.query(
+        Patient.clinic_id, func.count(Patient.id).label('cnt')
+    ).group_by(Patient.clinic_id).order_by(func.count(Patient.id).desc()).limit(20).all()
+    hc_data = []
+    for cid, cnt in hc_perf:
+        c = db.query(Clinic).filter(Clinic.id == cid).first()
+        if c:
+            doctors = _doctor_count(db, cid)
+            hc_data.append({"clinic_id": cid, "name": c.name, "city": c.city or "", "patient_count": cnt, "doctor_count": doctors})
+
+    portal_pts = db.query(func.count(Patient.id)).filter(Patient.portal_user_id != None).scalar() or 0
+
+    return {
+        "gender_split": [{"gender": g or "unknown", "count": c} for g, c in gender],
+        "blood_groups": [{"group": b, "count": c} for b, c in blood],
+        "age_distribution": age_buckets,
+        "top_states": [{"state": s, "count": c, "pct": round(c / total_pts * 100, 1)} for s, c in states],
+        "disease_burden": disease_burden,
+        "hc_performance": hc_data,
+        "portal_adoption": {"total": total_pts, "portal_users": portal_pts, "pct": round(portal_pts / total_pts * 100, 1) if total_pts else 0},
+    }
+
+
+# ── Analytics Query (flexible report explorer) ────────────────────────────────
+
+@router.post("/analytics/query")
+def run_analytics_query(body: dict, db: Session = Depends(get_db), current=Depends(get_current_platform_admin)):
+    dataset = body.get("dataset", "health_centers")
+    date_from = body.get("date_from")
+    date_to = body.get("date_to")
+    filters = body.get("filters", {}) or {}
+
+    if dataset == "health_centers":
+        q = db.query(Clinic)
+        if filters.get("status"):
+            q = q.filter(Clinic.status.in_(filters["status"]))
+        if filters.get("plan"):
+            q = q.filter(Clinic.subscription_plan.in_(filters["plan"]))
+        if date_from:
+            q = q.filter(Clinic.created_at >= date_from)
+        if date_to:
+            q = q.filter(Clinic.created_at <= date_to + "T23:59:59")
+        rows = q.all()
+        return {
+            "columns": [{"key": "name", "label": "Name"}, {"key": "status", "label": "Status"}, {"key": "plan", "label": "Plan"}, {"key": "city", "label": "City"}, {"key": "state", "label": "State"}],
+            "rows": [{"name": r.name, "status": r.status, "plan": r.subscription_plan or "free", "city": r.city or "", "state": r.state or ""} for r in rows],
+            "total_rows": len(rows),
+        }
+
+    elif dataset == "patients":
+        q = db.query(Patient)
+        if filters.get("clinic_ids"):
+            q = q.filter(Patient.clinic_id.in_(filters["clinic_ids"]))
+        if filters.get("gender"):
+            q = q.filter(Patient.gender.in_(filters["gender"]))
+        if date_from:
+            q = q.filter(Patient.created_at >= date_from)
+        if date_to:
+            q = q.filter(Patient.created_at <= date_to + "T23:59:59")
+        total = q.count()
+        portal = q.filter(Patient.portal_user_id != None).count()
+        rows = q.limit(500).all()
+        return {
+            "columns": [{"key": "full_name", "label": "Name"}, {"key": "gender", "label": "Gender"}, {"key": "city", "label": "City"}, {"key": "state", "label": "State"}, {"key": "created_at", "label": "Registered"}],
+            "rows": [{"full_name": r.full_name, "gender": r.gender or "", "city": r.city or "", "state": r.state or "", "created_at": str(r.created_at.date()) if r.created_at else ""} for r in rows],
+            "total_rows": total, "portal_pct": round(portal / total * 100, 1) if total else 0,
+        }
+
+    elif dataset == "appointments":
+        q = db.query(Appointment)
+        if filters.get("clinic_ids"):
+            q = q.filter(Appointment.clinic_id.in_(filters["clinic_ids"]))
+        if filters.get("status"):
+            q = q.filter(Appointment.status.in_(filters["status"]))
+        if date_from:
+            q = q.filter(Appointment.appointment_date >= date_from)
+        if date_to:
+            q = q.filter(Appointment.appointment_date <= date_to)
+        total = q.count()
+        completed = q.filter(Appointment.status == "completed").count()
+        return {
+            "columns": [{"key": "count", "label": "Total"}, {"key": "completed", "label": "Completed"}, {"key": "completion_pct", "label": "Completion %"}],
+            "rows": [{"count": total, "completed": completed, "completion_pct": round(completed / total * 100, 1) if total else 0}],
+            "total_rows": 1,
+        }
+
+    elif dataset == "revenue":
+        q = db.query(Invoice)
+        if filters.get("clinic_ids"):
+            q = q.filter(Invoice.clinic_id.in_(filters["clinic_ids"]))
+        if date_from:
+            q = q.filter(Invoice.created_at >= date_from)
+        if date_to:
+            q = q.filter(Invoice.created_at <= date_to + "T23:59:59")
+        invoiced = q.with_entities(func.sum(Invoice.total)).scalar() or 0
+        collected = q.with_entities(func.sum(Invoice.amount_paid)).scalar() or 0
+        return {
+            "columns": [{"key": "invoiced", "label": "Total Invoiced"}, {"key": "collected", "label": "Collected"}, {"key": "outstanding", "label": "Outstanding"}],
+            "rows": [{"invoiced": float(invoiced), "collected": float(collected), "outstanding": float(invoiced) - float(collected)}],
+            "total_rows": 1,
+        }
+
+    return {"columns": [], "rows": [], "total_rows": 0}
+
+
+# ── Clinic Clinical Stats ─────────────────────────────────────────────────────
+
+@router.get("/clinics/{clinic_id}/clinical-stats")
+def get_clinic_clinical_stats(clinic_id: int, db: Session = Depends(get_db), current=Depends(get_current_platform_admin)):
+    total_patients = db.query(func.count(Patient.id)).filter(Patient.clinic_id == clinic_id).scalar() or 0
+    total_appts = db.query(func.count(Appointment.id)).filter(Appointment.clinic_id == clinic_id).scalar() or 0
+    total_lab = db.query(func.count(LabOrder.id)).filter(LabOrder.clinic_id == clinic_id).scalar() or 0
+    total_rx = db.query(func.count(Prescription.id)).filter(Prescription.clinic_id == clinic_id).scalar() or 0
+
+    top_docs = db.query(
+        Staff.full_name, func.count(Appointment.id).label('cnt')
+    ).join(DoctorProfile, DoctorProfile.staff_id == Staff.id
+    ).join(Appointment, Appointment.doctor_id == DoctorProfile.id
+    ).filter(Appointment.clinic_id == clinic_id
+    ).group_by(Staff.id).order_by(func.count(Appointment.id).desc()).limit(10).all()
+
+    return {
+        "total_patients": total_patients, "total_appointments": total_appts,
+        "total_lab_orders": total_lab, "total_prescriptions": total_rx,
+        "top_doctors": [{"name": n, "appointments": c} for n, c in top_docs],
     }
