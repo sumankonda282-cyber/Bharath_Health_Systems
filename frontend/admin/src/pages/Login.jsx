@@ -48,7 +48,7 @@ export default function Login() {
             <span style={{ color: '#F5821E' }}>At Your Fingertips.</span>
           </h2>
           <p className="text-blue-200 text-lg mb-8">
-            Oversee every clinic, subscription, and staff member across the BHarath Health network.
+            Oversee every health center, subscription, and staff member across the BHarath Health network.
           </p>
           {features.map(({ icon: Icon, text }) => (
             <div key={text} className="flex items-center gap-3 mb-3">

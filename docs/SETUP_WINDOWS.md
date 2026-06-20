@@ -131,7 +131,7 @@ npm run dev
 
 | Role | Email | Password |
 |------|-------|----------|
-| Platform Admin | superadmin@bharatcliniq.com | SuperAdmin@123 |
+| Platform Admin | superadmin@bharathhealthsystems.com | SuperAdmin@123 |
 | Clinic Admin | admin@apollodemo.com | Admin@123 |
 | Doctor (Dr. Priya) | drpriya@apollodemo.com | Doctor@123 |
 | Doctor (Dr. Rajan) | drrajan@apollodemo.com | Doctor@123 |
@@ -158,7 +158,7 @@ Login with OTP:
 
 ## Platform Admin
 
-- URL: http://localhost:3001 → login as superadmin@bharatcliniq.com
+- URL: http://localhost:3001 → login as superadmin@bharathhealthsystems.com
 - Can: register clinics, verify clinics, change subscription plans
 
 ---

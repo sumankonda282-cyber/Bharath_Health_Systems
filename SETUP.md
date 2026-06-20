@@ -73,7 +73,7 @@ from app.core.security import hash_password
 db = SessionLocal()
 admin = PlatformAdmin(
     full_name='Bharath Health Systems Admin',
-    email='admin@bharatcliniq.com',
+    email='admin@bharathhealthsystems.com',
     hashed_password=hash_password('Admin@123'),
 )
 db.add(admin)

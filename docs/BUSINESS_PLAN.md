@@ -1,7 +1,7 @@
 # Bharath Health Systems — 4-Stage Deployment & Business Plan
 
 **Platform:** SaaS EHR + Telehealth for Indian Clinics  
-**Domain:** bharatcliniq.com  
+**Domain:** bharathhealthsystems.com  
 **Stack:** React + FastAPI + MySQL  
 **Logo:** India map silhouette with medical plus sign inside  
 
@@ -28,9 +28,9 @@
 **Goal:** Get website live, acquire first 10 paying clinics
 
 ### What to Deploy
-1. **bharatcliniq.com** — Public marketing website + online booking
-2. **app.bharatcliniq.com** — Clinic staff dashboard
-3. **my.bharatcliniq.com** — Patient portal
+1. **bharathhealthsystems.com** — Public marketing website + online booking
+2. **app.bharathhealthsystems.com** — Clinic staff dashboard
+3. **my.bharathhealthsystems.com** — Patient portal
 4. **Telehealth** — Video consult via Daily.co or Jitsi (free tier)
 
 ### Telehealth — What to Add
@@ -98,20 +98,20 @@ cd frontend/patient-portal && npm install && npm run build
 ### Nginx Config (nginx.conf snippet)
 ```nginx
 server {
-    server_name bharatcliniq.com;
+    server_name bharathhealthsystems.com;
     root /var/www/bharatcliniq/frontend/website/dist;
     index index.html;
     location /api/ { proxy_pass http://127.0.0.1:8000/api/; }
     location / { try_files $uri $uri/ /index.html; }
 }
 server {
-    server_name app.bharatcliniq.com;
+    server_name app.bharathhealthsystems.com;
     root /var/www/bharatcliniq/frontend/clinic-app/dist;
     location /api/ { proxy_pass http://127.0.0.1:8000/api/; }
     location / { try_files $uri $uri/ /index.html; }
 }
 server {
-    server_name my.bharatcliniq.com;
+    server_name my.bharathhealthsystems.com;
     root /var/www/bharatcliniq/frontend/patient-portal/dist;
     location /api/ { proxy_pass http://127.0.0.1:8000/api/; }
     location / { try_files $uri $uri/ /index.html; }
@@ -218,7 +218,7 @@ server {
 
 2. **Bharath Health Systems Marketplace**
    - Clinics list services (telehealth, home visits, health packages)
-   - Patients book and pay directly on bharatcliniq.com
+   - Patients book and pay directly on bharathhealthsystems.com
    - Bharath Health Systems takes 10–15% commission
 
 3. **Franchise / White-label**
@@ -336,7 +336,7 @@ Referral Report (visible to both clinics)
 3. Test all pages at localhost:3001
 
 ### This Week
-1. Buy domain: bharatcliniq.com (GoDaddy ~₹800)
+1. Buy domain: bharathhealthsystems.com (GoDaddy ~₹800)
 2. Create account: DigitalOcean (get $200 free credit)
 3. Set up VPS: Ubuntu 22.04, 2 CPU, 4GB RAM
 4. Deploy backend + all 3 frontends

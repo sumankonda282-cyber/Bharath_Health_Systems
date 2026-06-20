@@ -84,7 +84,7 @@ def main(api_base):
             "name":      "BHarath Health Test Clinic",
             "specialty": "General Medicine",
             "phone":     "9876543210",
-            "email":     "clinic@test.bharatcliniq.com",
+            "email":     "clinic@test.bharathhealthsystems.com",
             "address":   "123 MG Road",
             "city":      "Bangalore",
             "state":     "Karnataka",
@@ -93,7 +93,7 @@ def main(api_base):
         "doctor": {
             "full_name": "Test Admin",
         },
-        "admin_email":    "admin@test.bharatcliniq.com",
+        "admin_email":    "admin@test.bharathhealthsystems.com",
         "admin_password": "Test@1234",
     })
 
@@ -124,7 +124,7 @@ def main(api_base):
     # ── Step 3: Login as clinic admin ───────────────────────────────
     print("\n3. Logging in as clinic admin...")
     res, status = post(f"{api_base}/api/v1/auth/staff/login", {
-        "identifier": "admin@test.bharatcliniq.com",
+        "identifier": "admin@test.bharathhealthsystems.com",
         "password":   "Test@1234",
     })
 
@@ -146,7 +146,7 @@ def main(api_base):
     print("\n5. Adding test doctor...")
     res, status = post(f"{api_base}/api/v1/clinic/staff", {
         "full_name":   "Dr. Priya Sharma",
-        "email":       "doctor@test.bharatcliniq.com",
+        "email":       "doctor@test.bharathhealthsystems.com",
         "mobile":      "9000000001",
         "password":    "Test@1234",
         "role":        "doctor",
@@ -170,7 +170,7 @@ def main(api_base):
     print("\n6. Adding test receptionist...")
     res, status = post(f"{api_base}/api/v1/clinic/staff", {
         "full_name": "Ravi Kumar",
-        "email":     "reception@test.bharatcliniq.com",
+        "email":     "reception@test.bharathhealthsystems.com",
         "mobile":    "9000000002",
         "password":  "Test@1234",
         "role":      "receptionist",
@@ -188,7 +188,7 @@ def main(api_base):
     print("\n7. Adding test pharmacist...")
     res, status = post(f"{api_base}/api/v1/clinic/staff", {
         "full_name": "Meena Patel",
-        "email":     "pharmacy@test.bharatcliniq.com",
+        "email":     "pharmacy@test.bharathhealthsystems.com",
         "mobile":    "9000000003",
         "password":  "Test@1234",
         "role":      "pharmacist",
@@ -206,7 +206,7 @@ def main(api_base):
     print("\n8. Adding test lab technician...")
     res, status = post(f"{api_base}/api/v1/clinic/staff", {
         "full_name": "Arjun Singh",
-        "email":     "lab@test.bharatcliniq.com",
+        "email":     "lab@test.bharathhealthsystems.com",
         "mobile":    "9000000004",
         "password":  "Test@1234",
         "role":      "lab_technician",
@@ -240,19 +240,19 @@ def main(api_base):
     print("="*55)
     print(f"\n  Provider Portal ({api_base.replace('api.', 'provider.')})")
     print(f"  ┌─ Clinic Admin")
-    print(f"  │  Email:    admin@test.bharatcliniq.com")
+    print(f"  │  Email:    admin@test.bharathhealthsystems.com")
     print(f"  │  Password: Test@1234")
     print(f"  ├─ Doctor")
-    print(f"  │  Email:    doctor@test.bharatcliniq.com")
+    print(f"  │  Email:    doctor@test.bharathhealthsystems.com")
     print(f"  │  Password: Test@1234")
     print(f"  ├─ Receptionist")
-    print(f"  │  Email:    reception@test.bharatcliniq.com")
+    print(f"  │  Email:    reception@test.bharathhealthsystems.com")
     print(f"  │  Password: Test@1234")
     print(f"  ├─ Pharmacist")
-    print(f"  │  Email:    pharmacy@test.bharatcliniq.com")
+    print(f"  │  Email:    pharmacy@test.bharathhealthsystems.com")
     print(f"  │  Password: Test@1234")
     print(f"  └─ Lab Technician")
-    print(f"     Email:    lab@test.bharatcliniq.com")
+    print(f"     Email:    lab@test.bharathhealthsystems.com")
     print(f"     Password: Test@1234")
     print(f"\n  Patient Portal — use OTP login with any mobile")
     print(f"  OTP in dev mode is always: 1234")

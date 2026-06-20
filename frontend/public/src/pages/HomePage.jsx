@@ -83,7 +83,7 @@ const TESTIMONIALS = [
     role: 'General Physician, Mumbai',
     avatar: 'PS',
     rating: 5,
-    text: 'BHaratCliniq transformed my practice. Patient wait times dropped by 40% and billing became completely hassle-free.',
+    text: 'Bharath Health Systems transformed my practice. Patient wait times dropped by 40% and billing became completely hassle-free.',
     color: '#CC1414',
   },
   {
