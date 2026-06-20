@@ -142,7 +142,7 @@ export default function ClinicDetail() {
     <div>
       <div className="mb-6">
         <Link to="/clinics" className="inline-flex items-center gap-1 text-gray-500 hover:text-white text-sm mb-3">
-          <ArrowLeft size={14} />Back to Clinics
+          <ArrowLeft size={14} />Back to Health Centers
         </Link>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
@@ -477,7 +477,7 @@ export default function ClinicDetail() {
       {managerModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
           <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-sm p-6">
-            <h3 className="text-lg font-bold text-white mb-1">Create Clinic Manager</h3>
+            <h3 className="text-lg font-bold text-white mb-1">Create Health Center Manager</h3>
             <p className="text-sm text-gray-400 mb-4">{clinic.name}</p>
 
             {managerSuccess ? (

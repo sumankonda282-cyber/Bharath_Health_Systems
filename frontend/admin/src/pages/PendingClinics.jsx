@@ -7,29 +7,23 @@ import {
   FileText,
   ExternalLink,
   Search,
-  ChevronDown,
 } from 'lucide-react'
 import ActionModal from '../components/ActionModal'
-
-const STATE_OPTIONS = [
-  { value: 'all',       label: 'All States' },
-  { value: 'pending',   label: 'Pending' },
-  { value: 'submitted', label: 'Submitted' },
-  { value: 'review',    label: 'Under Review' },
-]
 
 export default function PendingClinics() {
   const [clinics,  setClinics]  = useState([])
   const [loading,  setLoading]  = useState(true)
-  const [modal,    setModal]    = useState(null)   // { action, clinic }
+  const [error,    setError]    = useState(null)
+  const [modal,    setModal]    = useState(null)
   const [saving,   setSaving]   = useState(false)
   const [search,   setSearch]   = useState('')
-  const [stateFilter, setStateFilter] = useState('all')
 
   const load = () => {
     setLoading(true)
+    setError(null)
     adminApi.getPending()
       .then(d => setClinics(Array.isArray(d) ? d : []))
+      .catch(e => setError(e.message || 'Failed to load pending approvals'))
       .finally(() => setLoading(false))
   }
   useEffect(() => { load() }, [])
@@ -46,10 +40,14 @@ export default function PendingClinics() {
 
   const filtered = clinics.filter(c => {
     const q = search.toLowerCase()
-    if (q && !c.name?.toLowerCase().includes(q) &&
-             !c.admin_email?.toLowerCase().includes(q) &&
-             !c.city?.toLowerCase().includes(q)) return false
-    return true
+    if (!q) return true
+    return (
+      c.name?.toLowerCase().includes(q) ||
+      c.state?.toLowerCase().includes(q) ||
+      c.city?.toLowerCase().includes(q) ||
+      c.admin_email?.toLowerCase().includes(q) ||
+      c.specialty?.toLowerCase().includes(q)
+    )
   })
 
   return (
@@ -57,29 +55,15 @@ export default function PendingClinics() {
 
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[200px] max-w-xs">
+        <div className="relative flex-1 min-w-[240px] max-w-sm">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search health centers…"
+            placeholder="Search by health center name or state…"
             className="input pl-9 py-2 text-sm w-full"
           />
         </div>
-
-        <div className="relative">
-          <select
-            value={stateFilter}
-            onChange={e => setStateFilter(e.target.value)}
-            className="input appearance-none pr-8 py-2 text-sm"
-          >
-            {STATE_OPTIONS.map(o => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-          <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
-        </div>
-
         <span className="ml-auto text-xs text-gray-500 bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 font-medium">
           {filtered.length} pending
         </span>
@@ -89,6 +73,11 @@ export default function PendingClinics() {
       {loading ? (
         <div className="flex justify-center py-20">
           <div className="w-7 h-7 border-2 border-[#F5821E] border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : error ? (
+        <div className="card-p py-12 text-center">
+          <p className="text-red-400 text-sm mb-3">{error}</p>
+          <button onClick={load} className="btn-secondary text-sm">Try Again</button>
         </div>
       ) : filtered.length === 0 ? (
         <div className="card-p text-center py-16">

@@ -923,9 +923,6 @@ export default function Subscriptions() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-base font-bold text-white">Subscriptions</h1>
-        <button onClick={load} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors">
-          <RefreshCw size={14} />
-        </button>
       </div>
 
       {/* KPI Strip */}

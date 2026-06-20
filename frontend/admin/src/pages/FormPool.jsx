@@ -175,10 +175,10 @@ export default function FormPool() {
   const fetchForms = useCallback(async () => {
     setLoading(true); setError(null)
     try {
-      const data = await api.get('/assessment-forms/')
+      const data = await api.get('/assessment-forms')
       setForms(Array.isArray(data) ? data : (data.forms ?? data.items ?? []))
     } catch (e) {
-      setError(e?.response?.data?.detail ?? 'Failed to load forms')
+      setError(e.message || 'Failed to load forms')
     } finally {
       setLoading(false)
     }
@@ -299,15 +299,6 @@ export default function FormPool() {
           </select>
           <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
         </div>
-
-        {/* Refresh */}
-        <button
-          onClick={fetchForms}
-          title="Refresh"
-          className="p-1.5 rounded-lg border border-gray-700 text-gray-400 hover:text-gray-200 hover:bg-gray-800 transition-colors"
-        >
-          <RefreshCw size={14} />
-        </button>
 
         {/* Count */}
         <span className="text-xs text-gray-500 bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 font-medium">
