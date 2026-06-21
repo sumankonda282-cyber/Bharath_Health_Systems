@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import api from '../api/client'
 import { cachedGet, cachedFetch, cacheInvalidate, TTL } from '../utils/cache'
-import { CreditCard, Loader2, X, IndianRupee, Plus, Trash2, Search, Eye, Printer, ScanLine } from 'lucide-react'
+import { CreditCard, Loader2, X, IndianRupee, Plus, Trash2, Search, Eye, Printer, ScanLine, AlertTriangle, RefreshCw, ArrowRightLeft } from 'lucide-react'
 import BarcodeScanner from '../components/BarcodeScanner'
 import BarcodeLookupModal from '../components/BarcodeLookupModal'
 import SalesReturns from '../components/SalesReturns'
@@ -137,6 +137,14 @@ function BillingCounter({ onBillCreated }) {
   const [generics, setGenerics] = useState({})
   const [printInvoice, setPrintInvoice] = useState(null)
   const searchDebounce = useRef(null)
+  const interactionDebounce = useRef(null)
+
+  // Drug interaction state
+  const [interactions, setInteractions] = useState([])
+  const [interactionLoading, setInteractionLoading] = useState(false)
+
+  // Substitutes state: { [medicine_id]: { loading, open, data } }
+  const [substitutesMap, setSubstitutesMap] = useState({})
 
   // Phone auto-lookup states
   const [lookupSuggestions, setLookupSuggestions] = useState([])
@@ -265,6 +273,27 @@ function BillingCounter({ onBillCreated }) {
     }, 300)
   }, [medSearch])
 
+  // Check drug interactions whenever items change
+  useEffect(() => {
+    clearTimeout(interactionDebounce.current)
+    const genericNames = items.map(i => i.generic_name).filter(Boolean)
+    if (genericNames.length < 2) { setInteractions([]); return }
+    interactionDebounce.current = setTimeout(() => {
+      setInteractionLoading(true)
+      api.post('/pharmacy/drug-interactions/check', { generic_names: genericNames })
+        .then(r => setInteractions(r.interactions || []))
+        .catch(() => setInteractions([]))
+        .finally(() => setInteractionLoading(false))
+    }, 600)
+  }, [items])
+
+  function fetchSubstitutes(medId) {
+    setSubstitutesMap(prev => ({ ...prev, [medId]: { loading: true, open: true, data: [] } }))
+    api.get(`/pharmacy/medicines/${medId}/substitutes`)
+      .then(r => setSubstitutesMap(prev => ({ ...prev, [medId]: { loading: false, open: true, data: r.substitutes || [] } })))
+      .catch(() => setSubstitutesMap(prev => ({ ...prev, [medId]: { loading: false, open: true, data: [] } })))
+  }
+
   function addItem(med) {
     setItems(prev => {
       const existing = prev.find(i => i.medicine_id === med.id)
@@ -279,6 +308,8 @@ function BillingCounter({ onBillCreated }) {
         hsn_code: med.hsn_code || '',
         discount_amount: 0,
         schedule: med.schedule,
+        generic_name: med.generic_name || null,
+        stock_quantity: med.stock_quantity ?? null,
       }]
     })
     setMedSearch('')
@@ -521,6 +552,37 @@ function BillingCounter({ onBillCreated }) {
             )}
           </div>
 
+          {/* Drug Interaction Banner */}
+          {interactionLoading && (
+            <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-xs text-gray-500">
+              <RefreshCw size={13} className="animate-spin" /> Checking drug interactions…
+            </div>
+          )}
+          {!interactionLoading && interactions.length > 0 && (
+            <div className="rounded-xl border overflow-hidden"
+              style={{ borderColor: interactions.some(i => i.severity === 'contraindicated' || i.severity === 'serious') ? '#CC1414' : '#f59e0b' }}>
+              <div className="px-4 py-2 flex items-center gap-2 text-sm font-semibold"
+                style={{ background: interactions.some(i => i.severity === 'contraindicated' || i.severity === 'serious') ? '#FEE2E2' : '#FEF3C7', color: interactions.some(i => i.severity === 'contraindicated' || i.severity === 'serious') ? '#991B1B' : '#92400E' }}>
+                <AlertTriangle size={15} />
+                {interactions.length} Drug Interaction{interactions.length > 1 ? 's' : ''} Detected
+              </div>
+              <div className="divide-y" style={{ borderColor: '#f0f0f0' }}>
+                {interactions.map((ix, i) => (
+                  <div key={i} className="px-4 py-2.5 bg-white text-xs">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className={`px-1.5 py-0.5 rounded font-bold uppercase text-xs ${ix.severity === 'contraindicated' || ix.severity === 'serious' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                        {ix.severity}
+                      </span>
+                      <span className="font-medium text-gray-800">{ix.drug_a} + {ix.drug_b}</span>
+                    </div>
+                    {ix.effect && <p className="text-gray-600">{ix.effect}</p>}
+                    {ix.management && <p className="text-gray-500 mt-0.5"><span className="font-semibold">Management:</span> {ix.management}</p>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {items.length > 0 && (
             <div className="card overflow-hidden">
               <div className="px-5 py-3 border-b border-gray-100 text-sm font-semibold text-gray-700">Bill Items</div>
@@ -551,6 +613,57 @@ function BillingCounter({ onBillCreated }) {
                             updateItem(idx, 'medicine_id', g.id)
                           }}
                         >Switch</button>
+                      </div>
+                    )}
+                    {item.medicine_id && item.stock_quantity === 0 && (
+                      <div className="mb-2">
+                        <div className="px-3 py-1.5 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-center justify-between">
+                          <span className="flex items-center gap-1"><AlertTriangle size={12} /> Out of stock</span>
+                          <button
+                            type="button"
+                            className="flex items-center gap-1 underline font-semibold"
+                            onClick={() => {
+                              const sm = substitutesMap[item.medicine_id]
+                              if (sm?.open) setSubstitutesMap(prev => ({ ...prev, [item.medicine_id]: { ...sm, open: false } }))
+                              else fetchSubstitutes(item.medicine_id)
+                            }}
+                          >
+                            <ArrowRightLeft size={12} />
+                            {substitutesMap[item.medicine_id]?.open ? 'Hide' : 'See Substitutes'}
+                          </button>
+                        </div>
+                        {substitutesMap[item.medicine_id]?.open && (
+                          <div className="mt-1 bg-white border border-gray-200 rounded-xl shadow text-xs overflow-hidden">
+                            {substitutesMap[item.medicine_id]?.loading ? (
+                              <div className="px-3 py-2 flex items-center gap-1 text-gray-400"><RefreshCw size={12} className="animate-spin" />Loading…</div>
+                            ) : (substitutesMap[item.medicine_id]?.data || []).length === 0 ? (
+                              <div className="px-3 py-2 text-gray-400">No substitutes found in stock</div>
+                            ) : (
+                              (substitutesMap[item.medicine_id]?.data || []).map(s => (
+                                <div key={s.id} className="flex items-center justify-between px-3 py-2 border-b last:border-0 border-gray-100 hover:bg-blue-50">
+                                  <div>
+                                    <span className="font-medium text-gray-800">{s.name}</span>
+                                    {s.strength && <span className="ml-1 text-gray-400">{s.strength}</span>}
+                                    <span className="ml-2 text-gray-400">Stock: {s.stock_quantity}</span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    className="ml-2 text-blue-600 font-semibold underline"
+                                    onClick={() => {
+                                      updateItem(idx, 'medicine_id', s.id)
+                                      updateItem(idx, 'description', s.name)
+                                      updateItem(idx, 'unit_price', Number(s.mrp) || 0)
+                                      updateItem(idx, 'mrp', Number(s.mrp) || null)
+                                      updateItem(idx, 'generic_name', s.generic_name || null)
+                                      updateItem(idx, 'stock_quantity', s.stock_quantity)
+                                      setSubstitutesMap(prev => ({ ...prev, [item.medicine_id]: { ...prev[item.medicine_id], open: false } }))
+                                    }}
+                                  >Use</button>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        )}
                       </div>
                     )}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
