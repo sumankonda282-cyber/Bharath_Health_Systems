@@ -13,6 +13,9 @@ import Reports from './pages/Reports'
 import Suppliers from './pages/Suppliers'
 import PurchaseOrders from './pages/PurchaseOrders'
 import DrugRegister from './pages/DrugRegister'
+import StockAdjustment from './pages/StockAdjustment'
+import Reconciliation from './pages/Reconciliation'
+import SupplierPayments from './pages/SupplierPayments'
 import { Loader2 } from 'lucide-react'
 function Guard({ children }) {
   const { user, loading } = useAuth()
@@ -42,7 +45,10 @@ export default function App() {
               <Route path="purchase-orders"  element={<PurchaseOrders/>}/>
               <Route path="billing"          element={<Billing/>}/>
               <Route path="reports"          element={<Reports/>}/>
-              <Route path="drug-register"   element={<DrugRegister/>}/>
+              <Route path="drug-register"      element={<DrugRegister/>}/>
+              <Route path="stock-adjustment"  element={<StockAdjustment/>}/>
+              <Route path="reconciliation"    element={<Reconciliation/>}/>
+              <Route path="supplier-payments" element={<SupplierPayments/>}/>
             </Route>
             <Route path="*" element={<Navigate to="/" replace/>}/>
           </Routes>

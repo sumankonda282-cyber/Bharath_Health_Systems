@@ -13,7 +13,8 @@ from app.models.models import (
     Invoice, InvoiceItem, Staff, StockTransaction,
     Supplier, PurchaseOrder, PurchaseOrderItem,
     SalesReturn, SalesReturnItem, DrugRegister, MedicineBatch,
-    ImagingCatalog, BarcodeMaster,
+    ImagingCatalog, BarcodeMaster, StockAdjustment, DrugInteraction,
+    CashReconciliation, SupplierPayment,
 )
 from app.schemas.schemas import (
     MedicineCreate, MedicineOut,
@@ -2564,3 +2565,381 @@ def book_imaging_slot(
     )
     db.add(booking); db.commit(); db.refresh(booking)
     return {"id": booking.id}
+
+
+# ── Stock Adjustments ─────────────────────────────────────────────────────────
+
+class StockAdjustmentIn(BaseModel):
+    medicine_id:     int
+    batch_id:        Optional[int] = None
+    adjustment_type: str
+    quantity_change: int
+    reason:          str
+    notes:           Optional[str] = None
+
+@pharmacy_router.post("/stock-adjustments")
+def create_stock_adjustment(
+    body: StockAdjustmentIn,
+    current: Staff = Depends(get_current_staff),
+    db: Session = Depends(get_db),
+):
+    med = db.query(Medicine).filter(
+        Medicine.id == body.medicine_id,
+        Medicine.clinic_id == current.clinic_id,
+    ).first()
+    if not med:
+        raise HTTPException(status_code=404, detail="Medicine not found")
+    if body.quantity_change <= 0:
+        raise HTTPException(status_code=400, detail="quantity_change must be positive")
+
+    qty_before = med.stock_quantity or 0
+    if body.adjustment_type == "increase":
+        qty_after = qty_before + body.quantity_change
+        txn_qty   = body.quantity_change
+    else:
+        if qty_before < body.quantity_change:
+            raise HTTPException(status_code=400, detail="Insufficient stock for this adjustment")
+        qty_after = qty_before - body.quantity_change
+        txn_qty   = -body.quantity_change
+
+    med.stock_quantity = qty_after
+
+    adj = StockAdjustment(
+        clinic_id       = current.clinic_id,
+        branch_id       = getattr(current, "branch_id", None),
+        medicine_id     = body.medicine_id,
+        batch_id        = body.batch_id,
+        adjustment_type = body.adjustment_type,
+        quantity_before = qty_before,
+        quantity_change = body.quantity_change,
+        quantity_after  = qty_after,
+        reason          = body.reason,
+        notes           = body.notes,
+        performed_by    = current.id,
+    )
+    db.add(adj)
+
+    txn = StockTransaction(
+        clinic_id        = current.clinic_id,
+        medicine_id      = body.medicine_id,
+        transaction_type = "adjustment",
+        quantity         = txn_qty,
+        notes            = body.reason,
+        created_by       = current.id,
+    )
+    db.add(txn)
+    db.commit()
+    db.refresh(adj)
+    return {
+        "id": adj.id,
+        "medicine_id": adj.medicine_id,
+        "adjustment_type": adj.adjustment_type,
+        "quantity_before": adj.quantity_before,
+        "quantity_change": adj.quantity_change,
+        "quantity_after":  adj.quantity_after,
+        "reason":          adj.reason,
+        "created_at":      adj.created_at,
+    }
+
+@pharmacy_router.get("/stock-adjustments")
+def list_stock_adjustments(
+    from_date:       Optional[str] = None,
+    to_date:         Optional[str] = None,
+    medicine_id:     Optional[int] = None,
+    adjustment_type: Optional[str] = None,
+    page:            int = 1,
+    page_size:       int = 50,
+    current: Staff = Depends(get_current_staff),
+    db: Session = Depends(get_db),
+):
+    q = db.query(StockAdjustment, Medicine.name.label("medicine_name")).join(
+        Medicine, Medicine.id == StockAdjustment.medicine_id
+    ).filter(StockAdjustment.clinic_id == current.clinic_id)
+    if from_date:
+        q = q.filter(StockAdjustment.created_at >= from_date)
+    if to_date:
+        q = q.filter(StockAdjustment.created_at <= to_date + " 23:59:59")
+    if medicine_id:
+        q = q.filter(StockAdjustment.medicine_id == medicine_id)
+    if adjustment_type:
+        q = q.filter(StockAdjustment.adjustment_type == adjustment_type)
+    total = q.count()
+    rows  = q.order_by(StockAdjustment.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    return {
+        "total": total,
+        "adjustments": [
+            {
+                "id":               r.StockAdjustment.id,
+                "medicine_name":    r.medicine_name,
+                "medicine_id":      r.StockAdjustment.medicine_id,
+                "adjustment_type":  r.StockAdjustment.adjustment_type,
+                "quantity_before":  r.StockAdjustment.quantity_before,
+                "quantity_change":  r.StockAdjustment.quantity_change,
+                "quantity_after":   r.StockAdjustment.quantity_after,
+                "reason":           r.StockAdjustment.reason,
+                "notes":            r.StockAdjustment.notes,
+                "created_at":       r.StockAdjustment.created_at,
+            }
+            for r in rows
+        ],
+    }
+
+
+# ── Drug Interaction Check ────────────────────────────────────────────────────
+
+class DrugInteractionCheckIn(BaseModel):
+    generic_names: List[str]
+
+@pharmacy_router.post("/drug-interactions/check")
+def check_drug_interactions(
+    body: DrugInteractionCheckIn,
+    current: Staff = Depends(get_current_staff),
+    db: Session = Depends(get_db),
+):
+    names = [n.strip().lower() for n in body.generic_names if n.strip()]
+    if len(names) < 2:
+        return {"interactions": []}
+
+    from itertools import combinations
+    results = []
+    for a, b in combinations(names, 2):
+        rows = db.query(DrugInteraction).filter(
+            ((DrugInteraction.drug_a.ilike(f"%{a}%")) & (DrugInteraction.drug_b.ilike(f"%{b}%"))) |
+            ((DrugInteraction.drug_a.ilike(f"%{b}%")) & (DrugInteraction.drug_b.ilike(f"%{a}%")))
+        ).all()
+        for r in rows:
+            results.append({
+                "drug_a":    r.drug_a,
+                "drug_b":    r.drug_b,
+                "severity":  r.severity,
+                "effect":    r.effect,
+                "management": r.management,
+            })
+    return {"interactions": results}
+
+
+# ── Substitute Drug Suggestion ────────────────────────────────────────────────
+
+@pharmacy_router.get("/medicines/{med_id}/substitutes")
+def get_substitutes(
+    med_id: int,
+    current: Staff = Depends(get_current_staff),
+    db: Session = Depends(get_db),
+):
+    source = db.query(Medicine).filter(
+        Medicine.id == med_id,
+        Medicine.clinic_id == current.clinic_id,
+    ).first()
+    if not source or not source.generic_name:
+        return {"substitutes": []}
+
+    subs = db.query(Medicine).filter(
+        Medicine.clinic_id == current.clinic_id,
+        Medicine.id != med_id,
+        Medicine.generic_name.ilike(f"%{source.generic_name}%"),
+        Medicine.stock_quantity > 0,
+    ).order_by(Medicine.stock_quantity.desc()).limit(10).all()
+
+    return {
+        "substitutes": [
+            {
+                "id":             s.id,
+                "name":           s.name,
+                "generic_name":   s.generic_name,
+                "form":           s.form,
+                "strength":       s.strength,
+                "mrp":            s.mrp,
+                "stock_quantity": s.stock_quantity,
+            }
+            for s in subs
+        ]
+    }
+
+
+# ── Day-end Cash Reconciliation ───────────────────────────────────────────────
+
+class ReconciliationIn(BaseModel):
+    shift_date: str        # YYYY-MM-DD
+    shift: Optional[str] = "day"
+    opening_cash: float = 0
+    actual_cash: float = 0
+    notes: Optional[str] = None
+
+@pharmacy_router.get("/reconciliations")
+def list_reconciliations(
+    from_date: Optional[str] = Query(None),
+    to_date:   Optional[str] = Query(None),
+    limit:     int = Query(30, le=100),
+    current:   Staff = Depends(get_current_staff),
+    db:        Session = Depends(get_db),
+):
+    q = db.query(CashReconciliation).filter(
+        CashReconciliation.clinic_id == current.clinic_id
+    )
+    if from_date:
+        q = q.filter(CashReconciliation.shift_date >= from_date)
+    if to_date:
+        q = q.filter(CashReconciliation.shift_date <= to_date)
+    rows = q.order_by(CashReconciliation.shift_date.desc()).limit(limit).all()
+    return {"reconciliations": [
+        {
+            "id":            r.id,
+            "shift_date":    str(r.shift_date),
+            "shift":         r.shift,
+            "opening_cash":  float(r.opening_cash or 0),
+            "expected_cash": float(r.expected_cash or 0),
+            "actual_cash":   float(r.actual_cash or 0),
+            "cash_sales":    float(r.cash_sales or 0),
+            "card_sales":    float(r.card_sales or 0),
+            "upi_sales":     float(r.upi_sales or 0),
+            "credit_sales":  float(r.credit_sales or 0),
+            "total_returns": float(r.total_returns or 0),
+            "difference":    float(r.difference or 0),
+            "status":        r.status,
+            "notes":         r.notes,
+            "created_at":    r.created_at.isoformat() if r.created_at else None,
+        }
+        for r in rows
+    ]}
+
+@pharmacy_router.post("/reconciliations")
+def create_reconciliation(
+    body:    ReconciliationIn,
+    current: Staff = Depends(get_current_staff),
+    db:      Session = Depends(get_db),
+):
+    from sqlalchemy import func as sqlfunc
+    # Sum today's invoices by payment method
+    inv_q = db.query(Invoice).filter(
+        Invoice.clinic_id == current.clinic_id,
+        sqlfunc.date(Invoice.created_at) == body.shift_date,
+    )
+    cash_sales   = float(sum(float(i.total_amount or 0) for i in inv_q.filter(Invoice.payment_method == "cash"  ).all()))
+    card_sales   = float(sum(float(i.total_amount or 0) for i in inv_q.filter(Invoice.payment_method == "card"  ).all()))
+    upi_sales    = float(sum(float(i.total_amount or 0) for i in inv_q.filter(Invoice.payment_method == "upi"   ).all()))
+    credit_sales = float(sum(float(i.total_amount or 0) for i in inv_q.filter(Invoice.payment_method == "credit").all()))
+
+    # Sum returns for the day
+    ret_q = db.query(SalesReturn).filter(
+        SalesReturn.clinic_id == current.clinic_id,
+        sqlfunc.date(SalesReturn.created_at) == body.shift_date,
+    )
+    total_returns = float(sum(float(r.refund_amount or 0) for r in ret_q.all()))
+
+    expected_cash = body.opening_cash + cash_sales - total_returns
+    difference    = body.actual_cash - expected_cash
+
+    rec = CashReconciliation(
+        clinic_id      = current.clinic_id,
+        shift_date     = body.shift_date,
+        shift          = body.shift or "day",
+        opening_cash   = body.opening_cash,
+        actual_cash    = body.actual_cash,
+        expected_cash  = expected_cash,
+        cash_sales     = cash_sales,
+        card_sales     = card_sales,
+        upi_sales      = upi_sales,
+        credit_sales   = credit_sales,
+        total_returns  = total_returns,
+        difference     = difference,
+        status         = "closed",
+        notes          = body.notes,
+        closed_by      = current.id,
+        closed_at      = datetime.utcnow(),
+    )
+    db.add(rec)
+    db.commit()
+    db.refresh(rec)
+    return {
+        "id":            rec.id,
+        "shift_date":    str(rec.shift_date),
+        "shift":         rec.shift,
+        "opening_cash":  float(rec.opening_cash or 0),
+        "expected_cash": float(rec.expected_cash or 0),
+        "actual_cash":   float(rec.actual_cash or 0),
+        "cash_sales":    float(rec.cash_sales or 0),
+        "card_sales":    float(rec.card_sales or 0),
+        "upi_sales":     float(rec.upi_sales or 0),
+        "credit_sales":  float(rec.credit_sales or 0),
+        "total_returns": float(rec.total_returns or 0),
+        "difference":    float(rec.difference or 0),
+        "status":        rec.status,
+        "notes":         rec.notes,
+    }
+
+
+# ── Supplier Payment Tracking ─────────────────────────────────────────────────
+
+class SupplierPaymentIn(BaseModel):
+    supplier_id:       int
+    purchase_order_id: Optional[int] = None
+    amount:            float
+    payment_date:      str          # YYYY-MM-DD
+    payment_mode:      Optional[str] = None
+    reference_number:  Optional[str] = None
+    notes:             Optional[str] = None
+
+@pharmacy_router.get("/supplier-payments")
+def list_supplier_payments(
+    supplier_id: Optional[int] = Query(None),
+    from_date:   Optional[str] = Query(None),
+    to_date:     Optional[str] = Query(None),
+    limit:       int = Query(50, le=200),
+    current:     Staff = Depends(get_current_staff),
+    db:          Session = Depends(get_db),
+):
+    q = db.query(SupplierPayment).filter(
+        SupplierPayment.clinic_id == current.clinic_id
+    )
+    if supplier_id:
+        q = q.filter(SupplierPayment.supplier_id == supplier_id)
+    if from_date:
+        q = q.filter(SupplierPayment.payment_date >= from_date)
+    if to_date:
+        q = q.filter(SupplierPayment.payment_date <= to_date)
+    rows = q.order_by(SupplierPayment.created_at.desc()).limit(limit).all()
+    return {"payments": [
+        {
+            "id":                p.id,
+            "supplier_id":       p.supplier_id,
+            "supplier_name":     p.supplier.name if p.supplier else None,
+            "purchase_order_id": p.purchase_order_id,
+            "po_number":         p.purchase_order.po_number if p.purchase_order else None,
+            "amount":            float(p.amount),
+            "payment_date":      str(p.payment_date),
+            "payment_mode":      p.payment_mode,
+            "reference_number":  p.reference_number,
+            "notes":             p.notes,
+            "created_at":        p.created_at.isoformat() if p.created_at else None,
+        }
+        for p in rows
+    ]}
+
+@pharmacy_router.post("/supplier-payments")
+def create_supplier_payment(
+    body:    SupplierPaymentIn,
+    current: Staff = Depends(get_current_staff),
+    db:      Session = Depends(get_db),
+):
+    supplier = db.query(Supplier).filter(
+        Supplier.id == body.supplier_id,
+        Supplier.clinic_id == current.clinic_id,
+    ).first()
+    if not supplier:
+        raise HTTPException(404, "Supplier not found")
+
+    pmt = SupplierPayment(
+        clinic_id         = current.clinic_id,
+        supplier_id       = body.supplier_id,
+        purchase_order_id = body.purchase_order_id,
+        amount            = body.amount,
+        payment_date      = body.payment_date,
+        payment_mode      = body.payment_mode,
+        reference_number  = body.reference_number,
+        notes             = body.notes,
+        created_by        = current.id,
+    )
+    db.add(pmt)
+    db.commit()
+    db.refresh(pmt)
+    return {"id": pmt.id, "message": "Payment recorded"}
