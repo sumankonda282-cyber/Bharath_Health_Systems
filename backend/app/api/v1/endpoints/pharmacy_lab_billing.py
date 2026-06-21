@@ -15,6 +15,8 @@ from app.models.models import (
     SalesReturn, SalesReturnItem, DrugRegister, MedicineBatch,
     ImagingCatalog, BarcodeMaster, StockAdjustment, DrugInteraction,
     CashReconciliation, SupplierPayment,
+    DiscountScheme, CreditAccount, CreditTransaction,
+    SupplierReturn, SupplierReturnItem,
 )
 from app.schemas.schemas import (
     MedicineCreate, MedicineOut,
@@ -567,6 +569,19 @@ def create_invoice(
                     notes=f"OTC invoice {inv.invoice_number}",
                     performed_by=current.id,
                 ))
+                # FEFO: deduct from earliest-expiry batch first
+                remaining = item.quantity
+                batches = db.query(MedicineBatch).filter(
+                    MedicineBatch.medicine_id == med.id,
+                    MedicineBatch.clinic_id   == current.clinic_id,
+                    MedicineBatch.quantity    > 0,
+                ).order_by(MedicineBatch.expiry_date.asc()).all()
+                for b in batches:
+                    if remaining <= 0:
+                        break
+                    deduct = min(b.quantity, remaining)
+                    b.quantity -= deduct
+                    remaining  -= deduct
 
     db.commit()
     db.refresh(inv)
@@ -2943,3 +2958,432 @@ def create_supplier_payment(
     db.commit()
     db.refresh(pmt)
     return {"id": pmt.id, "message": "Payment recorded"}
+
+
+# ── Patient Medication History ────────────────────────────────────────────────
+
+@pharmacy_router.get("/patient-medication-history")
+def patient_medication_history(
+    mobile: str = Query(...),
+    limit:  int = Query(50, le=200),
+    current: Staff = Depends(get_current_staff),
+    db:      Session = Depends(get_db),
+):
+    invs = db.query(Invoice).options(joinedload(Invoice.items)).filter(
+        Invoice.clinic_id == current.clinic_id,
+        Invoice.customer_mobile == mobile,
+    ).order_by(Invoice.created_at.desc()).limit(limit).all()
+
+    return {"invoices": [
+        {
+            "id":             inv.id,
+            "invoice_number": inv.invoice_number,
+            "sale_type":      inv.sale_type,
+            "customer_name":  inv.customer_name or "Walk-in",
+            "total":          float(inv.total or 0),
+            "payment_method": inv.payment_method,
+            "created_at":     inv.created_at.isoformat() if inv.created_at else None,
+            "items": [
+                {
+                    "description": i.description,
+                    "quantity":    i.quantity,
+                    "unit_price":  float(i.unit_price or 0),
+                    "total":       float(i.total or 0),
+                }
+                for i in (inv.items or [])
+            ],
+        }
+        for inv in invs
+    ]}
+
+
+# ── FEFO Batch ────────────────────────────────────────────────────────────────
+
+@pharmacy_router.get("/medicines/{med_id}/fefo-batch")
+def fefo_batch(
+    med_id:  int,
+    current: Staff = Depends(get_current_staff),
+    db:      Session = Depends(get_db),
+):
+    batch = db.query(MedicineBatch).filter(
+        MedicineBatch.medicine_id == med_id,
+        MedicineBatch.clinic_id  == current.clinic_id,
+        MedicineBatch.quantity   > 0,
+    ).order_by(MedicineBatch.expiry_date.asc()).first()
+    if not batch:
+        return {"batch": None}
+    return {"batch": {
+        "id":           batch.id,
+        "batch_number": batch.batch_number,
+        "expiry_date":  str(batch.expiry_date) if batch.expiry_date else None,
+        "quantity":     batch.quantity,
+        "unit_cost":    float(batch.unit_cost) if batch.unit_cost else None,
+    }}
+
+
+# ── Auto-draft PO from low stock ──────────────────────────────────────────────
+
+@pharmacy_router.post("/medicines/{med_id}/auto-draft-po")
+def auto_draft_po(
+    med_id:  int,
+    current: Staff = Depends(get_current_staff),
+    db:      Session = Depends(get_db),
+):
+    med = db.query(Medicine).filter(
+        Medicine.id == med_id, Medicine.clinic_id == current.clinic_id
+    ).first()
+    if not med:
+        raise HTTPException(404, "Medicine not found")
+
+    # Find last supplier used for this medicine
+    last_tx = db.query(StockTransaction).filter(
+        StockTransaction.medicine_id == med_id,
+        StockTransaction.clinic_id   == current.clinic_id,
+        StockTransaction.transaction_type == "received",
+    ).order_by(StockTransaction.id.desc()).first()
+
+    supplier_id = None
+    if last_tx and last_tx.supplier_name:
+        sup = db.query(Supplier).filter(
+            Supplier.clinic_id == current.clinic_id,
+            Supplier.name      == last_tx.supplier_name,
+        ).first()
+        if sup:
+            supplier_id = sup.id
+
+    if not supplier_id:
+        sup = db.query(Supplier).filter(
+            Supplier.clinic_id == current.clinic_id,
+            Supplier.is_active == True,
+        ).first()
+        if sup:
+            supplier_id = sup.id
+
+    if not supplier_id:
+        raise HTTPException(400, "No supplier found — please create a PO manually")
+
+    reorder_qty = max((med.reorder_level or 0) * 2, 50)
+
+    prefix = "PO"
+    count  = db.query(PurchaseOrder).filter(PurchaseOrder.po_number.like(f"{prefix}%")).count()
+    po_number = f"{prefix}{(count + 1):05d}"
+
+    po = PurchaseOrder(
+        clinic_id   = current.clinic_id,
+        supplier_id = supplier_id,
+        po_number   = po_number,
+        status      = "draft",
+        notes       = f"Auto-generated from low-stock alert for {med.name}",
+        created_by  = current.id,
+    )
+    db.add(po)
+    db.flush()
+
+    unit_cost = float(med.unit_price or 0) * 0.7
+    db.add(PurchaseOrderItem(
+        po_id       = po.id,
+        medicine_id = med.id,
+        quantity_ordered  = reorder_qty,
+        quantity_received = 0,
+        unit_cost   = unit_cost,
+        total_cost  = unit_cost * reorder_qty,
+    ))
+    db.commit()
+    return {"po_id": po.id, "po_number": po_number, "supplier_id": supplier_id, "quantity": reorder_qty}
+
+
+# ── Discount Schemes ──────────────────────────────────────────────────────────
+
+class DiscountSchemeIn(BaseModel):
+    name:           str
+    scheme_type:    str = "percentage"
+    discount_value: float
+    applies_to:     str = "all"
+    is_active:      bool = True
+
+@pharmacy_router.get("/discount-schemes")
+def list_discount_schemes(
+    current: Staff = Depends(get_current_staff),
+    db:      Session = Depends(get_db),
+):
+    rows = db.query(DiscountScheme).filter(
+        DiscountScheme.clinic_id == current.clinic_id,
+    ).order_by(DiscountScheme.name).all()
+    return {"schemes": [
+        {
+            "id":             r.id,
+            "name":           r.name,
+            "scheme_type":    r.scheme_type,
+            "discount_value": float(r.discount_value),
+            "applies_to":     r.applies_to,
+            "is_active":      r.is_active,
+        }
+        for r in rows
+    ]}
+
+@pharmacy_router.post("/discount-schemes")
+def create_discount_scheme(
+    body:    DiscountSchemeIn,
+    current: Staff = Depends(get_current_staff),
+    db:      Session = Depends(get_db),
+):
+    ds = DiscountScheme(
+        clinic_id      = current.clinic_id,
+        name           = body.name,
+        scheme_type    = body.scheme_type,
+        discount_value = body.discount_value,
+        applies_to     = body.applies_to,
+        is_active      = body.is_active,
+    )
+    db.add(ds); db.commit(); db.refresh(ds)
+    return {"id": ds.id, "name": ds.name}
+
+@pharmacy_router.put("/discount-schemes/{scheme_id}")
+def update_discount_scheme(
+    scheme_id: int,
+    body:      DiscountSchemeIn,
+    current:   Staff = Depends(get_current_staff),
+    db:        Session = Depends(get_db),
+):
+    ds = db.query(DiscountScheme).filter(
+        DiscountScheme.id == scheme_id, DiscountScheme.clinic_id == current.clinic_id
+    ).first()
+    if not ds:
+        raise HTTPException(404, "Scheme not found")
+    ds.name           = body.name
+    ds.scheme_type    = body.scheme_type
+    ds.discount_value = body.discount_value
+    ds.applies_to     = body.applies_to
+    ds.is_active      = body.is_active
+    db.commit()
+    return {"id": ds.id}
+
+
+# ── Credit Patient Ledger ─────────────────────────────────────────────────────
+
+class CreditAccountIn(BaseModel):
+    customer_name:   str
+    customer_mobile: Optional[str] = None
+    credit_limit:    float = 5000
+
+class CreditPaymentIn(BaseModel):
+    amount: float
+    notes:  Optional[str] = None
+
+@pharmacy_router.get("/credit-accounts")
+def list_credit_accounts(
+    current: Staff = Depends(get_current_staff),
+    db:      Session = Depends(get_db),
+):
+    rows = db.query(CreditAccount).filter(
+        CreditAccount.clinic_id  == current.clinic_id,
+        CreditAccount.is_active  == True,
+    ).order_by(CreditAccount.customer_name).all()
+    return {"accounts": [
+        {
+            "id":                  r.id,
+            "customer_name":       r.customer_name,
+            "customer_mobile":     r.customer_mobile,
+            "credit_limit":        float(r.credit_limit or 0),
+            "outstanding_balance": float(r.outstanding_balance or 0),
+        }
+        for r in rows
+    ]}
+
+@pharmacy_router.post("/credit-accounts")
+def create_credit_account(
+    body:    CreditAccountIn,
+    current: Staff = Depends(get_current_staff),
+    db:      Session = Depends(get_db),
+):
+    acc = CreditAccount(
+        clinic_id       = current.clinic_id,
+        customer_name   = body.customer_name,
+        customer_mobile = body.customer_mobile,
+        credit_limit    = body.credit_limit,
+    )
+    db.add(acc); db.commit(); db.refresh(acc)
+    return {"id": acc.id}
+
+@pharmacy_router.get("/credit-accounts/{acc_id}/transactions")
+def credit_account_transactions(
+    acc_id:  int,
+    current: Staff = Depends(get_current_staff),
+    db:      Session = Depends(get_db),
+):
+    acc = db.query(CreditAccount).filter(
+        CreditAccount.id == acc_id, CreditAccount.clinic_id == current.clinic_id
+    ).first()
+    if not acc:
+        raise HTTPException(404, "Account not found")
+    txs = db.query(CreditTransaction).filter(
+        CreditTransaction.credit_account_id == acc_id,
+    ).order_by(CreditTransaction.created_at.desc()).all()
+    return {
+        "account": {
+            "id":                  acc.id,
+            "customer_name":       acc.customer_name,
+            "customer_mobile":     acc.customer_mobile,
+            "credit_limit":        float(acc.credit_limit or 0),
+            "outstanding_balance": float(acc.outstanding_balance or 0),
+        },
+        "transactions": [
+            {
+                "id":               t.id,
+                "transaction_type": t.transaction_type,
+                "amount":           float(t.amount),
+                "balance_after":    float(t.balance_after),
+                "notes":            t.notes,
+                "invoice_id":       t.invoice_id,
+                "created_at":       t.created_at.isoformat() if t.created_at else None,
+            }
+            for t in txs
+        ],
+    }
+
+@pharmacy_router.post("/credit-accounts/{acc_id}/payment")
+def record_credit_payment(
+    acc_id:  int,
+    body:    CreditPaymentIn,
+    current: Staff = Depends(get_current_staff),
+    db:      Session = Depends(get_db),
+):
+    acc = db.query(CreditAccount).filter(
+        CreditAccount.id == acc_id, CreditAccount.clinic_id == current.clinic_id
+    ).first()
+    if not acc:
+        raise HTTPException(404, "Account not found")
+    if body.amount <= 0:
+        raise HTTPException(400, "Amount must be positive")
+    new_balance = float(acc.outstanding_balance or 0) - body.amount
+    acc.outstanding_balance = max(0, new_balance)
+    tx = CreditTransaction(
+        clinic_id         = current.clinic_id,
+        credit_account_id = acc_id,
+        transaction_type  = "payment",
+        amount            = body.amount,
+        balance_after     = acc.outstanding_balance,
+        notes             = body.notes,
+        created_by        = current.id,
+    )
+    db.add(tx); db.commit()
+    return {"outstanding_balance": float(acc.outstanding_balance)}
+
+
+# ── Supplier Returns ──────────────────────────────────────────────────────────
+
+class SupplierReturnItemIn(BaseModel):
+    medicine_id:  int
+    batch_number: Optional[str] = None
+    quantity:     int
+    unit_cost:    Optional[float] = None
+
+class SupplierReturnIn(BaseModel):
+    supplier_id:       int
+    purchase_order_id: Optional[int] = None
+    return_date:       str
+    reason:            str
+    notes:             Optional[str] = None
+    items:             List[SupplierReturnItemIn]
+
+@pharmacy_router.get("/supplier-returns")
+def list_supplier_returns(
+    from_date:   Optional[str] = Query(None),
+    to_date:     Optional[str] = Query(None),
+    supplier_id: Optional[int] = Query(None),
+    current:     Staff = Depends(get_current_staff),
+    db:          Session = Depends(get_db),
+):
+    q = db.query(SupplierReturn).filter(SupplierReturn.clinic_id == current.clinic_id)
+    if from_date:
+        q = q.filter(SupplierReturn.return_date >= from_date)
+    if to_date:
+        q = q.filter(SupplierReturn.return_date <= to_date)
+    if supplier_id:
+        q = q.filter(SupplierReturn.supplier_id == supplier_id)
+    rows = q.order_by(SupplierReturn.created_at.desc()).limit(100).all()
+    return {"returns": [
+        {
+            "id":           r.id,
+            "supplier_name": r.supplier.name if r.supplier else None,
+            "return_date":  str(r.return_date),
+            "reason":       r.reason,
+            "status":       r.status,
+            "notes":        r.notes,
+            "item_count":   len(r.items),
+            "total_value":  sum(float(i.total_value or 0) for i in r.items),
+            "created_at":   r.created_at.isoformat() if r.created_at else None,
+        }
+        for r in rows
+    ]}
+
+@pharmacy_router.post("/supplier-returns")
+def create_supplier_return(
+    body:    SupplierReturnIn,
+    current: Staff = Depends(get_current_staff),
+    db:      Session = Depends(get_db),
+):
+    supplier = db.query(Supplier).filter(
+        Supplier.id == body.supplier_id, Supplier.clinic_id == current.clinic_id
+    ).first()
+    if not supplier:
+        raise HTTPException(404, "Supplier not found")
+
+    ret = SupplierReturn(
+        clinic_id         = current.clinic_id,
+        supplier_id       = body.supplier_id,
+        purchase_order_id = body.purchase_order_id,
+        return_date       = body.return_date,
+        reason            = body.reason,
+        notes             = body.notes,
+        created_by        = current.id,
+    )
+    db.add(ret); db.flush()
+
+    for it in body.items:
+        med = db.query(Medicine).filter(
+            Medicine.id == it.medicine_id, Medicine.clinic_id == current.clinic_id
+        ).first()
+        if not med:
+            continue
+        total_val = (it.unit_cost or 0) * it.quantity
+        db.add(SupplierReturnItem(
+            return_id    = ret.id,
+            medicine_id  = it.medicine_id,
+            batch_number = it.batch_number,
+            quantity     = it.quantity,
+            unit_cost    = it.unit_cost,
+            total_value  = total_val,
+        ))
+        qty_before = med.stock_quantity or 0
+        med.stock_quantity = max(0, qty_before - it.quantity)
+        db.add(StockTransaction(
+            clinic_id        = current.clinic_id,
+            medicine_id      = med.id,
+            transaction_type = "supplier_return",
+            quantity         = it.quantity,
+            quantity_before  = qty_before,
+            quantity_after   = med.stock_quantity,
+            batch_number     = it.batch_number,
+            notes            = f"Return to supplier {supplier.name}: {body.reason}",
+            performed_by     = current.id,
+        ))
+
+    db.commit()
+    return {"id": ret.id, "message": "Supplier return created"}
+
+@pharmacy_router.put("/supplier-returns/{ret_id}/status")
+def update_supplier_return_status(
+    ret_id:  int,
+    status:  str = Query(..., regex="^(pending|dispatched|credited)$"),
+    current: Staff = Depends(get_current_staff),
+    db:      Session = Depends(get_db),
+):
+    ret = db.query(SupplierReturn).filter(
+        SupplierReturn.id == ret_id, SupplierReturn.clinic_id == current.clinic_id
+    ).first()
+    if not ret:
+        raise HTTPException(404, "Return not found")
+    ret.status = status
+    db.commit()
+    return {"id": ret_id, "status": status}

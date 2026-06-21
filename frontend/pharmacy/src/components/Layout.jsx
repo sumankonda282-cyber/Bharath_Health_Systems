@@ -2,7 +2,7 @@ import ChatWidget from './ChatWidget'
 import BrandLogo from './BrandLogo'
 import { useState, useEffect, useRef } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Pill, Package, LogOut, History, PackagePlus, CreditCard, BarChart2, Menu, X, Building2, ShoppingCart, Bell, AlertTriangle, Clock, RotateCcw, BookOpen, ClipboardEdit, Calculator, Wallet } from 'lucide-react'
+import { LayoutDashboard, Pill, Package, LogOut, History, PackagePlus, CreditCard, BarChart2, Menu, X, Building2, ShoppingCart, Bell, AlertTriangle, Clock, RotateCcw, BookOpen, ClipboardEdit, Calculator, Wallet, UserSearch, Tag, BookMarked, PackageX } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../api/client'
 
@@ -20,6 +20,10 @@ const NAV = [
   { to: '/stock-adjustment', icon: ClipboardEdit, label: 'Stock Adjust' },
   { to: '/reconciliation',   icon: Calculator,    label: 'Day-end Recon' },
   { to: '/supplier-payments', icon: Wallet,       label: 'Supplier Pmts' },
+  { to: '/patient-history',  icon: UserSearch,    label: 'Patient Rx Hist' },
+  { to: '/discount-schemes', icon: Tag,           label: 'Discounts' },
+  { to: '/credit-ledger',    icon: BookMarked,    label: 'Credit Ledger' },
+  { to: '/supplier-returns', icon: PackageX,      label: 'Supplier Returns' },
 ]
 
 // ── Alerts Bell ───────────────────────────────────────────────────────────────
