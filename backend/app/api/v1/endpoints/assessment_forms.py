@@ -327,7 +327,7 @@ def list_forms(
                 "status":          f.status,
                 "is_template":     f.is_template,
                 "icon":            f.icon,
-                "version_number":  f.version_number,
+                "version_number":  f.version,
                 "is_iview_enabled":f.is_iview_enabled,
                 "question_count":  len((f.schema or {}).get("fields", [])),
                 "created_at":      f.created_at.isoformat() if f.created_at else None,
@@ -356,7 +356,7 @@ def create_form(
         is_iview_enabled= payload.get("is_iview_enabled", False),
         iview_config    = payload.get("iview_config"),
         icon            = payload.get("icon", "📋"),
-        version_number  = 1,
+        version         = 1,
         created_at      = datetime.utcnow(),
         updated_at      = datetime.utcnow(),
     )
@@ -385,7 +385,7 @@ def get_form(form_id: int, db: Session = Depends(get_db)):
         "is_iview_enabled": form.is_iview_enabled,
         "iview_config":     form.iview_config,
         "icon":             form.icon,
-        "version_number":   form.version_number,
+        "version_number":   form.version,
         "created_at":       form.created_at.isoformat() if form.created_at else None,
         "updated_at":       form.updated_at.isoformat() if form.updated_at else None,
     }
@@ -412,12 +412,12 @@ def update_form(
 
     # Bump version on schema changes
     if "schema" in payload:
-        form.version_number = (form.version_number or 1) + 1
+        form.version = (form.version or 1) + 1
 
     form.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(form)
-    return {"id": form.id, "title": form.title, "status": form.status, "version_number": form.version_number}
+    return {"id": form.id, "title": form.title, "status": form.status, "version_number": form.version}
 
 
 @router.delete("/assessment-forms/{form_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -459,7 +459,7 @@ def duplicate_form(form_id: int, db: Session = Depends(get_db)):
         is_iview_enabled = original.is_iview_enabled,
         iview_config     = original.iview_config,
         icon             = original.icon,
-        version_number   = 1,
+        version          = 1,
         created_at       = datetime.utcnow(),
         updated_at       = datetime.utcnow(),
     )
@@ -503,15 +503,14 @@ def list_versions(form_id: int, db: Session = Depends(get_db)):
     versions = (
         db.query(AssessmentFormVersion)
         .filter(AssessmentFormVersion.form_id == form_id)
-        .order_by(AssessmentFormVersion.version_number.desc())
+        .order_by(AssessmentFormVersion.version.desc())
         .all()
     )
     return [
         {
             "id":             v.id,
-            "version_number": v.version_number,
+            "version_number": v.version,
             "created_at":     v.created_at.isoformat() if v.created_at else None,
-            "change_summary": v.change_summary,
         }
         for v in versions
     ]
@@ -528,17 +527,16 @@ def create_version(
         raise HTTPException(status_code=404, detail="Form not found")
     ver = AssessmentFormVersion(
         form_id        = form_id,
-        version_number = (form.version_number or 1),
+        version        = (form.version or 1),
         schema         = form.schema,
-        change_summary = payload.get("change_summary", ""),
         created_at     = datetime.utcnow(),
     )
     db.add(ver)
-    form.version_number = (form.version_number or 1) + 1
-    form.updated_at     = datetime.utcnow()
+    form.version    = (form.version or 1) + 1
+    form.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(ver)
-    return {"id": ver.id, "version_number": ver.version_number}
+    return {"id": ver.id, "version_number": ver.version}
 
 
 # ---------------------------------------------------------------------------
@@ -801,7 +799,7 @@ def instantiate_from_pool(
         is_iview_enabled = bool(template.schema and template.schema.get("is_iview_enabled")),
         iview_config     = template.schema.get("iview_config")   if template.schema else None,
         icon             = payload.get("icon",        template.icon),
-        version_number   = 1,
+        version          = 1,
         created_at       = datetime.utcnow(),
         updated_at       = datetime.utcnow(),
     )
