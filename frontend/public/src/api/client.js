@@ -14,8 +14,12 @@ const api = axios.create({
 api.interceptors.response.use(
   (response) => response.data,
   (error) => {
+    let detail = error.response?.data?.detail
+    if (Array.isArray(detail)) {
+      detail = detail.map(d => d.msg || String(d)).join('; ')
+    }
     const message =
-      error.response?.data?.detail ||
+      detail ||
       error.response?.data?.message ||
       error.message ||
       'Something went wrong'

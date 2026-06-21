@@ -313,7 +313,11 @@ export default function PatientLookup() {
   }
 
   function onSelectChange(key, value) {
-    applyFilterChange({ ...filters, [key]: value })
+    const next = { ...filters, [key]: value }
+    setFilters(next)
+    setPage(1)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => runSearch(next, 1), 400)
   }
 
   function onSubmit(e) {

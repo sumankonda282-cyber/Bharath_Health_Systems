@@ -812,9 +812,9 @@ export default function BookingFlow({ doctor, context = 'public', apiClient, pre
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
 
-  const handleSlot = (data) => { setSlotData(data); setStep(1) }
-  const handlePatient = (data) => { setPatientData(data); setStep(2) }
-  const handleReview = () => setStep(3)
+  const handleSlot = (data) => { setSubmitError(''); setSlotData(data); setStep(1) }
+  const handlePatient = (data) => { setSubmitError(''); setPatientData(data); setStep(2) }
+  const handleReview = () => { setSubmitError(''); setStep(3) }
   const handlePayment = async (payData) => {
     setSubmitting(true); setSubmitError('')
     try {
