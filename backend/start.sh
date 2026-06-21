@@ -519,6 +519,9 @@ safe_cols = [
     \"CREATE TABLE IF NOT EXISTS credit_transactions (id SERIAL PRIMARY KEY, clinic_id INTEGER NOT NULL REFERENCES clinics(id), credit_account_id INTEGER NOT NULL REFERENCES credit_accounts(id), invoice_id INTEGER REFERENCES invoices(id), transaction_type VARCHAR(20) NOT NULL, amount NUMERIC(10,2) NOT NULL, balance_after NUMERIC(10,2) NOT NULL, notes TEXT, created_by INTEGER REFERENCES staff(id), created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW())\",
     \"CREATE TABLE IF NOT EXISTS supplier_returns (id SERIAL PRIMARY KEY, clinic_id INTEGER NOT NULL REFERENCES clinics(id), supplier_id INTEGER NOT NULL REFERENCES suppliers(id), purchase_order_id INTEGER REFERENCES purchase_orders(id), return_date DATE NOT NULL, reason VARCHAR(100) NOT NULL, status VARCHAR(20) DEFAULT 'pending', notes TEXT, created_by INTEGER REFERENCES staff(id), created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW())\",
     \"CREATE TABLE IF NOT EXISTS supplier_return_items (id SERIAL PRIMARY KEY, return_id INTEGER NOT NULL REFERENCES supplier_returns(id), medicine_id INTEGER NOT NULL REFERENCES medicines(id), batch_number VARCHAR(50), quantity INTEGER NOT NULL, unit_cost NUMERIC(10,2), total_value NUMERIC(10,2))\",
+
+    # ── relax NOT NULL on wards.department_id — wards can exist without a department ──
+    \"ALTER TABLE wards ALTER COLUMN department_id DROP NOT NULL\",
 ]
 ok = 0
 failed = 0

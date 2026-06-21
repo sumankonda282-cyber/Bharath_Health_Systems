@@ -1119,7 +1119,7 @@ class Ward(Base):
     __tablename__ = "wards"
     id            = Column(Integer, primary_key=True, index=True)
     clinic_id     = Column(Integer, ForeignKey("clinics.id"), nullable=False)
-    department_id = Column(Integer, ForeignKey("departments.id"), nullable=False)
+    department_id = Column(Integer, ForeignKey("departments.id"), nullable=True)
     name          = Column(String(200), nullable=False)
     floor         = Column(String(20), nullable=True)
     wing          = Column(String(50), nullable=True)
