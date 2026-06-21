@@ -2235,3 +2235,22 @@ class SubscriptionPayment(Base):
     period_to   = Column(Date, nullable=True)
     recorded_by = Column(Integer, nullable=True)
     created_at  = Column(DateTime, server_default=func.now())
+
+
+class StockAdjustment(Base):
+    __tablename__ = "stock_adjustments"
+    id              = Column(Integer, primary_key=True, index=True)
+    clinic_id       = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    branch_id       = Column(Integer, ForeignKey("branches.id"), nullable=True)
+    medicine_id     = Column(Integer, ForeignKey("medicines.id"), nullable=False)
+    batch_id        = Column(Integer, ForeignKey("medicine_batches.id"), nullable=True)
+    adjustment_type = Column(String(30), nullable=False)
+    quantity_before = Column(Integer, nullable=False)
+    quantity_change = Column(Integer, nullable=False)
+    quantity_after  = Column(Integer, nullable=False)
+    reason          = Column(String(100), nullable=False)
+    notes           = Column(Text, nullable=True)
+    performed_by    = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    created_at      = Column(DateTime, server_default=func.now())
+
+    medicine = relationship("Medicine")
