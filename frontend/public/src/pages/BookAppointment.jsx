@@ -839,9 +839,9 @@ export default function BookAppointment() {
       .finally(() => setAutoLoading(false))
   }, []) // eslint-disable-line
 
-  const handleStep1 = (data) => { setBookingData(prev => ({ ...prev, ...data })); setStep(1) }
-  const handleStep2 = (data) => { setBookingData(prev => ({ ...prev, ...data })); setStep(2) }
-  const handleStep3 = (data) => { setBookingData(prev => ({ ...prev, patientData: data })); setStep(3) }
+  const handleStep1 = (data) => { setSubmitError(''); setBookingData(prev => ({ ...prev, ...data })); setStep(1) }
+  const handleStep2 = (data) => { setSubmitError(''); setBookingData(prev => ({ ...prev, ...data })); setStep(2) }
+  const handleStep3 = (data) => { setSubmitError(''); setBookingData(prev => ({ ...prev, patientData: data })); setStep(3) }
   const handleStep4 = async (payData) => {
     setSubmitting(true); setSubmitError('')
     const { patientData, clinic, doctor, date, slot } = bookingData
