@@ -1,6 +1,69 @@
 #!/bin/bash
 set -e
 
+# ── Synchronous critical migrations (fast, must complete before serving traffic) ──
+# These are columns on tables touched by EVERY authenticated request.
+# Failure here is non-fatal; uvicorn still starts.
+echo "[startup] Running critical synchronous migrations..."
+python -c "
+from sqlalchemy import text
+from app.db.session import engine
+
+critical = [
+    # platform_admins — queried by get_current_platform_admin on EVERY admin request
+    'ALTER TABLE platform_admins ADD COLUMN IF NOT EXISTS token_version INTEGER DEFAULT 1',
+    'ALTER TABLE platform_admins ADD COLUMN IF NOT EXISTS otp_code VARCHAR(6)',
+    'ALTER TABLE platform_admins ADD COLUMN IF NOT EXISTS otp_expiry TIMESTAMP WITHOUT TIME ZONE',
+    # clinics — queried by platform_dashboard, list_all_clinics, _clinic_summary on every admin page
+    'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS subscription_plan VARCHAR(20) DEFAULT \'free\'',
+    'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS subscription_status VARCHAR(20) DEFAULT \'active\'',
+    'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS subscription_expires_at TIMESTAMP WITHOUT TIME ZONE',
+    'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS subscription_expiry TIMESTAMP WITHOUT TIME ZONE',
+    'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS clinic_prefix VARCHAR(10)',
+    'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS suspension_reason VARCHAR(100)',
+    'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS suspension_comment TEXT',
+    'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS rejection_reason TEXT',
+    'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS license_document_url VARCHAR(500)',
+    'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS has_pharmacy BOOLEAN DEFAULT FALSE',
+    'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS has_lab BOOLEAN DEFAULT FALSE',
+    'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS has_imaging BOOLEAN DEFAULT FALSE',
+    'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS has_inpatient BOOLEAN DEFAULT FALSE',
+    'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS has_emergency BOOLEAN DEFAULT FALSE',
+    'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS has_blood_bank BOOLEAN DEFAULT FALSE',
+    'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS has_ambulance BOOLEAN DEFAULT FALSE',
+    'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS has_telehealth BOOLEAN DEFAULT FALSE',
+    'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS total_beds INTEGER DEFAULT 0',
+    'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS icu_beds INTEGER DEFAULT 0',
+    'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS ot_count INTEGER DEFAULT 0',
+    'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS nabl_accredited BOOLEAN DEFAULT FALSE',
+    'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS nabl_number VARCHAR(100)',
+    'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS parent_clinic_id INTEGER REFERENCES clinics(id)',
+    'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS patient_id_counter INTEGER DEFAULT 0',
+    'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS website VARCHAR(300)',
+    'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS operating_hours VARCHAR(200)',
+    'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS reg_number VARCHAR(100)',
+    'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS accreditation VARCHAR(100)',
+    'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS google_maps_url TEXT',
+    'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS logo_url VARCHAR(500)',
+    'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS org_type VARCHAR(20) DEFAULT \'clinic\'',
+    'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS wards_enabled BOOLEAN DEFAULT FALSE',
+    'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS admission_sequence INTEGER DEFAULT 0',
+    # feedback — queried by /platform/feedback
+    'ALTER TABLE feedback ADD COLUMN IF NOT EXISTS is_read BOOLEAN NOT NULL DEFAULT FALSE',
+]
+ok = 0; failed = 0
+for sql in critical:
+    try:
+        with engine.begin() as conn:
+            conn.execute(text(sql))
+        ok += 1
+    except Exception as e:
+        failed += 1
+        print(f'[critical-migration] WARN: {str(e)[:120]}')
+print(f'[critical-migration] Done: {ok} ok, {failed} skipped/failed.')
+" || echo "[startup] Critical migration script failed — continuing anyway"
+echo "[startup] Critical migrations complete."
+
 # Run migrations + seed in background so uvicorn binds the port immediately.
 # Render's port scan times out after ~5 min if uvicorn doesn't start first.
 (
