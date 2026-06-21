@@ -2295,3 +2295,76 @@ class SupplierPayment(Base):
 
     supplier       = relationship("Supplier")
     purchase_order = relationship("PurchaseOrder", foreign_keys=[purchase_order_id])
+
+
+class DiscountScheme(Base):
+    __tablename__ = "discount_schemes"
+    id             = Column(Integer, primary_key=True, index=True)
+    clinic_id      = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    name           = Column(String(100), nullable=False)
+    scheme_type    = Column(String(30), default="percentage")
+    discount_value = Column(Numeric(5, 2), nullable=False)
+    applies_to     = Column(String(20), default="all")
+    is_active      = Column(Boolean, default=True)
+    created_at     = Column(DateTime, server_default=func.now())
+
+
+class CreditAccount(Base):
+    __tablename__ = "credit_accounts"
+    id                  = Column(Integer, primary_key=True, index=True)
+    clinic_id           = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    customer_name       = Column(String(200), nullable=False)
+    customer_mobile     = Column(String(20), nullable=True)
+    credit_limit        = Column(Numeric(10, 2), default=5000)
+    outstanding_balance = Column(Numeric(10, 2), default=0)
+    is_active           = Column(Boolean, default=True)
+    created_at          = Column(DateTime, server_default=func.now())
+
+    transactions = relationship("CreditTransaction", back_populates="account")
+
+
+class CreditTransaction(Base):
+    __tablename__ = "credit_transactions"
+    id                 = Column(Integer, primary_key=True, index=True)
+    clinic_id          = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    credit_account_id  = Column(Integer, ForeignKey("credit_accounts.id"), nullable=False)
+    invoice_id         = Column(Integer, ForeignKey("invoices.id"), nullable=True)
+    transaction_type   = Column(String(20), nullable=False)
+    amount             = Column(Numeric(10, 2), nullable=False)
+    balance_after      = Column(Numeric(10, 2), nullable=False)
+    notes              = Column(Text, nullable=True)
+    created_by         = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    created_at         = Column(DateTime, server_default=func.now())
+
+    account = relationship("CreditAccount", back_populates="transactions")
+
+
+class SupplierReturn(Base):
+    __tablename__ = "supplier_returns"
+    id                 = Column(Integer, primary_key=True, index=True)
+    clinic_id          = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    supplier_id        = Column(Integer, ForeignKey("suppliers.id"), nullable=False)
+    purchase_order_id  = Column(Integer, ForeignKey("purchase_orders.id"), nullable=True)
+    return_date        = Column(Date, nullable=False)
+    reason             = Column(String(100), nullable=False)
+    status             = Column(String(20), default="pending")
+    notes              = Column(Text, nullable=True)
+    created_by         = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    created_at         = Column(DateTime, server_default=func.now())
+
+    supplier = relationship("Supplier")
+    items    = relationship("SupplierReturnItem", back_populates="supplier_return")
+
+
+class SupplierReturnItem(Base):
+    __tablename__ = "supplier_return_items"
+    id              = Column(Integer, primary_key=True, index=True)
+    return_id       = Column(Integer, ForeignKey("supplier_returns.id"), nullable=False)
+    medicine_id     = Column(Integer, ForeignKey("medicines.id"), nullable=False)
+    batch_number    = Column(String(50), nullable=True)
+    quantity        = Column(Integer, nullable=False)
+    unit_cost       = Column(Numeric(10, 2), nullable=True)
+    total_value     = Column(Numeric(10, 2), nullable=True)
+
+    supplier_return = relationship("SupplierReturn", back_populates="items")
+    medicine        = relationship("Medicine")

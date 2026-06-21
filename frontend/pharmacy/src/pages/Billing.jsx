@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import api from '../api/client'
 import { cachedGet, cachedFetch, cacheInvalidate, TTL } from '../utils/cache'
-import { CreditCard, Loader2, X, IndianRupee, Plus, Trash2, Search, Eye, Printer, ScanLine, AlertTriangle, RefreshCw, ArrowRightLeft } from 'lucide-react'
+import { CreditCard, Loader2, X, IndianRupee, Plus, Trash2, Search, Eye, Printer, ScanLine, AlertTriangle, RefreshCw, ArrowRightLeft, Tag, ShoppingCart } from 'lucide-react'
 import BarcodeScanner from '../components/BarcodeScanner'
 import BarcodeLookupModal from '../components/BarcodeLookupModal'
 import SalesReturns from '../components/SalesReturns'
@@ -48,6 +48,23 @@ function PrintModal({ invoice, onClose }) {
   const customer = invoice.customer_name || invoice.patient_name || 'Walk-in Customer'
   const gstBreakup = invoice.gst_breakup || {}
 
+  function printLabels() {
+    const invDate = invoice.created_at ? new Date(invoice.created_at).toLocaleDateString('en-IN') : new Date().toLocaleDateString('en-IN')
+    const invNum  = invoice.invoice_number || `INV-${invoice.id}`
+    const labels  = (invoice.items || []).map(item => `
+      <div style="width:58mm;min-height:40mm;border:1px solid #ccc;padding:6px;margin-bottom:4px;page-break-after:always;font-family:sans-serif;font-size:10px;">
+        <div style="font-weight:bold;font-size:11px;color:#0F2557;">BHarath Health Pharmacy</div>
+        <div style="font-size:12px;font-weight:bold;margin:3px 0;">${item.description || ''}</div>
+        <div>Qty: ${item.quantity} &nbsp;|&nbsp; ₹${Number(item.unit_price || 0).toFixed(2)}/unit</div>
+        <div style="margin-top:3px;">Patient: ${customer}</div>
+        <div>Invoice: ${invNum} &nbsp;|&nbsp; ${invDate}</div>
+      </div>`).join('')
+    const win = window.open('', '_blank')
+    win.document.write(`<html><head><title>Labels</title><style>@media print{body{margin:0}}</style></head><body>${labels}</body></html>`)
+    win.document.close()
+    win.print()
+  }
+
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
@@ -56,6 +73,9 @@ function PrintModal({ invoice, onClose }) {
           <div className="flex gap-2">
             <button onClick={doPrint} className="btn-primary text-sm py-1.5 px-3 flex items-center gap-1">
               <Printer size={14} />Print
+            </button>
+            <button onClick={printLabels} className="text-sm py-1.5 px-3 flex items-center gap-1 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50">
+              <Tag size={14} />Labels
             </button>
             <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
           </div>
@@ -145,6 +165,15 @@ function BillingCounter({ onBillCreated }) {
 
   // Substitutes state: { [medicine_id]: { loading, open, data } }
   const [substitutesMap, setSubstitutesMap] = useState({})
+
+  // FEFO batch info: { [medicine_id]: { batch_number, expiry_date, quantity } | null }
+  const [batchMap, setBatchMap] = useState({})
+
+  // Discount schemes
+  const [schemes, setSchemes]           = useState([])
+  const [selectedScheme, setSelectedScheme] = useState('')
+  const [draftPoLoading, setDraftPoLoading] = useState({})
+  const [draftPoMsg, setDraftPoMsg]     = useState({})
 
   // Phone auto-lookup states
   const [lookupSuggestions, setLookupSuggestions] = useState([])
@@ -319,6 +348,41 @@ function BillingCounter({ onBillCreated }) {
         .then(r => { if (Array.isArray(r) && r.length > 0) setGenerics(g => ({ ...g, [med.id]: r[0] })) })
         .catch(() => {})
     }
+    // Fetch FEFO batch info
+    api.get(`/pharmacy/medicines/${med.id}/fefo-batch`)
+      .then(r => setBatchMap(b => ({ ...b, [med.id]: r.batch || null })))
+      .catch(() => {})
+  }
+
+  function autoDraftPo(medId, medName) {
+    setDraftPoLoading(p => ({ ...p, [medId]: true }))
+    api.post(`/pharmacy/medicines/${medId}/auto-draft-po`)
+      .then(r => setDraftPoMsg(p => ({ ...p, [medId]: `PO ${r.po_number} drafted ✓` })))
+      .catch(e => setDraftPoMsg(p => ({ ...p, [medId]: e.message || 'PO failed' })))
+      .finally(() => setDraftPoLoading(p => ({ ...p, [medId]: false })))
+  }
+
+  // Load active discount schemes once
+  useEffect(() => {
+    api.get('/pharmacy/discount-schemes').then(r => setSchemes((r.schemes || []).filter(s => s.is_active))).catch(() => {})
+  }, [])
+
+  // Apply selected scheme discount to all items
+  function applyScheme(schemeId) {
+    setSelectedScheme(schemeId)
+    if (!schemeId) {
+      setItems(prev => prev.map(i => ({ ...i, discount_amount: 0 })))
+      return
+    }
+    const sc = schemes.find(s => s.id === parseInt(schemeId))
+    if (!sc) return
+    setItems(prev => prev.map(item => {
+      const lineTotal = Number(item.unit_price) * Number(item.quantity)
+      const disc = sc.scheme_type === 'percentage'
+        ? lineTotal * sc.discount_value / 100
+        : Math.min(sc.discount_value, lineTotal)
+      return { ...item, discount_amount: parseFloat(disc.toFixed(2)) }
+    }))
   }
 
   function updateItem(idx, field, value) {
@@ -615,22 +679,45 @@ function BillingCounter({ onBillCreated }) {
                         >Switch</button>
                       </div>
                     )}
+                    {/* FEFO batch info */}
+                    {item.medicine_id && batchMap[item.medicine_id] && (
+                      <div className="mb-2 px-3 py-1.5 rounded-xl text-xs flex items-center gap-2"
+                        style={{ background: (() => { const d = batchMap[item.medicine_id].expiry_date; if (!d) return '#f0fdf4'; const days = (new Date(d) - new Date()) / 86400000; return days < 30 ? '#fff7ed' : '#f0fdf4' })(), border: (() => { const d = batchMap[item.medicine_id].expiry_date; if (!d) return '1px solid #bbf7d0'; const days = (new Date(d) - new Date()) / 86400000; return days < 30 ? '1px solid #fed7aa' : '1px solid #bbf7d0' })() }}>
+                        <span style={{ color: '#166534' }}>Batch: <strong>{batchMap[item.medicine_id].batch_number || '—'}</strong></span>
+                        <span style={{ color: '#6b7280' }}>·</span>
+                        <span style={{ color: (() => { const d = batchMap[item.medicine_id].expiry_date; if (!d) return '#166534'; return (new Date(d) - new Date()) / 86400000 < 30 ? '#c2410c' : '#166534' })() }}>
+                          Exp: {batchMap[item.medicine_id].expiry_date || '—'}
+                        </span>
+                        <span style={{ color: '#6b7280' }}>· Avail: {batchMap[item.medicine_id].quantity}</span>
+                      </div>
+                    )}
                     {item.medicine_id && item.stock_quantity === 0 && (
                       <div className="mb-2">
                         <div className="px-3 py-1.5 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-center justify-between">
                           <span className="flex items-center gap-1"><AlertTriangle size={12} /> Out of stock</span>
-                          <button
-                            type="button"
-                            className="flex items-center gap-1 underline font-semibold"
-                            onClick={() => {
-                              const sm = substitutesMap[item.medicine_id]
-                              if (sm?.open) setSubstitutesMap(prev => ({ ...prev, [item.medicine_id]: { ...sm, open: false } }))
-                              else fetchSubstitutes(item.medicine_id)
-                            }}
-                          >
-                            <ArrowRightLeft size={12} />
-                            {substitutesMap[item.medicine_id]?.open ? 'Hide' : 'See Substitutes'}
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              disabled={draftPoLoading[item.medicine_id]}
+                              className="flex items-center gap-1 underline font-semibold text-blue-600"
+                              onClick={() => autoDraftPo(item.medicine_id, item.description)}
+                            >
+                              {draftPoLoading[item.medicine_id] ? <RefreshCw size={11} className="animate-spin" /> : <ShoppingCart size={11} />}
+                              {draftPoMsg[item.medicine_id] || 'Draft PO'}
+                            </button>
+                            <button
+                              type="button"
+                              className="flex items-center gap-1 underline font-semibold"
+                              onClick={() => {
+                                const sm = substitutesMap[item.medicine_id]
+                                if (sm?.open) setSubstitutesMap(prev => ({ ...prev, [item.medicine_id]: { ...sm, open: false } }))
+                                else fetchSubstitutes(item.medicine_id)
+                              }}
+                            >
+                              <ArrowRightLeft size={12} />
+                              {substitutesMap[item.medicine_id]?.open ? 'Hide' : 'See Substitutes'}
+                            </button>
+                          </div>
                         </div>
                         {substitutesMap[item.medicine_id]?.open && (
                           <div className="mt-1 bg-white border border-gray-200 rounded-xl shadow text-xs overflow-hidden">
@@ -695,6 +782,19 @@ function BillingCounter({ onBillCreated }) {
         </div>
 
         <div className="space-y-4">
+          {schemes.length > 0 && items.length > 0 && (
+            <div className="card p-4">
+              <label className="label text-xs mb-1 flex items-center gap-1"><Tag size={12} />Apply Discount Scheme</label>
+              <select className="input text-sm" value={selectedScheme} onChange={e => applyScheme(e.target.value)}>
+                <option value="">— No Scheme —</option>
+                {schemes.map(s => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} ({s.scheme_type === 'percentage' ? `${s.discount_value}%` : `₹${s.discount_value}`})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="card p-5">
             <p className="text-sm font-semibold text-gray-700 mb-3">Bill Summary</p>
             <div className="space-y-2 text-sm">
