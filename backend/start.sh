@@ -523,6 +523,32 @@ safe_cols = [
 
     # ── relax NOT NULL on wards.department_id — wards can exist without a department ──
     \"ALTER TABLE wards ALTER COLUMN department_id DROP NOT NULL\",
+    # ── invoice: IP/OP tracking ──
+    \"ALTER TABLE invoices ADD COLUMN IF NOT EXISTS admission_id INTEGER REFERENCES admissions(id)\",
+    \"ALTER TABLE invoices ADD COLUMN IF NOT EXISTS encounter_type VARCHAR(2) DEFAULT 'OP'\",
+    # ── pharmacy shared cart ──
+    \"\"\"CREATE TABLE IF NOT EXISTS pharmacy_cart_items (
+        id SERIAL PRIMARY KEY,
+        clinic_id INTEGER NOT NULL REFERENCES clinics(id),
+        branch_id INTEGER REFERENCES branches(id),
+        source_type VARCHAR(20) NOT NULL,
+        source_id INTEGER NOT NULL,
+        patient_id INTEGER REFERENCES patients(id),
+        admission_id INTEGER REFERENCES admissions(id),
+        encounter_type VARCHAR(2) DEFAULT 'OP',
+        medicine_name VARCHAR(200) NOT NULL,
+        generic_name VARCHAR(200),
+        dose VARCHAR(100),
+        route VARCHAR(50),
+        frequency VARCHAR(100),
+        duration VARCHAR(100),
+        quantity INTEGER DEFAULT 1,
+        instructions TEXT,
+        is_stat BOOLEAN DEFAULT FALSE,
+        medicine_id INTEGER REFERENCES medicines(id),
+        added_by INTEGER REFERENCES staff(id),
+        added_at TIMESTAMP DEFAULT NOW()
+    )\"\"\",
     \"CREATE TABLE IF NOT EXISTS stock_adjustments (id SERIAL PRIMARY KEY, clinic_id INTEGER NOT NULL REFERENCES clinics(id), branch_id INTEGER REFERENCES branches(id), medicine_id INTEGER NOT NULL REFERENCES medicines(id), batch_id INTEGER REFERENCES medicine_batches(id), adjustment_type VARCHAR(30) NOT NULL, quantity_before INTEGER NOT NULL, quantity_change INTEGER NOT NULL, quantity_after INTEGER NOT NULL, reason VARCHAR(100) NOT NULL, notes TEXT, performed_by INTEGER REFERENCES staff(id), created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW())\",
     \"CREATE TABLE IF NOT EXISTS cash_reconciliations (id SERIAL PRIMARY KEY, clinic_id INTEGER NOT NULL REFERENCES clinics(id), branch_id INTEGER REFERENCES branches(id), shift_date DATE NOT NULL, shift VARCHAR(20) DEFAULT 'day', opening_cash NUMERIC(10,2) DEFAULT 0, expected_cash NUMERIC(10,2) DEFAULT 0, actual_cash NUMERIC(10,2) DEFAULT 0, cash_sales NUMERIC(10,2) DEFAULT 0, card_sales NUMERIC(10,2) DEFAULT 0, upi_sales NUMERIC(10,2) DEFAULT 0, credit_sales NUMERIC(10,2) DEFAULT 0, total_returns NUMERIC(10,2) DEFAULT 0, difference NUMERIC(10,2) DEFAULT 0, status VARCHAR(20) DEFAULT 'open', notes TEXT, closed_by INTEGER REFERENCES staff(id), closed_at TIMESTAMP WITHOUT TIME ZONE, created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW())\",
     \"CREATE TABLE IF NOT EXISTS supplier_payments (id SERIAL PRIMARY KEY, clinic_id INTEGER NOT NULL REFERENCES clinics(id), supplier_id INTEGER NOT NULL REFERENCES suppliers(id), purchase_order_id INTEGER REFERENCES purchase_orders(id), amount NUMERIC(10,2) NOT NULL, payment_date DATE NOT NULL, payment_mode VARCHAR(30), reference_number VARCHAR(100), notes TEXT, created_by INTEGER REFERENCES staff(id), created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW())\",
