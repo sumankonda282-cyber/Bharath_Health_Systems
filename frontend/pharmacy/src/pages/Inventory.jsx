@@ -288,7 +288,7 @@ export default function Inventory() {
                 </div>
                 <div>
                   <label className="label">HSN Code <span className="text-gray-400 font-normal">(Optional)</span></label>
-                  <input className="input" value={form.hsn_code} onChange={e => setForm(f => ({ ...f, hsn_code: e.target.value }))} placeholder="e.g. 30049099" />
+                  <input className="input" maxLength={8} value={form.hsn_code} onChange={e => setForm(f => ({ ...f, hsn_code: e.target.value }))} placeholder="e.g. 30049099" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
