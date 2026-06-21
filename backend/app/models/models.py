@@ -2254,3 +2254,44 @@ class StockAdjustment(Base):
     created_at      = Column(DateTime, server_default=func.now())
 
     medicine = relationship("Medicine")
+
+
+class CashReconciliation(Base):
+    __tablename__ = "cash_reconciliations"
+    id             = Column(Integer, primary_key=True, index=True)
+    clinic_id      = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    branch_id      = Column(Integer, ForeignKey("branches.id"), nullable=True)
+    shift_date     = Column(Date, nullable=False)
+    shift          = Column(String(20), default="day")
+    opening_cash   = Column(Numeric(10, 2), default=0)
+    expected_cash  = Column(Numeric(10, 2), default=0)
+    actual_cash    = Column(Numeric(10, 2), default=0)
+    cash_sales     = Column(Numeric(10, 2), default=0)
+    card_sales     = Column(Numeric(10, 2), default=0)
+    upi_sales      = Column(Numeric(10, 2), default=0)
+    credit_sales   = Column(Numeric(10, 2), default=0)
+    total_returns  = Column(Numeric(10, 2), default=0)
+    difference     = Column(Numeric(10, 2), default=0)
+    status         = Column(String(20), default="open")
+    notes          = Column(Text, nullable=True)
+    closed_by      = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    closed_at      = Column(DateTime, nullable=True)
+    created_at     = Column(DateTime, server_default=func.now())
+
+
+class SupplierPayment(Base):
+    __tablename__ = "supplier_payments"
+    id                 = Column(Integer, primary_key=True, index=True)
+    clinic_id          = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    supplier_id        = Column(Integer, ForeignKey("suppliers.id"), nullable=False)
+    purchase_order_id  = Column(Integer, ForeignKey("purchase_orders.id"), nullable=True)
+    amount             = Column(Numeric(10, 2), nullable=False)
+    payment_date       = Column(Date, nullable=False)
+    payment_mode       = Column(String(30), nullable=True)
+    reference_number   = Column(String(100), nullable=True)
+    notes              = Column(Text, nullable=True)
+    created_by         = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    created_at         = Column(DateTime, server_default=func.now())
+
+    supplier       = relationship("Supplier")
+    purchase_order = relationship("PurchaseOrder", foreign_keys=[purchase_order_id])
