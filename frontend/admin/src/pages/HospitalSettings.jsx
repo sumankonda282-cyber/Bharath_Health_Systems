@@ -576,15 +576,27 @@ function RolesTab({ clinicId }) {
 }
 
 // ── Billing Configuration Tab ─────────────────────────────────────────────────────────────────
+const DEFAULT_BILLING = {
+  currency: 'INR', tax_rate: 18, consultation_fee: 500, enable_insurance: false,
+  payment_gateway: 'razorpay', auto_billing: false, billing_cycle: 'monthly',
+  late_fee_pct: 2, discount_pct: 0,
+}
+
 function BillingTab({ clinicId }) {
-  const [config, setConfig] = useState({
-    currency: 'INR', tax_rate: 18, consultation_fee: 500, enable_insurance: false,
-    payment_gateway: 'razorpay', auto_billing: false, billing_cycle: 'monthly',
-    late_fee_pct: 2, discount_pct: 0,
-  })
+  const [config, setConfig] = useState(DEFAULT_BILLING)
+  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
   const [err, setErr] = useState('')
+
+  useEffect(() => {
+    if (!clinicId) return
+    setLoading(true)
+    api.get(`/platform/clinics/${clinicId}/billing-config`)
+      .then(r => setConfig({ ...DEFAULT_BILLING, ...(r || {}) }))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [clinicId])
 
   const save = async () => {
     setSaving(true); setMsg(''); setErr('')
@@ -595,6 +607,8 @@ function BillingTab({ clinicId }) {
     } catch (e) { setErr(e.message || 'Save failed') }
     finally { setSaving(false) }
   }
+
+  if (loading) return <div className="flex justify-center py-16"><Loader2 size={28} className="animate-spin text-gray-400" /></div>
 
   return (
     <div className="max-w-lg space-y-5">
