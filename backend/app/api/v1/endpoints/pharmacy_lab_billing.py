@@ -13,7 +13,7 @@ from app.models.models import (
     Invoice, InvoiceItem, Staff, StockTransaction,
     Supplier, PurchaseOrder, PurchaseOrderItem,
     SalesReturn, SalesReturnItem, DrugRegister, MedicineBatch,
-    ImagingCatalog, BarcodeMaster, StockAdjustment,
+    ImagingCatalog, BarcodeMaster, StockAdjustment, DrugInteraction,
 )
 from app.schemas.schemas import (
     MedicineCreate, MedicineOut,
@@ -2681,4 +2681,75 @@ def list_stock_adjustments(
             }
             for r in rows
         ],
+    }
+
+
+# ── Drug Interaction Check ────────────────────────────────────────────────────
+
+class DrugInteractionCheckIn(BaseModel):
+    generic_names: List[str]
+
+@pharmacy_router.post("/drug-interactions/check")
+def check_drug_interactions(
+    body: DrugInteractionCheckIn,
+    current: Staff = Depends(get_current_staff),
+    db: Session = Depends(get_db),
+):
+    names = [n.strip().lower() for n in body.generic_names if n.strip()]
+    if len(names) < 2:
+        return {"interactions": []}
+
+    from itertools import combinations
+    results = []
+    for a, b in combinations(names, 2):
+        rows = db.query(DrugInteraction).filter(
+            ((DrugInteraction.drug_a.ilike(f"%{a}%")) & (DrugInteraction.drug_b.ilike(f"%{b}%"))) |
+            ((DrugInteraction.drug_a.ilike(f"%{b}%")) & (DrugInteraction.drug_b.ilike(f"%{a}%")))
+        ).all()
+        for r in rows:
+            results.append({
+                "drug_a":    r.drug_a,
+                "drug_b":    r.drug_b,
+                "severity":  r.severity,
+                "effect":    r.effect,
+                "management": r.management,
+            })
+    return {"interactions": results}
+
+
+# ── Substitute Drug Suggestion ────────────────────────────────────────────────
+
+@pharmacy_router.get("/medicines/{med_id}/substitutes")
+def get_substitutes(
+    med_id: int,
+    current: Staff = Depends(get_current_staff),
+    db: Session = Depends(get_db),
+):
+    source = db.query(Medicine).filter(
+        Medicine.id == med_id,
+        Medicine.clinic_id == current.clinic_id,
+    ).first()
+    if not source or not source.generic_name:
+        return {"substitutes": []}
+
+    subs = db.query(Medicine).filter(
+        Medicine.clinic_id == current.clinic_id,
+        Medicine.id != med_id,
+        Medicine.generic_name.ilike(f"%{source.generic_name}%"),
+        Medicine.stock_quantity > 0,
+    ).order_by(Medicine.stock_quantity.desc()).limit(10).all()
+
+    return {
+        "substitutes": [
+            {
+                "id":             s.id,
+                "name":           s.name,
+                "generic_name":   s.generic_name,
+                "form":           s.form,
+                "strength":       s.strength,
+                "mrp":            s.mrp,
+                "stock_quantity": s.stock_quantity,
+            }
+            for s in subs
+        ]
     }
