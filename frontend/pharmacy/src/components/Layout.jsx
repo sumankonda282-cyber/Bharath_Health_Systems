@@ -1,4 +1,5 @@
 import ChatWidget from './ChatWidget'
+import BrandLogo from './BrandLogo'
 import { useState, useEffect, useRef } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { LayoutDashboard, Pill, Package, LogOut, History, PackagePlus, CreditCard, BarChart2, Menu, X, Building2, ShoppingCart, Bell, AlertTriangle, Clock, RotateCcw, BookOpen, ClipboardEdit, Calculator, Wallet } from 'lucide-react'
@@ -134,13 +135,11 @@ export default function Layout() {
   const sidebar = (
     <aside className="w-60 flex flex-col h-full flex-shrink-0" style={{ background: '#0F2557' }}>
       <div className="px-5 py-5 border-b border-white/10 flex items-center justify-between">
-        <div>
-          <div className="text-white font-extrabold text-lg tracking-tight">Bharath Health Systems</div>
-          <div className="text-xs font-semibold mt-0.5 tracking-wider uppercase" style={{ color: '#F5821E' }}>
-            Pharmacy Portal
-          </div>
+        <div className="flex items-center gap-2 min-w-0">
+          <BrandLogo size="sm" light />
+          <span className="text-xs font-semibold tracking-wider uppercase" style={{ color: '#F5821E' }}>Pharmacy</span>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 flex-shrink-0">
           <AlertsBell />
           <button onClick={() => setOpen(false)} className="md:hidden text-white/60 hover:text-white">
             <X size={20} />
@@ -192,7 +191,7 @@ export default function Layout() {
           <button onClick={() => setOpen(true)} className="p-1.5 rounded-lg text-gray-600 hover:bg-gray-100">
             <Menu size={22} />
           </button>
-          <span className="font-bold text-sm" style={{ color: '#0F2557' }}>Bharath Health Pharmacy</span>
+          <BrandLogo size="sm" />
         </div>
         <div className="p-4 md:p-6">
           <Outlet />
