@@ -13,7 +13,7 @@ from app.models.models import (
     Invoice, InvoiceItem, Staff, StockTransaction,
     Supplier, PurchaseOrder, PurchaseOrderItem,
     SalesReturn, SalesReturnItem, DrugRegister, MedicineBatch,
-    ImagingCatalog, BarcodeMaster,
+    ImagingCatalog, BarcodeMaster, StockAdjustment,
 )
 from app.schemas.schemas import (
     MedicineCreate, MedicineOut,
@@ -2564,3 +2564,121 @@ def book_imaging_slot(
     )
     db.add(booking); db.commit(); db.refresh(booking)
     return {"id": booking.id}
+
+
+# ── Stock Adjustments ─────────────────────────────────────────────────────────
+
+class StockAdjustmentIn(BaseModel):
+    medicine_id:     int
+    batch_id:        Optional[int] = None
+    adjustment_type: str
+    quantity_change: int
+    reason:          str
+    notes:           Optional[str] = None
+
+@pharmacy_router.post("/stock-adjustments")
+def create_stock_adjustment(
+    body: StockAdjustmentIn,
+    current: Staff = Depends(get_current_staff),
+    db: Session = Depends(get_db),
+):
+    med = db.query(Medicine).filter(
+        Medicine.id == body.medicine_id,
+        Medicine.clinic_id == current.clinic_id,
+    ).first()
+    if not med:
+        raise HTTPException(status_code=404, detail="Medicine not found")
+    if body.quantity_change <= 0:
+        raise HTTPException(status_code=400, detail="quantity_change must be positive")
+
+    qty_before = med.stock_quantity or 0
+    if body.adjustment_type == "increase":
+        qty_after = qty_before + body.quantity_change
+        txn_qty   = body.quantity_change
+    else:
+        if qty_before < body.quantity_change:
+            raise HTTPException(status_code=400, detail="Insufficient stock for this adjustment")
+        qty_after = qty_before - body.quantity_change
+        txn_qty   = -body.quantity_change
+
+    med.stock_quantity = qty_after
+
+    adj = StockAdjustment(
+        clinic_id       = current.clinic_id,
+        branch_id       = getattr(current, "branch_id", None),
+        medicine_id     = body.medicine_id,
+        batch_id        = body.batch_id,
+        adjustment_type = body.adjustment_type,
+        quantity_before = qty_before,
+        quantity_change = body.quantity_change,
+        quantity_after  = qty_after,
+        reason          = body.reason,
+        notes           = body.notes,
+        performed_by    = current.id,
+    )
+    db.add(adj)
+
+    txn = StockTransaction(
+        clinic_id        = current.clinic_id,
+        medicine_id      = body.medicine_id,
+        transaction_type = "adjustment",
+        quantity         = txn_qty,
+        notes            = body.reason,
+        created_by       = current.id,
+    )
+    db.add(txn)
+    db.commit()
+    db.refresh(adj)
+    return {
+        "id": adj.id,
+        "medicine_id": adj.medicine_id,
+        "adjustment_type": adj.adjustment_type,
+        "quantity_before": adj.quantity_before,
+        "quantity_change": adj.quantity_change,
+        "quantity_after":  adj.quantity_after,
+        "reason":          adj.reason,
+        "created_at":      adj.created_at,
+    }
+
+@pharmacy_router.get("/stock-adjustments")
+def list_stock_adjustments(
+    from_date:       Optional[str] = None,
+    to_date:         Optional[str] = None,
+    medicine_id:     Optional[int] = None,
+    adjustment_type: Optional[str] = None,
+    page:            int = 1,
+    page_size:       int = 50,
+    current: Staff = Depends(get_current_staff),
+    db: Session = Depends(get_db),
+):
+    q = db.query(StockAdjustment, Medicine.name.label("medicine_name")).join(
+        Medicine, Medicine.id == StockAdjustment.medicine_id
+    ).filter(StockAdjustment.clinic_id == current.clinic_id)
+    if from_date:
+        q = q.filter(StockAdjustment.created_at >= from_date)
+    if to_date:
+        q = q.filter(StockAdjustment.created_at <= to_date + " 23:59:59")
+    if medicine_id:
+        q = q.filter(StockAdjustment.medicine_id == medicine_id)
+    if adjustment_type:
+        q = q.filter(StockAdjustment.adjustment_type == adjustment_type)
+    total = q.count()
+    rows  = q.order_by(StockAdjustment.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    return {
+        "total": total,
+        "adjustments": [
+            {
+                "id":               r.StockAdjustment.id,
+                "medicine_name":    r.medicine_name,
+                "medicine_id":      r.StockAdjustment.medicine_id,
+                "adjustment_type":  r.StockAdjustment.adjustment_type,
+                "quantity_before":  r.StockAdjustment.quantity_before,
+                "quantity_change":  r.StockAdjustment.quantity_change,
+                "quantity_after":   r.StockAdjustment.quantity_after,
+                "reason":           r.StockAdjustment.reason,
+                "notes":            r.StockAdjustment.notes,
+                "created_at":       r.StockAdjustment.created_at,
+            }
+            for r in rows
+        ],
+    }

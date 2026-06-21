@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
+import { Link } from 'react-router-dom'
 import api from '../api/client'
 import { cachedFetch, cacheInvalidate, TTL } from '../utils/cache'
-import { Plus, Search, Package, Loader2, AlertTriangle, Pencil, X, Layers } from 'lucide-react'
+import { Plus, Search, Package, Loader2, AlertTriangle, Pencil, X, Layers, ClipboardEdit } from 'lucide-react'
 
 // ── Batch Panel ──────────────────────────────────────────────────────────────
 
@@ -357,6 +358,13 @@ export default function Inventory() {
                       </td>
                       <td className="td">
                         <div className="flex items-center gap-2">
+                          <Link
+                            to={`/stock-adjustment?medicine_id=${m.id}&medicine_name=${encodeURIComponent(m.name)}`}
+                            className="p-1.5 rounded-lg hover:bg-yellow-50 text-yellow-600 transition-colors"
+                            title="Adjust Stock"
+                          >
+                            <ClipboardEdit size={14} />
+                          </Link>
                           <button
                             onClick={() => openEdit(m)}
                             className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-600 transition-colors"

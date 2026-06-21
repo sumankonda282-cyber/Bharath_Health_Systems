@@ -511,6 +511,9 @@ safe_cols = [
         updated_at TIMESTAMP DEFAULT NOW()
     )\"\"\",
     \"CREATE INDEX IF NOT EXISTS idx_iview_flowsheets_form_id ON iview_flowsheets(form_id)\",
+    \"CREATE TABLE IF NOT EXISTS stock_adjustments (id SERIAL PRIMARY KEY, clinic_id INTEGER NOT NULL REFERENCES clinics(id), branch_id INTEGER REFERENCES branches(id), medicine_id INTEGER NOT NULL REFERENCES medicines(id), batch_id INTEGER REFERENCES medicine_batches(id), adjustment_type VARCHAR(30) NOT NULL, quantity_before INTEGER NOT NULL, quantity_change INTEGER NOT NULL, quantity_after INTEGER NOT NULL, reason VARCHAR(100) NOT NULL, notes TEXT, performed_by INTEGER REFERENCES staff(id), created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW())\",
+    \"CREATE TABLE IF NOT EXISTS cash_reconciliations (id SERIAL PRIMARY KEY, clinic_id INTEGER NOT NULL REFERENCES clinics(id), branch_id INTEGER REFERENCES branches(id), shift_date DATE NOT NULL, shift VARCHAR(20) DEFAULT 'day', opening_cash NUMERIC(10,2) DEFAULT 0, expected_cash NUMERIC(10,2) DEFAULT 0, actual_cash NUMERIC(10,2) DEFAULT 0, cash_sales NUMERIC(10,2) DEFAULT 0, card_sales NUMERIC(10,2) DEFAULT 0, upi_sales NUMERIC(10,2) DEFAULT 0, credit_sales NUMERIC(10,2) DEFAULT 0, total_returns NUMERIC(10,2) DEFAULT 0, difference NUMERIC(10,2) DEFAULT 0, status VARCHAR(20) DEFAULT 'open', notes TEXT, closed_by INTEGER REFERENCES staff(id), closed_at TIMESTAMP WITHOUT TIME ZONE, created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW())\",
+    \"CREATE TABLE IF NOT EXISTS supplier_payments (id SERIAL PRIMARY KEY, clinic_id INTEGER NOT NULL REFERENCES clinics(id), supplier_id INTEGER NOT NULL REFERENCES suppliers(id), purchase_order_id INTEGER REFERENCES purchase_orders(id), amount NUMERIC(10,2) NOT NULL, payment_date DATE NOT NULL, payment_mode VARCHAR(30), reference_number VARCHAR(100), notes TEXT, created_by INTEGER REFERENCES staff(id), created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW())\",
 ]
 ok = 0
 failed = 0
