@@ -12,6 +12,7 @@ import Billing from './pages/Billing'
 import Reports from './pages/Reports'
 import Suppliers from './pages/Suppliers'
 import PurchaseOrders from './pages/PurchaseOrders'
+import DrugRegister from './pages/DrugRegister'
 import { Loader2 } from 'lucide-react'
 function Guard({ children }) {
   const { user, loading } = useAuth()
@@ -41,6 +42,7 @@ export default function App() {
               <Route path="purchase-orders"  element={<PurchaseOrders/>}/>
               <Route path="billing"          element={<Billing/>}/>
               <Route path="reports"          element={<Reports/>}/>
+              <Route path="drug-register"   element={<DrugRegister/>}/>
             </Route>
             <Route path="*" element={<Navigate to="/" replace/>}/>
           </Routes>
