@@ -125,9 +125,10 @@ SUSPENSION_REASONS = [
 # ── Plan Config Helpers ───────────────────────────────────────────────────────
 
 def _get_plan_config(db) -> dict:
-    """Return plan config from DB; fall back to DEFAULT_PLAN_CONFIG."""
+    """Return plan config from DB; fall back to DEFAULT_PLAN_CONFIG.
+    Guards against malformed stored value (e.g. plans stored as list)."""
     row = db.query(PlatformSetting).filter(PlatformSetting.key == "plan_config").first()
-    if row and isinstance(row.value, dict):
+    if row and isinstance(row.value, dict) and isinstance(row.value.get("plans"), dict):
         return row.value
     return DEFAULT_PLAN_CONFIG
 
@@ -135,13 +136,16 @@ def _get_plan_config(db) -> dict:
 def _get_rate_card(db) -> dict:
     """Flatten plan config into the legacy RATE_CARD shape."""
     cfg = _get_plan_config(db)
+    plans = cfg.get("plans", {})
+    if not isinstance(plans, dict):
+        plans = DEFAULT_PLAN_CONFIG.get("plans", {})
     return {
         key: {
             "price_per_doctor": plan.get("price_per_doctor", 0),
             "max_doctors":      plan.get("max_doctors", 999),
             "label":            plan.get("label", key.capitalize()),
         }
-        for key, plan in cfg.get("plans", {}).items()
+        for key, plan in plans.items()
     }
 
 
