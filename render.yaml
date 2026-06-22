@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: bharatcliniq-api
+    name: BharathHealthSystems-api
     env: python
     rootDir: backend
     buildCommand: pip install -r requirements.txt
@@ -18,8 +18,8 @@ services:
       - key: OTP_MOCK
         value: "true"
       - key: CORS_ORIGINS
-        value: "https://bharatcliniq.com,https://www.bharatcliniq.com,https://provider.bharatcliniq.com,https://my.bharatcliniq.com,https://lab.bharatcliniq.com,https://pharmacy.bharatcliniq.com,https://receptionist.bharatcliniq.com,https://admin.bharatcliniq.com,https://imaging.bharatcliniq.com,https://bharatcliniq-public.vercel.app,https://bharatcliniq-provider.vercel.app,https://bharatcliniq-patient.vercel.app,https://bharatcliniq-lab.vercel.app,https://bharatcliniq-imaging.vercel.app,https://bharatcliniq-pharmacy.vercel.app,https://bharatcliniq-receptionist.vercel.app,https://bharatcliniq-admin.vercel.app,https://bharatcliniq-superadmin.vercel.app"
+        value: "https://bharathhealthsystems.com,https://www.bharathhealthsystems.com,https://provider.bharathhealthsystems.com,https://my.bharathhealthsystems.com,https://lab.bharathhealthsystems.com,https://pharmacy.bharathhealthsystems.com,https://staff.bharathhealthsystems.com,https://admin.bharathhealthsystems.com,https://imaging.bharathhealthsystems.com,https://carechart.bharathhealthsystems.com"
       - key: DAILY_API_KEY
         sync: false
       - key: DAILY_DOMAIN
-        value: "bharatcliniq.daily.co"
+        value: "bharathhealthsystems.daily.co"

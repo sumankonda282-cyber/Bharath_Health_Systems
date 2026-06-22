@@ -44,7 +44,7 @@ jobs:
           - portal: patient
             display: patient
           - portal: staff
-            display: staff (receptionist+manager)
+            display: staff
           - portal: provider
             display: provider
           - portal: carechart
@@ -77,4 +77,4 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          VITE_API_URL: https://bharatcliniq-api.onrender.com
+          VITE_API_URL: https://BharathHealthSystems-api.onrender.com
