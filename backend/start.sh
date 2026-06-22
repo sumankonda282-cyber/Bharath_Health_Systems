@@ -35,6 +35,10 @@ critical = [
     'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS total_beds INTEGER DEFAULT 0',
     'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS icu_beds INTEGER DEFAULT 0',
     'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS ot_count INTEGER DEFAULT 0',
+    # location + capacity — queried via Clinic model on every staff login (line 103 auth.py)
+    'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS latitude NUMERIC(10,7)',
+    'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS longitude NUMERIC(10,7)',
+    'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS capacity_description TEXT',
     'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS nabl_accredited BOOLEAN DEFAULT FALSE',
     'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS nabl_number VARCHAR(100)',
     'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS parent_clinic_id INTEGER REFERENCES clinics(id)',
