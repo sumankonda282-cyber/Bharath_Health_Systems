@@ -43,7 +43,7 @@ jobs:
             display: public
           - portal: patient
             display: patient
-          - portal: receptionist
+          - portal: staff
             display: staff (receptionist+manager)
           - portal: provider
             display: provider
