@@ -33,21 +33,30 @@ jobs:
 
   # ── Frontends ──────────────────────────────────────────────────────────────
   frontend:
-    name: Frontend — build (${{ matrix.portal }})
+    name: Frontend — build (${{ matrix.display }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        portal:
-          - public
-          - patient
-          - receptionist
-          - provider
-          - carechart
-          - pharmacy
-          - lab
-          - imaging
-          - admin
+        include:
+          - portal: public
+            display: public
+          - portal: patient
+            display: patient
+          - portal: receptionist
+            display: staff (receptionist+manager)
+          - portal: provider
+            display: provider
+          - portal: carechart
+            display: carechart
+          - portal: pharmacy
+            display: pharmacy
+          - portal: lab
+            display: lab
+          - portal: imaging
+            display: imaging
+          - portal: admin
+            display: admin
 
     defaults:
       run:
