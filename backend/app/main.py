@@ -79,8 +79,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
     allow_origin_regex=(
-        r"https://bharatcliniq-[a-z0-9-]+-sumankonda282-cybers-projects\.vercel\.app"
-        r"|https://bharath-health-[a-z0-9-]+-sumankonda282-cybers-projects\.vercel\.app"
+        r"https://bharath-health-[a-z0-9-]+-sumankonda282-cybers-projects\.vercel\.app"
         r"|https://[a-z0-9-]+\.bhs-staff\.pages\.dev"
         r"|https://bhs-staff\.pages\.dev"
     ),
