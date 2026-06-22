@@ -82,12 +82,36 @@ class Clinic(Base):
     # Counters
     admission_sequence      = Column(Integer, default=0)
     patient_id_counter      = Column(Integer, default=0)
+    latitude                = Column(Numeric(10, 7), nullable=True)
+    longitude               = Column(Numeric(10, 7), nullable=True)
+    capacity_description    = Column(Text, nullable=True)
     created_at              = Column(DateTime, server_default=func.now())
 
     branches        = relationship("Branch", back_populates="clinic", cascade="all, delete-orphan")
     staff           = relationship("Staff", back_populates="clinic")
     patients        = relationship("Patient", back_populates="clinic")
     online_bookings = relationship("OnlineBooking", back_populates="clinic")
+
+
+class Specialty(Base):
+    __tablename__ = "specialties"
+    id         = Column(Integer, primary_key=True, index=True)
+    name       = Column(String(200), unique=True, nullable=False)
+    category   = Column(String(100))
+    is_active  = Column(Boolean, default=True)
+    sort_order = Column(Integer, default=0)
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class DoctorSpecialty(Base):
+    __tablename__ = "doctor_specialties"
+    id                = Column(Integer, primary_key=True, index=True)
+    doctor_profile_id = Column(Integer, ForeignKey("doctor_profiles.id"), nullable=False)
+    specialty_name    = Column(String(200), nullable=False)
+    is_primary        = Column(Boolean, default=False)
+    created_at        = Column(DateTime, server_default=func.now())
+
+    __table_args__ = (UniqueConstraint("doctor_profile_id", "specialty_name"),)
 
 
 class Branch(Base):

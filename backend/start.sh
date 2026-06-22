@@ -593,6 +593,77 @@ try:
 except Exception as e:
     print(f'Migration warning (non-fatal): {e}')
 
+for _sql in [
+    \"ALTER TABLE clinics ADD COLUMN IF NOT EXISTS latitude NUMERIC(10,7)\",
+    \"ALTER TABLE clinics ADD COLUMN IF NOT EXISTS longitude NUMERIC(10,7)\",
+    \"ALTER TABLE clinics ADD COLUMN IF NOT EXISTS capacity_description TEXT\",
+    \"CREATE TABLE IF NOT EXISTS specialties (id SERIAL PRIMARY KEY, name VARCHAR(200) NOT NULL UNIQUE, category VARCHAR(100), is_active BOOLEAN DEFAULT TRUE, sort_order INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE TABLE IF NOT EXISTS doctor_specialties (id SERIAL PRIMARY KEY, doctor_profile_id INTEGER NOT NULL REFERENCES doctor_profiles(id) ON DELETE CASCADE, specialty_name VARCHAR(200) NOT NULL, is_primary BOOLEAN DEFAULT FALSE, created_at TIMESTAMP DEFAULT NOW(), UNIQUE(doctor_profile_id, specialty_name))\",
+    \"CREATE INDEX IF NOT EXISTS idx_doctor_specialties_doctor ON doctor_specialties(doctor_profile_id)\",
+]:
+    try:
+        with engine.begin() as conn:
+            conn.execute(text(_sql))
+    except Exception as e:
+        print(f'Schema addition warning (non-fatal): {e}')
+
+# Seed Indian medical specialties
+try:
+    from sqlalchemy import text as _text
+    _specialties = [
+        ('General Medicine', 'Outpatient', 1), ('Family Medicine', 'Outpatient', 2),
+        ('Internal Medicine', 'Outpatient', 3), ('Emergency Medicine', 'Outpatient', 4),
+        ('Cardiology', 'Specialty', 10), ('Interventional Cardiology', 'Specialty', 11),
+        ('Cardiac Surgery', 'Surgery', 12), ('Dermatology', 'Specialty', 20),
+        ('Dermatology & Cosmetology', 'Specialty', 21), ('Paediatrics', 'Specialty', 30),
+        ('Neonatology', 'Specialty', 31), ('Paediatric Surgery', 'Surgery', 32),
+        ('Orthopaedics', 'Specialty', 40), ('Orthopaedic Surgery', 'Surgery', 41),
+        ('Spine Surgery', 'Surgery', 42), ('Gynaecology & Obstetrics', 'Specialty', 50),
+        ('Reproductive Medicine', 'Specialty', 51), ('Maternal-Fetal Medicine', 'Specialty', 52),
+        ('Neurology', 'Specialty', 60), ('Neurosurgery', 'Surgery', 61),
+        ('Neuroradiology', 'Radiology', 62), ('Ophthalmology', 'Specialty', 70),
+        ('Vitreoretinal Surgery', 'Surgery', 71), ('ENT (Ear, Nose & Throat)', 'Specialty', 80),
+        ('Head & Neck Surgery', 'Surgery', 81), ('Psychiatry & Mental Health', 'Specialty', 90),
+        ('Clinical Psychology', 'Allied', 91), ('Dentistry', 'Specialty', 100),
+        ('Orthodontics', 'Specialty', 101), ('Periodontics', 'Specialty', 102),
+        ('Endodontics', 'Specialty', 103), ('Oral & Maxillofacial Surgery', 'Surgery', 104),
+        ('Urology', 'Specialty', 110), ('Andrology', 'Specialty', 111),
+        ('Nephrology', 'Specialty', 120), ('Transplant Surgery', 'Surgery', 121),
+        ('Gastroenterology', 'Specialty', 130), ('Hepatology', 'Specialty', 131),
+        ('GI Surgery', 'Surgery', 132), ('Laparoscopic Surgery', 'Surgery', 133),
+        ('Endocrinology & Diabetology', 'Specialty', 140), ('Thyroid Surgery', 'Surgery', 141),
+        ('Pulmonology', 'Specialty', 150), ('Thoracic Surgery', 'Surgery', 151),
+        ('Oncology', 'Specialty', 160), ('Surgical Oncology', 'Surgery', 161),
+        ('Radiation Oncology', 'Specialty', 162), ('Haematology', 'Specialty', 163),
+        ('Haematological Oncology', 'Specialty', 164), ('Rheumatology', 'Specialty', 170),
+        ('General Surgery', 'Surgery', 180), ('Vascular Surgery', 'Surgery', 181),
+        ('Plastic & Reconstructive Surgery', 'Surgery', 182), ('Burns & Plastic Surgery', 'Surgery', 183),
+        ('Anaesthesiology', 'Specialty', 190), ('Pain Medicine', 'Specialty', 191),
+        ('Critical Care Medicine', 'Specialty', 200), ('Intensive Care', 'Specialty', 201),
+        ('Radiology & Imaging', 'Radiology', 210), ('Interventional Radiology', 'Radiology', 211),
+        ('Pathology & Lab Medicine', 'Diagnostic', 220), ('Microbiology', 'Diagnostic', 221),
+        ('Biochemistry', 'Diagnostic', 222), ('Immunology', 'Diagnostic', 223),
+        ('Nuclear Medicine', 'Diagnostic', 224), ('Physiotherapy & Rehabilitation', 'Allied', 230),
+        ('Occupational Therapy', 'Allied', 231), ('Speech Therapy', 'Allied', 232),
+        ('Sports Medicine', 'Allied', 233), ('Nutrition & Dietetics', 'Allied', 234),
+        ('Ayurveda', 'AYUSH', 240), ('Panchakarma', 'AYUSH', 241),
+        ('Homeopathy', 'AYUSH', 250), ('Naturopathy & Yoga', 'AYUSH', 251),
+        ('Unani', 'AYUSH', 260), ('Siddha', 'AYUSH', 261),
+        ('Geriatric Medicine', 'Specialty', 270), ('Palliative Care', 'Specialty', 271),
+        ('Infectious Disease', 'Specialty', 280), ('Travel Medicine', 'Specialty', 281),
+        ('Community Medicine', 'Public Health', 290), ('Public Health', 'Public Health', 291),
+        ('Forensic Medicine', 'Other', 300), ('Aviation Medicine', 'Other', 301),
+        ('Hyperbaric Medicine', 'Other', 302),
+    ]
+    with engine.begin() as conn:
+        for name, category, sort_order in _specialties:
+            conn.execute(_text(
+                \"INSERT INTO specialties (name, category, sort_order) VALUES (:n, :c, :s) ON CONFLICT (name) DO NOTHING\"
+            ), {'n': name, 'c': category, 's': sort_order})
+    print('[startup] Specialties seeded.')
+except Exception as e:
+    print(f'[startup] Specialties seed warning (non-fatal): {e}')
+
 indexes = [
     \"CREATE INDEX IF NOT EXISTS idx_appointments_clinic_date ON appointments(clinic_id, booking_date)\",
     \"CREATE INDEX IF NOT EXISTS idx_appointments_status ON appointments(clinic_id, status)\",

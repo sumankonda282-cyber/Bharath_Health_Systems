@@ -42,7 +42,8 @@ class Settings(BaseSettings):
         "https://bharath-health-public.vercel.app,https://bharath-health-provider.vercel.app,"
         "https://bharath-health-patient.vercel.app,https://bharath-health-lab.vercel.app,"
         "https://bharath-health-imaging.vercel.app,https://bharath-health-pharmacy.vercel.app,"
-        "https://bharath-health-staff.vercel.app,https://bharath-health-admin.vercel.app"
+        "https://bharath-health-staff.vercel.app,https://bharath-health-admin.vercel.app,"
+        "https://bharath-health-systems.vercel.app"
     )
 
     DEBUG: bool = False
@@ -80,6 +81,7 @@ class Settings(BaseSettings):
             "https://bharath-health-pharmacy.vercel.app",
             "https://bharath-health-staff.vercel.app",
             "https://bharath-health-admin.vercel.app",
+            "https://bharath-health-systems.vercel.app",
             "https://bhs-staff.pages.dev",
             "http://localhost:5173",
             "http://localhost:5174",

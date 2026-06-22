@@ -1,6 +1,9 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { Building2, ChevronRight, Check, CheckCircle, ArrowLeft, Mail, Phone, Upload, X } from 'lucide-react'
+import {
+  Building2, ChevronRight, Check, CheckCircle, ArrowLeft,
+  Mail, Phone, Upload, X, MapPin, Search, Plus
+} from 'lucide-react'
 import { publicApi } from '../api/client'
 import Navbar from '../components/Navbar'
 
@@ -12,9 +15,9 @@ const HEALTH_CENTER_TYPES = [
   'Group Practice / Polyclinic',
   'Multispecialty Clinic',
   // Hospital
-  'Nursing Home (< 30 beds)',
-  'Small Hospital (30–100 beds)',
-  'Large Hospital (> 100 beds)',
+  'Nursing Home',
+  'Small Hospital',
+  'Large Hospital',
   'Maternity & Nursing Home',
   // Specialty
   'Dental Clinic',
@@ -26,55 +29,16 @@ const HEALTH_CENTER_TYPES = [
   'Cancer Care Centre',
   'Mental Health Centre',
   // Allied
-  'Physiotherapy & Rehabilitation',
-  'Ayurveda / Naturopathy',
-  'Homeopathy',
-  'Unani',
-  'Siddha',
+  'Physiotherapy & Rehabilitation Centre',
+  'Ayurveda / Naturopathy Centre',
+  'Homeopathy Clinic',
+  'Unani Clinic',
+  'Siddha Clinic',
   // Diagnostics
   'Diagnostic Centre / Lab',
   'Radiology & Imaging Centre',
   'Blood Bank',
   // Other
-  'Other',
-]
-
-const DOCTOR_SPECIALTIES = [
-  'General Medicine',
-  'Family Medicine',
-  'Cardiology',
-  'Dermatology & Cosmetology',
-  'Paediatrics',
-  'Orthopaedics',
-  'Gynaecology & Obstetrics',
-  'Neurology',
-  'Neurosurgery',
-  'Ophthalmology',
-  'ENT (Ear, Nose & Throat)',
-  'Psychiatry & Mental Health',
-  'Dentistry',
-  'Oral & Maxillofacial Surgery',
-  'Urology',
-  'Nephrology',
-  'Gastroenterology',
-  'Hepatology',
-  'Endocrinology & Diabetology',
-  'Pulmonology',
-  'Oncology',
-  'Haematology',
-  'Rheumatology',
-  'Radiology & Imaging',
-  'Pathology & Lab Medicine',
-  'Anaesthesiology',
-  'General Surgery',
-  'Plastic & Reconstructive Surgery',
-  'Vascular Surgery',
-  'Physiotherapy & Rehabilitation',
-  'Ayurveda',
-  'Homeopathy',
-  'Naturopathy',
-  'Unani',
-  'Siddha',
   'Other',
 ]
 
@@ -88,6 +52,203 @@ const INDIAN_STATES = [
   'Andaman and Nicobar Islands', 'Chandigarh', 'Delhi', 'Jammu & Kashmir',
   'Ladakh', 'Lakshadweep', 'Puducherry',
 ]
+
+// ── Location Picker (Nominatim / OpenStreetMap) ──────────────────────────────
+function LocationPicker({ lat, lng, address, city, state, onChange }) {
+  const [query, setQuery]       = useState('')
+  const [suggestions, setSuggestions] = useState([])
+  const [loading, setLoading]   = useState(false)
+  const [showMap, setShowMap]   = useState(!!(lat && lng))
+  const debounceRef = useRef(null)
+
+  const search = useCallback((q) => {
+    if (!q || q.length < 3) { setSuggestions([]); return }
+    clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(async () => {
+      setLoading(true)
+      try {
+        const countryHint = 'India'
+        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q + ', ' + countryHint)}&format=json&limit=5&addressdetails=1`
+        const res = await fetch(url, { headers: { 'Accept-Language': 'en' } })
+        const data = await res.json()
+        setSuggestions(data)
+      } catch {
+        setSuggestions([])
+      } finally {
+        setLoading(false)
+      }
+    }, 500)
+  }, [])
+
+  const pick = (item) => {
+    const pickedLat = parseFloat(item.lat)
+    const pickedLng = parseFloat(item.lon)
+    const addr = item.address || {}
+    onChange({
+      latitude:  pickedLat,
+      longitude: pickedLng,
+      address:   item.display_name,
+      city:      addr.city || addr.town || addr.village || addr.county || '',
+      state:     addr.state || '',
+      pincode:   addr.postcode || '',
+    })
+    setQuery(item.display_name)
+    setSuggestions([])
+    setShowMap(true)
+  }
+
+  const mapSrc = lat && lng
+    ? `https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.01},${lat - 0.01},${lng + 0.01},${lat + 0.01}&layer=mapnik&marker=${lat},${lng}`
+    : null
+
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1.5">
+        Location on Map <span className="text-gray-400 font-normal">(optional — helps patients find you)</span>
+      </label>
+
+      <div className="relative mb-2">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <input
+          type="text"
+          value={query}
+          onChange={e => { setQuery(e.target.value); search(e.target.value) }}
+          placeholder="Search your clinic address on map…"
+          className="w-full pl-9 pr-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-transparent"
+        />
+        {loading && (
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+        )}
+      </div>
+
+      {suggestions.length > 0 && (
+        <div className="border border-gray-200 rounded-xl shadow-lg bg-white mb-2 overflow-hidden z-10 relative">
+          {suggestions.map((s, i) => (
+            <button key={i} type="button" onMouseDown={() => pick(s)}
+              className="w-full text-left px-4 py-3 text-sm hover:bg-blue-50 flex items-start gap-2 border-b border-gray-50 last:border-0">
+              <MapPin className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
+              <span className="text-gray-700 line-clamp-2">{s.display_name}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {showMap && mapSrc && (
+        <div className="relative rounded-xl overflow-hidden border border-gray-200 mb-2" style={{ height: 220 }}>
+          <iframe
+            title="clinic-location"
+            src={mapSrc}
+            width="100%"
+            height="220"
+            style={{ border: 0, display: 'block' }}
+            loading="lazy"
+          />
+          <button
+            type="button"
+            onClick={() => { onChange({ latitude: null, longitude: null }); setShowMap(false); setQuery('') }}
+            className="absolute top-2 right-2 bg-white rounded-full p-1.5 shadow text-gray-500 hover:text-red-500"
+            title="Clear location">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {lat && lng && (
+        <p className="text-xs text-green-600 flex items-center gap-1">
+          <MapPin className="w-3 h-3" />
+          Pinned: {lat.toFixed(5)}, {lng.toFixed(5)}
+        </p>
+      )}
+      {!lat && !lng && (
+        <p className="text-xs text-gray-400">
+          Pinning your location helps patients navigate to your health center.
+        </p>
+      )}
+    </div>
+  )
+}
+
+// ── Multi-select Specialty Search ─────────────────────────────────────────────
+function SpecialtyMultiSelect({ selected, onChange, error }) {
+  const [query, setQuery]       = useState('')
+  const [allSpecialties, setAll] = useState([])
+  const [open, setOpen]         = useState(false)
+  const inputRef = useRef(null)
+
+  useEffect(() => {
+    publicApi.getSpecialties().then(data => setAll(data)).catch(() => setAll([]))
+  }, [])
+
+  const filtered = query.length >= 1
+    ? allSpecialties.filter(s =>
+        s.name.toLowerCase().includes(query.toLowerCase()) &&
+        !selected.includes(s.name)
+      ).slice(0, 10)
+    : allSpecialties.filter(s => !selected.includes(s.name)).slice(0, 12)
+
+  const add = (name) => {
+    onChange([...selected, name])
+    setQuery('')
+    inputRef.current?.focus()
+  }
+
+  const remove = (name) => onChange(selected.filter(s => s !== name))
+
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1.5">
+        Specialty / Department(s) <span className="text-red-600 ml-0.5">*</span>
+        <span className="text-gray-400 font-normal ml-1">(select all that apply)</span>
+      </label>
+
+      {selected.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-2">
+          {selected.map((s, i) => (
+            <span key={s} className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold"
+              style={{ background: i === 0 ? '#0F255515' : '#f3f4f6', color: i === 0 ? '#0F2557' : '#374151' }}>
+              {i === 0 && <span className="text-xs opacity-60 mr-0.5">Primary</span>}
+              {s}
+              <button type="button" onClick={() => remove(s)} className="ml-0.5 hover:text-red-500">
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <input
+          ref={inputRef}
+          type="text"
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setTimeout(() => setOpen(false), 200)}
+          placeholder={selected.length ? 'Add another specialty…' : 'Search specialty (e.g. Cardiology, Orthopaedics)…'}
+          className={`w-full pl-9 pr-4 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-transparent transition-all ${error ? 'border-red-400 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-100'}`}
+        />
+      </div>
+
+      {open && filtered.length > 0 && (
+        <div className="border border-gray-200 rounded-xl shadow-lg bg-white mt-1 overflow-auto max-h-52 z-20 relative">
+          {filtered.map(s => (
+            <button key={s.id} type="button" onMouseDown={() => add(s.name)}
+              className="w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 flex items-center justify-between border-b border-gray-50 last:border-0">
+              <span className="text-gray-800">{s.name}</span>
+              <span className="text-xs text-gray-400 ml-2 flex-shrink-0">{s.category}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+      {selected.length === 0 && (
+        <p className="text-xs text-gray-400 mt-1">The first specialty you select becomes the primary one.</p>
+      )}
+    </div>
+  )
+}
 
 function StepIndicator({ current }) {
   return (
@@ -155,6 +316,10 @@ function Step1({ data, onChange, onNext }) {
     ...extra,
   })
 
+  const handleLocationChange = (loc) => {
+    Object.entries(loc).forEach(([k, v]) => onChange(k, v))
+  }
+
   return (
     <div>
       <h2 className="text-xl font-bold mb-1" style={{ color: '#0F2557' }}>Health Center Details</h2>
@@ -165,12 +330,25 @@ function Step1({ data, onChange, onNext }) {
             <input type="text" {...inp('clinic_name')} placeholder="e.g. Sunrise Multi-Speciality Hospital" />
           </Field>
         </div>
+
         <Field label="Type of Health Center" required error={errors.specialty}>
           <select {...inp('specialty')}>
             <option value="">Select type…</option>
             {HEALTH_CENTER_TYPES.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </Field>
+
+        <Field label="Capacity / Size Description" optional>
+          <input
+            type="text"
+            value={data.capacity_description || ''}
+            onChange={e => onChange('capacity_description', e.target.value)}
+            className={inputCls(false)}
+            placeholder="e.g. 80 beds, 4 OTs, 12-bed ICU"
+          />
+          <p className="text-xs text-gray-400 mt-1">Describe your capacity in your own words — beds, OTs, ICU, doctors, etc.</p>
+        </Field>
+
         <Field label="State" required error={errors.state}>
           <select {...inp('state')}>
             <option value="">Select state…</option>
@@ -196,6 +374,17 @@ function Step1({ data, onChange, onNext }) {
               className={`${inputCls(errors.address)} resize-none`} />
           </Field>
         </div>
+
+        <div className="md:col-span-2">
+          <LocationPicker
+            lat={data.latitude}
+            lng={data.longitude}
+            address={data.address}
+            city={data.city}
+            state={data.state}
+            onChange={handleLocationChange}
+          />
+        </div>
       </div>
       <button onClick={() => { if (validate()) onNext() }}
         className="mt-8 w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm text-white"
@@ -216,7 +405,7 @@ function Step2({ data, onChange, onNext, onBack }) {
     if (!data.doctor_name?.trim()) e.doctor_name = 'Full name is required'
     if (!data.doctor_email?.trim() || !/\S+@\S+\.\S+/.test(data.doctor_email)) e.doctor_email = 'Valid email required — login credentials will be sent here'
     if (!data.doctor_phone?.trim() || !/^[6-9]\d{9}$/.test(data.doctor_phone)) e.doctor_phone = 'Valid 10-digit phone required — credentials also sent via SMS'
-    if (!data.doctor_specialty) e.doctor_specialty = 'Specialty is required'
+    if (!data.doctor_specialties?.length) e.doctor_specialties = 'At least one specialty is required'
     if (!data.qualification?.trim()) e.qualification = 'Qualification is required'
     setErrors(e)
     return Object.keys(e).length === 0
@@ -253,12 +442,15 @@ function Step2({ data, onChange, onNext, onBack }) {
         <Field label="Mobile Number" required error={errors.doctor_phone}>
           <input type="tel" {...inp('doctor_phone')} maxLength={10} placeholder="10-digit mobile" />
         </Field>
-        <Field label="Specialty / Department" required error={errors.doctor_specialty}>
-          <select {...inp('doctor_specialty')}>
-            <option value="">Select specialty…</option>
-            {DOCTOR_SPECIALTIES.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </Field>
+
+        <div className="md:col-span-2">
+          <SpecialtyMultiSelect
+            selected={data.doctor_specialties || []}
+            onChange={val => onChange('doctor_specialties', val)}
+            error={errors.doctor_specialties}
+          />
+        </div>
+
         <Field label="Qualification" required error={errors.qualification}>
           <input type="text" {...inp('qualification')} placeholder="e.g. MBBS, MD, MS, BDS, BPT" />
         </Field>
@@ -318,25 +510,27 @@ function Step2({ data, onChange, onNext, onBack }) {
 // ── Step 3: Review & Submit ───────────────────────────────────────────────────
 function Step3({ data, onBack, onSubmit, submitting, error }) {
   const rows = [
-    { label: 'Health Center Name', value: data.clinic_name },
-    { label: 'Type',               value: data.specialty },
-    { label: 'City',               value: data.city },
-    { label: 'State',              value: data.state },
-    { label: 'Pincode',            value: data.pincode },
-    { label: 'Phone',              value: data.phone },
-    { label: 'Email',              value: data.email },
-    { label: 'Address',            value: data.address },
+    { label: 'Health Center Name',   value: data.clinic_name },
+    { label: 'Type',                 value: data.specialty },
+    { label: 'Capacity',             value: data.capacity_description },
+    { label: 'City',                 value: data.city },
+    { label: 'State',                value: data.state },
+    { label: 'Pincode',              value: data.pincode },
+    { label: 'Phone',                value: data.phone },
+    { label: 'Email',                value: data.email },
+    { label: 'Address',              value: data.address },
+    { label: 'Map Location',         value: data.latitude ? `${Number(data.latitude).toFixed(5)}, ${Number(data.longitude).toFixed(5)}` : null },
     null,
-    { label: 'Contact Name',       value: data.doctor_name },
-    { label: 'Designation',        value: data.designation },
-    { label: 'Login Email',        value: data.doctor_email },
-    { label: 'Mobile',             value: data.doctor_phone },
-    { label: 'Specialty',          value: data.doctor_specialty },
-    { label: 'Qualification',      value: data.qualification },
-    { label: 'Reg. Number',        value: data.mci_number },
-    { label: 'Experience',         value: data.experience_years ? `${data.experience_years} years` : null },
-    { label: 'Consultation Fee',   value: data.fee ? `₹${data.fee}` : null },
-    { label: 'License Document',   value: data.license_file ? data.license_file.name : null },
+    { label: 'Contact Name',         value: data.doctor_name },
+    { label: 'Designation',          value: data.designation },
+    { label: 'Login Email',          value: data.doctor_email },
+    { label: 'Mobile',               value: data.doctor_phone },
+    { label: 'Specialties',          value: data.doctor_specialties?.join(', ') },
+    { label: 'Qualification',        value: data.qualification },
+    { label: 'Reg. Number',          value: data.mci_number },
+    { label: 'Experience',           value: data.experience_years ? `${data.experience_years} years` : null },
+    { label: 'Consultation Fee',     value: data.fee ? `₹${data.fee}` : null },
+    { label: 'License Document',     value: data.license_file ? data.license_file.name : null },
   ].filter(r => r === null || r.value)
 
   let idx = 0
@@ -350,7 +544,7 @@ function Step3({ data, onBack, onSubmit, submitting, error }) {
           if (row === null) return <div key={`div-${i}`} className="h-px bg-blue-100" />
           const bg = idx++ % 2 === 0 ? 'bg-white' : 'bg-gray-50'
           return (
-            <div key={row.label} className={`flex justify-between items-center px-4 py-3 text-sm ${bg}`}>
+            <div key={row.label} className={`flex justify-between items-start px-4 py-3 text-sm ${bg}`}>
               <span className="text-gray-500 font-medium flex-shrink-0 mr-4">{row.label}</span>
               <span className="font-semibold text-right" style={{ color: '#0F2557' }}>{row.value}</span>
             </div>
@@ -407,6 +601,7 @@ function SuccessScreen({ email }) {
           'Our team verifies your health center and doctor credentials',
           'You receive a username + one-time password via email and SMS',
           'Log in at provider.bharathhealthsystems.com and set your permanent password',
+          'Your profile goes live and patients can start booking',
         ].map((step, i) => (
           <div key={i} className="flex items-start gap-3">
             <div className="w-5 h-5 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5"
@@ -426,11 +621,11 @@ function SuccessScreen({ email }) {
 }
 
 export default function RegisterClinic() {
-  const [step, setStep]           = useState(0)
-  const [submitted, setSubmitted] = useState(false)
+  const [step, setStep]             = useState(0)
+  const [submitted, setSubmitted]   = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
-  const [formData, setFormData]   = useState({})
+  const [formData, setFormData]     = useState({})
 
   const updateField = (key, value) => setFormData(prev => ({ ...prev, [key]: value }))
 
@@ -438,16 +633,20 @@ export default function RegisterClinic() {
     setSubmitting(true)
     setSubmitError('')
     try {
+      const specialties = formData.doctor_specialties || []
       await publicApi.registerClinic({
         clinic: {
-          name:      formData.clinic_name,
-          specialty: formData.specialty,
-          city:      formData.city,
-          state:     formData.state,
-          phone:     formData.phone,
-          email:     formData.email,
-          address:   formData.address,
-          pincode:   formData.pincode,
+          name:                 formData.clinic_name,
+          specialty:            specialties[0] || formData.specialty || 'General Medicine',
+          capacity_description: formData.capacity_description,
+          city:                 formData.city,
+          state:                formData.state,
+          phone:                formData.phone,
+          email:                formData.email,
+          address:              formData.address,
+          pincode:              formData.pincode,
+          latitude:             formData.latitude,
+          longitude:            formData.longitude,
         },
         doctor: {
           full_name:           formData.doctor_name,
@@ -457,7 +656,8 @@ export default function RegisterClinic() {
           registration_number: formData.mci_number,
           experience_years:    formData.experience_years ? Number(formData.experience_years) : null,
           consultation_fee:    formData.fee ? Number(formData.fee) : 500,
-          specialty:           formData.doctor_specialty,
+          specialty:           specialties[0] || '',
+          specialties:         specialties,
           designation:         formData.designation,
         },
         admin_email: formData.doctor_email,
