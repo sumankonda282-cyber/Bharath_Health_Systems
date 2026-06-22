@@ -15,7 +15,7 @@ const ROLE_COLORS = {
 
 const SLOT_OPTIONS = [10, 15, 20, 30, 45, 60]
 
-const DEFAULT_DAY = { enabled: false, start_time: '09:00', end_time: '17:00', slot_minutes: 30 }
+const DEFAULT_DAY = { enabled: false, start_time: '09:00', end_time: '17:00', slot_minutes: 30, max_patients: 20, online_auto_confirm: 0 }
 
 function initWeek() {
   return Object.fromEntries(DAYS.map(d => [d, { ...DEFAULT_DAY }]))
@@ -203,6 +203,8 @@ export default function ClinicAdmin() {
                 start_time: s.start_time || '09:00',
                 end_time: s.end_time || '17:00',
                 slot_minutes: s.slot_minutes || 30,
+                max_patients: s.max_patients ?? 20,
+                online_auto_confirm: s.online_auto_confirm ?? 0,
               }
             }
           })
@@ -254,12 +256,14 @@ export default function ClinicAdmin() {
         const cfg = weekSchedule[day]
         if (!cfg) continue
         await clinicApi.setSchedule(scheduleDoctor.profile_id, {
-          day_of_week:  day,
-          branch_id:    Number(branchId),
-          start_time:   cfg.start_time,
-          end_time:     cfg.end_time,
-          slot_minutes: cfg.slot_minutes,
-          is_active:    cfg.enabled,
+          day_of_week:          day,
+          branch_id:            Number(branchId),
+          start_time:           cfg.start_time,
+          end_time:             cfg.end_time,
+          slot_minutes:         cfg.slot_minutes,
+          max_patients:         cfg.max_patients ?? 20,
+          online_auto_confirm:  cfg.online_auto_confirm ?? 0,
+          is_active:            cfg.enabled,
         })
       }
       setSaveSuccess(scheduleDoctor.full_name)
@@ -630,15 +634,15 @@ export default function ClinicAdmin() {
 
             {/* Weekly grid */}
             <div className="border border-gray-200 rounded-xl overflow-hidden">
-              <div className="grid grid-cols-[120px_1fr_1fr_80px] gap-0 text-xs font-semibold text-gray-500 bg-gray-50 px-4 py-2 border-b border-gray-200">
-                <span>Day</span><span>Start</span><span>End</span><span>Slots</span>
+              <div className="grid grid-cols-[110px_1fr_1fr_70px_80px_90px] gap-0 text-xs font-semibold text-gray-500 bg-gray-50 px-4 py-2 border-b border-gray-200">
+                <span>Day</span><span>Start</span><span>End</span><span>Slots</span><span>Max Pts</span><span>Auto-confirm</span>
               </div>
               {DAYS.map((day) => {
                 const cfg = weekSchedule[day] || DEFAULT_DAY
                 return (
                   <div
                     key={day}
-                    className={`grid grid-cols-[120px_1fr_1fr_80px] gap-3 items-center px-4 py-3 border-b border-gray-100 last:border-0 transition-colors ${cfg.enabled ? 'bg-white' : 'bg-gray-50'}`}
+                    className={`grid grid-cols-[110px_1fr_1fr_70px_80px_90px] gap-3 items-center px-4 py-3 border-b border-gray-100 last:border-0 transition-colors ${cfg.enabled ? 'bg-white' : 'bg-gray-50'}`}
                   >
                     <label className="flex items-center gap-2 cursor-pointer select-none">
                       <input
@@ -673,6 +677,24 @@ export default function ClinicAdmin() {
                     >
                       {SLOT_OPTIONS.map(m => <option key={m} value={m}>{m}m</option>)}
                     </select>
+                    <input
+                      type="number"
+                      className="input py-1.5 text-sm disabled:opacity-40"
+                      disabled={!cfg.enabled}
+                      min={1} max={200}
+                      value={cfg.max_patients ?? 20}
+                      onChange={e => setDayField(day, 'max_patients', Number(e.target.value))}
+                      title="Max patients per day"
+                    />
+                    <input
+                      type="number"
+                      className="input py-1.5 text-sm disabled:opacity-40"
+                      disabled={!cfg.enabled}
+                      min={0} max={cfg.max_patients ?? 200}
+                      value={cfg.online_auto_confirm ?? 0}
+                      onChange={e => setDayField(day, 'online_auto_confirm', Number(e.target.value))}
+                      title="Auto-confirm online slots (0 = all auto-confirm)"
+                    />
                   </div>
                 )
               })}

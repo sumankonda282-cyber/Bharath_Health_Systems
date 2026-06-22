@@ -181,6 +181,7 @@ class DoctorScheduleCreate(BaseModel):
     end_time: str
     slot_minutes: int = 30
     max_patients: int = 20
+    online_auto_confirm: int = 0
     is_active: bool = True
 
 

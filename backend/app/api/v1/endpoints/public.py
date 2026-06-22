@@ -520,6 +520,33 @@ def book_appointment_online(
             detail="You already have a booking with this doctor on this date."
         )
 
+    # Slot quota: check auto_confirm vs request threshold
+    schedule = db.query(DoctorSchedule).filter(
+        DoctorSchedule.doctor_id == payload.doctor_id,
+        DoctorSchedule.day_of_week == payload.booking_date.strftime('%A').lower(),
+        DoctorSchedule.is_active == True,
+    ).first()
+
+    booking_status = "confirmed"
+    if schedule:
+        auto_confirm_limit = getattr(schedule, 'online_auto_confirm', 0) or 0
+        max_cap = getattr(schedule, 'max_patients', 20) or 20
+        if auto_confirm_limit > 0:
+            confirmed_count = db.query(OnlineBooking).filter(
+                OnlineBooking.doctor_id == payload.doctor_id,
+                OnlineBooking.booking_date == payload.booking_date,
+                OnlineBooking.status == "confirmed",
+            ).count()
+            if confirmed_count >= auto_confirm_limit:
+                booking_status = "pending"
+        total_booked = db.query(OnlineBooking).filter(
+            OnlineBooking.doctor_id == payload.doctor_id,
+            OnlineBooking.booking_date == payload.booking_date,
+            OnlineBooking.status.in_(["confirmed", "pending"]),
+        ).count()
+        if max_cap > 0 and total_booked >= max_cap:
+            raise HTTPException(status_code=400, detail="Doctor is fully booked for this day.")
+
     # Look up or create PatientUser by mobile
     portal_user = db.query(PatientUser).filter(PatientUser.mobile == payload.patient_mobile).first()
     is_new_patient = False
@@ -578,7 +605,7 @@ def book_appointment_online(
         booking_date=payload.booking_date,
         booking_time=payload.booking_time,
         reason=payload.reason,
-        status="pending",
+        status=booking_status,
         confirmation_code=_gen_confirmation_code(),
         mode=payload.mode or "offline",
         patient_state=payload.patient_state,
@@ -632,6 +659,8 @@ def book_appointment_online(
         "amount_due": float(booking.amount_due) if booking.amount_due else None,
         "bh_id": bh_id_assigned,
         "is_new_patient": is_new_patient,
+        "booking_status": booking.status,
+        "requires_approval": booking.status == "pending",
     }
 
 

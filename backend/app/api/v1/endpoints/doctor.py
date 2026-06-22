@@ -51,6 +51,19 @@ def get_queue(
         q = q.filter(Appointment.branch_id == current.branch_id)
 
     appointments = q.order_by(Appointment.token_number).all()
+
+    vitals_map = {}
+    for a in appointments:
+        if a.vitals:
+            v = a.vitals
+            vitals_map[a.id] = {
+                "bp":     f"{v.blood_pressure_systolic}/{v.blood_pressure_diastolic}" if getattr(v, 'blood_pressure_systolic', None) and getattr(v, 'blood_pressure_diastolic', None) else None,
+                "temp":   str(v.temperature) if getattr(v, 'temperature', None) else None,
+                "spo2":   str(v.oxygen_saturation) if getattr(v, 'oxygen_saturation', None) else None,
+                "weight": str(v.weight_kg) if getattr(v, 'weight_kg', None) else None,
+                "pulse":  str(v.pulse_rate) if getattr(v, 'pulse_rate', None) else None,
+            }
+
     return [
         {
             "id":               a.id,
@@ -61,6 +74,9 @@ def get_queue(
             "mode":             a.mode,
             "reason":           a.reason,
             "vitals_recorded":  a.vitals is not None,
+            "vitals":           vitals_map.get(a.id),
+            "patient_id":       a.patient.id if a.patient else None,
+            "patient_uhid":     a.patient.uhid if a.patient else None,
             "patient_name":     a.patient.full_name if a.patient else None,
             "patient": {
                 "id":          a.patient.id,
@@ -388,6 +404,109 @@ def update_my_doctor_profile(body: dict, db: Session = Depends(get_db), current:
 
     db.commit()
     return {"message": "Profile updated"}
+
+
+@router.post("/queue/{appointment_id}/approve")
+def approve_appointment(
+    appointment_id: int,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(require_doctor),
+):
+    """Doctor approves a pending online booking."""
+    from app.models.models import OnlineBooking as OB
+    appt = db.query(Appointment).filter(
+        Appointment.id == appointment_id,
+        Appointment.clinic_id == current.clinic_id,
+    ).first()
+    if not appt:
+        raise HTTPException(404, "Appointment not found")
+    appt.status = "confirmed"
+    ob = db.query(OB).filter(
+        OB.doctor_id == appt.doctor_id,
+        OB.booking_date == appt.appointment_date,
+        OB.booking_time == appt.appointment_time,
+        OB.status == "pending",
+    ).first()
+    if ob:
+        ob.status = "confirmed"
+    db.commit()
+    return {"success": True, "status": "confirmed"}
+
+
+@router.post("/queue/{appointment_id}/decline")
+def decline_appointment(
+    appointment_id: int,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(require_doctor),
+):
+    """Doctor declines a pending online booking."""
+    from app.models.models import OnlineBooking as OB
+    appt = db.query(Appointment).filter(
+        Appointment.id == appointment_id,
+        Appointment.clinic_id == current.clinic_id,
+    ).first()
+    if not appt:
+        raise HTTPException(404, "Appointment not found")
+    appt.status = "cancelled"
+    ob = db.query(OB).filter(
+        OB.doctor_id == appt.doctor_id,
+        OB.booking_date == appt.appointment_date,
+        OB.booking_time == appt.appointment_time,
+        OB.status == "pending",
+    ).first()
+    if ob:
+        ob.status = "cancelled"
+    db.commit()
+    return {"success": True, "status": "cancelled"}
+
+
+@router.get("/my-patients")
+def get_my_patients(
+    search: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 50,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(require_doctor),
+):
+    """Return patients who have had appointments with this doctor only."""
+    profile = db.query(DoctorProfile).filter(DoctorProfile.staff_id == current.id).first()
+    if not profile:
+        return []
+
+    subq = db.query(Appointment.patient_id).filter(
+        Appointment.doctor_id == profile.id,
+        Appointment.clinic_id == current.clinic_id,
+        Appointment.patient_id.isnot(None),
+    ).distinct().subquery()
+
+    q = db.query(Patient).filter(Patient.id.in_(subq))
+    if search:
+        q = q.filter(
+            Patient.full_name.ilike(f"%{search}%") |
+            Patient.mobile.ilike(f"%{search}%") |
+            Patient.uhid.ilike(f"%{search}%")
+        )
+
+    patients = q.order_by(Patient.id.desc()).offset(skip).limit(limit).all()
+
+    result = []
+    for p in patients:
+        last_appt = db.query(Appointment).filter(
+            Appointment.patient_id == p.id,
+            Appointment.doctor_id == profile.id,
+        ).order_by(Appointment.appointment_date.desc()).first()
+        result.append({
+            "id": p.id,
+            "uhid": p.uhid,
+            "full_name": p.full_name,
+            "mobile": p.mobile,
+            "gender": p.gender,
+            "blood_group": p.blood_group,
+            "age": _age(p),
+            "last_visit": str(last_appt.appointment_date) if last_appt else None,
+            "last_reason": last_appt.reason if last_appt else None,
+        })
+    return result
 
 
 @router.post("/encounter/{appointment_id}/join-telehealth")
