@@ -10,13 +10,14 @@ from app.core.security import get_current_staff, require_billing_waive
 from app.models.models import (
     Medicine, Prescription, PrescriptionItem,
     LabTest, LabOrder, LabOrderItem,
-    Invoice, InvoiceItem, Staff, StockTransaction,
+    Invoice, InvoiceItem, InvoicePayment, Staff, StockTransaction,
     Supplier, PurchaseOrder, PurchaseOrderItem,
     SalesReturn, SalesReturnItem, DrugRegister, MedicineBatch,
     ImagingCatalog, BarcodeMaster, StockAdjustment, DrugInteraction,
     CashReconciliation, SupplierPayment,
     DiscountScheme, CreditAccount, CreditTransaction,
     SupplierReturn, SupplierReturnItem,
+    PharmacyCartItem, Patient, Admission, MedicationOrder,
 )
 from app.schemas.schemas import (
     MedicineCreate, MedicineOut,
@@ -3387,3 +3388,594 @@ def update_supplier_return_status(
     ret.status = status
     db.commit()
     return {"id": ret_id, "status": status}
+
+
+# ── CPOE Queue ────────────────────────────────────────────────────────────────
+
+def _patient_info(pat: Patient) -> dict:
+    return {
+        "patient_id":    pat.id,
+        "patient_name":  pat.full_name,
+        "bhid":          pat.bh_id,
+        "mrn":           pat.clinic_patient_id,
+        "mobile":        pat.mobile,
+        "gender":        pat.gender,
+        "date_of_birth": pat.date_of_birth.isoformat() if pat.date_of_birth else None,
+    }
+
+
+@pharmacy_router.get("/cpoe-queue")
+def get_cpoe_queue(
+    branch_id: Optional[int] = Query(None),
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """All pending OPD prescriptions + active IPD medication orders grouped by patient.
+    Cart status included per item so frontend can show what's already prepared."""
+    patients_map: dict = {}
+
+    # ── OPD: pending prescriptions ────────────────────────────────────────────
+    rx_list = (
+        db.query(Prescription)
+        .filter(Prescription.clinic_id == current.clinic_id, Prescription.status == "pending")
+        .options(joinedload(Prescription.items), joinedload(Prescription.patient))
+        .all()
+    )
+    for rx in rx_list:
+        if not rx.patient_id or not rx.patient:
+            continue
+        pat = rx.patient
+        pid = pat.id
+        if pid not in patients_map:
+            patients_map[pid] = {**_patient_info(pat), "encounter_type": "OP", "admission_id": None, "orders": []}
+        doc_name = None
+        if rx.prescribed_by:
+            doc = db.query(Staff).filter(Staff.id == rx.prescribed_by).first()
+            doc_name = doc.full_name if doc else None
+        for item in rx.items:
+            in_cart = db.query(PharmacyCartItem).filter(
+                PharmacyCartItem.source_type == "prescription_item",
+                PharmacyCartItem.source_id == item.id,
+                PharmacyCartItem.clinic_id == current.clinic_id,
+            ).first()
+            patients_map[pid]["orders"].append({
+                "source_type":     "prescription_item",
+                "source_id":       item.id,
+                "prescription_id": rx.id,
+                "medicine_name":   item.medicine_name or "",
+                "generic_name":    None,
+                "dose":            item.dosage,
+                "route":           None,
+                "frequency":       item.frequency,
+                "duration":        item.duration,
+                "quantity":        item.quantity_prescribed or 1,
+                "instructions":    item.instructions,
+                "is_stat":         False,
+                "medicine_id":     item.medicine_id,
+                "in_cart":         bool(in_cart),
+                "doctor_name":     doc_name,
+                "ordered_at":      rx.created_at.isoformat() if rx.created_at else None,
+            })
+
+    # ── IPD: active medication orders ─────────────────────────────────────────
+    mo_query = (
+        db.query(MedicationOrder)
+        .filter(MedicationOrder.clinic_id == current.clinic_id, MedicationOrder.status == "active")
+        .options(joinedload(MedicationOrder.orderer))
+        .all()
+    )
+    for mo in mo_query:
+        adm = db.query(Admission).filter(Admission.id == mo.admission_id).first()
+        if not adm or not adm.patient_id:
+            continue
+        pat = db.query(Patient).filter(Patient.id == adm.patient_id).first()
+        if not pat:
+            continue
+        pid = pat.id
+        if pid not in patients_map:
+            patients_map[pid] = {**_patient_info(pat), "encounter_type": "IP", "admission_id": adm.id, "orders": []}
+        elif patients_map[pid]["encounter_type"] == "OP":
+            patients_map[pid]["encounter_type"] = "IP"
+            patients_map[pid]["admission_id"] = adm.id
+        in_cart = db.query(PharmacyCartItem).filter(
+            PharmacyCartItem.source_type == "medication_order",
+            PharmacyCartItem.source_id == mo.id,
+            PharmacyCartItem.clinic_id == current.clinic_id,
+        ).first()
+        dur = f"{mo.duration_days}d" if mo.duration_days else None
+        patients_map[pid]["orders"].append({
+            "source_type":     "medication_order",
+            "source_id":       mo.id,
+            "prescription_id": None,
+            "medicine_name":   mo.drug_name,
+            "generic_name":    mo.generic_name,
+            "dose":            mo.dose,
+            "route":           mo.route,
+            "frequency":       mo.frequency,
+            "duration":        dur,
+            "quantity":        mo.duration_days or 1,
+            "instructions":    mo.instructions,
+            "is_stat":         mo.is_stat,
+            "medicine_id":     None,
+            "in_cart":         bool(in_cart),
+            "doctor_name":     mo.orderer.full_name if mo.orderer else None,
+            "ordered_at":      mo.ordered_at.isoformat() if mo.ordered_at else None,
+        })
+
+    # ── Drug interaction check per patient ────────────────────────────────────
+    result = []
+    for pid, pdata in patients_map.items():
+        orders = pdata.get("orders", [])
+        if not orders:
+            continue
+        names = [o["generic_name"] or o["medicine_name"] for o in orders]
+        interactions = []
+        if len(names) > 1:
+            for i, d1 in enumerate(names):
+                for d2 in names[i + 1:]:
+                    found = db.query(DrugInteraction).filter(
+                        (DrugInteraction.drug1.ilike(f"%{d1[:20]}%") & DrugInteraction.drug2.ilike(f"%{d2[:20]}%")) |
+                        (DrugInteraction.drug1.ilike(f"%{d2[:20]}%") & DrugInteraction.drug2.ilike(f"%{d1[:20]}%"))
+                    ).first()
+                    if found:
+                        interactions.append({
+                            "drug1":       d1,
+                            "drug2":       d2,
+                            "severity":    getattr(found, "severity", "moderate"),
+                            "description": getattr(found, "description", "Possible interaction — verify with prescriber"),
+                        })
+        pdata["interactions"]     = interactions
+        pdata["has_interactions"] = len(interactions) > 0
+        pdata["has_stat"]         = any(o["is_stat"] for o in orders)
+        result.append(pdata)
+
+    result.sort(key=lambda p: (not p["has_stat"], p["patient_name"]))
+    return result
+
+
+# ── Pharmacy Cart ─────────────────────────────────────────────────────────────
+
+@pharmacy_router.get("/cart")
+def get_cart(
+    branch_id: Optional[int] = Query(None),
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Return the shared cart for this clinic+branch, grouped by patient."""
+    q = db.query(PharmacyCartItem).filter(PharmacyCartItem.clinic_id == current.clinic_id)
+    if branch_id:
+        q = q.filter(PharmacyCartItem.branch_id == branch_id)
+    items = q.order_by(PharmacyCartItem.added_at).all()
+
+    patients_map: dict = {}
+    for item in items:
+        pat = db.query(Patient).filter(Patient.id == item.patient_id).first() if item.patient_id else None
+        pid = item.patient_id or 0
+        if pid not in patients_map:
+            patients_map[pid] = {
+                **(  _patient_info(pat) if pat else {
+                    "patient_id": pid, "patient_name": "Unknown", "bhid": None,
+                    "mrn": None, "mobile": None, "gender": None, "date_of_birth": None,
+                }),
+                "encounter_type": item.encounter_type,
+                "admission_id":   item.admission_id,
+                "items": [],
+            }
+        adder_name = item.adder.full_name if item.adder else None
+        patients_map[pid]["items"].append({
+            "cart_item_id": item.id,
+            "source_type":  item.source_type,
+            "source_id":    item.source_id,
+            "medicine_name": item.medicine_name,
+            "generic_name":  item.generic_name,
+            "dose":          item.dose,
+            "route":         item.route,
+            "frequency":     item.frequency,
+            "duration":      item.duration,
+            "quantity":      item.quantity,
+            "instructions":  item.instructions,
+            "is_stat":       item.is_stat,
+            "medicine_id":   item.medicine_id,
+            "added_by_name": adder_name,
+            "added_at":      item.added_at.isoformat() if item.added_at else None,
+        })
+
+    result = list(patients_map.values())
+    result.sort(key=lambda p: (not any(i["is_stat"] for i in p["items"]), p.get("patient_name", "")))
+    return result
+
+
+@pharmacy_router.post("/cart/add")
+def add_to_cart(
+    body: dict,
+    branch_id: Optional[int] = Query(None),
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Add one or more items to the shared pharmacy cart.
+    body: {items: [{source_type, source_id, patient_id, admission_id, encounter_type,
+                    medicine_name, generic_name, dose, route, frequency, duration,
+                    quantity, instructions, is_stat, medicine_id}]}
+    """
+    items_in = body.get("items", [])
+    if not items_in:
+        raise HTTPException(400, "No items provided")
+    added = []
+    for it in items_in:
+        # Prevent duplicates
+        existing = db.query(PharmacyCartItem).filter(
+            PharmacyCartItem.source_type == it["source_type"],
+            PharmacyCartItem.source_id == it["source_id"],
+            PharmacyCartItem.clinic_id == current.clinic_id,
+        ).first()
+        if existing:
+            added.append(existing.id)
+            continue
+        ci = PharmacyCartItem(
+            clinic_id      = current.clinic_id,
+            branch_id      = branch_id or current.branch_id,
+            source_type    = it["source_type"],
+            source_id      = it["source_id"],
+            patient_id     = it.get("patient_id"),
+            admission_id   = it.get("admission_id"),
+            encounter_type = it.get("encounter_type", "OP"),
+            medicine_name  = it["medicine_name"],
+            generic_name   = it.get("generic_name"),
+            dose           = it.get("dose"),
+            route          = it.get("route"),
+            frequency      = it.get("frequency"),
+            duration       = it.get("duration"),
+            quantity       = it.get("quantity", 1),
+            instructions   = it.get("instructions"),
+            is_stat        = bool(it.get("is_stat", False)),
+            medicine_id    = it.get("medicine_id"),
+            added_by       = current.id,
+        )
+        db.add(ci)
+        db.flush()
+        added.append(ci.id)
+    db.commit()
+    return {"added": len(added), "cart_item_ids": added}
+
+
+@pharmacy_router.delete("/cart/{item_id}")
+def remove_from_cart(
+    item_id: int,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Remove an item from the shared cart — returns it to the CPOE queue."""
+    ci = db.query(PharmacyCartItem).filter(
+        PharmacyCartItem.id == item_id,
+        PharmacyCartItem.clinic_id == current.clinic_id,
+    ).first()
+    if not ci:
+        raise HTTPException(404, "Cart item not found")
+    db.delete(ci)
+    db.commit()
+    return {"ok": True}
+
+
+def _deduct_stock_fefo(db: Session, clinic_id: int, branch_id: Optional[int],
+                        medicine_id: int, quantity: int, performed_by: int, notes: str = "") -> dict:
+    """Deduct stock using FEFO (First Expired First Out). Returns batch info used."""
+    med = db.query(Medicine).filter(Medicine.id == medicine_id).first()
+    if not med:
+        return {"deducted": 0, "batch": None}
+
+    remaining = quantity
+    batch_used = None
+    today = dt_date.today()
+
+    batches = (
+        db.query(MedicineBatch)
+        .filter(
+            MedicineBatch.medicine_id == medicine_id,
+            MedicineBatch.clinic_id == clinic_id,
+            MedicineBatch.quantity > 0,
+            (MedicineBatch.expiry_date == None) | (MedicineBatch.expiry_date > today),
+        )
+        .order_by(MedicineBatch.expiry_date.asc().nullslast())
+        .all()
+    )
+
+    for batch in batches:
+        if remaining <= 0:
+            break
+        deduct = min(batch.quantity, remaining)
+        batch.quantity -= deduct
+        remaining -= deduct
+        batch_used = batch.batch_number
+
+    deducted = quantity - remaining
+    if deducted > 0:
+        before = med.stock_quantity
+        med.stock_quantity = max(0, med.stock_quantity - deducted)
+        db.add(StockTransaction(
+            clinic_id=clinic_id, branch_id=branch_id,
+            medicine_id=medicine_id, transaction_type="dispense",
+            quantity=deducted, quantity_before=before,
+            quantity_after=med.stock_quantity,
+            batch_number=batch_used, performed_by=performed_by, notes=notes,
+        ))
+    return {"deducted": deducted, "batch": batch_used}
+
+
+@pharmacy_router.post("/cart/dispense")
+def dispense_cart(
+    body: dict,
+    branch_id: Optional[int] = Query(None),
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Dispense selected cart items: create invoices, deduct stock (FEFO),
+    record payments, auto-create drug register entries for Schedule drugs.
+    body: {
+      patient_ids: [int, ...],       # patients to dispense; omit = all in cart
+      cart_item_ids: [int, ...],     # specific items; omit = all for selected patients
+      payments: [{method, amount, reference?, notes?}],
+      discount: float,               # total discount in ₹ across all invoices
+      notes: str,
+    }
+    Returns list of created invoice IDs."""
+    patient_ids    = body.get("patient_ids")
+    cart_item_ids  = body.get("cart_item_ids")
+    payments_in    = body.get("payments", [])
+    discount_total = Decimal(str(body.get("discount", 0)))
+    notes          = body.get("notes", "")
+
+    # ── Fetch cart items ──────────────────────────────────────────────────────
+    q = db.query(PharmacyCartItem).filter(PharmacyCartItem.clinic_id == current.clinic_id)
+    if cart_item_ids:
+        q = q.filter(PharmacyCartItem.id.in_(cart_item_ids))
+    elif patient_ids:
+        q = q.filter(PharmacyCartItem.patient_id.in_(patient_ids))
+    cart_items = q.all()
+    if not cart_items:
+        raise HTTPException(400, "No cart items found for selected patients")
+
+    # ── Group by patient ──────────────────────────────────────────────────────
+    by_patient: dict = {}
+    for ci in cart_items:
+        pid = ci.patient_id or 0
+        by_patient.setdefault(pid, []).append(ci)
+
+    total_payments = Decimal(str(sum(float(p.get("amount", 0)) for p in payments_in)))
+    invoice_ids = []
+
+    # Distribute discount proportionally across patients
+    total_items = len(cart_items)
+
+    for pid, p_items in by_patient.items():
+        pat = db.query(Patient).filter(Patient.id == pid).first() if pid else None
+        sample = p_items[0]
+
+        # ── Build invoice ─────────────────────────────────────────────────────
+        subtotal = Decimal("0")
+        gst_total = Decimal("0")
+        inv_items_data = []
+
+        for ci in p_items:
+            # Find medicine in inventory
+            med = None
+            if ci.medicine_id:
+                med = db.query(Medicine).filter(Medicine.id == ci.medicine_id).first()
+            if not med and ci.medicine_name:
+                med = db.query(Medicine).filter(
+                    Medicine.clinic_id == current.clinic_id,
+                    Medicine.name.ilike(f"%{ci.medicine_name}%"),
+                    Medicine.is_active == True,
+                ).first()
+
+            unit_price = Decimal(str(med.mrp or med.unit_price or 0)) if med else Decimal("0")
+            qty        = ci.quantity or 1
+            gst_rate   = Decimal(str(med.gst_rate or 0)) if med else Decimal("0")
+            line_sub   = unit_price * qty
+            gst_amt    = (line_sub * gst_rate / 100).quantize(Decimal("0.01"))
+            line_total = line_sub + gst_amt
+
+            subtotal  += line_sub
+            gst_total += gst_amt
+            inv_items_data.append({
+                "ci": ci, "med": med, "unit_price": unit_price,
+                "qty": qty, "gst_rate": gst_rate, "gst_amt": gst_amt,
+                "line_total": line_total,
+            })
+
+        # Proportional discount for this patient
+        patient_discount = (
+            discount_total * (len(p_items) / total_items)
+        ).quantize(Decimal("0.01")) if discount_total else Decimal("0")
+
+        inv_total = subtotal + gst_total - patient_discount
+
+        # Proportional payment for this patient
+        if len(by_patient) == 1:
+            amount_paid = total_payments
+        else:
+            ratio = inv_total / max(
+                sum(
+                    sum((Decimal(str(ci2.quantity or 1)) *
+                         Decimal(str(
+                             (db.query(Medicine).filter(Medicine.id == ci2.medicine_id).first().mrp
+                              if ci2.medicine_id else 0) or 0
+                         ))) for ci2 in items2
+                    ) for items2 in by_patient.values()
+                ), Decimal("0.01")
+            )
+            amount_paid = (total_payments * ratio).quantize(Decimal("0.01"))
+
+        if amount_paid >= inv_total:
+            inv_status = "paid"
+        elif amount_paid > 0:
+            inv_status = "partial"
+        else:
+            inv_status = "pending"
+
+        # Invoice number
+        count = db.query(Invoice).filter(Invoice.clinic_id == current.clinic_id).count()
+        inv_num = f"RX-{current.clinic_id}-{count + 1:06d}"
+
+        invoice = Invoice(
+            clinic_id      = current.clinic_id,
+            branch_id      = branch_id or current.branch_id,
+            patient_id     = pid if pid else None,
+            admission_id   = sample.admission_id,
+            encounter_type = sample.encounter_type,
+            invoice_number = inv_num,
+            sale_type      = "prescription",
+            customer_name  = pat.full_name if pat else sample.medicine_name,
+            customer_mobile= pat.mobile if pat else None,
+            subtotal       = subtotal,
+            discount       = patient_discount,
+            gst_amount     = gst_total,
+            total          = inv_total,
+            amount_paid    = amount_paid,
+            status         = inv_status,
+            notes          = notes,
+            paid_at        = datetime.utcnow() if inv_status == "paid" else None,
+        )
+        db.add(invoice)
+        db.flush()
+
+        # ── Invoice items + stock deduction + drug register ───────────────────
+        for idata in inv_items_data:
+            ci  = idata["ci"]
+            med = idata["med"]
+
+            db.add(InvoiceItem(
+                invoice_id      = invoice.id,
+                medicine_id     = med.id if med else None,
+                description     = ci.medicine_name,
+                item_type       = "medicine",
+                quantity        = idata["qty"],
+                unit_price      = idata["unit_price"],
+                mrp             = idata["unit_price"],
+                gst_rate        = idata["gst_rate"],
+                gst_amount      = idata["gst_amt"],
+                total           = idata["line_total"],
+            ))
+
+            # Deduct stock (FEFO)
+            batch_info = {"batch": None}
+            if med:
+                batch_info = _deduct_stock_fefo(
+                    db, current.clinic_id,
+                    branch_id or current.branch_id,
+                    med.id, idata["qty"], current.id,
+                    f"Dispensed — invoice {inv_num}",
+                )
+                # Drug register for Schedule H/H1/X
+                if med.schedule and med.schedule.upper() in ("H", "H1", "X"):
+                    db.add(DrugRegister(
+                        clinic_id     = current.clinic_id,
+                        invoice_id    = invoice.id,
+                        medicine_id   = med.id,
+                        medicine_name = med.name,
+                        schedule      = med.schedule,
+                        patient_name  = pat.full_name if pat else None,
+                        quantity      = idata["qty"],
+                        batch_number  = batch_info.get("batch"),
+                        sold_at       = datetime.utcnow(),
+                    ))
+
+            # Mark source as dispensed
+            if ci.source_type == "prescription_item":
+                pi = db.query(PrescriptionItem).filter(PrescriptionItem.id == ci.source_id).first()
+                if pi:
+                    pi.quantity_dispensed = idata["qty"]
+                    rx = db.query(Prescription).filter(Prescription.id == pi.prescription_id).first()
+                    if rx:
+                        all_dispensed = all(
+                            (it.quantity_dispensed or 0) >= (it.quantity_prescribed or 0)
+                            for it in rx.items
+                        )
+                        if all_dispensed:
+                            rx.status = "dispensed"
+                            rx.dispensed_at = datetime.utcnow()
+            elif ci.source_type == "medication_order":
+                mo = db.query(MedicationOrder).filter(MedicationOrder.id == ci.source_id).first()
+                if mo:
+                    mo.status = "completed"
+
+        # ── Record payments ───────────────────────────────────────────────────
+        for pmt in payments_in:
+            amt = Decimal(str(pmt.get("amount", 0)))
+            if amt <= 0:
+                continue
+            if len(by_patient) > 1:
+                amt = (amt * (inv_total / max(total_payments, Decimal("0.01")))).quantize(Decimal("0.01"))
+            db.add(InvoicePayment(
+                invoice_id  = invoice.id,
+                clinic_id   = current.clinic_id,
+                amount      = amt,
+                method      = pmt.get("method", "cash"),
+                reference   = pmt.get("reference"),
+                notes       = pmt.get("notes"),
+                received_by = current.id,
+            ))
+
+        invoice_ids.append(invoice.id)
+
+    # ── Remove dispensed items from cart ──────────────────────────────────────
+    for ci in cart_items:
+        db.delete(ci)
+
+    db.commit()
+    return {"ok": True, "invoice_ids": invoice_ids, "total_invoices": len(invoice_ids)}
+
+
+# ── Multi-method Payment on Existing Invoice ──────────────────────────────────
+
+@billing_router.post("/invoices/{invoice_id}/payments")
+def add_invoice_payments(
+    invoice_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Record one or more payment methods against an invoice (supports partial & split payment).
+    body: {payments: [{method, amount, reference?, notes?}]}
+    Methods: cash | card | upi | cheque | neft | insurance | govt_scheme | other
+    """
+    invoice = db.query(Invoice).filter(
+        Invoice.id == invoice_id, Invoice.clinic_id == current.clinic_id
+    ).first()
+    if not invoice:
+        raise HTTPException(404, "Invoice not found")
+
+    payments_in = body.get("payments", [])
+    if not payments_in:
+        raise HTTPException(400, "No payments provided")
+
+    new_paid = Decimal("0")
+    for pmt in payments_in:
+        amt = Decimal(str(pmt.get("amount", 0)))
+        if amt <= 0:
+            continue
+        db.add(InvoicePayment(
+            invoice_id  = invoice.id,
+            clinic_id   = current.clinic_id,
+            amount      = amt,
+            method      = pmt.get("method", "cash"),
+            reference   = pmt.get("reference"),
+            notes       = pmt.get("notes"),
+            received_by = current.id,
+        ))
+        new_paid += amt
+
+    invoice.amount_paid = Decimal(str(invoice.amount_paid or 0)) + new_paid
+    if invoice.amount_paid >= Decimal(str(invoice.total or 0)):
+        invoice.status  = "paid"
+        invoice.paid_at = datetime.utcnow()
+    elif invoice.amount_paid > 0:
+        invoice.status  = "partial"
+
+    db.commit()
+    return {
+        "invoice_id":   invoice.id,
+        "status":       invoice.status,
+        "total":        float(invoice.total),
+        "amount_paid":  float(invoice.amount_paid),
+        "balance_due":  float(max(Decimal(str(invoice.total or 0)) - invoice.amount_paid, Decimal("0"))),
+    }

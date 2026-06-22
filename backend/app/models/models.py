@@ -588,6 +588,8 @@ class Invoice(Base):
     branch_id      = Column(Integer, ForeignKey("branches.id"), nullable=True)
     patient_id       = Column(Integer, ForeignKey("patients.id"), nullable=True)
     appointment_id   = Column(Integer, ForeignKey("appointments.id"), nullable=True)
+    admission_id     = Column(Integer, ForeignKey("admissions.id"), nullable=True)
+    encounter_type   = Column(String(2), default="OP")   # OP | IP
     invoice_number   = Column(String(50), nullable=True)
     status           = Column(String(50), default="pending")
     sale_type        = Column(String(20), default='prescription')
@@ -1119,7 +1121,7 @@ class Ward(Base):
     __tablename__ = "wards"
     id            = Column(Integer, primary_key=True, index=True)
     clinic_id     = Column(Integer, ForeignKey("clinics.id"), nullable=False)
-    department_id = Column(Integer, ForeignKey("departments.id"), nullable=False)
+    department_id = Column(Integer, ForeignKey("departments.id"), nullable=True)
     name          = Column(String(200), nullable=False)
     floor         = Column(String(20), nullable=True)
     wing          = Column(String(50), nullable=True)
@@ -2367,4 +2369,36 @@ class SupplierReturnItem(Base):
     total_value     = Column(Numeric(10, 2), nullable=True)
 
     supplier_return = relationship("SupplierReturn", back_populates="items")
+
+
+# ── Pharmacy Shared Cart ───────────────────────────────────────────────────────
+
+class PharmacyCartItem(Base):
+    """Shared, persistent dispensing cart scoped per clinic+branch.
+    All pharmacists at the same branch see the same cart.
+    Adding = physically prepared. Dispensing removes from cart for everyone."""
+    __tablename__ = "pharmacy_cart_items"
+    id             = Column(Integer, primary_key=True, index=True)
+    clinic_id      = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    branch_id      = Column(Integer, ForeignKey("branches.id"), nullable=True)
+    source_type    = Column(String(20), nullable=False)  # prescription_item | medication_order
+    source_id      = Column(Integer, nullable=False)
+    patient_id     = Column(Integer, ForeignKey("patients.id"), nullable=True)
+    admission_id   = Column(Integer, ForeignKey("admissions.id"), nullable=True)
+    encounter_type = Column(String(2), default="OP")   # OP | IP
+    medicine_name  = Column(String(200), nullable=False)
+    generic_name   = Column(String(200), nullable=True)
+    dose           = Column(String(100), nullable=True)
+    route          = Column(String(50), nullable=True)
+    frequency      = Column(String(100), nullable=True)
+    duration       = Column(String(100), nullable=True)
+    quantity       = Column(Integer, default=1)
+    instructions   = Column(Text, nullable=True)
+    is_stat        = Column(Boolean, default=False)
+    medicine_id    = Column(Integer, ForeignKey("medicines.id"), nullable=True)
+    added_by       = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    added_at       = Column(DateTime, server_default=func.now())
+
+    patient = relationship("Patient", foreign_keys=[patient_id])
+    adder   = relationship("Staff", foreign_keys=[added_by])
     medicine        = relationship("Medicine")
