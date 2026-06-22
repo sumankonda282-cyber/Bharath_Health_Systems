@@ -98,7 +98,7 @@ def search_clinics(
             if not doctors:
                 continue  # skip clinic entirely if no available doctors that day
 
-        is_approved = c.is_verified and c.status == 'active'
+        is_approved = c.is_verified
         result.append({
             "id":                   c.id,
             "name":                 c.name,
