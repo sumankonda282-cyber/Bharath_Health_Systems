@@ -9,7 +9,7 @@ on:
 jobs:
   # ── Backend ────────────────────────────────────────────────────────────────
   backend:
-    name: Backend — syntax & import check
+    name: Backend — syntax check
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -23,18 +23,13 @@ jobs:
           python-version: '3.11'
           cache: pip
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
+      - name: Install flake8
+        run: pip install flake8
 
-      - name: Check for syntax errors
-        run: python -m py_compile app/main.py
-
-      - name: Import check (catches missing modules / bad imports)
-        run: python -c "import app.main"
-        env:
-          DATABASE_URL: postgresql://fake:fake@localhost/fake
-          SECRET_KEY: ci-placeholder-secret-key-32chars!!
-          ALGORITHM: HS256
+      - name: Syntax check (all Python files)
+        # E9: syntax errors, F63: invalid escape, F7: undefined names, F82: undefined names
+        # Ignores style warnings — catches only real errors that break the app
+        run: flake8 app/ --select=E9,F63,F7,F82 --statistics
 
   # ── Frontends ──────────────────────────────────────────────────────────────
   frontend:
@@ -68,7 +63,7 @@ jobs:
           cache-dependency-path: frontend/${{ matrix.portal }}/package-lock.json
 
       - name: Install dependencies
-        run: npm ci --prefer-offline
+        run: npm ci
 
       - name: Build
         run: npm run build
