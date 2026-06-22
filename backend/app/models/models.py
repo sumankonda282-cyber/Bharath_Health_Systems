@@ -222,6 +222,7 @@ class DoctorSchedule(Base):
     end_time     = Column(String(8), nullable=False)   # "HH:MM"
     slot_minutes = Column(Integer, default=15)
     max_patients = Column(Integer, default=20)
+    online_auto_confirm = Column(Integer, default=0)
     is_active    = Column(Boolean, default=True)
 
     doctor = relationship("DoctorProfile", back_populates="schedules")

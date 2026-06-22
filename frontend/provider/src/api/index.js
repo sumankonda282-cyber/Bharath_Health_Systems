@@ -71,12 +71,15 @@ export const appointmentsApi = {
 
 // ── Doctor Desk ───────────────────────────────────────────────────
 export const doctorApi = {
-  getQueue:           (params) => api.get('/doctor/queue', { params }),
-  getEncounter:       (id) => api.get(`/doctor/encounter/${id}`),
-  completeEncounter:  (id, data) => api.post(`/doctor/encounter/${id}/complete`, data),
-  joinTelehealth:     (id) => api.post(`/doctor/encounter/${id}/join-telehealth`),
-  getProfile:         () => api.get('/doctor/profile'),
-  updateProfile:      (data) => api.put('/doctor/profile', data),
+  getQueue:            (params) => api.get('/doctor/queue', { params }),
+  getEncounter:        (id) => api.get(`/doctor/encounter/${id}`),
+  completeEncounter:   (id, data) => api.post(`/doctor/encounter/${id}/complete`, data),
+  joinTelehealth:      (id) => api.post(`/doctor/encounter/${id}/join-telehealth`),
+  getProfile:          () => api.get('/doctor/profile'),
+  updateProfile:       (data) => api.put('/doctor/profile', data),
+  approveAppointment:  (appointmentId) => api.post(`/doctor/queue/${appointmentId}/approve`),
+  declineAppointment:  (appointmentId) => api.post(`/doctor/queue/${appointmentId}/decline`),
+  getMyPatients:       (params) => api.get('/doctor/my-patients', { params }),
 }
 
 // ── Pharmacy ──────────────────────────────────────────────────────

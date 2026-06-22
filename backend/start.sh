@@ -54,6 +54,9 @@ critical = [
     'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS admission_sequence INTEGER DEFAULT 0',
     # feedback — queried by /platform/feedback
     'ALTER TABLE feedback ADD COLUMN IF NOT EXISTS is_read BOOLEAN NOT NULL DEFAULT FALSE',
+    # doctor_schedules — quota system for online booking
+    'ALTER TABLE doctor_schedules ADD COLUMN IF NOT EXISTS online_auto_confirm INTEGER DEFAULT 0',
+    'ALTER TABLE doctor_schedules ADD COLUMN IF NOT EXISTS max_patients INTEGER DEFAULT 20',
 ]
 ok = 0; failed = 0
 for sql in critical:

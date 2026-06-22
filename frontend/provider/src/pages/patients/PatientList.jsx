@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { patientsApi, tagsApi, appointmentsApi } from '../../api'
+import { patientsApi, tagsApi, appointmentsApi, doctorApi } from '../../api'
+import { useAuth } from '../../contexts/AuthContext'
 import { cachedFetch, TTL } from '../../utils/cache'
 import { PageLoader } from '../../components/ui/Spinner'
 import { Search, Plus, User, X, Tag, Calendar } from 'lucide-react'
@@ -211,6 +212,8 @@ function TagInput({ patientId, currentTags, onTagsChange }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function PatientList() {
+  const { user } = useAuth()
+  const isDoctor = user?.role === 'doctor'
   const [patients, setPatients]     = useState([])
   const [suggestions, setSuggestions] = useState([])
   const [showSuggestions, setShowSuggestions] = useState(false)
@@ -227,6 +230,12 @@ export default function PatientList() {
 
   const loadPatients = (q = search) => {
     setLoading(true)
+    if (isDoctor) {
+      doctorApi.getMyPatients(q ? { search: q, limit: 50 } : { limit: 50 })
+        .then(r => { setPatients(Array.isArray(r) ? r : []); setLoading(false) })
+        .catch(() => setLoading(false))
+      return
+    }
     if (!q) {
       cachedFetch(
         'patient_list',
@@ -244,7 +253,10 @@ export default function PatientList() {
   useEffect(() => {
     if (search.length < 2) { setSuggestions([]); setShowSuggestions(false); return }
     const t = setTimeout(() => {
-      patientsApi.list({ search, limit: 8 })
+      const listFn = isDoctor
+        ? doctorApi.getMyPatients({ search, limit: 8 })
+        : patientsApi.list({ search, limit: 8 })
+      listFn
         .then(r => {
           setSuggestions(Array.isArray(r) ? r : [])
           setShowSuggestions(true)
@@ -252,7 +264,7 @@ export default function PatientList() {
         .catch(() => {})
     }, 200)
     return () => clearTimeout(t)
-  }, [search])
+  }, [search, isDoctor])
 
   // Close suggestions on outside click
   useEffect(() => {
