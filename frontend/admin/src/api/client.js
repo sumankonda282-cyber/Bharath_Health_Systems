@@ -1,10 +1,6 @@
 import axios from 'axios'
 
-// In production builds, use same-origin so Vercel proxies /api/* → backend (no CORS).
-// In dev, fall back to VITE_API_URL or localhost.
-const API_BASE = import.meta.env.PROD
-  ? ''
-  : (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/$/, '')
+const API_BASE = (import.meta.env.VITE_API_URL || 'https://bharatcliniq-api.onrender.com').replace(/\/$/, '')
 
 const api = axios.create({
   baseURL: `${API_BASE}/api/v1`,

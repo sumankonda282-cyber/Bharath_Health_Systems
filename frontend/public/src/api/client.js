@@ -1,8 +1,6 @@
 import axios from 'axios'
 
-const API_BASE = import.meta.env.PROD
-  ? ''
-  : (import.meta.env.VITE_API_URL || 'https://BharathHealthSystems-api.onrender.com').replace(/\/$/, '')
+const API_BASE = (import.meta.env.VITE_API_URL || 'https://bharatcliniq-api.onrender.com').replace(/\/$/, '')
 const BASE_URL = `${API_BASE}/api/v1`
 
 const api = axios.create({
