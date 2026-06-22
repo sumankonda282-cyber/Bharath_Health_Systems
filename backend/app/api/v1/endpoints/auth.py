@@ -100,6 +100,7 @@ def staff_login(request: Request, payload: StaffLoginRequest, db: Session = Depe
             raise HTTPException(status_code=401, detail="Your temporary password has expired. Contact your administrator to issue a new one.")
 
     force_reset = user.is_first_login is True
+    clinic = db.query(Clinic).filter(Clinic.id == user.clinic_id).first() if user.clinic_id else None
 
     token_data = {"sub": str(user.id), "role": str(user.role), "user_type": "staff",
                   "clinic_id": user.clinic_id, "token_version": user.token_version or 1}
@@ -114,6 +115,9 @@ def staff_login(request: Request, payload: StaffLoginRequest, db: Session = Depe
         branch_id=user.branch_id,
         force_reset=force_reset,
         username=user.username,
+        clinic_name=clinic.name if clinic else None,
+        clinic_verified=clinic.is_verified if clinic else False,
+        clinic_plan=str(clinic.subscription_plan) if clinic else "free",
     )
 
 
@@ -618,12 +622,15 @@ def staff_refresh_token(payload: RefreshRequest, db: Session = Depends(get_db)):
         if int(token_data["token_version"]) != user.token_version:
             raise HTTPException(status_code=401, detail="Token has been revoked")
 
+    clinic = db.query(Clinic).filter(Clinic.id == user.clinic_id).first() if user.clinic_id else None
     new_data = {
         "sub": str(user.id),
         "role": str(user.role),
         "user_type": "staff",
         "clinic_id": user.clinic_id,
         "token_version": user.token_version or 1,
+        "clinic_verified": clinic.is_verified if clinic else False,
+        "clinic_plan": clinic.subscription_plan if clinic else "free",
     }
     return {
         "access_token": create_access_token(new_data),

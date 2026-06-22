@@ -29,6 +29,9 @@ class TokenResponse(BaseModel):
     branch_id: Optional[int] = None
     force_reset: bool = False
     username: Optional[str] = None
+    clinic_name: Optional[str] = None
+    clinic_verified: bool = False
+    clinic_plan: Optional[str] = "free"
 
 
 class OtpRequest(BaseModel):
