@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [claude/vigilant-wozniak-H1kwo]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ── Backend ────────────────────────────────────────────────────────────────
+  backend:
+    name: Backend — syntax & import check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Check for syntax errors
+        run: python -m py_compile app/main.py
+
+      - name: Import check (catches missing modules / bad imports)
+        run: python -c "import app.main"
+        env:
+          DATABASE_URL: postgresql://fake:fake@localhost/fake
+          SECRET_KEY: ci-placeholder-secret-key-32chars!!
+          ALGORITHM: HS256
+
+  # ── Frontends ──────────────────────────────────────────────────────────────
+  frontend:
+    name: Frontend — build (${{ matrix.portal }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        portal:
+          - public
+          - patient
+          - receptionist
+          - provider
+          - carechart
+          - pharmacy
+          - lab
+          - imaging
+          - admin
+
+    defaults:
+      run:
+        working-directory: frontend/${{ matrix.portal }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/${{ matrix.portal }}/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline
+
+      - name: Build
+        run: npm run build
+        env:
+          VITE_API_URL: https://bharatcliniq-api.onrender.com
