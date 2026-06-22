@@ -206,36 +206,57 @@ function DoctorCard({ doctor }) {
         >
           View Profile
         </Link>
-        <Link
-          to={`/doctor/${doctor.id}`}
-          className="flex-1 text-center text-sm font-semibold py-2 rounded-xl text-white transition-all"
-          style={{ background: '#CC1414' }}
-          onMouseEnter={e => e.currentTarget.style.background = '#b01010'}
-          onMouseLeave={e => e.currentTarget.style.background = '#CC1414'}
-        >
-          Book Appointment
-        </Link>
+        {doctor.clinic_approved === false ? (
+          <span className="flex-1 text-center text-sm font-semibold py-2 rounded-xl text-yellow-700 cursor-default"
+            style={{ background: '#FEF3C7' }}>
+            Coming Soon
+          </span>
+        ) : (
+          <Link
+            to={`/doctor/${doctor.id}`}
+            className="flex-1 text-center text-sm font-semibold py-2 rounded-xl text-white transition-all"
+            style={{ background: '#CC1414' }}
+            onMouseEnter={e => e.currentTarget.style.background = '#b01010'}
+            onMouseLeave={e => e.currentTarget.style.background = '#CC1414'}
+          >
+            Book Appointment
+          </Link>
+        )}
       </div>
     </div>
   )
 }
 
 function ClinicCard({ clinic }) {
+  const isComingSoon = !clinic.is_approved
+  const Wrapper = isComingSoon ? 'div' : Link
+  const wrapperProps = isComingSoon
+    ? { className: 'block bg-white rounded-2xl shadow-md border border-yellow-100 p-5 opacity-90 relative overflow-hidden' }
+    : { to: `/clinics/${clinic.slug}`, className: 'block bg-white rounded-2xl shadow-md border border-gray-100 p-5 hover:shadow-lg transition-all group cursor-pointer' }
+
   return (
-    <Link to={`/clinics/${clinic.slug}`} className="block bg-white rounded-2xl shadow-md border border-gray-100 p-5 hover:shadow-lg transition-all group cursor-pointer">
+    <Wrapper {...wrapperProps}>
+      {isComingSoon && (
+        <div className="absolute top-3 right-3 z-10">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold"
+            style={{ background: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A' }}>
+            Coming Soon
+          </span>
+        </div>
+      )}
       <div className="flex items-start gap-4">
         <div
           className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 transition-all"
-          style={{ background: '#0F255710' }}
+          style={{ background: isComingSoon ? '#FEF3C710' : '#0F255710' }}
         >
           {clinic.logo_url ? (
             <img src={clinic.logo_url} alt={clinic.name} className="w-14 h-14 rounded-2xl object-cover" />
           ) : (
-            <Building2 className="w-7 h-7" style={{ color: '#0F2557' }} />
+            <Building2 className="w-7 h-7" style={{ color: isComingSoon ? '#92400E' : '#0F2557' }} />
           )}
         </div>
-        <div className="flex-1 min-w-0">
-          <h3 className="font-semibold truncate transition-colors group-hover:text-[#CC1414]" style={{ color: '#0F2557' }}>
+        <div className="flex-1 min-w-0 pr-16">
+          <h3 className={`font-semibold truncate transition-colors ${isComingSoon ? '' : 'group-hover:text-[#CC1414]'}`} style={{ color: '#0F2557' }}>
             {clinic.name}
           </h3>
           <div className="flex items-center gap-1 text-gray-500 text-xs mt-1">
@@ -246,22 +267,28 @@ function ClinicCard({ clinic }) {
             <MapPin className="w-3 h-3 flex-shrink-0" style={{ color: '#CC1414' }} />
             <span className="truncate">{clinic.city}{clinic.state ? `, ${clinic.state}` : ''}</span>
           </div>
-          {clinic.rating > 0 && (
-            <div className="mt-1.5">
-              <StarRating rating={Math.round(clinic.rating)} />
-            </div>
+          {isComingSoon ? (
+            <p className="text-xs text-yellow-700 mt-2">Pending approval — booking opens soon</p>
+          ) : (
+            <>
+              {clinic.rating > 0 && (
+                <div className="mt-1.5"><StarRating rating={Math.round(clinic.rating)} /></div>
+              )}
+            </>
           )}
         </div>
-        <div className="flex flex-col items-end gap-2 flex-shrink-0">
-          <div className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full"
-            style={{ background: '#0F255710', color: '#0F2557' }}>
-            <Users className="w-3 h-3" />
-            {clinic.doctor_count || clinic.doctors?.length || 0} Doctors
+        {!isComingSoon && (
+          <div className="flex flex-col items-end gap-2 flex-shrink-0">
+            <div className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full"
+              style={{ background: '#0F255710', color: '#0F2557' }}>
+              <Users className="w-3 h-3" />
+              {clinic.doctor_count || clinic.doctors?.length || 0} Doctors
+            </div>
+            <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-[#CC1414] transition-colors" />
           </div>
-          <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-[#CC1414] transition-colors" />
-        </div>
+        )}
       </div>
-    </Link>
+    </Wrapper>
   )
 }
 
