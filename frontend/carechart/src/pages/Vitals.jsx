@@ -359,7 +359,7 @@ export default function Vitals() {
           <button className="btn btn-secondary">
             <Download size={12} /> Export
           </button>
-          <button onClick={() => setDrawer(null)} className="btn btn-primary">
+          <button onClick={() => setDrawer('pick')} className="btn btn-primary">
             <Plus size={12} /> Record Vitals
           </button>
         </div>
@@ -582,9 +582,9 @@ export default function Vitals() {
       </div>
 
       {/* ── Record drawer ── */}
-      {drawer !== null && (
+      {drawer !== null && drawer !== false && (
         <RecordDrawer
-          patient={drawer || visible[0]}
+          patient={drawer === 'pick' ? (visible[0] || null) : drawer}
           onClose={() => setDrawer(null)}
           onSaved={load}
         />
