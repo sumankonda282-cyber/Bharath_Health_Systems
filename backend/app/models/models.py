@@ -85,6 +85,7 @@ class Clinic(Base):
     latitude                = Column(Numeric(10, 7), nullable=True)
     longitude               = Column(Numeric(10, 7), nullable=True)
     capacity_description    = Column(Text, nullable=True)
+    modules                 = Column(JSON, nullable=True)
     created_at              = Column(DateTime, server_default=func.now())
 
     branches        = relationship("Branch", back_populates="clinic", cascade="all, delete-orphan")
