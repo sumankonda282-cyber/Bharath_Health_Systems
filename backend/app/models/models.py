@@ -2179,6 +2179,26 @@ class DrugCounselling(Base):
     created_at = Column(DateTime, server_default=func.now())
 
 
+class DrugPregnancyCategory(Base):
+    __tablename__ = "pregnancy_categories"
+    id         = Column(Integer, primary_key=True, index=True)
+    generic    = Column(String(200), nullable=False, index=True)
+    category   = Column(String(5), nullable=True)   # A, B, C, D, X
+    schedule   = Column(String(10), nullable=True)  # H, H1, X (India)
+    notes      = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class FoodDrugInteraction(Base):
+    __tablename__ = "food_drug_interactions"
+    id         = Column(Integer, primary_key=True, index=True)
+    generic    = Column(String(200), nullable=False, index=True)
+    food       = Column(Text, nullable=False)
+    effect     = Column(Text, nullable=True)
+    severity   = Column(String(20), default="moderate")  # major|moderate|minor
+    created_at = Column(DateTime, server_default=func.now())
+
+
 class ImagingCatalog(Base):
     __tablename__ = "imaging_catalog"
     id               = Column(Integer, primary_key=True, index=True)
