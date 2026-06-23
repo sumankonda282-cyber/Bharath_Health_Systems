@@ -52,6 +52,7 @@ critical = [
     'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS org_type VARCHAR(20) DEFAULT \'clinic\'',
     'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS wards_enabled BOOLEAN DEFAULT FALSE',
     'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS admission_sequence INTEGER DEFAULT 0',
+    'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS modules JSONB',
     # feedback — queried by /platform/feedback
     'ALTER TABLE feedback ADD COLUMN IF NOT EXISTS is_read BOOLEAN NOT NULL DEFAULT FALSE',
     # doctor_schedules — quota system for online booking
