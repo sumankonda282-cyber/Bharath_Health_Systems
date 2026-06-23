@@ -925,7 +925,13 @@ export default function MedicationList({ admission }) {
       {drawer === 'add' && (
         <MedicationOrderForm
           admissionId={admissionId}
-          patientAllergies={admission?.patient_allergies || admission?.allergies_list || []}
+          patientAllergies={
+            Array.isArray(admission?.patient_allergies)
+              ? admission.patient_allergies
+              : admission?.allergies
+                ? String(admission.allergies).split(',').map(a => ({ allergen: a.trim(), allergen_name: a.trim() }))
+                : []
+          }
           existingOrders={meds.filter(m => m.status !== 'discontinued')}
           patientData={{
             name:       admission?.patient_name,

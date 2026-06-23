@@ -172,7 +172,7 @@ export default function MedicationOrderForm({
         const merged = termList.map(d => ({
           ...d,
           inStock: stockNames.has(d.generic.toLowerCase()) ||
-            pharmList.some(p => (p.name || p.generic_name || '').toLowerCase().includes(d.generic.toLowerCase().slice(0, 6))),
+            pharmList.some(p => (p.name || p.generic_name || '').toLowerCase() === d.generic.toLowerCase()),
         }))
         setSearchRes(merged)
       } catch {}
@@ -263,11 +263,8 @@ export default function MedicationOrderForm({
     if (!form.frequency) { setError('Frequency is required'); return }
     if (hasMajor && !overrideReason) { setError('Enter a clinical override reason for the major interaction'); return }
 
-    try {
-      await requestPin('Confirm Medication Order')
-    } catch {
-      return
-    }
+    const pinResult = await requestPin('Confirm Medication Order')
+    if (!pinResult) return
 
     setSaving(true); setError('')
     try {

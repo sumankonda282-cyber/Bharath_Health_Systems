@@ -176,7 +176,7 @@ export default function MedicationOrderForm({
         const merged = termList.map(d => ({
           ...d,
           inStock: stockNames.has(d.generic.toLowerCase()) ||
-            pharmList.some(p => (p.name || p.generic_name || '').toLowerCase().includes(d.generic.toLowerCase().slice(0, 6))),
+            pharmList.some(p => (p.name || p.generic_name || '').toLowerCase() === d.generic.toLowerCase()),
         }))
         setSearchRes(merged)
       } catch {}
