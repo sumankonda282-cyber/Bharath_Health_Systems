@@ -571,6 +571,8 @@ def discharge_admission(
     adm.discharged_at = datetime.utcnow()
     if body.get("outcome_notes"):
         adm.primary_diagnosis = body.get("outcome_notes", adm.primary_diagnosis)
+    if body.get("discharge_type") and hasattr(adm, "discharge_type"):
+        adm.discharge_type = body.get("discharge_type")
 
     # Free bed
     if adm.bed_id:
