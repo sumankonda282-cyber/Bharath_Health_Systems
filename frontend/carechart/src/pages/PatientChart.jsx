@@ -1272,9 +1272,9 @@ export default function PatientChart() {
                 ['Address', adm.address || '—'],
                 ['Phone', adm.contact_number || '—'],
                 ['Emergency Contact', adm.emergency_contact || '—'],
-                ['Height', adm.height ? adm.height + 'cm' : '—'],
-                ['Weight', adm.weight ? adm.weight + 'kg' : '—'],
-                ['Insurance', adm.insurance_name || 'Self-pay'],
+                ['Height', adm.height ? adm.height + ' cm' : '—'],
+                ['Weight', adm.weight ? adm.weight + ' kg' : '—'],
+                ['Insurance / Payer', adm.insurance_name || 'Self-pay'],
                 ['Payment Type', adm.payment_type || '—'],
                 ['Blood Group', adm.blood_group || '—'],
               ].map(([k, v]) => (
@@ -1355,9 +1355,20 @@ export default function PatientChart() {
           )}
         </div>
 
-        {/* Assessment panel — hidden on full-width views */}
+        {/* Assessment panel toggle strip + panel */}
         {activeNav !== 'medications' && activeNav !== 'mar' && activeNav !== 'orders' && activeNav !== 'food' && activeNav !== 'docs' && activeNav !== 'preop' && activeNav !== 'flowsheet' && activeNav !== 'discharge' && activeNav !== 'notes' && (
           <>
+            <button
+              onClick={() => { const v = !formsOpen; setFormsOpen(v); localStorage.setItem('cc_forms_panel', String(v)) }}
+              className="flex-shrink-0 flex flex-col items-center justify-center border-l gap-1"
+              style={{ width: 28, background: '#f9fafb', borderColor: '#e9eaec' }}
+              title={formsOpen ? 'Hide forms' : 'Show forms'}
+            >
+              <span style={{ fontSize: 10, color: '#9ca3af', writingMode: 'vertical-rl', transform: 'rotate(180deg)', letterSpacing: 1 }}>
+                {formsOpen ? 'HIDE' : 'FORMS'}
+              </span>
+              <Menu size={13} className="text-gray-400" />
+            </button>
             {formsOpen && (
               <div className="flex-shrink-0 border-l overflow-hidden flex flex-col"
                 style={{ width: 272, borderColor: '#e9eaec' }}>
@@ -1368,14 +1379,6 @@ export default function PatientChart() {
                 />
               </div>
             )}
-            <button
-              onClick={() => { const v = !formsOpen; setFormsOpen(v); localStorage.setItem('cc_forms_panel', String(v)) }}
-              className="flex-shrink-0 flex flex-col items-center justify-center border-l"
-              style={{ width: 28, background: '#f9fafb', borderColor: '#e9eaec' }}
-              title={formsOpen ? 'Hide forms' : 'Show forms'}
-            >
-              <Menu size={14} className="text-gray-400" />
-            </button>
           </>
         )}
       </div>
