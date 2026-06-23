@@ -14,7 +14,7 @@ from typing import Optional, List
 
 from app.db.session import get_db
 from app.core.security import get_current_staff
-from app.models.models import Staff, DoctorProfile, Drug, DrugInteraction, DrugDoseRange, DrugContraindication, DrugCounselling, DiseaseCounselling
+from app.models.models import Staff, DoctorProfile, Drug, DrugInteraction, DrugDoseRange, DrugContraindication, DrugCounselling, DiseaseCounselling, DrugPregnancyCategory, FoodDrugInteraction
 
 router = APIRouter(prefix="/terminology", tags=["terminology"])
 
@@ -190,6 +190,65 @@ def get_drug_counselling(
         .all()
     )
     return {"generic": generic, "tips": [r.tip for r in rows]}
+
+
+@router.get("/drugs/pregnancy")
+def get_drug_pregnancy_info(
+    generic: str = Query(..., min_length=2),
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Return pregnancy category and India schedule classification for a drug."""
+    g = generic.strip().lower()
+    row = (
+        db.query(DrugPregnancyCategory)
+        .filter(DrugPregnancyCategory.generic.ilike(g))
+        .first()
+    )
+    if not row:
+        # Try partial match on first word (handles branded names like "metformin hcl")
+        first_word = g.split()[0]
+        row = (
+            db.query(DrugPregnancyCategory)
+            .filter(DrugPregnancyCategory.generic.ilike(f"{first_word}%"))
+            .first()
+        )
+    if not row:
+        return {"generic": generic, "category": None, "schedule": None, "notes": None}
+    return {
+        "generic": row.generic,
+        "category": row.category,
+        "schedule": row.schedule,
+        "notes": row.notes,
+    }
+
+
+@router.get("/drugs/food-interactions")
+def get_food_interactions(
+    generic: str = Query(..., min_length=2),
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Return food-drug interactions for a generic drug name."""
+    g = generic.strip().lower()
+    rows = (
+        db.query(FoodDrugInteraction)
+        .filter(FoodDrugInteraction.generic.ilike(g))
+        .order_by(FoodDrugInteraction.severity)
+        .all()
+    )
+    if not rows:
+        first_word = g.split()[0]
+        rows = (
+            db.query(FoodDrugInteraction)
+            .filter(FoodDrugInteraction.generic.ilike(f"{first_word}%"))
+            .order_by(FoodDrugInteraction.severity)
+            .all()
+        )
+    return [
+        {"food": r.food, "effect": r.effect, "severity": r.severity}
+        for r in rows
+    ]
 
 
 @router.get("/drugs/interactions")

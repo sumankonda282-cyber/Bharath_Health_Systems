@@ -209,7 +209,7 @@ def seed_drug_data():
     try:
         from app.seed_data.interactions import INTERACTIONS
         loaders.append((
-            "drug_interactions", INTERACTIONS, 50,
+            "drug_interactions", INTERACTIONS, 200,
             "INSERT INTO drug_interactions (drug_a, drug_b, severity, effect, management, interaction_type) "
             "VALUES (:drug_a, :drug_b, :severity, :effect, :management, :interaction_type)",
             lambda d: {
@@ -224,14 +224,21 @@ def seed_drug_data():
     try:
         from app.seed_data.dose_ranges import DOSE_RANGES
         loaders.append((
-            "drug_dose_ranges", DOSE_RANGES, 40,
-            "INSERT INTO drug_dose_ranges (generic, route, population, max_single_mg, max_daily_mg, unit, note) "
-            "VALUES (:generic, :route, :population, :max_single_mg, :max_daily_mg, :unit, :note)",
+            "drug_dose_ranges", DOSE_RANGES, 100,
+            "INSERT INTO drug_dose_ranges (generic, route, population, max_single_mg, max_daily_mg, unit, note, "
+            "pediatric_dose_mg_kg_min, pediatric_dose_mg_kg_max, renal_adjustment, hepatic_adjustment, pregnancy_category) "
+            "VALUES (:generic, :route, :population, :max_single_mg, :max_daily_mg, :unit, :note, "
+            ":pediatric_dose_mg_kg_min, :pediatric_dose_mg_kg_max, :renal_adjustment, :hepatic_adjustment, :pregnancy_category)",
             lambda d: {
                 "generic": d["generic"][:200], "route": d.get("route", "oral"),
                 "population": d.get("population", "adult"),
                 "max_single_mg": d.get("max_single_mg"), "max_daily_mg": d.get("max_daily_mg"),
                 "unit": d.get("unit", "mg"), "note": d.get("note"),
+                "pediatric_dose_mg_kg_min": d.get("pediatric_dose_mg_kg_min"),
+                "pediatric_dose_mg_kg_max": d.get("pediatric_dose_mg_kg_max"),
+                "renal_adjustment": d.get("renal_adjustment", False),
+                "hepatic_adjustment": d.get("hepatic_adjustment", False),
+                "pregnancy_category": d.get("pregnancy_category"),
             },
         ))
     except ImportError as e:
@@ -264,6 +271,36 @@ def seed_drug_data():
         ))
     except ImportError as e:
         print(f"[medlib] drug counselling seed missing: {e}")
+    try:
+        from app.seed_data.pregnancy_categories import PREGNANCY_CATEGORIES
+        loaders.append((
+            "pregnancy_categories", PREGNANCY_CATEGORIES, 50,
+            "INSERT INTO pregnancy_categories (generic, category, schedule, notes) "
+            "VALUES (:generic, :category, :schedule, :notes)",
+            lambda d: {
+                "generic": d["generic"][:200],
+                "category": d.get("category"),
+                "schedule": d.get("schedule"),
+                "notes": d.get("notes"),
+            },
+        ))
+    except ImportError as e:
+        print(f"[medlib] pregnancy_categories seed missing: {e}")
+    try:
+        from app.seed_data.food_interactions import FOOD_INTERACTIONS
+        loaders.append((
+            "food_drug_interactions", FOOD_INTERACTIONS, 30,
+            "INSERT INTO food_drug_interactions (generic, food, effect, severity) "
+            "VALUES (:generic, :food, :effect, :severity)",
+            lambda d: {
+                "generic": d["generic"][:200],
+                "food": d["food"],
+                "effect": d.get("effect"),
+                "severity": d.get("severity", "moderate"),
+            },
+        ))
+    except ImportError as e:
+        print(f"[medlib] food_interactions seed missing: {e}")
 
     for table, items, floor, sql, mapper in loaders:
         with engine.begin() as conn:

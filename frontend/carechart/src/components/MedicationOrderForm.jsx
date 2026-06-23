@@ -5,7 +5,8 @@ import { useAuth } from '../contexts/AuthContext'
 import { usePin } from '../contexts/PinContext'
 import {
   Search, X, Loader2, AlertTriangle, XCircle, Info, CheckCircle2,
-  Pill, Droplets, ShieldAlert, Phone, History, Package, Lock,
+  Pill, Droplets, ShieldAlert, Phone, History, Package, AlertCircle,
+  Utensils, Baby, Lock,
 } from 'lucide-react'
 
 // ── constants ──────────────────────────────────────────────────────────────────
@@ -24,35 +25,61 @@ const EMPTY = {
 }
 
 const SEV_CFG = {
-  major:    { bg: '#fef2f2', border: '#fca5a5', text: '#991b1b', Icon: XCircle,       label: 'Major Interaction' },
-  moderate: { bg: '#fffbeb', border: '#fcd34d', text: '#92400e', Icon: AlertTriangle,  label: 'Moderate Interaction' },
-  minor:    { bg: '#eff6ff', border: '#93c5fd', text: '#1e40af', Icon: Info,           label: 'Minor Interaction' },
+  major:           { bg: '#fef2f2', border: '#fca5a5', text: '#991b1b', Icon: XCircle,       label: 'Major Interaction' },
+  contraindicated: { bg: '#fef2f2', border: '#f87171', text: '#7f1d1d', Icon: XCircle,       label: 'Contraindicated' },
+  moderate:        { bg: '#fffbeb', border: '#fcd34d', text: '#92400e', Icon: AlertTriangle,  label: 'Moderate Interaction' },
+  serious:         { bg: '#fff7ed', border: '#fdba74', text: '#9a3412', Icon: AlertCircle,    label: 'Serious' },
+  minor:           { bg: '#eff6ff', border: '#93c5fd', text: '#1e40af', Icon: Info,           label: 'Minor Interaction' },
+  dose:            { bg: '#fdf4ff', border: '#d8b4fe', text: '#6b21a8', Icon: AlertTriangle,  label: 'Dose Warning' },
+  duplication:     { bg: '#f0fdf4', border: '#86efac', text: '#166534', Icon: AlertCircle,    label: 'Therapeutic Duplication' },
 }
 
-const GREEN = '#065F46'
+const PREG_COLOR = { A: '#166534', B: '#1e40af', C: '#92400e', D: '#9a3412', X: '#7f1d1d' }
+const PREG_BG    = { A: '#f0fdf4', B: '#eff6ff', C: '#fffbeb', D: '#fff7ed', X: '#fef2f2' }
 
+const GREEN = '#065F46'
 const draftKey  = id  => `med_draft_${id}`
 const recentKey = uid => `med_recent_${uid}`
 
 function loadRecent(uid) {
   try { return JSON.parse(localStorage.getItem(recentKey(uid)) || '[]') } catch { return [] }
 }
-
 function saveRecent(uid, entry) {
   const list = loadRecent(uid).filter(r => r.drug_name !== entry.drug_name)
   localStorage.setItem(recentKey(uid), JSON.stringify([entry, ...list].slice(0, 20)))
 }
 
+// ── OpenFDA fallback ───────────────────────────────────────────────────────────
+async function searchOpenFDA(q) {
+  try {
+    const url = `https://api.fda.gov/drug/label.json?search=openfda.generic_name:"${encodeURIComponent(q)}"&limit=5`
+    const res  = await fetch(url)
+    if (!res.ok) return []
+    const data = await res.json()
+    return (data.results || []).map(r => ({
+      generic:       r.openfda?.generic_name?.[0] || q,
+      primary_brand: r.openfda?.brand_name?.[0]  || '',
+      drug_class:    r.openfda?.pharm_class_epc?.[0] || '',
+      routes:        (r.openfda?.route || []).join('|'),
+      brands:        (r.openfda?.brand_name || []).slice(0, 3).join('|'),
+      rx_only:       true,
+      source:        'openfda',
+      inStock:       false,
+    }))
+  } catch { return [] }
+}
+
 // ── Suggestion Card ────────────────────────────────────────────────────────────
 function SuggestionCard({ s, onFill, isSearchResult }) {
-  const brand   = s.primary_brand || s.brand_name || ''
-  const brands  = isSearchResult && s.brands ? s.brands.split('|').slice(0, 3).join(', ') : ''
-  const doseStr = s.form
-    ? `${s.form.dose}${s.form.unit} · ${s.form.route} · ${s.form.frequency}${s.form.duration_days ? ` · ${s.form.duration_days} days` : ''}`
+  const brand    = s.primary_brand || s.brand_name || ''
+  const brands   = isSearchResult && s.brands ? s.brands.split('|').slice(0, 3).join(', ') : ''
+  const doseStr  = s.form
+    ? `${s.form.dose}${s.form.unit} · ${s.form.route} · ${s.form.frequency}${s.form.duration_days ? ` · ${s.form.duration_days}d` : ''}`
     : (s.routes ? s.routes.replace(/\|/g, ' / ') : '')
   const sideEffects  = s.form?.side_effects || ''
   const instructions = s.form?.instructions  || ''
   const drugClass    = s.drug_class || ''
+  const isFDA        = s.source === 'openfda'
 
   return (
     <div
@@ -69,7 +96,7 @@ function SuggestionCard({ s, onFill, isSearchResult }) {
           </p>
           {brand && <p className="text-[11px] text-gray-400">{brand}{brands && brands !== brand ? ` · ${brands}` : ''}</p>}
         </div>
-        {isSearchResult && (
+        {isSearchResult ? (
           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 border ${
             s.inStock
               ? 'bg-green-50 text-green-700 border-green-200'
@@ -77,18 +104,30 @@ function SuggestionCard({ s, onFill, isSearchResult }) {
           }`}>
             {s.inStock ? '✓ In Stock' : 'Out of Stock'}
           </span>
+        ) : (
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border flex-shrink-0"
+            style={{ background: '#f0fdf4', color: GREEN, borderColor: '#bbf7d0' }}>
+            Recent
+          </span>
         )}
       </div>
-      {doseStr && <p className="text-[11px] font-semibold mb-1" style={{ color: GREEN }}>{doseStr}</p>}
+
+      {isFDA && (
+        <span className="text-[9px] px-1.5 py-0.5 rounded bg-orange-50 text-orange-600 border border-orange-200 mb-1 inline-block">
+          OpenFDA
+        </span>
+      )}
+
+      {doseStr && (
+        <p className="text-[11px] font-semibold mb-1" style={{ color: GREEN }}>{doseStr}</p>
+      )}
       {drugClass && (
-        <span className="inline-block text-[10px] px-1.5 py-0.5 rounded border mb-1"
-          style={{ background: '#f0fdf4', color: GREEN, borderColor: '#d1fae5' }}>
+        <span className="inline-block text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-100 mb-1">
           {drugClass}
         </span>
       )}
       {s.rx_only && (
-        <span className="inline-block text-[10px] px-1.5 py-0.5 rounded border mb-1 ml-1"
-          style={{ background: '#fffbeb', color: '#92400e', borderColor: '#fde68a' }}>
+        <span className="inline-block text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-100 mb-1 ml-1">
           Rx Only
         </span>
       )}
@@ -102,7 +141,9 @@ function SuggestionCard({ s, onFill, isSearchResult }) {
           {instructions.slice(0, 70)}{instructions.length > 70 ? '…' : ''}
         </p>
       )}
-      <p className="mt-2 text-[10px] font-bold text-gray-400 group-hover:text-green-700">→ Fill entire form</p>
+      <p className="mt-2 text-[10px] font-bold group-hover:text-green-600" style={{ color: '#9ca3af' }}>
+        → Fill entire form
+      </p>
     </div>
   )
 }
@@ -138,14 +179,18 @@ export default function MedicationOrderForm({
 
   const [interAlerts,    setInterAlerts]    = useState([])
   const [allergyAlerts,  setAllergyAlerts]  = useState([])
+  const [cdsAlerts,      setCdsAlerts]      = useState([])
+  const [foodAlerts,     setFoodAlerts]     = useState([])
+  const [pregnancyInfo,  setPregnancyInfo]  = useState(null)
   const [overrideReason, setOverrideReason] = useState('')
 
-  const [recent, setRecent] = useState(() => loadRecent(userId))
-  const [saving, setSaving] = useState(false)
-  const [error,  setError]  = useState('')
-  const [done,   setDone]   = useState(false)
+  const [recent,  setRecent]  = useState(() => loadRecent(userId))
+  const [saving,  setSaving]  = useState(false)
+  const [error,   setError]   = useState('')
+  const [done,    setDone]    = useState(false)
 
   const searchTimer = useRef(null)
+  const cdsTimer    = useRef(null)
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
   // auto-save draft
@@ -154,7 +199,7 @@ export default function MedicationOrderForm({
     localStorage.setItem(draftKey(admissionId), JSON.stringify(form))
   }, [form, admissionId, initialValues])
 
-  // drug search with debounce
+  // drug search — debounced + OpenFDA hybrid fallback
   useEffect(() => {
     clearTimeout(searchTimer.current)
     if (!query || query.length < 2) { setSearchRes([]); return }
@@ -165,21 +210,52 @@ export default function MedicationOrderForm({
           api.get('/terminology/drugs/search', { params: { q: query, limit: 12 } }),
           api.get('/pharmacy/drugs/search',    { params: { q: query, limit: 20 } }),
         ])
-        const termList  = termRes.status  === 'fulfilled' ? (Array.isArray(termRes.value)  ? termRes.value  : []) : []
+        let termList    = termRes.status  === 'fulfilled' ? (Array.isArray(termRes.value)  ? termRes.value  : []) : []
         const pharmList = pharmRes.status === 'fulfilled' ? (Array.isArray(pharmRes.value) ? pharmRes.value : (pharmRes.value?.items || [])) : []
 
+        // OpenFDA fallback when India seed has < 3 results
+        if (termList.length < 3) {
+          const fdaResults = await searchOpenFDA(query)
+          const existing   = new Set(termList.map(t => t.generic.toLowerCase()))
+          const fresh      = fdaResults.filter(f => !existing.has(f.generic.toLowerCase()))
+          termList = [...termList, ...fresh.slice(0, 5)]
+        }
+
         const stockNames = new Set(pharmList.map(p => (p.name || p.generic_name || '').toLowerCase()))
-        const merged = termList.map(d => ({
+        setSearchRes(termList.map(d => ({
           ...d,
           inStock: stockNames.has(d.generic.toLowerCase()) ||
             pharmList.some(p => (p.name || p.generic_name || '').toLowerCase() === d.generic.toLowerCase()),
-        }))
-        setSearchRes(merged)
+        })))
       } catch {}
       finally { setSearching(false) }
     }, 300)
   }, [query])
 
+  // CDS check — fires when drug + dose + route all set
+  useEffect(() => {
+    clearTimeout(cdsTimer.current)
+    if (!form.drug_name || !form.dose || !form.route) { setCdsAlerts([]); return }
+    cdsTimer.current = setTimeout(async () => {
+      try {
+        const allDrugs = [
+          { name: form.drug_name, dose_mg: parseFloat(form.dose) || null, route: form.route },
+          ...existingOrders
+            .filter(o => o.status !== 'discontinued' && o.status !== 'completed')
+            .map(o => ({ name: o.drug_name || o.generic_name, dose_mg: null, route: o.route })),
+        ]
+        const res = await api.post('/terminology/cds/check', {
+          drugs:     allDrugs,
+          diagnoses: patientData.diagnoses || [],
+        })
+        setCdsAlerts((res?.warnings || []).filter(w =>
+          w.drugs?.[0]?.toLowerCase() === form.drug_name.toLowerCase() || w.type !== 'interaction'
+        ))
+      } catch {}
+    }, 800)
+  }, [form.drug_name, form.dose, form.route, form.unit, existingOrders, patientData.diagnoses])
+
+  // on drug select from library
   const selectDrug = useCallback(async (drug) => {
     const routes = drug.routes ? drug.routes.split('|').map(r => r.trim()).filter(Boolean) : ROUTES
     const avail  = routes.length ? routes : ROUTES
@@ -188,6 +264,8 @@ export default function MedicationOrderForm({
     setSelected(drug)
     setQuery(drug.generic)
     setSearchRes([])
+    setFoodAlerts([])
+    setPregnancyInfo(null)
     setForm(f => ({
       ...f,
       drug_name:    drug.generic,
@@ -199,39 +277,50 @@ export default function MedicationOrderForm({
     setInterAlerts(checkInteractions(drug.generic, existingOrders))
     setAllergyAlerts(checkAllergyConflict(drug.generic, patientAllergies))
 
-    try {
-      const res = await api.get('/terminology/drugs/counselling', { params: { generic: drug.generic } })
-      if (res?.tips?.length) setForm(f => ({ ...f, instructions: res.tips.join('. ') }))
-    } catch {}
+    const [counselRes, interRes, foodRes, pregRes] = await Promise.allSettled([
+      api.get('/terminology/drugs/counselling',       { params: { generic: drug.generic } }),
+      api.get('/terminology/drugs/interactions',      { params: { generic: drug.generic } }),
+      api.get('/terminology/drugs/food-interactions', { params: { generic: drug.generic } }),
+      api.get('/terminology/drugs/pregnancy',         { params: { generic: drug.generic } }),
+    ])
 
-    try {
-      const rows = await api.get('/terminology/drugs/interactions', { params: { generic: drug.generic } })
-      if (Array.isArray(rows)) {
-        const backendAlerts = []
-        for (const row of rows) {
-          const other = row.drug_a.toLowerCase() === drug.generic.toLowerCase() ? row.drug_b : row.drug_a
-          const conflict = existingOrders.find(o =>
-            o.status !== 'discontinued' &&
-            `${o.drug_name} ${o.generic_name || ''}`.toLowerCase().includes(other.toLowerCase())
-          )
-          if (conflict) {
-            backendAlerts.push({
-              severity: row.severity === 'contraindicated' ? 'major' : (row.severity || 'moderate'),
-              message:  row.effect || `${drug.generic} + ${other}: ${row.severity} interaction`,
-              conflictWith: conflict.drug_name,
-              management: row.management,
-            })
-          }
+    if (counselRes.status === 'fulfilled' && counselRes.value?.tips?.length) {
+      setForm(f => ({ ...f, instructions: counselRes.value.tips.join('. ') }))
+    }
+
+    if (interRes.status === 'fulfilled' && Array.isArray(interRes.value)) {
+      const backendAlerts = []
+      for (const row of interRes.value) {
+        const other    = row.drug_a.toLowerCase() === drug.generic.toLowerCase() ? row.drug_b : row.drug_a
+        const conflict = existingOrders.find(o =>
+          o.status !== 'discontinued' &&
+          `${o.drug_name} ${o.generic_name || ''}`.toLowerCase().includes(other.toLowerCase())
+        )
+        if (conflict) {
+          backendAlerts.push({
+            severity:     row.severity === 'contraindicated' ? 'major' : (row.severity || 'moderate'),
+            message:      row.effect || `${drug.generic} + ${other}: ${row.severity} interaction`,
+            conflictWith: conflict.drug_name,
+            management:   row.management,
+          })
         }
-        setInterAlerts(prev => {
-          const merged = [...backendAlerts]
-          for (const a of prev) {
-            if (!merged.some(b => b.conflictWith === a.conflictWith)) merged.push(a)
-          }
-          return merged
-        })
       }
-    } catch {}
+      setInterAlerts(prev => {
+        const merged = [...backendAlerts]
+        for (const a of prev) {
+          if (!merged.some(b => b.conflictWith === a.conflictWith)) merged.push(a)
+        }
+        return merged
+      })
+    }
+
+    if (foodRes.status === 'fulfilled' && Array.isArray(foodRes.value) && foodRes.value.length) {
+      setFoodAlerts(foodRes.value)
+    }
+
+    if (pregRes.status === 'fulfilled' && pregRes.value?.category) {
+      setPregnancyInfo(pregRes.value)
+    }
   }, [existingOrders, patientAllergies])
 
   const fillSuggestion = useCallback((s) => {
@@ -248,21 +337,30 @@ export default function MedicationOrderForm({
     setSearchRes([])
   }, [existingOrders, patientAllergies, selectDrug])
 
+  // computed
   const isIV      = form.route === 'IV'
-  const hasMajor  = interAlerts.some(a => a.severity === 'major')
+  const hasMajor  = interAlerts.some(a => a.severity === 'major') ||
+                    cdsAlerts.some(a => a.severity === 'contraindicated' || a.severity === 'serious')
   const totalDoses = form.duration_days && FREQ_COUNT[form.frequency]
     ? parseInt(form.duration_days) * FREQ_COUNT[form.frequency]
     : null
   const infusionHours = isIV && form.iv_volume_ml && form.iv_rate
     ? (parseFloat(form.iv_volume_ml) / parseFloat(form.iv_rate)).toFixed(1)
     : null
+  const weightDose = form.unit === 'mg/kg' && patientData.weight_kg && form.dose
+    ? (parseFloat(form.dose) * parseFloat(patientData.weight_kg)).toFixed(1)
+    : null
 
   const handleSubmit = async () => {
-    if (!form.drug_name) { setError('Drug name is required'); return }
-    if (!form.dose)      { setError('Dose is required'); return }
-    if (!form.frequency) { setError('Frequency is required'); return }
-    if (hasMajor && !overrideReason) { setError('Enter a clinical override reason for the major interaction'); return }
+    if (!form.drug_name)  { setError('Drug name is required'); return }
+    if (!form.dose)       { setError('Dose is required'); return }
+    if (!form.frequency)  { setError('Frequency is required'); return }
+    if (hasMajor && !overrideReason) {
+      setError('Enter a clinical override reason for the major/contraindicated interaction')
+      return
+    }
 
+    // PIN gate — must confirm nursing identity before submitting medication order
     const pinResult = await requestPin('Confirm Medication Order')
     if (!pinResult) return
 
@@ -270,11 +368,19 @@ export default function MedicationOrderForm({
     try {
       await onSubmit({
         ...form,
-        duration_days: form.duration_days ? parseInt(form.duration_days) : null,
-        iv_volume_ml:  form.iv_volume_ml  ? parseInt(form.iv_volume_ml)  : null,
+        duration_days:   form.duration_days ? parseInt(form.duration_days) : null,
+        iv_volume_ml:    form.iv_volume_ml  ? parseInt(form.iv_volume_ml)  : null,
         override_reason: overrideReason || undefined,
+        weight_kg:       patientData.weight_kg || undefined,
+        cds_warnings:    cdsAlerts.length ? cdsAlerts.map(a => a.message) : undefined,
       })
-      saveRecent(userId, { drug_name: form.drug_name, brand_name: form.brand_name, drug_class: selected?.drug_class, form: { ...form }, ts: Date.now() })
+      saveRecent(userId, {
+        drug_name:  form.drug_name,
+        brand_name: form.brand_name,
+        drug_class: selected?.drug_class,
+        form:       { ...form },
+        ts:         Date.now(),
+      })
       setRecent(loadRecent(userId))
       localStorage.removeItem(draftKey(admissionId))
       setDone(true)
@@ -286,8 +392,8 @@ export default function MedicationOrderForm({
   if (done) return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="bg-white rounded-2xl p-10 flex flex-col items-center gap-3 shadow-2xl">
-        <CheckCircle2 size={44} style={{ color: GREEN }} />
-        <p className="text-base font-semibold text-gray-800">Medication added to chart</p>
+        <CheckCircle2 size={44} className="text-green-600" />
+        <p className="text-base font-semibold text-gray-800">Medication order added</p>
         <button onClick={onCancel} className="text-sm text-gray-400 hover:text-gray-600 mt-1">Close</button>
       </div>
     </div>
@@ -296,7 +402,7 @@ export default function MedicationOrderForm({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
       <div className="bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col"
-        style={{ width: '88vw', maxWidth: 1200, height: '88vh' }}>
+        style={{ width: '88vw', maxWidth: 1300, height: '88vh' }}>
 
         {/* ── Header ── */}
         <div className="flex items-center justify-between px-6 py-4 border-b flex-shrink-0"
@@ -304,39 +410,42 @@ export default function MedicationOrderForm({
           <div className="flex items-center gap-3 min-w-0">
             <Pill size={18} className="text-white flex-shrink-0" />
             <div className="min-w-0">
-              <h2 className="text-sm font-bold text-white">
+              <h2 className="text-sm font-bold text-white flex items-center gap-1.5">
                 {initialValues ? 'Edit Medication Order' : 'New Medication Order'}
+                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full flex items-center gap-1"
+                  style={{ background: 'rgba(255,255,255,0.2)' }}>
+                  <Lock size={9} /> PIN Required
+                </span>
               </h2>
               {patientData.name && (
-                <p className="text-[11px] text-white/55 mt-0.5 truncate">
+                <p className="text-[11px] text-white/60 mt-0.5 truncate">
                   {patientData.name}
-                  {patientData.age ? `, ${patientData.age}` : ''}
+                  {patientData.age       ? `, ${patientData.age} yrs`       : ''}
                   {patientData.weight_kg ? ` · ${patientData.weight_kg} kg` : ''}
                   {patientData.diagnoses?.length ? ` · ${patientData.diagnoses.slice(0, 2).join(', ')}` : ''}
                 </p>
               )}
             </div>
           </div>
-          <div className="flex items-center gap-3 flex-shrink-0">
+          <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
             {patientAllergies.slice(0, 4).map((a, i) => (
-              <span key={i} className="text-[10px] font-bold px-2 py-0.5 rounded-full hidden sm:inline-block"
+              <span key={i}
+                className="text-[10px] font-bold px-2 py-0.5 rounded-full hidden sm:inline-block"
                 style={{ background: '#fef2f2', color: '#b91c1c', border: '1px solid #fca5a5' }}>
                 ⚠ {a.allergen_name || a.allergen}
               </span>
             ))}
-            <Lock size={14} className="text-white/60" />
-            <span className="text-[11px] text-white/60 hidden sm:inline">PIN required</span>
             <button onClick={onCancel}
               className="w-8 h-8 rounded-lg flex items-center justify-center"
-              style={{ background: 'rgba(255,255,255,0.12)' }}
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.22)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}>
+              style={{ background: 'rgba(255,255,255,0.15)' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.25)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'}>
               <X size={15} className="text-white" />
             </button>
           </div>
         </div>
 
-        {/* ── Body: two-panel ── */}
+        {/* ── Body ── */}
         <div className="flex flex-1 min-h-0">
 
           {/* LEFT — form */}
@@ -348,33 +457,55 @@ export default function MedicationOrderForm({
               <div className="relative">
                 <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                 <input
-                  className="w-full border rounded-xl pl-9 pr-10 py-2.5 text-sm focus:outline-none focus:ring-2"
-                  style={{ borderColor: '#e5e7eb', '--tw-ring-color': GREEN }}
+                  className="w-full border rounded-xl pl-9 pr-10 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+                  style={{ borderColor: '#e5e7eb' }}
                   placeholder="Search by generic or brand name…"
                   value={query}
                   onChange={e => { setQuery(e.target.value); set('drug_name', e.target.value); setSelected(null) }}
                   autoFocus
                 />
-                {searching && <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 animate-spin" />}
+                {searching && (
+                  <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 animate-spin" />
+                )}
               </div>
+
               {selected && (
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
                   {selected.primary_brand && (
                     <span className="text-[11px] text-gray-500">Brand: <strong className="text-gray-700">{selected.primary_brand}</strong></span>
                   )}
                   {selected.drug_class && (
-                    <span className="text-[10px] px-2 py-0.5 rounded-full border"
-                      style={{ background: '#f0fdf4', color: GREEN, borderColor: '#d1fae5' }}>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full border" style={{ background: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe' }}>
                       {selected.drug_class}
                     </span>
                   )}
                   {selected.rx_only && (
-                    <span className="text-[10px] px-2 py-0.5 rounded-full border"
-                      style={{ background: '#fffbeb', color: '#92400e', borderColor: '#fde68a' }}>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full border" style={{ background: '#fffbeb', color: '#92400e', borderColor: '#fde68a' }}>
                       Rx Only
                     </span>
                   )}
+                  {pregnancyInfo?.category && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full border font-bold flex items-center gap-1"
+                      style={{
+                        background:  PREG_BG[pregnancyInfo.category]    || '#f9fafb',
+                        color:       PREG_COLOR[pregnancyInfo.category]  || '#374151',
+                        borderColor: PREG_COLOR[pregnancyInfo.category]  || '#d1d5db',
+                      }}>
+                      <Baby size={9} /> Preg Cat {pregnancyInfo.category}
+                    </span>
+                  )}
+                  {pregnancyInfo?.schedule && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full border font-bold"
+                      style={{ background: '#fef3c7', color: '#92400e', borderColor: '#fde68a' }}>
+                      Schedule {pregnancyInfo.schedule}
+                    </span>
+                  )}
                 </div>
+              )}
+              {pregnancyInfo?.notes && (
+                <p className="mt-1 text-[11px] text-amber-700 flex items-center gap-1">
+                  <Baby size={10} /> {pregnancyInfo.notes}
+                </p>
               )}
             </div>
 
@@ -383,7 +514,7 @@ export default function MedicationOrderForm({
               <div className="rounded-xl border-2 px-4 py-3 space-y-1" style={{ background: '#fef2f2', borderColor: '#f87171' }}>
                 <div className="flex items-center gap-2">
                   <ShieldAlert size={15} className="text-red-600" />
-                  <span className="text-sm font-bold text-red-700">Allergy Conflict Detected</span>
+                  <span className="text-sm font-bold text-red-700">⚠ Allergy Conflict Detected</span>
                 </div>
                 {allergyAlerts.map((a, i) => (
                   <p key={i} className="text-xs text-red-700 pl-5">
@@ -394,7 +525,7 @@ export default function MedicationOrderForm({
               </div>
             )}
 
-            {/* Interaction alerts */}
+            {/* Drug-drug interaction alerts */}
             {interAlerts.map((alert, i) => {
               const cfg = SEV_CFG[alert.severity] || SEV_CFG.moderate
               const Ic  = cfg.Icon
@@ -417,6 +548,44 @@ export default function MedicationOrderForm({
               )
             })}
 
+            {/* CDS alerts (dose limit, duplication, contraindications) */}
+            {cdsAlerts.map((alert, i) => {
+              const cfg = SEV_CFG[alert.severity] || SEV_CFG[alert.type] || SEV_CFG.moderate
+              const Ic  = cfg.Icon
+              return (
+                <div key={`cds-${i}`} className="rounded-xl border px-4 py-3"
+                  style={{ background: cfg.bg, borderColor: cfg.border }}>
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <Ic size={13} style={{ color: cfg.text }} />
+                    <span className="text-xs font-bold" style={{ color: cfg.text }}>{cfg.label}</span>
+                  </div>
+                  <p className="text-xs pl-5" style={{ color: cfg.text }}>{alert.message}</p>
+                  {alert.management && (
+                    <p className="text-xs pl-5 mt-0.5 font-medium" style={{ color: cfg.text }}>
+                      Management: {alert.management}
+                    </p>
+                  )}
+                </div>
+              )
+            })}
+
+            {/* Food interactions */}
+            {foodAlerts.length > 0 && (
+              <div className="rounded-xl border px-4 py-3" style={{ background: '#fff7ed', borderColor: '#fed7aa' }}>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <Utensils size={13} className="text-orange-600" />
+                  <span className="text-xs font-bold text-orange-700">Food-Drug Interactions</span>
+                </div>
+                {foodAlerts.map((f, i) => (
+                  <div key={i} className="pl-5 mb-1">
+                    <p className="text-[11px] font-semibold text-orange-800">{f.food}</p>
+                    <p className="text-[10px] text-orange-700">{f.effect}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Override reason for major/contraindicated */}
             {hasMajor && (
               <div>
                 <label className="block text-[11px] font-bold text-red-600 mb-1.5 uppercase tracking-wider">
@@ -425,8 +594,9 @@ export default function MedicationOrderForm({
                 <input
                   className="w-full border-2 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
                   style={{ borderColor: '#fca5a5' }}
-                  placeholder="Enter clinical justification to proceed despite major interaction…"
-                  value={overrideReason} onChange={e => setOverrideReason(e.target.value)}
+                  placeholder="Enter clinical justification to proceed despite major/contraindicated interaction…"
+                  value={overrideReason}
+                  onChange={e => setOverrideReason(e.target.value)}
                 />
               </div>
             )}
@@ -436,15 +606,22 @@ export default function MedicationOrderForm({
               <div>
                 <label className="block text-[11px] font-bold text-gray-500 mb-1.5 uppercase tracking-wider">Dose *</label>
                 <input
-                  className="w-full border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2"
+                  className="w-full border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
                   style={{ borderColor: '#e5e7eb' }}
                   placeholder="e.g. 500"
-                  value={form.dose} onChange={e => set('dose', e.target.value)}
+                  value={form.dose}
+                  onChange={e => set('dose', e.target.value)}
                 />
+                {weightDose && (
+                  <p className="text-[10px] mt-1" style={{ color: GREEN }}>
+                    = {weightDose} mg total ({patientData.weight_kg} kg)
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-[11px] font-bold text-gray-500 mb-1.5 uppercase tracking-wider">Unit</label>
-                <select className="w-full border rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2"
+                <select
+                  className="w-full border rounded-xl px-3 py-2 text-sm bg-white focus:outline-none"
                   style={{ borderColor: '#e5e7eb' }}
                   value={form.unit} onChange={e => set('unit', e.target.value)}>
                   {UNITS.map(u => <option key={u}>{u}</option>)}
@@ -452,7 +629,8 @@ export default function MedicationOrderForm({
               </div>
               <div>
                 <label className="block text-[11px] font-bold text-gray-500 mb-1.5 uppercase tracking-wider">Route</label>
-                <select className="w-full border rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2"
+                <select
+                  className="w-full border rounded-xl px-3 py-2 text-sm bg-white focus:outline-none"
                   style={{ borderColor: '#e5e7eb' }}
                   value={form.route} onChange={e => set('route', e.target.value)}>
                   {availRoutes.map(r => <option key={r}>{r}</option>)}
@@ -464,7 +642,8 @@ export default function MedicationOrderForm({
             <div className="grid grid-cols-3 gap-3 items-end">
               <div>
                 <label className="block text-[11px] font-bold text-gray-500 mb-1.5 uppercase tracking-wider">Frequency *</label>
-                <select className="w-full border rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2"
+                <select
+                  className="w-full border rounded-xl px-3 py-2 text-sm bg-white focus:outline-none"
                   style={{ borderColor: '#e5e7eb' }}
                   value={form.frequency} onChange={e => set('frequency', e.target.value)}>
                   {FREQS.map(f => <option key={f}>{f}</option>)}
@@ -472,7 +651,8 @@ export default function MedicationOrderForm({
               </div>
               <div>
                 <label className="block text-[11px] font-bold text-gray-500 mb-1.5 uppercase tracking-wider">Duration (days)</label>
-                <input className="w-full border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2"
+                <input
+                  className="w-full border rounded-xl px-3 py-2 text-sm focus:outline-none"
                   style={{ borderColor: '#e5e7eb' }}
                   type="number" min="1" placeholder="e.g. 5"
                   value={form.duration_days} onChange={e => set('duration_days', e.target.value)}
@@ -481,7 +661,7 @@ export default function MedicationOrderForm({
               <div className="pb-1">
                 {totalDoses !== null ? (
                   <div className="text-center py-2 rounded-xl border font-semibold text-sm"
-                    style={{ background: '#f0fdf4', borderColor: '#d1fae5', color: GREEN }}>
+                    style={{ background: '#f0fdf4', borderColor: '#bbf7d0', color: GREEN }}>
                     {totalDoses} doses total
                   </div>
                 ) : (
@@ -493,7 +673,7 @@ export default function MedicationOrderForm({
               </div>
             </div>
 
-            {/* IV section */}
+            {/* IV infusion details */}
             {isIV && (
               <div className="rounded-xl border p-4 space-y-3" style={{ background: '#eff6ff', borderColor: '#bfdbfe' }}>
                 <div className="flex items-center gap-2">
@@ -503,23 +683,26 @@ export default function MedicationOrderForm({
                 <div className="grid grid-cols-3 gap-3">
                   <div>
                     <label className="block text-[11px] font-bold text-blue-700 mb-1">Fluid</label>
-                    <select className="w-full border border-blue-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none"
+                    <select
+                      className="w-full border border-blue-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none"
                       value={form.iv_fluid} onChange={e => set('iv_fluid', e.target.value)}>
                       <option value="">Select…</option>
-                      {['NS (0.9%)', 'D5W', 'RL', 'DNS', 'D10W', 'Sterile Water', 'D5NS', 'D5RL'].map(x => <option key={x}>{x}</option>)}
+                      {['NS (0.9%)', 'D5W', 'RL', 'DNS', 'D10W', 'Sterile Water', 'D5NS', 'D5RL', '0.45% NaCl', 'Plasmalyte'].map(x => <option key={x}>{x}</option>)}
                     </select>
                   </div>
                   <div>
                     <label className="block text-[11px] font-bold text-blue-700 mb-1">Volume (mL)</label>
-                    <input className="w-full border border-blue-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none"
+                    <input
+                      className="w-full border border-blue-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none"
                       type="number" placeholder="e.g. 100"
                       value={form.iv_volume_ml} onChange={e => set('iv_volume_ml', e.target.value)}
                     />
                   </div>
                   <div>
                     <label className="block text-[11px] font-bold text-blue-700 mb-1">Rate (mL/hr)</label>
-                    <input className="w-full border border-blue-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none"
-                      placeholder="e.g. 50"
+                    <input
+                      className="w-full border border-blue-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none"
+                      type="number" placeholder="e.g. 50"
                       value={form.iv_rate} onChange={e => set('iv_rate', e.target.value)}
                     />
                   </div>
@@ -533,9 +716,10 @@ export default function MedicationOrderForm({
             {/* Instructions */}
             <div>
               <label className="block text-[11px] font-bold text-gray-500 mb-1.5 uppercase tracking-wider">Instructions</label>
-              <textarea className="w-full border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 resize-none"
+              <textarea
+                className="w-full border rounded-xl px-3 py-2 text-sm focus:outline-none resize-none"
                 style={{ borderColor: '#e5e7eb' }}
-                rows={2} placeholder="Patient / nursing instructions…"
+                rows={2} placeholder="Patient / nurse instructions…"
                 value={form.instructions} onChange={e => set('instructions', e.target.value)}
               />
             </div>
@@ -546,7 +730,8 @@ export default function MedicationOrderForm({
                 <label className="block text-[11px] font-bold mb-1.5 uppercase tracking-wider" style={{ color: '#7c3aed' }}>
                   Expected Side Effects
                 </label>
-                <textarea className="w-full border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 resize-none"
+                <textarea
+                  className="w-full border rounded-xl px-3 py-2 text-sm focus:outline-none resize-none"
                   style={{ borderColor: '#e9d5ff' }}
                   rows={2} placeholder="e.g. Nausea, dizziness…"
                   value={form.side_effects} onChange={e => set('side_effects', e.target.value)}
@@ -554,7 +739,8 @@ export default function MedicationOrderForm({
               </div>
               <div>
                 <label className="block text-[11px] font-bold text-gray-500 mb-1.5 uppercase tracking-wider">Precautions</label>
-                <textarea className="w-full border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 resize-none"
+                <textarea
+                  className="w-full border rounded-xl px-3 py-2 text-sm focus:outline-none resize-none"
                   style={{ borderColor: '#e5e7eb' }}
                   rows={2} placeholder="Monitor for, avoid in…"
                   value={form.precautions} onChange={e => set('precautions', e.target.value)}
@@ -567,9 +753,10 @@ export default function MedicationOrderForm({
               <label className="block text-[11px] font-bold mb-1.5 uppercase tracking-wider flex items-center gap-1" style={{ color: '#dc2626' }}>
                 <Phone size={11} /> Contact Doctor If
               </label>
-              <input className="w-full border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+              <input
+                className="w-full border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
                 style={{ borderColor: '#fecaca' }}
-                placeholder="e.g. Rash, dyspnoea, glucose <3.5 mmol/L, fever >39°C"
+                placeholder="e.g. Rash, dyspnoea, glucose <3.5 mmol/L, fever >39°C, BP <90/60"
                 value={form.contact_if} onChange={e => set('contact_if', e.target.value)}
               />
             </div>
@@ -582,13 +769,17 @@ export default function MedicationOrderForm({
                 { key: 'is_continuous', label: '∞ Continuous', color: '#0284c7' },
               ].map(({ key, label, color }) => (
                 <label key={key} className="flex items-center gap-2 cursor-pointer select-none">
-                  <button type="button" onClick={() => set(key, !form[key])}
+                  <button
+                    type="button"
+                    onClick={() => set(key, !form[key])}
                     className="w-10 h-5 rounded-full relative transition-colors flex-shrink-0"
                     style={{ background: form[key] ? color : '#d1d5db' }}>
                     <span className="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all block"
                       style={{ left: form[key] ? '22px' : '2px' }} />
                   </button>
-                  <span className="text-[12px] font-semibold" style={{ color: form[key] ? color : '#6b7280' }}>{label}</span>
+                  <span className="text-[12px] font-semibold" style={{ color: form[key] ? color : '#6b7280' }}>
+                    {label}
+                  </span>
                 </label>
               ))}
             </div>
@@ -596,18 +787,19 @@ export default function MedicationOrderForm({
             {form.is_prn && (
               <div>
                 <label className="block text-[11px] font-bold mb-1.5" style={{ color: '#7c3aed' }}>PRN Reason / Trigger</label>
-                <input className="w-full border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2"
+                <input
+                  className="w-full border rounded-xl px-3 py-2 text-sm focus:outline-none"
                   style={{ borderColor: '#e9d5ff' }}
-                  placeholder="e.g. For pain ≥5/10 NRS · For fever >38.5°C"
+                  placeholder="e.g. For pain ≥5/10 NRS · For fever >38.5°C · For BP >160/100"
                   value={form.prn_reason} onChange={e => set('prn_reason', e.target.value)}
                 />
               </div>
             )}
 
-            {/* Notes */}
             <div>
               <label className="block text-[11px] font-bold text-gray-400 mb-1.5 uppercase tracking-wider">Additional Notes</label>
-              <input className="w-full border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2"
+              <input
+                className="w-full border rounded-xl px-3 py-2 text-sm focus:outline-none"
                 style={{ borderColor: '#e5e7eb' }}
                 placeholder="Optional — for pharmacy or nursing team"
                 value={form.notes} onChange={e => set('notes', e.target.value)}
@@ -621,10 +813,11 @@ export default function MedicationOrderForm({
             )}
           </div>
 
-          {/* RIGHT — suggestions */}
+          {/* RIGHT — suggestions panel */}
           <div className="w-80 flex-shrink-0 overflow-y-auto border-l"
-            style={{ background: '#f6fdf9', borderColor: '#d1fae5' }}>
+            style={{ background: '#f0fdf4', borderColor: '#bbf7d0' }}>
             <div className="px-4 py-4 space-y-4">
+
               {searchRes.length > 0 && (
                 <div>
                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1">
@@ -637,6 +830,7 @@ export default function MedicationOrderForm({
                   </div>
                 </div>
               )}
+
               {recent.length > 0 && (
                 <div>
                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1">
@@ -649,11 +843,12 @@ export default function MedicationOrderForm({
                   </div>
                 </div>
               )}
+
               {!searchRes.length && !recent.length && (
                 <div className="flex flex-col items-center py-12 text-center">
                   <Package size={28} className="text-gray-300 mb-3" />
                   <p className="text-xs text-gray-400 font-medium">Start typing to search</p>
-                  <p className="text-[11px] text-gray-300 mt-1">Your recent prescriptions will appear here</p>
+                  <p className="text-[11px] text-gray-300 mt-1">Recent prescriptions appear here</p>
                 </div>
               )}
             </div>
@@ -668,8 +863,9 @@ export default function MedicationOrderForm({
                 {form.drug_name} {form.dose}{form.unit} · {form.route} · {form.frequency}
                 {form.duration_days ? ` · ${form.duration_days} days` : ''}
                 {totalDoses ? ` (${totalDoses} doses)` : ''}
-                {form.is_stat ? ' · STAT' : ''}
-                {form.is_prn  ? ' · PRN'  : ''}
+                {weightDose ? ` = ${weightDose} mg` : ''}
+                {form.is_stat ? ' · ⚡STAT' : ''}
+                {form.is_prn  ? ' · PRN'   : ''}
               </span>
             )}
           </div>
