@@ -1134,11 +1134,7 @@ function PatientDashboard({ admission, vitals, loading, session }) {
                 <div key={key}>
                   <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">{label}</label>
                   <input type="number" step="0.1"
-                    defaultValue={
-                      key === 'bp_sys' ? editingVital.blood_pressure?.split('/')[0] :
-                      key === 'bp_dia' ? editingVital.blood_pressure?.split('/')[1] :
-                      editingVital[key]
-                    }
+                    defaultValue={key === 'bp_sys' ? editingVital.blood_pressure?.split('/')[0] : key === 'bp_dia' ? editingVital.blood_pressure?.split('/')[1] : editingVital[key] ?? editingVital[key.replace('_', '')]}
                     onChange={e => {
                       const val = e.target.value
                       setEditingVital(prev => {

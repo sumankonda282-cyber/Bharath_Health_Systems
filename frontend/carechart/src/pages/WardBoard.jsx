@@ -139,7 +139,7 @@ function BedCard({ bed, onClick }) {
                                           { background: '#f0fdf4', color: '#15803d' }
               }>
               {adm.acuity === 'high' ? '🔴' : adm.acuity === 'medium' ? '🟡' : '🟢'}
-              {' '}{adm.acuity.charAt(0).toUpperCase() + adm.acuity.slice(1)} Acuity
+              {adm.acuity.charAt(0).toUpperCase() + adm.acuity.slice(1)} Acuity
             </span>
           )}
           {cautions.length > 0 && (

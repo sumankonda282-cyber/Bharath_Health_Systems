@@ -281,6 +281,7 @@ export default function Layout({ children }) {
         </main>
       </div>
 
+      <HelpWidget open={supportOpen} onClose={() => setSupportOpen(false)} />
       <ChatWidget />
       <HelpWidget open={supportOpen} onClose={() => setSupportOpen(false)} />
     </div>

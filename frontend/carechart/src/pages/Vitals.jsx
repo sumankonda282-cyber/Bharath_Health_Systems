@@ -584,7 +584,7 @@ export default function Vitals() {
       {/* ── Record drawer ── */}
       {drawer !== null && drawer !== false && (
         <RecordDrawer
-          patient={drawer === 'pick' ? (visible[0] || null) : drawer}
+          patient={drawer === 'pick' ? visible[0] : drawer}
           onClose={() => setDrawer(null)}
           onSaved={load}
         />

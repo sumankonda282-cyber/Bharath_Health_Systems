@@ -504,6 +504,7 @@ export default function WardOrders() {
   const [typeFilter, setTypeFilter] = useState('')
   const [search, setSearch]       = useState('')
   const [showNewOrder, setShowNewOrder] = useState(false)
+  const [newOrderPatient, setNewOrderPatient] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -590,8 +591,7 @@ export default function WardOrders() {
         </span>
         <span className="text-[10px] text-gray-400">{session?.shift_label || 'Morning Shift'}</span>
         <div className="ml-auto flex items-center gap-2">
-          <button onClick={() => setShowNewOrder(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white"
+          <button onClick={() => setShowNewOrder(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white"
             style={{ background: GREEN }}>
             <Plus size={12} /> New Order
           </button>
@@ -719,7 +719,7 @@ export default function WardOrders() {
                 <X size={16} />
               </button>
             </div>
-            <p className="text-xs text-gray-500 mb-3">Select a patient to place a new order from their chart:</p>
+            <p className="text-xs text-gray-500 mb-3">Select a patient to place a new order:</p>
             <div className="flex flex-col gap-2 max-h-72 overflow-y-auto">
               {patients.map(p => (
                 <button key={p.id}
@@ -728,7 +728,7 @@ export default function WardOrders() {
                   style={{ borderColor: '#e5e7eb' }}>
                   <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
                     style={{ background: '#065f46' }}>
-                    {(p.patient_name || '?')[0]}
+                    {p.patient_name?.[0] || '?'}
                   </div>
                   <div>
                     <div className="text-xs font-bold text-gray-800">{p.patient_name}</div>
@@ -737,6 +737,7 @@ export default function WardOrders() {
                 </button>
               ))}
             </div>
+            <p className="text-[10px] text-gray-400 mt-3">Orders are placed from the patient's chart.</p>
           </div>
         </div>
       )}
