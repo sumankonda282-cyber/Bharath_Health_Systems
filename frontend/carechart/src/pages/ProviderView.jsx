@@ -460,8 +460,7 @@ export default function ProviderView({ admission, vitals }) {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <AcuityBanner admission={admission} />
-      <VitalsBand vitals={vitals} />
+      <StickyBar admission={admission} vitals={vitals} />
 
       {loading ? (
         <div className="flex items-center justify-center flex-1 text-gray-400">
@@ -478,6 +477,67 @@ export default function ProviderView({ admission, vitals }) {
             <VisitBlock key={i} visit={visit} isFirst={i === 0} />
           ))}
         </div>
+      )}
+    </div>
+  )
+}
+
+// ── Merged Sticky Bar (acuity + vitals in one row) ───────────────────────────
+function StickyBar({ admission, vitals }) {
+  const adm = admission || {}
+  const acuity    = (adm.acuity_level || adm.acuity || 'high').toLowerCase()
+  const freqHours = adm.vitals_freq_hours || adm.vitals_frequency || 1
+  const note      = adm.monitoring_note || adm.acuity_note || 'Dr. Rao: Post-op monitoring. Alert immediately if SpO₂ < 95% or BP > 150/100 or Temp > 38.5°C.'
+
+  const ACUITY_CFG = {
+    high:    { label: 'HIGH ACUITY',    dot: '🔴', bg: '#b91c1c' },
+    medium:  { label: 'MEDIUM ACUITY',  dot: '🟡', bg: '#d97706' },
+    low:     { label: 'LOW ACUITY',     dot: '🟢', bg: '#065F46' },
+    routine: { label: 'ROUTINE',        dot: '⚪', bg: '#6b7280' },
+  }
+  const ac = ACUITY_CFG[acuity] || ACUITY_CFG.routine
+
+  const v = vitals?.[0]
+  const vitalItems = v ? [
+    { label: 'BP',    value: v.blood_pressure, unit: 'mmHg' },
+    { label: 'Pulse', value: v.pulse,          unit: 'bpm'  },
+    { label: 'Temp',  value: v.temperature,    unit: '°C'   },
+    { label: 'SpO₂',  value: v.spo2,           unit: '%'    },
+    { label: 'RR',    value: v.rr,             unit: '/min' },
+  ].filter(i => i.value != null) : []
+
+  return (
+    <div className="flex-shrink-0 flex items-center gap-3 px-4 py-2 flex-wrap"
+      style={{ background: ac.bg, borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
+      <span className="text-[10px] font-black uppercase tracking-widest text-white opacity-90 whitespace-nowrap">
+        {ac.dot} {ac.label}
+      </span>
+      <div className="w-px h-3 bg-white opacity-30" />
+      {freqHours && (
+        <span className="text-xs font-extrabold text-white whitespace-nowrap">Vitals Every {freqHours}h</span>
+      )}
+      {note && (
+        <>
+          <div className="w-px h-3 bg-white opacity-30" />
+          <span className="text-[11px] text-white opacity-85 italic truncate flex-1">{note}</span>
+        </>
+      )}
+      {vitalItems.length > 0 && (
+        <>
+          <div className="w-px h-3 bg-white opacity-30" />
+          <div className="flex items-center gap-3 flex-wrap">
+            {vitalItems.map(({ label, value, unit }) => (
+              <span key={label} className="text-xs text-white whitespace-nowrap">
+                <span className="opacity-70">{label} </span>
+                <span className="font-bold">{value}</span>
+                <span className="opacity-60"> {unit}</span>
+              </span>
+            ))}
+          </div>
+          <span className="text-[10px] text-white opacity-60 whitespace-nowrap">
+            by {v.recorded_by || '—'} · {fmtTime(v.recorded_at)}
+          </span>
+        </>
       )}
     </div>
   )

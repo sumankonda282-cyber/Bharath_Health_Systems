@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
-  ArrowLeft, Search, Pin, PinOff, ChevronDown, ChevronUp,
+  ArrowLeft, Search, Pin, PinOff, ChevronDown, ChevronUp, Menu,
   Loader2, AlertTriangle, Activity, Pill, ClipboardList,
   FileText, Heart, Bed, TrendingUp, ShieldAlert, Droplets, Utensils, Navigation,
   X, Lock, BookOpen, Edit3, CheckCircle, Save, ShoppingBag, MessageSquare
@@ -1119,6 +1119,7 @@ export default function PatientChart() {
   const [activeNav, setNav]       = useState('dashboard')
   const [headerExpanded, setHeaderExpanded] = useState(false)
   const [openForm, setOpenForm]   = useState(null)  // { name, key? } | null
+  const [formsOpen, setFormsOpen] = useState(() => localStorage.getItem('cc_forms_panel') !== 'false')
 
   const load = useCallback(async () => {
     if (!id) return
@@ -1212,7 +1213,7 @@ export default function PatientChart() {
             )}
           </div>
 
-          {/* Row 2 — compact info line */}
+          {/* Row 2 — compact info line + inline clinical chips */}
           {!loading && (
             <div className="flex items-center gap-3 mt-1 flex-wrap">
               <span className="text-[10px] text-gray-500">
@@ -1236,25 +1237,46 @@ export default function PatientChart() {
                   </span>
                 </>
               )}
-              {adm.contact_number && (
-                <>
-                  <span className="text-gray-300 text-xs">·</span>
-                  <span className="text-[10px] text-gray-400">📞 {adm.contact_number}</span>
-                </>
-              )}
+              {/* Right-side inline chips */}
+              <div className="ml-auto flex items-center gap-2 flex-shrink-0">
+                {adm.blood_group && (
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border"
+                    style={{ background: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe' }}>
+                    {adm.blood_group}
+                  </span>
+                )}
+                {adm.allergies ? (
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border"
+                    style={{ background: '#fef2f2', color: '#b91c1c', borderColor: '#fecaca' }}>
+                    ⚠ Allergy
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-medium px-2 py-0.5 rounded-full border"
+                    style={{ background: '#f0fdf4', color: '#065f46', borderColor: '#d1fae5' }}>
+                    No Allergies
+                  </span>
+                )}
+                {adm.doctor_name && (
+                  <span className="text-[10px] text-gray-500 whitespace-nowrap">
+                    <span className="text-gray-400">Attending:</span> <span className="font-semibold text-gray-700">{adm.doctor_name}</span>
+                  </span>
+                )}
+              </div>
             </div>
           )}
 
-          {/* Row 3 — expanded detail */}
+          {/* Row 3 — collapsible demographics */}
           {headerExpanded && !loading && (
-            <div className="mt-2 pt-2 border-t grid grid-cols-3 gap-4" style={{ borderColor: '#f0f0f0' }}>
+            <div className="mt-2 pt-2 border-t grid grid-cols-4 gap-4" style={{ borderColor: '#f0f0f0' }}>
               {[
-                ['Blood Group', adm.blood_group || '—'],
-                ['Allergies', adm.allergies || 'None documented'],
-                ['Attending Doctor', adm.doctor_name || '—'],
-                ['Admission Type', adm.admission_type || '—'],
-                ['Insurance / Payer', adm.insurance_name || 'Self-pay'],
+                ['Address', adm.address || '—'],
+                ['Phone', adm.contact_number || '—'],
                 ['Emergency Contact', adm.emergency_contact || '—'],
+                ['Height', adm.height ? adm.height + ' cm' : '—'],
+                ['Weight', adm.weight ? adm.weight + ' kg' : '—'],
+                ['Insurance / Payer', adm.insurance_name || 'Self-pay'],
+                ['Payment Type', adm.payment_type || '—'],
+                ['Blood Group', adm.blood_group || '—'],
               ].map(([k, v]) => (
                 <div key={k}>
                   <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">{k}</span>
@@ -1333,16 +1355,31 @@ export default function PatientChart() {
           )}
         </div>
 
-        {/* Assessment panel — hidden on full-width views */}
+        {/* Assessment panel toggle strip + panel */}
         {activeNav !== 'medications' && activeNav !== 'mar' && activeNav !== 'orders' && activeNav !== 'food' && activeNav !== 'docs' && activeNav !== 'preop' && activeNav !== 'flowsheet' && activeNav !== 'discharge' && activeNav !== 'notes' && (
-          <div className="flex-shrink-0 border-l overflow-hidden flex flex-col"
-            style={{ width: 272, borderColor: '#e9eaec' }}>
-            <AssessmentPanel
-              admissionId={id}
-              patientName={adm.patient_name}
-              onOpenForm={setOpenForm}
-            />
-          </div>
+          <>
+            <button
+              onClick={() => { const v = !formsOpen; setFormsOpen(v); localStorage.setItem('cc_forms_panel', String(v)) }}
+              className="flex-shrink-0 flex flex-col items-center justify-center border-l gap-1"
+              style={{ width: 28, background: '#f9fafb', borderColor: '#e9eaec' }}
+              title={formsOpen ? 'Hide forms' : 'Show forms'}
+            >
+              <span style={{ fontSize: 10, color: '#9ca3af', writingMode: 'vertical-rl', transform: 'rotate(180deg)', letterSpacing: 1 }}>
+                {formsOpen ? 'HIDE' : 'FORMS'}
+              </span>
+              <Menu size={13} className="text-gray-400" />
+            </button>
+            {formsOpen && (
+              <div className="flex-shrink-0 border-l overflow-hidden flex flex-col"
+                style={{ width: 272, borderColor: '#e9eaec' }}>
+                <AssessmentPanel
+                  admissionId={id}
+                  patientName={adm.patient_name}
+                  onOpenForm={setOpenForm}
+                />
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
