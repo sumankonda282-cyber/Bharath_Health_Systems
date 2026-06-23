@@ -11,6 +11,7 @@ import { useWardSession } from '../contexts/WardSessionContext'
 import EmergencyAlertBanner from './EmergencyAlertBanner'
 import ChatWidget from './ChatWidget'
 import BrandLogo from './BrandLogo'
+import HelpWidget from './HelpWidget'
 import api from '../api/client'
 import { GREEN } from '../constants/colors'
 
@@ -207,47 +208,6 @@ export default function Layout({ children }) {
             className="p-2 rounded-lg text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 transition-colors">
             <HelpCircle size={16} />
           </button>
-          {supportOpen && (
-            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40"
-              onClick={() => setSupportOpen(false)}>
-              <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm" onClick={e => e.stopPropagation()}>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <HelpCircle size={16} className="text-emerald-700" />
-                    <span className="text-sm font-bold text-gray-800">Help & Support</span>
-                  </div>
-                  <button onClick={() => setSupportOpen(false)} className="text-gray-400 hover:text-gray-600">
-                    <X size={16} />
-                  </button>
-                </div>
-                <div className="flex flex-col gap-3">
-                  <div className="flex items-start gap-3 p-3 rounded-xl border border-gray-100 bg-gray-50">
-                    <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
-                      <span className="text-sm">👤</span>
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold text-gray-800">Contact Your Manager</p>
-                      <p className="text-[11px] text-gray-500 mt-0.5">Reach out to your ward or department manager for operational issues, scheduling, or escalations.</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3 p-3 rounded-xl border border-gray-100 bg-gray-50">
-                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                      <span className="text-sm">💻</span>
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold text-gray-800">Contact IT Support</p>
-                      <p className="text-[11px] text-gray-500 mt-0.5">For technical issues, login problems, or system errors — contact your hospital IT helpdesk.</p>
-                    </div>
-                  </div>
-                </div>
-                <button onClick={() => setSupportOpen(false)}
-                  className="mt-4 w-full py-2 rounded-xl text-sm font-semibold text-white"
-                  style={{ background: '#065f46' }}>
-                  Close
-                </button>
-              </div>
-            </div>
-          )}
 
           <div className="relative" ref={notifRef}>
             <button onClick={() => setNotifOpen(o => !o)} title="Alerts"
@@ -321,7 +281,9 @@ export default function Layout({ children }) {
         </main>
       </div>
 
+      <HelpWidget open={supportOpen} onClose={() => setSupportOpen(false)} />
       <ChatWidget />
+      <HelpWidget open={supportOpen} onClose={() => setSupportOpen(false)} />
     </div>
   )
 }

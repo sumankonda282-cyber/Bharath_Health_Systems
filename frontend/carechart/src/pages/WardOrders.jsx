@@ -497,11 +497,14 @@ function PatientRow({ patient, filter, typeFilter, onOrderUpdate }) {
 // ── Main component ────────────────────────────────────────────────────────────
 export default function WardOrders() {
   const { session }     = useWardSession()
+  const navigate        = useNavigate()
   const [patients, setPatients]   = useState([])
   const [loading, setLoading]     = useState(true)
   const [filter, setFilter]       = useState('all')
   const [typeFilter, setTypeFilter] = useState('')
   const [search, setSearch]       = useState('')
+  const [showNewOrder, setShowNewOrder] = useState(false)
+  const [newOrderPatient, setNewOrderPatient] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -560,14 +563,6 @@ export default function WardOrders() {
     return list
   }, [patients, search])
 
-  const STAT_CARDS = [
-    { key: 'all',         label: 'Total Orders',    value: counts.all,         color: NAVY,      bg: '#eff6ff',  icon: FileText },
-    { key: 'pending',     label: 'Pending',         value: counts.pending,     color: RED,       bg: '#fef2f2',  icon: Clock },
-    { key: 'in_progress', label: 'In Progress',     value: counts.in_progress, color: '#d97706', bg: '#fef9c3',  icon: Activity },
-    { key: 'done',        label: 'Completed Today', value: counts.done,        color: GREEN,     bg: '#f0fdf4',  icon: CheckCircle },
-    { key: 'stat',        label: 'STAT / Urgent',   value: counts.stat,        color: RED,       bg: '#fef2f2',  icon: AlertTriangle },
-  ]
-
   const TYPE_FILTERS = [
     { key: '',           label: 'All Types' },
     { key: 'medication', label: 'Medication' },
@@ -596,35 +591,11 @@ export default function WardOrders() {
         </span>
         <span className="text-[10px] text-gray-400">{session?.shift_label || 'Morning Shift'}</span>
         <div className="ml-auto flex items-center gap-2">
-          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white"
+          <button onClick={() => setShowNewOrder(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white"
             style={{ background: GREEN }}>
             <Plus size={12} /> New Order
           </button>
         </div>
-      </div>
-
-      {/* ── Stat cards — actionable filters ── */}
-      <div className="grid grid-cols-5 gap-3 px-5 py-4 flex-shrink-0">
-        {STAT_CARDS.map(s => {
-          const active = filter === s.key
-          const Icon   = s.icon
-          return (
-            <button key={s.key} onClick={() => setFilter(s.key)}
-              className="text-left bg-white rounded-xl border p-3.5 flex flex-col gap-2 transition-all"
-              style={{
-                borderColor: active ? s.color : '#e9eaec',
-                boxShadow: active ? `0 0 0 2px ${s.color}22` : 'none',
-                background: active ? s.bg : 'white',
-              }}>
-              <div className="flex items-center justify-between">
-                <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400">{s.label}</span>
-                <Icon size={13} style={{ color: s.color }} />
-              </div>
-              <span className="text-2xl font-extrabold leading-none" style={{ color: s.color }}>{s.value}</span>
-              <span className="text-[9px] text-gray-400">{active ? 'Filtered ↑' : 'Click to filter'}</span>
-            </button>
-          )
-        })}
       </div>
 
       {/* ── STAT banner ── */}
@@ -737,6 +708,39 @@ export default function WardOrders() {
           </div>
         </div>
       </div>
+
+      {showNewOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          onClick={e => { if (e.target === e.currentTarget) setShowNewOrder(false) }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-sm font-bold text-gray-800">New Order — Select Patient</span>
+              <button onClick={() => setShowNewOrder(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={16} />
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 mb-3">Select a patient to place a new order:</p>
+            <div className="flex flex-col gap-2 max-h-72 overflow-y-auto">
+              {patients.map(p => (
+                <button key={p.id}
+                  onClick={() => { navigate(`/chart/${p.admission_id}`); setShowNewOrder(false) }}
+                  className="text-left flex items-center gap-3 px-3 py-2.5 rounded-xl border hover:border-green-400 hover:bg-green-50 transition-all"
+                  style={{ borderColor: '#e5e7eb' }}>
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                    style={{ background: '#065f46' }}>
+                    {p.patient_name?.[0] || '?'}
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-gray-800">{p.patient_name}</div>
+                    <div className="text-[10px] text-gray-400">{p.bed} · {p.primary_diagnosis || p.diagnosis || ''}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] text-gray-400 mt-3">Orders are placed from the patient's chart.</p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

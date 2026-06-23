@@ -131,6 +131,17 @@ function BedCard({ bed, onClick }) {
           <span className="text-xs text-gray-500 truncate">
             {adm.doctor_name || '—'}
           </span>
+          {adm.acuity && (
+            <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full mt-0.5 w-fit"
+              style={
+                adm.acuity === 'high'   ? { background: '#fef2f2', color: '#b91c1c' } :
+                adm.acuity === 'medium' ? { background: '#fffbeb', color: '#92400e' } :
+                                          { background: '#f0fdf4', color: '#15803d' }
+              }>
+              {adm.acuity === 'high' ? '🔴' : adm.acuity === 'medium' ? '🟡' : '🟢'}
+              {adm.acuity.charAt(0).toUpperCase() + adm.acuity.slice(1)} Acuity
+            </span>
+          )}
           {cautions.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-auto pt-1">
               {cautions.slice(0, 3).map(f => <CautionBadge key={f} flag={f} />)}
