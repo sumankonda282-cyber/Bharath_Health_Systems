@@ -302,8 +302,8 @@ function AssessmentFullPageModal({ form, admissionId, patientName, onClose }) {
     : ''
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ background: 'rgba(15,37,87,0.6)' }}>
-      <div className="flex flex-col w-full h-full bg-white overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(15,37,87,0.6)' }}>
+      <div className="flex flex-col bg-white rounded-2xl shadow-2xl overflow-hidden" style={{ width: '70vw', height: '70vh', maxWidth: 1100 }}>
 
         {/* Modal header */}
         <div className="flex-shrink-0 flex items-center justify-between px-6 py-3.5 border-b shadow-sm"
@@ -1120,6 +1120,8 @@ export default function PatientChart() {
   const [headerExpanded, setHeaderExpanded] = useState(false)
   const [openForm, setOpenForm]   = useState(null)  // { name, key? } | null
   const [formsOpen, setFormsOpen] = useState(() => localStorage.getItem('cc_forms_panel') !== 'false')
+  const [patientAllergies, setPatientAllergies] = useState(null)
+  const [patientAllergiesCoded, setPatientAllergiesCoded] = useState([])
 
   const load = useCallback(async () => {
     if (!id) return
@@ -1129,7 +1131,24 @@ export default function PatientChart() {
         api.get(`/inpatient/admissions/${id}`),
         api.get(`/inpatient/admissions/${id}/vitals`),
       ])
-      if (adm.status === 'fulfilled') setAdmission(adm.value)
+      if (adm.status === 'fulfilled') {
+        setAdmission(adm.value)
+        const pid = adm.value?.patient_id
+        if (pid) {
+          api.get(`/patients/${pid}/clinical`)
+            .then(pd => {
+              const al = pd?.demographics?.allergies
+              if (al) setPatientAllergies(al)
+              const coded = pd?.demographics?.allergies_coded
+              if (coded) {
+                try {
+                  setPatientAllergiesCoded(typeof coded === 'string' ? JSON.parse(coded) : (Array.isArray(coded) ? coded : []))
+                } catch {}
+              }
+            })
+            .catch(() => {})
+        }
+      }
       if (vit.status === 'fulfilled') {
         const v = Array.isArray(vit.value) ? vit.value : (vit.value?.items || [])
         setVitals(v)
@@ -1238,27 +1257,41 @@ export default function PatientChart() {
                 </>
               )}
               {/* Right-side inline chips */}
-              <div className="ml-auto flex items-center gap-2 flex-shrink-0">
+              <div className="ml-auto flex items-center gap-2 flex-shrink-0 flex-wrap">
+                {adm.acuity_level && (
+                  <span className="text-[10px] font-black px-2 py-0.5 rounded-full border"
+                    style={{
+                      background: adm.acuity_level === 'high' ? '#fef2f2' : adm.acuity_level === 'medium' ? '#fffbeb' : '#f0fdf4',
+                      color: adm.acuity_level === 'high' ? '#b91c1c' : adm.acuity_level === 'medium' ? '#d97706' : '#065f46',
+                      borderColor: adm.acuity_level === 'high' ? '#fecaca' : adm.acuity_level === 'medium' ? '#fde68a' : '#d1fae5',
+                    }}>
+                    {adm.acuity_level === 'high' ? '🔴 HIGH' : adm.acuity_level === 'medium' ? '🟡 MED' : '🟢 LOW'}
+                  </span>
+                )}
                 {adm.blood_group && (
                   <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border"
                     style={{ background: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe' }}>
-                    {adm.blood_group}
+                    🩸 {adm.blood_group}
                   </span>
                 )}
-                {adm.allergies ? (
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border"
-                    style={{ background: '#fef2f2', color: '#b91c1c', borderColor: '#fecaca' }}>
-                    ⚠ Allergy
+                {patientAllergies ? (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border cursor-default"
+                    style={{ background: '#fef2f2', color: '#b91c1c', borderColor: '#fecaca' }}
+                    title={patientAllergies}>
+                    ⚠ {patientAllergiesCoded.length > 0
+                      ? (patientAllergiesCoded[0]?.name || patientAllergiesCoded[0]?.allergen || patientAllergies)
+                      : patientAllergies}
+                    {patientAllergiesCoded.length > 1 && ` +${patientAllergiesCoded.length - 1} more`}
                   </span>
                 ) : (
                   <span className="text-[10px] font-medium px-2 py-0.5 rounded-full border"
                     style={{ background: '#f0fdf4', color: '#065f46', borderColor: '#d1fae5' }}>
-                    No Allergies
+                    ✓ No Allergies
                   </span>
                 )}
                 {adm.doctor_name && (
                   <span className="text-[10px] text-gray-500 whitespace-nowrap">
-                    <span className="text-gray-400">Attending:</span> <span className="font-semibold text-gray-700">{adm.doctor_name}</span>
+                    <span className="text-gray-400">👨‍⚕️</span> <span className="font-semibold text-gray-700">{adm.doctor_name}</span>
                   </span>
                 )}
               </div>
