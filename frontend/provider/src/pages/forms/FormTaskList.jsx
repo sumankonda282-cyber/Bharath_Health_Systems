@@ -312,7 +312,7 @@ export default function FormTaskList() {
         ? `/provider/forms/assignments?patient_id=${patientId}`
         : '/provider/forms/assignments'
       const res = await api.get(url)
-      setAssignments(res.data?.assignments || res.data || [])
+      setAssignments(Array.isArray(res) ? res : (res?.assignments || []))
       setLastRefresh(new Date())
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to load assignments')

@@ -5,7 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.core.security import get_current_staff
-from app.models.models import Staff
+from typing import Optional
+from app.models.models import Staff, FormAssignment, AssessmentForm, Patient
 
 router = APIRouter(tags=["carechart"])
 
@@ -68,6 +69,50 @@ def unpublish_care_form(form_id: str, db: Session = Depends(get_db), current: St
 
 
 # ── Provider Forms proxy (read-only for nurses) ───────────────────────────────
+
+@router.get("/provider/forms/assignments")
+def get_provider_forms_assignments(
+    patient_id: Optional[int] = None,
+    status: Optional[str] = None,
+    limit: int = 50,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Return form assignments for this clinic (provider view), optionally filtered by patient."""
+    q = db.query(FormAssignment).filter(FormAssignment.clinic_id == current.clinic_id)
+    if patient_id:
+        q = q.filter(FormAssignment.patient_id == patient_id)
+    if status:
+        q = q.filter(FormAssignment.status == status)
+    assignments = q.order_by(FormAssignment.assigned_at.desc()).limit(limit).all()
+
+    result = []
+    for a in assignments:
+        form = db.query(AssessmentForm).filter(AssessmentForm.id == a.form_id).first()
+        patient = db.query(Patient).filter(Patient.id == a.patient_id).first()
+        result.append({
+            "id": a.id,
+            "form_id": a.form_id,
+            "form_title": form.title if form else None,
+            "form": {
+                "title": form.title if form else None,
+                "category": form.category if form else None,
+            } if form else None,
+            "patient_id": a.patient_id,
+            "patient_name": patient.full_name if patient else None,
+            "bhid": patient.uhid if patient else None,
+            "appointment_id": a.appointment_id,
+            "admission_id": a.admission_id,
+            "status": a.status,
+            "priority": a.priority,
+            "due_at": a.due_at.isoformat() if a.due_at else None,
+            "assigned_at": a.assigned_at.isoformat() if a.assigned_at else None,
+            "completed_at": a.completed_at.isoformat() if a.completed_at else None,
+            "notes": a.notes,
+            "iview_enabled": False,
+        })
+    return result
+
 
 @router.get("/provider/forms/pool")
 def get_provider_forms_pool(db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
