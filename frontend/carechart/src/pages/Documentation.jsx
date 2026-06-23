@@ -711,15 +711,33 @@ function DocViewer({ doc, onSign, onPrint }) {
           {f.uhid && <Row label="UHID" value={f.uhid} />}
         </div>
 
-        {/* category-specific content */}
-        {doc.category === 'consent'     && <ConsentFields f={f} doc={doc} />}
-        {doc.category === 'mlc'         && <MlcFields f={f} />}
-        {doc.category === 'operative'   && <OperativeFields f={f} />}
-        {doc.category === 'insurance'   && <InsuranceFields f={f} />}
-        {doc.category === 'directive'   && <DirectiveFields f={f} doc={doc} />}
-        {doc.category === 'plan'        && <PlanFields f={f} />}
-        {doc.category === 'certificate' && <CertificateFields f={f} />}
-        {doc.category === 'referral'    && <ReferralFields f={f} />}
+        {/* category-specific content — 2-column adaptive layout */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            {doc.category === 'consent'     && <ConsentFields f={f} doc={doc} />}
+            {doc.category === 'mlc'         && <MlcFields f={f} />}
+            {doc.category === 'operative'   && <OperativeFields f={f} />}
+            {doc.category === 'insurance'   && <InsuranceFields f={f} />}
+            {doc.category === 'directive'   && <DirectiveFields f={f} doc={doc} />}
+            {doc.category === 'plan'        && <PlanFields f={f} />}
+            {doc.category === 'certificate' && <CertificateFields f={f} />}
+            {doc.category === 'referral'    && <ReferralFields f={f} />}
+          </div>
+          <div>
+            {/* Right column: additional document metadata and notes */}
+            <SectionH title="Document Info" />
+            <Row label="Template" value={doc.template} />
+            <Row label="Created by" value={doc.created_by} />
+            <Row label="Created at" value={doc.created_at ? new Date(doc.created_at).toLocaleString('en-IN') : '—'} />
+            {doc.signed_at && <Row label="Signed at" value={new Date(doc.signed_at).toLocaleString('en-IN')} />}
+            {doc.notes && (
+              <>
+                <SectionH title="Notes" />
+                <p className="text-xs text-gray-700 leading-relaxed">{doc.notes}</p>
+              </>
+            )}
+          </div>
+        </div>
 
         {/* signature block */}
         <SignatureBlock doc={doc} />
