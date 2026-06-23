@@ -449,10 +449,20 @@ function PrintableDoc({ doc, admission, onClose }) {
 }
 
 function Row({ label, value }) {
+  const str = String(value || '')
+  const isLong = str.length >= 80
+  if (isLong) {
+    return (
+      <div className="text-xs mb-2">
+        <span className="block font-bold text-gray-500 mb-0.5">{label}</span>
+        <span className="text-gray-800 leading-relaxed">{str || '—'}</span>
+      </div>
+    )
+  }
   return (
     <div className="flex gap-2 text-xs mb-1.5">
       <span className="font-bold text-gray-500 w-40 flex-shrink-0">{label}</span>
-      <span className="text-gray-800">{value || '—'}</span>
+      <span className="text-gray-800">{str || '—'}</span>
     </div>
   )
 }
