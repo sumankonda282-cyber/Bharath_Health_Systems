@@ -22,6 +22,7 @@ const STOP_TYPES = {
   procedure:     { label: 'Procedure Room',   color: '#4f46e5', bg: '#eef2ff', border: '#c7d2fe', icon: Stethoscope },
   consult:       { label: 'Consultation',     color: '#059669', bg: '#ecfdf5', border: '#a7f3d0', icon: User },
   transfer:      { label: 'Ward Transfer',    color: '#9333ea', bg: '#fdf4ff', border: '#e9d5ff', icon: Building2 },
+  external_transfer: { label: 'Transfer to External Hospital', color: '#dc2626', bg: '#fef2f2', border: '#fecaca', icon: Building2 },
   physio:        { label: 'Physiotherapy',    color: '#0d9488', bg: '#f0fdfa', border: '#99f6e4', icon: Activity },
   discharge:     { label: 'Discharge',        color: '#065F46', bg: '#f0fdf4', border: '#a7f3d0', icon: LogOut },
 }
@@ -126,7 +127,7 @@ function PinModal({ title, onConfirm, onCancel }) {
 // ─── Add stop drawer ──────────────────────────────────────────────────────────
 function AddStopDrawer({ onClose, onSave }) {
   const [form, setForm] = useState({
-    type: 'ward', location: '', sub: '', arrived_at: '', treatment: '', plan: '', team: '', pinStep: false, pin: ''
+    type: 'ward', location: '', sub: '', arrived_at: '', treatment: '', plan: '', team: '', hospital_name: '', pinStep: false, pin: ''
   })
   const [loading, setLoading] = useState(false)
   const set = k => v => setForm(f => ({ ...f, [k]: v }))
@@ -176,6 +177,16 @@ function AddStopDrawer({ onClose, onSave }) {
               placeholder="e.g. Room 2, Bay 4, Bed 12"
               className="w-full border rounded-lg px-3 py-2 text-sm outline-none" style={{ borderColor: '#d1d5db' }} />
           </div>
+
+          {form.type === 'external_transfer' && (
+            <div className="flex flex-col gap-1">
+              <label className="text-[11px] font-semibold text-gray-700">Receiving Hospital Name *</label>
+              <input type="text" value={form.hospital_name || ''} onChange={e => setForm(f => ({ ...f, hospital_name: e.target.value }))}
+                placeholder="e.g. Apollo Hospital, AIIMS Delhi"
+                className="border rounded-lg px-3 py-1.5 text-xs focus:outline-none"
+                style={{ borderColor: '#d1d5db' }} />
+            </div>
+          )}
 
           <div>
             <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Time Arrived *</label>

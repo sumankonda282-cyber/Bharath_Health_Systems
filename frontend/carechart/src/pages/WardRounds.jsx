@@ -120,6 +120,7 @@ const COLUMNS = [
   { key: 'bed_number',    label: 'Bed',        sortable: true  },
   { key: 'patient_name',  label: 'Patient',    sortable: true  },
   { key: 'age_sex',       label: 'Age/Sex',    sortable: false },
+  { key: 'acuity',        label: 'Acuity',     sortable: true  },
   { key: 'diagnosis',     label: 'Diagnosis',  sortable: true  },
   { key: 'doctor_name',   label: 'Doctor',     sortable: true  },
   { key: 'scheduled_at',  label: 'Scheduled',  sortable: true  },
@@ -369,6 +370,20 @@ export default function WardRounds() {
                       {r.age && r.gender
                         ? `${r.age}${r.gender[0]?.toUpperCase()} · ${dayCount(adm)}`
                         : r.age_sex || '—'}
+                    </td>
+
+                    <td className="px-3 py-1.5 whitespace-nowrap">
+                      {r.acuity ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border"
+                          style={
+                            r.acuity === 'high'   ? { background: '#fef2f2', color: '#b91c1c', borderColor: '#fecaca' } :
+                            r.acuity === 'medium' ? { background: '#fffbeb', color: '#92400e', borderColor: '#fde68a' } :
+                                                    { background: '#f0fdf4', color: '#15803d', borderColor: '#bbf7d0' }
+                          }>
+                          {r.acuity === 'high' ? '🔴' : r.acuity === 'medium' ? '🟡' : '🟢'}
+                          {r.acuity.charAt(0).toUpperCase() + r.acuity.slice(1)}
+                        </span>
+                      ) : <span className="text-gray-300 text-xs">—</span>}
                     </td>
 
                     <td className="px-3 py-1.5 text-xs text-gray-700 max-w-[130px] truncate">

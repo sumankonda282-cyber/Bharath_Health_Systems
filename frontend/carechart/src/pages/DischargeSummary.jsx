@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
-  Printer, Save, CheckCircle, Edit3, Plus, X, Lock, ChevronRight,
+  Printer, Save, CheckCircle, Edit3, Plus, X, Lock, ChevronRight, ChevronDown,
   Loader2, AlertTriangle, User, Calendar, Stethoscope, Activity,
   Pill, FileText, Heart, TrendingUp, MapPin, Phone, Shield,
   ClipboardList, Thermometer, Droplets, BookOpen, Truck, Award
@@ -8,6 +8,16 @@ import {
 import api from '../api/client'
 
 import { GREEN, NAVY, RED } from '../constants/colors'
+
+// ── Discharge types ───────────────────────────────────────────────────────────
+const DISCHARGE_TYPES = [
+  { value: 'home',          label: 'Home',                    icon: '🏠' },
+  { value: 'nursing_care',  label: 'Nursing Care Facility',   icon: '🏥' },
+  { value: 'old_age_home',  label: 'Old Age Home',            icon: '👴' },
+  { value: 'rte',           label: 'RTE / Another Facility',  icon: '🚑' },
+  { value: 'ama',           label: 'Against Medical Advice',  icon: '⚠️' },
+  { value: 'deceased',      label: 'Deceased',                icon: '🕊️' },
+]
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function fmtDate(d) {
@@ -263,6 +273,8 @@ export default function DischargeSummary({ admission }) {
   const [pinError, setPinError] = useState('')
   const [pinLoading, setPinLoading] = useState(false)
   const [saving, setSaving]     = useState(false)
+  const [dischargeType, setDischargeType] = useState('home')
+  const [showDischargeMenu, setShowDischargeMenu] = useState(false)
 
   // Load all chart data to auto-populate
   const load = useCallback(async () => {
@@ -325,6 +337,19 @@ export default function DischargeSummary({ admission }) {
     } catch { /* local only */ } finally {
       setSaving(false)
     }
+  }
+
+  const handleDischarge = async () => {
+    setSaving(true)
+    try {
+      await api.post(`/inpatient/admissions/${id}/discharge`, {
+        discharge_type: dischargeType,
+        outcome_notes: summary?.hospital_course,
+      })
+    } catch { /* graceful — proceed */ } finally {
+      setSaving(false)
+    }
+    setPinModal({ role: 'doctor' })
   }
 
   const handleSign = async (role) => {
@@ -465,11 +490,35 @@ export default function DischargeSummary({ admission }) {
               {saving ? <Loader2 size={11} className="animate-spin" /> : <Save size={11} />}
               Save Draft
             </button>
-            <button onClick={() => setPinModal({ role: 'doctor' })}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white transition-colors"
-              style={{ background: GREEN }}>
-              <Lock size={11} /> Sign &amp; Finalise
-            </button>
+            <div className="relative">
+              <div className="flex rounded-xl overflow-hidden border border-green-700">
+                <button
+                  onClick={handleDischarge}
+                  disabled={saving}
+                  className="flex-1 px-4 py-2.5 text-sm font-bold text-white flex items-center justify-center gap-2"
+                  style={{ background: '#065f46' }}>
+                  {saving ? <><Loader2 size={13} className="animate-spin" /> Saving…</> : `Discharge → ${DISCHARGE_TYPES.find(d => d.value === dischargeType)?.label || 'Home'}`}
+                </button>
+                <button
+                  onClick={() => setShowDischargeMenu(m => !m)}
+                  className="px-2.5 py-2.5 text-white border-l border-green-700"
+                  style={{ background: '#065f46' }}>
+                  <ChevronDown size={14} />
+                </button>
+              </div>
+              {showDischargeMenu && (
+                <div className="absolute bottom-full mb-1 right-0 w-56 bg-white rounded-xl shadow-lg border border-gray-100 z-30 py-1 overflow-hidden">
+                  {DISCHARGE_TYPES.map(dt => (
+                    <button key={dt.value} onClick={() => { setDischargeType(dt.value); setShowDischargeMenu(false) }}
+                      className="w-full text-left px-4 py-2.5 text-xs hover:bg-gray-50 transition-colors flex items-center gap-2"
+                      style={{ color: dischargeType === dt.value ? '#065f46' : '#374151', fontWeight: dischargeType === dt.value ? 700 : 400 }}>
+                      <span>{dt.icon}</span> {dt.label}
+                      {dischargeType === dt.value && <span className="ml-auto text-green-600">✓</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
