@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, BedDouble,
   Activity, Pill, FileText, ClipboardList, LogOut as LogOutIcon, ArrowRightFromLine,
   Stethoscope, ShoppingBag, FileEdit, GitBranch,
-  UserPlus, RefreshCw, HelpCircle, ChevronDown, Menu, X,
+  Bell, RefreshCw, HelpCircle, ChevronDown, Menu, X,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useWardSession } from '../contexts/WardSessionContext'
@@ -69,6 +69,7 @@ export default function Layout({ children }) {
 
   const [profileOpen, setProfileOpen]       = useState(false)
   const [notifOpen, setNotifOpen]           = useState(false)
+  const [supportOpen, setSupportOpen]       = useState(false)
   const [notifications, setNotifications]   = useState([])
   const [unread, setUnread]                 = useState(0)
   const [refreshing, setRefreshing]         = useState(false)
@@ -202,15 +203,56 @@ export default function Layout({ children }) {
             <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
           </button>
 
-          <a href="https://www.bharathhealthsystems.com/support" target="_blank" rel="noreferrer" title="Help & Support"
+          <button onClick={() => setSupportOpen(true)} title="Help & Support"
             className="p-2 rounded-lg text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 transition-colors">
             <HelpCircle size={16} />
-          </a>
+          </button>
+          {supportOpen && (
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40"
+              onClick={() => setSupportOpen(false)}>
+              <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <HelpCircle size={16} className="text-emerald-700" />
+                    <span className="text-sm font-bold text-gray-800">Help & Support</span>
+                  </div>
+                  <button onClick={() => setSupportOpen(false)} className="text-gray-400 hover:text-gray-600">
+                    <X size={16} />
+                  </button>
+                </div>
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-start gap-3 p-3 rounded-xl border border-gray-100 bg-gray-50">
+                    <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                      <span className="text-sm">👤</span>
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-gray-800">Contact Your Manager</p>
+                      <p className="text-[11px] text-gray-500 mt-0.5">Reach out to your ward or department manager for operational issues, scheduling, or escalations.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 p-3 rounded-xl border border-gray-100 bg-gray-50">
+                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                      <span className="text-sm">💻</span>
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-gray-800">Contact IT Support</p>
+                      <p className="text-[11px] text-gray-500 mt-0.5">For technical issues, login problems, or system errors — contact your hospital IT helpdesk.</p>
+                    </div>
+                  </div>
+                </div>
+                <button onClick={() => setSupportOpen(false)}
+                  className="mt-4 w-full py-2 rounded-xl text-sm font-semibold text-white"
+                  style={{ background: '#065f46' }}>
+                  Close
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="relative" ref={notifRef}>
-            <button onClick={() => setNotifOpen(o => !o)} title="Advance Admissions"
+            <button onClick={() => setNotifOpen(o => !o)} title="Alerts"
               className="relative p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
-              <UserPlus size={16} />
+              <Bell size={16} />
               {unread > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full text-white text-[10px] font-bold flex items-center justify-center" style={{ background: 'var(--green)' }}>
                   {unread > 9 ? '9+' : unread}
@@ -220,12 +262,12 @@ export default function Layout({ children }) {
             {notifOpen && (
               <div className="absolute right-0 top-full mt-1 w-80 bg-white rounded-xl shadow-lg border border-gray-100 z-30 overflow-hidden">
                 <div className="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
-                  <span className="text-sm font-semibold text-gray-800">Advance Admissions</span>
+                  <span className="text-sm font-semibold text-gray-800">Alerts & Notifications</span>
                   <span className="text-xs text-gray-400">{notifications.length} scheduled</span>
                 </div>
                 <div className="max-h-64 overflow-y-auto">
                   {notifications.length === 0 ? (
-                    <p className="text-sm text-gray-400 text-center py-6">No upcoming admissions</p>
+                    <p className="text-sm text-gray-400 text-center py-6">No alerts</p>
                   ) : notifications.map(n => (
                     <div key={n.id} className="px-4 py-3 border-b border-gray-50 last:border-0">
                       <div className="flex items-start justify-between gap-2">
@@ -265,10 +307,6 @@ export default function Layout({ children }) {
                   <p className="text-sm font-semibold text-gray-800">{user?.full_name || user?.name}</p>
                   <p className="text-xs text-gray-400 capitalize">{user?.role}</p>
                 </div>
-                <button onClick={() => { setProfileOpen(false); navigate('/select-location') }}
-                  className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
-                  Change Location
-                </button>
                 <button onClick={handleSignOut}
                   className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2">
                   <LogOutIcon size={14} /> Sign Out
