@@ -121,7 +121,7 @@ function DateRangeDropdown({ from, to, onChange }) {
         {label}
       </button>
       {open && (
-        <div className="absolute top-full mt-1 left-0 z-30 bg-white border border-gray-200 rounded-xl shadow-lg p-3 w-64">
+        <div className="absolute top-full mt-1 right-0 z-30 bg-white border border-gray-200 rounded-xl shadow-lg p-3 w-64">
           <div className="flex flex-wrap gap-1.5 mb-3">
             {DATE_PRESETS.map(p => (
               <button key={p.label} onClick={() => applyPreset(p.days)}
