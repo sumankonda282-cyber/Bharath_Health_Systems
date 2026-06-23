@@ -50,7 +50,7 @@ function SidebarLink({ to, icon: Icon, label, collapsed }) {
       to={to}
       className={({ isActive }) =>
         `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all
-         ${isActive ? 'text-white' : 'text-gray-400 hover:text-white hover:bg-white/10'}`
+         ${isActive ? 'text-white' : 'text-emerald-100/80 hover:text-white hover:bg-white/10'}`
       }
       style={({ isActive }) => isActive ? { background: GREEN } : {}}
       title={collapsed ? label : undefined}
@@ -121,17 +121,17 @@ export default function Layout({ children }) {
   const Sidebar = ({ mobile = false }) => (
     <aside
       className={`flex flex-col h-full ${mobile ? 'w-64' : collapsed ? 'w-14' : 'w-56'} flex-shrink-0 transition-all duration-200`}
-      style={{ background: '#0f1117', borderRight: '1px solid #1f2028' }}
+      style={{ background: 'linear-gradient(180deg, #064e3b 0%, #065f46 100%)', borderRight: '1px solid #047857' }}
     >
-      <div className={`flex items-center ${collapsed && !mobile ? 'justify-center' : 'px-4'} py-4 border-b flex-shrink-0`} style={{ borderColor: '#1f2028' }}>
+      <div className={`flex items-center ${collapsed && !mobile ? 'justify-center' : 'px-4'} py-4 border-b flex-shrink-0`} style={{ borderColor: 'rgba(255,255,255,0.15)' }}>
         {collapsed && !mobile ? <BrandLogo size="sm" showText={false} /> : <BrandLogo size="sm" />}
       </div>
 
       {(!collapsed || mobile) && session && (
-        <div className="px-4 py-2 border-b flex-shrink-0" style={{ borderColor: '#1f2028' }}>
-          <p className="text-xs text-gray-500 uppercase tracking-wider">Current Ward</p>
-          <p className="text-xs font-semibold text-gray-300 truncate mt-0.5">{session.ward?.name}</p>
-          <p className="text-xs text-gray-500 truncate">{session.department?.name}</p>
+        <div className="px-4 py-2 border-b flex-shrink-0" style={{ borderColor: 'rgba(255,255,255,0.15)' }}>
+          <p className="text-xs uppercase tracking-wider" style={{ color: 'rgba(167,243,208,0.6)' }}>Current Ward</p>
+          <p className="text-xs font-semibold text-emerald-100 truncate mt-0.5">{session.ward?.name}</p>
+          <p className="text-xs truncate" style={{ color: 'rgba(167,243,208,0.6)' }}>{session.department?.name}</p>
         </div>
       )}
 
@@ -139,7 +139,7 @@ export default function Layout({ children }) {
         {NAV.map(({ section, items }) => (
           <div key={section}>
             {(!collapsed || mobile) && (
-              <p className="text-[10px] font-bold tracking-widest text-gray-600 uppercase px-2 mb-1">{section}</p>
+              <p className="text-[10px] font-bold tracking-widest uppercase px-2 mb-1" style={{ color: 'rgba(167,243,208,0.6)' }}>{section}</p>
             )}
             <div className="space-y-0.5">
               {items.map(item => (
@@ -151,8 +151,8 @@ export default function Layout({ children }) {
       </nav>
 
       {(!collapsed || mobile) && (
-        <div className="px-4 py-3 border-t flex-shrink-0" style={{ borderColor: '#1f2028' }}>
-          <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: 'rgba(6,95,70,0.3)', color: '#34d399' }}>
+        <div className="px-4 py-3 border-t flex-shrink-0" style={{ borderColor: 'rgba(255,255,255,0.15)' }}>
+          <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,255,255,0.15)', color: 'white' }}>
             {shift} Shift
           </span>
         </div>
@@ -181,7 +181,7 @@ export default function Layout({ children }) {
       <div className="flex flex-col flex-1 min-w-0 h-full overflow-hidden">
         <EmergencyAlertBanner />
 
-        <header className="flex items-center gap-3 px-4 py-2.5 bg-white border-b border-gray-100 flex-shrink-0">
+        <header className="flex items-center gap-3 px-4 py-2.5 border-b flex-shrink-0" style={{ background: '#f0fdf8', borderColor: '#d1fae5' }}>
           <button className="md:hidden text-gray-500 hover:text-gray-800 mr-1" onClick={() => setMobileSidebarOpen(true)}>
             <Menu size={20} />
           </button>
@@ -198,12 +198,12 @@ export default function Layout({ children }) {
 
           <div className="flex-1" />
 
-          <button onClick={handleRefresh} title="Refresh" className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
+          <button onClick={handleRefresh} title="Refresh" className="p-2 rounded-lg text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 transition-colors">
             <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
           </button>
 
           <a href="https://www.bharathhealthsystems.com/support" target="_blank" rel="noreferrer" title="Help & Support"
-            className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
+            className="p-2 rounded-lg text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 transition-colors">
             <HelpCircle size={16} />
           </a>
 
