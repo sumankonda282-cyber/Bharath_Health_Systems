@@ -2,14 +2,15 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc
 from typing import Optional
-from datetime import date as dt
+from datetime import date as dt, timedelta
 
 from app.db.session import get_db
 from app.core.security import get_current_staff
+from app.core.config import settings
 from app.models.models import (
     Staff, Patient, Appointment, DoctorProfile,
     Vitals, SoapNote, Prescription, PrescriptionItem,
-    LabOrder, LabOrderItem, Medicine, LabTest
+    LabOrder, LabOrderItem, Medicine, LabTest, FollowUpReminder
 )
 
 router = APIRouter(prefix="/doctor", tags=["doctor-desk"])
@@ -274,6 +275,51 @@ def complete_encounter(
 
     appt.status = "completed"
     db.commit()
+
+    # Create follow-up reminder if follow_up_days was set
+    if soap_data and soap_data.get("follow_up_days"):
+        try:
+            days = int(soap_data["follow_up_days"])
+            due = dt.today() + timedelta(days=days)
+            patient = db.query(Patient).filter(Patient.id == appt.patient_id).first()
+            doctor_staff = db.query(Staff).filter(Staff.id == current.id).first()
+            reminder = FollowUpReminder(
+                appointment_id=appointment_id,
+                clinic_id=appt.clinic_id,
+                patient_name=patient.full_name if patient else "Unknown",
+                patient_mobile=patient.mobile if patient else None,
+                doctor_name=doctor_staff.full_name if doctor_staff else current.full_name,
+                due_date=due,
+                follow_up_days=days,
+                notes=soap_data.get("plan") or None,
+                status="pending",
+            )
+            db.add(reminder)
+            db.commit()
+
+            # Send patient SMS
+            mobile = patient.mobile if patient else None
+            if mobile and settings.FAST2SMS_API_KEY and not settings.OTP_MOCK:
+                try:
+                    import requests
+                    clinic_name = "your clinic"
+                    sms_msg = (
+                        f"Dear {patient.full_name if patient else 'Patient'}, "
+                        f"Dr. {reminder.doctor_name} recommends a follow-up visit in {days} days "
+                        f"(by {due.strftime('%d %b %Y')}). "
+                        f"Our team will call to schedule your appointment. - BharatCliniq"
+                    )
+                    requests.post(
+                        "https://www.fast2sms.com/dev/bulkV2",
+                        headers={"authorization": settings.FAST2SMS_API_KEY},
+                        data={"message": sms_msg, "language": "english", "route": "q", "numbers": mobile},
+                        timeout=5,
+                    )
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
     return {"message": "Encounter completed successfully"}
 
 

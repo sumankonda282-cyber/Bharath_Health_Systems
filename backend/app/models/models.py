@@ -221,10 +221,14 @@ class DoctorSchedule(Base):
     day_of_week  = Column(String(10), nullable=False)  # "monday", "tuesday", etc.
     start_time   = Column(String(8), nullable=False)   # "HH:MM"
     end_time     = Column(String(8), nullable=False)   # "HH:MM"
-    slot_minutes = Column(Integer, default=15)
-    max_patients = Column(Integer, default=20)
-    online_auto_confirm = Column(Integer, default=0)
-    is_active    = Column(Boolean, default=True)
+    slot_minutes             = Column(Integer, default=15)
+    max_patients             = Column(Integer, default=20)
+    is_active                = Column(Boolean, default=True)
+    online_slots             = Column(Integer, default=0)   # 0 = no cap
+    online_auto_confirm      = Column(Integer, default=0)   # first N online bookings auto-confirmed
+    walk_in_slots            = Column(Integer, default=0)   # display only
+    telehealth_slots         = Column(Integer, default=0)   # 0 = telehealth not configured
+    telehealth_auto_confirm  = Column(Integer, default=0)
 
     doctor = relationship("DoctorProfile", back_populates="schedules")
 
@@ -470,6 +474,24 @@ class SoapNote(Base):
     created_by              = Column(Integer, ForeignKey("staff.id"), nullable=True)
 
     appointment = relationship("Appointment", back_populates="soap_note")
+
+
+class FollowUpReminder(Base):
+    __tablename__ = "follow_up_reminders"
+    id                      = Column(Integer, primary_key=True, index=True)
+    appointment_id          = Column(Integer, ForeignKey("appointments.id"), nullable=False)
+    clinic_id               = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    patient_name            = Column(String(200), nullable=False)
+    patient_mobile          = Column(String(20), nullable=True)
+    doctor_name             = Column(String(200), nullable=True)
+    due_date                = Column(Date, nullable=False)
+    follow_up_days          = Column(Integer, nullable=False)
+    notes                   = Column(Text, nullable=True)
+    status                  = Column(String(20), default="pending")  # pending/called/scheduled/dismissed
+    called_by               = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    called_at               = Column(DateTime, nullable=True)
+    scheduled_appointment_id = Column(Integer, ForeignKey("appointments.id"), nullable=True)
+    created_at              = Column(DateTime, server_default=func.now())
 
 
 class ClinicPatientTag(Base):

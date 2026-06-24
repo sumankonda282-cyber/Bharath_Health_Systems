@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import FollowUpReminders from './pages/FollowUpReminders'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import Layout from './components/Layout'
 import Login from './pages/Login'
@@ -85,6 +86,7 @@ function AppRoutes() {
         <Route path="billing" element={<BillingList />} />
         <Route path="billing/:invoiceId" element={<BillingDetail />} />
         <Route path="queue" element={<Queue />} />
+        <Route path="follow-ups" element={<FollowUpReminders />} />
         <Route path="staff" element={<ManagerOnly><StaffManagement /></ManagerOnly>} />
         <Route path="admissions" element={<Admissions />} />
         <Route path="bed-board" element={<BedBoard />} />

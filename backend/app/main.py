@@ -82,6 +82,10 @@ app.add_middleware(
         r"https://bharath-health-[a-z0-9-]+-sumankonda282-cybers-projects\.vercel\.app"
         r"|https://[a-z0-9-]+\.bhs-staff\.pages\.dev"
         r"|https://bhs-staff\.pages\.dev"
+        r"|https://[a-z0-9-]+\.bharathhealthsystems\.com"
+        r"|https://bharathhealthsystems\.com"
+        r"|https://[a-z0-9-]+\.bharatcliniq\.com"
+        r"|https://bharatcliniq\.com"
     ),
     allow_credentials=True,
     allow_methods=["*"],
