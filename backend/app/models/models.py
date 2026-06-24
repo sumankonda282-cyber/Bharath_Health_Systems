@@ -2148,15 +2148,20 @@ class DrugInteraction(Base):
 
 class DrugDoseRange(Base):
     __tablename__ = "drug_dose_ranges"
-    id            = Column(Integer, primary_key=True, index=True)
-    generic       = Column(String(200), nullable=False, index=True)
-    route         = Column(String(40), default="oral")
-    population    = Column(String(20), default="adult")
-    max_single_mg = Column(Numeric(12, 3), nullable=True)
-    max_daily_mg  = Column(Numeric(12, 3), nullable=True)
-    unit          = Column(String(10), default="mg")
-    note          = Column(Text, nullable=True)
-    created_at    = Column(DateTime, server_default=func.now())
+    id                    = Column(Integer, primary_key=True, index=True)
+    generic               = Column(String(200), nullable=False, index=True)
+    route                 = Column(String(40), default="oral")
+    population            = Column(String(20), default="adult")  # adult | pediatric | elderly
+    max_single_mg         = Column(Numeric(12, 3), nullable=True)
+    max_daily_mg          = Column(Numeric(12, 3), nullable=True)
+    unit                  = Column(String(10), default="mg")
+    note                  = Column(Text, nullable=True)
+    pediatric_dose_mg_kg_min = Column(Numeric(10, 3), nullable=True)
+    pediatric_dose_mg_kg_max = Column(Numeric(10, 3), nullable=True)
+    renal_adjustment      = Column(Boolean, default=False)
+    hepatic_adjustment    = Column(Boolean, default=False)
+    pregnancy_category    = Column(String(5), nullable=True)
+    created_at            = Column(DateTime, server_default=func.now())
 
 
 class DrugContraindication(Base):

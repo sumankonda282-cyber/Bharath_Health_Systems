@@ -165,8 +165,11 @@ def search_drugs(
     like = f"%{q}%"
     rows = (
         db.query(Drug)
-        .filter(Drug.is_active == True,
-                (Drug.generic.ilike(like)) | (Drug.brands.ilike(like)))
+        .filter(
+            Drug.is_active == True,
+            (Drug.clinic_id == None) | (Drug.clinic_id == current.clinic_id),
+            (Drug.generic.ilike(like)) | (Drug.brands.ilike(like)),
+        )
         .order_by(Drug.generic.ilike(f"{q}%").desc(), Drug.generic)
         .limit(limit).all()
     )
@@ -230,11 +233,11 @@ def get_food_interactions(
     current: Staff = Depends(get_current_staff),
 ):
     """Return food-drug interactions for a generic drug name."""
+    _sev = {"major": 0, "serious": 1, "moderate": 2, "minor": 3}
     g = generic.strip().lower()
     rows = (
         db.query(FoodDrugInteraction)
         .filter(FoodDrugInteraction.generic.ilike(g))
-        .order_by(FoodDrugInteraction.severity)
         .all()
     )
     if not rows:
@@ -242,9 +245,9 @@ def get_food_interactions(
         rows = (
             db.query(FoodDrugInteraction)
             .filter(FoodDrugInteraction.generic.ilike(f"{first_word}%"))
-            .order_by(FoodDrugInteraction.severity)
             .all()
         )
+    rows.sort(key=lambda r: _sev.get(r.severity or "minor", 4))
     return [
         {"food": r.food, "effect": r.effect, "severity": r.severity}
         for r in rows
@@ -320,7 +323,9 @@ class CdsDrug(BaseModel):
 
 class CdsCheckRequest(BaseModel):
     drugs: List[CdsDrug] = []
-    diagnoses: List[str] = []   # ICD-10 codes
+    diagnoses: List[str] = []       # ICD-10 codes
+    patient_age: Optional[int] = None
+    patient_weight_kg: Optional[float] = None
 
 
 @router.post("/cds/check")
@@ -380,22 +385,43 @@ def cds_check(
             else:
                 seen_atc[key] = n
 
-    # 3. Max dose
+    # 3. Max dose — adult and paediatric
+    is_paed = payload.patient_age is not None and payload.patient_age < 18
     for d in payload.drugs:
         if not d.dose_mg:
             continue
-        rng = db.query(DrugDoseRange).filter(
-            DrugDoseRange.generic.ilike(d.name.strip()),
-            DrugDoseRange.population == "adult",
-        )
-        rng = rng.filter(DrugDoseRange.route == d.route) if d.route else rng
-        rng = rng.first()
-        if rng and rng.max_single_mg and float(d.dose_mg) > float(rng.max_single_mg):
-            warnings.append({
-                "type": "dose", "severity": "serious", "drugs": [d.name],
-                "message": f"Dose {d.dose_mg}{rng.unit} exceeds max single dose {rng.max_single_mg}{rng.unit}",
-                "management": rng.note,
-            })
+        if is_paed and payload.patient_weight_kg:
+            rng = db.query(DrugDoseRange).filter(
+                DrugDoseRange.generic.ilike(d.name.strip()),
+                DrugDoseRange.population == "pediatric",
+            )
+            rng = rng.filter(DrugDoseRange.route == d.route) if d.route else rng
+            rng = rng.first()
+            if rng and rng.pediatric_dose_mg_kg_max:
+                max_dose = float(rng.pediatric_dose_mg_kg_max) * float(payload.patient_weight_kg)
+                if float(d.dose_mg) > max_dose:
+                    warnings.append({
+                        "type": "dose", "severity": "serious", "drugs": [d.name],
+                        "message": (
+                            f"Dose {d.dose_mg}{rng.unit} exceeds paediatric max "
+                            f"{rng.pediatric_dose_mg_kg_max} mg/kg × {payload.patient_weight_kg} kg"
+                            f" = {max_dose:.1f}{rng.unit}"
+                        ),
+                        "management": rng.note,
+                    })
+        else:
+            rng = db.query(DrugDoseRange).filter(
+                DrugDoseRange.generic.ilike(d.name.strip()),
+                DrugDoseRange.population == "adult",
+            )
+            rng = rng.filter(DrugDoseRange.route == d.route) if d.route else rng
+            rng = rng.first()
+            if rng and rng.max_single_mg and float(d.dose_mg) > float(rng.max_single_mg):
+                warnings.append({
+                    "type": "dose", "severity": "serious", "drugs": [d.name],
+                    "message": f"Dose {d.dose_mg}{rng.unit} exceeds max single dose {rng.max_single_mg}{rng.unit}",
+                    "management": rng.note,
+                })
 
     # 4. Drug-diagnosis contraindications (ICD-10 prefix match)
     codes = [c.strip().upper() for c in payload.diagnoses if c and c.strip()]

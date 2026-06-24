@@ -222,6 +222,26 @@ def seed_drug_data():
     except ImportError as e:
         print(f"[medlib] interactions seed missing: {e}")
     try:
+        from app.seed_data.drug_interactions_india import interactions as INDIA_RAW
+        india_normalized = [
+            {
+                "drug_a": d["drug1"][:200], "drug_b": d["drug2"][:200],
+                "severity": d.get("severity", "moderate"),
+                "effect": d.get("description"),
+                "management": d.get("mechanism"),
+                "interaction_type": d.get("interaction_type", "drug-drug"),
+            }
+            for d in INDIA_RAW
+        ]
+        loaders.append((
+            "drug_interactions", india_normalized, 700,
+            "INSERT INTO drug_interactions (drug_a, drug_b, severity, effect, management, interaction_type) "
+            "VALUES (:drug_a, :drug_b, :severity, :effect, :management, :interaction_type)",
+            lambda d: d,
+        ))
+    except ImportError as e:
+        print(f"[medlib] drug_interactions_india seed missing: {e}")
+    try:
         from app.seed_data.dose_ranges import DOSE_RANGES
         loaders.append((
             "drug_dose_ranges", DOSE_RANGES, 100,

@@ -245,8 +245,10 @@ export default function MedicationOrderForm({
             .map(o => ({ name: o.drug_name || o.generic_name, dose_mg: null, route: o.route })),
         ]
         const res = await api.post('/terminology/cds/check', {
-          drugs:     allDrugs,
-          diagnoses: patientData.diagnoses || [],
+          drugs:             allDrugs,
+          diagnoses:         patientData.diagnoses     || [],
+          patient_age:       patientData.age           || null,
+          patient_weight_kg: patientData.weight_kg     || null,
         })
         setCdsAlerts((res?.warnings || []).filter(w =>
           w.drugs?.[0]?.toLowerCase() === form.drug_name.toLowerCase() || w.type !== 'interaction'
@@ -340,7 +342,8 @@ export default function MedicationOrderForm({
   // computed
   const isIV      = form.route === 'IV'
   const hasMajor  = interAlerts.some(a => a.severity === 'major') ||
-                    cdsAlerts.some(a => a.severity === 'contraindicated' || a.severity === 'serious')
+                    cdsAlerts.some(a => a.severity === 'contraindicated' || a.severity === 'serious') ||
+                    pregnancyInfo?.category === 'X'
   const totalDoses = form.duration_days && FREQ_COUNT[form.frequency]
     ? parseInt(form.duration_days) * FREQ_COUNT[form.frequency]
     : null
@@ -525,6 +528,32 @@ export default function MedicationOrderForm({
               </div>
             )}
 
+            {/* Pregnancy safety alerts */}
+            {pregnancyInfo?.category === 'X' && (
+              <div className="rounded-xl border-2 px-4 py-3 space-y-1" style={{ background: '#fef2f2', borderColor: '#f87171' }}>
+                <div className="flex items-center gap-2">
+                  <Baby size={15} className="text-red-600" />
+                  <span className="text-sm font-bold text-red-700">Pregnancy Category X — Contraindicated</span>
+                </div>
+                <p className="text-xs text-red-700 pl-5">
+                  Absolutely contraindicated in pregnancy. Fetal risk outweighs any benefit.
+                  {pregnancyInfo.notes ? ` ${pregnancyInfo.notes}` : ''}
+                </p>
+              </div>
+            )}
+            {pregnancyInfo?.category === 'D' && (
+              <div className="rounded-xl border px-4 py-3 space-y-1" style={{ background: '#fff7ed', borderColor: '#fdba74' }}>
+                <div className="flex items-center gap-2">
+                  <Baby size={15} className="text-orange-600" />
+                  <span className="text-sm font-bold text-orange-700">Pregnancy Category D — Evidence of Fetal Risk</span>
+                </div>
+                <p className="text-xs text-orange-700 pl-5">
+                  Human fetal risk evidence exists. Use only if benefit justifies the risk.
+                  {pregnancyInfo.notes ? ` ${pregnancyInfo.notes}` : ''}
+                </p>
+              </div>
+            )}
+
             {/* Drug-drug interaction alerts */}
             {interAlerts.map((alert, i) => {
               const cfg = SEV_CFG[alert.severity] || SEV_CFG.moderate
@@ -594,7 +623,7 @@ export default function MedicationOrderForm({
                 <input
                   className="w-full border-2 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
                   style={{ borderColor: '#fca5a5' }}
-                  placeholder="Enter clinical justification to proceed despite major/contraindicated interaction…"
+                  placeholder="Enter clinical justification to proceed despite major interaction or Category X drug…"
                   value={overrideReason}
                   onChange={e => setOverrideReason(e.target.value)}
                 />

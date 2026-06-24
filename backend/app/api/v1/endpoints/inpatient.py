@@ -2830,7 +2830,10 @@ def discontinue_medication_order(
     db: Session = Depends(get_db),
     current: Staff = Depends(get_current_staff),
 ):
-    order = db.query(MedicationOrder).filter(MedicationOrder.id == order_id).first()
+    order = db.query(MedicationOrder).filter(
+        MedicationOrder.id == order_id,
+        MedicationOrder.clinic_id == current.clinic_id,
+    ).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     order.status           = "discontinued"
