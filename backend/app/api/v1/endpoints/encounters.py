@@ -12,7 +12,7 @@ from app.core.security import get_current_staff
 from app.models.models import (
     Patient, Clinic, Staff, DoctorProfile,
     Appointment, SoapNote, Vitals, Prescription, PrescriptionItem,
-    LabOrder, LabOrderItem, ImagingOrder,
+    LabOrder, LabOrderItem, ImagingOrder, Admission,
     ClinicPatientTag, PatientTag, EncounterAccessLog,
 )
 
@@ -20,6 +20,45 @@ router = APIRouter(tags=["encounters"])
 
 CLINICAL_ROLES = ["clinic_admin", "clinic_manager", "doctor", "receptionist", "nurse"]
 DOCTOR_ROLES   = ["clinic_admin", "clinic_manager", "doctor"]
+
+
+@router.get("/encounters/resolve/{encounter_no}")
+def resolve_encounter(
+    encounter_no: str,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Resolve a unified encounter number to its source OPD appointment or IPD
+    admission. New, additive — never replaces the existing display logic."""
+    appt = db.query(Appointment).filter(
+        Appointment.encounter_no == encounter_no,
+        Appointment.clinic_id == current.clinic_id,
+    ).first()
+    if appt:
+        return {
+            "encounter_no":   encounter_no,
+            "type":           "opd",
+            "appointment_id": appt.id,
+            "patient_id":     appt.patient_id,
+            "branch_id":      appt.branch_id,
+            "date":           str(appt.appointment_date),
+            "status":         appt.status,
+        }
+    adm = db.query(Admission).filter(
+        Admission.encounter_no == encounter_no,
+        Admission.clinic_id == current.clinic_id,
+    ).first()
+    if adm:
+        return {
+            "encounter_no":     encounter_no,
+            "type":             "ipd",
+            "admission_id":     adm.id,
+            "admission_number": adm.admission_number,
+            "patient_id":       adm.patient_id,
+            "branch_id":        adm.branch_id,
+            "status":           adm.status,
+        }
+    raise HTTPException(404, "Encounter not found")
 
 # ── Specialty tag suggestions (hardcoded, ICD-10 mapped) ─────────────────────
 
@@ -507,7 +546,7 @@ def get_patient_clinical(
             }
 
         visits.append({
-            "encounter_id":           f"ENC-{str(appt.appointment_date).replace('-','')}-{appt.id:04d}",
+            "encounter_id":           appt.encounter_no or f"ENC-{str(appt.appointment_date).replace('-','')}-{appt.id:04d}",
             "appointment_id":         appt.id,
             "visit_date":             str(appt.appointment_date),
             "visit_time":             appt.appointment_time,

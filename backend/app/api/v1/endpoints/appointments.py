@@ -4,6 +4,7 @@ from typing import Optional, List
 from datetime import date as dt
 from app.db.session import get_db
 from app.core.security import get_current_staff
+from app.core import ids
 from app.models.models import (
     Appointment, OnlineBooking, Patient, Staff, DoctorProfile,
     Vitals, SoapNote, Clinic
@@ -56,10 +57,12 @@ def create_appointment(
     doctor_name = doctor_profile.staff.full_name if doctor_profile and doctor_profile.staff else ""
 
     token = _next_token(db, payload.doctor_id, payload.appointment_date, branch_id)
+    _hc = ids.ensure_hc_id_by_clinic_id(db, current.clinic_id)
     appt = Appointment(
         clinic_id=current.clinic_id,
         branch_id=branch_id,
         token_number=token,
+        encounter_no=ids.next_encounter_no(db, current.clinic_id, _hc),
         patient_name=patient.full_name,
         doctor_name=doctor_name,
         **payload.model_dump(),
@@ -261,9 +264,11 @@ def confirm_online_booking(
         booking.patient_user_id = portal_user.id
 
     token = _next_token(db, booking.doctor_id, booking.booking_date, booking.branch_id)
+    _hc = ids.ensure_hc_id_by_clinic_id(db, current.clinic_id)
     appt = Appointment(
         clinic_id=current.clinic_id,
         branch_id=booking.branch_id,
+        encounter_no=ids.next_encounter_no(db, current.clinic_id, _hc),
         patient_id=patient_id,
         doctor_id=booking.doctor_id,
         appointment_date=booking.booking_date,

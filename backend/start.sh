@@ -58,6 +58,13 @@ critical = [
     # doctor_schedules — quota system for online booking
     'ALTER TABLE doctor_schedules ADD COLUMN IF NOT EXISTS online_auto_confirm INTEGER DEFAULT 0',
     'ALTER TABLE doctor_schedules ADD COLUMN IF NOT EXISTS max_patients INTEGER DEFAULT 20',
+    # Standardized identifier system — created synchronously so runtime ID generation never hits a missing table/column
+    'CREATE TABLE IF NOT EXISTS id_sequences (id SERIAL PRIMARY KEY, scope_type VARCHAR(30) NOT NULL, scope_id INTEGER NOT NULL DEFAULT 0, kind VARCHAR(40) NOT NULL, next_val INTEGER NOT NULL DEFAULT 1, updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(), CONSTRAINT uq_id_sequences_scope UNIQUE (scope_type, scope_id, kind))',
+    'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS hc_id VARCHAR(12)',
+    'ALTER TABLE branches ADD COLUMN IF NOT EXISTS branch_code VARCHAR(20)',
+    'ALTER TABLE appointments ADD COLUMN IF NOT EXISTS encounter_no VARCHAR(24)',
+    'ALTER TABLE admissions ADD COLUMN IF NOT EXISTS encounter_no VARCHAR(24)',
+    'ALTER TABLE admissions ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id)',
 ]
 ok = 0; failed = 0
 for sql in critical:
@@ -628,6 +635,21 @@ for _sql in [
     \"CREATE TABLE IF NOT EXISTS specialties (id SERIAL PRIMARY KEY, name VARCHAR(200) NOT NULL UNIQUE, category VARCHAR(100), is_active BOOLEAN DEFAULT TRUE, sort_order INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT NOW())\",
     \"CREATE TABLE IF NOT EXISTS doctor_specialties (id SERIAL PRIMARY KEY, doctor_profile_id INTEGER NOT NULL REFERENCES doctor_profiles(id) ON DELETE CASCADE, specialty_name VARCHAR(200) NOT NULL, is_primary BOOLEAN DEFAULT FALSE, created_at TIMESTAMP DEFAULT NOW(), UNIQUE(doctor_profile_id, specialty_name))\",
     \"CREATE INDEX IF NOT EXISTS idx_doctor_specialties_doctor ON doctor_specialties(doctor_profile_id)\",
+    \"ALTER TABLE vitals ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id)\",
+    \"ALTER TABLE soap_notes ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id)\",
+    \"ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id)\",
+    \"ALTER TABLE lab_orders ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id)\",
+    \"ALTER TABLE imaging_orders ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id)\",
+    \"ALTER TABLE encounter_access_logs ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id)\",
+    \"ALTER TABLE vital_signs ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id)\",
+    \"ALTER TABLE nursing_notes ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id)\",
+    \"ALTER TABLE medication_administrations ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id)\",
+    \"ALTER TABLE clinical_orders ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id)\",
+    \"ALTER TABLE discharge_summaries ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id)\",
+    \"ALTER TABLE form_submissions ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id)\",
+    \"ALTER TABLE form_submissions ADD COLUMN IF NOT EXISTS encounter_id VARCHAR(24)\",
+    \"CREATE INDEX IF NOT EXISTS idx_appointments_encounter_no ON appointments(encounter_no)\",
+    \"CREATE INDEX IF NOT EXISTS idx_admissions_encounter_no ON admissions(encounter_no)\",
 ]:
     try:
         with engine.begin() as conn:
@@ -717,6 +739,12 @@ try:
 except Exception as e:
     print(f'[startup] Index creation failed: {e}')
 " || echo "[bg-migrations] Column migrations failed — continuing"
+
+# Standardized identifier system: backfill HC IDs, branch codes, employee IDs,
+# encounter numbers, MRNs + branch_id propagation, then add uniqueness guards.
+# (This module is the data half of the start.sh migration — no Alembic.)
+echo "[bg-migrations] Standardizing identifiers (HC ID / branch / employee / encounter / MRN)..."
+timeout 180 python -m app.db.backfill_ids || echo "[bg-migrations] ID backfill failed (non-fatal)"
 
 echo "[bg-migrations] Loading medical terminology library (idempotent)..."
 timeout 120 python -m app.seed_medical_library || echo "[bg-migrations] Medical library load failed (non-fatal)"

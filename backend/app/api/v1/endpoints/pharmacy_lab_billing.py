@@ -7,6 +7,7 @@ from decimal import Decimal
 
 from app.db.session import get_db
 from app.core.security import get_current_staff, require_billing_waive
+from app.core import ids
 from app.models.models import (
     Medicine, Prescription, PrescriptionItem,
     LabTest, LabOrder, LabOrderItem,
@@ -476,10 +477,8 @@ billing_router = APIRouter(prefix="/billing", tags=["billing"])
 
 
 def _invoice_number(db, clinic_id):
-    from datetime import datetime as dtt
-    prefix = f"INV{dtt.now().year}{dtt.now().month:02d}"
-    count = db.query(Invoice).filter(Invoice.invoice_number.like(f"{prefix}%")).count()
-    return f"{prefix}{count + 1:04d}"
+    # Atomic, collision-safe global-monthly invoice number (see app.core.ids).
+    return ids.next_invoice_no(db)
 
 
 @billing_router.post("/invoices", response_model=InvoiceOut)
@@ -1664,13 +1663,8 @@ def delete_supplier(
 # ══════════════════════════════════════════════════════════════
 
 def _po_number(db, clinic_id):
-    from datetime import datetime as dtt
-    prefix = f"BH-PO-{dtt.now().strftime('%Y%m%d')}"
-    count = db.query(PurchaseOrder).filter(
-        PurchaseOrder.po_number.like(f"{prefix}%"),
-        PurchaseOrder.clinic_id == clinic_id
-    ).count()
-    return f"{prefix}-{count + 1:03d}"
+    # Atomic, collision-safe BH-PO-YYYYMMDD-NNN per clinic/day (see app.core.ids).
+    return ids.next_po_no(db, clinic_id)
 
 
 class POItemIn(BaseModel):
@@ -1919,13 +1913,8 @@ def create_sales_return(
         (i.quantity * float(i.unit_price or 0)) for i in payload.items
     )
 
-    # Generate return number
-    prefix = f"CR{datetime.utcnow().strftime('%Y%m%d')}"
-    count = db.query(SalesReturn).filter(
-        SalesReturn.return_number.like(f"{prefix}%"),
-        SalesReturn.clinic_id == current.clinic_id,
-    ).count()
-    return_number = f"{prefix}{count + 1:04d}"
+    # Atomic, collision-safe CR-YYYYMMDD-NNNN per clinic/day (see app.core.ids).
+    return_number = ids.next_return_no(db, current.clinic_id)
 
     ret = SalesReturn(
         clinic_id=current.clinic_id,
@@ -3820,9 +3809,8 @@ def dispense_cart(
         else:
             inv_status = "pending"
 
-        # Invoice number
-        count = db.query(Invoice).filter(Invoice.clinic_id == current.clinic_id).count()
-        inv_num = f"RX-{current.clinic_id}-{count + 1:06d}"
+        # Atomic, collision-safe RX-<clinic>-NNNNNN per clinic (see app.core.ids).
+        inv_num = ids.next_rx_invoice_no(db, current.clinic_id)
 
         invoice = Invoice(
             clinic_id      = current.clinic_id,

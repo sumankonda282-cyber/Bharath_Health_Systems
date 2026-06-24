@@ -18,6 +18,7 @@ from app.core.security import (
     get_current_staff, require_doctor_or_nurse, require_imaging_access,
     require_imaging_sign,
 )
+from app.core import ids
 
 router = APIRouter(prefix='/imaging-orders', tags=['imaging-orders'])
 
@@ -30,8 +31,8 @@ MODALITY_LABELS = {
 
 
 def _next_imaging_order_id(clinic_id: int, db: Session) -> str:
-    count = db.query(ImagingOrder).filter_by(clinic_id=clinic_id).count()
-    return f'IMG-{(count + 1):05d}'
+    # Atomic, collision-safe IMG-00001 generation (see app.core.ids).
+    return ids.next_imaging_order_no(db, clinic_id)
 
 
 class CreateImagingOrderRequest(BaseModel):

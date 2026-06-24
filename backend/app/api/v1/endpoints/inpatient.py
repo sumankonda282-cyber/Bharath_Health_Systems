@@ -14,6 +14,7 @@ from sqlalchemy import text
 
 from app.db.session import get_db
 from app.core.security import get_current_staff
+from app.core import ids
 from app.models.models import (
     Clinic, Staff, Patient, Appointment,
     Department, Ward, Bed, Admission, AdmissionTransfer,
@@ -417,8 +418,11 @@ def create_admission(
 
     admitting_doctor_id = body.get("admitting_doctor_id") or current.id
 
+    _hc = ids.ensure_hc_id_by_clinic_id(db, current.clinic_id)
     adm = Admission(
         clinic_id=current.clinic_id,
+        branch_id=body.get("branch_id") or current.branch_id,
+        encounter_no=ids.next_encounter_no(db, current.clinic_id, _hc),
         patient_id=patient_id,
         admission_number=admission_number,
         admission_sequence=clinic.admission_sequence,
@@ -2563,8 +2567,11 @@ def create_emergency(
     prefix = clinic.clinic_prefix or "BC"
     admission_number = f"{prefix}-EMRG-{datetime.now().year}-{str(clinic.admission_sequence).zfill(6)}"
 
+    _hc = ids.ensure_hc_id_by_clinic_id(db, current.clinic_id)
     adm = Admission(
         clinic_id=current.clinic_id,
+        branch_id=body.get("branch_id") or current.branch_id,
+        encounter_no=ids.next_encounter_no(db, current.clinic_id, _hc),
         patient_id=patient.id,
         admission_number=admission_number,
         admission_sequence=clinic.admission_sequence,

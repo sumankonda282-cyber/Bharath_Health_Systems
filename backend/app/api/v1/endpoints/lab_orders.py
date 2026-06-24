@@ -20,6 +20,7 @@ from app.core.security import (
     get_current_staff, require_doctor_or_nurse, require_lab_access,
     require_lab_sign, require_any_staff,
 )
+from app.core import ids
 
 router = APIRouter(prefix='/lab-orders', tags=['lab-orders'])
 
@@ -27,8 +28,8 @@ router = APIRouter(prefix='/lab-orders', tags=['lab-orders'])
 # ── ID generation ──────────────────────────────────────────────────────────────
 
 def _next_lab_order_id(clinic_id: int, db: Session) -> str:
-    count = db.query(LabOrder).filter_by(clinic_id=clinic_id).count()
-    return f'LAB-{(count + 1):05d}'
+    # Atomic, collision-safe LAB-00001 generation (see app.core.ids).
+    return ids.next_lab_order_no(db, clinic_id)
 
 
 # ── Schemas ────────────────────────────────────────────────────────────────────

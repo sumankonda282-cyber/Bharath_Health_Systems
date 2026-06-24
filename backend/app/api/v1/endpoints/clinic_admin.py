@@ -14,6 +14,7 @@ def _generate_temp_password() -> str:
 
 from app.db.session import get_db
 from app.core.security import get_current_staff, hash_password
+from app.core import ids
 from app.core.config import settings
 from app.models.models import (
     Clinic, Branch, Staff, DoctorProfile, DoctorSchedule,
@@ -133,6 +134,9 @@ def create_branch(
             raise HTTPException(403, f"Free plan allows {settings.FREE_PLAN_MAX_BRANCHES} branch. Upgrade to add more.")
     branch = Branch(clinic_id=current.clinic_id, **payload.model_dump())
     db.add(branch)
+    db.flush()
+    _hc = ids.ensure_hc_id_by_clinic_id(db, current.clinic_id)
+    branch.branch_code = ids.next_branch_code(db, current.clinic_id, _hc)
     db.commit()
     db.refresh(branch)
     return branch
@@ -206,7 +210,6 @@ def create_staff(
         hashed_password = hash_password(body.get("password") or _generate_temp_password()),
         role            = body.get("role", "receptionist"),
         is_active       = body.get("role") not in ['pharmacist', 'lab_technician', 'imaging_tech'],
-        employee_id              = body.get("employee_id"),
         designation              = body.get("designation"),
         department               = body.get("department"),
         ward                     = body.get("ward"),
@@ -228,6 +231,10 @@ def create_staff(
     )
     db.add(new_staff)
     db.flush()
+
+    # Standardized, role-prefixed employee ID (e.g. HC00001-DR0001)
+    _hc = ids.ensure_hc_id_by_clinic_id(db, current.clinic_id)
+    new_staff.employee_id = ids.next_employee_id(db, current.clinic_id, _hc, new_staff.role)
 
     if body.get("role") == "doctor":
         dp = DoctorProfile(
