@@ -175,13 +175,18 @@ class DoctorProfileOut(BaseModel):
 
 
 class DoctorScheduleCreate(BaseModel):
-    branch_id: int
+    branch_id: Optional[int] = None
     day_of_week: str
     start_time: str
     end_time: str
     slot_minutes: int = 30
     max_patients: int = 20
     is_active: bool = True
+    online_slots: int = 0
+    online_auto_confirm: int = 0
+    walk_in_slots: int = 0
+    telehealth_slots: int = 0
+    telehealth_auto_confirm: int = 0
 
 
 # ── Patient ───────────────────────────────────────────────────────────────────

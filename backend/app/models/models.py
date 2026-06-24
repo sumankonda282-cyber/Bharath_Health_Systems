@@ -196,9 +196,14 @@ class DoctorSchedule(Base):
     day_of_week  = Column(String(10), nullable=False)  # "monday", "tuesday", etc.
     start_time   = Column(String(8), nullable=False)   # "HH:MM"
     end_time     = Column(String(8), nullable=False)   # "HH:MM"
-    slot_minutes = Column(Integer, default=15)
-    max_patients = Column(Integer, default=20)
-    is_active    = Column(Boolean, default=True)
+    slot_minutes             = Column(Integer, default=15)
+    max_patients             = Column(Integer, default=20)
+    is_active                = Column(Boolean, default=True)
+    online_slots             = Column(Integer, default=0)   # 0 = no cap
+    online_auto_confirm      = Column(Integer, default=0)   # first N online bookings auto-confirmed
+    walk_in_slots            = Column(Integer, default=0)   # display only
+    telehealth_slots         = Column(Integer, default=0)   # 0 = telehealth not configured
+    telehealth_auto_confirm  = Column(Integer, default=0)
 
     doctor = relationship("DoctorProfile", back_populates="schedules")
 

@@ -505,6 +505,56 @@ def book_appointment_online(
             detail="You already have a booking with this doctor on this date."
         )
 
+    # Determine booking status using slot quota + auto-confirm rules
+    booking_mode = payload.mode or "online"
+    booking_status = "pending"
+
+    day_name = payload.booking_date.strftime("%A").lower()
+    schedule = None
+    if branch_id:
+        schedule = db.query(DoctorSchedule).filter(
+            DoctorSchedule.doctor_id == payload.doctor_id,
+            DoctorSchedule.branch_id == branch_id,
+            DoctorSchedule.day_of_week == day_name,
+            DoctorSchedule.is_active == True,
+        ).first()
+    if not schedule:
+        schedule = db.query(DoctorSchedule).filter(
+            DoctorSchedule.doctor_id == payload.doctor_id,
+            DoctorSchedule.day_of_week == day_name,
+            DoctorSchedule.is_active == True,
+        ).first()
+
+    if schedule:
+        if booking_mode == "telehealth":
+            tele_slots = getattr(schedule, 'telehealth_slots', 0) or 0
+            tele_confirm = getattr(schedule, 'telehealth_auto_confirm', 0) or 0
+            if tele_slots > 0:
+                tele_count = db.query(func.count(OnlineBooking.id)).filter(
+                    OnlineBooking.doctor_id == payload.doctor_id,
+                    OnlineBooking.booking_date == payload.booking_date,
+                    OnlineBooking.mode == "telehealth",
+                    OnlineBooking.status.in_(["pending", "confirmed"]),
+                ).scalar() or 0
+                if tele_count >= tele_slots:
+                    raise HTTPException(status_code=400, detail="Telehealth slots are fully booked for this day.")
+                if tele_confirm > 0 and tele_count < tele_confirm:
+                    booking_status = "confirmed"
+        else:
+            online_cap = getattr(schedule, 'online_slots', 0) or 0
+            online_confirm = getattr(schedule, 'online_auto_confirm', 0) or 0
+            if online_cap > 0:
+                online_count = db.query(func.count(OnlineBooking.id)).filter(
+                    OnlineBooking.doctor_id == payload.doctor_id,
+                    OnlineBooking.booking_date == payload.booking_date,
+                    OnlineBooking.mode != "telehealth",
+                    OnlineBooking.status.in_(["pending", "confirmed"]),
+                ).scalar() or 0
+                if online_count >= online_cap:
+                    raise HTTPException(status_code=400, detail="Online booking slots are fully booked for this day. Please call the clinic for walk-in availability.")
+                if online_confirm > 0 and online_count < online_confirm:
+                    booking_status = "confirmed"
+
     # Look up or create PatientUser by mobile
     portal_user = db.query(PatientUser).filter(PatientUser.mobile == payload.patient_mobile).first()
     is_new_patient = False
@@ -563,9 +613,9 @@ def book_appointment_online(
         booking_date=payload.booking_date,
         booking_time=payload.booking_time,
         reason=payload.reason,
-        status="pending",
+        status=booking_status,
         confirmation_code=_gen_confirmation_code(),
-        mode=payload.mode or "offline",
+        mode=booking_mode,
         patient_state=payload.patient_state,
         bh_id_ref=bh_id_assigned,
         payment_mode=payload.payment_mode or "pay_at_clinic",
