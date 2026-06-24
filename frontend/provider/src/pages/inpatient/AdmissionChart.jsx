@@ -8,6 +8,7 @@ import {
   Settings2, Copy, CheckCircle2, ChevronDown, ChevronUp,
   Printer, Banknote, Mic, MicOff, UserCheck, X as XIcon,
   Search, Pin, Menu, TrendingUp, ShieldAlert, Clock,
+  Loader2, Droplets, Heart, Bed, Pill,
 } from 'lucide-react'
 import { PageLoader } from '../../components/ui/Spinner'
 import InpatientBilling from './InpatientBilling'
@@ -1297,50 +1298,164 @@ function FormModal({ form, admissionId, onClose }) {
   )
 }
 
-// ── Dashboard View ────────────────────────────────────────────────────────────
-function DashboardView({ adm, pat }) {
+// ── Patient Stat Card ─────────────────────────────────────────────────────────
+function PatientStatCard({ icon: Icon, label, value, sub, color }) {
   return (
-    <div className="grid md:grid-cols-2 gap-6">
-      <div>
-        <h3 className="text-sm font-semibold text-gray-700 mb-4 pb-2 border-b border-gray-100">Admission Details</h3>
-        <dl className="space-y-2.5 text-sm">
-          {[
-            ['Admission #',       adm.admission_number || `#${adm.id}`],
-            ['Admission Type',    adm.admission_type?.replace(/_/g, ' ')],
-            ['Department',        adm.department_name || adm.department?.name],
-            ['Ward',              adm.ward_name],
-            ['Bed',               adm.bed_number ? `Bed ${adm.bed_number}` : null],
-            ['Admitting Doctor',  adm.admitting_doctor_name || adm.admitting_doctor?.full_name],
-            ['Admission Date',    fmtDate(adm.admission_date || adm.created_at)],
-            ['Primary Diagnosis', adm.primary_diagnosis],
-            ['Insurance',         adm.insurance_provider || adm.insurance_info],
-          ].map(([label, val]) => val ? (
-            <div key={label} className="flex gap-2">
-              <dt className="text-gray-400 w-36 shrink-0">{label}</dt>
-              <dd className="font-medium text-gray-800 capitalize">{val}</dd>
-            </div>
-          ) : null)}
-        </dl>
+    <div className="bg-white rounded-xl border p-3.5 flex flex-col gap-2" style={{ borderColor: '#e9eaec' }}>
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{label}</span>
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+          style={{ background: `${color}18` }}>
+          <Icon size={14} style={{ color }} />
+        </div>
       </div>
+      <span className="text-2xl font-extrabold leading-none" style={{ color }}>{value ?? '—'}</span>
+      {sub && <span className="text-[10px] text-gray-400 leading-none">{sub}</span>}
+    </div>
+  )
+}
+
+// ── Vitals Mini Row ───────────────────────────────────────────────────────────
+function VitalMiniRow({ vital }) {
+  return (
+    <tr className="border-b border-gray-50 last:border-0">
+      <td className="px-3 py-1.5 text-[10px] text-gray-400 whitespace-nowrap">
+        {vital.recorded_at
+          ? new Date(vital.recorded_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })
+          : '—'}
+      </td>
+      <td className="px-3 py-1.5 text-xs text-gray-700 whitespace-nowrap font-medium">
+        {(vital.blood_pressure_systolic && vital.blood_pressure_diastolic)
+          ? `${vital.blood_pressure_systolic}/${vital.blood_pressure_diastolic}`
+          : (vital.blood_pressure || '—')}
+      </td>
+      <td className="px-3 py-1.5 text-xs text-gray-700 whitespace-nowrap">{vital.pulse_rate ?? vital.pulse ?? '—'}</td>
+      <td className="px-3 py-1.5 text-xs text-gray-700 whitespace-nowrap">{vital.temperature ?? '—'}</td>
+      <td className="px-3 py-1.5 text-xs text-gray-700 whitespace-nowrap">{vital.oxygen_saturation ?? vital.spo2 ?? '—'}%</td>
+      <td className="px-3 py-1.5 text-xs text-gray-700 whitespace-nowrap">{vital.respiratory_rate ?? vital.rr ?? '—'}</td>
+      <td className="px-3 py-1.5 text-xs text-gray-500 whitespace-nowrap">{vital.recorded_by_name || vital.recorded_by || '—'}</td>
+    </tr>
+  )
+}
+
+// ── Dashboard View ────────────────────────────────────────────────────────────
+function DashboardView({ adm, pat, vitals }) {
+  const latestVital = vitals?.[0] || {}
+  const los = adm.admitted_at || adm.admission_date || adm.created_at
+    ? Math.floor((Date.now() - new Date(adm.admitted_at || adm.admission_date || adm.created_at).getTime()) / 86400000) + 1
+    : null
+
+  const STATS = [
+    { icon: Heart,         label: 'Last BP',       value: (latestVital.blood_pressure_systolic && latestVital.blood_pressure_diastolic) ? `${latestVital.blood_pressure_systolic}/${latestVital.blood_pressure_diastolic}` : (latestVital.blood_pressure || '—'), sub: 'mmHg',           color: '#dc2626' },
+    { icon: Activity,      label: 'Pulse',          value: latestVital.pulse_rate ?? latestVital.pulse ?? '—',         sub: 'bpm',            color: '#2563eb' },
+    { icon: TrendingUp,    label: 'SpO₂',           value: latestVital.oxygen_saturation != null ? `${latestVital.oxygen_saturation}%` : latestVital.spo2 != null ? `${latestVital.spo2}%` : '—', sub: 'oxygen sat', color: GREEN },
+    { icon: Droplets,      label: 'Temperature',    value: latestVital.temperature != null ? `${latestVital.temperature}°` : '—', sub: 'celsius',        color: '#d97706' },
+    { icon: Bed,           label: 'Length of Stay', value: los != null ? `Day ${los}` : '—',                          sub: 'since admission', color: NAVY },
+    { icon: ClipboardList, label: 'Active Orders',  value: adm.active_orders_count ?? '—',                            sub: 'pending orders',  color: '#7c3aed' },
+    { icon: Pill,          label: 'Medications',    value: adm.medication_count ?? '—',                               sub: 'prescribed',      color: '#0891b2' },
+    { icon: ShieldAlert,   label: 'Pending Vitals', value: adm.pending_vitals_count ?? '—',                           sub: '>4h overdue',     color: '#ea580c' },
+  ]
+
+  return (
+    <div className="p-5 flex flex-col gap-5 overflow-y-auto h-full">
+
+      {/* Stat cards */}
       <div>
-        <h3 className="text-sm font-semibold text-gray-700 mb-4 pb-2 border-b border-gray-100">Patient Information</h3>
-        <dl className="space-y-2.5 text-sm">
-          {[
-            ['Full Name',   pat.full_name],
-            ['UHID',        pat.clinic_patient_id || adm.uhid],
-            ['Date of Birth', pat.date_of_birth ? fmtDate(pat.date_of_birth) : null],
-            ['Gender',      pat.gender],
-            ['Blood Group', pat.blood_group],
-            ['Phone',       pat.phone],
-            ['Allergies',   pat.allergies],
-            ['Address',     pat.address],
-          ].map(([label, val]) => val ? (
-            <div key={label} className="flex gap-2">
-              <dt className="text-gray-400 w-36 shrink-0">{label}</dt>
-              <dd className={`font-medium ${label === 'Allergies' ? 'text-orange-600' : label === 'Blood Group' ? 'text-red-600' : 'text-gray-800'}`}>{val}</dd>
-            </div>
-          ) : null)}
-        </dl>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Patient Metrics</h2>
+        </div>
+        <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+          {STATS.map(s => (
+            <PatientStatCard key={s.label} icon={s.icon} label={s.label} value={s.value} sub={s.sub} color={s.color} />
+          ))}
+        </div>
+      </div>
+
+      {/* Recent vitals table */}
+      <div className="bg-white rounded-xl border overflow-hidden" style={{ borderColor: '#e9eaec' }}>
+        <div className="px-4 py-3 border-b flex items-center justify-between" style={{ borderColor: '#f0f0f0' }}>
+          <span className="text-sm font-bold text-gray-800">Recent Vitals</span>
+          <span className="text-[10px] text-gray-400">{vitals?.length ?? 0} records</span>
+        </div>
+        {!vitals?.length ? (
+          <div className="flex flex-col items-center justify-center py-8 text-gray-400">
+            <AlertCircle size={20} className="mb-1.5 opacity-40" />
+            <p className="text-xs">No vitals recorded yet</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  {['Time', 'BP (mmHg)', 'Pulse', 'Temp °C', 'SpO₂', 'RR', 'By'].map(h => (
+                    <th key={h} className="text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-3 py-2 whitespace-nowrap">
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {vitals.slice(0, 10).map((v, i) => <VitalMiniRow key={v.id || i} vital={v} />)}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Admission Details + Care Team */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <div className="bg-white rounded-xl border p-4" style={{ borderColor: '#e9eaec' }}>
+          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Admission Details</h3>
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
+            {[
+              ['Ward',            adm.ward_name || '—'],
+              ['Bed',             adm.bed_number || '—'],
+              ['Department',      adm.department_name || '—'],
+              ['Admitted',        adm.admission_date || adm.admitted_at
+                ? new Date(adm.admission_date || adm.admitted_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+                : '—'],
+              ['Est. Discharge',  adm.expected_discharge
+                ? new Date(adm.expected_discharge).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+                : '—'],
+              ['Admission Type',  adm.admission_type?.replace(/_/g, ' ') || '—'],
+            ].map(([k, v]) => (
+              <div key={k}>
+                <dt className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">{k}</dt>
+                <dd className="text-xs font-semibold text-gray-700 mt-0.5 capitalize">{v}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+        <div className="bg-white rounded-xl border p-4" style={{ borderColor: '#e9eaec' }}>
+          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Care Team</h3>
+          <dl className="grid grid-cols-1 gap-y-2">
+            {[
+              ['Primary Doctor',    adm.primary_doctor_name || adm.doctor_name || pat.full_name || '—'],
+              ['Nurse Assigned',    adm.nurse_name || '—'],
+              ['Consultant',        adm.consultant_name || '—'],
+              ['Referring Doctor',  adm.referring_doctor || '—'],
+            ].map(([k, v]) => (
+              <div key={k} className="flex items-center justify-between">
+                <dt className="text-[10px] text-gray-400">{k}</dt>
+                <dd className="text-xs font-semibold text-gray-700">{v}</dd>
+              </div>
+            ))}
+          </dl>
+          <div className="mt-3 pt-3 border-t" style={{ borderColor: '#f0f0f0' }}>
+            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Patient Info</h4>
+            {[
+              ['Blood Group', pat.blood_group],
+              ['Allergies',   pat.allergies],
+              ['Phone',       pat.phone],
+              ['DOB',         pat.date_of_birth ? fmtDate(pat.date_of_birth) : null],
+            ].filter(([, v]) => v).map(([k, v]) => (
+              <div key={k} className="flex items-center justify-between py-0.5">
+                <dt className="text-[10px] text-gray-400">{k}</dt>
+                <dd className={`text-xs font-semibold ${k === 'Allergies' ? 'text-orange-600' : k === 'Blood Group' ? 'text-red-600' : 'text-gray-700'}`}>{v}</dd>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -1463,37 +1578,6 @@ export default function AdmissionChart() {
 
             <div className="flex-1" />
 
-            <div className="flex flex-wrap gap-1 items-center">
-              {adm.acuity_level && (
-                <span className="text-[10px] font-black px-2 py-0.5 rounded-full border"
-                  style={{
-                    background:   adm.acuity_level === 'high' ? '#fef2f2' : adm.acuity_level === 'medium' ? '#fffbeb' : '#f0fdf4',
-                    color:        adm.acuity_level === 'high' ? '#b91c1c' : adm.acuity_level === 'medium' ? '#d97706' : '#065f46',
-                    borderColor:  adm.acuity_level === 'high' ? '#fecaca' : adm.acuity_level === 'medium' ? '#fde68a' : '#d1fae5',
-                  }}>
-                  {adm.acuity_level === 'high' ? '🔴 HIGH' : adm.acuity_level === 'medium' ? '🟡 MED' : '🟢 LOW'}
-                </span>
-              )}
-              {pat.blood_group && (
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border"
-                  style={{ background: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe' }}>
-                  🩸 {pat.blood_group}
-                </span>
-              )}
-              {pat.allergies ? (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border"
-                  style={{ background: '#fef2f2', color: '#b91c1c', borderColor: '#fecaca' }}
-                  title={pat.allergies}>
-                  ⚠ {pat.allergies}
-                </span>
-              ) : (
-                <span className="text-[10px] font-medium px-2 py-0.5 rounded-full border"
-                  style={{ background: '#f0fdf4', color: '#065f46', borderColor: '#d1fae5' }}>
-                  ✓ No Allergies
-                </span>
-              )}
-            </div>
-
             <button onClick={() => setHeaderExpanded(e => !e)}
               className="flex items-center gap-1 text-[10px] text-gray-400 hover:text-gray-600 ml-1 flex-shrink-0">
               {headerExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
@@ -1525,12 +1609,42 @@ export default function AdmissionChart() {
                 </span>
               </>
             )}
-            {canWrite && (
-              <button onClick={() => setShowPrimaryDrModal(true)}
-                className="ml-auto text-[10px] text-blue-500 hover:text-blue-700 underline flex-shrink-0">
-                {(primaryDoctorName || adm?.primary_doctor_name) ? 'Change Dr' : 'Assign Dr'}
-              </button>
-            )}
+            <div className="ml-auto flex items-center gap-2 flex-shrink-0 flex-wrap">
+              {adm.acuity_level && (
+                <span className="text-[10px] font-black px-2 py-0.5 rounded-full border"
+                  style={{
+                    background:  adm.acuity_level === 'high' ? '#fef2f2' : adm.acuity_level === 'medium' ? '#fffbeb' : '#f0fdf4',
+                    color:       adm.acuity_level === 'high' ? '#b91c1c' : adm.acuity_level === 'medium' ? '#d97706' : '#065f46',
+                    borderColor: adm.acuity_level === 'high' ? '#fecaca' : adm.acuity_level === 'medium' ? '#fde68a' : '#d1fae5',
+                  }}>
+                  {adm.acuity_level === 'high' ? '🔴 HIGH' : adm.acuity_level === 'medium' ? '🟡 MED' : '🟢 LOW'}
+                </span>
+              )}
+              {pat.blood_group && (
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border"
+                  style={{ background: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe' }}>
+                  🩸 {pat.blood_group}
+                </span>
+              )}
+              {pat.allergies ? (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border"
+                  style={{ background: '#fef2f2', color: '#b91c1c', borderColor: '#fecaca' }}
+                  title={pat.allergies}>
+                  ⚠ {pat.allergies}
+                </span>
+              ) : (
+                <span className="text-[10px] font-medium px-2 py-0.5 rounded-full border"
+                  style={{ background: '#f0fdf4', color: '#065f46', borderColor: '#d1fae5' }}>
+                  ✓ No Allergies
+                </span>
+              )}
+              {canWrite && (
+                <button onClick={() => setShowPrimaryDrModal(true)}
+                  className="text-[10px] text-blue-500 hover:text-blue-700 underline flex-shrink-0">
+                  {(primaryDoctorName || adm?.primary_doctor_name) ? 'Change Dr' : 'Assign Dr'}
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Row 3 — collapsible demographics */}
@@ -1584,16 +1698,22 @@ export default function AdmissionChart() {
         </div>
 
         {/* Content area */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="p-5">
-            {activeNav === 'dashboard' && <DashboardView adm={adm} pat={pat} />}
-            {activeNav === 'notes'     && <ProgressNotesTab admissionId={admissionId} vitals={vitals} canWrite={canWrite} />}
-            {activeNav === 'vitals'    && <VitalsTab admissionId={admissionId} />}
-            {activeNav === 'rounds'    && <WardRoundsTab admissionId={admissionId} canWrite={canWrite} />}
-            {activeNav === 'discharge' && <DischargeSummaryTab admissionId={admissionId} />}
-            {activeNav === 'billing'   && <InpatientBilling admissionId={admissionId} admission={adm} />}
-            {activeNav === 'timeline'  && <TimelineTab admissionId={admissionId} />}
-          </div>
+        <div className="flex-1 overflow-hidden flex flex-col">
+          {activeNav === 'dashboard' && (
+            <DashboardView adm={adm} pat={pat} vitals={vitals} />
+          )}
+          {activeNav !== 'dashboard' && (
+            <div className="flex-1 overflow-y-auto">
+              <div className="p-5">
+                {activeNav === 'notes'     && <ProgressNotesTab admissionId={admissionId} vitals={vitals} canWrite={canWrite} />}
+                {activeNav === 'vitals'    && <VitalsTab admissionId={admissionId} />}
+                {activeNav === 'rounds'    && <WardRoundsTab admissionId={admissionId} canWrite={canWrite} />}
+                {activeNav === 'discharge' && <DischargeSummaryTab admissionId={admissionId} />}
+                {activeNav === 'billing'   && <InpatientBilling admissionId={admissionId} admission={adm} />}
+                {activeNav === 'timeline'  && <TimelineTab admissionId={admissionId} />}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Toggle strip */}
