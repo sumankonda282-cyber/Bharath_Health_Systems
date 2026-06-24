@@ -8,7 +8,7 @@ import {
   CreditCard, LayoutDashboard, LogOut, Users,
   Menu, X, Settings, BedDouble, LayoutGrid, Banknote, Wrench, HelpCircle,
   CalendarRange, UserCircle2, Plane, LayoutTemplate, Send, Monitor, RefreshCw,
-  UserCheck, ShieldAlert, Lock,
+  UserCheck, ShieldAlert, Lock, CalendarClock,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import BrandLogo from './BrandLogo'
@@ -24,9 +24,10 @@ const MANAGER_NAV = [
   { to: '/maintenance', icon: Wrench,   label: 'Maintenance' },
 ]
 const RECEP_NAV = [
-  { to: '/',            icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/front-desk',  icon: Monitor,         label: 'Front Desk' },
-  { to: '/billing',     icon: CreditCard,      label: 'Billing' },
+  { to: '/',               icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/front-desk',     icon: Monitor,         label: 'Front Desk' },
+  { to: '/follow-ups',     icon: CalendarClock,   label: 'Follow-ups' },
+  { to: '/billing',        icon: CreditCard,      label: 'Billing' },
 ]
 const HOSPITAL_NAV = [
   { to: '/admissions',          icon: BedDouble,    label: 'Admissions' },

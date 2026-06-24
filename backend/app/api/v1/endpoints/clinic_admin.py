@@ -17,8 +17,10 @@ from app.core.security import get_current_staff, hash_password
 from app.core.config import settings
 from app.models.models import (
     Clinic, Branch, Staff, DoctorProfile, DoctorSchedule,
-    Appointment, Invoice, Patient, OnlineBooking, DoctorDeskAssignment
+    Appointment, Invoice, Patient, OnlineBooking, DoctorDeskAssignment,
+    FollowUpReminder
 )
+from datetime import datetime
 from app.schemas.schemas import (
     ClinicUpdate, BranchCreate, BranchOut,
     StaffCreate, StaffOut, DoctorProfileCreate,
@@ -831,3 +833,67 @@ def update_online_booking(
 
     db.commit()
     return {"message": f"Booking {new_status}", "id": booking_id}
+
+
+# ── Follow-up Reminders ───────────────────────────────────────────────────────
+
+@router.get("/follow-up-reminders")
+def list_follow_up_reminders(
+    status: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_staff),
+):
+    from datetime import date as today_date
+    q = db.query(FollowUpReminder).filter(
+        FollowUpReminder.clinic_id == current.clinic_id
+    )
+    if status:
+        q = q.filter(FollowUpReminder.status == status)
+    reminders = q.order_by(FollowUpReminder.due_date.asc()).all()
+    today = today_date.today()
+    result = []
+    for r in reminders:
+        days_until = (r.due_date - today).days
+        result.append({
+            "id":             r.id,
+            "appointment_id": r.appointment_id,
+            "patient_name":   r.patient_name,
+            "patient_mobile": r.patient_mobile,
+            "doctor_name":    r.doctor_name,
+            "due_date":       str(r.due_date),
+            "follow_up_days": r.follow_up_days,
+            "notes":          r.notes,
+            "status":         r.status,
+            "called_at":      str(r.called_at) if r.called_at else None,
+            "created_at":     str(r.created_at) if r.created_at else None,
+            "days_until":     days_until,
+            "urgency":        "overdue" if days_until < 0 else ("today" if days_until == 0 else ("soon" if days_until <= 3 else "upcoming")),
+        })
+    return result
+
+
+@router.patch("/follow-up-reminders/{reminder_id}")
+def update_follow_up_reminder(
+    reminder_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_staff),
+):
+    reminder = db.query(FollowUpReminder).filter(
+        FollowUpReminder.id == reminder_id,
+        FollowUpReminder.clinic_id == current.clinic_id,
+    ).first()
+    if not reminder:
+        raise HTTPException(404, "Reminder not found")
+
+    allowed = ["status", "notes", "scheduled_appointment_id"]
+    for k in allowed:
+        if k in body:
+            setattr(reminder, k, body[k])
+
+    if body.get("status") in ("called", "scheduled", "dismissed") and not reminder.called_at:
+        reminder.called_by = current.id
+        reminder.called_at = datetime.utcnow()
+
+    db.commit()
+    return {"message": "Updated"}

@@ -910,7 +910,15 @@ export default function Encounter() {
           tests: labOrders.map(l => ({ test_name: l.name }))
         } : null,
       })
-      navigate(-1)
+      if (followupDays) {
+        const due = nextDate(followupDays)
+        setError('')
+        // Brief confirmation before navigating back
+        await new Promise(r => setTimeout(r, 100))
+        navigate(-1, { state: { followUpCreated: true, followUpDays: followupDays, followUpDate: due } })
+      } else {
+        navigate(-1)
+      }
     } catch (e) {
       setError('Finalise failed: ' + (e?.message || 'unknown'))
     } finally { setFinalising(false) }
