@@ -4,12 +4,16 @@ import { useAuth } from '../../contexts/AuthContext'
 import api from '../../api/client'
 import {
   ArrowLeft, Activity, FileText, Stethoscope, ClipboardList,
-  ArrowLeftRight, BedDouble, AlertCircle, RefreshCw, Plus, Trash2,
-  Settings2, Copy, CheckCircle2, ChevronDown, Printer, Banknote, Mic, MicOff,
-  UserCheck, X as XIcon, Search,
+  ArrowLeftRight, AlertCircle, RefreshCw, Plus, Trash2,
+  Settings2, Copy, CheckCircle2, ChevronDown, ChevronUp,
+  Printer, Banknote, Mic, MicOff, UserCheck, X as XIcon,
+  Search, Pin, Menu, TrendingUp, ShieldAlert, Clock,
 } from 'lucide-react'
 import { PageLoader } from '../../components/ui/Spinner'
 import InpatientBilling from './InpatientBilling'
+
+const GREEN = '#059669'
+const NAVY  = '#0F2557'
 
 // ── Smart Phrases ─────────────────────────────────────────────────────────────
 const SMART_PHRASES = [
@@ -126,26 +130,6 @@ const NOTE_TEMPLATES = {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function StatusBadge({ status }) {
-  const map = {
-    active:            'bg-green-100 text-green-800',
-    discharge_pending: 'bg-amber-100 text-amber-800',
-    discharged:        'bg-gray-100 text-gray-600',
-    transferred:       'bg-blue-100 text-blue-800',
-  }
-  const label = {
-    active:            'Active',
-    discharge_pending: 'Discharge Pending',
-    discharged:        'Discharged',
-    transferred:       'Transferred',
-  }
-  return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${map[status] || 'bg-gray-100 text-gray-600'}`}>
-      {label[status] || status}
-    </span>
-  )
-}
-
 function NoteTypeBadge({ type }) {
   const styles = {
     progress:  'bg-blue-100 text-blue-800',
@@ -189,11 +173,11 @@ function isAbnormal(key, val) {
   const n = parseFloat(val)
   if (isNaN(n)) return false
   switch (key) {
-    case 'temperature':          return n > 38.5 || n < 36
-    case 'pulse_rate':           return n > 100 || n < 60
-    case 'oxygen_saturation':    return n < 95
+    case 'temperature':             return n > 38.5 || n < 36
+    case 'pulse_rate':              return n > 100 || n < 60
+    case 'oxygen_saturation':       return n < 95
     case 'blood_pressure_systolic': return n > 140 || n < 90
-    case 'pain_score':           return n >= 7
+    case 'pain_score':              return n >= 7
     default: return false
   }
 }
@@ -271,19 +255,17 @@ function ProgressNotesTab({ admissionId, vitals, canWrite }) {
 
   return (
     <div className="lg:flex gap-5">
-      {/* Toast */}
       {toast && (
         <div className="fixed top-5 right-5 z-50 flex items-center gap-2 px-4 py-3 bg-green-600 text-white rounded-xl shadow-lg text-sm print:hidden">
           <CheckCircle2 size={16} />{toast}
         </div>
       )}
 
-      {/* Left: notes feed */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold text-gray-800">Progress Notes</h3>
           {canWrite && (
-            <button onClick={openModal} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-white" style={{ background: '#0F2557' }}>
+            <button onClick={openModal} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-white" style={{ background: NAVY }}>
               <Plus size={14} />New Progress Note
             </button>
           )}
@@ -327,7 +309,6 @@ function ProgressNotesTab({ admissionId, vitals, canWrite }) {
         )}
       </div>
 
-      {/* Right: sticky reference panel */}
       <div className="lg:w-72 shrink-0 mt-6 lg:mt-0 space-y-4">
         {latestVital && (
           <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
@@ -355,15 +336,13 @@ function ProgressNotesTab({ admissionId, vitals, canWrite }) {
         )}
       </div>
 
-      {/* New Progress Note Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto print:hidden" onClick={() => setShowModal(false)}>
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl my-4" onClick={e => e.stopPropagation()}>
             <div className="p-5 border-b border-gray-100">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-bold" style={{ color: '#0F2557' }}>New Progress Note</h3>
+                <h3 className="text-lg font-bold" style={{ color: NAVY }}>New Progress Note</h3>
                 <div className="flex items-center gap-2">
-                  {/* Template picker */}
                   <div className="relative">
                     <button type="button" onClick={() => setShowTemplates(v => !v)}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-gray-50">
@@ -381,13 +360,11 @@ function ProgressNotesTab({ admissionId, vitals, canWrite }) {
                     )}
                   </div>
                   <button type="button" onClick={copyFromLast}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-gray-50"
-                    title="Copy from last note">
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-gray-50">
                     <Copy size={14} />Copy Last
                   </button>
                 </div>
               </div>
-              {/* Latest vitals strip in modal */}
               {latestVital && <div className="mt-3"><VitalsStrip v={latestVital} /></div>}
               {copyBanner && (
                 <div className="mt-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
@@ -431,7 +408,7 @@ function ProgressNotesTab({ admissionId, vitals, canWrite }) {
               )}
               <div className="flex gap-3 pt-1">
                 <button type="button" onClick={() => setShowModal(false)} className="flex-1 px-4 py-2 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-gray-50">Cancel</button>
-                <button type="submit" disabled={saving} className="flex-1 px-4 py-2 rounded-lg text-sm font-medium text-white hover:opacity-90" style={{ background: '#0F2557' }}>
+                <button type="submit" disabled={saving} className="flex-1 px-4 py-2 rounded-lg text-sm font-medium text-white hover:opacity-90" style={{ background: NAVY }}>
                   {saving ? 'Saving…' : 'Save Note'}
                 </button>
               </div>
@@ -541,7 +518,7 @@ function WardRoundsTab({ admissionId, canWrite }) {
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-semibold text-gray-800">Ward Rounds</h3>
         {canWrite && !showForm && (
-          <button onClick={() => setShowForm(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-white" style={{ background: '#0F2557' }}>
+          <button onClick={() => setShowForm(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-white" style={{ background: NAVY }}>
             <Plus size={14} />Add Round Note
           </button>
         )}
@@ -559,7 +536,7 @@ function WardRoundsTab({ admissionId, canWrite }) {
           ))}
           <div className="flex gap-3">
             <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-gray-50">Cancel</button>
-            <button type="submit" disabled={saving} className="px-4 py-2 rounded-lg text-sm font-medium text-white hover:opacity-90" style={{ background: '#0F2557' }}>
+            <button type="submit" disabled={saving} className="px-4 py-2 rounded-lg text-sm font-medium text-white hover:opacity-90" style={{ background: NAVY }}>
               {saving ? 'Saving…' : 'Save Round'}
             </button>
           </div>
@@ -639,11 +616,9 @@ function TimelineTab({ admissionId }) {
             </div>
             <div className="flex-1 bg-white border border-gray-200 rounded-xl p-3 shadow-sm mb-1">
               <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded capitalize">
-                    {item.type?.replace(/_/g, ' ')}
-                  </span>
-                </div>
+                <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded capitalize">
+                  {item.type?.replace(/_/g, ' ')}
+                </span>
                 <span className="text-xs text-gray-400">{fmtDateTime(item.created_at || item.timestamp)}</span>
               </div>
               <p className="text-sm text-gray-700">{item.summary || item.description || '—'}</p>
@@ -664,7 +639,7 @@ function DischargeSummaryTab({ admissionId }) {
   const [finalized, setFinalized] = useState(false)
   const [finalizedAt, setFinalizedAt] = useState(null)
   const [loading, setLoading]     = useState(true)
-  const [saveStatus, setSaveStatus] = useState('clean') // clean | dirty | saving | saved
+  const [saveStatus, setSaveStatus] = useState('clean')
   const [lastSavedTime, setLastSavedTime] = useState(null)
   const [err, setErr]             = useState('')
   const [saving, setSaving]       = useState(false)
@@ -703,16 +678,16 @@ function DischargeSummaryTab({ admissionId }) {
           setFinalized(!!r.is_finalized)
           setFinalizedAt(r.finalized_at || null)
           setForm({
-            admission_diagnosis:     r.admission_diagnosis || '',
-            final_diagnosis:         r.final_diagnosis || '',
-            procedures_done:         r.procedures_done || '',
-            hospital_course:         r.hospital_course || '',
-            condition_at_discharge:  r.condition_at_discharge || 'stable',
-            discharge_instructions:  r.discharge_instructions || '',
-            diet_advice:             r.diet_advice || '',
-            activity_restrictions:   r.activity_restrictions || '',
-            followup_date:           r.followup_date || '',
-            followup_with:           r.followup_with || '',
+            admission_diagnosis:    r.admission_diagnosis || '',
+            final_diagnosis:        r.final_diagnosis || '',
+            procedures_done:        r.procedures_done || '',
+            hospital_course:        r.hospital_course || '',
+            condition_at_discharge: r.condition_at_discharge || 'stable',
+            discharge_instructions: r.discharge_instructions || '',
+            diet_advice:            r.diet_advice || '',
+            activity_restrictions:  r.activity_restrictions || '',
+            followup_date:          r.followup_date || '',
+            followup_with:          r.followup_with || '',
           })
           if (r.discharge_medications) {
             try {
@@ -782,8 +757,6 @@ function DischargeSummaryTab({ admissionId }) {
   return (
     <div>
       <style>{`@media print { .print-hidden { display: none !important; } }`}</style>
-
-      {/* Header row */}
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
           <h3 className="font-semibold text-gray-800">Discharge Summary</h3>
@@ -815,7 +788,6 @@ function DischargeSummaryTab({ admissionId }) {
       {err && <div className="flex items-center gap-2 p-3 mb-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 print-hidden"><AlertCircle size={15} />{err}</div>}
 
       <div className="space-y-6">
-        {/* Section 1: Diagnoses */}
         <div className="bg-white border border-gray-200 rounded-xl p-5">
           <h4 className="text-sm font-semibold text-gray-700 mb-4 pb-2 border-b border-gray-100">Diagnoses</h4>
           <div className="space-y-4">
@@ -830,7 +802,6 @@ function DischargeSummaryTab({ admissionId }) {
           </div>
         </div>
 
-        {/* Section 2: Hospital Course */}
         <div className="bg-white border border-gray-200 rounded-xl p-5">
           <h4 className="text-sm font-semibold text-gray-700 mb-4 pb-2 border-b border-gray-100">Hospital Course</h4>
           <div className="space-y-4">
@@ -845,7 +816,6 @@ function DischargeSummaryTab({ admissionId }) {
           </div>
         </div>
 
-        {/* Section 3: Condition at Discharge */}
         <div className="bg-white border border-gray-200 rounded-xl p-5">
           <h4 className="text-sm font-semibold text-gray-700 mb-4 pb-2 border-b border-gray-100">Condition at Discharge</h4>
           <div className="flex flex-wrap gap-4">
@@ -860,7 +830,6 @@ function DischargeSummaryTab({ admissionId }) {
           </div>
         </div>
 
-        {/* Section 4: Discharge Plan */}
         <div className="bg-white border border-gray-200 rounded-xl p-5">
           <h4 className="text-sm font-semibold text-gray-700 mb-4 pb-2 border-b border-gray-100">Discharge Plan</h4>
           <div className="space-y-4">
@@ -879,7 +848,6 @@ function DischargeSummaryTab({ admissionId }) {
           </div>
         </div>
 
-        {/* Section 5: Follow-up */}
         <div className="bg-white border border-gray-200 rounded-xl p-5">
           <h4 className="text-sm font-semibold text-gray-700 mb-4 pb-2 border-b border-gray-100">Follow-up</h4>
           <div className="grid grid-cols-2 gap-4">
@@ -899,7 +867,6 @@ function DischargeSummaryTab({ admissionId }) {
           </div>
         </div>
 
-        {/* Section 6: Discharge Medications */}
         <div className="bg-white border border-gray-200 rounded-xl p-5">
           <h4 className="text-sm font-semibold text-gray-700 mb-4 pb-2 border-b border-gray-100">Discharge Medications</h4>
           <div className="space-y-2 mb-3">
@@ -977,8 +944,7 @@ function PrimaryDrModal({ admissionId, currentDoctorName, onClose, onAssigned })
     try {
       await api.patch(`/inpatient/admissions/${admissionId}/primary-doctor`, { primary_doctor_id: selected.id })
       onAssigned(selected)
-    } catch (ex) {
-      // Fallback: try generic patch
+    } catch {
       try {
         await api.patch(`/inpatient/admissions/${admissionId}`, { primary_doctor_id: selected.id })
         onAssigned(selected)
@@ -993,7 +959,7 @@ function PrimaryDrModal({ admissionId, currentDoctorName, onClose, onAssigned })
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
         <div className="border-b border-gray-100 px-6 py-4 flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-bold" style={{ color: '#0F2557' }}>Assign Primary Doctor</h2>
+            <h2 className="text-lg font-bold" style={{ color: NAVY }}>Assign Primary Doctor</h2>
             {currentDoctorName && <p className="text-xs text-gray-400 mt-0.5">Current: {currentDoctorName}</p>}
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500"><XIcon size={18} /></button>
@@ -1029,12 +995,352 @@ function PrimaryDrModal({ admissionId, currentDoctorName, onClose, onAssigned })
             </button>
             <button type="button" disabled={!selected || saving} onClick={assign}
               className="flex-1 px-4 py-2 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2 disabled:opacity-50"
-              style={{ background: '#0F2557' }}>
+              style={{ background: NAVY }}>
               {saving ? <RefreshCw size={14} className="animate-spin" /> : <UserCheck size={14} />}
               {saving ? 'Assigning…' : 'Assign'}
             </button>
           </div>
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Patient Nav ───────────────────────────────────────────────────────────────
+const PATIENT_NAV = [
+  { key: 'dashboard',  icon: Activity,      label: 'Dashboard' },
+  { key: 'notes',      icon: FileText,      label: 'Progress Notes' },
+  { key: 'vitals',     icon: TrendingUp,    label: 'Vitals' },
+  { key: 'rounds',     icon: Stethoscope,   label: 'Ward Rounds' },
+  { key: 'discharge',  icon: ShieldAlert,   label: 'Discharge Summary' },
+  { key: 'billing',    icon: Banknote,      label: 'Billing' },
+  { key: 'timeline',   icon: Clock,         label: 'Timeline' },
+]
+
+// ── Form Pool ─────────────────────────────────────────────────────────────────
+const FORM_POOL = [
+  { name: 'Vital Signs' },
+  { name: 'MAR Quick Entry' },
+  { name: 'Pain Score' },
+  { name: 'Fluid Balance' },
+  { name: 'Braden Scale' },
+  { name: 'GCS Assessment' },
+  { name: 'Fall Risk — Morse' },
+  { name: 'I/O Chart' },
+  { name: 'Blood Sugar Log' },
+  { name: 'Wound Care Log' },
+  { name: 'Nutrition Assessment' },
+  { name: 'Neurological Obs' },
+  { name: 'Pressure Injury' },
+  { name: 'Sepsis Screening' },
+  { name: 'DVT Prophylaxis' },
+  { name: 'Medication Reconciliation' },
+  { name: 'Discharge Checklist' },
+  { name: 'Post-Op Monitoring' },
+  { name: 'Fluid Resuscitation' },
+  { name: 'Restraint Assessment' },
+  { name: 'Patient Profile',          key: 'patient-profile' },
+  { name: 'Chief Complaint',          key: 'chief-complaint' },
+  { name: 'Medical History',          key: 'medical-history' },
+  { name: 'Family History',           key: 'family-history' },
+  { name: 'Social History',           key: 'social-history' },
+  { name: 'Allergies',                key: 'allergies' },
+  { name: 'Systems Review',           key: 'systems-review' },
+  { name: 'Pain Assessment',          key: 'pain-assessment' },
+  { name: 'Asthma Control',           key: 'asthma-basic' },
+  { name: 'Clinical Exam',            key: 'systems-clinical-exam' },
+  { name: 'Clinical Impression',      key: 'systems-clinical-impression' },
+  { name: 'Chest Pain',               key: 'cardiology-chest-pain' },
+  { name: 'Hypertension',             key: 'cardiology-hypertension' },
+  { name: 'Heart Failure',            key: 'cardiology-heart-failure' },
+  { name: 'ACS Assessment',           key: 'cardiology-acs' },
+  { name: 'Atrial Fibrillation',      key: 'cardiology-af' },
+  { name: 'Dyslipidemia',             key: 'cardiology-dyslipidemia' },
+  { name: 'Cardiomyopathy',           key: 'cardiology-cardiomyopathy' },
+  { name: 'Valvular Heart Disease',   key: 'cardiology-valvular' },
+  { name: 'Rheumatic Heart Disease',  key: 'cardiology-rhd' },
+  { name: 'Pericardial Disease',      key: 'cardiology-pericardial' },
+  { name: 'Ear Assessment',           key: 'ent-ear' },
+  { name: 'Nose & Sinus',             key: 'ent-nose-sinus' },
+  { name: 'Throat & Larynx',          key: 'ent-throat-larynx' },
+  { name: 'Head & Neck',              key: 'ent-head-neck' },
+  { name: 'Facial Nerve',             key: 'ent-facial-nerve' },
+  { name: 'Paediatric ENT',           key: 'ent-paediatric' },
+  { name: 'Tracheostomy',             key: 'ent-tracheostomy' },
+  { name: 'Acute Abdomen',            key: 'gastro-acute-abdomen' },
+  { name: 'Acute Pancreatitis',       key: 'gastro-acute-pancreatitis' },
+  { name: 'Anorectal Disorders',      key: 'gastro-anorectal' },
+  { name: 'Biliary & Gallstone',      key: 'gastro-biliary' },
+  { name: 'Chronic Pancreatitis',     key: 'gastro-chronic-pancreatitis' },
+  { name: 'Dysphagia & Esophageal',   key: 'gastro-dysphagia' },
+  { name: 'Functional GI',            key: 'gastro-functional' },
+  { name: 'GI Bleed',                 key: 'gastro-gi-bleed' },
+  { name: 'GI Cancer',                key: 'gastro-gi-cancer' },
+  { name: 'Gastroparesis',            key: 'gastro-gastroparesis' },
+  { name: 'Liver Disease',            key: 'gastro-liver' },
+  { name: 'Peptic Ulcer / GERD',      key: 'gastro-peptic-ulcer' },
+  { name: 'ANC Follow-up',            key: 'obg-anc-followup' },
+  { name: 'Antenatal Booking',        key: 'obg-antenatal' },
+  { name: 'Cervical Screening',       key: 'obg-cervical' },
+  { name: 'Female Infertility',       key: 'obg-infertility' },
+  { name: 'High Risk Pregnancy',      key: 'obg-high-risk' },
+  { name: 'Labour Assessment',        key: 'obg-labour' },
+  { name: 'Menopause',                key: 'obg-menopause' },
+  { name: 'Menstrual Disorder',       key: 'obg-menstrual' },
+  { name: 'PCOS',                     key: 'obg-pcos' },
+  { name: 'PID Assessment',           key: 'obg-pid' },
+  { name: 'Postpartum',               key: 'obg-postpartum' },
+  { name: 'Preeclampsia',             key: 'obg-preeclampsia' },
+  { name: 'Compartment Syndrome',     key: 'ortho-compartment-syndrome' },
+  { name: 'Musculoskeletal Pain',     key: 'ortho-msk-pain' },
+  { name: 'Elbow Assessment',         key: 'ortho-elbow' },
+  { name: 'Foot & Ankle',             key: 'ortho-foot-ankle' },
+  { name: 'Hand & Wrist',             key: 'ortho-hand-wrist' },
+  { name: 'Hip Assessment',           key: 'ortho-hip' },
+  { name: 'Knee Assessment',          key: 'ortho-knee' },
+  { name: 'Shoulder Assessment',      key: 'ortho-shoulder' },
+  { name: 'Spine Assessment',         key: 'ortho-spine' },
+  { name: 'Post-Op Rehab',            key: 'ortho-postop-rehab' },
+  { name: 'NICU Assessment',          key: 'peds-nicu' },
+  { name: 'Neonatal Assessment',      key: 'peds-neonatal' },
+  { name: 'Peds Cardiology',          key: 'peds-cardiology' },
+  { name: 'Developmental Disorders',  key: 'peds-developmental' },
+  { name: 'Pediatric Emergency',      key: 'peds-emergency' },
+  { name: 'Peds Fever & Infections',  key: 'peds-fever' },
+  { name: 'Peds Gastro & Nutrition',  key: 'peds-gastro' },
+  { name: 'Haematology & Oncology',   key: 'peds-haematology' },
+  { name: 'Peds Neurology',           key: 'peds-neurology' },
+  { name: 'Peds Respiratory',         key: 'peds-respiratory' },
+  { name: 'Peds Rheumatology',        key: 'peds-rheumatology' },
+  { name: 'Vaccination Chart',        key: 'peds-vaccination' },
+  { name: 'Aerosol Therapy',          key: 'specialty-aerosol' },
+  { name: 'Diabetes Assessment',      key: 'specialty-diabetes' },
+  { name: 'ACT Score',                key: 'clinical-act' },
+  { name: 'ADHD Scale',               key: 'clinical-adhd' },
+  { name: 'ALSFRS-R',                 key: 'clinical-alsfrs' },
+  { name: 'ASRS Screen',              key: 'clinical-asrs' },
+]
+
+// ── Assessment Panel ──────────────────────────────────────────────────────────
+function AssessmentPanel({ onOpenForm }) {
+  const [pinned, setPinned]         = useState(['Vital Signs', 'MAR Quick Entry', 'Pain Score', 'Fluid Balance'])
+  const [poolSearch, setPoolSearch] = useState('')
+  const [pinSearch, setPinSearch]   = useState('')
+  const [showPinSearch, setShowPinSearch] = useState(false)
+
+  const filteredPool = FORM_POOL.filter(f =>
+    f.name.toLowerCase().includes(poolSearch.toLowerCase()) && !pinned.includes(f.name)
+  )
+  const filteredPin = FORM_POOL.filter(f =>
+    f.name.toLowerCase().includes(pinSearch.toLowerCase()) && !pinned.includes(f.name)
+  )
+
+  const addPin    = (name) => { setPinned(p => [...p, name]); setShowPinSearch(false); setPinSearch('') }
+  const removePin = (name) => setPinned(p => p.filter(x => x !== name))
+
+  return (
+    <div className="flex flex-col h-full overflow-hidden" style={{ background: '#fafaf9' }}>
+      <div className="flex-shrink-0 border-b" style={{ borderColor: '#e9eaec' }}>
+        <div className="flex items-center justify-between px-3 py-2.5 border-b" style={{ borderColor: '#f0f0f0' }}>
+          <div className="flex items-center gap-1.5">
+            <Pin size={11} style={{ color: GREEN }} />
+            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Pinned Forms</span>
+          </div>
+          <button onClick={() => setShowPinSearch(s => !s)}
+            className="text-[10px] font-semibold px-2 py-0.5 rounded-md transition-colors"
+            style={{ color: GREEN, background: '#f0fdf4' }}>
+            + Pin
+          </button>
+        </div>
+
+        {showPinSearch && (
+          <div className="px-3 py-2 border-b" style={{ borderColor: '#f0f0f0', background: '#f9fafb' }}>
+            <div className="relative mb-2">
+              <Search size={11} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input value={pinSearch} onChange={e => setPinSearch(e.target.value)}
+                placeholder="Search forms…" autoFocus
+                className="w-full pl-6 pr-2 py-1.5 border rounded-lg text-[11px] focus:outline-none bg-white"
+                style={{ borderColor: '#d1d5db' }} />
+            </div>
+            <div className="flex flex-wrap gap-1 max-h-28 overflow-y-auto">
+              {filteredPin.map(f => (
+                <button key={f.name} onClick={() => addPin(f.name)}
+                  className="text-[10px] px-2 py-1 rounded-lg border bg-white hover:border-green-400 hover:text-green-700 transition-colors"
+                  style={{ borderColor: '#e5e7eb', color: '#374151' }}>
+                  {f.name}
+                  {f.key && <span className="ml-1 text-[8px] text-green-500">●</span>}
+                </button>
+              ))}
+              {filteredPin.length === 0 && <span className="text-[10px] text-gray-400">No matches</span>}
+            </div>
+          </div>
+        )}
+
+        <div className="px-3 py-2.5 flex flex-wrap gap-1.5">
+          {pinned.map(name => {
+            const form = FORM_POOL.find(f => f.name === name) || { name }
+            return (
+              <div key={name}
+                className="group flex items-center gap-1 px-2 py-1 rounded-lg border cursor-pointer transition-all text-[10px] font-semibold hover:border-green-400 hover:bg-green-50"
+                style={{ borderColor: '#d1fae5', background: 'white', color: '#374151' }}
+                onClick={() => onOpenForm(form)}>
+                {name}
+                {form.key && <span className="text-[8px] text-green-400">●</span>}
+                <button onClick={e => { e.stopPropagation(); removePin(name) }}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity ml-0.5 text-gray-400 hover:text-red-400">
+                  <XIcon size={9} />
+                </button>
+              </div>
+            )
+          })}
+          {pinned.length === 0 && (
+            <span className="text-[10px] text-gray-400 italic">No forms pinned — click + Pin to add</span>
+          )}
+        </div>
+      </div>
+
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="px-3 pt-2.5 pb-1 flex-shrink-0">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">All Forms</span>
+        </div>
+        <div className="px-3 py-2 flex-shrink-0">
+          <div className="relative">
+            <Search size={11} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input value={poolSearch} onChange={e => setPoolSearch(e.target.value)}
+              placeholder="Search all forms…"
+              className="w-full pl-7 pr-2 py-1.5 border rounded-lg text-[11px] focus:outline-none bg-white"
+              style={{ borderColor: poolSearch ? GREEN : '#e5e7eb' }} />
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto px-3 pb-3 flex flex-col gap-1">
+          {filteredPool.map(f => (
+            <div key={f.name}
+              className="flex items-center justify-between px-2.5 py-2 rounded-lg border bg-white hover:border-green-300 hover:bg-green-50 cursor-pointer transition-colors group"
+              style={{ borderColor: '#f0f0f0' }}
+              onClick={() => onOpenForm(f)}>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-[11px] text-gray-700 group-hover:text-gray-900 truncate">{f.name}</span>
+                {f.key && <span className="text-[8px] text-green-500 flex-shrink-0" title="Rich clinical form">●</span>}
+              </div>
+              <div className="flex items-center gap-1.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button onClick={e => { e.stopPropagation(); addPin(f.name) }}
+                  className="text-gray-400 hover:text-green-600" title="Pin">
+                  <Pin size={10} />
+                </button>
+                <ChevronDown size={10} className="text-gray-300 -rotate-90" />
+              </div>
+            </div>
+          ))}
+          {filteredPool.length === 0 && poolSearch && (
+            <p className="text-[10px] text-gray-400 text-center mt-4">No forms match &ldquo;{poolSearch}&rdquo;</p>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Form Modal ────────────────────────────────────────────────────────────────
+function FormModal({ form, admissionId, onClose }) {
+  const [content, setContent] = useState('')
+  const [saving, setSaving]   = useState(false)
+  const [err, setErr]         = useState('')
+
+  const submit = async () => {
+    if (!content.trim()) return
+    setSaving(true); setErr('')
+    try {
+      await api.post('/assessment-forms', {
+        admission_id: parseInt(admissionId),
+        form_name: form.name,
+        content,
+      })
+      onClose()
+    } catch (ex) {
+      setErr(ex?.response?.data?.detail || ex.message || 'Failed to save form')
+    } finally { setSaving(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg"
+        onClick={e => e.stopPropagation()}>
+        <div className="border-b border-gray-100 px-6 py-4 flex items-center justify-between">
+          <h2 className="text-base font-bold text-gray-900">{form.name}</h2>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500">
+            <XIcon size={18} />
+          </button>
+        </div>
+        <div className="p-5 space-y-4">
+          <SmartTextarea
+            value={content}
+            onChange={e => setContent(e.target.value)}
+            placeholder={`Document ${form.name}…`}
+            rows={8}
+          />
+          {err && <p className="text-red-600 text-sm flex items-center gap-1"><AlertCircle size={14} />{err}</p>}
+          <div className="flex gap-3 justify-end">
+            <button onClick={onClose}
+              className="px-4 py-2 border border-gray-300 rounded-xl text-sm text-gray-700 hover:bg-gray-50">
+              Cancel
+            </button>
+            <button onClick={submit} disabled={saving || !content.trim()}
+              className="px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-50"
+              style={{ background: GREEN }}>
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Dashboard View ────────────────────────────────────────────────────────────
+function DashboardView({ adm, pat }) {
+  return (
+    <div className="grid md:grid-cols-2 gap-6">
+      <div>
+        <h3 className="text-sm font-semibold text-gray-700 mb-4 pb-2 border-b border-gray-100">Admission Details</h3>
+        <dl className="space-y-2.5 text-sm">
+          {[
+            ['Admission #',       adm.admission_number || `#${adm.id}`],
+            ['Admission Type',    adm.admission_type?.replace(/_/g, ' ')],
+            ['Department',        adm.department_name || adm.department?.name],
+            ['Ward',              adm.ward_name],
+            ['Bed',               adm.bed_number ? `Bed ${adm.bed_number}` : null],
+            ['Admitting Doctor',  adm.admitting_doctor_name || adm.admitting_doctor?.full_name],
+            ['Admission Date',    fmtDate(adm.admission_date || adm.created_at)],
+            ['Primary Diagnosis', adm.primary_diagnosis],
+            ['Insurance',         adm.insurance_provider || adm.insurance_info],
+          ].map(([label, val]) => val ? (
+            <div key={label} className="flex gap-2">
+              <dt className="text-gray-400 w-36 shrink-0">{label}</dt>
+              <dd className="font-medium text-gray-800 capitalize">{val}</dd>
+            </div>
+          ) : null)}
+        </dl>
+      </div>
+      <div>
+        <h3 className="text-sm font-semibold text-gray-700 mb-4 pb-2 border-b border-gray-100">Patient Information</h3>
+        <dl className="space-y-2.5 text-sm">
+          {[
+            ['Full Name',   pat.full_name],
+            ['UHID',        pat.clinic_patient_id || adm.uhid],
+            ['Date of Birth', pat.date_of_birth ? fmtDate(pat.date_of_birth) : null],
+            ['Gender',      pat.gender],
+            ['Blood Group', pat.blood_group],
+            ['Phone',       pat.phone],
+            ['Allergies',   pat.allergies],
+            ['Address',     pat.address],
+          ].map(([label, val]) => val ? (
+            <div key={label} className="flex gap-2">
+              <dt className="text-gray-400 w-36 shrink-0">{label}</dt>
+              <dd className={`font-medium ${label === 'Allergies' ? 'text-orange-600' : label === 'Blood Group' ? 'text-red-600' : 'text-gray-800'}`}>{val}</dd>
+            </div>
+          ) : null)}
+        </dl>
       </div>
     </div>
   )
@@ -1046,19 +1352,24 @@ export default function AdmissionChart() {
   const navigate = useNavigate()
   const { user } = useAuth()
 
-  const [admission, setAdmission] = useState(null)
-  const [patient, setPatient]     = useState(null)
-  const [vitals, setVitals]       = useState([])
-  const [loading, setLoading]     = useState(true)
-  const [err, setErr]             = useState('')
-  const [tab, setTab]             = useState('overview')
+  const [admission, setAdmission]   = useState(null)
+  const [patient, setPatient]       = useState(null)
+  const [vitals, setVitals]         = useState([])
+  const [loading, setLoading]       = useState(true)
+  const [err, setErr]               = useState('')
+  const [activeNav, setActiveNav]   = useState('dashboard')
+  const [headerExpanded, setHeaderExpanded] = useState(false)
+  const [formsOpen, setFormsOpen]   = useState(() => {
+    try { return localStorage.getItem('provider_forms_panel') !== 'false' } catch { return true }
+  })
+  const [openForm, setOpenForm]     = useState(null)
   const [showPrimaryDrModal, setShowPrimaryDrModal] = useState(false)
   const [primaryDoctorName, setPrimaryDoctorName]   = useState(null)
 
   const canWrite = user?.role === 'doctor' || user?.role === 'clinic_admin'
 
   useEffect(() => {
-    const fetchAdmission = async () => {
+    const load = async () => {
       setLoading(true); setErr('')
       try {
         const r = await api.get(`/inpatient/admissions/${admissionId}`)
@@ -1066,194 +1377,246 @@ export default function AdmissionChart() {
         setPrimaryDoctorName(r?.primary_doctor_name || null)
         const pat = r?.patient || null
         setPatient(pat)
-        // If no patient in admission response, try fetching separately
         if (!pat && r?.patient_id) {
-          try {
-            const pr = await api.get(`/patients/${r.patient_id}`)
-            setPatient(pr)
-          } catch (_) {}
+          try { const pr = await api.get(`/patients/${r.patient_id}`); setPatient(pr) } catch (_) {}
         }
-        // Pre-fetch vitals for sidebar panels
         const vr = await api.get(`/inpatient/admissions/${admissionId}/vitals`).catch(() => null)
         if (vr) setVitals(Array.isArray(vr) ? vr : (vr?.items || vr?.data || []))
       } catch (ex) {
         setErr(ex?.response?.data?.detail || ex.message || 'Failed to load admission')
       } finally { setLoading(false) }
     }
-    fetchAdmission()
+    load()
   }, [admissionId])
 
   if (loading) return <PageLoader />
   if (err) return (
-    <div className="max-w-4xl">
+    <div className="flex flex-col h-full items-center justify-center">
       <div className="flex items-center gap-2 p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
         <AlertCircle size={16} className="shrink-0" />{err}
       </div>
     </div>
   )
-  if (!admission) return <div className="text-gray-500 p-8">Admission not found</div>
+  if (!admission) return (
+    <div className="flex flex-col h-full items-center justify-center text-gray-500 text-sm">
+      Admission not found
+    </div>
+  )
 
   const adm = admission
   const pat = patient || adm.patient || {}
-
-  const TABS = [
-    { key: 'overview',  label: 'Overview' },
-    { key: 'notes',     label: 'Progress Notes' },
-    { key: 'vitals',    label: 'Vitals' },
-    { key: 'rounds',    label: 'Ward Rounds' },
-    { key: 'timeline',  label: 'Timeline' },
-    { key: 'discharge', label: 'Discharge Summary' },
-    { key: 'billing',   label: 'Billing', icon: Banknote },
-  ]
+  const los = adm.admission_date || adm.created_at
+    ? Math.floor((Date.now() - new Date(adm.admission_date || adm.created_at).getTime()) / 86400000) + 1
+    : null
 
   return (
-    <div className="max-w-6xl">
-      {/* Top header bar */}
-      <div className="mb-5">
-        <button onClick={() => navigate('/inpatient')} className="inline-flex items-center gap-1.5 text-sm text-blue-700 hover:text-blue-900 mb-3 print:hidden">
-          <ArrowLeft size={15} />Inpatient Desk
-        </button>
-        <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-3 flex-wrap">
-                <h1 className="text-xl font-bold" style={{ color: '#0F2557' }}>
-                  {pat.full_name || adm.patient_name || '—'}
-                </h1>
-                <StatusBadge status={adm.status} />
-              </div>
-              <div className="flex flex-wrap gap-4 mt-2 text-sm text-gray-500">
-                <span className="font-mono">UHID: {pat.clinic_patient_id || adm.uhid || '—'}</span>
-                <span>Admission: <span className="font-semibold text-gray-700">{adm.admission_number || `#${adm.id}`}</span></span>
-                <span>Admitted: {fmtDate(adm.admission_date || adm.created_at)}</span>
-              </div>
-              <div className="flex items-center gap-2 mt-2">
-                <span className="text-xs text-gray-500">Primary Dr:</span>
-                {(primaryDoctorName || adm?.primary_doctor_name) ? (
-                  <span className="text-sm font-medium text-blue-700">{primaryDoctorName || adm.primary_doctor_name}</span>
-                ) : (
-                  <span className="text-xs text-gray-400 italic">Unassigned</span>
-                )}
-                {(user?.role === 'clinic_admin' || user?.role === 'doctor') && (
-                  <button onClick={() => setShowPrimaryDrModal(true)}
-                    className="text-xs text-blue-500 hover:text-blue-700 underline">
-                    {(primaryDoctorName || adm?.primary_doctor_name) ? 'Change' : 'Assign'}
-                  </button>
-                )}
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-3 text-sm text-gray-600">
-              {(adm.department_name || adm.department?.name) && (
-                <div className="flex items-center gap-1.5 bg-gray-50 px-3 py-1.5 rounded-lg">
-                  <BedDouble size={14} className="text-gray-400" />
-                  {adm.department_name || adm.department?.name}
-                  {adm.ward_name && <span className="text-gray-400">/ {adm.ward_name}</span>}
-                  {adm.bed_number && <span className="text-gray-400">/ Bed {adm.bed_number}</span>}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-5 w-fit overflow-x-auto print:hidden">
-        {TABS.map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)}
-            className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${tab === t.key ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>
-            {t.icon && <t.icon size={14} />}
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Tab content */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm min-h-64">
-        {tab === 'overview' && (
-          <div className="grid md:grid-cols-2 gap-6">
-            {/* Left: Admission details */}
-            <div>
-              <h3 className="text-sm font-semibold text-gray-700 mb-4 pb-2 border-b border-gray-100">Admission Details</h3>
-              <dl className="space-y-2.5 text-sm">
-                {[
-                  ['Admission #', adm.admission_number || `#${adm.id}`],
-                  ['Admission Type', adm.admission_type?.replace(/_/g, ' ')],
-                  ['Department', adm.department_name || adm.department?.name],
-                  ['Ward', adm.ward_name],
-                  ['Bed', adm.bed_number ? `Bed ${adm.bed_number}` : null],
-                  ['Admitting Doctor', adm.admitting_doctor_name || adm.admitting_doctor?.full_name],
-                  ['Admission Date', fmtDate(adm.admission_date || adm.created_at)],
-                  ['Primary Diagnosis', adm.primary_diagnosis],
-                  ['Insurance', adm.insurance_provider || adm.insurance_info],
-                ].map(([label, val]) => val ? (
-                  <div key={label} className="flex gap-2">
-                    <dt className="text-gray-400 w-36 shrink-0">{label}</dt>
-                    <dd className="font-medium text-gray-800 capitalize">{val}</dd>
-                  </div>
-                ) : null)}
-              </dl>
-            </div>
-            {/* Right: Patient info */}
-            <div>
-              <h3 className="text-sm font-semibold text-gray-700 mb-4 pb-2 border-b border-gray-100">Patient Information</h3>
-              <dl className="space-y-2.5 text-sm">
-                {[
-                  ['Full Name', pat.full_name],
-                  ['UHID', pat.clinic_patient_id || adm.uhid],
-                  ['Date of Birth', pat.date_of_birth ? fmtDate(pat.date_of_birth) : null],
-                  ['Gender', pat.gender],
-                  ['Blood Group', pat.blood_group],
-                  ['Phone', pat.phone],
-                  ['Allergies', pat.allergies],
-                  ['Address', pat.address],
-                ].map(([label, val]) => val ? (
-                  <div key={label} className="flex gap-2">
-                    <dt className="text-gray-400 w-36 shrink-0">{label}</dt>
-                    <dd className={`font-medium ${label === 'Allergies' ? 'text-orange-600' : label === 'Blood Group' ? 'text-red-600' : 'text-gray-800'}`}>{val}</dd>
-                  </div>
-                ) : null)}
-              </dl>
-            </div>
-          </div>
-        )}
-
-        {tab === 'notes' && (
-          <ProgressNotesTab admissionId={admissionId} vitals={vitals} canWrite={canWrite} />
-        )}
-
-        {tab === 'vitals' && (
-          <VitalsTab admissionId={admissionId} />
-        )}
-
-        {tab === 'rounds' && (
-          <WardRoundsTab admissionId={admissionId} canWrite={canWrite} />
-        )}
-
-        {tab === 'timeline' && (
-          <TimelineTab admissionId={admissionId} />
-        )}
-
-        {tab === 'discharge' && (
-          <DischargeSummaryTab admissionId={admissionId} />
-        )}
-
-        {tab === 'billing' && (
-          <InpatientBilling admissionId={admissionId} admission={adm} />
-        )}
-      </div>
-
+    <div className="flex flex-col h-full" style={{ background: '#f4f5f7' }}>
+      {openForm && (
+        <FormModal form={openForm} admissionId={admissionId} onClose={() => setOpenForm(null)} />
+      )}
       {showPrimaryDrModal && (
         <PrimaryDrModal
           admissionId={admissionId}
           currentDoctorName={primaryDoctorName || adm?.primary_doctor_name}
           onClose={() => setShowPrimaryDrModal(false)}
-          onAssigned={(doctor) => {
-            setPrimaryDoctorName(doctor.full_name || doctor.email)
-            setAdmission(prev => ({ ...prev, primary_doctor_name: doctor.full_name || doctor.email }))
+          onAssigned={doc => {
+            setPrimaryDoctorName(doc.full_name || doc.email)
             setShowPrimaryDrModal(false)
           }}
         />
       )}
+
+      {/* ── Sticky patient header ── */}
+      <div className="bg-white border-b flex-shrink-0 shadow-sm" style={{ borderColor: '#e9eaec' }}>
+        <div className="px-5 py-2.5">
+
+          {/* Row 1 */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <button onClick={() => navigate('/inpatient')}
+              className="flex items-center gap-1 text-gray-400 hover:text-gray-700 transition-colors flex-shrink-0">
+              <ArrowLeft size={14} />
+              <span className="text-xs">Back</span>
+            </button>
+            <div className="w-px h-4 bg-gray-200 flex-shrink-0" />
+            <span className="text-base font-extrabold text-gray-900">
+              {pat.full_name || adm.patient_name || '—'}
+            </span>
+            {(pat.age || adm.age) && (pat.gender || adm.gender) && (
+              <span className="text-sm text-gray-500">
+                {pat.age || adm.age} yrs, {pat.gender || adm.gender}
+              </span>
+            )}
+            <span className="text-[11px] font-mono text-gray-400">
+              MRN: {pat.clinic_patient_id || adm.uhid || '—'}
+            </span>
+            {adm.bed_number && (
+              <span className="text-xs font-bold px-2 py-0.5 rounded-lg"
+                style={{ background: '#f0fdf4', color: GREEN, border: `1px solid #d1fae5` }}>
+                {adm.bed_number}
+              </span>
+            )}
+            <span className="text-xs text-gray-500">{adm.department_name || '—'}</span>
+            <span className="text-xs text-gray-300">·</span>
+            <span className="text-xs text-gray-600 font-medium">
+              {primaryDoctorName || adm.primary_doctor_name || adm.doctor_name || '—'}
+            </span>
+
+            <div className="flex-1" />
+
+            <div className="flex flex-wrap gap-1 items-center">
+              {adm.acuity_level && (
+                <span className="text-[10px] font-black px-2 py-0.5 rounded-full border"
+                  style={{
+                    background:   adm.acuity_level === 'high' ? '#fef2f2' : adm.acuity_level === 'medium' ? '#fffbeb' : '#f0fdf4',
+                    color:        adm.acuity_level === 'high' ? '#b91c1c' : adm.acuity_level === 'medium' ? '#d97706' : '#065f46',
+                    borderColor:  adm.acuity_level === 'high' ? '#fecaca' : adm.acuity_level === 'medium' ? '#fde68a' : '#d1fae5',
+                  }}>
+                  {adm.acuity_level === 'high' ? '🔴 HIGH' : adm.acuity_level === 'medium' ? '🟡 MED' : '🟢 LOW'}
+                </span>
+              )}
+              {pat.blood_group && (
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border"
+                  style={{ background: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe' }}>
+                  🩸 {pat.blood_group}
+                </span>
+              )}
+              {pat.allergies ? (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border"
+                  style={{ background: '#fef2f2', color: '#b91c1c', borderColor: '#fecaca' }}
+                  title={pat.allergies}>
+                  ⚠ {pat.allergies}
+                </span>
+              ) : (
+                <span className="text-[10px] font-medium px-2 py-0.5 rounded-full border"
+                  style={{ background: '#f0fdf4', color: '#065f46', borderColor: '#d1fae5' }}>
+                  ✓ No Allergies
+                </span>
+              )}
+            </div>
+
+            <button onClick={() => setHeaderExpanded(e => !e)}
+              className="flex items-center gap-1 text-[10px] text-gray-400 hover:text-gray-600 ml-1 flex-shrink-0">
+              {headerExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            </button>
+          </div>
+
+          {/* Row 2 */}
+          <div className="flex items-center gap-3 mt-1 flex-wrap">
+            <span className="text-[10px] text-gray-500">
+              <span className="font-semibold text-gray-700">Dx:</span> {adm.primary_diagnosis || '—'}
+            </span>
+            <span className="text-gray-300 text-xs">·</span>
+            <span className="text-[10px] text-gray-500">
+              Admitted {adm.admission_date
+                ? new Date(adm.admission_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+                : fmtDate(adm.created_at)}
+            </span>
+            {los && (
+              <>
+                <span className="text-gray-300 text-xs">·</span>
+                <span className="text-[10px] font-semibold" style={{ color: NAVY }}>Day {los}</span>
+              </>
+            )}
+            {adm.expected_discharge && (
+              <>
+                <span className="text-gray-300 text-xs">·</span>
+                <span className="text-[10px] text-gray-500">
+                  Est. discharge {new Date(adm.expected_discharge).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </span>
+              </>
+            )}
+            {canWrite && (
+              <button onClick={() => setShowPrimaryDrModal(true)}
+                className="ml-auto text-[10px] text-blue-500 hover:text-blue-700 underline flex-shrink-0">
+                {(primaryDoctorName || adm?.primary_doctor_name) ? 'Change Dr' : 'Assign Dr'}
+              </button>
+            )}
+          </div>
+
+          {/* Row 3 — collapsible demographics */}
+          {headerExpanded && (
+            <div className="mt-2 pt-2 border-t grid grid-cols-4 gap-4" style={{ borderColor: '#f0f0f0' }}>
+              {[
+                ['Address',        pat.address || '—'],
+                ['Phone',          pat.phone || '—'],
+                ['DOB',            pat.date_of_birth ? fmtDate(pat.date_of_birth) : '—'],
+                ['Gender',         pat.gender || '—'],
+                ['Blood Group',    pat.blood_group || '—'],
+                ['Insurance',      adm.insurance_provider || 'Self-pay'],
+                ['Admission Type', adm.admission_type?.replace(/_/g, ' ') || '—'],
+                ['Admission #',    adm.admission_number || `#${adm.id}`],
+              ].map(([k, v]) => (
+                <div key={k}>
+                  <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">{k}</span>
+                  <p className="text-[11px] font-semibold text-gray-700 mt-0.5">{v}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Body: sidebar + content + assessment panel ── */}
+      <div className="flex flex-1 overflow-hidden">
+
+        {/* Patient sidebar */}
+        <div className="flex-shrink-0 overflow-y-auto border-r"
+          style={{ width: 172, background: '#ffffff', borderColor: '#e9eaec' }}>
+          <div className="px-3 pt-3 pb-1">
+            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Patient View</span>
+          </div>
+          <nav className="px-2 pb-4 flex flex-col gap-0.5">
+            {PATIENT_NAV.map(item => {
+              const active = activeNav === item.key
+              return (
+                <button key={item.key} onClick={() => setActiveNav(item.key)}
+                  className="flex items-center gap-2.5 w-full text-left px-2.5 py-2 rounded-lg text-xs font-medium transition-all"
+                  style={active
+                    ? { background: '#f0fdf4', color: GREEN, borderLeft: `2px solid ${GREEN}` }
+                    : { color: '#6b7280', borderLeft: '2px solid transparent' }
+                  }>
+                  <item.icon size={13} style={{ color: active ? GREEN : '#9ca3af', flexShrink: 0 }} />
+                  {item.label}
+                </button>
+              )
+            })}
+          </nav>
+        </div>
+
+        {/* Content area */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="p-5">
+            {activeNav === 'dashboard' && <DashboardView adm={adm} pat={pat} />}
+            {activeNav === 'notes'     && <ProgressNotesTab admissionId={admissionId} vitals={vitals} canWrite={canWrite} />}
+            {activeNav === 'vitals'    && <VitalsTab admissionId={admissionId} />}
+            {activeNav === 'rounds'    && <WardRoundsTab admissionId={admissionId} canWrite={canWrite} />}
+            {activeNav === 'discharge' && <DischargeSummaryTab admissionId={admissionId} />}
+            {activeNav === 'billing'   && <InpatientBilling admissionId={admissionId} admission={adm} />}
+            {activeNav === 'timeline'  && <TimelineTab admissionId={admissionId} />}
+          </div>
+        </div>
+
+        {/* Toggle strip */}
+        <button
+          onClick={() => { const v = !formsOpen; setFormsOpen(v); localStorage.setItem('provider_forms_panel', String(v)) }}
+          className="flex-shrink-0 flex flex-col items-center justify-center border-l gap-1"
+          style={{ width: 28, background: '#f9fafb', borderColor: '#e9eaec' }}
+          title={formsOpen ? 'Hide forms' : 'Show forms'}
+        >
+          <span style={{ fontSize: 10, color: '#9ca3af', writingMode: 'vertical-rl', transform: 'rotate(180deg)', letterSpacing: 1 }}>
+            {formsOpen ? 'HIDE' : 'FORMS'}
+          </span>
+          <Menu size={13} className="text-gray-400" />
+        </button>
+
+        {/* Assessment panel */}
+        {formsOpen && (
+          <div className="flex-shrink-0 border-l overflow-hidden flex flex-col"
+            style={{ width: 272, borderColor: '#e9eaec' }}>
+            <AssessmentPanel onOpenForm={setOpenForm} />
+          </div>
+        )}
+      </div>
     </div>
   )
 }

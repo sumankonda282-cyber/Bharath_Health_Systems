@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import TopBar from './TopBar'
 import { Outlet } from 'react-router-dom'
@@ -6,14 +7,19 @@ import ChatWidget from '../ChatWidget'
 import TelehealthWidget from '../TelehealthWidget'
 import { cacheClear } from '../../utils/cache'
 
+const FULL_PAGE_PREFIXES = ['/inpatient/admission/', '/opd/']
+
 export default function Layout() {
   const [open, setOpen] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
+  const location = useLocation()
 
   const handleRefresh = () => {
     cacheClear()
     setRefreshKey(k => k + 1)
   }
+
+  const isFullPage = FULL_PAGE_PREFIXES.some(p => location.pathname.startsWith(p))
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: '#F0F4F8' }}>
@@ -34,9 +40,9 @@ export default function Layout() {
         <Sidebar />
       </div>
 
-      <main className="flex-1 min-w-0 overflow-y-auto flex flex-col">
+      <main className={`flex-1 min-w-0 flex flex-col ${isFullPage ? 'overflow-hidden' : 'overflow-y-auto'}`}>
         <TopBar onMenuClick={() => setOpen(true)} onRefresh={handleRefresh} />
-        <div key={refreshKey} className="p-3 md:p-5 flex-1">
+        <div key={refreshKey} className={`flex-1 ${isFullPage ? 'overflow-hidden' : 'p-3 md:p-5'}`}>
           <Outlet />
         </div>
       </main>
