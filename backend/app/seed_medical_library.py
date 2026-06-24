@@ -34,6 +34,8 @@ def _ensure_trgm(conn):
         "CREATE EXTENSION IF NOT EXISTS pg_trgm",
         "CREATE INDEX IF NOT EXISTS idx_medterms_display_trgm ON medical_terms USING gin (display gin_trgm_ops)",
         "CREATE INDEX IF NOT EXISTS idx_medterms_syn_trgm ON medical_terms USING gin (synonyms gin_trgm_ops)",
+        "CREATE INDEX IF NOT EXISTS idx_drugs_generic_trgm ON drugs USING gin (generic gin_trgm_ops)",
+        "CREATE INDEX IF NOT EXISTS idx_drugs_brands_trgm ON drugs USING gin (brands gin_trgm_ops)",
     ]:
         try:
             conn.execute(text(sql))
