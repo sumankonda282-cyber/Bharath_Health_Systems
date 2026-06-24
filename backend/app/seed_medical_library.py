@@ -196,8 +196,8 @@ def seed_drug_data():
         from app.seed_data.drugs import DRUGS
         loaders.append((
             "drugs", DRUGS, 4500,
-            "INSERT INTO drugs (generic, atc, drug_class, routes, brands, primary_brand, rx_only) "
-            "VALUES (:generic, :atc, :drug_class, :routes, :brands, :primary_brand, :rx_only) "
+            "INSERT INTO drugs (generic, atc, drug_class, routes, brands, primary_brand, rx_only, is_active) "
+            "VALUES (:generic, :atc, :drug_class, :routes, :brands, :primary_brand, :rx_only, TRUE) "
             "ON CONFLICT DO NOTHING",
             lambda d: {
                 "generic": d["generic"][:200], "atc": d.get("atc"),
