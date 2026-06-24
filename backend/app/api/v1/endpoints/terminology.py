@@ -6,6 +6,7 @@ drugs — replaces every hardcoded list in the frontends. All endpoints are
 staff-authenticated and return platform-global rows plus the caller's
 clinic-specific custom rows.
 """
+import json as _json
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 from sqlalchemy import text
@@ -176,6 +177,7 @@ def search_drugs(
     return [{
         "id": d.id, "generic": d.generic, "atc": d.atc, "drug_class": d.drug_class,
         "routes": d.routes, "brands": d.brands, "rx_only": d.rx_only,
+        "formulations": _json.loads(d.formulations) if d.formulations else [],
     } for d in rows]
 
 

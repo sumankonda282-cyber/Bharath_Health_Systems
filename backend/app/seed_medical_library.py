@@ -427,12 +427,39 @@ def seed_disease_counselling():
         print(f"[medlib] disease_counselling loaded: {len(rows)} tips")
 
 
+def seed_drug_formulations():
+    """Populate the formulations JSON column on drug rows (idempotent UPDATE)."""
+    try:
+        import json as _json
+        from app.seed_data.drug_formulations import DRUG_FORMULATIONS
+    except ImportError as e:
+        print(f"[medlib] drug_formulations seed missing: {e}")
+        return
+    with engine.begin() as conn:
+        count_with = _count(conn, "SELECT count(*) FROM drugs WHERE formulations IS NOT NULL")
+        if count_with >= 80:
+            print(f"[medlib] drug formulations already populated ({count_with} drugs) — skipping")
+            return
+        updated = 0
+        for entry in DRUG_FORMULATIONS:
+            result = conn.execute(text(
+                "UPDATE drugs SET formulations = :fdata "
+                "WHERE lower(generic) = lower(:generic) AND (formulations IS NULL OR formulations != :fdata)"
+            ), {
+                "generic": entry["generic"],
+                "fdata": _json.dumps(entry["forms"], ensure_ascii=False),
+            })
+            updated += result.rowcount
+        print(f"[medlib] drug formulations: populated {updated} drug rows")
+
+
 def main():
     steps = [
         ("icd10 reference", seed_icd10_reference),
         ("curated terms", seed_curated_terms),
         ("extra terms", seed_extra_terms),
         ("drug data", seed_drug_data),
+        ("drug formulations", seed_drug_formulations),
         ("lab tests", seed_lab_tests),
         ("imaging catalog", seed_imaging_catalog),
         ("disease counselling", seed_disease_counselling),

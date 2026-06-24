@@ -2128,10 +2128,11 @@ class Drug(Base):
     routes     = Column(String(150), nullable=True)   # pipe-separated
     brands     = Column(Text, nullable=True)          # pipe-separated Indian brands
     primary_brand = Column(String(100), nullable=True) # most-used Indian brand name
-    rx_only    = Column(Boolean, default=True)
-    clinic_id  = Column(Integer, ForeignKey("clinics.id"), nullable=True)
-    is_active  = Column(Boolean, default=True)
-    created_at = Column(DateTime, server_default=func.now())
+    rx_only      = Column(Boolean, default=True)
+    clinic_id    = Column(Integer, ForeignKey("clinics.id"), nullable=True)
+    is_active    = Column(Boolean, default=True)
+    formulations = Column(Text, nullable=True)   # JSON array of {form, route, doses, unit}
+    created_at   = Column(DateTime, server_default=func.now())
 
 
 class DrugInteraction(Base):
