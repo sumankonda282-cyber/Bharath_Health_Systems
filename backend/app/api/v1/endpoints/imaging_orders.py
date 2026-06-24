@@ -73,6 +73,7 @@ def create_imaging_order(
     order = ImagingOrder(
         order_id          = order_id,
         clinic_id         = current.clinic_id,
+        branch_id         = current.branch_id,
         patient_id        = body.patient_id,
         appointment_id    = body.appointment_id,
         ordered_by        = current.id,

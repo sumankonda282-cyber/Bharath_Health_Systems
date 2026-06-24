@@ -3,7 +3,7 @@ import {
   Search, Plus, X, ChevronDown, ChevronUp, GripVertical,
   Edit3, Copy, Trash2, CheckCircle, AlertTriangle, Loader2,
   FileText, Zap, List, ClipboardList, Settings, Eye,
-  Lock, ArrowRight, ToggleLeft, ToggleRight, Save, BookOpen, ExternalLink, Star
+  Lock, ArrowRight, ToggleLeft, ToggleRight, Save, BookOpen, ExternalLink, Star, Users
 } from 'lucide-react'
 import { useWardSession } from '../contexts/WardSessionContext'
 import api from '../api/client'
@@ -475,7 +475,7 @@ function CareFormCard({ cf, onEdit, onClone, onDelete, onTogglePublish }) {
 }
 
 // ── Assessment library card ───────────────────────────────────────────────────
-function AssessmentCard({ form, onEdit, onOpen, isFav, onToggleFav }) {
+function AssessmentCard({ form, onEdit, onOpen, isPersonalFav, isOrgFav, onToggleFav }) {
   const title = form.title || form.name || '—'
   const hasJsx = !!(form.subcategory)
   return (
@@ -499,15 +499,26 @@ function AssessmentCard({ form, onEdit, onOpen, isFav, onToggleFav }) {
         </div>
         <div className="flex gap-1 flex-shrink-0">
           {onToggleFav && (
-            <button
-              onClick={() => onToggleFav(form.id)}
-              className="w-7 h-7 rounded-lg border flex items-center justify-center transition-colors"
-              style={isFav
-                ? { borderColor: '#fbbf24', background: '#fef9c3' }
-                : { borderColor: '#e5e7eb', background: 'white' }}
-              title={isFav ? 'Remove from My Forms' : 'Add to My Forms'}>
-              <Star size={11} fill={isFav ? '#f59e0b' : 'none'} style={{ color: isFav ? '#f59e0b' : '#9ca3af' }} />
-            </button>
+            <>
+              <button
+                onClick={() => onToggleFav(form.id, 'personal')}
+                className="w-7 h-7 rounded-lg border flex items-center justify-center transition-colors"
+                style={isPersonalFav
+                  ? { borderColor: '#fbbf24', background: '#fef9c3' }
+                  : { borderColor: '#e5e7eb', background: 'white' }}
+                title={isPersonalFav ? 'Remove my star' : 'Save to my forms'}>
+                <Star size={11} fill={isPersonalFav ? '#f59e0b' : 'none'} style={{ color: isPersonalFav ? '#f59e0b' : '#9ca3af' }} />
+              </button>
+              <button
+                onClick={() => onToggleFav(form.id, 'organization')}
+                className="w-7 h-7 rounded-lg border flex items-center justify-center transition-colors"
+                style={isOrgFav
+                  ? { borderColor: '#93c5fd', background: '#eff6ff' }
+                  : { borderColor: '#e5e7eb', background: 'white' }}
+                title={isOrgFav ? 'Shared with your clinic — click to remove' : 'Share with your whole clinic'}>
+                <Users size={11} style={{ color: isOrgFav ? '#2563eb' : '#9ca3af' }} />
+              </button>
+            </>
           )}
           {hasJsx && (
             <button onClick={() => onOpen(form)}
@@ -550,17 +561,35 @@ export default function Assessments() {
   const [catFilter, setCatFilter] = useState('')
   const [builder, setBuilder]   = useState(null)   // null | care form object (new or existing)
   const [openForm, setOpenForm] = useState(null)   // null | { title, subcategory, ... }
-  const [favIds, setFavIds]     = useState(() => {
-    try { return JSON.parse(localStorage.getItem('cc_favorited_forms') || '[]') } catch { return [] }
-  })
+  const [favPersonal, setFavPersonal] = useState([])
+  const [favOrg, setFavOrg]           = useState([])
 
-  const toggleFav = useCallback((id) => {
-    setFavIds(prev => {
-      const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-      localStorage.setItem('cc_favorited_forms', JSON.stringify(next))
-      return next
-    })
+  useEffect(() => {
+    api.get('/assessment-forms/favorites')
+      .then(r => { setFavPersonal(r.data?.personal || []); setFavOrg(r.data?.organization || []) })
+      .catch(() => {})
   }, [])
+
+  const isPersonalFav = useCallback((id) => favPersonal.includes(id), [favPersonal])
+  const isOrgFav      = useCallback((id) => favOrg.includes(id), [favOrg])
+
+  // Toggle a favorite with optimistic update; revert + warn on failure.
+  const toggleFav = useCallback((id, scope) => {
+    const isPersonal = scope === 'personal'
+    const cur    = isPersonal ? favPersonal : favOrg
+    const setter = isPersonal ? setFavPersonal : setFavOrg
+    const has    = cur.includes(id)
+    setter(has ? cur.filter(x => x !== id) : [...cur, id])  // optimistic
+    const req = has
+      ? api.delete(`/assessment-forms/favorites/${id}`, { params: { scope } })
+      : api.post(`/assessment-forms/favorites/${id}`, null, { params: { scope } })
+    req.catch(() => {
+      setter(cur)  // revert
+      alert(`Could not update ${scope === 'organization' ? 'organization' : 'personal'} favorite. Please try again.`)
+    })
+  }, [favPersonal, favOrg])
+
+  const favIds = useMemo(() => Array.from(new Set([...favPersonal, ...favOrg])), [favPersonal, favOrg])  // "My Forms" = personal ∪ org
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -726,12 +755,17 @@ export default function Assessments() {
                       <span className="text-xs font-bold text-gray-900 leading-tight line-clamp-2 group-hover:text-[#0F2557]">
                         {f.title || f.name}
                       </span>
-                      <button
-                        onClick={e => { e.stopPropagation(); toggleFav(f.id) }}
-                        className="flex-shrink-0 text-yellow-500 hover:text-yellow-700 ml-1"
-                        title="Remove from My Forms">
-                        <Star size={10} fill="currentColor" />
-                      </button>
+                      <div className="flex-shrink-0 flex items-center gap-1 ml-1">
+                        {isOrgFav(f.id) && (
+                          <span title="Shared with your whole clinic" style={{ color: '#2563eb' }}><Users size={10} /></span>
+                        )}
+                        <button
+                          onClick={e => { e.stopPropagation(); toggleFav(f.id, 'personal') }}
+                          className={isPersonalFav(f.id) ? 'text-yellow-500 hover:text-yellow-700' : 'text-gray-300 hover:text-yellow-500'}
+                          title={isPersonalFav(f.id) ? 'Remove my star' : 'Add my star'}>
+                          <Star size={10} fill={isPersonalFav(f.id) ? 'currentColor' : 'none'} />
+                        </button>
+                      </div>
                     </div>
                     <CatChip cat={f.category} small />
                     {f.subcategory && (
@@ -785,7 +819,7 @@ export default function Assessments() {
             {filteredForms.map(f => (
               <AssessmentCard
                 key={f.id} form={f} onEdit={() => {}} onOpen={setOpenForm}
-                isFav={favIds.includes(f.id)} onToggleFav={toggleFav}
+                isPersonalFav={isPersonalFav(f.id)} isOrgFav={isOrgFav(f.id)} onToggleFav={toggleFav}
               />
             ))}
           </div>

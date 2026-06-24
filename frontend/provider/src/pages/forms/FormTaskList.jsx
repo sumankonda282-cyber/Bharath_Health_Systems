@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import {
   ClipboardList, Clock, AlertTriangle, CheckCircle2,
-  ChevronRight, Activity, User, BarChart2, Loader2, Star, BookOpen
+  ChevronRight, Activity, User, BarChart2, Loader2, Star, BookOpen,
+  Search, X, Users
 } from 'lucide-react'
 import api from '../../api/client'
 
@@ -172,9 +173,8 @@ function FormLibrary({ patientId }) {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('All')
-  const [favIds, setFavIds] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('prov_favorited_forms') || '[]') } catch { return [] }
-  })
+  const [favPersonal, setFavPersonal] = useState([])
+  const [favOrg, setFavOrg] = useState([])
 
   useEffect(() => {
     api.get('/assessment-forms/', { params: { status: 'published', limit: 1000 } })
@@ -183,13 +183,30 @@ function FormLibrary({ patientId }) {
       .finally(() => setLoading(false))
   }, [])
 
-  const toggleFav = (id) => {
-    setFavIds(prev => {
-      const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-      localStorage.setItem('prov_favorited_forms', JSON.stringify(next))
-      return next
+  useEffect(() => {
+    api.get('/assessment-forms/favorites')
+      .then(r => { setFavPersonal(r.data?.personal || []); setFavOrg(r.data?.organization || []) })
+      .catch(() => {})
+  }, [])
+
+  const isPersonalFav = (id) => favPersonal.includes(id)
+  const isOrgFav      = (id) => favOrg.includes(id)
+
+  // Toggle a favorite with optimistic update; revert + warn on failure.
+  const toggleFav = useCallback((id, scope) => {
+    const isPersonal = scope === 'personal'
+    const cur    = isPersonal ? favPersonal : favOrg
+    const setter = isPersonal ? setFavPersonal : setFavOrg
+    const has    = cur.includes(id)
+    setter(has ? cur.filter(x => x !== id) : [...cur, id])  // optimistic
+    const req = has
+      ? api.delete(`/assessment-forms/favorites/${id}`, { params: { scope } })
+      : api.post(`/assessment-forms/favorites/${id}`, null, { params: { scope } })
+    req.catch(() => {
+      setter(cur)  // revert on failure
+      alert(`Could not update ${scope === 'organization' ? 'organization' : 'personal'} favorite. Please try again.`)
     })
-  }
+  }, [favPersonal, favOrg])
 
   const categoryMatch = (form) => {
     if (categoryFilter === 'All') return true
@@ -206,6 +223,7 @@ function FormLibrary({ patientId }) {
       || (form.category || '').toLowerCase().includes(q)
   }
 
+  const favIds   = Array.from(new Set([...favPersonal, ...favOrg]))  // "My Forms" = personal ∪ org
   const favForms = pool.filter(f => favIds.includes(f.id))
   const filtered = pool.filter(f => categoryMatch(f) && searchMatch(f))
 
@@ -232,12 +250,17 @@ function FormLibrary({ patientId }) {
               <div key={form.id} className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 flex flex-col gap-2">
                 <div className="flex items-start justify-between gap-1">
                   <span className="text-xs font-bold text-[#0F2557] leading-tight line-clamp-2">{form.title || form.name}</span>
-                  <button
-                    onClick={() => toggleFav(form.id)}
-                    className="flex-shrink-0 text-yellow-500 hover:text-yellow-700"
-                    title="Remove from My Forms">
-                    <Star size={11} fill="currentColor" />
-                  </button>
+                  <div className="flex-shrink-0 flex items-center gap-1">
+                    {isOrgFav(form.id) && (
+                      <span title="Shared with your whole clinic" className="text-blue-500"><Users size={11} /></span>
+                    )}
+                    <button
+                      onClick={() => toggleFav(form.id, 'personal')}
+                      className={isPersonalFav(form.id) ? 'text-yellow-500 hover:text-yellow-700' : 'text-gray-300 hover:text-yellow-500'}
+                      title={isPersonalFav(form.id) ? 'Remove my star' : 'Add my star'}>
+                      <Star size={11} fill={isPersonalFav(form.id) ? 'currentColor' : 'none'} />
+                    </button>
+                  </div>
                 </div>
                 <CategoryBadge category={form.category} />
                 <button
@@ -300,7 +323,6 @@ function FormLibrary({ patientId }) {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {filtered.map(form => {
-            const isFav = favIds.includes(form.id)
             return (
               <div key={form.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-shadow flex flex-col gap-3">
                 <div className="flex items-start justify-between gap-2">
@@ -322,16 +344,28 @@ function FormLibrary({ patientId }) {
                 </div>
                 <div className="flex items-center gap-2 mt-auto">
                   <button
-                    onClick={() => toggleFav(form.id)}
+                    onClick={() => toggleFav(form.id, 'personal')}
                     className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition ${
-                      isFav
+                      isPersonalFav(form.id)
                         ? 'bg-yellow-50 border-yellow-300 text-yellow-700 hover:bg-yellow-100'
                         : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-yellow-50 hover:border-yellow-300 hover:text-yellow-700'
                     }`}
-                    title={isFav ? 'Remove from My Forms' : 'Add to My Forms'}
+                    title={isPersonalFav(form.id) ? 'Remove my star' : 'Save to my forms'}
                   >
-                    <Star size={13} fill={isFav ? 'currentColor' : 'none'} />
-                    {isFav ? 'Saved' : 'Save'}
+                    <Star size={13} fill={isPersonalFav(form.id) ? 'currentColor' : 'none'} />
+                    {isPersonalFav(form.id) ? 'Saved' : 'Save'}
+                  </button>
+                  <button
+                    onClick={() => toggleFav(form.id, 'organization')}
+                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition ${
+                      isOrgFav(form.id)
+                        ? 'bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100'
+                        : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700'
+                    }`}
+                    title={isOrgFav(form.id) ? 'Shared with your clinic — click to remove' : 'Share with your whole clinic'}
+                  >
+                    <Users size={13} />
+                    {isOrgFav(form.id) ? 'Shared' : 'Org'}
                   </button>
                   <button
                     onClick={() => {

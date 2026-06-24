@@ -625,7 +625,7 @@ def save_encounter(
         raise HTTPException(400, "Encounter is locked. Use addendum.")
 
     if not soap:
-        soap = SoapNote(appointment_id=appt.id, created_by=current.id)
+        soap = SoapNote(appointment_id=appt.id, created_by=current.id, branch_id=current.branch_id)
         db.add(soap)
         db.flush()
 
@@ -714,7 +714,7 @@ def save_triage(
     if any([payload.bp, payload.pulse, payload.temperature, payload.spo2, payload.weight_kg]):
         vitals = appt.vitals
         if not vitals:
-            vitals = Vitals(patient_id=appt.patient_id, appointment_id=appt.id)
+            vitals = Vitals(patient_id=appt.patient_id, appointment_id=appt.id, branch_id=current.branch_id)
             db.add(vitals)
             db.flush()
         if payload.bp:

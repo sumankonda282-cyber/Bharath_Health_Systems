@@ -320,6 +320,7 @@ def record_vitals(
         db.commit()
         return existing
     vitals = Vitals(**payload.model_dump())
+    vitals.branch_id = current.branch_id
     db.add(vitals)
     db.commit()
     db.refresh(vitals)
@@ -343,6 +344,7 @@ def save_soap_note(
         db.commit()
         return existing
     note = SoapNote(**payload.model_dump())
+    note.branch_id = current.branch_id
     db.add(note)
     db.commit()
     db.refresh(note)

@@ -2155,6 +2155,41 @@ class iViewFlowsheet(Base):
     updated_at  = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
+class iViewObservation(Base):
+    """One persisted flowsheet cell — a single field value captured from an
+    iView-enabled form submission (the time-series the flowsheet renders).
+    iview_flowsheets above is the per-form CONFIG; this is the per-observation data."""
+    __tablename__ = "iview_observations"
+    id            = Column(Integer, primary_key=True, index=True)
+    clinic_id     = Column(Integer, ForeignKey("clinics.id"), nullable=True, index=True)
+    form_id       = Column(Integer, ForeignKey("assessment_forms.id", ondelete="CASCADE"), nullable=False, index=True)
+    submission_id = Column(Integer, ForeignKey("form_submissions.id", ondelete="CASCADE"), nullable=False, index=True)
+    patient_id    = Column(Integer, nullable=True, index=True)
+    encounter_id  = Column(String(24), nullable=True, index=True)
+    field_id      = Column(String(100), nullable=False)
+    label         = Column(String(200), nullable=True)
+    value_text    = Column(Text, nullable=True)
+    value_numeric = Column(Numeric(12, 3), nullable=True)
+    unit          = Column(String(40), nullable=True)
+    ref_range     = Column(Text, nullable=True)
+    recorded_at   = Column(DateTime, nullable=True, index=True)
+    created_at    = Column(DateTime, server_default=func.now())
+
+
+class StaffFormFavorite(Base):
+    """Favorite assessment forms. scope='personal' → visible only to that staff
+    member; scope='organization' → visible to every staff member in the clinic
+    (the health center, spanning all its branches). Always tenant-isolated by
+    clinic_id, which is taken from the JWT, never the client."""
+    __tablename__ = "staff_form_favorites"
+    id         = Column(Integer, primary_key=True, index=True)
+    clinic_id  = Column(Integer, ForeignKey("clinics.id"), nullable=False, index=True)
+    staff_id   = Column(Integer, ForeignKey("staff.id"), nullable=False, index=True)
+    form_id    = Column(Integer, ForeignKey("assessment_forms.id", ondelete="CASCADE"), nullable=False, index=True)
+    scope      = Column(String(20), nullable=False, default="personal")  # personal | organization
+    created_at = Column(DateTime, server_default=func.now())
+
+
 # ─── Medical Terminology Library (dynamic — replaces all hardcoded disease/symptom lists) ───
 
 class MedicalTerm(Base):
