@@ -8,8 +8,12 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      '@shared': path.resolve(__dirname, '../shared'),
+      '@shared':      path.resolve(__dirname, '../shared'),
+      'react':        path.resolve(__dirname, 'node_modules/react'),
+      'react-dom':    path.resolve(__dirname, 'node_modules/react-dom'),
+      'lucide-react': path.resolve(__dirname, 'node_modules/lucide-react'),
     },
+    dedupe: ['react', 'react-dom'],
   },
   server: {
     port: 5173,
