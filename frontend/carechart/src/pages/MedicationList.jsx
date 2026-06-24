@@ -6,6 +6,7 @@ import {
   TrendingUp, X, Lock, FlaskConical
 } from 'lucide-react'
 import api from '../api/client'
+import MedicationOrderForm from '../components/MedicationOrderForm'
 
 import { GREEN, NAVY, RED } from '../constants/colors'
 const AMBER = '#d97706'
@@ -920,13 +921,39 @@ export default function MedicationList({ admission }) {
         </div>
       </div>
 
-      {/* Right drawer */}
-      {drawer && (
+      {/* Add medication — full-screen modal */}
+      {drawer === 'add' && (
+        <MedicationOrderForm
+          admissionId={admissionId}
+          patientAllergies={
+            Array.isArray(admission?.patient_allergies)
+              ? admission.patient_allergies
+              : admission?.allergies
+                ? String(admission.allergies).split(',').map(a => ({ allergen: a.trim(), allergen_name: a.trim() }))
+                : []
+          }
+          existingOrders={meds.filter(m => m.status !== 'discontinued')}
+          patientData={{
+            name:       admission?.patient_name,
+            weight_kg:  admission?.weight_kg || admission?.patient?.weight_kg,
+            age:        admission?.age        || admission?.patient?.age,
+            diagnoses:  admission?.diagnoses  || [],
+          }}
+          onSubmit={async (data) => {
+            await api.post(`/inpatient/admissions/${admissionId}/medications`, data)
+            load()
+          }}
+          onCancel={() => setDrawer(null)}
+        />
+      )}
+
+      {/* Edit medication — right drawer */}
+      {drawer === 'edit' && (
         <div className="flex-shrink-0 border-l overflow-hidden flex flex-col"
           style={{ width: 340, borderColor: '#e9eaec' }}>
           <MedDrawer
-            mode={drawer}
-            med={drawer === 'edit' ? selectedMed : null}
+            mode="edit"
+            med={selectedMed}
             admissionId={admissionId}
             onClose={() => setDrawer(null)}
             onSave={() => { load(); setSelected(null) }}

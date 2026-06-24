@@ -82,12 +82,37 @@ class Clinic(Base):
     # Counters
     admission_sequence      = Column(Integer, default=0)
     patient_id_counter      = Column(Integer, default=0)
+    latitude                = Column(Numeric(10, 7), nullable=True)
+    longitude               = Column(Numeric(10, 7), nullable=True)
+    capacity_description    = Column(Text, nullable=True)
+    modules                 = Column(JSON, nullable=True)
     created_at              = Column(DateTime, server_default=func.now())
 
     branches        = relationship("Branch", back_populates="clinic", cascade="all, delete-orphan")
     staff           = relationship("Staff", back_populates="clinic")
     patients        = relationship("Patient", back_populates="clinic")
     online_bookings = relationship("OnlineBooking", back_populates="clinic")
+
+
+class Specialty(Base):
+    __tablename__ = "specialties"
+    id         = Column(Integer, primary_key=True, index=True)
+    name       = Column(String(200), unique=True, nullable=False)
+    category   = Column(String(100))
+    is_active  = Column(Boolean, default=True)
+    sort_order = Column(Integer, default=0)
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class DoctorSpecialty(Base):
+    __tablename__ = "doctor_specialties"
+    id                = Column(Integer, primary_key=True, index=True)
+    doctor_profile_id = Column(Integer, ForeignKey("doctor_profiles.id"), nullable=False)
+    specialty_name    = Column(String(200), nullable=False)
+    is_primary        = Column(Boolean, default=False)
+    created_at        = Column(DateTime, server_default=func.now())
+
+    __table_args__ = (UniqueConstraint("doctor_profile_id", "specialty_name"),)
 
 
 class Branch(Base):
@@ -2125,10 +2150,11 @@ class Drug(Base):
     routes     = Column(String(150), nullable=True)   # pipe-separated
     brands     = Column(Text, nullable=True)          # pipe-separated Indian brands
     primary_brand = Column(String(100), nullable=True) # most-used Indian brand name
-    rx_only    = Column(Boolean, default=True)
-    clinic_id  = Column(Integer, ForeignKey("clinics.id"), nullable=True)
-    is_active  = Column(Boolean, default=True)
-    created_at = Column(DateTime, server_default=func.now())
+    rx_only      = Column(Boolean, default=True)
+    clinic_id    = Column(Integer, ForeignKey("clinics.id"), nullable=True)
+    is_active    = Column(Boolean, default=True)
+    formulations = Column(Text, nullable=True)   # JSON array of {form, route, doses, unit}
+    created_at   = Column(DateTime, server_default=func.now())
 
 
 class DrugInteraction(Base):
@@ -2145,15 +2171,20 @@ class DrugInteraction(Base):
 
 class DrugDoseRange(Base):
     __tablename__ = "drug_dose_ranges"
-    id            = Column(Integer, primary_key=True, index=True)
-    generic       = Column(String(200), nullable=False, index=True)
-    route         = Column(String(40), default="oral")
-    population    = Column(String(20), default="adult")
-    max_single_mg = Column(Numeric(12, 3), nullable=True)
-    max_daily_mg  = Column(Numeric(12, 3), nullable=True)
-    unit          = Column(String(10), default="mg")
-    note          = Column(Text, nullable=True)
-    created_at    = Column(DateTime, server_default=func.now())
+    id                    = Column(Integer, primary_key=True, index=True)
+    generic               = Column(String(200), nullable=False, index=True)
+    route                 = Column(String(40), default="oral")
+    population            = Column(String(20), default="adult")  # adult | pediatric | elderly
+    max_single_mg         = Column(Numeric(12, 3), nullable=True)
+    max_daily_mg          = Column(Numeric(12, 3), nullable=True)
+    unit                  = Column(String(10), default="mg")
+    note                  = Column(Text, nullable=True)
+    pediatric_dose_mg_kg_min = Column(Numeric(10, 3), nullable=True)
+    pediatric_dose_mg_kg_max = Column(Numeric(10, 3), nullable=True)
+    renal_adjustment      = Column(Boolean, default=False)
+    hepatic_adjustment    = Column(Boolean, default=False)
+    pregnancy_category    = Column(String(5), nullable=True)
+    created_at            = Column(DateTime, server_default=func.now())
 
 
 class DrugContraindication(Base):
@@ -2173,6 +2204,26 @@ class DrugCounselling(Base):
     generic    = Column(String(200), nullable=False, index=True)
     tip        = Column(Text, nullable=False)
     sort_order = Column(Integer, default=0)
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class DrugPregnancyCategory(Base):
+    __tablename__ = "pregnancy_categories"
+    id         = Column(Integer, primary_key=True, index=True)
+    generic    = Column(String(200), nullable=False, index=True)
+    category   = Column(String(5), nullable=True)   # A, B, C, D, X
+    schedule   = Column(String(10), nullable=True)  # H, H1, X (India)
+    notes      = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class FoodDrugInteraction(Base):
+    __tablename__ = "food_drug_interactions"
+    id         = Column(Integer, primary_key=True, index=True)
+    generic    = Column(String(200), nullable=False, index=True)
+    food       = Column(Text, nullable=False)
+    effect     = Column(Text, nullable=True)
+    severity   = Column(String(20), default="moderate")  # major|moderate|minor
     created_at = Column(DateTime, server_default=func.now())
 
 

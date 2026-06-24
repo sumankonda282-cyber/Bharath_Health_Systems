@@ -13,7 +13,7 @@ from app.db.session import get_db
 from app.models.models import (
     Clinic, Branch, Staff, DoctorProfile, DoctorSchedule,
     Appointment, OnlineBooking, Feedback, PatientUser, BHProfile,
-    BHStateGroup, BHIDSequence
+    BHStateGroup, BHIDSequence, Specialty, DoctorSpecialty
 )
 from app.schemas.schemas import OnlineBookingCreate, OnlineBookingOut
 from app.core.config import settings
@@ -38,6 +38,15 @@ def _gen_confirmation_code() -> str:
 
 # ── Clinic Discovery ──────────────────────────────────────────────────────────
 
+@router.get("/specialties")
+def list_specialties(db: Session = Depends(get_db)):
+    """Return all active medical specialties for registration multi-select."""
+    rows = db.query(Specialty).filter(Specialty.is_active == True).order_by(
+        Specialty.sort_order, Specialty.name
+    ).all()
+    return [{"id": r.id, "name": r.name, "category": r.category} for r in rows]
+
+
 @router.get("/clinics")
 def search_clinics(
     city: Optional[str] = None,
@@ -49,7 +58,7 @@ def search_clinics(
     limit: int = 20,
     db: Session = Depends(get_db),
 ):
-    """Search verified active clinics - shown on public website."""
+    """Search active clinics — approved ones are bookable, pending show as Coming Soon."""
     keyword = search or q
     stmt = db.query(Clinic).filter(
         Clinic.is_active == True
@@ -89,19 +98,25 @@ def search_clinics(
             if not doctors:
                 continue  # skip clinic entirely if no available doctors that day
 
+        is_approved = c.is_verified
         result.append({
-            "id":          c.id,
-            "name":        c.name,
-            "slug":        c.slug,
-            "specialty":   c.specialty,
-            "description": c.description,
-            "logo_url":    c.logo_url,
-            "city":        c.city,
-            "state":       c.state,
-            "phone":       c.phone,
-            "email":       c.email,
-            "address":     c.address,
-            "doctor_count": len(doctors),
+            "id":                   c.id,
+            "name":                 c.name,
+            "slug":                 c.slug,
+            "specialty":            c.specialty,
+            "capacity_description": getattr(c, 'capacity_description', None),
+            "description":          c.description,
+            "logo_url":             c.logo_url,
+            "city":                 c.city,
+            "state":                c.state,
+            "phone":                c.phone,
+            "email":                c.email,
+            "address":              c.address,
+            "latitude":             float(c.latitude) if getattr(c, 'latitude', None) else None,
+            "longitude":            float(c.longitude) if getattr(c, 'longitude', None) else None,
+            "is_approved":          is_approved,
+            "status":               c.status,
+            "doctor_count":         len(doctors),
             "doctors": [{
                 "id":               d.id,
                 "name":             d.staff.full_name if d.staff else "Doctor",
@@ -526,6 +541,16 @@ def book_appointment_online(
         ).first()
 
     if schedule:
+        # Safety check: max_patients overall cap
+        max_cap = getattr(schedule, 'max_patients', 20) or 20
+        total_booked = db.query(func.count(OnlineBooking.id)).filter(
+            OnlineBooking.doctor_id == payload.doctor_id,
+            OnlineBooking.booking_date == payload.booking_date,
+            OnlineBooking.status.in_(["confirmed", "pending"]),
+        ).scalar() or 0
+        if max_cap > 0 and total_booked >= max_cap:
+            raise HTTPException(status_code=400, detail="Doctor is fully booked for this day.")
+
         if booking_mode == "telehealth":
             tele_slots = getattr(schedule, 'telehealth_slots', 0) or 0
             tele_confirm = getattr(schedule, 'telehealth_auto_confirm', 0) or 0
@@ -667,6 +692,8 @@ def book_appointment_online(
         "amount_due": float(booking.amount_due) if booking.amount_due else None,
         "bh_id": bh_id_assigned,
         "is_new_patient": is_new_patient,
+        "booking_status": booking.status,
+        "requires_approval": booking.status == "pending",
     }
 
 
@@ -931,21 +958,28 @@ def register_clinic(body: dict, db: Session = Depends(get_db)):
         slug = f"{base_slug}-{counter}"
         counter += 1
 
-    # Create clinic
+    lat = clinic_data.get("latitude")
+    lng = clinic_data.get("longitude")
+
+    # Create clinic (pending approval — admin must verify before it becomes bookable)
     clinic = Clinic(
-        name                = clinic_data["name"],
-        slug                = slug,
-        specialty           = clinic_data.get("specialty", "General Medicine"),
-        phone               = clinic_data.get("phone"),
-        email               = clinic_data.get("email"),
-        address             = clinic_data.get("address"),
-        city                = clinic_data.get("city"),
-        state               = clinic_data.get("state"),
-        pincode             = clinic_data.get("pincode"),
-        is_active           = True,
-        is_verified         = True,  # Auto-verified — admin can revoke if needed
-        subscription_plan   = 'free',
-        subscription_status = 'active',
+        name                 = clinic_data["name"],
+        slug                 = slug,
+        specialty            = clinic_data.get("specialty", "General Medicine"),
+        capacity_description = clinic_data.get("capacity_description"),
+        phone                = clinic_data.get("phone"),
+        email                = clinic_data.get("email"),
+        address              = clinic_data.get("address"),
+        city                 = clinic_data.get("city"),
+        state                = clinic_data.get("state"),
+        pincode              = clinic_data.get("pincode"),
+        latitude             = float(lat) if lat else None,
+        longitude            = float(lng) if lng else None,
+        is_active            = True,
+        is_verified          = False,
+        status               = 'pending',
+        subscription_plan    = 'free',
+        subscription_status  = 'active',
     )
     db.add(clinic)
     db.flush()
@@ -977,19 +1011,34 @@ def register_clinic(body: dict, db: Session = Depends(get_db)):
     db.add(staff)
     db.flush()
 
+    # Primary specialty: first from multi-select list, or clinic type as fallback
+    doctor_specialties_list = doctor_data.get("specialties", [])
+    primary_specialty = (
+        doctor_specialties_list[0] if doctor_specialties_list
+        else doctor_data.get("specialty") or clinic_data.get("specialty", "General Medicine")
+    )
+
     # Create doctor profile
     doctor_profile = DoctorProfile(
         staff_id         = staff.id,
         clinic_id        = clinic.id,
-        specialty           = clinic_data.get("specialty", "General Medicine"),
+        specialty        = primary_specialty,
         qualification    = doctor_data.get("qualification"),
-        mci_number          = doctor_data.get("registration_number"),
+        mci_number       = doctor_data.get("registration_number"),
         experience_years = int(doctor_data.get("experience_years") or 0),
         consultation_fee = float(doctor_data.get("consultation_fee", 500)),
         is_active        = True,
     )
     db.add(doctor_profile)
     db.flush()
+
+    # Store multi-specialty records
+    for i, sp_name in enumerate(doctor_specialties_list):
+        db.add(DoctorSpecialty(
+            doctor_profile_id = doctor_profile.id,
+            specialty_name    = sp_name,
+            is_primary        = (i == 0),
+        ))
 
     # Auto-create default Mon–Fri schedule so patients can book immediately
     for day in ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']:

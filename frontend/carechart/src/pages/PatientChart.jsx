@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
-  ArrowLeft, Search, Pin, PinOff, ChevronDown, ChevronUp,
+  ArrowLeft, Search, Pin, PinOff, ChevronDown, ChevronUp, Menu,
   Loader2, AlertTriangle, Activity, Pill, ClipboardList,
   FileText, Heart, Bed, TrendingUp, ShieldAlert, Droplets, Utensils, Navigation,
   X, Lock, BookOpen, Edit3, CheckCircle, Save, ShoppingBag, MessageSquare
@@ -210,7 +210,7 @@ function PatientStatCard({ icon: Icon, label, value, sub, color, loading }) {
 }
 
 // ── Vitals mini table ────────────────────────────────────────────────────────
-function VitalsRow({ vital }) {
+function VitalsRow({ vital, onEdit }) {
   return (
     <tr className="border-b border-gray-50 last:border-0">
       <td className="px-3 py-1.5 text-[10px] text-gray-400 whitespace-nowrap">
@@ -226,6 +226,12 @@ function VitalsRow({ vital }) {
       <td className="px-3 py-1.5 text-xs text-gray-700 whitespace-nowrap">{vital.spo2 ?? '—'}%</td>
       <td className="px-3 py-1.5 text-xs text-gray-700 whitespace-nowrap">{vital.rr ?? '—'}</td>
       <td className="px-3 py-1.5 text-xs text-gray-500 whitespace-nowrap">{vital.recorded_by || '—'}</td>
+      <td className="px-3 py-1.5">
+        <button onClick={() => onEdit && onEdit(vital)}
+          className="p-1 rounded-md text-gray-300 hover:text-emerald-600 hover:bg-emerald-50 transition-colors">
+          <Edit3 size={11} />
+        </button>
+      </td>
     </tr>
   )
 }
@@ -302,8 +308,8 @@ function AssessmentFullPageModal({ form, admissionId, patientName, onClose }) {
     : ''
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ background: 'rgba(15,37,87,0.6)' }}>
-      <div className="flex flex-col w-full h-full bg-white overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(15,37,87,0.6)' }}>
+      <div className="flex flex-col bg-white rounded-2xl shadow-2xl overflow-hidden" style={{ width: '70vw', height: '70vh', maxWidth: 1100 }}>
 
         {/* Modal header */}
         <div className="flex-shrink-0 flex items-center justify-between px-6 py-3.5 border-b shadow-sm"
@@ -992,6 +998,7 @@ function PatientDashboard({ admission, vitals, loading, session }) {
   const adm = admission || {}
   const latestVital = vitals?.[0] || {}
   const [showAdmForm, setShowAdmForm] = useState(false)
+  const [editingVital, setEditingVital] = useState(null)
 
   const los = adm.admitted_at
     ? Math.floor((Date.now() - new Date(adm.admitted_at).getTime()) / 86400000) + 1
@@ -1051,7 +1058,7 @@ function PatientDashboard({ admission, vitals, loading, session }) {
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  {['Time', 'BP (mmHg)', 'Pulse', 'Temp °C', 'SpO₂', 'RR', 'By'].map(h => (
+                  {['Time', 'BP (mmHg)', 'Pulse', 'Temp °C', 'SpO₂', 'RR', 'By', ''].map(h => (
                     <th key={h} className="text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-3 py-2 whitespace-nowrap">
                       {h}
                     </th>
@@ -1059,7 +1066,7 @@ function PatientDashboard({ admission, vitals, loading, session }) {
                 </tr>
               </thead>
               <tbody>
-                {vitals.slice(0, 10).map((v, i) => <VitalsRow key={v.id || i} vital={v} />)}
+                {vitals.slice(0, 10).map((v, i) => <VitalsRow key={v.id || i} vital={v} onEdit={setEditingVital} />)}
               </tbody>
             </table>
           </div>
@@ -1103,6 +1110,78 @@ function PatientDashboard({ admission, vitals, loading, session }) {
           </dl>
         </div>
       </div>
+
+      {editingVital && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          onClick={e => { if (e.target === e.currentTarget) setEditingVital(null) }}>
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-sm font-bold text-gray-800">Edit Vitals Entry</span>
+              <button onClick={() => setEditingVital(null)} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
+            </div>
+            <div className="text-[11px] text-gray-500 mb-4">
+              Recorded: {editingVital.recorded_at ? new Date(editingVital.recorded_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true }) : '—'}
+            </div>
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              {[
+                { label: 'BP Systolic', key: 'bp_sys', placeholder: '120' },
+                { label: 'BP Diastolic', key: 'bp_dia', placeholder: '80' },
+                { label: 'Pulse (bpm)', key: 'pulse', placeholder: '72' },
+                { label: 'Temp (°C)', key: 'temperature', placeholder: '36.8' },
+                { label: 'SpO₂ (%)', key: 'spo2', placeholder: '98' },
+                { label: 'RR (/min)', key: 'rr', placeholder: '16' },
+              ].map(({ label, key, placeholder }) => (
+                <div key={key}>
+                  <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">{label}</label>
+                  <input type="number" step="0.1"
+                    defaultValue={key === 'bp_sys' ? editingVital.blood_pressure?.split('/')[0] : key === 'bp_dia' ? editingVital.blood_pressure?.split('/')[1] : editingVital[key] ?? editingVital[key.replace('_', '')]}
+                    onChange={e => {
+                      const val = e.target.value
+                      setEditingVital(prev => {
+                        if (key === 'bp_sys') {
+                          const dia = prev.blood_pressure?.split('/')[1] || ''
+                          return { ...prev, blood_pressure: `${val}/${dia}` }
+                        }
+                        if (key === 'bp_dia') {
+                          const sys = prev.blood_pressure?.split('/')[0] || ''
+                          return { ...prev, blood_pressure: `${sys}/${val}` }
+                        }
+                        return { ...prev, [key]: val }
+                      })
+                    }}
+                    placeholder={placeholder}
+                    className="w-full border rounded-lg px-2.5 py-1.5 text-xs mt-1 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    style={{ borderColor: '#e5e7eb' }} />
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setEditingVital(null)}
+                className="flex-1 py-2 rounded-xl border text-xs font-semibold text-gray-600"
+                style={{ borderColor: '#e5e7eb' }}>
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    await api.patch(`/inpatient/vitals/${editingVital.id}`, {
+                      blood_pressure: editingVital.blood_pressure,
+                      pulse: editingVital.pulse ? Number(editingVital.pulse) : undefined,
+                      temperature: editingVital.temperature ? Number(editingVital.temperature) : undefined,
+                      spo2: editingVital.spo2 ? Number(editingVital.spo2) : undefined,
+                      rr: editingVital.rr ? Number(editingVital.rr) : undefined,
+                    })
+                  } catch {}
+                  setEditingVital(null)
+                }}
+                className="flex-1 py-2 rounded-xl text-xs font-bold text-white"
+                style={{ background: '#065f46' }}>
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -1119,6 +1198,9 @@ export default function PatientChart() {
   const [activeNav, setNav]       = useState('dashboard')
   const [headerExpanded, setHeaderExpanded] = useState(false)
   const [openForm, setOpenForm]   = useState(null)  // { name, key? } | null
+  const [formsOpen, setFormsOpen] = useState(() => localStorage.getItem('cc_forms_panel') !== 'false')
+  const [patientAllergies, setPatientAllergies] = useState(null)
+  const [patientAllergiesCoded, setPatientAllergiesCoded] = useState([])
 
   const load = useCallback(async () => {
     if (!id) return
@@ -1128,7 +1210,24 @@ export default function PatientChart() {
         api.get(`/inpatient/admissions/${id}`),
         api.get(`/inpatient/admissions/${id}/vitals`),
       ])
-      if (adm.status === 'fulfilled') setAdmission(adm.value)
+      if (adm.status === 'fulfilled') {
+        setAdmission(adm.value)
+        const pid = adm.value?.patient_id
+        if (pid) {
+          api.get(`/patients/${pid}/clinical`)
+            .then(pd => {
+              const al = pd?.demographics?.allergies
+              if (al) setPatientAllergies(al)
+              const coded = pd?.demographics?.allergies_coded
+              if (coded) {
+                try {
+                  setPatientAllergiesCoded(typeof coded === 'string' ? JSON.parse(coded) : (Array.isArray(coded) ? coded : []))
+                } catch {}
+              }
+            })
+            .catch(() => {})
+        }
+      }
       if (vit.status === 'fulfilled') {
         const v = Array.isArray(vit.value) ? vit.value : (vit.value?.items || [])
         setVitals(v)
@@ -1212,7 +1311,7 @@ export default function PatientChart() {
             )}
           </div>
 
-          {/* Row 2 — compact info line */}
+          {/* Row 2 — compact info line + inline clinical chips */}
           {!loading && (
             <div className="flex items-center gap-3 mt-1 flex-wrap">
               <span className="text-[10px] text-gray-500">
@@ -1236,25 +1335,60 @@ export default function PatientChart() {
                   </span>
                 </>
               )}
-              {adm.contact_number && (
-                <>
-                  <span className="text-gray-300 text-xs">·</span>
-                  <span className="text-[10px] text-gray-400">📞 {adm.contact_number}</span>
-                </>
-              )}
+              {/* Right-side inline chips */}
+              <div className="ml-auto flex items-center gap-2 flex-shrink-0 flex-wrap">
+                {adm.acuity_level && (
+                  <span className="text-[10px] font-black px-2 py-0.5 rounded-full border"
+                    style={{
+                      background: adm.acuity_level === 'high' ? '#fef2f2' : adm.acuity_level === 'medium' ? '#fffbeb' : '#f0fdf4',
+                      color: adm.acuity_level === 'high' ? '#b91c1c' : adm.acuity_level === 'medium' ? '#d97706' : '#065f46',
+                      borderColor: adm.acuity_level === 'high' ? '#fecaca' : adm.acuity_level === 'medium' ? '#fde68a' : '#d1fae5',
+                    }}>
+                    {adm.acuity_level === 'high' ? '🔴 HIGH' : adm.acuity_level === 'medium' ? '🟡 MED' : '🟢 LOW'}
+                  </span>
+                )}
+                {adm.blood_group && (
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border"
+                    style={{ background: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe' }}>
+                    🩸 {adm.blood_group}
+                  </span>
+                )}
+                {patientAllergies ? (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border cursor-default"
+                    style={{ background: '#fef2f2', color: '#b91c1c', borderColor: '#fecaca' }}
+                    title={patientAllergies}>
+                    ⚠ {patientAllergiesCoded.length > 0
+                      ? (patientAllergiesCoded[0]?.name || patientAllergiesCoded[0]?.allergen || patientAllergies)
+                      : patientAllergies}
+                    {patientAllergiesCoded.length > 1 && ` +${patientAllergiesCoded.length - 1} more`}
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-medium px-2 py-0.5 rounded-full border"
+                    style={{ background: '#f0fdf4', color: '#065f46', borderColor: '#d1fae5' }}>
+                    ✓ No Allergies
+                  </span>
+                )}
+                {adm.doctor_name && (
+                  <span className="text-[10px] text-gray-500 whitespace-nowrap">
+                    <span className="text-gray-400">👨‍⚕️</span> <span className="font-semibold text-gray-700">{adm.doctor_name}</span>
+                  </span>
+                )}
+              </div>
             </div>
           )}
 
-          {/* Row 3 — expanded detail */}
+          {/* Row 3 — collapsible demographics */}
           {headerExpanded && !loading && (
-            <div className="mt-2 pt-2 border-t grid grid-cols-3 gap-4" style={{ borderColor: '#f0f0f0' }}>
+            <div className="mt-2 pt-2 border-t grid grid-cols-4 gap-4" style={{ borderColor: '#f0f0f0' }}>
               {[
-                ['Blood Group', adm.blood_group || '—'],
-                ['Allergies', adm.allergies || 'None documented'],
-                ['Attending Doctor', adm.doctor_name || '—'],
-                ['Admission Type', adm.admission_type || '—'],
-                ['Insurance / Payer', adm.insurance_name || 'Self-pay'],
+                ['Address', adm.address || '—'],
+                ['Phone', adm.contact_number || '—'],
                 ['Emergency Contact', adm.emergency_contact || '—'],
+                ['Height', adm.height ? adm.height + ' cm' : '—'],
+                ['Weight', adm.weight ? adm.weight + ' kg' : '—'],
+                ['Insurance / Payer', adm.insurance_name || 'Self-pay'],
+                ['Payment Type', adm.payment_type || '—'],
+                ['Blood Group', adm.blood_group || '—'],
               ].map(([k, v]) => (
                 <div key={k}>
                   <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">{k}</span>
@@ -1333,16 +1467,31 @@ export default function PatientChart() {
           )}
         </div>
 
-        {/* Assessment panel — hidden on full-width views */}
+        {/* Assessment panel toggle strip + panel */}
         {activeNav !== 'medications' && activeNav !== 'mar' && activeNav !== 'orders' && activeNav !== 'food' && activeNav !== 'docs' && activeNav !== 'preop' && activeNav !== 'flowsheet' && activeNav !== 'discharge' && activeNav !== 'notes' && (
-          <div className="flex-shrink-0 border-l overflow-hidden flex flex-col"
-            style={{ width: 272, borderColor: '#e9eaec' }}>
-            <AssessmentPanel
-              admissionId={id}
-              patientName={adm.patient_name}
-              onOpenForm={setOpenForm}
-            />
-          </div>
+          <>
+            <button
+              onClick={() => { const v = !formsOpen; setFormsOpen(v); localStorage.setItem('cc_forms_panel', String(v)) }}
+              className="flex-shrink-0 flex flex-col items-center justify-center border-l gap-1"
+              style={{ width: 28, background: '#f9fafb', borderColor: '#e9eaec' }}
+              title={formsOpen ? 'Hide forms' : 'Show forms'}
+            >
+              <span style={{ fontSize: 10, color: '#9ca3af', writingMode: 'vertical-rl', transform: 'rotate(180deg)', letterSpacing: 1 }}>
+                {formsOpen ? 'HIDE' : 'FORMS'}
+              </span>
+              <Menu size={13} className="text-gray-400" />
+            </button>
+            {formsOpen && (
+              <div className="flex-shrink-0 border-l overflow-hidden flex flex-col"
+                style={{ width: 272, borderColor: '#e9eaec' }}>
+                <AssessmentPanel
+                  admissionId={id}
+                  patientName={adm.patient_name}
+                  onOpenForm={setOpenForm}
+                />
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

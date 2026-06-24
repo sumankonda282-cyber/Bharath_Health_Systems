@@ -6,6 +6,7 @@ drugs — replaces every hardcoded list in the frontends. All endpoints are
 staff-authenticated and return platform-global rows plus the caller's
 clinic-specific custom rows.
 """
+import json as _json
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 from sqlalchemy import text
@@ -14,7 +15,7 @@ from typing import Optional, List
 
 from app.db.session import get_db
 from app.core.security import get_current_staff
-from app.models.models import Staff, DoctorProfile, Drug, DrugInteraction, DrugDoseRange, DrugContraindication, DrugCounselling, DiseaseCounselling
+from app.models.models import Staff, DoctorProfile, Drug, DrugInteraction, DrugDoseRange, DrugContraindication, DrugCounselling, DiseaseCounselling, DrugPregnancyCategory, FoodDrugInteraction
 
 router = APIRouter(prefix="/terminology", tags=["terminology"])
 
@@ -165,14 +166,18 @@ def search_drugs(
     like = f"%{q}%"
     rows = (
         db.query(Drug)
-        .filter(Drug.is_active == True,
-                (Drug.generic.ilike(like)) | (Drug.brands.ilike(like)))
+        .filter(
+            Drug.is_active == True,
+            (Drug.clinic_id == None) | (Drug.clinic_id == current.clinic_id),
+            (Drug.generic.ilike(like)) | (Drug.brands.ilike(like)),
+        )
         .order_by(Drug.generic.ilike(f"{q}%").desc(), Drug.generic)
         .limit(limit).all()
     )
     return [{
         "id": d.id, "generic": d.generic, "atc": d.atc, "drug_class": d.drug_class,
         "routes": d.routes, "brands": d.brands, "rx_only": d.rx_only,
+        "formulations": _json.loads(d.formulations) if d.formulations else [],
     } for d in rows]
 
 
@@ -190,6 +195,65 @@ def get_drug_counselling(
         .all()
     )
     return {"generic": generic, "tips": [r.tip for r in rows]}
+
+
+@router.get("/drugs/pregnancy")
+def get_drug_pregnancy_info(
+    generic: str = Query(..., min_length=2),
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Return pregnancy category and India schedule classification for a drug."""
+    g = generic.strip().lower()
+    row = (
+        db.query(DrugPregnancyCategory)
+        .filter(DrugPregnancyCategory.generic.ilike(g))
+        .first()
+    )
+    if not row:
+        # Try partial match on first word (handles branded names like "metformin hcl")
+        first_word = g.split()[0]
+        row = (
+            db.query(DrugPregnancyCategory)
+            .filter(DrugPregnancyCategory.generic.ilike(f"{first_word}%"))
+            .first()
+        )
+    if not row:
+        return {"generic": generic, "category": None, "schedule": None, "notes": None}
+    return {
+        "generic": row.generic,
+        "category": row.category,
+        "schedule": row.schedule,
+        "notes": row.notes,
+    }
+
+
+@router.get("/drugs/food-interactions")
+def get_food_interactions(
+    generic: str = Query(..., min_length=2),
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Return food-drug interactions for a generic drug name."""
+    _sev = {"major": 0, "serious": 1, "moderate": 2, "minor": 3}
+    g = generic.strip().lower()
+    rows = (
+        db.query(FoodDrugInteraction)
+        .filter(FoodDrugInteraction.generic.ilike(g))
+        .all()
+    )
+    if not rows:
+        first_word = g.split()[0]
+        rows = (
+            db.query(FoodDrugInteraction)
+            .filter(FoodDrugInteraction.generic.ilike(f"{first_word}%"))
+            .all()
+        )
+    rows.sort(key=lambda r: _sev.get(r.severity or "minor", 4))
+    return [
+        {"food": r.food, "effect": r.effect, "severity": r.severity}
+        for r in rows
+    ]
 
 
 @router.get("/drugs/interactions")
@@ -261,7 +325,9 @@ class CdsDrug(BaseModel):
 
 class CdsCheckRequest(BaseModel):
     drugs: List[CdsDrug] = []
-    diagnoses: List[str] = []   # ICD-10 codes
+    diagnoses: List[str] = []       # ICD-10 codes
+    patient_age: Optional[int] = None
+    patient_weight_kg: Optional[float] = None
 
 
 @router.post("/cds/check")
@@ -321,22 +387,43 @@ def cds_check(
             else:
                 seen_atc[key] = n
 
-    # 3. Max dose
+    # 3. Max dose — adult and paediatric
+    is_paed = payload.patient_age is not None and payload.patient_age < 18
     for d in payload.drugs:
         if not d.dose_mg:
             continue
-        rng = db.query(DrugDoseRange).filter(
-            DrugDoseRange.generic.ilike(d.name.strip()),
-            DrugDoseRange.population == "adult",
-        )
-        rng = rng.filter(DrugDoseRange.route == d.route) if d.route else rng
-        rng = rng.first()
-        if rng and rng.max_single_mg and float(d.dose_mg) > float(rng.max_single_mg):
-            warnings.append({
-                "type": "dose", "severity": "serious", "drugs": [d.name],
-                "message": f"Dose {d.dose_mg}{rng.unit} exceeds max single dose {rng.max_single_mg}{rng.unit}",
-                "management": rng.note,
-            })
+        if is_paed and payload.patient_weight_kg:
+            rng = db.query(DrugDoseRange).filter(
+                DrugDoseRange.generic.ilike(d.name.strip()),
+                DrugDoseRange.population == "pediatric",
+            )
+            rng = rng.filter(DrugDoseRange.route == d.route) if d.route else rng
+            rng = rng.first()
+            if rng and rng.pediatric_dose_mg_kg_max:
+                max_dose = float(rng.pediatric_dose_mg_kg_max) * float(payload.patient_weight_kg)
+                if float(d.dose_mg) > max_dose:
+                    warnings.append({
+                        "type": "dose", "severity": "serious", "drugs": [d.name],
+                        "message": (
+                            f"Dose {d.dose_mg}{rng.unit} exceeds paediatric max "
+                            f"{rng.pediatric_dose_mg_kg_max} mg/kg × {payload.patient_weight_kg} kg"
+                            f" = {max_dose:.1f}{rng.unit}"
+                        ),
+                        "management": rng.note,
+                    })
+        else:
+            rng = db.query(DrugDoseRange).filter(
+                DrugDoseRange.generic.ilike(d.name.strip()),
+                DrugDoseRange.population == "adult",
+            )
+            rng = rng.filter(DrugDoseRange.route == d.route) if d.route else rng
+            rng = rng.first()
+            if rng and rng.max_single_mg and float(d.dose_mg) > float(rng.max_single_mg):
+                warnings.append({
+                    "type": "dose", "severity": "serious", "drugs": [d.name],
+                    "message": f"Dose {d.dose_mg}{rng.unit} exceeds max single dose {rng.max_single_mg}{rng.unit}",
+                    "management": rng.note,
+                })
 
     # 4. Drug-diagnosis contraindications (ICD-10 prefix match)
     codes = [c.strip().upper() for c in payload.diagnoses if c and c.strip()]

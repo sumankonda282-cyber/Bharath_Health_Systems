@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { BedDouble, Activity, ShieldAlert, UserPlus, ChevronRight, Loader2, AlertTriangle } from 'lucide-react'
+import { BedDouble, Activity, ShieldAlert, UserPlus, ChevronRight, Loader2, AlertTriangle, Pill, Clock, ArrowRightFromLine } from 'lucide-react'
 import { useWardSession } from '../contexts/WardSessionContext'
 import api from '../api/client'
 import { GREEN } from '../constants/colors'
@@ -32,12 +32,23 @@ function StatCard({ icon: Icon, label, value, color, loading, active, onClick })
 
 const COL_CFG = {
   occupied:   { title: 'Occupied Beds' },
-  vitals:     { title: 'Pending Vitals (>4h)' },
+  vitals:     { title: 'Pending Vitals (>2h)' },
   critical:   { title: 'Critical Alerts' },
   admissions: { title: 'New Admissions Today' },
+  highAcuity: { title: 'High Acuity Patients' },
+  medsDue:    { title: 'Medications Due' },
+  avgLos:     { title: 'Patients by LOS' },
+  awaitingDischarge: { title: 'Awaiting Discharge' },
 }
 
-const TABLE_COLS = ['Bed', 'Patient', 'Age/Sex', 'Condition', 'Cautions', 'Last Recorded', 'Doctor', 'MRN']
+const ACUITY_BADGE = {
+  high:    { label: '🔴 High',    bg: '#fef2f2', color: '#b91c1c' },
+  medium:  { label: '🟡 Medium',  bg: '#fffbeb', color: '#92400e' },
+  low:     { label: '🟢 Low',     bg: '#f0fdf4', color: '#065f46' },
+  routine: { label: '⚪ Routine', bg: '#f9fafb', color: '#6b7280' },
+}
+
+const TABLE_COLS = ['Bed', 'Patient', 'MRN', 'Age/Sex', 'Dx', 'Acuity', 'Last Vitals', 'LOS', 'Status']
 
 function PatientTable({ rows, loading, onRowClick }) {
   if (loading) return (
@@ -63,32 +74,43 @@ function PatientTable({ rows, loading, onRowClick }) {
           </tr>
         </thead>
         <tbody>
-          {rows.map((p, i) => (
-            <tr key={p.id || i} onClick={() => onRowClick(p)}
-              className="border-b border-gray-50 hover:bg-green-50 cursor-pointer transition-colors last:border-0"
-              style={p.cautions?.includes('critical') ? { background: '#fef2f2' } : undefined}
-            >
-              <td className="px-3 py-2.5 font-semibold text-gray-700 whitespace-nowrap">{p.bed_number || '—'}</td>
-              <td className="px-3 py-2.5 font-medium text-gray-800 whitespace-nowrap">{p.patient_name || p.full_name}</td>
-              <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">
-                {p.age && p.gender ? `${p.age}${p.gender[0]?.toUpperCase()}` : p.age_sex || '—'}
-              </td>
-              <td className="px-3 py-2.5 text-gray-600 max-w-[160px] truncate">{p.diagnosis || p.primary_diagnosis || '—'}</td>
-              <td className="px-3 py-2.5">
-                <div className="flex flex-wrap gap-1">
-                  {(p.cautions || p.caution_flags || []).map(f => <CautionBadge key={f} flag={f} />)}
-                </div>
-              </td>
-              <td className="px-3 py-2.5 text-gray-500 whitespace-nowrap text-xs">
-                {p.last_vitals_at
-                  ? new Date(p.last_vitals_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-                  : p.last_recorded || '—'}
-              </td>
-              <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{p.doctor_name || '—'}</td>
-              <td className="px-3 py-2.5 text-gray-400 text-xs whitespace-nowrap font-mono">{p.mrn || p.patient_mrn || '—'}</td>
-              <td className="px-3 py-2.5"><ChevronRight size={14} className="text-gray-300" /></td>
-            </tr>
-          ))}
+          {rows.map((p, i) => {
+            const acuity = (p.acuity_level || p.acuity || 'routine').toLowerCase()
+            const acuityBadge = ACUITY_BADGE[acuity] || ACUITY_BADGE.routine
+            const los = p.admitted_at
+              ? Math.floor((Date.now() - new Date(p.admitted_at).getTime()) / 86400000) + 1
+              : null
+            return (
+              <tr key={p.id || i} onClick={() => onRowClick(p)}
+                className="border-b border-gray-50 hover:bg-green-50 cursor-pointer transition-colors last:border-0"
+                style={p.cautions?.includes('critical') ? { background: '#fef2f2' } : undefined}
+              >
+                <td className="px-3 py-2.5 font-semibold text-gray-700 whitespace-nowrap">{p.bed_number || '—'}</td>
+                <td className="px-3 py-2.5 font-medium text-gray-800 whitespace-nowrap">{p.patient_name || p.full_name}</td>
+                <td className="px-3 py-2.5 text-gray-400 text-xs whitespace-nowrap font-mono">{p.uhid || p.mrn || p.patient_mrn || '—'}</td>
+                <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">
+                  {p.age && p.gender ? `${p.age}${p.gender[0]?.toUpperCase()}` : p.age_sex || '—'}
+                </td>
+                <td className="px-3 py-2.5 text-gray-600 max-w-[140px] truncate">{p.diagnosis || p.primary_diagnosis || '—'}</td>
+                <td className="px-3 py-2.5 whitespace-nowrap">
+                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+                    style={{ background: acuityBadge.bg, color: acuityBadge.color }}>
+                    {acuityBadge.label}
+                  </span>
+                </td>
+                <td className="px-3 py-2.5 text-gray-500 whitespace-nowrap text-xs">
+                  {p.last_vitals_at
+                    ? new Date(p.last_vitals_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                    : p.last_recorded || '—'}
+                </td>
+                <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap text-xs">
+                  {los ? `Day ${los}` : '—'}
+                </td>
+                <td className="px-3 py-2.5 text-gray-500 whitespace-nowrap text-xs capitalize">{p.status || 'admitted'}</td>
+                <td className="px-3 py-2.5"><ChevronRight size={14} className="text-gray-300" /></td>
+              </tr>
+            )
+          })}
         </tbody>
       </table>
     </div>
@@ -175,11 +197,25 @@ export default function Dashboard() {
     return 'Night'
   })()
 
+  // Derived extra metrics from metrics data or admissions list
+  const admissionsList = metrics?._admissions || []
+  const highAcuityCount = metrics?.high_acuity ?? admissionsList.filter(a => (a.acuity_level || a.acuity || '').toLowerCase() === 'high').length
+  const avgLos = metrics?.avg_los ?? (() => {
+    const withAdm = admissionsList.filter(a => a.admitted_at)
+    if (!withAdm.length) return 0
+    const total = withAdm.reduce((s, a) => s + Math.floor((Date.now() - new Date(a.admitted_at).getTime()) / 86400000) + 1, 0)
+    return Math.round(total / withAdm.length)
+  })()
+
   const CARDS = [
-    { key: 'occupied',   icon: BedDouble,   label: 'Occupied Beds',   color: '#065F46' },
-    { key: 'vitals',     icon: Activity,    label: 'Pending Vitals',  color: '#d97706' },
-    { key: 'critical',   icon: ShieldAlert, label: 'Critical Alerts', color: '#dc2626' },
-    { key: 'admissions', icon: UserPlus,    label: 'New Admissions',  color: '#7c3aed' },
+    { key: 'occupied',          icon: BedDouble,          label: 'Occupied Beds',      color: '#065F46' },
+    { key: 'vitals',            icon: Activity,           label: 'Pending Vitals',     color: '#d97706' },
+    { key: 'critical',          icon: ShieldAlert,        label: 'Critical Alerts',    color: '#dc2626' },
+    { key: 'admissions',        icon: UserPlus,           label: 'New Admissions',     color: '#7c3aed' },
+    { key: 'highAcuity',        icon: AlertTriangle,      label: 'High Acuity Pts',    color: '#e11d48', value: highAcuityCount },
+    { key: 'medsDue',           icon: Pill,               label: 'Medications Due',    color: '#ea580c', value: metrics?.meds_due ?? 0 },
+    { key: 'avgLos',            icon: Clock,              label: 'Avg. LOS (days)',    color: '#2563eb', value: avgLos },
+    { key: 'awaitingDischarge', icon: ArrowRightFromLine, label: 'Awaiting Discharge', color: '#0d9488', value: metrics?.awaiting_discharge ?? 0 },
   ]
 
   return (
@@ -195,9 +231,10 @@ export default function Dashboard() {
         </p>
       </div>
 
-      <div className="flex gap-4 flex-wrap">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
         {CARDS.map(c => (
-          <StatCard key={c.key} icon={c.icon} label={c.label} value={metrics?.[c.key]}
+          <StatCard key={c.key} icon={c.icon} label={c.label}
+            value={c.value !== undefined ? c.value : metrics?.[c.key]}
             color={c.color} loading={metricsLoading} active={activeCard === c.key}
             onClick={() => handleCardClick(c.key)} />
         ))}

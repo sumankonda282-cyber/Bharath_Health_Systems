@@ -35,6 +35,10 @@ critical = [
     'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS total_beds INTEGER DEFAULT 0',
     'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS icu_beds INTEGER DEFAULT 0',
     'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS ot_count INTEGER DEFAULT 0',
+    # location + capacity — queried via Clinic model on every staff login (line 103 auth.py)
+    'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS latitude NUMERIC(10,7)',
+    'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS longitude NUMERIC(10,7)',
+    'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS capacity_description TEXT',
     'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS nabl_accredited BOOLEAN DEFAULT FALSE',
     'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS nabl_number VARCHAR(100)',
     'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS parent_clinic_id INTEGER REFERENCES clinics(id)',
@@ -48,8 +52,12 @@ critical = [
     'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS org_type VARCHAR(20) DEFAULT \'clinic\'',
     'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS wards_enabled BOOLEAN DEFAULT FALSE',
     'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS admission_sequence INTEGER DEFAULT 0',
+    'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS modules JSONB',
     # feedback — queried by /platform/feedback
     'ALTER TABLE feedback ADD COLUMN IF NOT EXISTS is_read BOOLEAN NOT NULL DEFAULT FALSE',
+    # doctor_schedules — quota system for online booking
+    'ALTER TABLE doctor_schedules ADD COLUMN IF NOT EXISTS online_auto_confirm INTEGER DEFAULT 0',
+    'ALTER TABLE doctor_schedules ADD COLUMN IF NOT EXISTS max_patients INTEGER DEFAULT 20',
 ]
 ok = 0; failed = 0
 for sql in critical:
@@ -75,6 +83,7 @@ from app.db.session import engine
 
 safe_cols = [
     \"ALTER TABLE admissions ADD COLUMN IF NOT EXISTS primary_doctor_id INTEGER REFERENCES staff(id)\",
+    \"ALTER TABLE admissions ADD COLUMN IF NOT EXISTS discharge_type VARCHAR(50)\",
     \"ALTER TABLE appointments ADD COLUMN IF NOT EXISTS previsit_token VARCHAR(64)\",
     \"ALTER TABLE appointments ADD COLUMN IF NOT EXISTS previsit_data JSONB\",
     \"ALTER TABLE appointments ADD COLUMN IF NOT EXISTS previsit_submitted_at TIMESTAMP WITHOUT TIME ZONE\",
@@ -338,6 +347,19 @@ safe_cols = [
     \"CREATE INDEX IF NOT EXISTS idx_imaging_catalog_modality ON imaging_catalog(modality)\",
     \"CREATE TABLE IF NOT EXISTS disease_counselling (id SERIAL PRIMARY KEY, icd10_prefix VARCHAR(10) NOT NULL, condition VARCHAR(200), tip TEXT NOT NULL, sort_order INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT NOW())\",
     \"CREATE INDEX IF NOT EXISTS idx_disease_counsel_prefix ON disease_counselling(icd10_prefix)\",
+    \"CREATE TABLE IF NOT EXISTS pregnancy_categories (id SERIAL PRIMARY KEY, generic VARCHAR(200) NOT NULL, category VARCHAR(5), schedule VARCHAR(10), notes TEXT, created_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE INDEX IF NOT EXISTS idx_pregnancy_cat_generic ON pregnancy_categories(generic)\",
+    \"CREATE TABLE IF NOT EXISTS food_drug_interactions (id SERIAL PRIMARY KEY, generic VARCHAR(200) NOT NULL, food TEXT NOT NULL, effect TEXT, severity VARCHAR(20), created_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE INDEX IF NOT EXISTS idx_food_drug_generic ON food_drug_interactions(generic)\",
+    \"ALTER TABLE drug_dose_ranges ADD COLUMN IF NOT EXISTS pediatric_dose_mg_kg_min FLOAT\",
+    \"ALTER TABLE drug_dose_ranges ADD COLUMN IF NOT EXISTS pediatric_dose_mg_kg_max FLOAT\",
+    \"ALTER TABLE drug_dose_ranges ADD COLUMN IF NOT EXISTS renal_adjustment BOOLEAN DEFAULT FALSE\",
+    \"ALTER TABLE drug_dose_ranges ADD COLUMN IF NOT EXISTS hepatic_adjustment BOOLEAN DEFAULT FALSE\",
+    \"ALTER TABLE drug_dose_ranges ADD COLUMN IF NOT EXISTS pregnancy_category VARCHAR(5)\",
+    \"ALTER TABLE drugs ADD COLUMN IF NOT EXISTS formulations TEXT\",
+    \"UPDATE drugs SET is_active = TRUE WHERE is_active IS NULL\",
+    \"UPDATE lab_tests SET is_active = TRUE WHERE is_active IS NULL\",
+    \"UPDATE imaging_catalog SET is_active = TRUE WHERE is_active IS NULL\",
     \"INSERT INTO form_templates (name, category, description, schema, estimated_minutes, is_global) SELECT 'Pain Assessment', 'Clinical', 'Assess pain severity, location, and character', '[{\\\"id\\\":\\\"pain_score\\\",\\\"type\\\":\\\"scale\\\",\\\"label\\\":\\\"Pain Score (0 = no pain, 10 = worst)\\\",\\\"min\\\":0,\\\"max\\\":10,\\\"required\\\":true},{\\\"id\\\":\\\"location\\\",\\\"type\\\":\\\"select\\\",\\\"label\\\":\\\"Location\\\",\\\"options\\\":[\\\"Head\\\",\\\"Chest\\\",\\\"Abdomen\\\",\\\"Back\\\",\\\"Leg\\\",\\\"Arm\\\",\\\"Neck\\\",\\\"Other\\\"]},{\\\"id\\\":\\\"character\\\",\\\"type\\\":\\\"radio\\\",\\\"label\\\":\\\"Character\\\",\\\"options\\\":[\\\"Sharp\\\",\\\"Dull\\\",\\\"Burning\\\",\\\"Throbbing\\\",\\\"Aching\\\",\\\"Stabbing\\\"]},{\\\"id\\\":\\\"onset\\\",\\\"type\\\":\\\"radio\\\",\\\"label\\\":\\\"Onset\\\",\\\"options\\\":[\\\"Sudden\\\",\\\"Gradual\\\",\\\"Intermittent\\\"]},{\\\"id\\\":\\\"duration\\\",\\\"type\\\":\\\"select\\\",\\\"label\\\":\\\"Duration\\\",\\\"options\\\":[\\\"< 1 hour\\\",\\\"1-6 hours\\\",\\\"6-24 hours\\\",\\\"1-3 days\\\",\\\"4-7 days\\\",\\\"> 1 week\\\"]},{\\\"id\\\":\\\"notes\\\",\\\"type\\\":\\\"textarea\\\",\\\"label\\\":\\\"Additional Notes\\\",\\\"placeholder\\\":\\\"Any other details about the pain...\\\"}]', 2, TRUE WHERE NOT EXISTS (SELECT 1 FROM form_templates WHERE name = 'Pain Assessment' AND is_global = TRUE)\",
 
     \"INSERT INTO form_templates (name, category, description, schema, estimated_minutes, is_global) SELECT 'Chief Complaint & Triage', 'Triage', 'Record presenting complaint and assign triage priority', '[{\\\"id\\\":\\\"chief_complaint\\\",\\\"type\\\":\\\"textarea\\\",\\\"label\\\":\\\"Chief Complaint\\\",\\\"placeholder\\\":\\\"Describe the main reason for this visit...\\\",\\\"required\\\":true},{\\\"id\\\":\\\"triage_level\\\",\\\"type\\\":\\\"radio\\\",\\\"label\\\":\\\"Triage Level\\\",\\\"options\\\":[\\\"Green - Normal\\\",\\\"Yellow - Moderate\\\",\\\"Red - Urgent\\\"],\\\"required\\\":true},{\\\"id\\\":\\\"onset\\\",\\\"type\\\":\\\"select\\\",\\\"label\\\":\\\"Symptom Onset\\\",\\\"options\\\":[\\\"< 1 hour\\\",\\\"1-6 hours\\\",\\\"6-24 hours\\\",\\\"1-3 days\\\",\\\"4-7 days\\\",\\\"> 1 week\\\"]},{\\\"id\\\":\\\"referred_by\\\",\\\"type\\\":\\\"select\\\",\\\"label\\\":\\\"Referred By\\\",\\\"options\\\":[\\\"Self\\\",\\\"Family / Friend\\\",\\\"GP Referral\\\",\\\"Specialist Referral\\\",\\\"Emergency Services\\\",\\\"Other\\\"]},{\\\"id\\\":\\\"allergies\\\",\\\"type\\\":\\\"text\\\",\\\"label\\\":\\\"Known Allergies\\\",\\\"placeholder\\\":\\\"NKDA or list allergies...\\\"}]', 1, TRUE WHERE NOT EXISTS (SELECT 1 FROM form_templates WHERE name = 'Chief Complaint & Triage' AND is_global = TRUE)\",
@@ -598,6 +620,77 @@ try:
     print('Migrated patient_name to first_name/last_name')
 except Exception as e:
     print(f'Migration warning (non-fatal): {e}')
+
+for _sql in [
+    \"ALTER TABLE clinics ADD COLUMN IF NOT EXISTS latitude NUMERIC(10,7)\",
+    \"ALTER TABLE clinics ADD COLUMN IF NOT EXISTS longitude NUMERIC(10,7)\",
+    \"ALTER TABLE clinics ADD COLUMN IF NOT EXISTS capacity_description TEXT\",
+    \"CREATE TABLE IF NOT EXISTS specialties (id SERIAL PRIMARY KEY, name VARCHAR(200) NOT NULL UNIQUE, category VARCHAR(100), is_active BOOLEAN DEFAULT TRUE, sort_order INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE TABLE IF NOT EXISTS doctor_specialties (id SERIAL PRIMARY KEY, doctor_profile_id INTEGER NOT NULL REFERENCES doctor_profiles(id) ON DELETE CASCADE, specialty_name VARCHAR(200) NOT NULL, is_primary BOOLEAN DEFAULT FALSE, created_at TIMESTAMP DEFAULT NOW(), UNIQUE(doctor_profile_id, specialty_name))\",
+    \"CREATE INDEX IF NOT EXISTS idx_doctor_specialties_doctor ON doctor_specialties(doctor_profile_id)\",
+]:
+    try:
+        with engine.begin() as conn:
+            conn.execute(text(_sql))
+    except Exception as e:
+        print(f'Schema addition warning (non-fatal): {e}')
+
+# Seed Indian medical specialties
+try:
+    from sqlalchemy import text as _text
+    _specialties = [
+        ('General Medicine', 'Outpatient', 1), ('Family Medicine', 'Outpatient', 2),
+        ('Internal Medicine', 'Outpatient', 3), ('Emergency Medicine', 'Outpatient', 4),
+        ('Cardiology', 'Specialty', 10), ('Interventional Cardiology', 'Specialty', 11),
+        ('Cardiac Surgery', 'Surgery', 12), ('Dermatology', 'Specialty', 20),
+        ('Dermatology & Cosmetology', 'Specialty', 21), ('Paediatrics', 'Specialty', 30),
+        ('Neonatology', 'Specialty', 31), ('Paediatric Surgery', 'Surgery', 32),
+        ('Orthopaedics', 'Specialty', 40), ('Orthopaedic Surgery', 'Surgery', 41),
+        ('Spine Surgery', 'Surgery', 42), ('Gynaecology & Obstetrics', 'Specialty', 50),
+        ('Reproductive Medicine', 'Specialty', 51), ('Maternal-Fetal Medicine', 'Specialty', 52),
+        ('Neurology', 'Specialty', 60), ('Neurosurgery', 'Surgery', 61),
+        ('Neuroradiology', 'Radiology', 62), ('Ophthalmology', 'Specialty', 70),
+        ('Vitreoretinal Surgery', 'Surgery', 71), ('ENT (Ear, Nose & Throat)', 'Specialty', 80),
+        ('Head & Neck Surgery', 'Surgery', 81), ('Psychiatry & Mental Health', 'Specialty', 90),
+        ('Clinical Psychology', 'Allied', 91), ('Dentistry', 'Specialty', 100),
+        ('Orthodontics', 'Specialty', 101), ('Periodontics', 'Specialty', 102),
+        ('Endodontics', 'Specialty', 103), ('Oral & Maxillofacial Surgery', 'Surgery', 104),
+        ('Urology', 'Specialty', 110), ('Andrology', 'Specialty', 111),
+        ('Nephrology', 'Specialty', 120), ('Transplant Surgery', 'Surgery', 121),
+        ('Gastroenterology', 'Specialty', 130), ('Hepatology', 'Specialty', 131),
+        ('GI Surgery', 'Surgery', 132), ('Laparoscopic Surgery', 'Surgery', 133),
+        ('Endocrinology & Diabetology', 'Specialty', 140), ('Thyroid Surgery', 'Surgery', 141),
+        ('Pulmonology', 'Specialty', 150), ('Thoracic Surgery', 'Surgery', 151),
+        ('Oncology', 'Specialty', 160), ('Surgical Oncology', 'Surgery', 161),
+        ('Radiation Oncology', 'Specialty', 162), ('Haematology', 'Specialty', 163),
+        ('Haematological Oncology', 'Specialty', 164), ('Rheumatology', 'Specialty', 170),
+        ('General Surgery', 'Surgery', 180), ('Vascular Surgery', 'Surgery', 181),
+        ('Plastic & Reconstructive Surgery', 'Surgery', 182), ('Burns & Plastic Surgery', 'Surgery', 183),
+        ('Anaesthesiology', 'Specialty', 190), ('Pain Medicine', 'Specialty', 191),
+        ('Critical Care Medicine', 'Specialty', 200), ('Intensive Care', 'Specialty', 201),
+        ('Radiology & Imaging', 'Radiology', 210), ('Interventional Radiology', 'Radiology', 211),
+        ('Pathology & Lab Medicine', 'Diagnostic', 220), ('Microbiology', 'Diagnostic', 221),
+        ('Biochemistry', 'Diagnostic', 222), ('Immunology', 'Diagnostic', 223),
+        ('Nuclear Medicine', 'Diagnostic', 224), ('Physiotherapy & Rehabilitation', 'Allied', 230),
+        ('Occupational Therapy', 'Allied', 231), ('Speech Therapy', 'Allied', 232),
+        ('Sports Medicine', 'Allied', 233), ('Nutrition & Dietetics', 'Allied', 234),
+        ('Ayurveda', 'AYUSH', 240), ('Panchakarma', 'AYUSH', 241),
+        ('Homeopathy', 'AYUSH', 250), ('Naturopathy & Yoga', 'AYUSH', 251),
+        ('Unani', 'AYUSH', 260), ('Siddha', 'AYUSH', 261),
+        ('Geriatric Medicine', 'Specialty', 270), ('Palliative Care', 'Specialty', 271),
+        ('Infectious Disease', 'Specialty', 280), ('Travel Medicine', 'Specialty', 281),
+        ('Community Medicine', 'Public Health', 290), ('Public Health', 'Public Health', 291),
+        ('Forensic Medicine', 'Other', 300), ('Aviation Medicine', 'Other', 301),
+        ('Hyperbaric Medicine', 'Other', 302),
+    ]
+    with engine.begin() as conn:
+        for name, category, sort_order in _specialties:
+            conn.execute(_text(
+                \"INSERT INTO specialties (name, category, sort_order) VALUES (:n, :c, :s) ON CONFLICT (name) DO NOTHING\"
+            ), {'n': name, 'c': category, 's': sort_order})
+    print('[startup] Specialties seeded.')
+except Exception as e:
+    print(f'[startup] Specialties seed warning (non-fatal): {e}')
 
 indexes = [
     \"CREATE INDEX IF NOT EXISTS idx_appointments_clinic_date ON appointments(clinic_id, booking_date)\",

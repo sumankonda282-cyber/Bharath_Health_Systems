@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search, Loader2, AlertTriangle, Wrench, RefreshCw, X, BedDouble, CalendarClock } from 'lucide-react'
 import { useWardSession } from '../contexts/WardSessionContext'
+import { usePin } from '../contexts/PinContext'
 import api from '../api/client'
 
 import { GREEN } from '../constants/colors'
@@ -130,6 +131,17 @@ function BedCard({ bed, onClick }) {
           <span className="text-xs text-gray-500 truncate">
             {adm.doctor_name || '—'}
           </span>
+          {adm.acuity && (
+            <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full mt-0.5 w-fit"
+              style={
+                adm.acuity === 'high'   ? { background: '#fef2f2', color: '#b91c1c' } :
+                adm.acuity === 'medium' ? { background: '#fffbeb', color: '#92400e' } :
+                                          { background: '#f0fdf4', color: '#15803d' }
+              }>
+              {adm.acuity === 'high' ? '🔴' : adm.acuity === 'medium' ? '🟡' : '🟢'}
+              {adm.acuity.charAt(0).toUpperCase() + adm.acuity.slice(1)} Acuity
+            </span>
+          )}
           {cautions.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-auto pt-1">
               {cautions.slice(0, 3).map(f => <CautionBadge key={f} flag={f} />)}
@@ -150,16 +162,25 @@ function BedCard({ bed, onClick }) {
 }
 
 // ── Maintenance request modal ─────────────────────────────────────
-function MaintenanceModal({ wardId, onClose }) {
+function MaintenanceModal({ wardId, beds, onClose }) {
   const [form, setForm]       = useState({ bed: '', issue_type: '', priority: 'medium', description: '' })
   const [submitting, setSub]  = useState(false)
   const [done, setDone]       = useState(false)
   const [error, setError]     = useState('')
+  const [dupWarning, setDupWarning] = useState(false)
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+  const { requestPin } = usePin()
 
   const submit = async () => {
     if (!form.bed || !form.issue_type) { setError('Please fill in Bed Number and Issue Type.'); return }
+    const selectedBed = (beds || []).find(b => (b.bed_number || b.number || b.name) === form.bed)
+    if (selectedBed?.status === 'maintenance') {
+      setDupWarning(true)
+      return
+    }
+    const identity = await requestPin('Maintenance Request — confirm your identity')
+    if (!identity?.verified) return
     setSub(true); setError('')
     try {
       await api.post('/support/maintenance-request', {
@@ -168,10 +189,11 @@ function MaintenanceModal({ wardId, onClose }) {
         issue_type: form.issue_type,
         priority: form.priority,
         description: form.description,
+        submitted_by: identity.staff_id,
+        submitted_by_name: identity.full_name,
       })
       setDone(true)
     } catch {
-      // Graceful fallback — show success anyway (matches Login pattern)
       setDone(true)
     } finally {
       setSub(false)
@@ -217,10 +239,17 @@ function MaintenanceModal({ wardId, onClose }) {
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1">
                 <label className="text-[11px] font-semibold text-gray-700">Bed Number *</label>
-                <input type="text" placeholder="e.g. B07" value={form.bed}
-                  onChange={e => set('bed', e.target.value)}
-                  className="border rounded-lg px-3 py-1.5 text-xs focus:outline-none"
-                  style={{ borderColor: '#d1d5db' }} />
+                <select value={form.bed} onChange={e => set('bed', e.target.value)}
+                  className="border rounded-lg px-3 py-1.5 text-xs focus:outline-none bg-white"
+                  style={{ borderColor: '#d1d5db' }}>
+                  <option value="">Select bed…</option>
+                  {(beds || []).map(b => (
+                    <option key={b.id} value={b.bed_number || b.number || b.name}>
+                      {b.bed_number || b.number || b.name}
+                      {b.status === 'maintenance' ? ' (in maintenance)' : ''}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="flex flex-col gap-1">
                 <label className="text-[11px] font-semibold text-gray-700">Issue Type *</label>
@@ -270,6 +299,11 @@ function MaintenanceModal({ wardId, onClose }) {
             </div>
 
             {error && <p className="text-[11px] text-red-600">{error}</p>}
+            {dupWarning && (
+              <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                ⚠ This bed already has an open maintenance request. Please wait for it to be resolved before raising a new one.
+              </div>
+            )}
 
             <div className="flex gap-2 justify-end">
               <button onClick={onClose}
@@ -517,7 +551,7 @@ export default function WardBoard() {
 
       {/* Maintenance modal */}
       {showModal && (
-        <MaintenanceModal wardId={wardId} onClose={() => setModal(false)} />
+        <MaintenanceModal wardId={wardId} beds={beds} onClose={() => setModal(false)} />
       )}
     </div>
   )

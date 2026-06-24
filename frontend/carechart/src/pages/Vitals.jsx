@@ -338,14 +338,6 @@ export default function Vitals() {
     .map(p => `${p.bed} (${p.patient_name})`)
     .join(' · ')
 
-  const STAT_CARDS = [
-    { key: 'all',      label: 'Total Patients', value: counts.all,      color: NAVY,     bg: '#eff6ff',  icon: '🛏' },
-    { key: 'done',     label: 'Recorded Today', value: counts.done,     color: GREEN,    bg: '#f0fdf4',  icon: '✓' },
-    { key: 'due',      label: 'Due Soon (>4h)', value: counts.due,      color: '#d97706',bg: '#fef9c3',  icon: '⏱' },
-    { key: 'overdue',  label: 'Overdue (>6h)',  value: counts.overdue,  color: '#b91c1c',bg: '#fef2f2',  icon: '⚠' },
-    { key: 'critical', label: 'Critical Values',value: counts.critical, color: RED,      bg: '#fef2f2',  icon: '🔴' },
-  ]
-
   if (loading) return (
     <div className="flex items-center justify-center h-full text-gray-400">
       <Loader2 size={22} className="animate-spin mr-2" /> Loading ward vitals…
@@ -367,33 +359,10 @@ export default function Vitals() {
           <button className="btn btn-secondary">
             <Download size={12} /> Export
           </button>
-          <button onClick={() => setDrawer(null)} className="btn btn-primary">
+          <button onClick={() => setDrawer('pick')} className="btn btn-primary">
             <Plus size={12} /> Record Vitals
           </button>
         </div>
-      </div>
-
-      {/* ── Stat cards — actionable filters ── */}
-      <div className="grid grid-cols-5 gap-3 px-5 py-4 flex-shrink-0">
-        {STAT_CARDS.map(s => {
-          const active = filter === s.key
-          return (
-            <button key={s.key} onClick={() => setFilter(s.key)}
-              className="text-left bg-white rounded-xl border p-3.5 flex flex-col gap-2 transition-all"
-              style={{
-                borderColor: active ? s.color : '#e9eaec',
-                boxShadow: active ? `0 0 0 2px ${s.color}22` : 'none',
-                background: active ? s.bg : 'white',
-              }}>
-              <div className="flex items-center justify-between">
-                <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400">{s.label}</span>
-                <span className="text-sm">{s.icon}</span>
-              </div>
-              <span className="text-2xl font-extrabold leading-none" style={{ color: s.color }}>{s.value}</span>
-              <span className="text-[9px] text-gray-400">{active ? 'Filtered ↑' : 'Click to filter'}</span>
-            </button>
-          )
-        })}
       </div>
 
       {/* ── Overdue banner ── */}
@@ -454,7 +423,7 @@ export default function Vitals() {
             <table className="w-full">
               <thead style={{ background: '#fafaf9' }}>
                 <tr className="border-b" style={{ borderColor: '#e9eaec' }}>
-                  {['Bed', 'Patient', 'BP (mmHg)', 'Pulse', 'Temp °C', 'SpO₂', 'RR', 'Last Recorded', 'Status', ''].map(h => (
+                  {['Bed', 'Patient', 'BP (mmHg)', 'Pulse', 'Temp °C', 'SpO₂', 'RR', 'Last Recorded', 'Next Due', 'Status', ''].map(h => (
                     <th key={h} className="text-left text-[9px] font-bold uppercase tracking-wider text-gray-400 px-4 py-3 whitespace-nowrap">
                       {h}
                     </th>
@@ -464,7 +433,7 @@ export default function Vitals() {
               <tbody>
                 {visible.length === 0 && (
                   <tr>
-                    <td colSpan={10} className="text-center py-12 text-gray-400 text-sm">
+                    <td colSpan={11} className="text-center py-12 text-gray-400 text-sm">
                       No patients match this filter
                     </td>
                   </tr>
@@ -564,6 +533,24 @@ export default function Vitals() {
                         )}
                       </td>
 
+                      {/* Next Due */}
+                      <td className="px-4 py-3 text-xs whitespace-nowrap">
+                        {(() => {
+                          const freq = pt.vitals_frequency_minutes || pt.frequency_minutes
+                          if (!freq || !lv.recorded_at) return <span className="text-gray-300">—</span>
+                          const due = new Date(new Date(lv.recorded_at).getTime() + freq * 60000)
+                          const diff = Math.round((due - Date.now()) / 60000)
+                          const overdue = diff < 0
+                          const color = overdue ? '#b91c1c' : diff < 30 ? '#d97706' : '#059669'
+                          const label = overdue
+                            ? `${Math.abs(diff)}m overdue`
+                            : diff < 60
+                            ? `in ${diff}m`
+                            : `in ${Math.floor(diff/60)}h ${diff%60}m`
+                          return <span className="font-semibold text-[11px]" style={{ color }}>{label}</span>
+                        })()}
+                      </td>
+
                       {/* Status chip */}
                       <td className="px-4 py-3 whitespace-nowrap">
                         <span className="inline-flex items-center gap-1 text-[9px] font-bold px-2 py-1 rounded-full border"
@@ -595,9 +582,9 @@ export default function Vitals() {
       </div>
 
       {/* ── Record drawer ── */}
-      {drawer !== null && (
+      {drawer !== null && drawer !== false && (
         <RecordDrawer
-          patient={drawer || visible[0]}
+          patient={drawer === 'pick' ? visible[0] : drawer}
           onClose={() => setDrawer(null)}
           onSaved={load}
         />

@@ -51,6 +51,9 @@ export const publicApi = {
   // Register clinic
   registerClinic: (data) => api.post('/public/register-clinic', data),
 
+  // Specialties
+  getSpecialties: () => api.get('/public/specialties'),
+
   // Telehealth
   getTelehealthDoctors: (params) => api.get('/public/telehealth-doctors', { params }),
   // available_date: 'YYYY-MM-DD' — filters both to doctors with schedules on that day

@@ -34,6 +34,8 @@ def _ensure_trgm(conn):
         "CREATE EXTENSION IF NOT EXISTS pg_trgm",
         "CREATE INDEX IF NOT EXISTS idx_medterms_display_trgm ON medical_terms USING gin (display gin_trgm_ops)",
         "CREATE INDEX IF NOT EXISTS idx_medterms_syn_trgm ON medical_terms USING gin (synonyms gin_trgm_ops)",
+        "CREATE INDEX IF NOT EXISTS idx_drugs_generic_trgm ON drugs USING gin (generic gin_trgm_ops)",
+        "CREATE INDEX IF NOT EXISTS idx_drugs_brands_trgm ON drugs USING gin (brands gin_trgm_ops)",
     ]:
         try:
             conn.execute(text(sql))
@@ -194,8 +196,8 @@ def seed_drug_data():
         from app.seed_data.drugs import DRUGS
         loaders.append((
             "drugs", DRUGS, 4500,
-            "INSERT INTO drugs (generic, atc, drug_class, routes, brands, primary_brand, rx_only) "
-            "VALUES (:generic, :atc, :drug_class, :routes, :brands, :primary_brand, :rx_only) "
+            "INSERT INTO drugs (generic, atc, drug_class, routes, brands, primary_brand, rx_only, is_active) "
+            "VALUES (:generic, :atc, :drug_class, :routes, :brands, :primary_brand, :rx_only, TRUE) "
             "ON CONFLICT DO NOTHING",
             lambda d: {
                 "generic": d["generic"][:200], "atc": d.get("atc"),
@@ -209,7 +211,7 @@ def seed_drug_data():
     try:
         from app.seed_data.interactions import INTERACTIONS
         loaders.append((
-            "drug_interactions", INTERACTIONS, 50,
+            "drug_interactions", INTERACTIONS, 200,
             "INSERT INTO drug_interactions (drug_a, drug_b, severity, effect, management, interaction_type) "
             "VALUES (:drug_a, :drug_b, :severity, :effect, :management, :interaction_type)",
             lambda d: {
@@ -222,16 +224,43 @@ def seed_drug_data():
     except ImportError as e:
         print(f"[medlib] interactions seed missing: {e}")
     try:
+        from app.seed_data.drug_interactions_india import interactions as INDIA_RAW
+        india_normalized = [
+            {
+                "drug_a": d["drug1"][:200], "drug_b": d["drug2"][:200],
+                "severity": d.get("severity", "moderate"),
+                "effect": d.get("description"),
+                "management": d.get("mechanism"),
+                "interaction_type": d.get("interaction_type", "drug-drug"),
+            }
+            for d in INDIA_RAW
+        ]
+        loaders.append((
+            "drug_interactions", india_normalized, 700,
+            "INSERT INTO drug_interactions (drug_a, drug_b, severity, effect, management, interaction_type) "
+            "VALUES (:drug_a, :drug_b, :severity, :effect, :management, :interaction_type)",
+            lambda d: d,
+        ))
+    except ImportError as e:
+        print(f"[medlib] drug_interactions_india seed missing: {e}")
+    try:
         from app.seed_data.dose_ranges import DOSE_RANGES
         loaders.append((
-            "drug_dose_ranges", DOSE_RANGES, 40,
-            "INSERT INTO drug_dose_ranges (generic, route, population, max_single_mg, max_daily_mg, unit, note) "
-            "VALUES (:generic, :route, :population, :max_single_mg, :max_daily_mg, :unit, :note)",
+            "drug_dose_ranges", DOSE_RANGES, 100,
+            "INSERT INTO drug_dose_ranges (generic, route, population, max_single_mg, max_daily_mg, unit, note, "
+            "pediatric_dose_mg_kg_min, pediatric_dose_mg_kg_max, renal_adjustment, hepatic_adjustment, pregnancy_category) "
+            "VALUES (:generic, :route, :population, :max_single_mg, :max_daily_mg, :unit, :note, "
+            ":pediatric_dose_mg_kg_min, :pediatric_dose_mg_kg_max, :renal_adjustment, :hepatic_adjustment, :pregnancy_category)",
             lambda d: {
                 "generic": d["generic"][:200], "route": d.get("route", "oral"),
                 "population": d.get("population", "adult"),
                 "max_single_mg": d.get("max_single_mg"), "max_daily_mg": d.get("max_daily_mg"),
                 "unit": d.get("unit", "mg"), "note": d.get("note"),
+                "pediatric_dose_mg_kg_min": d.get("pediatric_dose_mg_kg_min"),
+                "pediatric_dose_mg_kg_max": d.get("pediatric_dose_mg_kg_max"),
+                "renal_adjustment": d.get("renal_adjustment", False),
+                "hepatic_adjustment": d.get("hepatic_adjustment", False),
+                "pregnancy_category": d.get("pregnancy_category"),
             },
         ))
     except ImportError as e:
@@ -264,6 +293,36 @@ def seed_drug_data():
         ))
     except ImportError as e:
         print(f"[medlib] drug counselling seed missing: {e}")
+    try:
+        from app.seed_data.pregnancy_categories import PREGNANCY_CATEGORIES
+        loaders.append((
+            "pregnancy_categories", PREGNANCY_CATEGORIES, 50,
+            "INSERT INTO pregnancy_categories (generic, category, schedule, notes) "
+            "VALUES (:generic, :category, :schedule, :notes)",
+            lambda d: {
+                "generic": d["generic"][:200],
+                "category": d.get("category"),
+                "schedule": d.get("schedule"),
+                "notes": d.get("notes"),
+            },
+        ))
+    except ImportError as e:
+        print(f"[medlib] pregnancy_categories seed missing: {e}")
+    try:
+        from app.seed_data.food_interactions import FOOD_INTERACTIONS
+        loaders.append((
+            "food_drug_interactions", FOOD_INTERACTIONS, 30,
+            "INSERT INTO food_drug_interactions (generic, food, effect, severity) "
+            "VALUES (:generic, :food, :effect, :severity)",
+            lambda d: {
+                "generic": d["generic"][:200],
+                "food": d["food"],
+                "effect": d.get("effect"),
+                "severity": d.get("severity", "moderate"),
+            },
+        ))
+    except ImportError as e:
+        print(f"[medlib] food_interactions seed missing: {e}")
 
     for table, items, floor, sql, mapper in loaders:
         with engine.begin() as conn:
@@ -297,8 +356,8 @@ def seed_lab_tests():
         } for t in LAB_TESTS]
         _batched_insert(
             conn,
-            "INSERT INTO lab_tests (name, code, category, normal_range, unit, turnaround_hours) "
-            "VALUES (:name, :code, :category, :normal_range, :unit, :turnaround_hours)",
+            "INSERT INTO lab_tests (name, code, category, normal_range, unit, turnaround_hours, is_active) "
+            "VALUES (:name, :code, :category, :normal_range, :unit, :turnaround_hours, TRUE)",
             rows,
         )
         print(f"[medlib] lab_tests loaded: {len(rows)}")
@@ -330,8 +389,8 @@ def seed_imaging_catalog():
         } for s in IMAGING_STUDIES]
         _batched_insert(
             conn,
-            "INSERT INTO imaging_catalog (name, modality, body_part, category, turnaround_hours, preparation) "
-            "VALUES (:name, :modality, :body_part, :category, :turnaround_hours, :preparation)",
+            "INSERT INTO imaging_catalog (name, modality, body_part, category, turnaround_hours, preparation, is_active) "
+            "VALUES (:name, :modality, :body_part, :category, :turnaround_hours, :preparation, TRUE)",
             rows,
         )
         print(f"[medlib] imaging_catalog loaded: {len(rows)}")
@@ -370,12 +429,45 @@ def seed_disease_counselling():
         print(f"[medlib] disease_counselling loaded: {len(rows)} tips")
 
 
+def seed_drug_formulations():
+    """Populate the formulations JSON column on drug rows (idempotent UPDATE)."""
+    try:
+        import json as _json
+        from app.seed_data.drug_formulations import DRUG_FORMULATIONS
+    except ImportError as e:
+        print(f"[medlib] drug_formulations seed missing: {e}")
+        return
+    with engine.begin() as conn:
+        count_with = _count(conn, "SELECT count(*) FROM drugs WHERE formulations IS NOT NULL")
+        if count_with >= 80:
+            print(f"[medlib] drug formulations already populated ({count_with} drugs) — skipping")
+            return
+        updated = 0
+        for entry in DRUG_FORMULATIONS:
+            # Match exact generic name OR dose-embedded variant ("Paracetamol 500mg")
+            # Exclude combination drugs ("Drug A + Drug B") to avoid false matches
+            result = conn.execute(text(
+                "UPDATE drugs SET formulations = :fdata "
+                "WHERE (lower(generic) = lower(:generic) "
+                "   OR lower(generic) LIKE lower(:generic) || ' %') "
+                "  AND lower(generic) NOT LIKE '%+%' "
+                "  AND lower(generic) NOT LIKE '% + %' "
+                "  AND (formulations IS NULL OR formulations != :fdata)"
+            ), {
+                "generic": entry["generic"],
+                "fdata": _json.dumps(entry["forms"], ensure_ascii=False),
+            })
+            updated += result.rowcount
+        print(f"[medlib] drug formulations: populated {updated} drug rows")
+
+
 def main():
     steps = [
         ("icd10 reference", seed_icd10_reference),
         ("curated terms", seed_curated_terms),
         ("extra terms", seed_extra_terms),
         ("drug data", seed_drug_data),
+        ("drug formulations", seed_drug_formulations),
         ("lab tests", seed_lab_tests),
         ("imaging catalog", seed_imaging_catalog),
         ("disease counselling", seed_disease_counselling),

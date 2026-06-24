@@ -51,7 +51,7 @@ export default function Footer() {
             <div className="space-y-2">
               {[
                 { label: 'Provider Login (CareChart EMR)', href: CARECHART_URL },
-                { label: 'Staff Management', href: STAFF_URL },
+                { label: 'Reception & Staff Management', href: STAFF_URL },
                 { label: 'Pharmacy Module', href: PHARMACY_URL },
                 { label: 'Diagnostics Lab', href: LAB_URL },
                 { label: 'Imaging Center', href: IMAGING_URL },

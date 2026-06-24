@@ -428,10 +428,15 @@ def get_patient_clinical(
 ):
     """Full patient view: demographics, visit history (this clinic), external encounters (locked)."""
     from datetime import date
-    p = db.query(Patient).filter(
-        Patient.id == patient_id, Patient.clinic_id == current.clinic_id
-    ).first()
-    if not p:
+    p = db.query(Patient).filter(Patient.id == patient_id).first()
+    # Accept patients registered at this clinic OR who have appointments at this clinic
+    if not p or (
+        p.clinic_id != current.clinic_id
+        and not db.query(Appointment).filter(
+            Appointment.patient_id == p.id,
+            Appointment.clinic_id == current.clinic_id,
+        ).first()
+    ):
         raise HTTPException(404, "Patient not found")
 
     # Section 1 — Demographics (full, including contact)
