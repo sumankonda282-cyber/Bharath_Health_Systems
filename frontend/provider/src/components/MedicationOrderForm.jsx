@@ -936,7 +936,14 @@ export default function MedicationOrderForm({
                 </div>
               )}
 
-              {!searchRes.length && !recent.length && (
+              {searching && !searchRes.length && (
+                <div className="flex flex-col items-center py-12 text-center">
+                  <Loader2 size={24} className="text-blue-400 mb-3 animate-spin" />
+                  <p className="text-xs text-gray-400 font-medium">Searching…</p>
+                </div>
+              )}
+
+              {!searching && !searchRes.length && !recent.length && (
                 <div className="flex flex-col items-center py-12 text-center">
                   <Package size={28} className="text-gray-300 mb-3" />
                   <p className="text-xs text-gray-400 font-medium">Start typing to search</p>
