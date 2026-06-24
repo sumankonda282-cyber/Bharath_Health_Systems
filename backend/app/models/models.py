@@ -23,6 +23,20 @@ class PlatformAdmin(Base):
     created_at      = Column(DateTime, server_default=func.now())
 
 
+class IdSequence(Base):
+    """Atomic counter backing all human-readable business IDs (see core/ids.py)."""
+    __tablename__ = "id_sequences"
+    id         = Column(Integer, primary_key=True, index=True)
+    scope_type = Column(String(30), nullable=False)          # global | clinic
+    scope_id   = Column(Integer, nullable=False, default=0)   # 0 for global counters
+    kind       = Column(String(40), nullable=False)           # hc_id | branch_code | emp_DR | encounter | ...
+    next_val   = Column(Integer, nullable=False, default=1)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    __table_args__ = (
+        UniqueConstraint("scope_type", "scope_id", "kind", name="uq_id_sequences_scope"),
+    )
+
+
 class Clinic(Base):
     __tablename__ = "clinics"
     id                      = Column(Integer, primary_key=True, index=True)
@@ -52,6 +66,7 @@ class Clinic(Base):
     subscription_expires_at = Column(DateTime, nullable=True)
     subscription_expiry     = Column(DateTime, nullable=True)
     clinic_prefix           = Column(String(10), nullable=True)
+    hc_id                   = Column(String(12), unique=True, nullable=True)  # Health Center ID, e.g. HC00001
     drug_license_number     = Column(String(100), nullable=True)
     gstin                   = Column(String(20), nullable=True)
     # Org type & capabilities
@@ -117,8 +132,9 @@ class DoctorSpecialty(Base):
 
 class Branch(Base):
     __tablename__ = "branches"
-    id         = Column(Integer, primary_key=True, index=True)
-    clinic_id  = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    id          = Column(Integer, primary_key=True, index=True)
+    clinic_id   = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    branch_code = Column(String(20), nullable=True)  # e.g. HC00001-B01
     name       = Column(String(200), nullable=False)
     address    = Column(Text)
     city       = Column(String(100))
@@ -368,6 +384,7 @@ class Appointment(Base):
     id                = Column(Integer, primary_key=True, index=True)
     clinic_id         = Column(Integer, ForeignKey("clinics.id"), nullable=False)
     branch_id         = Column(Integer, ForeignKey("branches.id"), nullable=True)
+    encounter_no      = Column(String(24), nullable=True, index=True)  # unified encounter key, e.g. HC00001-ENC-000123
     patient_id        = Column(Integer, ForeignKey("patients.id"), nullable=False)
     doctor_id         = Column(Integer, ForeignKey("doctor_profiles.id"), nullable=False)
     staff_id          = Column(Integer, ForeignKey("staff.id"), nullable=True)
@@ -435,6 +452,7 @@ class Vitals(Base):
     id                       = Column(Integer, primary_key=True, index=True)
     patient_id               = Column(Integer, ForeignKey("patients.id"), nullable=False)
     appointment_id           = Column(Integer, ForeignKey("appointments.id"), nullable=True)
+    branch_id                = Column(Integer, ForeignKey("branches.id"), nullable=True)
     blood_pressure_systolic  = Column(Integer, nullable=True)
     blood_pressure_diastolic = Column(Integer, nullable=True)
     pulse_rate               = Column(Integer, nullable=True)
@@ -452,6 +470,7 @@ class SoapNote(Base):
     __tablename__ = "soap_notes"
     id              = Column(Integer, primary_key=True, index=True)
     appointment_id  = Column(Integer, ForeignKey("appointments.id"), nullable=False)
+    branch_id       = Column(Integer, ForeignKey("branches.id"), nullable=True)
     subjective      = Column(Text, nullable=True)
     objective       = Column(Text, nullable=True)
     assessment      = Column(Text, nullable=True)
@@ -529,6 +548,7 @@ class EncounterAccessLog(Base):
     patient_id          = Column(Integer, ForeignKey("patients.id"), nullable=False)
     accessed_by         = Column(Integer, ForeignKey("staff.id"), nullable=False)
     accessing_clinic_id = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    branch_id           = Column(Integer, ForeignKey("branches.id"), nullable=True)
     session_expires_at  = Column(DateTime, nullable=True)
     accessed_at         = Column(DateTime, server_default=func.now())
 
@@ -586,6 +606,7 @@ class Prescription(Base):
     clinic_id      = Column(Integer, ForeignKey("clinics.id"), nullable=False)
     patient_id     = Column(Integer, ForeignKey("patients.id"), nullable=False)
     appointment_id = Column(Integer, ForeignKey("appointments.id"), nullable=True)
+    branch_id      = Column(Integer, ForeignKey("branches.id"), nullable=True)
     prescribed_by  = Column(Integer, ForeignKey("staff.id"), nullable=True)
     status         = Column(String(50), default="pending")
     notes          = Column(Text, nullable=True)
@@ -715,6 +736,7 @@ class LabOrder(Base):
     id              = Column(Integer, primary_key=True, index=True)
     order_id        = Column(String(20), unique=True, nullable=False, index=True)  # LAB-00001
     clinic_id       = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    branch_id       = Column(Integer, ForeignKey("branches.id"), nullable=True)
     patient_id      = Column(Integer, ForeignKey("patients.id"), nullable=False)
     appointment_id  = Column(Integer, ForeignKey("appointments.id"), nullable=True)
     ordered_by      = Column(Integer, ForeignKey("staff.id"), nullable=False)   # doctor
@@ -778,6 +800,7 @@ class ImagingOrder(Base):
     id              = Column(Integer, primary_key=True, index=True)
     order_id        = Column(String(20), unique=True, nullable=False, index=True)  # IMG-00001
     clinic_id       = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    branch_id       = Column(Integer, ForeignKey("branches.id"), nullable=True)
     patient_id      = Column(Integer, ForeignKey("patients.id"), nullable=False)
     appointment_id  = Column(Integer, ForeignKey("appointments.id"), nullable=True)
     ordered_by      = Column(Integer, ForeignKey("staff.id"), nullable=False)
@@ -1200,9 +1223,11 @@ class Admission(Base):
     __tablename__ = "admissions"
     id                    = Column(Integer, primary_key=True, index=True)
     clinic_id             = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    branch_id             = Column(Integer, ForeignKey("branches.id"), nullable=True)
     patient_id            = Column(Integer, ForeignKey("patients.id"), nullable=False)
     admission_number      = Column(String(30), unique=True, nullable=False)
     admission_sequence    = Column(Integer, nullable=False)
+    encounter_no          = Column(String(24), nullable=True, index=True)  # unified encounter key, e.g. HC00001-ENC-000123
     department_id         = Column(Integer, ForeignKey("departments.id"), nullable=True)
     ward_id               = Column(Integer, ForeignKey("wards.id"), nullable=True)
     bed_id                = Column(Integer, ForeignKey("beds.id"), nullable=True)
@@ -1330,6 +1355,7 @@ class VitalSign(Base):
     id             = Column(Integer, primary_key=True)
     admission_id   = Column(Integer, ForeignKey("admissions.id"), nullable=False)
     clinic_id      = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    branch_id      = Column(Integer, ForeignKey("branches.id"), nullable=True)
     recorded_by    = Column(Integer, ForeignKey("staff.id"), nullable=False)
     recorded_at    = Column(DateTime, default=_datetime.utcnow)
     temperature    = Column(Numeric(4, 1))        # Celsius
@@ -1350,6 +1376,7 @@ class NursingNote(Base):
     id           = Column(Integer, primary_key=True)
     admission_id = Column(Integer, ForeignKey("admissions.id"), nullable=False)
     clinic_id    = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    branch_id    = Column(Integer, ForeignKey("branches.id"), nullable=True)
     note_type    = Column(String(30), default="general")  # general/shift_handoff/incident/procedure
     note_text    = Column(Text, nullable=False)
     written_by   = Column(Integer, ForeignKey("staff.id"), nullable=False)
@@ -1364,6 +1391,7 @@ class MedicationAdministration(Base):
     id              = Column(Integer, primary_key=True)
     admission_id    = Column(Integer, ForeignKey("admissions.id"), nullable=False)
     clinic_id       = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    branch_id       = Column(Integer, ForeignKey("branches.id"), nullable=True)
     medicine_name   = Column(String(200), nullable=False)
     dose            = Column(String(100))
     route           = Column(String(50))           # oral/iv/im/sc/topical
@@ -1399,6 +1427,7 @@ class DischargeSummary(Base):
     id = Column(Integer, primary_key=True)
     admission_id = Column(Integer, ForeignKey("admissions.id"), unique=True, nullable=False)
     clinic_id = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True)
     written_by = Column(Integer, ForeignKey("staff.id"), nullable=False)
     # Clinical content
     admission_diagnosis = Column(Text)
@@ -1531,6 +1560,7 @@ class ClinicalOrder(Base):
     id            = Column(Integer, primary_key=True, index=True)
     admission_id  = Column(Integer, ForeignKey("admissions.id"), nullable=False)
     clinic_id     = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    branch_id     = Column(Integer, ForeignKey("branches.id"), nullable=True)
     order_type    = Column(String(30), nullable=False)   # lab/imaging/procedure/diet/activity/nursing/consult
     order_detail  = Column(String(500), nullable=False)
     priority      = Column(String(20), default="routine")  # stat/urgent/routine
@@ -2068,9 +2098,11 @@ class FormSubmission(Base):
     form_version   = Column(Integer, default=1)
     assignment_id  = Column(Integer, ForeignKey("form_assignments.id", ondelete="SET NULL"), nullable=True)
     clinic_id      = Column(Integer, ForeignKey("clinics.id"), nullable=False, index=True)
+    branch_id      = Column(Integer, ForeignKey("branches.id"), nullable=True)
     patient_id     = Column(Integer, ForeignKey("patients.id", ondelete="CASCADE"), nullable=False, index=True)
     appointment_id = Column(Integer, ForeignKey("appointments.id", ondelete="SET NULL"), nullable=True)
     admission_id   = Column(Integer, nullable=True)
+    encounter_id   = Column(String(24), nullable=True, index=True)  # unified encounter_no, e.g. HC00001-ENC-000123
     submitted_by   = Column(Integer, nullable=False)
     cosigned_by    = Column(Integer, nullable=True)
     cosigned_at    = Column(DateTime, nullable=True)
@@ -2121,6 +2153,41 @@ class iViewFlowsheet(Base):
     row_config  = Column(JSON, nullable=True)
     created_at  = Column(DateTime, server_default=func.now())
     updated_at  = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class iViewObservation(Base):
+    """One persisted flowsheet cell — a single field value captured from an
+    iView-enabled form submission (the time-series the flowsheet renders).
+    iview_flowsheets above is the per-form CONFIG; this is the per-observation data."""
+    __tablename__ = "iview_observations"
+    id            = Column(Integer, primary_key=True, index=True)
+    clinic_id     = Column(Integer, ForeignKey("clinics.id"), nullable=True, index=True)
+    form_id       = Column(Integer, ForeignKey("assessment_forms.id", ondelete="CASCADE"), nullable=False, index=True)
+    submission_id = Column(Integer, ForeignKey("form_submissions.id", ondelete="CASCADE"), nullable=False, index=True)
+    patient_id    = Column(Integer, nullable=True, index=True)
+    encounter_id  = Column(String(24), nullable=True, index=True)
+    field_id      = Column(String(100), nullable=False)
+    label         = Column(String(200), nullable=True)
+    value_text    = Column(Text, nullable=True)
+    value_numeric = Column(Numeric(12, 3), nullable=True)
+    unit          = Column(String(40), nullable=True)
+    ref_range     = Column(Text, nullable=True)
+    recorded_at   = Column(DateTime, nullable=True, index=True)
+    created_at    = Column(DateTime, server_default=func.now())
+
+
+class StaffFormFavorite(Base):
+    """Favorite assessment forms. scope='personal' → visible only to that staff
+    member; scope='organization' → visible to every staff member in the clinic
+    (the health center, spanning all its branches). Always tenant-isolated by
+    clinic_id, which is taken from the JWT, never the client."""
+    __tablename__ = "staff_form_favorites"
+    id         = Column(Integer, primary_key=True, index=True)
+    clinic_id  = Column(Integer, ForeignKey("clinics.id"), nullable=False, index=True)
+    staff_id   = Column(Integer, ForeignKey("staff.id"), nullable=False, index=True)
+    form_id    = Column(Integer, ForeignKey("assessment_forms.id", ondelete="CASCADE"), nullable=False, index=True)
+    scope      = Column(String(20), nullable=False, default="personal")  # personal | organization
+    created_at = Column(DateTime, server_default=func.now())
 
 
 # ─── Medical Terminology Library (dynamic — replaces all hardcoded disease/symptom lists) ───

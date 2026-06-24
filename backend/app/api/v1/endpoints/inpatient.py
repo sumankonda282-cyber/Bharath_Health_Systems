@@ -14,6 +14,7 @@ from sqlalchemy import text
 
 from app.db.session import get_db
 from app.core.security import get_current_staff
+from app.core import ids
 from app.models.models import (
     Clinic, Staff, Patient, Appointment,
     Department, Ward, Bed, Admission, AdmissionTransfer,
@@ -417,8 +418,11 @@ def create_admission(
 
     admitting_doctor_id = body.get("admitting_doctor_id") or current.id
 
+    _hc = ids.ensure_hc_id_by_clinic_id(db, current.clinic_id)
     adm = Admission(
         clinic_id=current.clinic_id,
+        branch_id=body.get("branch_id") or current.branch_id,
+        encounter_no=ids.next_encounter_no(db, current.clinic_id, _hc),
         patient_id=patient_id,
         admission_number=admission_number,
         admission_sequence=clinic.admission_sequence,
@@ -852,6 +856,7 @@ def record_vitals(
     v = VitalSign(
         admission_id=admission_id,
         clinic_id=current.clinic_id,
+        branch_id=current.branch_id,
         recorded_by=current.id,
         temperature=body.get("temperature"),
         pulse=body.get("pulse"),
@@ -931,6 +936,7 @@ def create_nursing_note(
     note = NursingNote(
         admission_id=admission_id,
         clinic_id=current.clinic_id,
+        branch_id=current.branch_id,
         note_text=body["note_text"],
         note_type=body.get("note_type", "general"),
         shift=body.get("shift"),
@@ -1021,6 +1027,7 @@ def create_mar(
     entry = MedicationAdministration(
         admission_id=admission_id,
         clinic_id=current.clinic_id,
+        branch_id=current.branch_id,
         medicine_name=body["medicine_name"],
         dose=body.get("dose"),
         route=body.get("route"),
@@ -1286,6 +1293,7 @@ def create_discharge_summary(
     s = DischargeSummary(
         admission_id=admission_id,
         clinic_id=current.clinic_id,
+        branch_id=current.branch_id,
         written_by=current.id,
         status="draft",
         admission_diagnosis=body.get("admission_diagnosis"),
@@ -2563,8 +2571,11 @@ def create_emergency(
     prefix = clinic.clinic_prefix or "BC"
     admission_number = f"{prefix}-EMRG-{datetime.now().year}-{str(clinic.admission_sequence).zfill(6)}"
 
+    _hc = ids.ensure_hc_id_by_clinic_id(db, current.clinic_id)
     adm = Admission(
         clinic_id=current.clinic_id,
+        branch_id=body.get("branch_id") or current.branch_id,
+        encounter_no=ids.next_encounter_no(db, current.clinic_id, _hc),
         patient_id=patient.id,
         admission_number=admission_number,
         admission_sequence=clinic.admission_sequence,
@@ -2874,6 +2885,7 @@ def create_clinical_order(
     order = ClinicalOrder(
         admission_id = admission_id,
         clinic_id    = current.clinic_id,
+        branch_id    = current.branch_id,
         order_type   = body.get("order_type", "nursing"),
         order_detail = body.get("order_detail", ""),
         priority     = body.get("priority", "routine"),
@@ -3086,6 +3098,7 @@ def administer_medication(admission_id: int, med_id: int, body: dict, db: Sessio
     order = db.query(MedicationOrder).filter(MedicationOrder.id == med_id).first()
     mar = MedicationAdministration(
         admission_id=admission_id, clinic_id=current.clinic_id,
+        branch_id=current.branch_id,
         medicine_name=order.drug_name if order else body.get("drug_name", ""),
         dose=body.get("dose_given") or (order.dose if order else None),
         route=body.get("route_used") or (order.route if order else None),
@@ -3102,6 +3115,7 @@ def administer_medication(admission_id: int, med_id: int, body: dict, db: Sessio
 def add_nursing_entry(admission_id: int, body: dict, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
     note = NursingNote(
         admission_id=admission_id, clinic_id=current.clinic_id,
+        branch_id=current.branch_id,
         note_text=body.get("note", ""), note_type=body.get("note_type", "general"),
         written_by=current.id,
     )

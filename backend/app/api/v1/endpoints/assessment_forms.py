@@ -26,9 +26,91 @@ from app.models.models import (
     FormPool,
     FormSubmission,
     iViewFlowsheet,
+    iViewObservation,
+    StaffFormFavorite,
 )
 
 router = APIRouter(tags=["Assessment Forms"])
+
+
+# ---------------------------------------------------------------------------
+# ── Form favorites (personal + organization), tenant-isolated by clinic_id ──
+# Declared BEFORE /assessment-forms/{form_id} so "favorites" is never parsed
+# as a form id.
+# ---------------------------------------------------------------------------
+
+@router.get("/assessment-forms/favorites")
+def list_favorites(db: Session = Depends(get_db), current = Depends(get_current_staff)):
+    """Favorite form ids for the current staff's clinic: `personal` (this staff
+    member only) and `organization` (shared across the whole clinic/health
+    center, all branches)."""
+    if not current:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    rows = db.query(StaffFormFavorite).filter(
+        StaffFormFavorite.clinic_id == current.clinic_id
+    ).all()
+    personal     = [r.form_id for r in rows if r.scope == "personal" and r.staff_id == current.id]
+    organization = [r.form_id for r in rows if r.scope == "organization"]
+    return {"personal": personal, "organization": organization}
+
+
+@router.post("/assessment-forms/favorites/{form_id}", status_code=201)
+def add_favorite(
+    form_id: int,
+    scope:   str = Query("personal"),
+    db:      Session = Depends(get_db),
+    current = Depends(get_current_staff),
+):
+    """Star a form. scope=personal → only this staff member; scope=organization
+    → everyone in the clinic. Any clinical staff may set an organization favorite.
+    Idempotent."""
+    if not current:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    if scope not in ("personal", "organization"):
+        raise HTTPException(status_code=400, detail="scope must be 'personal' or 'organization'")
+    if not db.query(AssessmentForm).filter(AssessmentForm.id == form_id).first():
+        raise HTTPException(status_code=404, detail="Form not found")
+    q = db.query(StaffFormFavorite).filter(
+        StaffFormFavorite.clinic_id == current.clinic_id,
+        StaffFormFavorite.form_id == form_id,
+        StaffFormFavorite.scope == scope,
+    )
+    if scope == "personal":
+        q = q.filter(StaffFormFavorite.staff_id == current.id)
+    if not q.first():
+        db.add(StaffFormFavorite(
+            clinic_id = current.clinic_id,
+            staff_id  = current.id,
+            form_id   = form_id,
+            scope     = scope,
+        ))
+        db.commit()
+    return {"status": "ok", "form_id": form_id, "scope": scope}
+
+
+@router.delete("/assessment-forms/favorites/{form_id}")
+def remove_favorite(
+    form_id: int,
+    scope:   str = Query("personal"),
+    db:      Session = Depends(get_db),
+    current = Depends(get_current_staff),
+):
+    """Unstar a form. personal removes only this staff member's star;
+    organization removes the clinic-wide star (any clinical staff may remove it)."""
+    if not current:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    if scope not in ("personal", "organization"):
+        raise HTTPException(status_code=400, detail="scope must be 'personal' or 'organization'")
+    q = db.query(StaffFormFavorite).filter(
+        StaffFormFavorite.clinic_id == current.clinic_id,
+        StaffFormFavorite.form_id == form_id,
+        StaffFormFavorite.scope == scope,
+    )
+    if scope == "personal":
+        q = q.filter(StaffFormFavorite.staff_id == current.id)
+    q.delete(synchronize_session=False)
+    db.commit()
+    return {"status": "ok", "form_id": form_id, "scope": scope}
 
 
 # ---------------------------------------------------------------------------
@@ -248,18 +330,18 @@ def evaluate_alerts(
 # iView / Flowsheet helpers
 # ---------------------------------------------------------------------------
 
-def save_iview_row(db: Session, submission: "FormSubmission") -> None:
+def save_iview_row(db: Session, submission, form) -> None:
     """
-    Persist flowsheet values from a submission that has iView enabled.
-    Each field flagged in iview_config.row_config becomes one iViewFlowsheet row.
+    Persist flowsheet observations from a submission that has iView enabled.
+    Each field flagged in iview_config.row_config becomes one iview_observations
+    row. (iview_flowsheets holds the per-form config; this writes the values.)
     """
-    form: "AssessmentForm" = submission.form
     if not form or not form.is_iview_enabled:
         return
 
     cfg   = form.iview_config or {}
     rows  = cfg.get("row_config", [])
-    fdata = submission.form_data or {}
+    fdata = submission.data or {}
 
     for row in rows:
         fid   = row.get("field_id")
@@ -273,11 +355,12 @@ def save_iview_row(db: Session, submission: "FormSubmission") -> None:
         except (TypeError, ValueError):
             num_val = None
 
-        entry = iViewFlowsheet(
-            patient_id    = submission.patient_id,
-            encounter_id  = submission.encounter_id,
+        db.add(iViewObservation(
+            clinic_id     = submission.clinic_id,
             form_id       = form.id,
             submission_id = submission.id,
+            patient_id    = submission.patient_id,
+            encounter_id  = submission.encounter_id,
             field_id      = fid,
             label         = row.get("label", fid),
             value_text    = str(val),
@@ -285,8 +368,7 @@ def save_iview_row(db: Session, submission: "FormSubmission") -> None:
             unit          = row.get("unit"),
             ref_range     = json.dumps(row.get("ref_range")) if row.get("ref_range") else None,
             recorded_at   = submission.submitted_at or datetime.utcnow(),
-        )
-        db.add(entry)
+        ))
 
 
 # ---------------------------------------------------------------------------
@@ -299,7 +381,7 @@ def list_forms(
     status:   Optional[str] = Query(None),
     category: Optional[str] = Query(None),
     q:        Optional[str] = Query(None),
-    limit:    int           = Query(50,  ge=1, le=500),
+    limit:    int           = Query(50,  ge=1, le=1000),
     offset:   int           = Query(0,   ge=0),
 ):
     query = db.query(AssessmentForm)
@@ -591,61 +673,74 @@ def submit_form(
     form_id:  int,
     payload:  Dict[str, Any] = Body(...),
     db:       Session        = Depends(get_db),
+    current = Depends(get_current_staff),
 ):
     """
     Provider-facing: submit a filled form for a patient.
     Runs scoring + alerts, persists a FormSubmission, optionally writes iView rows.
+    clinic_id / submitted_by / branch_id come from the authenticated staff
+    (tenant isolation) — never trusted from the request body.
     """
+    if not current:
+        raise HTTPException(status_code=401, detail="Authentication required")
     form = db.query(AssessmentForm).filter(AssessmentForm.id == form_id).first()
     if not form:
         raise HTTPException(status_code=404, detail="Form not found")
     if form.status != "published":
         raise HTTPException(status_code=400, detail="Form is not published")
 
-    form_data     = payload.get("form_data", {})
-    scoring_result= run_scoring(form_id, form.schema or {}, form_data, form.scoring_config)
-    alerts_fired  = evaluate_alerts(form.schema or {}, form_data, form.alert_rules)
+    form_data      = payload.get("form_data", {})
+    scoring_result = run_scoring(form_id, form.schema or {}, form_data, form.scoring_config)
+    alerts_fired   = evaluate_alerts(form.schema or {}, form_data, form.alert_rules)
+    patient_id     = payload.get("patient_id")
+    is_draft       = bool(payload.get("is_draft", False))
 
     sub = FormSubmission(
-        form_id       = form_id,
-        patient_id    = payload.get("patient_id"),
-        encounter_id  = payload.get("encounter_id"),
-        submitted_by  = payload.get("submitted_by"),
-        form_data     = form_data,
-        score_result  = scoring_result or None,
-        status        = "submitted",
-        submitted_at  = datetime.utcnow(),
+        form_id        = form_id,
+        clinic_id      = current.clinic_id,
+        branch_id      = current.branch_id,
+        patient_id     = patient_id,
+        encounter_id   = payload.get("encounter_id"),
+        appointment_id = payload.get("appointment_id"),
+        admission_id   = payload.get("admission_id"),
+        submitted_by   = current.id,
+        data           = form_data,
+        scores         = scoring_result or None,
+        alerts_fired   = alerts_fired or [],
+        is_draft       = is_draft,
+        source         = payload.get("source", "provider"),
+        submitted_at   = datetime.utcnow(),
     )
     db.add(sub)
     db.flush()   # get sub.id before commit
 
-    # Persist alert records
+    # Persist alert records (clinic_id + patient_id are NOT NULL on form_alerts)
     for a in alerts_fired:
-        alert = FormAlert(
+        fid = a.get("field_id")
+        db.add(FormAlert(
             submission_id = sub.id,
-            form_id       = form_id,
-            field_id      = a.get("field_id"),
-            severity      = a.get("severity", "info"),
+            clinic_id     = current.clinic_id,
+            patient_id    = patient_id,
+            field_id      = fid,
+            field_label   = a.get("field_label") or fid,
+            value         = (str(form_data.get(fid)) if fid in (form_data or {}) else None),
+            severity      = a.get("severity", "warning"),
             message       = a.get("message", ""),
-            rule_type     = a.get("rule_type", "threshold"),
-            triggered_at  = datetime.utcnow(),
-        )
-        db.add(alert)
+        ))
+
+    # iView flowsheet observations
+    if form.is_iview_enabled:
+        save_iview_row(db, sub, form)
 
     db.commit()
     db.refresh(sub)
 
-    # iView flowsheet rows
-    if form.is_iview_enabled:
-        save_iview_row(db, sub)
-        db.commit()
-
     return {
         "submission_id":  sub.id,
-        "status":         sub.status,
+        "status":         "draft" if sub.is_draft else "submitted",
         "score_result":   scoring_result,
         "alerts_fired":   alerts_fired,
-        "submitted_at":   sub.submitted_at.isoformat(),
+        "submitted_at":   sub.submitted_at.isoformat() if sub.submitted_at else None,
     }
 
 
@@ -671,8 +766,8 @@ def list_submissions(
                 "patient_id":   r.patient_id,
                 "encounter_id": r.encounter_id,
                 "submitted_by": r.submitted_by,
-                "score_result": r.score_result,
-                "status":       r.status,
+                "score_result": r.scores,
+                "status":       "draft" if r.is_draft else "submitted",
                 "submitted_at": r.submitted_at.isoformat() if r.submitted_at else None,
             }
             for r in rows
@@ -696,9 +791,9 @@ def get_submission(submission_id: int, db: Session = Depends(get_db)):
         "patient_id":   sub.patient_id,
         "encounter_id": sub.encounter_id,
         "submitted_by": sub.submitted_by,
-        "form_data":    sub.form_data,
-        "score_result": sub.score_result,
-        "status":       sub.status,
+        "form_data":    sub.data,
+        "score_result": sub.scores,
+        "status":       "draft" if sub.is_draft else "submitted",
         "submitted_at": sub.submitted_at.isoformat() if sub.submitted_at else None,
         "alerts": [
             {
@@ -706,8 +801,8 @@ def get_submission(submission_id: int, db: Session = Depends(get_db)):
                 "field_id":     a.field_id,
                 "severity":     a.severity,
                 "message":      a.message,
-                "rule_type":    a.rule_type,
-                "triggered_at": a.triggered_at.isoformat() if a.triggered_at else None,
+                "rule_type":    None,
+                "triggered_at": a.created_at.isoformat() if a.created_at else None,
             }
             for a in alerts
         ],
@@ -821,10 +916,10 @@ def get_iview(
     form_id:      Optional[int] = Query(None),
     limit:        int           = Query(200, ge=1, le=2000),
 ):
-    q = db.query(iViewFlowsheet).filter(iViewFlowsheet.patient_id == patient_id)
-    if encounter_id: q = q.filter(iViewFlowsheet.encounter_id == encounter_id)
-    if form_id:      q = q.filter(iViewFlowsheet.form_id       == form_id)
-    rows = q.order_by(iViewFlowsheet.recorded_at.desc()).limit(limit).all()
+    q = db.query(iViewObservation).filter(iViewObservation.patient_id == patient_id)
+    if encounter_id: q = q.filter(iViewObservation.encounter_id == encounter_id)
+    if form_id:      q = q.filter(iViewObservation.form_id       == form_id)
+    rows = q.order_by(iViewObservation.recorded_at.desc()).limit(limit).all()
     return [
         {
             "id":            r.id,
@@ -833,7 +928,7 @@ def get_iview(
             "field_id":      r.field_id,
             "label":         r.label,
             "value_text":    r.value_text,
-            "value_numeric": r.value_numeric,
+            "value_numeric": float(r.value_numeric) if r.value_numeric is not None else None,
             "unit":          r.unit,
             "ref_range":     r.ref_range,
             "recorded_at":   r.recorded_at.isoformat() if r.recorded_at else None,
