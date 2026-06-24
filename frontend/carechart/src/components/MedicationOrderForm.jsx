@@ -69,81 +69,124 @@ async function searchOpenFDA(q) {
   } catch { return [] }
 }
 
+// ── Form-type colour coding ────────────────────────────────────────────────────
+const FORM_STYLE = {
+  Tab:    { bg: '#eff6ff', text: '#1d4ed8', border: '#bfdbfe' },
+  Cap:    { bg: '#f5f3ff', text: '#6d28d9', border: '#ddd6fe' },
+  Syr:    { bg: '#f0fdf4', text: '#15803d', border: '#bbf7d0' },
+  Inj:    { bg: '#fef2f2', text: '#dc2626', border: '#fecaca' },
+  MDI:    { bg: '#fff7ed', text: '#c2410c', border: '#fed7aa' },
+  Neb:    { bg: '#fefce8', text: '#a16207', border: '#fef08a' },
+  Cream:  { bg: '#fdf4ff', text: '#9333ea', border: '#e9d5ff' },
+  Gel:    { bg: '#fdf4ff', text: '#9333ea', border: '#e9d5ff' },
+  Drop:   { bg: '#ecfeff', text: '#0e7490', border: '#a5f3fc' },
+  Supp:   { bg: '#fff1f2', text: '#be123c', border: '#fecdd3' },
+  Patch:  { bg: '#f0f9ff', text: '#0369a1', border: '#bae6fd' },
+  'SR Tab': { bg: '#eff6ff', text: '#1d4ed8', border: '#bfdbfe' },
+  'MR Tab': { bg: '#eff6ff', text: '#1d4ed8', border: '#bfdbfe' },
+  'SL Tab': { bg: '#fdf4ff', text: '#9333ea', border: '#e9d5ff' },
+  'Tab SR': { bg: '#eff6ff', text: '#1d4ed8', border: '#bfdbfe' },
+}
+const fStyle = f => FORM_STYLE[f] || { bg: '#f9fafb', text: '#374151', border: '#d1d5db' }
+
 // ── Suggestion Card ────────────────────────────────────────────────────────────
-function SuggestionCard({ s, onFill, isSearchResult }) {
+function SuggestionCard({ s, onFill, onFillFormulation, isSearchResult }) {
+  const [activeF, setActiveF] = useState(null)
+
   const brand    = s.primary_brand || s.brand_name || ''
   const brands   = isSearchResult && s.brands ? s.brands.split('|').slice(0, 3).join(', ') : ''
   const doseStr  = s.form
     ? `${s.form.dose}${s.form.unit} · ${s.form.route} · ${s.form.frequency}${s.form.duration_days ? ` · ${s.form.duration_days}d` : ''}`
-    : (s.routes ? s.routes.replace(/\|/g, ' / ') : '')
-  const sideEffects  = s.form?.side_effects || ''
-  const instructions = s.form?.instructions  || ''
+    : ''
   const drugClass    = s.drug_class || ''
   const isFDA        = s.source === 'openfda'
+  const formulations = s.formulations || []
+  const activeFm     = activeF !== null ? formulations[activeF] : null
+  const hasFormulations = formulations.length > 0
 
   return (
-    <div
-      onClick={() => onFill(s)}
-      className="group border rounded-xl p-3 cursor-pointer transition-all"
-      style={{ borderColor: '#e5e7eb', background: 'white' }}
-      onMouseEnter={e => { e.currentTarget.style.borderColor = GREEN; e.currentTarget.style.background = '#f0fdf4' }}
-      onMouseLeave={e => { e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.background = 'white' }}
-    >
-      <div className="flex items-start justify-between gap-2 mb-1.5">
-        <div className="min-w-0">
-          <p className="text-[13px] font-bold text-gray-900 truncate">
-            {isSearchResult ? s.generic : s.drug_name}
-          </p>
-          {brand && <p className="text-[11px] text-gray-400">{brand}{brands && brands !== brand ? ` · ${brands}` : ''}</p>}
+    <div className="border rounded-xl overflow-hidden transition-all" style={{ borderColor: '#e5e7eb', background: 'white' }}>
+
+      {/* Drug header row */}
+      <div onClick={() => onFill(s)} className="group p-3 cursor-pointer hover:bg-[#f0fdf4] transition-colors">
+        <div className="flex items-start justify-between gap-2 mb-1">
+          <div className="min-w-0">
+            <p className="text-[13px] font-bold text-gray-900 truncate">
+              {isSearchResult ? s.generic : s.drug_name}
+            </p>
+            {brand && <p className="text-[11px] text-gray-400">{brand}{brands && brands !== brand ? ` · ${brands}` : ''}</p>}
+          </div>
+          {isSearchResult ? (
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 border ${
+              s.inStock ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-100 text-gray-400 border-gray-200'
+            }`}>{s.inStock ? '✓ In Stock' : 'Library'}</span>
+          ) : (
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border flex-shrink-0"
+              style={{ background: '#f0fdf4', color: GREEN, borderColor: '#bbf7d0' }}>Recent</span>
+          )}
         </div>
-        {isSearchResult ? (
-          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 border ${
-            s.inStock
-              ? 'bg-green-50 text-green-700 border-green-200'
-              : 'bg-gray-100 text-gray-400 border-gray-200'
-          }`}>
-            {s.inStock ? '✓ In Stock' : 'Out of Stock'}
-          </span>
-        ) : (
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border flex-shrink-0"
-            style={{ background: '#f0fdf4', color: GREEN, borderColor: '#bbf7d0' }}>
-            Recent
-          </span>
+        <div className="flex flex-wrap items-center gap-1">
+          {isFDA && <span className="text-[9px] px-1.5 py-0.5 rounded bg-orange-50 text-orange-600 border border-orange-200">OpenFDA</span>}
+          {drugClass && <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-100">{drugClass}</span>}
+          {s.rx_only && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-100">Rx Only</span>}
+          {doseStr && <span className="text-[10px] font-semibold" style={{ color: GREEN }}>{doseStr}</span>}
+        </div>
+        {!hasFormulations && (
+          <p className="mt-1.5 text-[10px] font-bold group-hover:text-green-600" style={{ color: '#9ca3af' }}>→ Select drug</p>
         )}
       </div>
 
-      {isFDA && (
-        <span className="text-[9px] px-1.5 py-0.5 rounded bg-orange-50 text-orange-600 border border-orange-200 mb-1 inline-block">
-          OpenFDA
-        </span>
-      )}
+      {/* Formulation pills */}
+      {hasFormulations && (
+        <div className="px-3 pb-1 pt-0 border-t border-dashed" style={{ borderColor: '#e5e7eb' }}>
+          <p className="text-[9px] text-gray-400 font-semibold uppercase tracking-wider mt-2 mb-1.5">Choose formulation</p>
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {formulations.map((f, i) => {
+              const st = fStyle(f.form)
+              const isActive = activeF === i
+              return (
+                <button key={i}
+                  onClick={e => { e.stopPropagation(); setActiveF(isActive ? null : i) }}
+                  className="text-[11px] px-2.5 py-1 rounded-lg border font-semibold transition-all"
+                  style={isActive
+                    ? { background: st.text, color: 'white', borderColor: st.text }
+                    : { background: st.bg, color: st.text, borderColor: st.border }
+                  }>
+                  {f.form}
+                  <span className="ml-1 opacity-70 font-normal">{f.route}</span>
+                </button>
+              )
+            })}
+          </div>
 
-      {doseStr && (
-        <p className="text-[11px] font-semibold mb-1" style={{ color: GREEN }}>{doseStr}</p>
+          {/* Dose quick-picks for selected formulation */}
+          {activeFm && (
+            <div className="mb-2.5 pl-1 border-l-2" style={{ borderColor: '#bbf7d0' }}>
+              <p className="text-[9px] font-semibold uppercase tracking-wider mb-1" style={{ color: GREEN }}>
+                {activeFm.form} · Typical doses ({activeFm.unit})
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {activeFm.doses.map((dose, i) => (
+                  <button key={i}
+                    onClick={e => { e.stopPropagation(); onFillFormulation(s, activeFm, dose) }}
+                    className="text-[11px] px-3 py-1.5 rounded-lg font-bold text-white transition-colors"
+                    style={{ background: GREEN }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#047857'}
+                    onMouseLeave={e => e.currentTarget.style.background = GREEN}>
+                    {dose} {activeFm.unit}
+                  </button>
+                ))}
+                <button
+                  onClick={e => { e.stopPropagation(); onFillFormulation(s, activeFm, null) }}
+                  className="text-[11px] px-3 py-1.5 rounded-lg font-semibold border transition-colors"
+                  style={{ background: 'white', color: GREEN, borderColor: '#bbf7d0' }}>
+                  Enter dose manually →
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       )}
-      {drugClass && (
-        <span className="inline-block text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-100 mb-1">
-          {drugClass}
-        </span>
-      )}
-      {s.rx_only && (
-        <span className="inline-block text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-100 mb-1 ml-1">
-          Rx Only
-        </span>
-      )}
-      {sideEffects && (
-        <p className="text-[10px] text-purple-600 mt-1">
-          SE: {sideEffects.slice(0, 70)}{sideEffects.length > 70 ? '…' : ''}
-        </p>
-      )}
-      {instructions && (
-        <p className="text-[10px] text-blue-600">
-          {instructions.slice(0, 70)}{instructions.length > 70 ? '…' : ''}
-        </p>
-      )}
-      <p className="mt-2 text-[10px] font-bold group-hover:text-green-600" style={{ color: '#9ca3af' }}>
-        → Fill entire form
-      </p>
     </div>
   )
 }
@@ -257,8 +300,8 @@ export default function MedicationOrderForm({
     }, 800)
   }, [form.drug_name, form.dose, form.route, form.unit, existingOrders, patientData.diagnoses])
 
-  // on drug select from library
-  const selectDrug = useCallback(async (drug) => {
+  // on drug select from library — formOverride lets formulation selection set route/dose/unit
+  const selectDrug = useCallback(async (drug, formOverride = {}) => {
     const routes = drug.routes ? drug.routes.split('|').map(r => r.trim()).filter(Boolean) : ROUTES
     const avail  = routes.length ? routes : ROUTES
     setAvailRoutes(avail)
@@ -274,6 +317,7 @@ export default function MedicationOrderForm({
       generic_name: drug.generic,
       brand_name:   drug.primary_brand || (drug.brands ? drug.brands.split('|')[0].trim() : ''),
       route:        avail[0] || 'PO',
+      ...formOverride,
     }))
 
     setInterAlerts(checkInteractions(drug.generic, existingOrders))
@@ -338,6 +382,14 @@ export default function MedicationOrderForm({
     }
     setSearchRes([])
   }, [existingOrders, patientAllergies, selectDrug])
+
+  const fillFormulation = useCallback((drug, fm, dose) => {
+    selectDrug(drug, {
+      route: fm.route || 'PO',
+      unit:  fm.unit  || 'mg',
+      dose:  dose != null ? String(dose) : '',
+    })
+  }, [selectDrug])
 
   // computed
   const isIV      = form.route === 'IV'
@@ -854,7 +906,7 @@ export default function MedicationOrderForm({
                   </p>
                   <div className="space-y-2">
                     {searchRes.map((d, i) => (
-                      <SuggestionCard key={i} s={d} onFill={fillSuggestion} isSearchResult />
+                      <SuggestionCard key={i} s={d} onFill={fillSuggestion} onFillFormulation={fillFormulation} isSearchResult />
                     ))}
                   </div>
                 </div>
@@ -867,7 +919,7 @@ export default function MedicationOrderForm({
                   </p>
                   <div className="space-y-2">
                     {recent.slice(0, 10).map((r, i) => (
-                      <SuggestionCard key={i} s={r} onFill={fillSuggestion} isSearchResult={false} />
+                      <SuggestionCard key={i} s={r} onFill={fillSuggestion} onFillFormulation={fillFormulation} isSearchResult={false} />
                     ))}
                   </div>
                 </div>
