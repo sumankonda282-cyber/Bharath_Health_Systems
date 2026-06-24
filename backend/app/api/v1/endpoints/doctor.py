@@ -555,6 +555,192 @@ def get_my_patients(
     return result
 
 
+@router.post("/encounter/{appointment_id}/save-draft")
+def save_encounter_draft(
+    appointment_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(require_doctor),
+):
+    """Save SOAP, prescriptions and lab orders without completing the encounter."""
+    appt = db.query(Appointment).filter(
+        Appointment.id == appointment_id,
+        Appointment.clinic_id == current.clinic_id,
+    ).first()
+    if not appt:
+        raise HTTPException(404, "Appointment not found")
+
+    if appt.status in ("confirmed", "pending"):
+        appt.status = "in_progress"
+
+    soap_data = body.get("soap") or {}
+    if soap_data:
+        allowed = ["subjective", "objective", "assessment", "plan", "follow_up_days"]
+        note = db.query(SoapNote).filter(SoapNote.appointment_id == appointment_id).first()
+        if note:
+            for k in allowed:
+                if k in soap_data:
+                    setattr(note, k, soap_data[k])
+        else:
+            filtered = {k: soap_data[k] for k in allowed if k in soap_data}
+            if filtered:
+                db.add(SoapNote(appointment_id=appointment_id, **filtered))
+
+    rx_items = (body.get("prescription") or {}).get("items") or []
+    if rx_items:
+        rx = db.query(Prescription).filter(Prescription.appointment_id == appointment_id).first()
+        if not rx:
+            rx = Prescription(
+                clinic_id=appt.clinic_id, patient_id=appt.patient_id,
+                appointment_id=appointment_id, prescribed_by=current.id,
+            )
+            db.add(rx)
+            db.flush()
+        else:
+            db.query(PrescriptionItem).filter(PrescriptionItem.prescription_id == rx.id).delete()
+            db.flush()
+        for item in rx_items:
+            med_name = (item.get("medicine_name") or "").strip()
+            if med_name:
+                db.add(PrescriptionItem(
+                    prescription_id=rx.id,
+                    medicine_name=med_name,
+                    dosage=item.get("dosage", ""),
+                    frequency=item.get("frequency", ""),
+                    duration=item.get("duration", ""),
+                    instructions=item.get("instructions", ""),
+                ))
+
+    lab_tests = (body.get("lab_order") or {}).get("tests") or []
+    if lab_tests:
+        lo = db.query(LabOrder).filter(LabOrder.appointment_id == appointment_id).first()
+        if not lo:
+            lo = LabOrder(
+                clinic_id=appt.clinic_id, patient_id=appt.patient_id,
+                appointment_id=appointment_id, ordered_by=current.id,
+            )
+            db.add(lo)
+            db.flush()
+        else:
+            db.query(LabOrderItem).filter(LabOrderItem.order_id == lo.id).delete()
+            db.flush()
+        for t in lab_tests:
+            test_name = (t.get("test_name") or "").strip()
+            if test_name:
+                db.add(LabOrderItem(order_id=lo.id, test_name=test_name))
+
+    db.commit()
+    return {"message": "Draft saved", "status": appt.status}
+
+
+@router.post("/queue/{appointment_id}/send-investigations")
+def send_for_investigations(
+    appointment_id: int,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(require_doctor),
+):
+    """Mark appointment as investigations_pending — doctor has sent patient for lab/imaging."""
+    appt = db.query(Appointment).filter(
+        Appointment.id == appointment_id,
+        Appointment.clinic_id == current.clinic_id,
+    ).first()
+    if not appt:
+        raise HTTPException(404, "Appointment not found")
+    appt.status = "investigations_pending"
+    db.commit()
+    return {"success": True, "status": "investigations_pending"}
+
+
+@router.post("/queue/{appointment_id}/mark-review-ready")
+def mark_review_ready(
+    appointment_id: int,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(require_doctor),
+):
+    """Mark appointment as review_pending — results are back, patient needs to return."""
+    appt = db.query(Appointment).filter(
+        Appointment.id == appointment_id,
+        Appointment.clinic_id == current.clinic_id,
+    ).first()
+    if not appt:
+        raise HTTPException(404, "Appointment not found")
+    appt.status = "review_pending"
+    db.commit()
+    return {"success": True, "status": "review_pending"}
+
+
+@router.get("/patient/{patient_id}/visits")
+def get_patient_visits(
+    patient_id: int,
+    limit: int = 20,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(require_doctor),
+):
+    """Full visit history for a patient with doctor context — used by OPD chart past visits."""
+    patient = db.query(Patient).filter(
+        Patient.id == patient_id,
+        Patient.clinic_id == current.clinic_id,
+    ).first()
+    if not patient:
+        raise HTTPException(404, "Patient not found")
+
+    my_profile = db.query(DoctorProfile).filter(DoctorProfile.staff_id == current.id).first()
+    my_profile_id = my_profile.id if my_profile else None
+
+    visits = db.query(Appointment).options(
+        joinedload(Appointment.soap_note),
+        joinedload(Appointment.prescriptions).joinedload(Prescription.items),
+        joinedload(Appointment.lab_orders).joinedload(LabOrder.items),
+    ).filter(
+        Appointment.patient_id == patient_id,
+        Appointment.clinic_id == current.clinic_id,
+        Appointment.status.in_(["completed", "investigations_pending", "review_pending"]),
+    ).order_by(desc(Appointment.appointment_date)).limit(limit).all()
+
+    result = []
+    for v in visits:
+        doc_name = None
+        if v.doctor_id:
+            dp = db.query(DoctorProfile).filter(DoctorProfile.id == v.doctor_id).first()
+            if dp:
+                ds = db.query(Staff).filter(Staff.id == dp.staff_id).first()
+                doc_name = ds.full_name if ds else None
+
+        is_mine = (v.doctor_id == my_profile_id) if my_profile_id else False
+        sn = v.soap_note
+
+        entry = {
+            "id":         v.id,
+            "date":       str(v.appointment_date),
+            "time":       v.appointment_time,
+            "status":     v.status,
+            "reason":     v.reason,
+            "visit_type": v.visit_type,
+            "mode":       v.mode,
+            "doctor_id":  v.doctor_id,
+            "doctor_name":doc_name,
+            "is_mine":    is_mine,
+            "soap": {
+                "subjective": sn.subjective,
+                "objective":  sn.objective,
+                "assessment": sn.assessment,
+                "plan":       sn.plan,
+                "follow_up_days": sn.follow_up_days,
+            } if sn else None,
+            "prescriptions": [
+                {"items": [{"medicine_name": i.medicine_name, "dosage": i.dosage, "frequency": i.frequency, "duration": i.duration} for i in p.items]}
+                for p in v.prescriptions
+            ] if is_mine else [],
+            "lab_orders": [
+                {"items": [{"test_name": i.test_name, "result_value": i.result_value, "is_abnormal": i.is_abnormal} for i in lo.items]}
+                for lo in v.lab_orders
+            ] if is_mine else [],
+        }
+        result.append(entry)
+
+    return result
+
+
 @router.post("/encounter/{appointment_id}/join-telehealth")
 def log_telehealth_join(
     appointment_id: int,

@@ -36,6 +36,7 @@ const SubmissionViewer = lazy(() => import('./pages/forms/SubmissionViewer'))
 const TelehealthDesk = lazy(() => import('./pages/telehealth/TelehealthDesk'))
 const Triage         = lazy(() => import('./pages/appointments/Triage'))
 const TelehealthCall = lazy(() => import('./pages/telehealth/TelehealthCall'))
+const OpdChart       = lazy(() => import('./pages/doctor/OpdChart'))
 
 function AppRoutes() {
   const { user, loading } = useAuth()
@@ -66,6 +67,7 @@ function AppRoutes() {
         <Route path="/triage"       element={<Suspense fallback={<PageLoader />}><Triage /></Suspense>} />
         <Route path="/doctor-desk"  element={<Suspense fallback={<PageLoader />}><DoctorDesk /></Suspense>} />
         <Route path="/encounter/:id" element={<Suspense fallback={<PageLoader />}><Encounter /></Suspense>} />
+        <Route path="/opd/:id"       element={<Suspense fallback={<PageLoader />}><OpdChart /></Suspense>} />
         <Route path="/pharmacy"     element={<Suspense fallback={<PageLoader />}><Pharmacy /></Suspense>} />
         <Route path="/lab"          element={<Suspense fallback={<PageLoader />}><Lab /></Suspense>} />
         <Route path="/imaging"      element={<Suspense fallback={<PageLoader />}><Imaging /></Suspense>} />
