@@ -34,6 +34,8 @@ def _ensure_trgm(conn):
         "CREATE EXTENSION IF NOT EXISTS pg_trgm",
         "CREATE INDEX IF NOT EXISTS idx_medterms_display_trgm ON medical_terms USING gin (display gin_trgm_ops)",
         "CREATE INDEX IF NOT EXISTS idx_medterms_syn_trgm ON medical_terms USING gin (synonyms gin_trgm_ops)",
+        "CREATE INDEX IF NOT EXISTS idx_drugs_generic_trgm ON drugs USING gin (generic gin_trgm_ops)",
+        "CREATE INDEX IF NOT EXISTS idx_drugs_brands_trgm ON drugs USING gin (brands gin_trgm_ops)",
     ]:
         try:
             conn.execute(text(sql))
@@ -194,8 +196,8 @@ def seed_drug_data():
         from app.seed_data.drugs import DRUGS
         loaders.append((
             "drugs", DRUGS, 4500,
-            "INSERT INTO drugs (generic, atc, drug_class, routes, brands, primary_brand, rx_only) "
-            "VALUES (:generic, :atc, :drug_class, :routes, :brands, :primary_brand, :rx_only) "
+            "INSERT INTO drugs (generic, atc, drug_class, routes, brands, primary_brand, rx_only, is_active) "
+            "VALUES (:generic, :atc, :drug_class, :routes, :brands, :primary_brand, :rx_only, TRUE) "
             "ON CONFLICT DO NOTHING",
             lambda d: {
                 "generic": d["generic"][:200], "atc": d.get("atc"),
@@ -354,8 +356,8 @@ def seed_lab_tests():
         } for t in LAB_TESTS]
         _batched_insert(
             conn,
-            "INSERT INTO lab_tests (name, code, category, normal_range, unit, turnaround_hours) "
-            "VALUES (:name, :code, :category, :normal_range, :unit, :turnaround_hours)",
+            "INSERT INTO lab_tests (name, code, category, normal_range, unit, turnaround_hours, is_active) "
+            "VALUES (:name, :code, :category, :normal_range, :unit, :turnaround_hours, TRUE)",
             rows,
         )
         print(f"[medlib] lab_tests loaded: {len(rows)}")
@@ -387,8 +389,8 @@ def seed_imaging_catalog():
         } for s in IMAGING_STUDIES]
         _batched_insert(
             conn,
-            "INSERT INTO imaging_catalog (name, modality, body_part, category, turnaround_hours, preparation) "
-            "VALUES (:name, :modality, :body_part, :category, :turnaround_hours, :preparation)",
+            "INSERT INTO imaging_catalog (name, modality, body_part, category, turnaround_hours, preparation, is_active) "
+            "VALUES (:name, :modality, :body_part, :category, :turnaround_hours, :preparation, TRUE)",
             rows,
         )
         print(f"[medlib] imaging_catalog loaded: {len(rows)}")
