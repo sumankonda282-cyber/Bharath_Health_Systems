@@ -890,6 +890,14 @@ def save_lab_results(
             item.is_abnormal = bool(r.get("is_abnormal", False))
 
     order.status = 'completed'
+
+    # Auto-transition OPD appointment: investigations_pending → review_pending
+    if getattr(order, 'appointment_id', None):
+        from app.models.models import Appointment as Appt
+        linked_appt = db.query(Appt).filter(Appt.id == order.appointment_id).first()
+        if linked_appt and linked_appt.status == 'investigations_pending':
+            linked_appt.status = 'review_pending'
+
     db.commit()
     return {"message": "Results saved"}
 

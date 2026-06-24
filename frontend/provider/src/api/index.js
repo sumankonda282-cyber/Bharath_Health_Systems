@@ -71,15 +71,19 @@ export const appointmentsApi = {
 
 // ── Doctor Desk ───────────────────────────────────────────────────
 export const doctorApi = {
-  getQueue:            (params) => api.get('/doctor/queue', { params }),
-  getEncounter:        (id) => api.get(`/doctor/encounter/${id}`),
-  completeEncounter:   (id, data) => api.post(`/doctor/encounter/${id}/complete`, data),
-  joinTelehealth:      (id) => api.post(`/doctor/encounter/${id}/join-telehealth`),
-  getProfile:          () => api.get('/doctor/profile'),
-  updateProfile:       (data) => api.put('/doctor/profile', data),
-  approveAppointment:  (appointmentId) => api.post(`/doctor/queue/${appointmentId}/approve`),
-  declineAppointment:  (appointmentId) => api.post(`/doctor/queue/${appointmentId}/decline`),
-  getMyPatients:       (params) => api.get('/doctor/my-patients', { params }),
+  getQueue:              (params) => api.get('/doctor/queue', { params }),
+  getEncounter:          (id) => api.get(`/doctor/encounter/${id}`),
+  saveDraft:             (id, data) => api.post(`/doctor/encounter/${id}/save-draft`, data),
+  completeEncounter:     (id, data) => api.post(`/doctor/encounter/${id}/complete`, data),
+  sendForInvestigations: (id) => api.post(`/doctor/queue/${id}/send-investigations`),
+  markReviewReady:       (id) => api.post(`/doctor/queue/${id}/mark-review-ready`),
+  getPatientVisits:      (patientId, limit) => api.get(`/doctor/patient/${patientId}/visits`, { params: { limit } }),
+  joinTelehealth:        (id) => api.post(`/doctor/encounter/${id}/join-telehealth`),
+  getProfile:            () => api.get('/doctor/profile'),
+  updateProfile:         (data) => api.put('/doctor/profile', data),
+  approveAppointment:    (appointmentId) => api.post(`/doctor/queue/${appointmentId}/approve`),
+  declineAppointment:    (appointmentId) => api.post(`/doctor/queue/${appointmentId}/decline`),
+  getMyPatients:         (params) => api.get('/doctor/my-patients', { params }),
 }
 
 // ── Pharmacy ──────────────────────────────────────────────────────
