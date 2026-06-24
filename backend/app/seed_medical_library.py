@@ -356,8 +356,8 @@ def seed_lab_tests():
         } for t in LAB_TESTS]
         _batched_insert(
             conn,
-            "INSERT INTO lab_tests (name, code, category, normal_range, unit, turnaround_hours) "
-            "VALUES (:name, :code, :category, :normal_range, :unit, :turnaround_hours)",
+            "INSERT INTO lab_tests (name, code, category, normal_range, unit, turnaround_hours, is_active) "
+            "VALUES (:name, :code, :category, :normal_range, :unit, :turnaround_hours, TRUE)",
             rows,
         )
         print(f"[medlib] lab_tests loaded: {len(rows)}")
@@ -389,8 +389,8 @@ def seed_imaging_catalog():
         } for s in IMAGING_STUDIES]
         _batched_insert(
             conn,
-            "INSERT INTO imaging_catalog (name, modality, body_part, category, turnaround_hours, preparation) "
-            "VALUES (:name, :modality, :body_part, :category, :turnaround_hours, :preparation)",
+            "INSERT INTO imaging_catalog (name, modality, body_part, category, turnaround_hours, preparation, is_active) "
+            "VALUES (:name, :modality, :body_part, :category, :turnaround_hours, :preparation, TRUE)",
             rows,
         )
         print(f"[medlib] imaging_catalog loaded: {len(rows)}")
