@@ -299,7 +299,7 @@ def list_forms(
     status:   Optional[str] = Query(None),
     category: Optional[str] = Query(None),
     q:        Optional[str] = Query(None),
-    limit:    int           = Query(50,  ge=1, le=500),
+    limit:    int           = Query(50,  ge=1, le=1000),
     offset:   int           = Query(0,   ge=0),
 ):
     query = db.query(AssessmentForm)
