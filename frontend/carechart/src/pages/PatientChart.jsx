@@ -392,7 +392,9 @@ function AssessmentFullPageModal({ form, admissionId, patientName, onClose }) {
                   formKey={formKey}
                   patientId={null}
                   encounterId={admissionId}
+                  admission={admissionId ? { id: admissionId } : null}
                   onSaved={onFormSaved}
+                  onClose={onFormSaved}
                 />
               </div>
             ) : (

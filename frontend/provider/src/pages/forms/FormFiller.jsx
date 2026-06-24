@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   ChevronLeft, Save, Send, AlertTriangle, CheckCircle2,
   Clock, BarChart2, Loader2, X, ChevronDown, ChevronUp,
@@ -922,6 +922,8 @@ function AlertCard({ alert }) {
 export default function FormFiller() {
   const { assignmentId } = useParams()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const patientIdFromUrl = searchParams.get('patient_id')
   const draftKey = `form_draft_${assignmentId}`
 
   const [state, setState] = useState({
@@ -958,11 +960,20 @@ export default function FormFiller() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await api.get(`/provider/forms/assignments/${assignmentId}`)
-        const assignment = res.data
-        const form = assignment.form || {}
-        const schema = form.schema || form.sections ? form : assignment.form_schema
+        const res = await api.get(`/assessment-forms/${assignmentId}`)
+        const form = res.data
+        const schema = form.schema || {}
         const sections = schema?.sections || []
+
+        const assignment = {
+          form_id:        form.id,
+          patient_id:     patientIdFromUrl || null,
+          appointment_id: null,
+          admission_id:   null,
+          patient_name:   null,
+          bhid:           null,
+          priority:       null,
+        }
 
         // Check localStorage draft
         const saved = localStorage.getItem(draftKey)
@@ -982,19 +993,21 @@ export default function FormFiller() {
         update({
           assignment,
           formMeta: {
-            title: form.title || assignment.form_title,
-            category: form.category || assignment.category,
+            title:          form.title,
+            category:       form.category,
             scoring_config: form.scoring_config,
-            alert_rules: form.alert_rules,
+            alert_rules:    form.alert_rules,
           },
           schema: { sections },
         })
 
-        // Fetch prev submission for carry-forward
-        if (assignment.patient_id && form.id) {
+        // Fetch prev submission for carry-forward (by form + patient)
+        if (patientIdFromUrl && form.id) {
           try {
-            const prevRes = await api.get(`/provider/forms/submissions?patient_id=${assignment.patient_id}&form_id=${form.id}&limit=1`)
-            const submissions = prevRes.data?.submissions || prevRes.data || []
+            const prevRes = await api.get(`/assessment-forms/${form.id}/submissions`, {
+              params: { patient_id: patientIdFromUrl, limit: 1 },
+            })
+            const submissions = prevRes.data?.items || []
             if (submissions.length > 0) {
               setPrevSubmission(submissions[0])
               setShowPrevBanner(true)
@@ -1035,11 +1048,8 @@ export default function FormFiller() {
     setState(s => ({ ...s, values: { ...s.values, [fieldId]: val }, touched: { ...s.touched, [fieldId]: true } }))
   }, [])
 
-  const saveDraft = async () => {
+  const saveDraft = () => {
     localStorage.setItem(draftKey, JSON.stringify(state.values))
-    try {
-      await api.post(`/provider/forms/submissions/${assignmentId}/draft`, { data: state.values })
-    } catch {}
     update({ draftSaved: true })
     setTimeout(() => update({ draftSaved: false }), 2000)
   }
@@ -1097,22 +1107,30 @@ export default function FormFiller() {
     try {
       const a = state.assignment
       const payload = {
-        form_id: a.form_id || a.form?.id,
-        assignment_id: assignmentId,
-        patient_id: a.patient_id,
-        appointment_id: a.appointment_id,
-        admission_id: a.admission_id,
-        data: state.values,
-        charted_at: new Date().toISOString(),
+        patient_id:   a.patient_id,
+        encounter_id: a.admission_id,
+        submitted_by: null,
+        form_data:    state.values,
       }
-      const res = await api.post('/provider/forms/submit', payload)
+      const res = await api.post(`/assessment-forms/${a.form_id}/submit`, payload)
       localStorage.removeItem(draftKey)
+      const raw = res.data?.score_result
+      const scoresArr = raw && Object.keys(raw).length > 0 ? [{
+        name:  'Score',
+        value: raw.total,
+        band:  {
+          severity:       raw.band,
+          label:          raw.band,
+          interpretation: raw.interpretation,
+          action:         raw.recommended_action,
+        },
+      }] : []
       update({
-        submitting: false,
-        submitted: true,
-        submissionId: res.data?.submission_id || res.data?.id,
-        scores: res.data?.scores || [],
-        alerts: res.data?.alerts || [],
+        submitting:   false,
+        submitted:    true,
+        submissionId: res.data?.submission_id,
+        scores:       scoresArr,
+        alerts:       res.data?.alerts_fired || [],
       })
     } catch (err) {
       update({ submitting: false, errors: { _submit: err.response?.data?.detail || 'Submission failed' } })

@@ -176,9 +176,8 @@ function FormLibrary({ patientId }) {
   })
 
   useEffect(() => {
-    // Use form_templates endpoint which has the 12 forms created by clinic admin
-    api.get('/forms/templates', { params: { limit: 100 } })
-      .then(r => setPool(Array.isArray(r) ? r : []))
+    api.get('/assessment-forms/', { params: { status: 'published', limit: 100 } })
+      .then(r => setPool(r.data?.forms || []))
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
