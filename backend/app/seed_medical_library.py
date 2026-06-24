@@ -442,9 +442,15 @@ def seed_drug_formulations():
             return
         updated = 0
         for entry in DRUG_FORMULATIONS:
+            # Match exact generic name OR dose-embedded variant ("Paracetamol 500mg")
+            # Exclude combination drugs ("Drug A + Drug B") to avoid false matches
             result = conn.execute(text(
                 "UPDATE drugs SET formulations = :fdata "
-                "WHERE lower(generic) = lower(:generic) AND (formulations IS NULL OR formulations != :fdata)"
+                "WHERE (lower(generic) = lower(:generic) "
+                "   OR lower(generic) LIKE lower(:generic) || ' %') "
+                "  AND lower(generic) NOT LIKE '%+%' "
+                "  AND lower(generic) NOT LIKE '% + %' "
+                "  AND (formulations IS NULL OR formulations != :fdata)"
             ), {
                 "generic": entry["generic"],
                 "fdata": _json.dumps(entry["forms"], ensure_ascii=False),
