@@ -43,7 +43,7 @@ class ErrorBoundary extends Component {
  * @param {number}   encounterId  - Encounter/admission ID passed to the form
  * @param {Function} onSaved      - Called after form is submitted successfully
  */
-export default function FormRenderer({ formKey, patientId, encounterId, onSaved }) {
+export default function FormRenderer({ formKey, patientId, encounterId, onSaved, admission, onClose }) {
   if (!formKey) return null
 
   const Component = FORM_REGISTRY[formKey]
@@ -74,6 +74,8 @@ export default function FormRenderer({ formKey, patientId, encounterId, onSaved 
           patientId={patientId}
           encounterId={encounterId}
           onSaved={onSaved}
+          admission={admission}
+          onClose={onClose || onSaved}
         />
       </Suspense>
     </ErrorBoundary>

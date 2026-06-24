@@ -51,16 +51,16 @@ function CatChip({ cat, small }) {
 
 // ── Fallback mock assessment library (used when API returns empty) ─────────────
 const MOCK_FORMS = [
-  { id: 'f1',  name: 'Vitals Assessment',            category: 'vitals',     status: 'published', is_template: true,  description: 'BP, HR, SpO₂, Temp, RR, Weight, Pain score', fields_count: 11, iview_enabled: true,  freq: '4-hourly' },
-  { id: 'f2',  name: 'Patient Details',              category: 'admission',  status: 'published', is_template: false, description: 'Demographics, contact, NOK, insurance details', fields_count: 18, iview_enabled: false, freq: null },
-  { id: 'f3',  name: 'Asthma Control Score (ACT)',   category: 'respiratory',status: 'published', is_template: false, description: 'Asthma Control Test — 5-item score (5–25)', fields_count: 5,  iview_enabled: false, freq: null },
+  { id: 'f1',  name: 'Vitals Assessment',            category: 'vitals',     subcategory: 'vital-signs',              status: 'published', is_template: true,  description: 'BP, HR, SpO₂, Temp, RR, Weight, Pain score', fields_count: 11, iview_enabled: true,  freq: '4-hourly' },
+  { id: 'f2',  name: 'Patient Details',              category: 'admission',  subcategory: 'patient-profile',          status: 'published', is_template: false, description: 'Demographics, contact, NOK, insurance details', fields_count: 18, iview_enabled: false, freq: null },
+  { id: 'f3',  name: 'Asthma Control Score (ACT)',   category: 'respiratory',subcategory: 'clinical-act',             status: 'published', is_template: false, description: 'Asthma Control Test — 5-item score (5–25)', fields_count: 5,  iview_enabled: false, freq: null },
   { id: 'f4',  name: 'Glasgow Coma Scale (GCS)',     category: 'safety',     status: 'published', is_template: true,  description: 'Eye, Verbal, Motor scoring (3–15)', fields_count: 4,  iview_enabled: true,  freq: '4-hourly' },
   { id: 'f5',  name: 'Morse Fall Risk Scale',        category: 'safety',     status: 'published', is_template: true,  description: '6-item fall risk — Low / Medium / High', fields_count: 7,  iview_enabled: false, freq: null },
-  { id: 'f6',  name: 'Comprehensive Pain Assessment',category: 'pain',       status: 'published', is_template: true,  description: 'NRS 0–10, location, character, onset', fields_count: 9,  iview_enabled: false, freq: null },
+  { id: 'f6',  name: 'Comprehensive Pain Assessment',category: 'pain',       subcategory: 'pain-assessment',          status: 'published', is_template: true,  description: 'NRS 0–10, location, character, onset', fields_count: 9,  iview_enabled: false, freq: null },
   { id: 'f7',  name: 'PHQ-9 Depression Screening',  category: 'mental',     status: 'published', is_template: true,  description: '9-item depression screening with scoring', fields_count: 10, iview_enabled: false, freq: null },
   { id: 'f8',  name: 'GAD-7 Anxiety Screening',     category: 'mental',     status: 'published', is_template: true,  description: '7-item anxiety disorder screening', fields_count: 8,  iview_enabled: false, freq: null },
-  { id: 'f9',  name: 'Nursing Admission Assessment', category: 'nursing',    status: 'published', is_template: true,  description: 'Full admission workup — history, systems, skin, orientation', fields_count: 24, iview_enabled: false, freq: null },
-  { id: 'f10', name: 'SOAP Note Structured',         category: 'general',    status: 'published', is_template: true,  description: 'S-O-A-P clinical documentation', fields_count: 16, iview_enabled: false, freq: null },
+  { id: 'f9',  name: 'Nursing Admission Assessment', category: 'nursing',    subcategory: 'systems-review-full',      status: 'published', is_template: true,  description: 'Full admission workup — history, systems, skin, orientation', fields_count: 24, iview_enabled: false, freq: null },
+  { id: 'f10', name: 'SOAP Note Structured',         category: 'general',    subcategory: 'systems-clinical-impression', status: 'published', is_template: true,  description: 'S-O-A-P clinical documentation', fields_count: 16, iview_enabled: false, freq: null },
   { id: 'f11', name: 'Discharge Checklist',          category: 'discharge',  status: 'published', is_template: true,  description: 'Discharge summary, meds, instructions, follow-up', fields_count: 20, iview_enabled: false, freq: null, requires_cosign: true },
   { id: 'f12', name: 'Pre-Operative Assessment',     category: 'surgery',    status: 'published', is_template: true,  description: 'ASA grade, anaesthesia plan, pre-op checklist', fields_count: 22, iview_enabled: false, freq: null, requires_cosign: true },
   { id: 'f13', name: 'Wound & Pressure Injury',      category: 'general',    status: 'published', is_template: true,  description: 'Wound stage, measurements, exudate, dressing', fields_count: 14, iview_enabled: true,  freq: '24-hourly' },
@@ -543,17 +543,15 @@ export default function Assessments() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [fPool, cForms, subs] = await Promise.allSettled([
-        api.get('/provider/forms/pool'),
+      const [fPool, cForms] = await Promise.allSettled([
+        api.get('/assessment-forms/', { params: { status: 'published', limit: 100 } }),
         api.get('/carechart/care-forms'),
-        api.get('/provider/forms/submissions', { params: { ward_id: session?.ward?.id, limit: 50 } }),
       ])
-      const poolData  = fPool.status  === 'fulfilled' ? (Array.isArray(fPool.value)  ? fPool.value  : fPool.value?.items  || []) : []
-      const cfData    = cForms.status === 'fulfilled' ? (Array.isArray(cForms.value) ? cForms.value : cForms.value?.items || []) : []
-      const subData   = subs.status   === 'fulfilled' ? (Array.isArray(subs.value)   ? subs.value   : subs.value?.items   || []) : []
-      setForms(poolData.length   ? poolData  : MOCK_FORMS)
-      setCareForms(cfData.length ? cfData    : MOCK_CARE_FORMS)
-      setSubmissions(subData)
+      const poolData = fPool.status  === 'fulfilled' ? (fPool.value.data?.forms   || []) : []
+      const cfData   = cForms.status === 'fulfilled' ? (Array.isArray(cForms.value.data) ? cForms.value.data : cForms.value.data?.items || []) : []
+      setForms(poolData.length ? poolData : MOCK_FORMS)
+      setCareForms(cfData.length ? cfData : MOCK_CARE_FORMS)
+      setSubmissions([])
     } catch {
       setForms(MOCK_FORMS)
       setCareForms(MOCK_CARE_FORMS)
@@ -811,7 +809,9 @@ export default function Assessments() {
                 formKey={openForm.subcategory}
                 patientId={null}
                 encounterId={null}
+                admission={null}
                 onSaved={() => setOpenForm(null)}
+                onClose={() => setOpenForm(null)}
               />
             </div>
           </div>
