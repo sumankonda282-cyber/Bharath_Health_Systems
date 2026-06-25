@@ -74,7 +74,7 @@ export default function SubmissionViewer() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await api.get(`/provider/forms/submissions/${id}`)
+        const res = await api.get(`/submissions/${id}`)
         setSubmission(res)
       } catch (err) {
         setError(err?.message || 'Failed to load submission')
@@ -100,7 +100,7 @@ export default function SubmissionViewer() {
   const requestCosign = async () => {
     setCosignLoading(true)
     try {
-      await api.post(`/provider/forms/cosign/${id}`)
+      await api.patch(`/submissions/${id}/cosign`)
       setCosignDone(true)
     } catch {}
     setCosignLoading(false)

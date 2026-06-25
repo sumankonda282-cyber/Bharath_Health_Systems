@@ -16,7 +16,7 @@ export default function TransferDoctorModal({ appointmentId, currentDoctorId, pa
   const [err, setErr]           = useState('')
 
   useEffect(() => {
-    api.get('/staff/', { params: { role: 'doctor' } })
+    api.get('/clinic/doctors')
       .then(r => setDoctors(Array.isArray(r) ? r : (r?.items || r?.data || [])))
       .catch(() => setErr('Could not load doctors'))
       .finally(() => setLoading(false))
