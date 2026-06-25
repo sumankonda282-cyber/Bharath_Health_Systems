@@ -39,9 +39,18 @@ function defaultDaySchedule() {
     online_booking: false,
     online_window_start: '09:00',
     online_window_end: '17:00',
+    online_slots: 0,
+    online_auto_confirm: 0,
+    telehealth_slots: 0,
+    telehealth_auto_confirm: 0,
     location_id: '',
     breaks: [],
   }
+}
+
+// Walk-in capacity = whatever's left after online + telehealth reservations.
+function walkInSlots(d) {
+  return Math.max(0, (Number(d.max_patients) || 0) - (Number(d.online_slots) || 0) - (Number(d.telehealth_slots) || 0))
 }
 
 function calcSlots(d) {
@@ -129,7 +138,12 @@ function ScheduleTab({ doctors }) {
     setSaving(true)
     setSaveMsg('')
     try {
-      await api.put('/scheduler/availability', { schedule, blocked_slots: blockedSlots })
+      // Persist the derived walk-in capacity alongside each day so the public
+      // booking flow and reports can read it directly.
+      const scheduleOut = Object.fromEntries(
+        Object.entries(schedule).map(([day, d]) => [day, { ...d, walk_in_slots: walkInSlots(d) }])
+      )
+      await api.put('/scheduler/availability', { schedule: scheduleOut, blocked_slots: blockedSlots })
       setSaveMsg('Schedule saved successfully.')
     } catch (e) {
       setSaveMsg('Failed to save: ' + (e.message || 'Unknown error'))
@@ -243,6 +257,42 @@ function ScheduleTab({ doctors }) {
                       </div>
                     )
                   })()}
+
+                  {/* Slot allocation: online / telehealth / walk-in */}
+                  <div className="border-t border-gray-100 pt-2.5 space-y-2">
+                    <p className="text-xs font-semibold text-gray-500">Slot allocation</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="label text-xs">🌐 Online slots</label>
+                        <input type="number" min="0" className="input py-1 text-sm" value={d.online_slots}
+                          onChange={e => updateDay(day, 'online_slots', Math.max(0, Number(e.target.value)))} />
+                      </div>
+                      <div>
+                        <label className="label text-xs">…auto-confirm first</label>
+                        <input type="number" min="0" className="input py-1 text-sm" value={d.online_auto_confirm}
+                          onChange={e => updateDay(day, 'online_auto_confirm', Math.max(0, Number(e.target.value)))} />
+                      </div>
+                      <div>
+                        <label className="label text-xs">📹 Telehealth slots</label>
+                        <input type="number" min="0" className="input py-1 text-sm" value={d.telehealth_slots}
+                          onChange={e => updateDay(day, 'telehealth_slots', Math.max(0, Number(e.target.value)))} />
+                      </div>
+                      <div>
+                        <label className="label text-xs">…auto-confirm first</label>
+                        <input type="number" min="0" className="input py-1 text-sm" value={d.telehealth_auto_confirm}
+                          onChange={e => updateDay(day, 'telehealth_auto_confirm', Math.max(0, Number(e.target.value)))} />
+                      </div>
+                    </div>
+                    <div className="text-xs rounded-lg px-3 py-1.5 bg-gray-50 text-gray-600 flex flex-wrap gap-x-3 gap-y-0.5">
+                      <span>🌐 {Number(d.online_slots) || 0} online</span>
+                      <span>📹 {Number(d.telehealth_slots) || 0} telehealth</span>
+                      <span>🚶 {walkInSlots(d)} walk-in</span>
+                      <span className="text-gray-400">of {d.max_patients || 0} total</span>
+                    </div>
+                    {(Number(d.online_slots) + Number(d.telehealth_slots)) > (Number(d.max_patients) || 0) && (
+                      <p className="text-xs text-red-500">Online + telehealth exceed max patients — increase max patients.</p>
+                    )}
+                  </div>
 
                   {/* Breaks */}
                   {d.breaks.length > 0 && (
@@ -383,6 +433,7 @@ export default function Appointments() {
   const [error, setError] = useState('')
   const [actioningId, setActioningId] = useState(null)
   const [confirmError, setConfirmError] = useState('')
+  const [confirmMsg, setConfirmMsg] = useState('')
 
   const loadAppts = () => {
     setLoading(true)
@@ -436,12 +487,21 @@ export default function Appointments() {
     }
   }
 
-  const handleConfirmBooking = async (id) => {
-    setActioningId(id)
+  const handleConfirmBooking = async (booking) => {
+    setActioningId(booking.id)
     setConfirmError('')
+    setConfirmMsg('')
     try {
-      await appointmentsApi.confirmBooking(id)
-      loadAppts()
+      const res = await appointmentsApi.confirmBooking(booking.id)
+      const tok = res?.token != null ? `token #${res.token}` : 'appointment created'
+      setConfirmMsg(`Booking confirmed — ${tok}${booking.booking_date ? ` for ${booking.booking_date}` : ''}.`)
+      // Jump the queue to the booking's date so the new appointment is visible.
+      if (booking.booking_date && booking.booking_date !== date) {
+        setDate(booking.booking_date)  // triggers reload via the date effect
+      } else {
+        loadAppts()
+      }
+      setTimeout(() => setConfirmMsg(''), 6000)
     } catch (err) {
       setConfirmError(err.message || 'Failed to confirm booking')
     } finally { setActioningId(null) }
@@ -527,6 +587,12 @@ export default function Appointments() {
               <button onClick={() => setConfirmError('')} className="text-red-400 hover:text-red-600 ml-3">✕</button>
             </div>
           )}
+          {confirmMsg && (
+            <div className="mb-3 px-4 py-2.5 bg-green-50 border border-green-200 rounded-xl text-sm text-green-700 flex items-center justify-between">
+              <span className="flex items-center gap-1.5"><CheckCircle size={14} /> {confirmMsg}</span>
+              <button onClick={() => setConfirmMsg('')} className="text-green-500 hover:text-green-700 ml-3">✕</button>
+            </div>
+          )}
 
           {/* Online Bookings — pending confirmation */}
           {!loading && onlineBookings.length > 0 && (
@@ -558,7 +624,7 @@ export default function Appointments() {
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <span className="text-xs text-gray-400 font-mono">{b.confirmation_code}</span>
                       <button
-                        onClick={() => handleConfirmBooking(b.id)}
+                        onClick={() => handleConfirmBooking(b)}
                         disabled={actioningId === b.id}
                         className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-green-100 text-green-700 font-semibold hover:bg-green-200 disabled:opacity-50 transition-colors"
                       >
