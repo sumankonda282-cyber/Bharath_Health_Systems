@@ -2638,3 +2638,18 @@ class WebhookEvent(Base):
     payload    = Column(JSON, nullable=True)
     processed  = Column(Boolean, default=False)
     created_at = Column(DateTime, server_default=func.now())
+
+
+class NotificationLog(Base):
+    """Audit + idempotency for billing notifications (email/SMS). A unique
+    dedup_key guarantees a reminder/receipt is never sent twice."""
+    __tablename__ = "notification_log"
+    id         = Column(Integer, primary_key=True, index=True)
+    clinic_id  = Column(Integer, ForeignKey("clinics.id"), nullable=True)
+    kind       = Column(String(40), nullable=True)     # renewal_7 | grace | suspended | receipt | ...
+    channel    = Column(String(10), nullable=True)     # email | sms
+    dedup_key  = Column(String(180), unique=True, nullable=True)
+    recipient  = Column(String(200), nullable=True)
+    subject    = Column(String(200), nullable=True)
+    status     = Column(String(20), default="sent")    # sent | failed
+    created_at = Column(DateTime, server_default=func.now())

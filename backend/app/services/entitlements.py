@@ -13,9 +13,10 @@ re-prices an existing subscriber.
 This module only READS — it never enforces. Enforcement (Phase 1) consumes
 ``get_entitlements`` and decides whether to block.
 """
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.models.models import Clinic, Plan, ClinicSubscription
 
 # Canonical app/module catalog. ``clinic_flag`` mirrors the legacy Clinic.has_*
@@ -90,7 +91,9 @@ def _resolve_status(clinic: Clinic, sub):
     if expires:
         if today <= expires:
             return "active", expires, False, waived
-        if grace_until and today <= grace_until:
+        # Grace: explicit grace_until, else the configured default window.
+        grace_end = grace_until or (expires + timedelta(days=getattr(settings, "SUBSCRIPTION_GRACE_DAYS", 7) or 7))
+        if today <= grace_end:
             return "grace", expires, True, waived
         return "expired", expires, False, waived
 

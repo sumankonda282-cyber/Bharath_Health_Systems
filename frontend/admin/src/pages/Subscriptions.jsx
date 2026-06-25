@@ -5,8 +5,10 @@ import {
   TrendingUp, Users, CreditCard, AlertTriangle, Clock, Edit2, Save,
   Wallet, Download, Activity, Calendar, Tag, Layers, RefreshCw,
   XCircle, CheckCircle2, ArrowLeft, Trash2, IndianRupee, Banknote,
-  Package, Settings,
+  Package, Settings, Gift, Landmark,
 } from 'lucide-react'
+import PlanBuilder from '../components/PlanBuilder'
+import { ConfirmTransfersModal, CompClinicModal } from '../components/BillingOps'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -874,6 +876,9 @@ const TABS = [
 
 export default function Subscriptions() {
   const [tab, setTab] = useState('clinics')
+  const [showBuilder, setShowBuilder] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
+  const [showComp, setShowComp] = useState(false)
   const [clinics, setClinics] = useState([])
   const [planConfig, setPlanConfig] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -938,6 +943,20 @@ export default function Subscriptions() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-base font-bold text-white">Subscriptions</h1>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setShowComp(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800 border border-gray-700 hover:bg-gray-700 text-gray-200 text-xs font-semibold">
+            <Gift size={13} /> Comp
+          </button>
+          <button onClick={() => setShowConfirm(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800 border border-gray-700 hover:bg-gray-700 text-gray-200 text-xs font-semibold">
+            <Landmark size={13} /> Confirm Transfers
+          </button>
+          <button onClick={() => setShowBuilder(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold">
+            <Package size={13} /> Build Plans
+          </button>
+        </div>
       </div>
 
       {/* KPI Strip */}
@@ -1076,6 +1095,10 @@ export default function Subscriptions() {
           {tab === 'analytics' && planConfig && <AnalyticsTab clinics={clinics} planConfig={planConfig} />}
         </>
       )}
+
+      {showBuilder && <PlanBuilder onClose={() => setShowBuilder(false)} addToast={addToast} />}
+      {showConfirm && <ConfirmTransfersModal onClose={() => setShowConfirm(false)} addToast={addToast} />}
+      {showComp && <CompClinicModal clinics={clinics} onClose={() => setShowComp(false)} addToast={addToast} />}
     </div>
   )
 }
