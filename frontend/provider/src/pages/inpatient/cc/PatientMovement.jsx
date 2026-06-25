@@ -446,7 +446,7 @@ export default function PatientMovement({ admission }) {
     setLoading(true)
     try {
       const res = await api.get(`/inpatient/admissions/${admission?.id}/movements`)
-      if (res.data?.length) setStops(res.data)
+      if (res?.length) setStops(res)
       else throw new Error('empty')
     } catch { setStops(buildMock()) } finally { setLoading(false) }
   }, [admission?.id])

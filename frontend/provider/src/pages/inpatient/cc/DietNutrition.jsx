@@ -783,15 +783,15 @@ export default function DietNutrition({ admission }) {
         api.get(`/inpatient/admissions/${admissionId}/supplements`),
         api.get(`/inpatient/admissions/${admissionId}/nutrition-assessment`),
       ])
-      const ok = r => r.status === 'fulfilled' && r.value?.data
+      const ok = r => r.status === 'fulfilled' && r.value
       if (ok(dietRes) || ok(mealRes)) {
         setData({
-          diet_order:  ok(dietRes)   ? dietRes.value.data   : null,
+          diet_order:  ok(dietRes)   ? dietRes.value   : null,
           restrictions: [],
-          meals:       ok(mealRes)   ? mealRes.value.data   : [],
-          fluids:      ok(fluidRes)  ? fluidRes.value.data  : [],
-          supplements: ok(suppRes)   ? suppRes.value.data   : [],
-          assessment:  ok(assessRes) ? assessRes.value.data : null,
+          meals:       ok(mealRes)   ? mealRes.value   : [],
+          fluids:      ok(fluidRes)  ? fluidRes.value  : [],
+          supplements: ok(suppRes)   ? suppRes.value   : [],
+          assessment:  ok(assessRes) ? assessRes.value : null,
           dietitian:   { status: 'not_referred' },
         })
       } else {

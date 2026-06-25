@@ -75,9 +75,9 @@ export default function SubmissionViewer() {
     async function load() {
       try {
         const res = await api.get(`/provider/forms/submissions/${id}`)
-        setSubmission(res.data)
+        setSubmission(res)
       } catch (err) {
-        setError(err.response?.data?.detail || 'Failed to load submission')
+        setError(err?.message || 'Failed to load submission')
       } finally {
         setLoading(false)
       }
@@ -109,7 +109,7 @@ export default function SubmissionViewer() {
   const exportPDF = async () => {
     try {
       const res = await api.get(`/provider/forms/submissions/${id}/pdf-data`)
-      const d = res.data
+      const d = res
       const sections = d.sections || []
       const scores = d.scores || []
       const alerts = d.alerts || []
@@ -188,7 +188,7 @@ export default function SubmissionViewer() {
   const exportFHIR = async () => {
     try {
       const res = await api.get(`/provider/forms/submissions/${id}/fhir`)
-      downloadJson(res.data, `submission-${id}.fhir.json`)
+      downloadJson(res, `submission-${id}.fhir.json`)
     } catch (err) {
       console.error('FHIR export failed', err)
     }
@@ -197,7 +197,7 @@ export default function SubmissionViewer() {
   const exportABDM = async () => {
     try {
       const res = await api.get(`/provider/forms/submissions/${id}/abdm`)
-      downloadJson(res.data, `submission-${id}.abdm.json`)
+      downloadJson(res, `submission-${id}.abdm.json`)
     } catch (err) {
       console.error('ABDM export failed', err)
     }
