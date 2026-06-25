@@ -60,6 +60,15 @@ class Settings(BaseSettings):
     DAILY_API_KEY: str = ""
     DAILY_DOMAIN: str = "bharathhealthsystems.daily.co"
 
+    # Subscription enforcement — "off" (default) | "soft" (observe/log) | "hard" (block 402)
+    SUBSCRIPTION_ENFORCEMENT: str = "off"
+    SUBSCRIPTION_GRACE_DAYS: int = 7
+
+    # Razorpay (subscription checkout) — graceful no-op until these are set
+    RAZORPAY_KEY_ID: str = ""
+    RAZORPAY_KEY_SECRET: str = ""
+    RAZORPAY_WEBHOOK_SECRET: str = ""
+
     @property
     def cors_origins_list(self) -> List[str]:
         defaults = [

@@ -11,7 +11,9 @@ def _years_between(d1: date, d2: date) -> int:
 from sqlalchemy import or_
 from app.db.session import get_db
 from app.core.security import get_current_platform_admin, hash_password
-from app.models.models import Clinic, Branch, Staff, Patient, Appointment, PlatformAdmin, AuditLog, Invoice, Feedback, Department, Ward, Bed, PlatformSetting, SubscriptionPayment, PatientTag, LabOrder, Prescription, DoctorProfile, PatientUser
+from app.models.models import Clinic, Branch, Staff, Patient, Appointment, PlatformAdmin, AuditLog, Invoice, Feedback, Department, Ward, Bed, PlatformSetting, SubscriptionPayment, PatientTag, LabOrder, Prescription, DoctorProfile, PatientUser, Plan, ClinicSubscription, SubscriptionInvoice
+from app.services.entitlements import get_entitlements, ALL_MODULES, MODULE_CATALOG
+from app.services.subscription import upsert_subscription, activate_paid
 
 import re
 import secrets
@@ -1274,6 +1276,258 @@ def update_plan_config(
     _log(db, "updated_plan_config", "platform", 0, "plan_config", current)
     db.commit()
     return {"message": "Plan configuration saved", "config": body}
+
+
+# ── Plans (à-la-carte modules) & Subscriptions ───────────────────────────────
+# The `plans` table is the authoritative plan catalog; the legacy /plan-config
+# JSON above is retained only for the existing admin editor. All routes below are
+# additive — no existing endpoint is changed.
+
+def _ensure_plans_seeded(db) -> None:
+    """Seed the plans table once, mapping the legacy plan_config into à-la-carte
+    module entitlements. Idempotent — no-ops once any plan exists."""
+    if db.query(Plan).count() > 0:
+        return
+    cfg = _get_plan_config(db)
+    plans = cfg.get("plans", {}) if isinstance(cfg, dict) else {}
+
+    def modules_for(key, feats):
+        feats = [str(f).lower() for f in (feats or [])]
+        full = key in ("pro", "enterprise")
+        return {
+            "provider":   True,
+            "reception":  True,
+            "pharmacy":   full or any("pharmac" in f for f in feats),
+            "lab":        full or any("lab" in f for f in feats),
+            "imaging":    full or any("imag" in f for f in feats),
+            "carechart":  full or any(("ipd" in f) or ("inpatient" in f) for f in feats),
+            "telehealth": full or any("telehealth" in f for f in feats),
+        }
+
+    order = 0
+    for key, p in (plans.items() if isinstance(plans, dict) else []):
+        order += 1
+        ppd = p.get("price_per_doctor", 0) or 0
+        db.add(Plan(
+            key=key,
+            name=p.get("label", key.title()),
+            color=p.get("color"),
+            currency="INR",
+            monthly_price=0,
+            monthly_price_per_seat=Decimal(str(ppd)),
+            annual_price_per_seat=Decimal(str(round(float(ppd) * 12 * 0.9, 2))),
+            modules=modules_for(key, p.get("features")),
+            limits={"max_doctors": p.get("max_doctors", 0)},
+            features=p.get("features"),
+            is_public=(key != "enterprise"),
+            is_active=True,
+            sort_order=order,
+        ))
+    db.commit()
+
+
+def _plan_out(p: Plan) -> dict:
+    return {
+        "id": p.id, "key": p.key, "name": p.name, "description": p.description,
+        "color": p.color, "currency": p.currency,
+        "monthly_price": float(p.monthly_price or 0),
+        "annual_price": float(p.annual_price or 0),
+        "monthly_price_per_seat": float(p.monthly_price_per_seat or 0),
+        "annual_price_per_seat": float(p.annual_price_per_seat or 0),
+        "modules": p.modules or {}, "limits": p.limits or {},
+        "features": p.features or [],
+        "is_public": bool(p.is_public), "is_active": bool(p.is_active),
+        "sort_order": p.sort_order or 0, "version": p.version or 1,
+    }
+
+
+def _upsert_subscription(db, clinic, plan, **kwargs):
+    """Thin delegate — canonical logic lives in app.services.subscription."""
+    return upsert_subscription(db, clinic, plan, **kwargs)
+
+
+@router.get("/plans")
+def list_plans(db: Session = Depends(get_db), current=Depends(get_current_platform_admin)):
+    """List the plan catalog (seeds defaults from plan_config on first call)."""
+    _ensure_plans_seeded(db)
+    rows = db.query(Plan).order_by(Plan.sort_order, Plan.id).all()
+    return {"plans": [_plan_out(p) for p in rows], "modules": MODULE_CATALOG}
+
+
+@router.post("/plans")
+def create_plan(body: dict, db: Session = Depends(get_db), current=Depends(get_current_platform_admin)):
+    key = (body.get("key") or "").strip().lower()
+    if not key:
+        raise HTTPException(400, "key is required")
+    if db.query(Plan).filter(Plan.key == key).first():
+        raise HTTPException(409, f"A plan with key '{key}' already exists")
+    p = Plan(
+        key=key,
+        name=body.get("name") or key.title(),
+        description=body.get("description"),
+        color=body.get("color"),
+        currency=body.get("currency", "INR"),
+        monthly_price=Decimal(str(body.get("monthly_price", 0) or 0)),
+        annual_price=Decimal(str(body.get("annual_price", 0) or 0)),
+        monthly_price_per_seat=Decimal(str(body.get("monthly_price_per_seat", 0) or 0)),
+        annual_price_per_seat=Decimal(str(body.get("annual_price_per_seat", 0) or 0)),
+        modules={m: bool((body.get("modules") or {}).get(m, False)) for m in ALL_MODULES},
+        limits=body.get("limits") or {},
+        features=body.get("features") or [],
+        is_public=bool(body.get("is_public", True)),
+        is_active=bool(body.get("is_active", True)),
+        sort_order=int(body.get("sort_order", 0) or 0),
+    )
+    db.add(p)
+    _log(db, "created_plan", "plan", 0, key, current)
+    db.commit()
+    db.refresh(p)
+    return _plan_out(p)
+
+
+@router.put("/plans/{plan_id}")
+def update_plan(plan_id: int, body: dict, db: Session = Depends(get_db), current=Depends(get_current_platform_admin)):
+    p = db.query(Plan).filter(Plan.id == plan_id).first()
+    if not p:
+        raise HTTPException(404, "Plan not found")
+    for f in ["name", "description", "color", "currency"]:
+        if f in body:
+            setattr(p, f, body[f])
+    for f in ["monthly_price", "annual_price", "monthly_price_per_seat", "annual_price_per_seat"]:
+        if f in body:
+            setattr(p, f, Decimal(str(body[f] or 0)))
+    if "modules" in body and isinstance(body["modules"], dict):
+        p.modules = {m: bool(body["modules"].get(m, (p.modules or {}).get(m, False))) for m in ALL_MODULES}
+    if "limits" in body:
+        p.limits = body["limits"] or {}
+    if "features" in body:
+        p.features = body["features"] or []
+    for f in ["is_public", "is_active"]:
+        if f in body:
+            setattr(p, f, bool(body[f]))
+    if "sort_order" in body:
+        p.sort_order = int(body["sort_order"] or 0)
+    p.version = (p.version or 1) + 1
+    _log(db, "updated_plan", "plan", p.id, p.key, current)
+    db.commit()
+    db.refresh(p)
+    return _plan_out(p)
+
+
+@router.get("/clinics/{clinic_id}/subscription")
+def get_clinic_subscription(clinic_id: int, db: Session = Depends(get_db), current=Depends(get_current_platform_admin)):
+    clinic = db.query(Clinic).filter(Clinic.id == clinic_id).first()
+    if not clinic:
+        raise HTTPException(404, "Clinic not found")
+    sub = db.query(ClinicSubscription).filter(ClinicSubscription.clinic_id == clinic_id).first()
+    return {
+        "clinic_id": clinic_id,
+        "entitlements": get_entitlements(db, clinic),
+        "subscription": None if not sub else {
+            "plan_key": sub.plan_key, "status": sub.status, "billing_cycle": sub.billing_cycle,
+            "seats": sub.seats, "price_snapshot": float(sub.price_snapshot or 0),
+            "current_period_start": str(sub.current_period_start) if sub.current_period_start else None,
+            "current_period_end": str(sub.current_period_end) if sub.current_period_end else None,
+            "grace_until": str(sub.grace_until) if sub.grace_until else None,
+            "auto_renew": bool(sub.auto_renew),
+            "is_waived": bool(sub.is_waived), "waived_reason": sub.waived_reason,
+            "waived_until": str(sub.waived_until) if sub.waived_until else None,
+        },
+    }
+
+
+@router.post("/clinics/{clinic_id}/comp")
+def comp_clinic(clinic_id: int, body: dict, db: Session = Depends(get_db), current=Depends(get_current_platform_admin)):
+    """Manually grant a health center free access to a plan (the free-trial
+    substitute). Body: {plan_key, days?|until?, reason?}. Fully audited and
+    reversible by assigning a paid plan or letting it expire."""
+    clinic = db.query(Clinic).filter(Clinic.id == clinic_id).first()
+    if not clinic:
+        raise HTTPException(404, "Clinic not found")
+    _ensure_plans_seeded(db)
+    plan_key = (body.get("plan_key") or "").strip().lower()
+    plan = db.query(Plan).filter(Plan.key == plan_key).first()
+    if not plan:
+        raise HTTPException(404, f"Plan '{plan_key}' not found")
+
+    until = None
+    if body.get("until"):
+        try:
+            until = date.fromisoformat(str(body["until"])[:10])
+        except Exception:
+            raise HTTPException(400, "until must be YYYY-MM-DD")
+    elif body.get("days"):
+        until = date.today() + timedelta(days=int(body["days"]))
+
+    _upsert_subscription(
+        db, clinic, plan, status="comped", cycle="monthly", price=0,
+        period_end=until, waived=True,
+        waived_reason=body.get("reason") or "Manual fee waiver",
+        waived_by=current.id, waived_until=until,
+    )
+    clinic.status = "active"
+    clinic.is_verified = True
+    _log(db, "comped_clinic", "clinic", clinic_id, clinic.name, current,
+         reason=body.get("reason"), comment=f"plan={plan_key} until={until}")
+    db.commit()
+    return {"message": "Free access granted", "plan_key": plan_key,
+            "until": str(until) if until else None, "entitlements": get_entitlements(db, clinic)}
+
+
+@router.get("/invoices")
+def list_subscription_invoices(status: Optional[str] = None, clinic_id: Optional[int] = None,
+                               limit: int = 100, db: Session = Depends(get_db),
+                               current=Depends(get_current_platform_admin)):
+    q = db.query(SubscriptionInvoice)
+    if status:
+        q = q.filter(SubscriptionInvoice.status == status)
+    if clinic_id:
+        q = q.filter(SubscriptionInvoice.clinic_id == clinic_id)
+    rows = q.order_by(SubscriptionInvoice.created_at.desc()).limit(min(limit, 500)).all()
+    out = []
+    for i in rows:
+        clinic = db.query(Clinic).filter(Clinic.id == i.clinic_id).first()
+        out.append({
+            "id": i.id, "clinic_id": i.clinic_id, "clinic_name": clinic.name if clinic else None,
+            "plan_key": i.plan_key, "billing_cycle": i.billing_cycle, "seats": i.seats,
+            "amount": float(i.amount or 0), "currency": i.currency, "status": i.status,
+            "method": i.method, "reference": i.reference,
+            "period_to": str(i.period_to) if i.period_to else None,
+            "paid_at": str(i.paid_at) if i.paid_at else None,
+            "created_at": str(i.created_at) if i.created_at else None,
+        })
+    return out
+
+
+@router.post("/invoices/{invoice_id}/confirm")
+def confirm_subscription_invoice(invoice_id: int, body: dict = None, db: Session = Depends(get_db),
+                                 current=Depends(get_current_platform_admin)):
+    """Confirm a pending (bank-transfer) invoice → activate the subscription."""
+    body = body or {}
+    inv = db.query(SubscriptionInvoice).filter(SubscriptionInvoice.id == invoice_id).first()
+    if not inv:
+        raise HTTPException(404, "Invoice not found")
+    if inv.status == "paid":
+        return {"status": "paid", "message": "Already confirmed"}
+    clinic = db.query(Clinic).filter(Clinic.id == inv.clinic_id).first()
+    if not clinic:
+        raise HTTPException(404, "Clinic not found")
+    plan = db.query(Plan).filter(Plan.id == inv.plan_id).first() or \
+        db.query(Plan).filter(Plan.key == inv.plan_key).first()
+    if not plan:
+        raise HTTPException(404, "Plan not found for this invoice")
+
+    inv.method = inv.method or "bank_transfer"
+    inv.status = "paid"
+    inv.paid_at = datetime.now()
+    inv.period_to = activate_paid(db, clinic, plan, cycle=inv.billing_cycle, seats=inv.seats,
+                                  amount=inv.amount, method=inv.method, reference=inv.reference,
+                                  period_from=inv.period_from)
+    clinic.status = "active"
+    _log(db, "confirmed_invoice", "clinic", clinic.id, clinic.name, current,
+         reason=f"invoice #{inv.id}", comment=f"₹{inv.amount} via {inv.method}")
+    db.commit()
+    return {"status": "paid", "invoice_id": inv.id, "entitlements": get_entitlements(db, clinic)}
 
 
 # ── Subscription Payments ─────────────────────────────────────────────────────
