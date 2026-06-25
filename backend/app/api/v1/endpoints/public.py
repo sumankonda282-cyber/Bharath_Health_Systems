@@ -18,6 +18,7 @@ from app.models.models import (
 from app.schemas.schemas import OnlineBookingCreate, OnlineBookingOut
 from app.core.config import settings
 from app.core.security import hash_password
+from app.core import ids
 import random
 import string
 
@@ -984,6 +985,12 @@ def register_clinic(body: dict, db: Session = Depends(get_db)):
     db.add(clinic)
     db.flush()
 
+    # Assign Health Center ID + derive MRN prefix from the org name (editable until first patient)
+    clinic.hc_id = ids.next_hc_id(db)
+    if not clinic.clinic_prefix:
+        clinic.clinic_prefix = ids.derive_mrn_prefix(db, clinic.name, clinic.id)
+    db.flush()
+
     # Create default branch
     branch = Branch(
         clinic_id = clinic.id,
@@ -995,6 +1002,7 @@ def register_clinic(body: dict, db: Session = Depends(get_db)):
     )
     db.add(branch)
     db.flush()
+    branch.branch_code = ids.next_branch_code(db, clinic.id, clinic.hc_id)
 
     # Create clinic admin / doctor staff
     staff = Staff(
@@ -1010,6 +1018,7 @@ def register_clinic(body: dict, db: Session = Depends(get_db)):
     )
     db.add(staff)
     db.flush()
+    staff.employee_id = ids.next_employee_id(db, clinic.id, clinic.hc_id, staff.role)
 
     # Primary specialty: first from multi-select list, or clinic type as fallback
     doctor_specialties_list = doctor_data.get("specialties", [])

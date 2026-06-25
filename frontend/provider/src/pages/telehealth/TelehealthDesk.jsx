@@ -1,12 +1,13 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { doctorApi } from '../../api'
 import { useTelehealth } from '../../contexts/TelehealthContext'
+import { useAuth } from '../../contexts/AuthContext'
 import {
   Video, Clock, CheckCircle2, XCircle, Loader2, RefreshCw,
-  AlertTriangle, Calendar, FileText, User, ChevronRight
+  AlertTriangle, Calendar, FileText, UserCheck
 } from 'lucide-react'
 import api from '../../api/client'
+import TransferDoctorModal from '../../components/TransferDoctorModal'
 
 function todayIST() {
   const d = new Date(new Date().getTime() + 5.5 * 3600000)
@@ -64,7 +65,9 @@ function StatusBadge({ state }) {
 export default function TelehealthDesk() {
   const navigate = useNavigate()
   const { startCall, activeCall } = useTelehealth()
+  const { user } = useAuth()
   const [appts, setAppts]     = useState([])
+  const [transferAppt, setTransferAppt] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState('')
   const [joiningId, setJoiningId] = useState(null)
@@ -72,7 +75,10 @@ export default function TelehealthDesk() {
 
   const load = useCallback((silent = false) => {
     if (!silent) setLoading(true)
-    api.get('/appointments', { params: { appointment_date: todayIST(), limit: 200 } })
+    // Doctor-level isolation: doctors see only their own telehealth visits;
+    // front-desk/admin/manager roles see the whole clinic (to manage/transfer).
+    const isDoctor = user?.role === 'doctor'
+    api.get('/appointments', { params: { appointment_date: todayIST(), limit: 200, ...(isDoctor ? { mine: 1 } : {}) } })
       .then(data => {
         const list = Array.isArray(data) ? data : (data.items || data.results || [])
         setAppts(list.filter(a => a.mode === 'telehealth'))
@@ -81,7 +87,7 @@ export default function TelehealthDesk() {
       })
       .catch(err => setError(err.message))
       .finally(() => setLoading(false))
-  }, [])
+  }, [user?.role])
 
   useEffect(() => {
     load()
@@ -92,7 +98,7 @@ export default function TelehealthDesk() {
   const join = async (appt) => {
     setJoiningId(appt.id)
     try {
-      const data = await doctorApi.joinTelehealth(appt.id)
+      const data = await api.post(`/telehealth/appointments/${appt.id}/join`)
       startCall({
         url: data?.url || null,
         token: data?.token || null,
@@ -219,10 +225,16 @@ export default function TelehealthDesk() {
                       )}
                     </td>
                     <td className="px-4 py-3.5">
-                      <button onClick={() => navigate(`/encounter/${a.id}`)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors">
-                        <FileText size={13} /> Open Chart
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <button onClick={() => navigate(`/encounter/${a.id}`)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors">
+                          <FileText size={13} /> Open Chart
+                        </button>
+                        <button onClick={() => setTransferAppt(a)} title="Transfer to another doctor"
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 transition-colors">
+                          <UserCheck size={13} /> Transfer
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 )
@@ -230,6 +242,16 @@ export default function TelehealthDesk() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {transferAppt && (
+        <TransferDoctorModal
+          appointmentId={transferAppt.id}
+          currentDoctorId={null}
+          patientName={transferAppt.patient_name}
+          onTransferred={() => { setTransferAppt(null); load(true) }}
+          onCancel={() => setTransferAppt(null)}
+        />
       )}
     </div>
   )

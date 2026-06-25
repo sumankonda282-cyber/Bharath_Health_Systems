@@ -58,6 +58,13 @@ critical = [
     # doctor_schedules — quota system for online booking
     'ALTER TABLE doctor_schedules ADD COLUMN IF NOT EXISTS online_auto_confirm INTEGER DEFAULT 0',
     'ALTER TABLE doctor_schedules ADD COLUMN IF NOT EXISTS max_patients INTEGER DEFAULT 20',
+    # Standardized identifier system — created synchronously so runtime ID generation never hits a missing table/column
+    'CREATE TABLE IF NOT EXISTS id_sequences (id SERIAL PRIMARY KEY, scope_type VARCHAR(30) NOT NULL, scope_id INTEGER NOT NULL DEFAULT 0, kind VARCHAR(40) NOT NULL, next_val INTEGER NOT NULL DEFAULT 1, updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(), CONSTRAINT uq_id_sequences_scope UNIQUE (scope_type, scope_id, kind))',
+    'ALTER TABLE clinics ADD COLUMN IF NOT EXISTS hc_id VARCHAR(12)',
+    'ALTER TABLE branches ADD COLUMN IF NOT EXISTS branch_code VARCHAR(20)',
+    'ALTER TABLE appointments ADD COLUMN IF NOT EXISTS encounter_no VARCHAR(24)',
+    'ALTER TABLE admissions ADD COLUMN IF NOT EXISTS encounter_no VARCHAR(24)',
+    'ALTER TABLE admissions ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id)',
 ]
 ok = 0; failed = 0
 for sql in critical:
@@ -113,6 +120,7 @@ safe_cols = [
     \"ALTER TABLE patients ADD COLUMN IF NOT EXISTS govt_beneficiary_id VARCHAR(100)\",
     \"ALTER TABLE patients ADD COLUMN IF NOT EXISTS emergency_contact_relationship VARCHAR(50)\",
     \"ALTER TABLE appointments ADD COLUMN IF NOT EXISTS telehealth_room VARCHAR(100)\",
+    \"ALTER TABLE appointments ADD COLUMN IF NOT EXISTS mode VARCHAR(50) DEFAULT 'offline'\",
     \"ALTER TABLE staff ADD COLUMN IF NOT EXISTS username VARCHAR(30)\",
     \"ALTER TABLE staff ADD COLUMN IF NOT EXISTS is_first_login BOOLEAN DEFAULT FALSE\",
     \"ALTER TABLE staff ADD COLUMN IF NOT EXISTS temp_pw_expiry TIMESTAMP WITHOUT TIME ZONE\",
@@ -540,6 +548,13 @@ safe_cols = [
         updated_at TIMESTAMP DEFAULT NOW()
     )\"\"\",
     \"CREATE INDEX IF NOT EXISTS idx_iview_flowsheets_form_id ON iview_flowsheets(form_id)\",
+    \"CREATE TABLE IF NOT EXISTS iview_observations (id SERIAL PRIMARY KEY, clinic_id INTEGER REFERENCES clinics(id), form_id INTEGER NOT NULL REFERENCES assessment_forms(id) ON DELETE CASCADE, submission_id INTEGER NOT NULL REFERENCES form_submissions(id) ON DELETE CASCADE, patient_id INTEGER, encounter_id VARCHAR(24), field_id VARCHAR(100) NOT NULL, label VARCHAR(200), value_text TEXT, value_numeric NUMERIC(12,3), unit VARCHAR(40), ref_range TEXT, recorded_at TIMESTAMP, created_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE INDEX IF NOT EXISTS idx_iview_obs_patient ON iview_observations(patient_id)\",
+    \"CREATE INDEX IF NOT EXISTS idx_iview_obs_form ON iview_observations(form_id)\",
+    \"CREATE INDEX IF NOT EXISTS idx_iview_obs_submission ON iview_observations(submission_id)\",
+    \"CREATE TABLE IF NOT EXISTS staff_form_favorites (id SERIAL PRIMARY KEY, clinic_id INTEGER NOT NULL REFERENCES clinics(id), staff_id INTEGER NOT NULL REFERENCES staff(id), form_id INTEGER NOT NULL REFERENCES assessment_forms(id) ON DELETE CASCADE, scope VARCHAR(20) NOT NULL DEFAULT 'personal', created_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE UNIQUE INDEX IF NOT EXISTS uq_fav_personal ON staff_form_favorites(staff_id, form_id) WHERE scope = 'personal'\",
+    \"CREATE UNIQUE INDEX IF NOT EXISTS uq_fav_org ON staff_form_favorites(clinic_id, form_id) WHERE scope = 'organization'\",
     \"CREATE TABLE IF NOT EXISTS stock_adjustments (id SERIAL PRIMARY KEY, clinic_id INTEGER NOT NULL REFERENCES clinics(id), branch_id INTEGER REFERENCES branches(id), medicine_id INTEGER NOT NULL REFERENCES medicines(id), batch_id INTEGER REFERENCES medicine_batches(id), adjustment_type VARCHAR(30) NOT NULL, quantity_before INTEGER NOT NULL, quantity_change INTEGER NOT NULL, quantity_after INTEGER NOT NULL, reason VARCHAR(100) NOT NULL, notes TEXT, performed_by INTEGER REFERENCES staff(id), created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW())\",
     \"CREATE TABLE IF NOT EXISTS cash_reconciliations (id SERIAL PRIMARY KEY, clinic_id INTEGER NOT NULL REFERENCES clinics(id), branch_id INTEGER REFERENCES branches(id), shift_date DATE NOT NULL, shift VARCHAR(20) DEFAULT 'day', opening_cash NUMERIC(10,2) DEFAULT 0, expected_cash NUMERIC(10,2) DEFAULT 0, actual_cash NUMERIC(10,2) DEFAULT 0, cash_sales NUMERIC(10,2) DEFAULT 0, card_sales NUMERIC(10,2) DEFAULT 0, upi_sales NUMERIC(10,2) DEFAULT 0, credit_sales NUMERIC(10,2) DEFAULT 0, total_returns NUMERIC(10,2) DEFAULT 0, difference NUMERIC(10,2) DEFAULT 0, status VARCHAR(20) DEFAULT 'open', notes TEXT, closed_by INTEGER REFERENCES staff(id), closed_at TIMESTAMP WITHOUT TIME ZONE, created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW())\",
     \"CREATE TABLE IF NOT EXISTS supplier_payments (id SERIAL PRIMARY KEY, clinic_id INTEGER NOT NULL REFERENCES clinics(id), supplier_id INTEGER NOT NULL REFERENCES suppliers(id), purchase_order_id INTEGER REFERENCES purchase_orders(id), amount NUMERIC(10,2) NOT NULL, payment_date DATE NOT NULL, payment_mode VARCHAR(30), reference_number VARCHAR(100), notes TEXT, created_by INTEGER REFERENCES staff(id), created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW())\",
@@ -628,6 +643,21 @@ for _sql in [
     \"CREATE TABLE IF NOT EXISTS specialties (id SERIAL PRIMARY KEY, name VARCHAR(200) NOT NULL UNIQUE, category VARCHAR(100), is_active BOOLEAN DEFAULT TRUE, sort_order INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT NOW())\",
     \"CREATE TABLE IF NOT EXISTS doctor_specialties (id SERIAL PRIMARY KEY, doctor_profile_id INTEGER NOT NULL REFERENCES doctor_profiles(id) ON DELETE CASCADE, specialty_name VARCHAR(200) NOT NULL, is_primary BOOLEAN DEFAULT FALSE, created_at TIMESTAMP DEFAULT NOW(), UNIQUE(doctor_profile_id, specialty_name))\",
     \"CREATE INDEX IF NOT EXISTS idx_doctor_specialties_doctor ON doctor_specialties(doctor_profile_id)\",
+    \"ALTER TABLE vitals ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id)\",
+    \"ALTER TABLE soap_notes ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id)\",
+    \"ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id)\",
+    \"ALTER TABLE lab_orders ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id)\",
+    \"ALTER TABLE imaging_orders ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id)\",
+    \"ALTER TABLE encounter_access_logs ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id)\",
+    \"ALTER TABLE vital_signs ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id)\",
+    \"ALTER TABLE nursing_notes ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id)\",
+    \"ALTER TABLE medication_administrations ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id)\",
+    \"ALTER TABLE clinical_orders ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id)\",
+    \"ALTER TABLE discharge_summaries ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id)\",
+    \"ALTER TABLE form_submissions ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id)\",
+    \"ALTER TABLE form_submissions ADD COLUMN IF NOT EXISTS encounter_id VARCHAR(24)\",
+    \"CREATE INDEX IF NOT EXISTS idx_appointments_encounter_no ON appointments(encounter_no)\",
+    \"CREATE INDEX IF NOT EXISTS idx_admissions_encounter_no ON admissions(encounter_no)\",
 ]:
     try:
         with engine.begin() as conn:
@@ -717,6 +747,12 @@ try:
 except Exception as e:
     print(f'[startup] Index creation failed: {e}')
 " || echo "[bg-migrations] Column migrations failed — continuing"
+
+# Standardized identifier system: backfill HC IDs, branch codes, employee IDs,
+# encounter numbers, MRNs + branch_id propagation, then add uniqueness guards.
+# (This module is the data half of the start.sh migration — no Alembic.)
+echo "[bg-migrations] Standardizing identifiers (HC ID / branch / employee / encounter / MRN)..."
+timeout 180 python -m app.db.backfill_ids || echo "[bg-migrations] ID backfill failed (non-fatal)"
 
 echo "[bg-migrations] Loading medical terminology library (idempotent)..."
 timeout 120 python -m app.seed_medical_library || echo "[bg-migrations] Medical library load failed (non-fatal)"

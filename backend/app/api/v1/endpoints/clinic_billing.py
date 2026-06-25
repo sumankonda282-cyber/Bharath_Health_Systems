@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.core.security import get_current_staff
+from app.core import ids
 from app.db.session import get_db
 from app.models.models import (
     Appointment, BillingOverrideRequest, BillingWaiverLog,
@@ -23,13 +24,8 @@ def _require_manager(current=Depends(get_current_staff)):
 
 
 def _inv_number(db, clinic_id: int) -> str:
-    from datetime import datetime as dtt
-    pfx = f"INV{dtt.now().year}{dtt.now().month:02d}"
-    n = db.query(Invoice).filter(
-        Invoice.clinic_id == clinic_id,
-        Invoice.invoice_number.like(f"{pfx}%"),
-    ).count()
-    return f"{pfx}{n + 1:04d}"
+    # Atomic, collision-safe per-clinic monthly invoice number (see app.core.ids).
+    return ids.next_clinic_invoice_no(db, clinic_id)
 
 
 def _recalc(db, inv: Invoice):

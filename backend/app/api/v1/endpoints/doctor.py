@@ -228,13 +228,14 @@ def complete_encounter(
                 if k in soap_data:
                     setattr(existing, k, soap_data[k])
         else:
-            db.add(SoapNote(appointment_id=appointment_id, **{k: soap_data.get(k) for k in allowed}))
+            db.add(SoapNote(appointment_id=appointment_id, branch_id=current.branch_id, **{k: soap_data.get(k) for k in allowed}))
 
     # Prescription
     rx_data = body.get("prescription")
     if rx_data and rx_data.get("items"):
         rx = Prescription(
             clinic_id=appt.clinic_id,
+            branch_id=current.branch_id,
             patient_id=appt.patient_id,
             appointment_id=appointment_id,
             prescribed_by=current.id,
@@ -261,6 +262,7 @@ def complete_encounter(
         if tests:
             lo = LabOrder(
                 clinic_id=appt.clinic_id,
+                branch_id=current.branch_id,
                 patient_id=appt.patient_id,
                 appointment_id=appointment_id,
                 ordered_by=current.id,
@@ -584,14 +586,14 @@ def save_encounter_draft(
         else:
             filtered = {k: soap_data[k] for k in allowed if k in soap_data}
             if filtered:
-                db.add(SoapNote(appointment_id=appointment_id, **filtered))
+                db.add(SoapNote(appointment_id=appointment_id, branch_id=current.branch_id, **filtered))
 
     rx_items = (body.get("prescription") or {}).get("items") or []
     if rx_items:
         rx = db.query(Prescription).filter(Prescription.appointment_id == appointment_id).first()
         if not rx:
             rx = Prescription(
-                clinic_id=appt.clinic_id, patient_id=appt.patient_id,
+                clinic_id=appt.clinic_id, branch_id=current.branch_id, patient_id=appt.patient_id,
                 appointment_id=appointment_id, prescribed_by=current.id,
             )
             db.add(rx)
@@ -616,7 +618,7 @@ def save_encounter_draft(
         lo = db.query(LabOrder).filter(LabOrder.appointment_id == appointment_id).first()
         if not lo:
             lo = LabOrder(
-                clinic_id=appt.clinic_id, patient_id=appt.patient_id,
+                clinic_id=appt.clinic_id, branch_id=current.branch_id, patient_id=appt.patient_id,
                 appointment_id=appointment_id, ordered_by=current.id,
             )
             db.add(lo)

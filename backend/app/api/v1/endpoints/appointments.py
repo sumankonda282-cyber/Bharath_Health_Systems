@@ -4,6 +4,7 @@ from typing import Optional, List
 from datetime import date as dt
 from app.db.session import get_db
 from app.core.security import get_current_staff
+from app.core import ids
 from app.models.models import (
     Appointment, OnlineBooking, Patient, Staff, DoctorProfile,
     Vitals, SoapNote, Clinic
@@ -56,10 +57,12 @@ def create_appointment(
     doctor_name = doctor_profile.staff.full_name if doctor_profile and doctor_profile.staff else ""
 
     token = _next_token(db, payload.doctor_id, payload.appointment_date, branch_id)
+    _hc = ids.ensure_hc_id_by_clinic_id(db, current.clinic_id)
     appt = Appointment(
         clinic_id=current.clinic_id,
         branch_id=branch_id,
         token_number=token,
+        encounter_no=ids.next_encounter_no(db, current.clinic_id, _hc),
         patient_name=patient.full_name,
         doctor_name=doctor_name,
         **payload.model_dump(),
@@ -74,6 +77,7 @@ def create_appointment(
 def list_appointments(
     branch_id: Optional[int] = None,
     doctor_id: Optional[int] = None,
+    mine: Optional[bool] = None,
     patient_id: Optional[int] = None,
     appointment_date: Optional[dt] = None,
     date: Optional[dt] = None,
@@ -100,6 +104,10 @@ def list_appointments(
     # else: no branch filter — show all clinic appointments (single-branch or no-branch clinics)
     if doctor_id:
         q = q.filter(Appointment.doctor_id == doctor_id)
+    if mine:
+        # Doctor-level isolation: restrict to the caller's own appointments.
+        _dp = db.query(DoctorProfile).filter(DoctorProfile.staff_id == current.id).first()
+        q = q.filter(Appointment.doctor_id == (_dp.id if _dp else -1))
     if patient_id:
         q = q.filter(Appointment.patient_id == patient_id)
     if filter_date:
@@ -261,9 +269,11 @@ def confirm_online_booking(
         booking.patient_user_id = portal_user.id
 
     token = _next_token(db, booking.doctor_id, booking.booking_date, booking.branch_id)
+    _hc = ids.ensure_hc_id_by_clinic_id(db, current.clinic_id)
     appt = Appointment(
         clinic_id=current.clinic_id,
         branch_id=booking.branch_id,
+        encounter_no=ids.next_encounter_no(db, current.clinic_id, _hc),
         patient_id=patient_id,
         doctor_id=booking.doctor_id,
         appointment_date=booking.booking_date,
@@ -315,6 +325,7 @@ def record_vitals(
         db.commit()
         return existing
     vitals = Vitals(**payload.model_dump())
+    vitals.branch_id = current.branch_id
     db.add(vitals)
     db.commit()
     db.refresh(vitals)
@@ -338,6 +349,7 @@ def save_soap_note(
         db.commit()
         return existing
     note = SoapNote(**payload.model_dump())
+    note.branch_id = current.branch_id
     db.add(note)
     db.commit()
     db.refresh(note)

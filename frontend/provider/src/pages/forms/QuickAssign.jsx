@@ -36,9 +36,9 @@ export default function QuickAssign({ patientId, appointmentId, admissionId, onC
     async function load() {
       try {
         const res = await api.get('/provider/forms/pool')
-        setForms(res.data?.forms || res.data || [])
+        setForms(res?.forms || res || [])
       } catch (err) {
-        setError(err.response?.data?.detail || 'Failed to load forms')
+        setError(err?.message || 'Failed to load forms')
       } finally {
         setLoading(false)
       }
@@ -74,7 +74,7 @@ export default function QuickAssign({ patientId, appointmentId, admissionId, onC
         onClose?.()
       }, 1200)
     } catch (err) {
-      setAssignError(err.response?.data?.detail || 'Assignment failed')
+      setAssignError(err?.message || 'Assignment failed')
     } finally {
       setAssigning(false)
     }

@@ -56,16 +56,10 @@ export default function Telehealth() {
       .finally(() => setLoading(false))
   }, [])
 
-  const join = async (appt) => {
-    setJoiningId(appt.id)
-    try {
-      const data = await api.post(`/portal/appointments/${appt.id}/join`)
-      navigate(`/telehealth/call/${appt.id}`, { state: { joinData: data, appt } })
-    } catch (e) {
-      alert(e.response?.data?.detail || e.message || 'Cannot join yet. Please wait for your appointment time.')
-    } finally {
-      setJoiningId(null)
-    }
+  const join = (appt) => {
+    // Go to the pre-call lobby (camera/mic check). The lobby performs the
+    // actual join when the patient is ready.
+    navigate(`/telehealth/call/${appt.id}`, { state: { appt } })
   }
 
   const canJoin = (a) => ['pending', 'confirmed', 'in_progress'].includes(a.status)

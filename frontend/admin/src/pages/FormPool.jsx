@@ -175,7 +175,7 @@ export default function FormPool() {
   const fetchForms = useCallback(async () => {
     setLoading(true); setError(null)
     try {
-      const data = await api.get('/assessment-forms')
+      const data = await api.get('/assessment-forms', { params: { limit: 1000 } })
       setForms(Array.isArray(data) ? data : (data.forms ?? data.items ?? []))
     } catch (e) {
       setError(e.message || 'Failed to load forms')

@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect, Component } from 'react'
 import {
   ArrowLeft, Search, Pin, ChevronDown, ChevronUp, Menu, X,
   Loader2, AlertCircle, Activity, Heart, TrendingUp, Droplets,
-  Bed, ClipboardList, Pill, ShieldAlert,
+  Bed, ClipboardList, Pill, ShieldAlert, Star,
 } from 'lucide-react'
 
 const GREEN = '#059669'
@@ -349,126 +349,171 @@ function DashboardContent({ adm, patient, vitals, loading, dashboardActions, onE
 }
 
 // ── Assessment panel (search + browse — forms open full-page) ────────────────
-function AssessmentPanel({ onOpenForm }) {
-  const [pinned, setPinned]         = useState(['Vital Signs', 'MAR Quick Entry', 'Pain Score', 'Fluid Balance'])
-  const [poolSearch, setPoolSearch] = useState('')
-  const [pinSearch, setPinSearch]   = useState('')
-  const [showPinSearch, setShowPinSearch] = useState(false)
+function AssessmentPanel({ onOpenForm, api }) {
+  // DB forms (admin-built) + personal/org favorites from the live API.
+  // Falls back to the static FORM_POOL (rich clinical forms) when no api is
+  // injected, so the panel never breaks.
+  const [dbForms, setDbForms]         = useState([])
+  const [favPersonal, setFavPersonal] = useState([])
+  const [favOrg, setFavOrg]           = useState([])
+  const [poolSearch, setPoolSearch]   = useState('')
 
-  const filteredPool = FORM_POOL.filter(f =>
-    f.name.toLowerCase().includes(poolSearch.toLowerCase()) && !pinned.includes(f.name)
-  )
-  const filteredPin = FORM_POOL.filter(f =>
-    f.name.toLowerCase().includes(pinSearch.toLowerCase()) && !pinned.includes(f.name)
-  )
+  useEffect(() => {
+    if (!api) return
+    let alive = true
+    Promise.all([
+      api.get('/assessment-forms/', { params: { status: 'published', limit: 1000 } }).catch(() => null),
+      api.get('/assessment-forms/favorites').catch(() => null),
+    ]).then(([pool, favs]) => {
+      if (!alive) return
+      if (pool) setDbForms(pool.forms || [])
+      if (favs) { setFavPersonal(favs.personal || []); setFavOrg(favs.organization || []) }
+    })
+    return () => { alive = false }
+  }, [api])
 
-  const addPin    = (name) => { setPinned(p => [...p, name]); setShowPinSearch(false); setPinSearch('') }
-  const removePin = (name) => setPinned(p => p.filter(x => x !== name))
+  const ftitle = (f) => f.title || f.name || 'Untitled form'
+  const byId   = (id) => dbForms.find(f => f.id === id)
+
+  const toggleFav = (id, scope) => {
+    if (!api) return
+    const isPersonal = scope === 'personal'
+    const cur = isPersonal ? favPersonal : favOrg
+    const set = isPersonal ? setFavPersonal : setFavOrg
+    const has = cur.includes(id)
+    set(has ? cur.filter(x => x !== id) : [...cur, id])   // optimistic
+    const req = has
+      ? api.delete(`/assessment-forms/favorites/${id}`, { params: { scope } })
+      : api.post(`/assessment-forms/favorites/${id}`, null, { params: { scope } })
+    if (req && req.catch) req.catch(() => set(cur))        // revert on failure
+  }
+
+  const orgForms      = favOrg.map(byId).filter(Boolean)        // pinned (clinic-wide) — top
+  const personalForms = favPersonal.map(byId).filter(Boolean)  // my favourites — below search
+  const q = poolSearch.trim().toLowerCase()
+  // "pool of all" = DB forms + the static rich clinical forms.
+  const pool = [...dbForms.map(f => ({ ...f, __db: true })), ...FORM_POOL]
+  const results = q ? pool.filter(f => ftitle(f).toLowerCase().includes(q)) : pool
 
   return (
     <div className="flex flex-col h-full overflow-hidden" style={{ background: '#fafaf9' }}>
 
-      {/* Pinned forms */}
+      {/* Pinned (organization) — top */}
       <div className="flex-shrink-0 border-b" style={{ borderColor: '#e9eaec' }}>
-        <div className="flex items-center justify-between px-3 py-2.5 border-b" style={{ borderColor: '#f0f0f0' }}>
-          <div className="flex items-center gap-1.5">
-            <Pin size={11} style={{ color: GREEN }} />
-            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Pinned Forms</span>
-          </div>
-          <button onClick={() => setShowPinSearch(s => !s)}
-            className="text-[10px] font-semibold px-2 py-0.5 rounded-md transition-colors"
-            style={{ color: GREEN, background: '#f0fdf4' }}>
-            + Pin
-          </button>
+        <div className="flex items-center gap-1.5 px-3 py-2.5">
+          <Pin size={11} style={{ color: NAVY }} />
+          <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Pinned (Clinic)</span>
         </div>
-
-        {showPinSearch && (
-          <div className="px-3 py-2 border-b" style={{ borderColor: '#f0f0f0', background: '#f9fafb' }}>
-            <div className="relative mb-2">
-              <Search size={11} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input value={pinSearch} onChange={e => setPinSearch(e.target.value)}
-                placeholder="Search forms…" autoFocus
-                className="w-full pl-6 pr-2 py-1.5 border rounded-lg text-[11px] focus:outline-none bg-white"
-                style={{ borderColor: '#d1d5db' }} />
+        <div className="px-3 pb-2.5 flex flex-wrap gap-1.5">
+          {orgForms.map(f => (
+            <div key={`org-${f.id}`}
+              className="group flex items-center gap-1 px-2 py-1 rounded-lg border cursor-pointer transition-all text-[10px] font-semibold hover:border-blue-400 hover:bg-blue-50"
+              style={{ borderColor: '#bfdbfe', background: 'white', color: '#374151' }}
+              onClick={() => onOpenForm({ ...f, __db: true })}>
+              {ftitle(f)}
+              <button onClick={e => { e.stopPropagation(); toggleFav(f.id, 'organization') }}
+                className="opacity-0 group-hover:opacity-100 transition-opacity ml-0.5 text-gray-400 hover:text-red-400"
+                title="Unpin for clinic">
+                <X size={9} />
+              </button>
             </div>
-            <div className="flex flex-wrap gap-1 max-h-28 overflow-y-auto">
-              {filteredPin.map(f => (
-                <button key={f.name} onClick={() => addPin(f.name)}
-                  className="text-[10px] px-2 py-1 rounded-lg border bg-white hover:border-green-400 hover:text-green-700 transition-colors"
-                  style={{ borderColor: '#e5e7eb', color: '#374151' }}>
-                  {f.name}
-                  {f.key && <span className="ml-1 text-[8px] text-green-500">●</span>}
-                </button>
-              ))}
-              {filteredPin.length === 0 && <span className="text-[10px] text-gray-400">No matches</span>}
-            </div>
-          </div>
-        )}
-
-        {/* Pinned chips */}
-        <div className="px-3 py-2.5 flex flex-wrap gap-1.5">
-          {pinned.map(name => {
-            const form = FORM_POOL.find(f => f.name === name) || { name }
-            return (
-              <div key={name}
-                className="group flex items-center gap-1 px-2 py-1 rounded-lg border cursor-pointer transition-all text-[10px] font-semibold hover:border-green-400 hover:bg-green-50"
-                style={{ borderColor: '#d1fae5', background: 'white', color: '#374151' }}
-                onClick={() => onOpenForm(form)}>
-                {name}
-                {form.key && <span className="text-[8px] text-green-400">●</span>}
-                <button onClick={e => { e.stopPropagation(); removePin(name) }}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity ml-0.5 text-gray-400 hover:text-red-400">
-                  <X size={9} />
-                </button>
-              </div>
-            )
-          })}
-          {pinned.length === 0 && (
-            <span className="text-[10px] text-gray-400 italic">No forms pinned — click + Pin to add</span>
+          ))}
+          {orgForms.length === 0 && (
+            <span className="text-[10px] text-gray-400 italic">No clinic-pinned forms</span>
           )}
         </div>
       </div>
 
-      {/* Browse all forms */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="px-3 pt-2.5 pb-1 flex-shrink-0">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">All Forms</span>
+      {/* Search the full pool */}
+      <div className="px-3 py-2 flex-shrink-0 border-b" style={{ borderColor: '#f0f0f0' }}>
+        <div className="relative">
+          <Search size={11} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input value={poolSearch} onChange={e => setPoolSearch(e.target.value)}
+            placeholder="Search all forms…"
+            className="w-full pl-7 pr-2 py-1.5 border rounded-lg text-[11px] focus:outline-none bg-white"
+            style={{ borderColor: poolSearch ? GREEN : '#e5e7eb' }} />
         </div>
-        <div className="px-3 py-2 flex-shrink-0">
-          <div className="relative">
-            <Search size={11} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input value={poolSearch} onChange={e => setPoolSearch(e.target.value)}
-              placeholder="Search all forms…"
-              className="w-full pl-7 pr-2 py-1.5 border rounded-lg text-[11px] focus:outline-none bg-white"
-              style={{ borderColor: poolSearch ? GREEN : '#e5e7eb' }} />
+      </div>
+
+      {/* My favourites (personal) — below the search bar (hidden while searching) */}
+      {personalForms.length > 0 && !q && (
+        <div className="flex-shrink-0 border-b" style={{ borderColor: '#f0f0f0' }}>
+          <div className="px-3 pt-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">My Favourites</span>
+          </div>
+          <div className="px-3 py-2 flex flex-col gap-1">
+            {personalForms.map(f => (
+              <div key={`fav-${f.id}`}
+                className="flex items-center justify-between px-2.5 py-1.5 rounded-lg border bg-white hover:border-green-300 hover:bg-green-50 cursor-pointer transition-colors group"
+                style={{ borderColor: '#f0f0f0' }}
+                onClick={() => onOpenForm({ ...f, __db: true })}>
+                <span className="text-[11px] text-gray-700 truncate">{ftitle(f)}</span>
+                <button onClick={e => { e.stopPropagation(); toggleFav(f.id, 'personal') }}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity text-yellow-500 hover:text-yellow-700"
+                  title="Remove favourite">
+                  <X size={9} />
+                </button>
+              </div>
+            ))}
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto px-3 pb-3 flex flex-col gap-1">
-          {filteredPool.map(f => (
-            <div key={f.name}
+      )}
+
+      {/* All forms / search results */}
+      <div className="flex-1 overflow-y-auto px-3 py-2 flex flex-col gap-1">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">{q ? 'Results' : 'All Forms'}</span>
+        {results.map((f, i) => {
+          const isDb = !!f.__db
+          const isFav = isDb && favPersonal.includes(f.id)
+          const isOrg = isDb && favOrg.includes(f.id)
+          return (
+            <div key={isDb ? `db-${f.id}` : `rich-${f.name}-${i}`}
               className="flex items-center justify-between px-2.5 py-2 rounded-lg border bg-white hover:border-green-300 hover:bg-green-50 cursor-pointer transition-colors group"
               style={{ borderColor: '#f0f0f0' }}
               onClick={() => onOpenForm(f)}>
               <div className="flex items-center gap-1.5 min-w-0">
-                <span className="text-[11px] text-gray-700 group-hover:text-gray-900 truncate">{f.name}</span>
-                {f.key && <span className="text-[8px] text-green-500 flex-shrink-0" title="Rich clinical form">●</span>}
+                <span className="text-[11px] text-gray-700 group-hover:text-gray-900 truncate">{ftitle(f)}</span>
+                {!isDb && f.key && <span className="text-[8px] text-green-500 flex-shrink-0" title="Rich clinical form">●</span>}
               </div>
-              <div className="flex items-center gap-1.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button onClick={e => { e.stopPropagation(); addPin(f.name) }}
-                  className="text-gray-400 hover:text-green-600" title="Pin">
-                  <Pin size={10} />
-                </button>
-                <ChevronDown size={10} className="text-gray-300 -rotate-90" />
-              </div>
+              {isDb && (
+                <div className="flex items-center gap-1.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button onClick={e => { e.stopPropagation(); toggleFav(f.id, 'personal') }}
+                    className={isFav ? 'text-yellow-500' : 'text-gray-300 hover:text-yellow-500'} title="Favourite (you)">
+                    <Star size={11} fill={isFav ? 'currentColor' : 'none'} />
+                  </button>
+                  <button onClick={e => { e.stopPropagation(); toggleFav(f.id, 'organization') }}
+                    className={isOrg ? 'text-blue-500' : 'text-gray-300 hover:text-blue-500'} title="Pin for clinic">
+                    <Pin size={11} fill={isOrg ? 'currentColor' : 'none'} />
+                  </button>
+                </div>
+              )}
             </div>
-          ))}
-          {filteredPool.length === 0 && poolSearch && (
-            <p className="text-[10px] text-gray-400 text-center mt-4">No forms match &ldquo;{poolSearch}&rdquo;</p>
-          )}
-        </div>
+          )
+        })}
+        {results.length === 0 && (
+          <p className="text-[10px] text-gray-400 text-center mt-4">No forms{q ? ` match “${poolSearch}”` : ''}.</p>
+        )}
       </div>
     </div>
   )
+}
+
+// ── Section error boundary — a crashing section shows a message, never a white screen ──
+class SectionErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { error: null } }
+  static getDerivedStateFromError(error) { return { error } }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="p-6 flex flex-col items-center justify-center gap-2 text-center h-full">
+          <AlertCircle size={20} className="text-red-500" />
+          <p className="text-sm font-semibold text-gray-700">This section couldn’t load.</p>
+          <p className="text-xs text-gray-400 max-w-sm break-words">{String(this.state.error?.message || this.state.error)}</p>
+        </div>
+      )
+    }
+    return this.props.children
+  }
 }
 
 // ── Main shell export ────────────────────────────────────────────────────────
@@ -492,6 +537,7 @@ export default function PatientChartShell({
   dashboardActions,
   renderHeaderRight,
   onEditVital,
+  api,
 }) {
   const [headerExpanded, setHeaderExpanded] = useState(false)
   const [formsOpen, setFormsOpen] = useState(() => {
@@ -706,7 +752,9 @@ export default function PatientChartShell({
             />
           ) : (
             <div className="flex-1 overflow-y-auto">
-              <div className="p-5">{renderContent(activeNav)}</div>
+              <div className="p-5">
+                <SectionErrorBoundary key={activeNav}>{renderContent(activeNav)}</SectionErrorBoundary>
+              </div>
             </div>
           )}
         </div>
@@ -728,7 +776,7 @@ export default function PatientChartShell({
         {formsOpen && (
           <div className="flex-shrink-0 border-l overflow-hidden flex flex-col"
             style={{ width: 272, borderColor: '#e9eaec' }}>
-            <AssessmentPanel onOpenForm={onOpenForm} />
+            <SectionErrorBoundary><AssessmentPanel onOpenForm={onOpenForm} api={api} /></SectionErrorBoundary>
           </div>
         )}
       </div>
