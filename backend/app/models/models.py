@@ -101,6 +101,8 @@ class Clinic(Base):
     longitude               = Column(Numeric(10, 7), nullable=True)
     capacity_description    = Column(Text, nullable=True)
     modules                 = Column(JSON, nullable=True)
+    entitlement_overrides   = Column(JSON, nullable=True)   # per-clinic module add/remove or limit bumps
+    billing_email           = Column(String(150), nullable=True)  # subscription billing contact
     created_at              = Column(DateTime, server_default=func.now())
 
     branches        = relationship("Branch", back_populates="clinic", cascade="all, delete-orphan")
@@ -2543,3 +2545,58 @@ class PharmacyCartItem(Base):
     patient = relationship("Patient", foreign_keys=[patient_id])
     adder   = relationship("Staff", foreign_keys=[added_by])
     medicine        = relationship("Medicine")
+
+
+# ── Subscription / Billing (platform-level plans) ─────────────────────────────
+
+class Plan(Base):
+    """Subscription plan template — à-la-carte app modules bundled into a named
+    plan. Authoritative source for plan definitions; the legacy plan_config JSON
+    in platform_settings is kept only for the existing admin editor."""
+    __tablename__ = "plans"
+    id                     = Column(Integer, primary_key=True, index=True)
+    key                    = Column(String(40), unique=True, nullable=False)   # provider | clinic | hospital | free
+    name                   = Column(String(80), nullable=False)
+    description            = Column(Text, nullable=True)
+    color                  = Column(String(20), nullable=True)
+    currency               = Column(String(8), default="INR")
+    monthly_price          = Column(Numeric(12, 2), default=0)
+    annual_price           = Column(Numeric(12, 2), default=0)
+    monthly_price_per_seat = Column(Numeric(12, 2), default=0)
+    annual_price_per_seat  = Column(Numeric(12, 2), default=0)
+    modules                = Column(JSON, nullable=False, default=dict)   # {"provider": true, "pharmacy": false, ...}
+    limits                 = Column(JSON, nullable=False, default=dict)   # {"max_doctors": 5, "max_staff": 20, ...}
+    features               = Column(JSON, nullable=True)                  # display bullet list
+    is_public              = Column(Boolean, default=True)
+    is_active              = Column(Boolean, default=True)
+    sort_order             = Column(Integer, default=0)
+    version                = Column(Integer, default=1)
+    created_at             = Column(DateTime, server_default=func.now())
+    updated_at             = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class ClinicSubscription(Base):
+    """Current subscription for a health center (one active row per clinic).
+    Carries a price + entitlement snapshot so editing a Plan never silently
+    re-prices or re-scopes existing subscribers (grandfathering)."""
+    __tablename__ = "clinic_subscriptions"
+    id                    = Column(Integer, primary_key=True, index=True)
+    clinic_id             = Column(Integer, ForeignKey("clinics.id"), unique=True, nullable=False)
+    plan_id               = Column(Integer, ForeignKey("plans.id"), nullable=True)
+    plan_key              = Column(String(40), nullable=True)
+    status                = Column(String(20), default="active")   # active|grace|expired|suspended|comped|cancelled|pending
+    billing_cycle         = Column(String(12), default="monthly")  # monthly|annual
+    seats                 = Column(Integer, default=0)
+    price_snapshot        = Column(Numeric(12, 2), default=0)
+    entitlements_snapshot = Column(JSON, nullable=True)            # {"modules": {...}, "limits": {...}}
+    current_period_start  = Column(Date, nullable=True)
+    current_period_end    = Column(Date, nullable=True)
+    grace_until           = Column(Date, nullable=True)
+    auto_renew            = Column(Boolean, default=True)
+    cancel_at             = Column(Date, nullable=True)
+    is_waived             = Column(Boolean, default=False)
+    waived_reason         = Column(Text, nullable=True)
+    waived_by             = Column(Integer, nullable=True)         # platform_admin id
+    waived_until          = Column(Date, nullable=True)
+    created_at            = Column(DateTime, server_default=func.now())
+    updated_at            = Column(DateTime, server_default=func.now(), onupdate=func.now())
