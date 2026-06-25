@@ -853,6 +853,7 @@ def record_vitals(
     if not adm:
         raise HTTPException(status_code=404, detail="Admission not found")
 
+    body = _normalize_vitals(body)
     v = VitalSign(
         admission_id=admission_id,
         clinic_id=current.clinic_id,
@@ -867,9 +868,34 @@ def record_vitals(
         weight=body.get("weight"),
         height=body.get("height"),
         pain_score=body.get("pain_score"),
+        blood_sugar=body.get("blood_sugar"),
         notes=body.get("notes"),
     )
     db.add(v)
+    db.commit()
+    db.refresh(v)
+    return _vital_dict(v)
+
+
+@router.patch("/vitals/{vital_id}")
+def update_vital(
+    vital_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Edit a previously recorded vitals row (clinic-scoped)."""
+    v = db.query(VitalSign).filter(
+        VitalSign.id == vital_id,
+        VitalSign.clinic_id == current.clinic_id,
+    ).first()
+    if not v:
+        raise HTTPException(status_code=404, detail="Vitals record not found")
+    body = _normalize_vitals(body)
+    for f in ("temperature", "pulse", "respiration_rate", "bp_systolic", "bp_diastolic",
+              "spo2", "weight", "height", "pain_score", "blood_sugar", "notes"):
+        if f in body:
+            setattr(v, f, body[f])
     db.commit()
     db.refresh(v)
     return _vital_dict(v)
@@ -910,9 +936,27 @@ def _vital_dict(v: VitalSign) -> dict:
         "weight": float(v.weight) if v.weight is not None else None,
         "height": float(v.height) if v.height is not None else None,
         "pain_score": v.pain_score,
+        "blood_sugar": float(v.blood_sugar) if v.blood_sugar is not None else None,
         "notes": v.notes,
         "created_at": v.created_at,
     }
+
+
+def _normalize_vitals(body: dict) -> dict:
+    """Tolerate legacy keys: blood_pressure '120/80' → bp_systolic/bp_diastolic,
+    rr → respiration_rate. Lets older callers persist correctly."""
+    out = dict(body or {})
+    bp = body.get("blood_pressure") or body.get("bp")
+    if bp and "/" in str(bp):
+        try:
+            s, d = str(bp).split("/")[:2]
+            out.setdefault("bp_systolic", int(float(s)))
+            out.setdefault("bp_diastolic", int(float(d)))
+        except (ValueError, TypeError):
+            pass
+    if body.get("rr") is not None:
+        out.setdefault("respiration_rate", body.get("rr"))
+    return out
 
 
 # ── Phase 2: Nursing Notes ─────────────────────────────────────────────────────
@@ -3061,7 +3105,10 @@ def add_medication(admission_id: int, body: dict, db: Session = Depends(get_db),
         drug_name=body.get("drug_name", ""), generic_name=body.get("generic_name"),
         dose=body.get("dose"), route=body.get("route"), frequency=body.get("frequency"),
         duration_days=body.get("duration_days"), instructions=body.get("instructions"),
-        is_prn=body.get("is_prn", False), is_stat=body.get("is_stat", False),
+        is_prn=body.get("is_prn", False), prn_reason=body.get("prn_reason"),
+        is_stat=body.get("is_stat", False), is_continuous=body.get("is_continuous", False),
+        iv_rate=body.get("iv_rate") or body.get("infusion_rate"),
+        iv_fluid=body.get("iv_fluid"), iv_volume_ml=body.get("iv_volume_ml"),
         notes=body.get("notes"), ordered_by=current.id, status="active",
     )
     db.add(order); db.commit(); db.refresh(order)
@@ -3073,7 +3120,11 @@ def update_medication(admission_id: int, med_id: int, body: dict, db: Session = 
     order = db.query(MedicationOrder).filter(MedicationOrder.id == med_id, MedicationOrder.admission_id == admission_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Medication not found")
-    allowed = {"drug_name", "generic_name", "dose", "route", "frequency", "duration_days", "instructions", "is_prn", "is_stat", "notes", "status"}
+    if "infusion_rate" in body and "iv_rate" not in body:
+        body["iv_rate"] = body["infusion_rate"]
+    allowed = {"drug_name", "generic_name", "dose", "route", "frequency", "duration_days",
+               "instructions", "is_prn", "prn_reason", "is_stat", "is_continuous",
+               "iv_rate", "iv_fluid", "iv_volume_ml", "notes", "status"}
     for k, v in body.items():
         if k in allowed:
             setattr(order, k, v)
@@ -3096,14 +3147,26 @@ def discontinue_medication(admission_id: int, med_id: int, body: dict, db: Sessi
 @router.post("/admissions/{admission_id}/medications/{med_id}/administer")
 def administer_medication(admission_id: int, med_id: int, body: dict, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
     order = db.query(MedicationOrder).filter(MedicationOrder.id == med_id).first()
+    # The MAR UI sends `action` (given | held | not_given) — map it to status so a
+    # held/not-given dose is NOT silently recorded as "given".
+    status = body.get("status") or body.get("action") or "given"
+    # Preserve the administration detail the model has no dedicated column for.
+    notes = body.get("notes") or ""
+    extras = []
+    for label, key in (("Site", "site"), ("Held reason", "reason_held"),
+                       ("Rate", "rate"), ("Lot", "bag_lot"), ("Time", "time_given")):
+        if body.get(key):
+            extras.append(f"{label}: {body[key]}")
+    if extras:
+        notes = (notes + " | " if notes else "") + "; ".join(extras)
     mar = MedicationAdministration(
         admission_id=admission_id, clinic_id=current.clinic_id,
         branch_id=current.branch_id,
         medicine_name=order.drug_name if order else body.get("drug_name", ""),
-        dose=body.get("dose_given") or (order.dose if order else None),
-        route=body.get("route_used") or (order.route if order else None),
+        dose=body.get("dose_given") or body.get("dose") or (order.dose if order else None),
+        route=body.get("route_used") or body.get("route") or (order.route if order else None),
         administered_by=current.id, administered_at=datetime.utcnow(),
-        notes=body.get("notes"), status=body.get("status", "given"),
+        notes=notes or None, status=status,
     )
     db.add(mar); db.commit()
     return {"ok": True}

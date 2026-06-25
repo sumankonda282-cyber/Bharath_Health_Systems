@@ -397,8 +397,15 @@ def create_claim(body: dict, db: Session = Depends(get_db), current=Depends(_req
         card_number=body.get("card_number"),
         policy_holder_name=body.get("policy_holder_name"),
         tpa_name=body.get("tpa_name"),
+        pre_auth_ref=body.get("pre_auth_ref"),
         pre_auth_amount=body.get("pre_auth_amount"),
-        claim_status="draft",
+        pre_auth_status=body.get("pre_auth_status"),
+        pre_auth_notes=body.get("pre_auth_notes"),
+        claim_ref=body.get("claim_ref"),
+        claimed_amount=body.get("claimed_amount"),
+        approved_amount=body.get("approved_amount"),
+        claim_notes=body.get("claim_notes"),
+        claim_status=body.get("claim_status") or "draft",
         created_by=current.id,
     )
     db.add(claim)

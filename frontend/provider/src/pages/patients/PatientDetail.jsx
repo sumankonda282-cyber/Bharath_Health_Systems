@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { patientsApi, tagsApi } from '../../api'
+import api from '../../api/client'
 import { cachedFetch, cacheInvalidate, TTL } from '../../utils/cache'
 import { PageLoader } from '../../components/ui/Spinner'
 import {
@@ -349,9 +350,8 @@ function RecentAssessments({ patientId }) {
 
   useEffect(() => {
     if (!patientId) return
-    fetch(`/provider/forms/assignments?patient_id=${patientId}`, { credentials: 'include' })
-      .then(r => r.ok ? r.json() : [])
-      .then(data => { setAssignments(Array.isArray(data) ? data : (data.assignments || [])); setLoading(false) })
+    api.get('/provider/forms/assignments', { params: { patient_id: patientId } })
+      .then(data => { setAssignments(Array.isArray(data) ? data : (data?.assignments || [])); setLoading(false) })
       .catch(() => setLoading(false))
   }, [patientId])
 

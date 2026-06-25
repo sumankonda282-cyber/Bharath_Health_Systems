@@ -37,10 +37,10 @@ export default function HelpWidget({ open, onClose }) {
     if (!form.title.trim()) return
     setSaving(true); setError('')
     try {
-      await api.post('/maintenance/requests', { ...form, portal_source: PORTAL_SOURCE })
+      await api.post('/support/maintenance-request', { ...form, portal_source: PORTAL_SOURCE })
       setDone(true)
     } catch (err) {
-      setError(err?.response?.data?.detail || 'Failed to submit. Please try again.')
+      setError(err?.message || 'Failed to submit. Please try again.')
     } finally {
       setSaving(false)
     }

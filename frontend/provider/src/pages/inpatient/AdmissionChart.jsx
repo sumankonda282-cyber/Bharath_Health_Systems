@@ -440,7 +440,7 @@ function PrimaryDrModal({ admissionId, currentDoctorName, onClose, onAssigned })
   const [err, setErr]           = useState('')
 
   useEffect(() => {
-    api.get('/staff/?role=doctor')
+    api.get('/clinic/doctors')
       .then(r => setDoctors(Array.isArray(r) ? r : (r?.items || r?.data || [])))
       .catch(() => {})
   }, [])
@@ -453,7 +453,7 @@ function PrimaryDrModal({ admissionId, currentDoctorName, onClose, onAssigned })
     if (!selected) return
     setSaving(true); setErr('')
     try {
-      await api.patch(`/inpatient/admissions/${admissionId}/primary-doctor`, { primary_doctor_id: selected.id })
+      await api.patch(`/inpatient/admissions/${admissionId}`, { primary_doctor_id: selected.id })
       onAssigned(selected)
     } catch {
       try {

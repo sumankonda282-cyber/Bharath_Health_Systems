@@ -261,7 +261,7 @@ export default function MaintenanceDashboard() {
   const load = useCallback(() => {
     setLoading(true)
     api.get('/maintenance/requests')
-      .then(r => setRequests(Array.isArray(r.data) ? r.data : []))
+      .then(r => setRequests(Array.isArray(r) ? r : (r?.data || [])))
       .catch(() => setRequests([]))
       .finally(() => setLoading(false))
   }, [])

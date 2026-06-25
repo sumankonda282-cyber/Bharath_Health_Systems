@@ -25,12 +25,20 @@ api.interceptors.response.use(
         window.location.href = '/login'
       }
     }
+    // Normalise FastAPI error bodies — a 422 returns detail as an ARRAY of
+    // objects, which would otherwise render as "[object Object]" everywhere.
+    let detail = err.response?.data?.detail
+    if (Array.isArray(detail)) {
+      detail = detail.map(d => (d && (d.msg || d.message)) || (typeof d === 'string' ? d : JSON.stringify(d))).join(', ')
+    } else if (detail && typeof detail === 'object') {
+      detail = detail.msg || detail.message || JSON.stringify(detail)
+    }
     const message =
-      err.response?.data?.detail ||
+      detail ||
       err.response?.data?.message ||
       err.message ||
       'Something went wrong'
-    const error = new Error(message)
+    const error = new Error(typeof message === 'string' ? message : 'Something went wrong')
     error.status = err.response?.status
     return Promise.reject(error)
   }

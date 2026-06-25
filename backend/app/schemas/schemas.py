@@ -328,6 +328,8 @@ class AppointmentUpdate(BaseModel):
     visit_type: Optional[str] = None
     fee: Optional[Decimal] = None
     reason: Optional[str] = None
+    triage_complaint: Optional[str] = None
+    triage_level: Optional[str] = None
 
 
 class AppointmentOut(BaseModel):

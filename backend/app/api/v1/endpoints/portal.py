@@ -611,8 +611,10 @@ def update_profile(
             patient.gender = body["gender"]
         if body.get("blood_group"):
             patient.blood_group = body["blood_group"]
-        if body.get("emergency_contact"):
-            patient.emergency_contact_phone = body["emergency_contact"]
+        if body.get("emergency_contact_phone") or body.get("emergency_contact"):
+            patient.emergency_contact_phone = body.get("emergency_contact_phone") or body.get("emergency_contact")
+        if body.get("emergency_contact_name"):
+            patient.emergency_contact_name = body["emergency_contact_name"]
         if body.get("allergies"):
             patient.allergies = body["allergies"]
         if body.get("address"):

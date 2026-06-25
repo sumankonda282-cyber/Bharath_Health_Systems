@@ -520,7 +520,7 @@ function AssignBedModal({ bed, admissions, onClose, onSuccess }) {
     if (!selectedAdmission) { setErr('Please select an admission'); return }
     setSaving(true); setErr('')
     try {
-      await api.patch(`/inpatient/beds/${bed.id}`, { status: 'occupied', current_admission_id: parseInt(selectedAdmission) })
+      await api.put(`/inpatient/beds/${bed.id}`, { status: 'occupied', current_admission_id: parseInt(selectedAdmission) })
       await api.patch(`/inpatient/admissions/${selectedAdmission}`, { bed_id: bed.id, ward_id: bed.ward_id })
       onSuccess('Bed assigned successfully')
     } catch (ex) {
@@ -582,7 +582,7 @@ function BedBoardPanel({ allAdmissions, onAssignBed, refresh }) {
   const load = useCallback(() => {
     setLoading(true)
     const params = deptFilter ? `?department_id=${deptFilter}` : ''
-    api.get(`/inpatient/beds/board${params}`)
+    api.get(`/inpatient/bed-board${params}`)
       .then(r => setBoard(Array.isArray(r) ? r : (r?.items || r?.data || [])))
       .catch(() => {})
       .finally(() => setLoading(false))

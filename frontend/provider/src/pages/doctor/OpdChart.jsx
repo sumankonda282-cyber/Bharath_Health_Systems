@@ -209,11 +209,11 @@ function AssessmentPanel({ patientId, appointmentId }) {
     if (!formText.trim()) return
     setSaving(true)
     try {
-      // Best-effort: form quick notes endpoint
-      await api.post('/encounters/save', {
-        appointment_id: appointmentId,
-        addendum_title: activeForm,
-        addendum_text: formText,
+      // Persist the form note as a clinical assessment (real, durable store).
+      await api.post('/assessments', {
+        type: activeForm || 'assessment_note',
+        encounterId: appointmentId,
+        data: { title: activeForm, note: formText },
       })
       setSaved(true)
       setTimeout(() => { setSaved(false); setActiveForm(null); setFormText('') }, 800)
@@ -743,10 +743,19 @@ export default function OpdChart() {
 
   useEffect(() => { load() }, [load])
 
+  // Backend reads prescription.items[].medicine_name and lab_order.tests[].test_name.
   const buildPayload = () => ({
     soap,
-    prescriptions,
-    lab_tests: labItems,
+    prescription: {
+      items: (prescriptions || []).map(p => ({
+        medicine_name: p.drug_name || p.medicine_name || p.name || '',
+        dosage:        p.dosage || '',
+        frequency:     p.frequency || '',
+        duration:      p.duration || '',
+        instructions:  p.instructions || '',
+      })),
+    },
+    lab_order: { tests: labItems },
     imaging: imagingItems,
   })
 

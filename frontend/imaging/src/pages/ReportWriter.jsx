@@ -274,26 +274,17 @@ export default function ReportWriter() {
     setSigning(true)
     setSaveError('')
     try {
-      // Save current form first, then sign
+      // Persist the report AND sign in one call — PUT upserts the ImagingResult
+      // and status:'completed' signs it (sets signed_by/signed_at server-side).
       await api.put(`/imaging/orders/${selected.id}`, {
         findings:         form.findings,
         impression:       form.impression,
         recommendation:   form.recommendation,
         notes:            form.technique,
         radiologist_name: form.radiologist_name,
+        status:           'completed',
       })
-      // Attempt POST to sign endpoint, fall back to PATCH
-      let signedAt = new Date().toISOString()
-      try {
-        const res = await api.post(`/imaging/reports/${selected.id}/sign`)
-        signedAt = res?.signed_at || signedAt
-      } catch {
-        await api.patch(`/imaging/orders/${selected.id}`, {
-          status: 'signed',
-          signed_at: signedAt,
-          report_status: 'signed',
-        })
-      }
+      const signedAt = new Date().toISOString()
       setSigned({ at: signedAt })
       setOrders(prev => prev.map(o =>
         o.id === selected.id ? { ...o, signed_at: signedAt, status: 'completed' } : o

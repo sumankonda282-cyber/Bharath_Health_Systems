@@ -460,8 +460,8 @@ function useDrugSearch() {
     setLoading(true)
     timerRef.current = setTimeout(async () => {
       try {
-        const res = await api.get('/medications/search', { params: { q, limit: 8 } })
-        const data = res.data?.data || res.data || []
+        const res = await api.get('/terminology/drugs/search', { params: { q, limit: 8 } })
+        const data = Array.isArray(res) ? res : (res?.data || res?.results || [])
         cachePut(`drug:${q}`, data)
         setResults(data)
       } catch { setResults([]) }
@@ -652,8 +652,8 @@ export default function Encounter() {
         const cached = cacheGet(cacheKey)
         if (cached) return cached[0]
         try {
-          const res = await api.get('/medications/search', { params: { q: hint, limit: 1 } })
-          const data = res.data?.data || res.data || []
+          const res = await api.get('/terminology/drugs/search', { params: { q: hint, limit: 1 } })
+          const data = Array.isArray(res) ? res : (res?.data || res?.results || [])
           if (data.length) cachePut(cacheKey, data)
           return data[0]
         } catch { return null }
@@ -677,7 +677,7 @@ export default function Encounter() {
     dxTimerRef.current = setTimeout(async () => {
       try {
         const res = await api.get('/terminology/search', { params: { category: 'diagnosis', q, limit: 8 } })
-        const data = res.data?.data || res.data || []
+        const data = Array.isArray(res) ? res : (res?.data || res?.results || [])
         cachePut(`dx:${q}`, data)
         setInitDxResults(data)
       } catch { setInitDxResults([]) }
@@ -715,7 +715,7 @@ export default function Encounter() {
     symTimerRef.current = setTimeout(async () => {
       try {
         const res = await api.get('/terminology/search', { params: { category: 'symptom', q, limit: 8 } })
-        const data = res.data?.data || res.data || []
+        const data = Array.isArray(res) ? res : (res?.data || res?.results || [])
         cachePut(`sym:${q}`, data)
         setSymResults(data)
       } catch { setSymResults([]) }
@@ -733,8 +733,8 @@ export default function Encounter() {
     setLoadingLab(true)
     labTimerRef.current = setTimeout(async () => {
       try {
-        const res = await api.get('/lab-tests/search', { params: { q, limit: 8 } })
-        const data = res.data?.data || res.data || []
+        const res = await api.get('/lab/tests/search', { params: { q, limit: 8 } })
+        const data = Array.isArray(res) ? res : (res?.data || res?.results || [])
         cachePut(`lab:${q}`, data)
         setLabResults(data)
       } catch { setLabResults([]) }
@@ -752,8 +752,8 @@ export default function Encounter() {
     setLoadingImg(true)
     imgTimerRef.current = setTimeout(async () => {
       try {
-        const res = await api.get('/lab-tests/search', { params: { q, category: 'imaging', limit: 8 } })
-        const data = res.data?.data || res.data || []
+        const res = await api.get('/lab/tests/search', { params: { q, type: 'imaging', limit: 8 } })
+        const data = Array.isArray(res) ? res : (res?.data || res?.results || [])
         cachePut(`img:${q}`, data)
         setImgResults(data)
       } catch { setImgResults([]) }
@@ -772,7 +772,7 @@ export default function Encounter() {
     aDxTimerRef.current = setTimeout(async () => {
       try {
         const res = await api.get('/terminology/search', { params: { category: 'diagnosis', q, limit: 8 } })
-        const data = res.data?.data || res.data || []
+        const data = Array.isArray(res) ? res : (res?.data || res?.results || [])
         cachePut(`dx:${q}`, data)
         setDxResults(data)
       } catch { setDxResults([]) }

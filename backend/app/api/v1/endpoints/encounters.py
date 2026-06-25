@@ -603,6 +603,73 @@ def get_patient_clinical(
     }
 
 
+# ── Specialty clinical assessments (component-based forms) ────────────────────
+
+@router.post("/assessments")
+def save_clinical_assessment(
+    body: dict,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_staff),
+):
+    """Persist a specialty assessment form (cardiology, ortho, peds, OBG,
+    gastro, ENT, clinical scales). Accepts {type, patientId, encounterId, data}
+    plus tolerant snake_case variants; if `data` is absent the remaining keys
+    are captured as the payload."""
+    from app.models.models import ClinicalAssessment
+
+    def _as_int(v):
+        try:
+            return int(v)
+        except (TypeError, ValueError):
+            return None
+
+    KNOWN = {"type", "patientId", "patient_id", "encounterId", "encounter_id",
+             "assessment_type", "data"}
+    enc = body.get("encounterId") or body.get("encounter_id")
+    data = body.get("data")
+    if not isinstance(data, dict):
+        data = {k: v for k, v in body.items() if k not in KNOWN}
+
+    row = ClinicalAssessment(
+        clinic_id       = current.clinic_id,
+        branch_id       = getattr(current, "branch_id", None),
+        patient_id      = _as_int(body.get("patientId") or body.get("patient_id")),
+        encounter_id    = str(enc) if enc is not None else None,
+        assessment_type = body.get("type") or body.get("assessment_type") or "assessment",
+        data            = data,
+        created_by      = current.id,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return {"id": row.id, "message": "Assessment saved"}
+
+
+@router.get("/assessments")
+def list_clinical_assessments(
+    patient_id: Optional[int] = None,
+    encounter_id: Optional[str] = None,
+    limit: int = 50,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_staff),
+):
+    from app.models.models import ClinicalAssessment
+    q = db.query(ClinicalAssessment).filter(ClinicalAssessment.clinic_id == current.clinic_id)
+    if patient_id:
+        q = q.filter(ClinicalAssessment.patient_id == patient_id)
+    if encounter_id:
+        q = q.filter(ClinicalAssessment.encounter_id == str(encounter_id))
+    rows = q.order_by(ClinicalAssessment.created_at.desc()).limit(limit).all()
+    return [{
+        "id":           r.id,
+        "type":         r.assessment_type,
+        "patient_id":   r.patient_id,
+        "encounter_id": r.encounter_id,
+        "data":         r.data,
+        "created_at":   str(r.created_at),
+    } for r in rows]
+
+
 # ── Encounter save / update ───────────────────────────────────────────────────
 
 class EncounterSaveRequest(BaseModel):
