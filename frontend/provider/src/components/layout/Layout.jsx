@@ -12,12 +12,21 @@ const FULL_PAGE_PREFIXES = ['/inpatient/admission/', '/opd/']
 export default function Layout() {
   const [open, setOpen] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return localStorage.getItem('provider_sidebar_collapsed') === '1' } catch { return false }
+  })
   const location = useLocation()
 
   const handleRefresh = () => {
     cacheClear()
     setRefreshKey(k => k + 1)
   }
+
+  const toggleCollapsed = () => setCollapsed(c => {
+    const next = !c
+    try { localStorage.setItem('provider_sidebar_collapsed', next ? '1' : '0') } catch {}
+    return next
+  })
 
   const isFullPage = FULL_PAGE_PREFIXES.some(p => location.pathname.startsWith(p))
 
@@ -37,12 +46,12 @@ export default function Layout() {
 
       {/* Desktop sidebar */}
       <div className="hidden md:block flex-shrink-0">
-        <Sidebar />
+        <Sidebar collapsed={collapsed} />
       </div>
 
       <main className={`flex-1 min-w-0 flex flex-col ${isFullPage ? 'overflow-hidden' : 'overflow-y-auto'}`}>
-        <TopBar onMenuClick={() => setOpen(true)} onRefresh={handleRefresh} />
-        <div key={refreshKey} className={`flex-1 ${isFullPage ? 'overflow-hidden' : 'p-3 md:p-5'}`}>
+        <TopBar onMenuClick={() => setOpen(true)} onToggleSidebar={toggleCollapsed} onRefresh={handleRefresh} />
+        <div key={refreshKey} className={`flex-1 ${isFullPage ? 'overflow-hidden' : 'p-3 sm:p-4 lg:p-6'}`}>
           <Outlet />
         </div>
       </main>

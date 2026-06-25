@@ -31,7 +31,7 @@ const ALL_NAV = [
 
 const API_BASE = import.meta.env.VITE_API_URL || 'https://BharathHealthSystems-api.onrender.com'
 
-export default function Sidebar({ onClose }) {
+export default function Sidebar({ onClose, collapsed = false }) {
   const { user, branding, isPlatformAdmin } = useAuth()
 
   const visible = ALL_NAV.filter(item => {
@@ -44,12 +44,14 @@ export default function Sidebar({ onClose }) {
 
   return (
     <aside
-      className="relative left-0 top-0 h-screen w-60 flex flex-col z-40 shadow-xl"
+      className={`relative left-0 top-0 h-screen ${collapsed ? 'w-16' : 'w-60'} flex flex-col z-40 shadow-xl transition-all duration-200`}
       style={{ background: '#0F2557' }}
     >
       {/* Logo / Brand */}
-      <div className="px-5 py-4 border-b border-white/10">
-        {branding?.logo_url ? (
+      <div className={`border-b border-white/10 overflow-hidden ${collapsed ? 'px-2 py-4 flex justify-center' : 'px-5 py-4'}`}>
+        {collapsed ? (
+          <BrandLogo size="sm" light showText={false} />
+        ) : branding?.logo_url ? (
           <div className="flex items-center gap-2">
             <img
               src={branding.logo_url.startsWith('/') ? `${API_BASE}${branding.logo_url}` : branding.logo_url}
@@ -61,10 +63,12 @@ export default function Sidebar({ onClose }) {
         ) : (
           <BrandLogo size="sm" light />
         )}
-        <div className="text-xs font-semibold mt-1.5 tracking-wider uppercase" style={{ color: '#F5821E' }}>
-          Provider Portal
-        </div>
-        {user?.clinic_name && (
+        {!collapsed && (
+          <div className="text-xs font-semibold mt-1.5 tracking-wider uppercase" style={{ color: '#F5821E' }}>
+            Provider Portal
+          </div>
+        )}
+        {!collapsed && user?.clinic_name && (
           <div className="flex items-center gap-1.5 mt-1" >
             <Building2 size={11} style={{ color: '#93c5fd' }} className="flex-shrink-0" />
             <span className="text-xs text-blue-300 truncate">{user.clinic_name}</span>
@@ -80,8 +84,9 @@ export default function Sidebar({ onClose }) {
             key={item.to}
             to={item.to}
             onClick={onClose}
+            title={collapsed ? item.label : undefined}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium mb-0.5 transition-all group ${
+              `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium mb-0.5 transition-all group ${collapsed ? 'justify-center' : ''} ${
                 isActive
                   ? 'text-white'
                   : 'text-blue-200 hover:text-white hover:bg-white/10'
@@ -89,9 +94,9 @@ export default function Sidebar({ onClose }) {
             }
             style={({ isActive }) => isActive ? { background: '#CC1414' } : {}}
           >
-            <item.icon size={17} />
-            <span className="flex-1">{item.label}</span>
-            <ChevronRight size={13} className="opacity-0 group-hover:opacity-50 transition-opacity" />
+            <item.icon size={17} className="flex-shrink-0" />
+            {!collapsed && <span className="flex-1">{item.label}</span>}
+            {!collapsed && <ChevronRight size={13} className="opacity-0 group-hover:opacity-50 transition-opacity" />}
           </NavLink>
         ))}
       </nav>
