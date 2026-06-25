@@ -89,62 +89,18 @@ function PinModal({ title, onConfirm, onCancel }) {
   )
 }
 
-// ─── mock data ───────────────────────────────────────────────────────────────
-function buildMock() {
-  const today = new Date()
-  const iso = d => d.toISOString()
-
-  return {
-    diet_order: {
-      id: 1,
-      type: 'High-Protein Soft Diet',
-      calorie_target: 1800,
-      fluid_target: 1500,
-      ordered_by: 'Dr. Ananya Sharma',
-      ordered_at: iso(new Date(today.getTime() - 2 * 86400000)),
-      valid_until: null,
-      instructions: 'Avoid spicy foods. Soft consistency only. Small frequent meals preferred.',
-      status: 'active',
-    },
-    restrictions: [
-      { id: 1, type: 'allergy', label: 'Peanuts', severity: 'high' },
-      { id: 2, type: 'allergy', label: 'Shellfish', severity: 'moderate' },
-      { id: 3, type: 'religious', label: 'Vegetarian' },
-      { id: 4, type: 'preference', label: 'No onion/garlic' },
-    ],
-    meals: [
-      { id: 1, slot: 'Breakfast',      time: iso(new Date(today.setHours(8,0,0))),  served: 'Idli × 2, Sambar, Curd', pct: 80, kcal: 320, by: 'RK', notes: '' },
-      { id: 2, slot: 'Mid-Morning',    time: iso(new Date(today.setHours(10,30,0))), served: 'Ensure 200 mL', pct: 100, kcal: 190, by: 'RK', notes: 'Supplement given' },
-      { id: 3, slot: 'Lunch',          time: iso(new Date(today.setHours(13,0,0))), served: 'Soft rice, Dal, Veg curry', pct: 40, kcal: 480, by: 'SP', notes: 'Patient complained of nausea' },
-      { id: 4, slot: 'Evening Snack',  time: null, served: '', pct: null, kcal: null, by: '', notes: '' },
-      { id: 5, slot: 'Dinner',         time: null, served: '', pct: null, kcal: null, by: '', notes: '' },
-    ],
-    fluids: [
-      { id: 1, time: iso(new Date(today.setHours(8,15,0))),  type: 'Water',  volume: 200, by: 'RK' },
-      { id: 2, time: iso(new Date(today.setHours(10,0,0))),  type: 'Juice',  volume: 150, by: 'RK' },
-      { id: 3, time: iso(new Date(today.setHours(13,30,0))), type: 'Water',  volume: 200, by: 'SP' },
-      { id: 4, time: iso(new Date(today.setHours(15,0,0))),  type: 'Soup',   volume: 90,  by: 'SP' },
-    ],
-    supplements: [
-      { id: 1, name: 'Ensure Powder', type: 'Oral', dose: '200 mL', frequency: 'BD', route: 'Oral', status: 'active', ordered_by: 'Dr. Sharma', ordered_at: iso(new Date(today.getTime() - 2*86400000)) },
-      { id: 2, name: 'Zinc Sulphate', type: 'Oral', dose: '20 mg', frequency: 'OD', route: 'Oral', status: 'active', ordered_by: 'Dr. Sharma', ordered_at: iso(new Date(today.getTime() - 2*86400000)) },
-    ],
-    assessment: {
-      must_score: 1,
-      must_risk: 'Low Risk',
-      weight_kg: 68.4,
-      weight_admission: 70.1,
-      height_cm: 168,
-      bmi: 24.2,
-      last_assessed: iso(new Date(today.getTime() - 1*86400000)),
-      assessed_by: 'Nurse Priya',
-    },
-    dietitian: {
-      status: 'not_referred',
-      name: null,
-      notes: null,
-    },
-  }
+// ─── empty skeleton ──────────────────────────────────────────────────────────
+// All diet & nutrition state persists inside the admission's `diet_data` JSONB
+// blob (GET/POST /inpatient/admissions/{id}/diet). Meals / fluids / supplements
+// have no dedicated tables yet, so they live in this same blob.
+const EMPTY_DIET = {
+  diet_order:  null,
+  restrictions: [],
+  meals:       [],
+  fluids:      [],
+  supplements: [],
+  assessment:  null,
+  dietitian:   { status: 'not_referred', name: null, notes: null },
 }
 
 // ─── MUST score helper ────────────────────────────────────────────────────────
@@ -774,30 +730,25 @@ export default function DietNutrition({ admission }) {
   const [pinModal,       setPinModal]       = useState(null) // { title, onConfirm }
 
   const load = useCallback(async () => {
+    if (!admissionId) return
     setLoading(true); setError(null)
     try {
-      const [dietRes, mealRes, fluidRes, suppRes, assessRes] = await Promise.allSettled([
-        api.get(`/inpatient/admissions/${admissionId}/diet`),
-        api.get(`/inpatient/admissions/${admissionId}/meals`),
-        api.get(`/inpatient/admissions/${admissionId}/fluid-intake`),
-        api.get(`/inpatient/admissions/${admissionId}/supplements`),
-        api.get(`/inpatient/admissions/${admissionId}/nutrition-assessment`),
-      ])
-      const ok = r => r.status === 'fulfilled' && r.value
-      if (ok(dietRes) || ok(mealRes)) {
-        setData({
-          diet_order:  ok(dietRes)   ? dietRes.value   : null,
-          restrictions: [],
-          meals:       ok(mealRes)   ? mealRes.value   : [],
-          fluids:      ok(fluidRes)  ? fluidRes.value  : [],
-          supplements: ok(suppRes)   ? suppRes.value   : [],
-          assessment:  ok(assessRes) ? assessRes.value : null,
-          dietitian:   { status: 'not_referred' },
-        })
-      } else {
-        setData(buildMock())
-      }
-    } catch { setData(buildMock()) } finally { setLoading(false) }
+      const res = await api.get(`/inpatient/admissions/${admissionId}/diet`)
+      setData(res && Object.keys(res).length ? { ...EMPTY_DIET, ...res } : EMPTY_DIET)
+    } catch {
+      setError('Failed to load diet & nutrition data')
+      setData(EMPTY_DIET)
+    } finally { setLoading(false) }
+  }, [admissionId])
+
+  // Persist the whole diet_data blob (optimistic local update + POST).
+  const persist = useCallback(async (next) => {
+    setData(next)
+    try {
+      await api.post(`/inpatient/admissions/${admissionId}/diet`, next)
+    } catch {
+      setError('Failed to save — please retry')
+    }
   }, [admissionId])
 
   useEffect(() => { if (admissionId) load() }, [load])
@@ -821,7 +772,7 @@ export default function DietNutrition({ admission }) {
     </div>
   )
 
-  const d = data || buildMock()
+  const d = data || EMPTY_DIET
   const isNBM = d.diet_order?.type?.toLowerCase().includes('nbm') || d.diet_order?.type?.toLowerCase().includes('nil')
   const totalKcal = d.meals.filter(m => m.kcal).reduce((s, m) => s + (m.kcal || 0), 0)
 
@@ -900,14 +851,17 @@ export default function DietNutrition({ admission }) {
         <ChangeDietDrawer
           current={d.diet_order}
           onClose={() => setShowChangeDiet(false)}
-          onSave={vals => { setData(prev => ({ ...prev, diet_order: { ...prev.diet_order, ...vals } })); setShowChangeDiet(false) }}
+          onSave={vals => {
+            persist({ ...d, diet_order: { ...(d.diet_order || {}), ...vals, status: 'active', ordered_at: d.diet_order?.ordered_at || new Date().toISOString() } })
+            setShowChangeDiet(false)
+          }}
         />
       )}
       {showLogMeal && (
         <LogMealDrawer
           onClose={() => setShowLogMeal(false)}
           onSave={vals => {
-            setData(prev => ({ ...prev, meals: [...prev.meals, { id: Date.now(), slot: vals.slot, time: new Date().toISOString(), served: vals.served, pct: vals.pct, kcal: Number(vals.kcal) || null, by: 'Me', notes: vals.notes }] }))
+            persist({ ...d, meals: [...d.meals, { id: Date.now(), slot: vals.slot, time: new Date().toISOString(), served: vals.served, pct: vals.pct, kcal: Number(vals.kcal) || null, by: 'Me', notes: vals.notes }] })
             setShowLogMeal(false)
           }}
         />
@@ -916,7 +870,7 @@ export default function DietNutrition({ admission }) {
         <LogFluidDrawer
           onClose={() => setShowLogFluid(false)}
           onSave={vals => {
-            setData(prev => ({ ...prev, fluids: [...prev.fluids, { id: Date.now(), time: new Date().toISOString(), type: vals.type, volume: Number(vals.volume), by: 'Me' }] }))
+            persist({ ...d, fluids: [...d.fluids, { id: Date.now(), time: new Date().toISOString(), type: vals.type, volume: Number(vals.volume), by: 'Me' }] })
             setShowLogFluid(false)
           }}
         />
@@ -925,7 +879,7 @@ export default function DietNutrition({ admission }) {
         <AddSuppDrawer
           onClose={() => setShowAddSupp(false)}
           onSave={vals => {
-            setData(prev => ({ ...prev, supplements: [...prev.supplements, { id: Date.now(), name: vals.name, type: vals.type, dose: vals.dose, frequency: vals.frequency, route: vals.route, status: 'active', ordered_by: 'Me', ordered_at: new Date().toISOString() }] }))
+            persist({ ...d, supplements: [...d.supplements, { id: Date.now(), name: vals.name, type: vals.type, dose: vals.dose, frequency: vals.frequency, route: vals.route, status: 'active', ordered_by: 'Me', ordered_at: new Date().toISOString() }] })
             setShowAddSupp(false)
           }}
         />
