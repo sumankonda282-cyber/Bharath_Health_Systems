@@ -1394,6 +1394,7 @@ class VitalSign(Base):
     weight         = Column(Numeric(5, 2))        # kg
     height         = Column(Numeric(5, 2))        # cm
     pain_score     = Column(Integer)              # 0-10
+    blood_sugar    = Column(Numeric(6, 2))        # mg/dL
     notes          = Column(Text)
     created_at     = Column(DateTime, default=_datetime.utcnow)
 

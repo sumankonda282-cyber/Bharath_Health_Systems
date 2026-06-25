@@ -212,16 +212,14 @@ function OrderCard({ order, admissionId, onUpdate }) {
     setLoading(true); setPinError('')
     try {
       await api.post('/auth/staff/pin-identify', { pin })
-      await api.post(`/inpatient/admissions/${admissionId}/orders/${order.id}/${action}`, { pin })
-      onUpdate(order.id, action === 'acknowledge' ? 'acknowledged' : action === 'progress' ? 'in_progress' : 'completed')
+      await api.post(`/inpatient/clinical-orders/${order.id}/${action}`, {})
+      onUpdate(order.id, action === 'acknowledge' ? 'acknowledged' : 'completed')
       setPinAction(null)
     } catch (e) {
       if (e?.response?.status === 401 || e?.response?.status === 403) {
         setPinError('Invalid PIN')
       } else {
-        // demo fallback
-        onUpdate(order.id, action === 'acknowledge' ? 'acknowledged' : action === 'progress' ? 'in_progress' : 'completed')
-        setPinAction(null)
+        setPinError(e?.message || 'Action failed')
       }
     } finally { setLoading(false) }
   }

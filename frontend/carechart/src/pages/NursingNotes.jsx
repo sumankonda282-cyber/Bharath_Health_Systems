@@ -91,6 +91,11 @@ export default function NursingNotes() {
     setSaving(true)
     try {
       const patient = patients.find(p => String(p.id) === String(form.patient_id))
+      const admissionId = patient?.admission_id || form.patient_id
+      // Persist FIRST — only reflect locally once the save actually succeeds.
+      await api.post(`/inpatient/admissions/${admissionId}/nursing-entries`, {
+        note: form.note, note_type: form.note_type,
+      })
       const newNote = {
         id: Date.now(),
         patient_id:   form.patient_id,
@@ -102,7 +107,6 @@ export default function NursingNotes() {
         created_at:   new Date().toISOString(),
         signed:       true,
       }
-      await api.post('/inpatient/notes', { admission_id: form.patient_id, ...form }).catch(() => {})
       setNotes(prev => [newNote, ...prev])
       setForm({ patient_id: '', note_type: 'general', note: '', priority: 'routine' })
       setAddOpen(false)

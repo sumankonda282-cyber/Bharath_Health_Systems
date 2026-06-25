@@ -106,11 +106,12 @@ function RecordDrawer({ patient, onClose, onSaved }) {
       const identity = await requestPin(`Record Vitals — ${patient?.patient_name || ''}`)
       if (!identity?.verified) { setLoading(false); return }
       await api.post(`/inpatient/admissions/${patient.admission_id}/vitals`, {
-        blood_pressure: form.sys && form.dia ? `${form.sys}/${form.dia}` : undefined,
+        bp_systolic: form.sys ? Number(form.sys) : undefined,
+        bp_diastolic: form.dia ? Number(form.dia) : undefined,
         pulse: form.pulse ? Number(form.pulse) : undefined,
         temperature: form.temp ? Number(form.temp) : undefined,
         spo2: form.spo2 ? Number(form.spo2) : undefined,
-        rr: form.rr ? Number(form.rr) : undefined,
+        respiration_rate: form.rr ? Number(form.rr) : undefined,
         blood_sugar: form.bsl ? Number(form.bsl) : undefined,
         pain_score: form.pain ? Number(form.pain) : undefined,
         notes: form.notes || undefined,
@@ -119,9 +120,9 @@ function RecordDrawer({ patient, onClose, onSaved }) {
       })
       setDone(true)
       setTimeout(() => { onSaved(); onClose() }, 1200)
-    } catch {
-      setDone(true)
-      setTimeout(() => { onSaved(); onClose() }, 1200)
+    } catch (e) {
+      // Don't fake success — surface the failure so the nurse can retry.
+      alert('Failed to save vitals: ' + (e?.message || 'Please try again.'))
     } finally { setLoading(false) }
   }
 
