@@ -77,6 +77,7 @@ def create_appointment(
 def list_appointments(
     branch_id: Optional[int] = None,
     doctor_id: Optional[int] = None,
+    mine: Optional[bool] = None,
     patient_id: Optional[int] = None,
     appointment_date: Optional[dt] = None,
     date: Optional[dt] = None,
@@ -103,6 +104,10 @@ def list_appointments(
     # else: no branch filter — show all clinic appointments (single-branch or no-branch clinics)
     if doctor_id:
         q = q.filter(Appointment.doctor_id == doctor_id)
+    if mine:
+        # Doctor-level isolation: restrict to the caller's own appointments.
+        _dp = db.query(DoctorProfile).filter(DoctorProfile.staff_id == current.id).first()
+        q = q.filter(Appointment.doctor_id == (_dp.id if _dp else -1))
     if patient_id:
         q = q.filter(Appointment.patient_id == patient_id)
     if filter_date:
