@@ -13,6 +13,7 @@ import {
 import { PageLoader } from '../../components/ui/Spinner'
 import PatientChartShell from '@shared/inpatient/PatientChartShell'
 import DbAssessmentFormModal from './DbAssessmentFormModal'
+import RichAssessmentFormModal from './RichAssessmentFormModal'
 // CareChart inpatient sections copied in for full chart parity (CareChart is left
 // untouched). Provider gains Provider View / MAR / Orders / Documentation /
 // Diet / Pre-Post-Op / Patient Movement / Nursing Notes.
@@ -26,7 +27,6 @@ import CcPrePostOp from './cc/PrePostOp'
 import CcPatientMovement from './cc/PatientMovement'
 import CcNursingNotes from './cc/NursingNotes'
 
-const GREEN = '#059669'
 const NAVY  = '#0F2557'
 
 // ── Smart Phrases ─────────────────────────────────────────────────────────────
@@ -517,63 +517,6 @@ function PrimaryDrModal({ admissionId, currentDoctorName, onClose, onAssigned })
   )
 }
 
-// ── Form Modal ────────────────────────────────────────────────────────────────
-function FormModal({ form, admissionId, onClose }) {
-  const [content, setContent] = useState('')
-  const [saving, setSaving]   = useState(false)
-  const [err, setErr]         = useState('')
-
-  const submit = async () => {
-    if (!content.trim()) return
-    setSaving(true); setErr('')
-    try {
-      await api.post('/assessment-forms', {
-        admission_id: parseInt(admissionId),
-        form_name: form.name,
-        content,
-      })
-      onClose()
-    } catch (ex) {
-      setErr(ex?.response?.data?.detail || ex.message || 'Failed to save form')
-    } finally { setSaving(false) }
-  }
-
-  return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-      onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg"
-        onClick={e => e.stopPropagation()}>
-        <div className="border-b border-gray-100 px-6 py-4 flex items-center justify-between">
-          <h2 className="text-base font-bold text-gray-900">{form.name}</h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500">
-            <XIcon size={18} />
-          </button>
-        </div>
-        <div className="p-5 space-y-4">
-          <SmartTextarea
-            value={content}
-            onChange={e => setContent(e.target.value)}
-            placeholder={`Document ${form.name}…`}
-            rows={8}
-          />
-          {err && <p className="text-red-600 text-sm flex items-center gap-1"><AlertCircle size={14} />{err}</p>}
-          <div className="flex gap-3 justify-end">
-            <button onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-xl text-sm text-gray-700 hover:bg-gray-50">
-              Cancel
-            </button>
-            <button onClick={submit} disabled={saving || !content.trim()}
-              className="px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-50"
-              style={{ background: GREEN }}>
-              {saving ? 'Saving…' : 'Save'}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // ── Patient Nav ───────────────────────────────────────────────────────────────
 const PATIENT_NAV = [
   // Full CareChart parity — same sections, same order as the CareChart chart.
@@ -695,7 +638,13 @@ export default function AdmissionChart() {
                 patientName={pat?.full_name || pat?.name || adm.patient_name}
                 onClose={() => setOpenForm(null)}
               />
-            : <FormModal form={openForm} admissionId={admissionId} onClose={() => setOpenForm(null)} />
+            : <RichAssessmentFormModal
+                form={openForm}
+                patientId={pat?.id || adm.patient_id}
+                admissionId={admissionId}
+                patientName={pat?.full_name || pat?.name || adm.patient_name}
+                onClose={() => setOpenForm(null)}
+              />
         )}
         formsStorageKey="provider_forms_panel"
         onBack={() => navigate('/inpatient')}
