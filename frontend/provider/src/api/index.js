@@ -98,8 +98,18 @@ export const pharmacyApi = {
 // ── Lab ───────────────────────────────────────────────────────────
 export const labApi = {
   getOrders:   (params) => api.get('/lab/orders', { params }),
-  updateStatus:(id, status) => api.put(`/lab/orders/${id}/status`, { status }),
-  addResults:  (id, items) => api.put(`/lab/orders/${id}/results`, { items }),
+  // Backend reads `status` as a query param.
+  updateStatus:(id, status) => api.put(`/lab/orders/${id}/status`, null, { params: { status } }),
+  // Backend expects { results: [{ item_id, result, reference_range, result_notes, is_abnormal }] }.
+  addResults:  (id, items) => api.put(`/lab/orders/${id}/results`, {
+    results: (items || []).map(it => ({
+      item_id:         it.id,
+      result:          it.result_value,
+      reference_range: it.reference_range,
+      result_notes:    it.result_notes,
+      is_abnormal:     it.is_abnormal,
+    })),
+  }),
   searchTests: (q, type, branchId) => api.get('/lab/tests/search', { params: { q, type, branch_id: branchId } }),
 }
 

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../api/client'
 import { patientsApi } from '../../api'
@@ -44,7 +44,7 @@ function OtpModal({ mobile, onVerified, onCancel }) {
     }
   }
 
-  useState(() => { sendOtp() }, []) // eslint-disable-line
+  useEffect(() => { sendOtp() }, []) // eslint-disable-line
 
   const verify = async () => {
     if (otp.length < 4) return

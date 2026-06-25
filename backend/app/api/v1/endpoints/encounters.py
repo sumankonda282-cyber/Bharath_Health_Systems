@@ -480,8 +480,11 @@ def get_patient_clinical(
 
     # Section 1 — Demographics (full, including contact)
     age = (date.today() - p.date_of_birth).days // 365 if p.date_of_birth else None
+    home_clinic = db.query(Clinic).filter(Clinic.id == p.clinic_id).first()
     demographics = {
         "clinic_patient_id":   p.clinic_patient_id or p.uhid or f"#{p.id}",
+        "bh_id":               p.bh_id,
+        "hc_id":               home_clinic.hc_id if home_clinic else None,
         "full_name":           p.full_name,
         "date_of_birth":       str(p.date_of_birth) if p.date_of_birth else None,
         "age":                 age,
@@ -512,77 +515,85 @@ def get_patient_clinical(
 
     visits = []
     for appt in appointments:
-        soap = appt.soap_note
-        vitals = appt.vitals
-        doc = appt.doctor
-        doc_name = doc.staff.full_name if doc and doc.staff else "Unknown"
+        # Defensive: one malformed appointment must not blank the whole chart.
+        try:
+            soap = appt.soap_note
+            vitals = appt.vitals
+            doc = appt.doctor
+            doc_name = doc.staff.full_name if doc and doc.staff else "Unknown"
 
-        rxs = []
-        for rx in appt.prescriptions:
-            for item in rx.items:
-                rxs.append(f"{item.medicine_name} {item.dosage} — {item.duration}")
+            rxs = []
+            for rx in (appt.prescriptions or []):
+                for item in (rx.items or []):
+                    rxs.append(f"{item.medicine_name} {item.dosage or ''} — {item.duration or ''}".strip())
 
-        labs = []
-        for lo in appt.lab_orders:
-            for item in lo.items:
-                status = "abnormal" if item.is_abnormal else "normal"
-                labs.append({
-                    "test":   item.test_name,
-                    "result": item.result_value,
-                    "status": status,
-                    "done_at": str(item.completed_at) if item.completed_at else None,
-                })
+            labs = []
+            for lo in (appt.lab_orders or []):
+                for item in (lo.items or []):
+                    labs.append({
+                        "test":   item.test_name,
+                        "result": item.result_value,
+                        "status": "abnormal" if item.is_abnormal else "normal",
+                        "done_at": str(item.completed_at) if item.completed_at else None,
+                    })
 
-        vitals_data = None
-        if vitals:
-            vitals_data = {
-                "bp":      f"{vitals.blood_pressure_systolic}/{vitals.blood_pressure_diastolic}" if vitals.blood_pressure_systolic else None,
-                "pulse":   vitals.pulse_rate,
-                "temp":    str(vitals.temperature) if vitals.temperature else None,
-                "spo2":    vitals.oxygen_saturation,
-                "weight":  str(vitals.weight_kg) if vitals.weight_kg else None,
-                "height":  str(vitals.height_cm) if vitals.height_cm else None,
-                "sugar":   str(vitals.blood_sugar) if vitals.blood_sugar else None,
-            }
+            vitals_data = None
+            if vitals:
+                vitals_data = {
+                    "bp":      f"{vitals.blood_pressure_systolic}/{vitals.blood_pressure_diastolic}" if vitals.blood_pressure_systolic else None,
+                    "pulse":   vitals.pulse_rate,
+                    "temp":    str(vitals.temperature) if vitals.temperature else None,
+                    "spo2":    vitals.oxygen_saturation,
+                    "weight":  str(vitals.weight_kg) if vitals.weight_kg else None,
+                    "height":  str(vitals.height_cm) if vitals.height_cm else None,
+                    "sugar":   str(vitals.blood_sugar) if vitals.blood_sugar else None,
+                }
 
-        visits.append({
-            "encounter_id":           appt.encounter_no or f"ENC-{str(appt.appointment_date).replace('-','')}-{appt.id:04d}",
-            "appointment_id":         appt.id,
-            "visit_date":             str(appt.appointment_date),
-            "visit_time":             appt.appointment_time,
-            "visit_type":             appt.visit_type or "fresh",
-            "doctor_name":            doc_name,
-            "token_number":           appt.token_number,
-            "status":                 appt.status,
-            "vitals":                 vitals_data,
-            "triage_complaint":       appt.triage_complaint,
-            "reason_for_visit":       soap.reason_for_visit if soap else None,
-            "patient_complaints":     soap.patient_complaints if soap else None,
-            "past_history":           soap.past_history if soap else None,
-            "investigations_findings":soap.investigations_findings if soap else None,
-            "medications_prescribed": soap.medications_prescribed if soap else None,
-            "discharge_assessment":   soap.discharge_assessment if soap else None,
-            "cautions_followup":      soap.cautions_followup if soap else None,
-            "is_locked":              soap.is_locked if soap else False,
-            "prescriptions":          rxs,
-            "lab_results":            labs,
-        })
+            visits.append({
+                "encounter_id":           appt.encounter_no or f"ENC-{str(appt.appointment_date).replace('-','')}-{appt.id:04d}",
+                "appointment_id":         appt.id,
+                "visit_date":             str(appt.appointment_date),
+                "visit_time":             appt.appointment_time,
+                "visit_type":             appt.visit_type or "fresh",
+                "doctor_name":            doc_name,
+                "token_number":           appt.token_number,
+                "status":                 appt.status,
+                "vitals":                 vitals_data,
+                "triage_complaint":       appt.triage_complaint,
+                "reason_for_visit":       soap.reason_for_visit if soap else None,
+                "patient_complaints":     soap.patient_complaints if soap else None,
+                "past_history":           soap.past_history if soap else None,
+                "investigations_findings":soap.investigations_findings if soap else None,
+                "medications_prescribed": soap.medications_prescribed if soap else None,
+                "discharge_assessment":   soap.discharge_assessment if soap else None,
+                "cautions_followup":      soap.cautions_followup if soap else None,
+                "is_locked":              soap.is_locked if soap else False,
+                "prescriptions":          rxs,
+                "lab_results":            labs,
+            })
+        except Exception:
+            continue
 
-    # Section 3 — External encounters (other clinics — locked by default)
-    external_appts = db.query(Appointment).join(Patient, Appointment.patient_id == Patient.id).filter(
-        Patient.bh_id == p.bh_id,
-        Appointment.clinic_id != current.clinic_id,
-        p.bh_id != None,
-    ).order_by(Appointment.appointment_date.desc()).all() if p.bh_id else []
-
+    # Section 3 — External encounters at OTHER health centres (locked, by HC ID)
     external = []
-    for appt in external_appts:
-        ext_clinic = db.query(Clinic).filter(Clinic.id == appt.clinic_id).first()
-        external.append({
-            "visit_date":   str(appt.appointment_date),
-            "clinic_name":  ext_clinic.name if ext_clinic else "Unknown Clinic",
-            "locked":       True,
-        })
+    if p.bh_id:
+        try:
+            external_appts = db.query(Appointment).join(
+                Patient, Appointment.patient_id == Patient.id
+            ).filter(
+                Patient.bh_id == p.bh_id,
+                Appointment.clinic_id != current.clinic_id,
+            ).order_by(Appointment.appointment_date.desc()).all()
+            for appt in external_appts:
+                ext_clinic = db.query(Clinic).filter(Clinic.id == appt.clinic_id).first()
+                external.append({
+                    "visit_date":   str(appt.appointment_date),
+                    "clinic_name":  ext_clinic.name if ext_clinic else "Unknown Clinic",
+                    "hc_id":        ext_clinic.hc_id if ext_clinic else None,
+                    "locked":       True,
+                })
+        except Exception:
+            external = []
 
     return {
         "demographics": demographics,
