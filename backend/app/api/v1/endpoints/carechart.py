@@ -11,7 +11,7 @@ from datetime import datetime
 import secrets
 from app.models.models import (
     Staff, FormAssignment, AssessmentForm, Patient, Appointment,
-    FormSubmission, iViewFlowsheet, iViewObservation,
+    FormSubmission, iViewFlowsheet, iViewObservation, FormAlert,
 )
 
 router = APIRouter(tags=["carechart"])
@@ -281,6 +281,92 @@ def submit_provider_form_cell(body: dict, db: Session = Depends(get_db), current
         ))
     db.commit()
     return {"id": sub.id, "ok": True}
+
+
+@router.post("/provider/forms/alerts/{alert_id}/acknowledge")
+def acknowledge_form_alert(alert_id: int, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
+    a = db.query(FormAlert).filter(
+        FormAlert.id == alert_id, FormAlert.clinic_id == current.clinic_id,
+    ).first()
+    if not a:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    a.acknowledged_by = current.id
+    a.acknowledged_at = datetime.utcnow()
+    db.commit()
+    return {"ok": True}
+
+
+def _load_submission(submission_id: int, clinic_id: int, db: Session):
+    sub = db.query(FormSubmission).filter(
+        FormSubmission.id == submission_id, FormSubmission.clinic_id == clinic_id,
+    ).first()
+    if not sub:
+        raise HTTPException(status_code=404, detail="Submission not found")
+    form = db.query(AssessmentForm).filter(AssessmentForm.id == sub.form_id).first()
+    return sub, form
+
+
+@router.get("/provider/forms/submissions/{submission_id}/pdf-data")
+def submission_pdf_data(submission_id: int, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
+    sub, form = _load_submission(submission_id, current.clinic_id, db)
+    data = sub.data or {}
+    schema = (form.schema if form else {}) or {}
+    sections = []
+    for sec in schema.get("sections", []):
+        fields = [{"label": f.get("label", f.get("id")), "value": data.get(f.get("id"))}
+                  for f in sec.get("fields", [])]
+        sections.append({"title": sec.get("title", ""), "fields": fields})
+    if not sections and data:
+        sections = [{"title": "Responses", "fields": [{"label": k, "value": v} for k, v in data.items()]}]
+    if isinstance(sub.scores, dict):
+        scores = [{"name": k, "value": v} for k, v in sub.scores.items()]
+    elif isinstance(sub.scores, list):
+        scores = sub.scores
+    else:
+        scores = []
+    alerts = [{"field_label": al.field_label, "field_id": al.field_id, "message": al.message}
+              for al in db.query(FormAlert).filter(FormAlert.submission_id == submission_id).all()]
+    return {
+        "form_title": form.title if form else None,
+        "category": form.category if form else None,
+        "patient_id": sub.patient_id,
+        "submitted_at": str(sub.submitted_at) if sub.submitted_at else None,
+        "submitted_by": sub.submitted_by,
+        "sections": sections,
+        "scores": scores,
+        "alerts": alerts,
+    }
+
+
+@router.get("/provider/forms/submissions/{submission_id}/fhir")
+def submission_fhir(submission_id: int, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
+    sub, form = _load_submission(submission_id, current.clinic_id, db)
+    return {
+        "resourceType": "QuestionnaireResponse",
+        "id": str(sub.id),
+        "status": "completed",
+        "questionnaire": f"AssessmentForm/{sub.form_id}",
+        "subject": {"reference": f"Patient/{sub.patient_id}"},
+        "authored": str(sub.submitted_at) if sub.submitted_at else None,
+        "item": [{"linkId": k, "answer": [{"valueString": str(v)}]} for k, v in (sub.data or {}).items()],
+    }
+
+
+@router.get("/provider/forms/submissions/{submission_id}/abdm")
+def submission_abdm(submission_id: int, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
+    sub, form = _load_submission(submission_id, current.clinic_id, db)
+    return {
+        "resourceType": "Bundle",
+        "type": "document",
+        "meta": {"profile": ["https://nrces.in/ndhm/fhir/r4/StructureDefinition/DocumentBundle"]},
+        "entry": [{"resource": {
+            "resourceType": "QuestionnaireResponse",
+            "id": str(sub.id),
+            "status": "completed",
+            "subject": {"reference": f"Patient/{sub.patient_id}"},
+            "item": [{"linkId": k, "answer": [{"valueString": str(v)}]} for k, v in (sub.data or {}).items()],
+        }}],
+    }
 
 
 @router.get("/provider/forms/submissions")
