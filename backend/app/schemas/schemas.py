@@ -193,7 +193,10 @@ class DoctorScheduleCreate(BaseModel):
 
 class PatientCreate(BaseModel):
     full_name: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     mobile: Optional[str] = None
+    whatsapp: Optional[str] = None
     date_of_birth: Optional[date] = None
     gender: Optional[str] = None
     email: Optional[EmailStr] = None
@@ -205,7 +208,22 @@ class PatientCreate(BaseModel):
     allergies: Optional[str] = None
     emergency_contact_name: Optional[str] = None
     emergency_contact_phone: Optional[str] = None
+    emergency_contact_relationship: Optional[str] = None
     abha_id: Optional[str] = None
+    # Extended demographics (all optional — collected by the full registration form)
+    guardian_name: Optional[str] = None
+    guardian_mobile: Optional[str] = None
+    guardian_relationship: Optional[str] = None
+    marital_status: Optional[str] = None
+    occupation: Optional[str] = None
+    nationality: Optional[str] = None
+    religion: Optional[str] = None
+    preferred_language: Optional[str] = None
+    insurance_type: Optional[str] = None
+    insurance_provider: Optional[str] = None
+    insurance_policy_number: Optional[str] = None
+    govt_scheme_name: Optional[str] = None
+    govt_beneficiary_id: Optional[str] = None
 
 
 class PatientUpdate(BaseModel):

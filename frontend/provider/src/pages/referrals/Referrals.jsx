@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import api from '../../api/client'
-import { patientsApi, appointmentsApi } from '../../api'
+import { patientsApi, appointmentsApi, doctorApi } from '../../api'
 import { cachedFetch, cacheInvalidate, TTL } from '../../utils/cache'
 import { PageLoader } from '../../components/ui/Spinner'
 import {
@@ -47,7 +47,7 @@ function printReferral(r, form) {
   <div class="grid2">
     <div class="section"><div class="label">Patient</div><div class="value">${data.patient_name || '—'}</div></div>
     <div class="section"><div class="label">Urgency</div><div class="value urgency-${data.urgency}">${(data.urgency || 'Routine').toUpperCase()}</div></div>
-    <div class="section"><div class="label">Referred To</div><div class="value">${data.to_clinic_name || '—'}</div></div>
+    <div class="section"><div class="label">Referred To</div><div class="value">${data.to_clinic_name || '—'}${data.to_hc_id ? ` (HC ${data.to_hc_id})` : ''}</div></div>
     <div class="section"><div class="label">Specialty</div><div class="value">${data.specialty || '—'}</div></div>
     ${data.referred_doctor ? `<div class="section"><div class="label">Attention: Doctor</div><div class="value">${data.referred_doctor}</div></div>` : ''}
   </div>
@@ -61,11 +61,49 @@ function printReferral(r, form) {
   win.document.close()
 }
 
+// Build clinical-summary / medications / investigations text from chart visits.
+function buildChartSummaries(visits) {
+  const list = Array.isArray(visits) ? visits : []
+  const latest = list[0]
+
+  const soapParts = []
+  if (latest?.soap) {
+    const s = latest.soap
+    if (s.subjective) soapParts.push(`S: ${s.subjective}`)
+    if (s.objective)  soapParts.push(`O: ${s.objective}`)
+    if (s.assessment) soapParts.push(`A: ${s.assessment}`)
+    if (s.plan)       soapParts.push(`P: ${s.plan}`)
+  }
+  if (!soapParts.length && latest?.reason) soapParts.push(latest.reason)
+  const clinical = soapParts.join('\n')
+
+  // Medications: most-recent visit = currently active; older = past/stopped
+  const medLines = []
+  list.forEach((v, vi) => {
+    (v.prescriptions || []).flatMap(p => p.items || []).forEach(m => {
+      const line = [m.medicine_name, m.dosage, m.frequency, m.duration].filter(Boolean).join(' ')
+      if (line) medLines.push(vi === 0 ? `• [Active] ${line}` : `• [Past] ${line} (${v.date})`)
+    })
+  })
+  const medications = [...new Set(medLines)].join('\n')
+
+  // Investigations: recent labs + the latest interpretation (assessment)
+  const invLines = []
+  list.forEach(v => {
+    (v.lab_orders || []).flatMap(lo => lo.items || []).forEach(it => {
+      invLines.push(`• ${it.test_name}${it.result_value ? `: ${it.result_value}` : ''}${it.is_abnormal ? ' (abnormal)' : ''} — ${v.date}`)
+    })
+  })
+  let investigations = [...new Set(invLines)].join('\n')
+  if (latest?.soap?.assessment) investigations += `${investigations ? '\n\n' : ''}Interpretation: ${latest.soap.assessment}`
+  return { clinical, medications, investigations }
+}
+
 // ── New Referral Modal ────────────────────────────────────────────────────────
 function NewReferralModal({ onClose, onCreated }) {
   const [form, setForm] = useState({
     patient_id: '', reason: '', urgency: 'routine',
-    clinical_notes: '', to_clinic_name: '',
+    clinical_notes: '', to_clinic_name: '', to_clinic_id: '', to_hc_id: '', registered: false,
     specialty: '', referred_doctor: '',
     current_medications: '', relevant_investigations: '',
   })
@@ -74,13 +112,14 @@ function NewReferralModal({ onClose, onCreated }) {
   const [selectedPatient, setSelectedPatient] = useState(null)
   const [orgSearch, setOrgSearch] = useState('')
   const [orgResults, setOrgResults] = useState([])
+  const [chart, setChart] = useState(null)       // cached chart summaries
   const [saving, setSaving] = useState(false)
   const [copying, setCopying] = useState(false)
   const [err, setErr] = useState('')
   const ptRef = useRef(null)
   const orgRef = useRef(null)
 
-  // Patient suggestions
+  // Patient suggestions — scoped to THIS clinic via /patients
   useEffect(() => {
     if (ptSearch.length < 2) { setPatients([]); return }
     const t = setTimeout(() =>
@@ -92,12 +131,12 @@ function NewReferralModal({ onClose, onCreated }) {
     return () => clearTimeout(t)
   }, [ptSearch])
 
-  // Org search from registered clinics
+  // Org search — registered Bharath Health network clinics (returns id + hc_id)
   useEffect(() => {
     if (orgSearch.length < 2) { setOrgResults([]); return }
     const t = setTimeout(() =>
-      api.get(`/public/clinics/search?q=${encodeURIComponent(orgSearch)}&limit=8`)
-        .then(r => setOrgResults(r.data?.clinics || r.data || []))
+      api.get(`/referrals/network/clinics?q=${encodeURIComponent(orgSearch)}`)
+        .then(r => setOrgResults(Array.isArray(r) ? r : (r?.clinics || [])))
         .catch(() => setOrgResults([])),
       300
     )
@@ -114,40 +153,67 @@ function NewReferralModal({ onClose, onCreated }) {
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
+  // Fetch + cache chart summaries for the selected patient
+  const ensureChart = async () => {
+    if (chart) return chart
+    const visits = await doctorApi.getPatientVisits(form.patient_id, 20)
+    const built = buildChartSummaries(visits)
+    setChart(built)
+    return built
+  }
+
   const copyFromChart = async () => {
     if (!form.patient_id) return
     setCopying(true)
     try {
-      const res = await api.get(`/patients/${form.patient_id}/chart-summary`)
-      const data = res.data || {}
+      const c = await ensureChart()
       setForm(f => ({
         ...f,
-        clinical_notes: data.clinical_summary || data.soap_summary || f.clinical_notes,
-        current_medications: data.medications || f.current_medications,
-        relevant_investigations: data.investigations || f.relevant_investigations,
+        clinical_notes: c.clinical || f.clinical_notes,
+        current_medications: c.medications || f.current_medications,
+        relevant_investigations: c.investigations || f.relevant_investigations,
       }))
-    } catch {
-      // If endpoint doesn't exist, try fetching latest encounter
-      try {
-        const enc = await api.get(`/patients/${form.patient_id}/encounters?limit=1`)
-        const latest = (enc.data?.encounters || enc.data || [])[0]
-        if (latest) {
-          setForm(f => ({
-            ...f,
-            clinical_notes: [latest.subjective, latest.assessment].filter(Boolean).join('\n\n') || f.clinical_notes,
-            current_medications: latest.prescriptions?.map(p => `${p.drug_name} ${p.dosage || ''}`.trim()).join('\n') || f.current_medications,
-          }))
-        }
-      } catch { /* ignore */ }
-    } finally {
-      setCopying(false)
-    }
+    } catch { setErr('Could not read the patient chart.') }
+    finally { setCopying(false) }
+  }
+
+  const copyField = async (key) => {
+    if (!form.patient_id) return
+    try {
+      const c = await ensureChart()
+      if (key === 'medications') setForm(f => ({ ...f, current_medications: c.medications || f.current_medications }))
+      if (key === 'investigations') setForm(f => ({ ...f, relevant_investigations: c.investigations || f.relevant_investigations }))
+      if (key === 'clinical') setForm(f => ({ ...f, clinical_notes: c.clinical || f.clinical_notes }))
+    } catch { setErr('Could not read the patient chart.') }
+  }
+
+  const selectOrg = (c) => {
+    setForm(f => ({
+      ...f,
+      to_clinic_name: c.name, to_clinic_id: c.id || '', to_hc_id: c.hc_id || '',
+      registered: true,
+      specialty: f.specialty || c.specialty || '',
+    }))
+    setOrgSearch(c.name)
+    setOrgResults([])
   }
 
   const submit = async e => {
     e.preventDefault(); setSaving(true); setErr('')
     try {
-      await api.post('/inpatient/referrals', form)
+      await api.post('/referrals/', {
+        patient_id: form.patient_id,
+        reason: form.reason,
+        urgency: form.urgency,
+        clinical_notes: form.clinical_notes,
+        current_medications: form.current_medications,
+        relevant_investigations: form.relevant_investigations,
+        to_clinic_id: form.to_clinic_id || undefined,
+        to_hc_id: form.to_hc_id || undefined,
+        to_clinic_name: form.to_clinic_name || undefined,
+        to_specialty: form.specialty || undefined,
+        to_doctor_name: form.referred_doctor || undefined,
+      })
       onCreated()
     } catch (ex) { setErr(ex.response?.data?.detail || ex.message || 'Failed to create referral') }
     finally { setSaving(false) }
@@ -182,7 +248,7 @@ function NewReferralModal({ onClose, onCreated }) {
                 className="input pl-9"
                 placeholder="Search patient by name or mobile…"
                 value={ptSearch}
-                onChange={e => { setPtSearch(e.target.value); if (!e.target.value) { setForm(f => ({ ...f, patient_id: '' })); setSelectedPatient(null) } }}
+                onChange={e => { setPtSearch(e.target.value); if (!e.target.value) { setForm(f => ({ ...f, patient_id: '' })); setSelectedPatient(null); setChart(null) } }}
               />
             </div>
             {patients.length > 0 && (
@@ -193,19 +259,20 @@ function NewReferralModal({ onClose, onCreated }) {
                       setForm(f => ({ ...f, patient_id: p.id }))
                       setPtSearch(p.full_name)
                       setSelectedPatient(p)
+                      setChart(null)
                       setPatients([])
                     }}
                     className="w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 border-b last:border-0 flex justify-between"
                   >
                     <span className="font-medium">{p.full_name}</span>
-                    <span className="text-gray-400 text-xs">{p.mobile || p.phone || ''}</span>
+                    <span className="text-gray-400 text-xs">{p.mobile || p.phone || ''}{p.bh_id ? ` · BH ${p.bh_id}` : ''}</span>
                   </button>
                 ))}
               </div>
             )}
             {form.patient_id && (
               <div className="flex items-center justify-between mt-1.5">
-                <p className="text-xs text-green-600">Patient selected</p>
+                <p className="text-xs text-green-600">Patient selected{selectedPatient?.bh_id ? ` · BH ${selectedPatient.bh_id}` : ''}</p>
                 <button
                   type="button"
                   onClick={copyFromChart}
@@ -213,7 +280,7 @@ function NewReferralModal({ onClose, onCreated }) {
                   className="flex items-center gap-1 text-xs text-[#0F2557] hover:underline font-medium"
                 >
                   <Copy size={11} />
-                  {copying ? 'Copying…' : 'Copy from patient chart'}
+                  {copying ? 'Copying…' : 'Copy all from chart'}
                 </button>
               </div>
             )}
@@ -226,26 +293,31 @@ function NewReferralModal({ onClose, onCreated }) {
               <Building2 size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 className="input pl-9"
-                placeholder="Search registered clinics or type hospital name…"
+                placeholder="Search registered health centres or type a hospital name…"
                 value={orgSearch || form.to_clinic_name}
                 onChange={e => {
                   setOrgSearch(e.target.value)
-                  setForm(f => ({ ...f, to_clinic_name: e.target.value }))
+                  setForm(f => ({ ...f, to_clinic_name: e.target.value, to_clinic_id: '', to_hc_id: '', registered: false }))
                 }}
               />
             </div>
+            {form.to_clinic_name && (
+              form.registered ? (
+                <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                  <CheckCircle size={11} /> On Bharath Health network{form.to_hc_id ? ` · HC ${form.to_hc_id}` : ''} — status will sync to both portals.
+                </p>
+              ) : (
+                <p className="text-xs text-amber-600 mt-1">Not on network — referral letter can be printed and handed over manually.</p>
+              )
+            )}
             {orgResults.length > 0 && (
               <div className="absolute z-20 left-0 right-0 mt-1 border border-gray-200 rounded-xl overflow-hidden shadow-lg bg-white">
                 {orgResults.map(c => (
                   <button key={c.id || c.name} type="button"
-                    onClick={() => {
-                      setForm(f => ({ ...f, to_clinic_name: c.name }))
-                      setOrgSearch(c.name)
-                      setOrgResults([])
-                    }}
+                    onClick={() => selectOrg(c)}
                     className="w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 border-b last:border-0 flex justify-between"
                   >
-                    <span className="font-medium">{c.name}</span>
+                    <span className="font-medium">{c.name}{c.hc_id ? <span className="text-gray-400 font-mono text-xs ml-1.5">{c.hc_id}</span> : null}</span>
                     <span className="text-gray-400 text-xs">{c.city || c.state || ''}</span>
                   </button>
                 ))}
@@ -283,17 +355,38 @@ function NewReferralModal({ onClose, onCreated }) {
 
           {/* Clinical */}
           <div>
-            <label className="label">Clinical Summary</label>
+            <div className="flex items-center justify-between">
+              <label className="label">Clinical Summary</label>
+              {form.patient_id && (
+                <button type="button" onClick={() => copyField('clinical')} className="flex items-center gap-1 text-xs text-[#0F2557] hover:underline">
+                  <Copy size={10} /> Copy from chart
+                </button>
+              )}
+            </div>
             <textarea className="input resize-none" rows={4} value={form.clinical_notes} onChange={e => setForm(f => ({ ...f, clinical_notes: e.target.value }))} placeholder="History, examination findings, diagnosis…" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="label">Current Medications</label>
-              <textarea className="input resize-none" rows={3} value={form.current_medications} onChange={e => setForm(f => ({ ...f, current_medications: e.target.value }))} placeholder="List current medications…" />
+              <div className="flex items-center justify-between">
+                <label className="label">Current Medications</label>
+                {form.patient_id && (
+                  <button type="button" onClick={() => copyField('medications')} className="flex items-center gap-1 text-xs text-[#0F2557] hover:underline">
+                    <Copy size={10} /> Copy
+                  </button>
+                )}
+              </div>
+              <textarea className="input resize-none" rows={3} value={form.current_medications} onChange={e => setForm(f => ({ ...f, current_medications: e.target.value }))} placeholder="Active & stopped medications from this clinic…" />
             </div>
             <div>
-              <label className="label">Relevant Investigations</label>
-              <textarea className="input resize-none" rows={3} value={form.relevant_investigations} onChange={e => setForm(f => ({ ...f, relevant_investigations: e.target.value }))} placeholder="Lab reports, imaging, other…" />
+              <div className="flex items-center justify-between">
+                <label className="label">Relevant Investigations</label>
+                {form.patient_id && (
+                  <button type="button" onClick={() => copyField('investigations')} className="flex items-center gap-1 text-xs text-[#0F2557] hover:underline">
+                    <Copy size={10} /> Copy
+                  </button>
+                )}
+              </div>
+              <textarea className="input resize-none" rows={3} value={form.relevant_investigations} onChange={e => setForm(f => ({ ...f, relevant_investigations: e.target.value }))} placeholder="Recent investigations & interpretation…" />
             </div>
           </div>
 
@@ -373,14 +466,14 @@ function CreateApptModal({ referral, onClose, onCreated }) {
 // ── Referral Row (expandable) ─────────────────────────────────────────────────
 function ReferralRow({ r, isIncoming, onAction }) {
   const [expanded, setExpanded] = useState(false)
-  const [outcomeNotes, setOutcomeNotes] = useState(r.outcome_notes || '')
+  const [outcomeNotes, setOutcomeNotes] = useState(r.response_notes || '')
   const [savingOutcome, setSavingOutcome] = useState(false)
   const [apptModal, setApptModal] = useState(false)
 
   const saveOutcome = async () => {
     setSavingOutcome(true)
     try {
-      await api.put(`/inpatient/referrals/${r.id}`, { outcome_notes: outcomeNotes })
+      await api.put(`/referrals/${r.id}/status`, { status: 'completed', response_notes: outcomeNotes })
     } catch (e) { alert(e.message || 'Save failed') }
     finally { setSavingOutcome(false) }
   }
@@ -390,7 +483,18 @@ function ReferralRow({ r, isIncoming, onAction }) {
       <tr className="tr-hover cursor-pointer" onClick={() => setExpanded(v => !v)}>
         <td className="td font-mono text-xs">{r.referral_code || `REF-${r.id}`}</td>
         <td className="td font-medium">{r.patient_name || '—'}</td>
-        <td className="td text-sm text-gray-500">{isIncoming ? (r.from_clinic_name || 'External') : (r.to_clinic_name || r.specialty || 'External')}</td>
+        <td className="td text-sm text-gray-500">
+          <div className="flex items-center gap-1.5">
+            <span>{isIncoming ? (r.from_clinic_name || 'External') : (r.to_clinic_name || r.specialty || 'External')}</span>
+            {!isIncoming && r.registered && <span className="badge badge-green text-[10px]">Network</span>}
+          </div>
+          {(isIncoming ? r.from_hc_id : r.to_hc_id) && (
+            <div className="text-[10px] text-gray-400 font-mono">HC {isIncoming ? r.from_hc_id : r.to_hc_id}</div>
+          )}
+          {!isIncoming && r.registered && r.patient_arrived && (
+            <div className="text-[10px] text-green-600">✓ Patient arrived — synced</div>
+          )}
+        </td>
         <td className="td text-xs text-gray-600 max-w-xs truncate">{r.reason}</td>
         <td className="td"><span className={`badge ${URGENCY_STYLE[r.urgency] || 'badge-gray'}`}>{r.urgency}</span></td>
         <td className="td"><span className={`badge ${STATUS_STYLE[r.status] || 'badge-gray'}`}>{r.status}</span></td>
@@ -459,7 +563,7 @@ function ReferralRow({ r, isIncoming, onAction }) {
                     </button>
                   </div>
                 ) : (
-                  <p className="text-gray-500 italic">{r.outcome_notes || 'No outcome notes yet'}</p>
+                  <p className="text-gray-500 italic">{r.response_notes || 'No outcome notes yet'}</p>
                 )}
               </div>
             </div>
@@ -496,26 +600,18 @@ export default function Referrals() {
 
   const load = useCallback(async (invalidate = false) => {
     setLoading(true)
+    setErr('')
     try {
       if (invalidate) {
-        await cacheInvalidate('referrals_outgoing')
-        await cacheInvalidate('referrals_incoming')
+        await cacheInvalidate('referrals_sent')
+        await cacheInvalidate('referrals_received')
       }
       await Promise.all([
-        cachedFetch('referrals_outgoing', () => api.get('/inpatient/referrals?direction=outgoing'), r => setOutgoing(Array.isArray(r) ? r : (r?.items || [])), TTL.SHORT),
-        cachedFetch('referrals_incoming', () => api.get('/inpatient/referrals?direction=incoming'), r => setIncoming(Array.isArray(r) ? r : (r?.items || [])), TTL.SHORT),
+        cachedFetch('referrals_sent', () => api.get('/referrals/sent'), r => setOutgoing(Array.isArray(r) ? r : []), TTL.SHORT),
+        cachedFetch('referrals_received', () => api.get('/referrals/received'), r => setIncoming(Array.isArray(r) ? r : []), TTL.SHORT),
       ])
-    } catch {
-      try {
-        const [s, recv] = await Promise.all([
-          api.get('/referrals/sent'),
-          api.get('/referrals/received'),
-        ])
-        setOutgoing(Array.isArray(s) ? s : [])
-        setIncoming(Array.isArray(recv) ? recv : [])
-      } catch (e) {
-        setErr(e.message || 'Could not load referrals')
-      }
+    } catch (e) {
+      setErr(e.message || 'Could not load referrals')
     } finally { setLoading(false) }
   }, [])
 
@@ -524,8 +620,8 @@ export default function Referrals() {
   const handleAction = async (id, action) => {
     if (action === 'refresh') { load(true); return }
     try {
-      if (action === 'accept') await api.put(`/inpatient/referrals/${id}`, { status: 'accepted' })
-      else if (action === 'reject') await api.put(`/inpatient/referrals/${id}`, { status: 'rejected' })
+      if (action === 'accept') await api.put(`/referrals/${id}/status`, { status: 'accepted' })
+      else if (action === 'reject') await api.put(`/referrals/${id}/status`, { status: 'rejected' })
       load(true)
     } catch (e) { alert(e.message || 'Action failed') }
   }

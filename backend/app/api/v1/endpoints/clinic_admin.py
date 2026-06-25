@@ -46,6 +46,113 @@ def require_admin_or_receptionist(current=Depends(get_current_staff)):
     return current
 
 
+# ── Dashboard KPIs ────────────────────────────────────────────────────────────
+
+@router.get("/dashboard-stats")
+def get_dashboard_stats(
+    period: str = "today",
+    db: Session = Depends(get_db),
+    current=Depends(get_current_staff),
+):
+    """Aggregate KPIs for the provider dashboard over a rolling window.
+    period: today | week (last 7 days) | month (last 30 days)."""
+    from datetime import timedelta
+    from sqlalchemy import func
+
+    today = date.today()
+    if period == "week":
+        date_from, span = today - timedelta(days=6), 7
+    elif period == "month":
+        date_from, span = today - timedelta(days=29), 30
+    else:
+        period, date_from, span = "today", today, 1
+    date_to = today
+    cid = current.clinic_id
+
+    appts = db.query(Appointment).filter(
+        Appointment.clinic_id == cid,
+        Appointment.appointment_date >= date_from,
+        Appointment.appointment_date <= date_to,
+    ).all()
+
+    def _count(pred):
+        return sum(1 for a in appts if pred(a))
+
+    by_status = {s: _count(lambda a, s=s: a.status == s)
+                 for s in ['pending', 'confirmed', 'in_progress', 'completed', 'cancelled']}
+    by_mode = {m: _count(lambda a, m=m: (a.mode or 'offline') == m)
+               for m in ['offline', 'online', 'telehealth']}
+    total_appts = len(appts)
+    completed = by_status['completed']
+
+    # New + total patients
+    new_patients = db.query(func.count(Patient.id)).filter(
+        Patient.clinic_id == cid,
+        Patient.created_at >= datetime.combine(date_from, datetime.min.time()),
+    ).scalar() or 0
+    total_patients = db.query(func.count(Patient.id)).filter(
+        Patient.clinic_id == cid,
+        Patient.is_active == True,
+    ).scalar() or 0
+
+    # Revenue in window (invoices created in range)
+    rev = db.query(
+        func.coalesce(func.sum(Invoice.total), 0),
+        func.coalesce(func.sum(Invoice.amount_paid), 0),
+    ).filter(
+        Invoice.clinic_id == cid,
+        Invoice.created_at >= datetime.combine(date_from, datetime.min.time()),
+        Invoice.status != 'cancelled',
+    ).first()
+    billed = float(rev[0]) if rev else 0.0
+    collected = float(rev[1]) if rev else 0.0
+
+    # Pending online bookings awaiting confirmation (always "now", not windowed)
+    pending_online = db.query(func.count(OnlineBooking.id)).filter(
+        OnlineBooking.clinic_id == cid,
+        OnlineBooking.status == 'pending',
+    ).scalar() or 0
+
+    # Daily trend
+    counts_by_date = {}
+    for a in appts:
+        k = str(a.appointment_date)
+        counts_by_date[k] = counts_by_date.get(k, 0) + 1
+    trend = []
+    for i in range(span):
+        d = date_from + timedelta(days=i)
+        trend.append({
+            "date":   str(d),
+            "label":  d.strftime("%a") if span <= 7 else d.strftime("%d"),
+            "count":  counts_by_date.get(str(d), 0),
+            "isToday": d == today,
+        })
+
+    return {
+        "period":          period,
+        "date_from":       str(date_from),
+        "date_to":         str(date_to),
+        "appointments":    total_appts,
+        "completed":       completed,
+        "waiting":         by_status['pending'] + by_status['confirmed'],
+        "in_progress":     by_status['in_progress'],
+        "cancelled":       by_status['cancelled'],
+        "by_status":       by_status,
+        "by_mode":         by_mode,
+        "telehealth":      by_mode['telehealth'],
+        "online":          by_mode['online'],
+        "walk_in":         by_mode['offline'],
+        "new_patients":    int(new_patients),
+        "total_patients":  int(total_patients),
+        "revenue_billed":  billed,
+        "revenue_collected": collected,
+        "revenue_outstanding": round(billed - collected, 2),
+        "pending_online":  int(pending_online),
+        "completion_rate": round((completed / total_appts) * 100) if total_appts else 0,
+        "trend":           trend,
+    }
+
+
 # ── Clinic Profile ────────────────────────────────────────────────────────────
 
 @router.get("/profile")
