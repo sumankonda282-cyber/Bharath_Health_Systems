@@ -405,6 +405,7 @@ def update_form(
         "title", "description", "category", "subcategory", "status",
         "schema", "scoring_config", "alert_rules", "is_template",
         "is_iview_enabled", "iview_config", "icon",
+        "requires_cosign", "time_limit_minutes",
     ]
     for field in updatable:
         if field in payload:
