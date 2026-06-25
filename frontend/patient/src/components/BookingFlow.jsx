@@ -819,7 +819,7 @@ export default function BookingFlow({ doctor, context = 'public', apiClient, pre
     setSubmitting(true); setSubmitError('')
     try {
       const payload = {
-        clinic_id: doctor.clinic?.id,
+        clinic_id: doctor.clinic?.id ?? doctor.clinic_id,
         branch_id: doctor.branch_id || doctor.clinic?.default_branch_id || null,
         doctor_id: doctor.id,
         first_name: patientData.first_name.trim(),
