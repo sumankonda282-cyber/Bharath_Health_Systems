@@ -27,6 +27,7 @@ export const clinicApi = {
   getDoctors:      () => api.get('/clinic/doctors'),
   getSubscription: () => api.get('/clinic/subscription'),
   getRevenue:      (month) => api.get('/clinic/revenue', { params: { month } }),
+  getDashboardStats: (period) => api.get('/clinic/dashboard-stats', { params: { period } }),
   getOnlineBookings: (status) => api.get('/appointments/online-bookings', { params: status ? { status } : {} }),
   updateBooking:   (id, data) => api.put(`/appointments/online-bookings/${id}`, data),
   setSchedule:       (doctorId, data) => api.post(`/clinic/doctors/${doctorId}/schedule`, data),
