@@ -137,7 +137,7 @@ function AssignmentCard({ assignment, worklist, onFill }) {
           ) : null}
           {!isCompleted && (
             <button
-              onClick={() => navigate(`/forms/fill/${assignment.id}`)}
+              onClick={() => navigate(`/forms/fill/${assignment.form_id}${assignment.patient_id ? `?patient_id=${assignment.patient_id}` : ''}`)}
               className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#F5821E] text-white text-xs font-semibold hover:bg-orange-600 transition"
             >
               Fill Form
@@ -178,14 +178,14 @@ function FormLibrary({ patientId }) {
 
   useEffect(() => {
     api.get('/assessment-forms/', { params: { status: 'published', limit: 1000 } })
-      .then(r => setPool(r.data?.forms || []))
+      .then(r => setPool(r?.forms || []))
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
 
   useEffect(() => {
     api.get('/assessment-forms/favorites')
-      .then(r => { setFavPersonal(r.data?.personal || []); setFavOrg(r.data?.organization || []) })
+      .then(r => { setFavPersonal(r?.personal || []); setFavOrg(r?.organization || []) })
       .catch(() => {})
   }, [])
 
@@ -408,7 +408,7 @@ export default function FormTaskList() {
       setAssignments(Array.isArray(res) ? res : (res?.assignments || []))
       setLastRefresh(new Date())
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to load assignments')
+      setError(err?.message || 'Failed to load assignments')
     } finally {
       setLoading(false)
     }
