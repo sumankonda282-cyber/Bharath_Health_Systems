@@ -713,9 +713,17 @@ class PatientReferral(Base):
     appointment_id = Column(Integer, ForeignKey("appointments.id"), nullable=True)
     to_clinic_id   = Column(Integer, ForeignKey("clinics.id"), nullable=True)
     to_doctor_id   = Column(Integer, ForeignKey("doctor_profiles.id"), nullable=True)
+    # Free-text target when the organisation is NOT on the Bharath Health network
+    to_clinic_name = Column(String(255), nullable=True)
+    to_hc_id       = Column(String(20), nullable=True)   # target health-centre HC ID (if registered)
+    to_specialty   = Column(String(150), nullable=True)
+    to_doctor_name = Column(String(200), nullable=True)  # free-text attending doctor name
     reason         = Column(Text, nullable=True)
     urgency        = Column(String(50), nullable=True)
     clinical_notes = Column(Text, nullable=True)
+    current_medications     = Column(Text, nullable=True)
+    relevant_investigations = Column(Text, nullable=True)
+    patient_bh_id  = Column(String(50), nullable=True)   # snapshot for cross-org arrival match
     status         = Column(String(50), default="pending")
     referral_code  = Column(String(50), nullable=True)
     response_notes = Column(Text, nullable=True)
