@@ -1049,6 +1049,44 @@ def get_all_prescriptions(
 imaging_router = APIRouter(prefix="/imaging", tags=["imaging"])
 
 
+def _imaging_order_out(o, patient, doctor, hc_id):
+    """Full imaging-order projection incl. the radiologist's result (findings,
+    impression, key images). Additive — older fields are preserved."""
+    res = getattr(o, "result", None)
+    images = []
+    if res and res.key_image_paths:
+        images = res.key_image_paths if isinstance(res.key_image_paths, list) else [res.key_image_paths]
+    return {
+        "id":                o.id,
+        "order_no":          o.order_id,
+        "patient_id":        o.patient_id,
+        "patient_name":      patient.full_name if patient else "Unknown",
+        "patient_uhid":      patient.uhid if patient else None,
+        "patient_mrn":       (patient.clinic_patient_id or patient.uhid or patient.bh_id) if patient else None,
+        "patient_age":       _patient_age(patient.date_of_birth) if patient else None,
+        "patient_gender":    patient.gender if patient else None,
+        "patient_mobile":    patient.mobile if patient else None,
+        "doctor_name":       doctor.full_name if doctor else None,
+        "ordered_by":        doctor.full_name if doctor else None,
+        "hc_id":             hc_id,
+        "modality":          o.modality,
+        "body_part":         o.body_part,
+        "study_description": o.study_description,
+        "clinical_notes":    o.clinical_notes,
+        "condition":         o.clinical_notes,
+        "priority":          o.priority,
+        "status":            o.status,
+        "created_at":        str(o.created_at),
+        # radiologist result / interpretation
+        "findings":          res.findings if res else None,
+        "impression":        res.impression if res else None,
+        "images":            images,
+        "has_pdf":           bool(res.pdf_b64) if res else False,
+        "result_status":     res.status if res else None,
+        "signed_at":         str(res.signed_at) if res and res.signed_at else None,
+    }
+
+
 @imaging_router.get("/orders")
 def list_imaging_orders(
     status: Optional[str] = None,
@@ -1065,22 +1103,15 @@ def list_imaging_orders(
     if patient_id:
         q = q.filter(ImagingOrder.patient_id == patient_id)
     orders = q.order_by(ImagingOrder.created_at.desc()).offset(skip).limit(limit).all()
+
+    clinic = db.query(Clinic).filter(Clinic.id == current.clinic_id).first()
+    hc_id = clinic.hc_id if clinic else None
+
     result = []
     for o in orders:
         patient = db.query(Pt).filter(Pt.id == o.patient_id).first()
         doctor  = db.query(St).filter(St.id == o.ordered_by).first()
-        result.append({
-            "id":               o.id,
-            "patient_id":       o.patient_id,
-            "patient_name":     patient.full_name if patient else "Unknown",
-            "patient_uhid":     patient.uhid if patient else None,
-            "doctor_name":      doctor.full_name if doctor else None,
-            "modality":         o.modality,
-            "body_part":        o.body_part,
-            "clinical_notes":   o.clinical_notes,
-            "status":           o.status,
-            "created_at":       str(o.created_at),
-        })
+        result.append(_imaging_order_out(o, patient, doctor, hc_id))
     return result
 
 
@@ -1122,7 +1153,7 @@ def update_imaging_order(
     db: Session = Depends(get_db),
     current: Staff = Depends(get_current_staff),
 ):
-    from app.models.models import ImagingOrder
+    from app.models.models import ImagingOrder, ImagingResult
     order = db.query(ImagingOrder).filter(
         ImagingOrder.id == order_id,
         ImagingOrder.clinic_id == current.clinic_id,
@@ -1132,6 +1163,33 @@ def update_imaging_order(
     for field in ["status", "body_part", "modality", "clinical_notes"]:
         if field in body:
             setattr(order, field, body[field])
+
+    # Persist the radiologist's interpretation onto the ImagingResult row.
+    # ("report" is the provider's legacy single-field name → findings.)
+    findings   = body.get("findings")
+    impression = body.get("impression")
+    report     = body.get("report")
+    images     = body.get("images", body.get("key_image_paths"))
+    if any(v is not None for v in (findings, impression, report, images)):
+        res = db.query(ImagingResult).filter(ImagingResult.order_id == order.id).first()
+        if not res:
+            res = ImagingResult(order_id=order.id, source="manual", status="pending_review")
+            db.add(res)
+        if findings is not None:
+            res.findings = findings
+        elif report is not None:
+            res.findings = report
+        if impression is not None:
+            res.impression = impression
+        if images is not None:
+            res.key_image_paths = images if isinstance(images, list) else [images]
+        if not res.modality:
+            res.modality = order.modality
+        if body.get("status") in ("completed", "signed"):
+            res.status = "signed"
+            res.signed_by = current.id
+            res.signed_at = datetime.utcnow()
+
     db.commit()
     return {"message": "Updated successfully"}
 
@@ -1151,17 +1209,8 @@ def get_imaging_order(
         raise HTTPException(404, "Order not found")
     patient = db.query(Pt).filter(Pt.id == order.patient_id).first()
     doctor  = db.query(St).filter(St.id == order.ordered_by).first()
-    return {
-        "id":             order.id,
-        "patient_id":     order.patient_id,
-        "patient_name":   patient.full_name if patient else None,
-        "doctor_name":    doctor.full_name if doctor else None,
-        "modality":       order.modality,
-        "body_part":      order.body_part,
-        "clinical_notes": order.clinical_notes,
-        "status":         order.status,
-        "created_at":     str(order.created_at),
-    }
+    clinic  = db.query(Clinic).filter(Clinic.id == current.clinic_id).first()
+    return _imaging_order_out(order, patient, doctor, clinic.hc_id if clinic else None)
 
 
 # ══════════════════════════════════════════════════════════════
