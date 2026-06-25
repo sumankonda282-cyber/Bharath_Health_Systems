@@ -39,6 +39,36 @@ def _auto_expire(db):
     db.commit()
 
 
+def _sync_arrivals(db):
+    """Cross-org sync: if a referred patient (matched by BH-ID) has booked an
+    appointment at the registered target health centre after the referral was
+    created, auto-advance the referral to 'completed' so the status reflects in
+    BOTH the sending and receiving doctors' portals."""
+    try:
+        pending = db.query(PatientReferral).filter(
+            PatientReferral.status.in_(['pending', 'accepted']),
+            PatientReferral.to_clinic_id.isnot(None),
+            PatientReferral.patient_bh_id.isnot(None),
+        ).all()
+        changed = False
+        for r in pending:
+            arrived = db.query(Appointment).join(
+                Patient, Appointment.patient_id == Patient.id
+            ).filter(
+                Patient.bh_id == r.patient_bh_id,
+                Appointment.clinic_id == r.to_clinic_id,
+                Appointment.created_at >= r.created_at,
+            ).first()
+            if arrived:
+                r.status = 'completed'
+                r.completed_at = datetime.utcnow()
+                changed = True
+        if changed:
+            db.commit()
+    except Exception:
+        db.rollback()
+
+
 @router.post("/")
 def create_referral(body: dict, db: Session = Depends(get_db), staff: Staff = Depends(get_current_staff)):
     """Doctor creates a referral. to_clinic_id is optional (can refer to external clinics by name)."""
@@ -50,12 +80,26 @@ def create_referral(body: dict, db: Session = Depends(get_db), staff: Staff = De
         raise HTTPException(404, "Patient not found")
 
     from_doctor = db.query(DoctorProfile).filter(DoctorProfile.staff_id == staff.id).first()
-    # Allow clinic_admin to create referrals too
+
+    # Resolve the target organisation. It may be given as a network clinic id,
+    # an HC ID (registered health centre), or only a free-text name (off-network).
     to_clinic_id = body.get("to_clinic_id")
+    to_hc_id     = (body.get("to_hc_id") or "").strip() or None
+    to_clinic    = None
     if to_clinic_id:
         to_clinic = db.query(Clinic).filter(Clinic.id == to_clinic_id, Clinic.is_active == True).first()
         if not to_clinic:
-            raise HTTPException(404, "Target clinic not found on BHarath Health network")
+            raise HTTPException(404, "Target clinic not found on Bharath Health network")
+    elif to_hc_id:
+        to_clinic = db.query(Clinic).filter(Clinic.hc_id == to_hc_id, Clinic.is_active == True).first()
+        if to_clinic:
+            to_clinic_id = to_clinic.id
+
+    if to_clinic:
+        to_hc_id = to_clinic.hc_id
+        to_clinic_name = to_clinic.name
+    else:
+        to_clinic_name = (body.get("to_clinic_name") or "").strip() or None
 
     referral = PatientReferral(
         from_clinic_id = staff.clinic_id,
@@ -64,9 +108,16 @@ def create_referral(body: dict, db: Session = Depends(get_db), staff: Staff = De
         appointment_id = body.get("appointment_id"),
         to_clinic_id   = to_clinic_id,
         to_doctor_id   = body.get("to_doctor_id"),
+        to_clinic_name = to_clinic_name,
+        to_hc_id       = to_hc_id,
+        to_specialty   = (body.get("to_specialty") or body.get("specialty") or "").strip() or None,
+        to_doctor_name = (body.get("to_doctor_name") or body.get("referred_doctor") or "").strip() or None,
         reason         = body.get("reason", ""),
         urgency        = body.get("urgency", "routine"),
         clinical_notes = body.get("clinical_notes"),
+        current_medications     = body.get("current_medications"),
+        relevant_investigations = body.get("relevant_investigations"),
+        patient_bh_id  = patient.bh_id,
         referral_code  = gen_referral_code(db),
     )
     db.add(referral)
@@ -85,6 +136,7 @@ def get_sent_referrals(
 ):
     """Referrals sent BY this doctor."""
     _auto_expire(db)
+    _sync_arrivals(db)
     from_doctor = db.query(DoctorProfile).filter(DoctorProfile.staff_id == staff.id).first()
     if not from_doctor:
         return []
@@ -116,6 +168,7 @@ def get_received_referrals(
 ):
     """Referrals received BY this clinic."""
     _auto_expire(db)
+    _sync_arrivals(db)
     q = db.query(PatientReferral).filter(PatientReferral.to_clinic_id == staff.clinic_id)
     if status:
         q = q.filter(PatientReferral.status == status)
@@ -267,6 +320,35 @@ def get_referred_patient_records(
     }
 
 
+@router.put("/{referral_id}/status")
+def set_referral_status(
+    referral_id: int,
+    body: dict = {},
+    db: Session = Depends(get_db),
+    staff: Staff = Depends(get_current_staff),
+):
+    """Update a referral's status (accepted | rejected | cancelled | completed).
+    Either the sending or receiving clinic may act on it."""
+    new_status = (body.get("status") or "").strip()
+    allowed = {"accepted", "rejected", "cancelled", "completed", "pending"}
+    if new_status not in allowed:
+        raise HTTPException(400, f"Invalid status. Allowed: {', '.join(sorted(allowed))}")
+    r = db.query(PatientReferral).filter(PatientReferral.id == referral_id).first()
+    if not r:
+        raise HTTPException(404, "Referral not found")
+    if r.from_clinic_id != staff.clinic_id and r.to_clinic_id != staff.clinic_id:
+        raise HTTPException(403, "Access denied")
+    r.status = new_status
+    if body.get("response_notes") is not None:
+        r.response_notes = body.get("response_notes")
+    if new_status in ("accepted", "rejected"):
+        r.responded_at = datetime.utcnow()
+    if new_status == "completed":
+        r.completed_at = datetime.utcnow()
+    db.commit()
+    return _format(r, db)
+
+
 @router.put("/{referral_id}/complete")
 def complete_referral(
     referral_id: int,
@@ -312,16 +394,19 @@ def list_network_clinics(
         )).all()
         result.append({
             "id":       c.id,
+            "hc_id":    c.hc_id,
             "name":     c.name,
             "specialty": c.specialty,
             "city":     c.city,
             "state":    c.state,
+            "registered": True,
             "doctors":  [{"id": d.id, "name": d.staff.full_name if d.staff else "Dr.", "specialty": d.specialty} for d in doctors],
         })
     return result
 
 
 def _format(r: PatientReferral, db=None):
+    to_org = (r.to_clinic.name if r.to_clinic else None) or r.to_clinic_name
     return {
         "id":             r.id,
         "referral_code":  r.referral_code,
@@ -329,17 +414,30 @@ def _format(r: PatientReferral, db=None):
         "urgency":        r.urgency,
         "reason":         r.reason,
         "clinical_notes": r.clinical_notes,
+        "current_medications":     r.current_medications,
+        "relevant_investigations": r.relevant_investigations,
         "response_notes": r.response_notes,
         "from_clinic_id": r.from_clinic_id,
         "to_clinic_id":   r.to_clinic_id,
         "from_clinic":    r.from_clinic.name if r.from_clinic else None,
-        "to_clinic":      r.to_clinic.name if r.to_clinic else None,
+        "from_clinic_name": r.from_clinic.name if r.from_clinic else None,
+        "to_clinic":      to_org,
+        "to_clinic_name": to_org,
+        "to_hc_id":       r.to_hc_id or (r.to_clinic.hc_id if r.to_clinic else None),
+        "from_hc_id":     r.from_clinic.hc_id if r.from_clinic else None,
+        "registered":     bool(r.to_clinic_id),       # target is on the network
+        "specialty":      r.to_specialty,
+        "to_specialty":   r.to_specialty,
+        "referred_doctor": r.to_doctor_name,
+        "to_doctor_name": r.to_doctor_name,
         "patient_id":     r.patient_id,
         "patient_name":   r.patient.full_name if r.patient else None,
         "patient_uhid":   r.patient.uhid if r.patient else None,
+        "patient_bh_id":  r.patient_bh_id or (r.patient.bh_id if r.patient else None),
         "from_doctor":    r.from_doctor.staff.full_name if r.from_doctor and r.from_doctor.staff else None,
         "to_doctor":      r.to_doctor.staff.full_name if r.to_doctor and r.to_doctor.staff else None,
         "to_doctor_id":   r.to_doctor_id,
+        "patient_arrived": r.status in ('completed', 'accepted'),
         "created_at":     str(r.created_at),
         "completed_at":   str(r.completed_at) if r.completed_at else None,
         "expires_at":     str(r.created_at + timedelta(days=EXPIRY_DAYS)) if r.created_at else None,

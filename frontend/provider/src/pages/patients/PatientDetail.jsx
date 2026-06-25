@@ -6,8 +6,15 @@ import { PageLoader } from '../../components/ui/Spinner'
 import {
   ArrowLeft, ChevronDown, ChevronUp, Lock, User,
   Phone, Mail, MapPin, Tag, Plus, X, Edit2, Save,
-  ClipboardList, Send,
+  ClipboardList, Send, AlertTriangle, RefreshCw,
 } from 'lucide-react'
+
+const computeAge = (dob) => {
+  if (!dob) return null
+  const d = new Date(dob)
+  if (isNaN(d.getTime())) return null
+  return Math.max(0, Math.floor((Date.now() - d.getTime()) / (365.25 * 24 * 3600 * 1000)))
+}
 import AllergySearch from '../../components/AllergySearch'
 import QuickAssign from '../forms/QuickAssign'
 import SendPreVisitModal from '../../components/forms/SendPreVisitModal'
@@ -392,27 +399,56 @@ export default function PatientDetail() {
   const navigate = useNavigate()
   const [data, setData]       = useState(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError]     = useState('')
+  const [degraded, setDegraded] = useState(false)
   const [editing, setEditing] = useState(false)
   const [allergiesCoded, setAllergiesCoded] = useState([])
   const [showAssignForm, setShowAssignForm] = useState(false)
   const [showPreVisit, setShowPreVisit] = useState(false)
 
+  const applyAllergies = (d) => {
+    try {
+      const coded = d?.demographics?.allergies_coded
+      if (coded) setAllergiesCoded(typeof coded === 'string' ? JSON.parse(coded) : coded)
+    } catch (_) {}
+  }
+
   const load = () => {
     setLoading(true)
+    setError('')
+    setDegraded(false)
     cachedFetch(
       `patient_clinical_${id}`,
       () => patientsApi.getClinical(id),
-      d => {
-        setData(d)
-        // Parse coded allergies if available
-        try {
-          const coded = d?.demographics?.allergies_coded
-          if (coded) setAllergiesCoded(typeof coded === 'string' ? JSON.parse(coded) : coded)
-        } catch (_) {}
-        setLoading(false)
-      },
+      d => { setData(d); applyAllergies(d); setLoading(false) },
       TTL.SHORT
-    ).catch(() => setLoading(false))
+    ).catch(async (e) => {
+      // Clinical assembly failed — fall back to basic demographics so the page
+      // still shows the patient instead of a blank "not found" (no silent failure).
+      try {
+        const p = await patientsApi.get(id)
+        setData({
+          demographics: {
+            clinic_patient_id: p.clinic_patient_id || p.uhid || `#${p.id}`,
+            bh_id: p.bh_id || null,
+            full_name: p.full_name,
+            date_of_birth: p.date_of_birth,
+            age: computeAge(p.date_of_birth),
+            gender: p.gender, blood_group: p.blood_group, allergies: p.allergies,
+            mobile: p.mobile, email: p.email, address: p.address,
+            city: p.city, state: p.state, pincode: p.pincode,
+            emergency_contact: p.emergency_contact_name, emergency_phone: p.emergency_contact_phone,
+            clinic_id: p.clinic_id,
+          },
+          tags: [], visits: [], external: [],
+        })
+        setDegraded(true)
+        setLoading(false)
+      } catch (e2) {
+        setError(e2?.message || e?.message || 'Could not load patient')
+        setLoading(false)
+      }
+    })
   }
 
   useEffect(() => { load() }, [id])
@@ -427,7 +463,24 @@ export default function PatientDetail() {
   const updateTags = (tags) => setData(d => ({ ...d, tags }))
 
   if (loading) return <PageLoader />
-  if (!data) return <div className="p-8 text-gray-500">Patient not found</div>
+  if (!data) return (
+    <div className="max-w-4xl">
+      <div className="page-header">
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate('/patients')} className="btn-secondary p-2"><ArrowLeft size={16} /></button>
+          <p className="font-semibold text-gray-900">Patient</p>
+        </div>
+      </div>
+      <div className="card p-10 text-center">
+        <AlertTriangle size={36} className="mx-auto mb-3 text-amber-400" />
+        <p className="text-gray-700 font-medium">Couldn't load this patient</p>
+        <p className="text-sm text-gray-400 mt-1">{error || 'Patient not found'}</p>
+        <button onClick={load} className="btn-secondary mt-4 inline-flex items-center gap-1.5">
+          <RefreshCw size={14} /> Retry
+        </button>
+      </div>
+    </div>
+  )
 
   const { demographics: d, tags, visits, external } = data
   const age = d.age != null ? (d.age > 0 ? `${d.age} yrs` : '< 1 yr') : '—'
@@ -455,13 +508,27 @@ export default function PatientDetail() {
         />
       )}
 
+      {degraded && (
+        <div className="card p-3 mb-4 text-sm text-amber-700 bg-amber-50 border border-amber-200 flex items-center gap-2">
+          <AlertTriangle size={16} className="flex-shrink-0" />
+          <span className="flex-1">Showing basic details only — the full visit history couldn't be loaded.</span>
+          <button onClick={load} className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-white border border-amber-200 hover:bg-amber-100 inline-flex items-center gap-1">
+            <RefreshCw size={12} /> Retry
+          </button>
+        </div>
+      )}
+
       {/* Page header */}
       <div className="page-header">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate('/patients')} className="btn-secondary p-2"><ArrowLeft size={16} /></button>
           <div>
             <p className="font-semibold text-gray-900">{d.full_name}</p>
-            <p className="text-sm text-gray-500 font-mono">{d.clinic_patient_id}</p>
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <span className="font-mono">{d.clinic_patient_id}</span>
+              {d.bh_id && <span className="font-mono text-xs text-gray-400">· BH {d.bh_id}</span>}
+              {d.hc_id && <span className="font-mono text-xs text-gray-400">· HC {d.hc_id}</span>}
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-2">

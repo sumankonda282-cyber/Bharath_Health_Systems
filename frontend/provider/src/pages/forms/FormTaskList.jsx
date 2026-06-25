@@ -245,7 +245,7 @@ function FormLibrary({ patientId }) {
             <span className="text-sm font-bold text-[#0F2557]">My Forms</span>
             <span className="text-xs text-gray-400">({favForms.length})</span>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 mb-6">
             {favForms.map(form => (
               <div key={form.id} className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 flex flex-col gap-2">
                 <div className="flex items-start justify-between gap-1">
@@ -321,7 +321,7 @@ function FormLibrary({ patientId }) {
           <p className="text-sm text-gray-400">{search ? `No forms match "${search}"` : 'No forms found in this category.'}</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {filtered.map(form => {
             return (
               <div key={form.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-shadow flex flex-col gap-3">
@@ -434,7 +434,7 @@ export default function FormTaskList() {
   })
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="w-full">
       {patientId && (
         <p className="text-sm text-gray-500 mb-4">
           {patientName ? `Forms for ${patientName}` : `Forms for patient #${patientId}`}
@@ -514,7 +514,7 @@ export default function FormTaskList() {
             ) : filtered.length === 0 ? (
               <EmptyState tab={activeTab} />
             ) : (
-              <div className="flex flex-col gap-3">
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
                 {filtered.map(a => (
                   <AssignmentCard
                     key={a.id}

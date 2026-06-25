@@ -1,10 +1,11 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../api/client'
 import { patientsApi } from '../../api'
 import {
   ArrowLeft, Save, User, Phone, Plus, Trash2,
-  CheckCircle, Lock, Unlock, Smartphone, Search, MapPin
+  CheckCircle, Lock, Unlock, Smartphone, Search, MapPin,
+  ChevronDown, ChevronUp, CreditCard, ClipboardCheck
 } from 'lucide-react'
 
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
@@ -44,7 +45,7 @@ function OtpModal({ mobile, onVerified, onCancel }) {
     }
   }
 
-  useState(() => { sendOtp() }, []) // eslint-disable-line
+  useEffect(() => { sendOtp() }, []) // eslint-disable-line
 
   const verify = async () => {
     if (otp.length < 4) return
@@ -338,12 +339,18 @@ function DobField({ value, onChange }) {
 export default function PatientNew() {
   const navigate = useNavigate()
   const [form, setForm] = useState({
-    full_name: '', mobile: '', email: '', date_of_birth: '', gender: '',
+    full_name: '', mobile: '', whatsapp: '', email: '', date_of_birth: '', gender: '',
     blood_group: '', allergies: '',
-    emergency_contact_name: '', emergency_contact_phone: '', emergency_contact_relation: '',
+    emergency_contact_name: '', emergency_contact_phone: '', emergency_contact_relationship: '',
     bh_id: '', occupation: '', nationality: 'Indian',
+    abha_id: '', marital_status: '', religion: '', preferred_language: '',
+    guardian_name: '', guardian_mobile: '', guardian_relationship: '',
+    insurance_type: '', insurance_provider: '', insurance_policy_number: '',
+    govt_scheme_name: '', govt_beneficiary_id: '',
   })
   const [addresses, setAddresses] = useState([{ label: 'Home', address: '', city: '', state: '', pincode: '' }])
+  const [showMore, setShowMore] = useState(false)
+  const [created, setCreated] = useState(null)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -380,7 +387,7 @@ export default function PatientNew() {
         ...f,
         emergency_contact_name: profile.emergency_contact_name,
         emergency_contact_phone: profile.emergency_contact_phone || '',
-        emergency_contact_relation: profile.emergency_contact_relation || '',
+        emergency_contact_relationship: profile.emergency_contact_relationship || profile.emergency_contact_relation || '',
       }))
     }
   }
@@ -401,7 +408,7 @@ export default function PatientNew() {
     }
     try {
       const res = await patientsApi.create(payload)
-      navigate(`/patients/${res.id}`)
+      setCreated(res)   // show the issued BHID before navigating
     } catch (err) {
       setError(err.message || 'Failed to register patient')
     } finally {
@@ -409,8 +416,52 @@ export default function PatientNew() {
     }
   }
 
+  const resetForm = () => {
+    setForm({
+      full_name: '', mobile: '', whatsapp: '', email: '', date_of_birth: '', gender: '',
+      blood_group: '', allergies: '',
+      emergency_contact_name: '', emergency_contact_phone: '', emergency_contact_relationship: '',
+      bh_id: '', occupation: '', nationality: 'Indian',
+      abha_id: '', marital_status: '', religion: '', preferred_language: '',
+      guardian_name: '', guardian_mobile: '', guardian_relationship: '',
+      insurance_type: '', insurance_provider: '', insurance_policy_number: '',
+      govt_scheme_name: '', govt_beneficiary_id: '',
+    })
+    setAddresses([{ label: 'Home', address: '', city: '', state: '', pincode: '' }])
+    setShowMore(false)
+    setCreated(null)
+    setError('')
+  }
+
   return (
     <div className="max-w-3xl">
+      {/* Success — show the issued BHID */}
+      {created && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 text-center">
+            <div className="w-14 h-14 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-3">
+              <ClipboardCheck size={28} className="text-green-600" />
+            </div>
+            <h3 className="font-bold text-lg text-gray-900">Patient Registered</h3>
+            <p className="text-sm text-gray-500 mt-1">{created.full_name}</p>
+            <div className="mt-4 space-y-2 text-left">
+              <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-center">
+                <div className="text-xs text-green-700 uppercase tracking-wide font-semibold">Bharath Health ID (BHID)</div>
+                <div className="font-mono text-lg font-bold text-green-800">{created.bh_id || '—'}</div>
+              </div>
+              <div className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 flex justify-between text-sm">
+                <span className="text-gray-500">Clinic MRN</span>
+                <span className="font-mono font-semibold text-gray-800">{created.clinic_patient_id || '—'}</span>
+              </div>
+            </div>
+            <div className="flex gap-3 mt-5">
+              <button onClick={resetForm} className="btn-secondary flex-1">Register Another</button>
+              <button onClick={() => navigate(`/patients/${created.id}`)} className="btn-primary flex-1 justify-center">View Patient</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="page-header mb-4">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate('/patients')} className="btn-secondary p-2">
@@ -499,7 +550,7 @@ export default function PatientNew() {
             </div>
             <div>
               <label className="label">Relationship</label>
-              <select className="input" value={form.emergency_contact_relation} onChange={set('emergency_contact_relation')}>
+              <select className="input" value={form.emergency_contact_relationship} onChange={set('emergency_contact_relationship')}>
                 <option value="">Select…</option>
                 <option>Spouse</option>
                 <option>Parent</option>
@@ -511,6 +562,82 @@ export default function PatientNew() {
               </select>
             </div>
           </div>
+        </div>
+
+        {/* Additional Details (collapsible) */}
+        <div className="card p-6">
+          <button type="button" onClick={() => setShowMore(v => !v)}
+            className="w-full flex items-center justify-between">
+            <h2 className="font-semibold text-gray-900 flex items-center gap-2"><CreditCard size={16} />Additional Details
+              <span className="text-xs font-normal text-gray-400">ABHA, guardian, insurance & more (optional)</span>
+            </h2>
+            {showMore ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
+          </button>
+          {showMore && (
+            <div className="mt-4 space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="label">ABHA ID</label>
+                  <input className="input" placeholder="14-digit ABHA / health ID" value={form.abha_id} onChange={set('abha_id')} />
+                </div>
+                <div>
+                  <label className="label">WhatsApp</label>
+                  <input className="input" type="tel" maxLength={10} placeholder="If different from mobile" value={form.whatsapp} onChange={set('whatsapp')} />
+                </div>
+                <div>
+                  <label className="label">Marital Status</label>
+                  <select className="input" value={form.marital_status} onChange={set('marital_status')}>
+                    <option value="">Select…</option>
+                    <option>Single</option><option>Married</option><option>Widowed</option>
+                    <option>Divorced</option><option>Separated</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="label">Religion</label>
+                  <input className="input" placeholder="Optional" value={form.religion} onChange={set('religion')} />
+                </div>
+                <div>
+                  <label className="label">Preferred Language</label>
+                  <input className="input" placeholder="e.g. Telugu, Hindi" value={form.preferred_language} onChange={set('preferred_language')} />
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Guardian (if minor / dependent)</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div><label className="label">Guardian Name</label>
+                    <input className="input" value={form.guardian_name} onChange={set('guardian_name')} /></div>
+                  <div><label className="label">Guardian Mobile</label>
+                    <input className="input" type="tel" maxLength={10} value={form.guardian_mobile} onChange={set('guardian_mobile')} /></div>
+                  <div><label className="label">Relationship</label>
+                    <input className="input" placeholder="e.g. Father" value={form.guardian_relationship} onChange={set('guardian_relationship')} /></div>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Insurance / Scheme</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="label">Insurance Type</label>
+                    <select className="input" value={form.insurance_type} onChange={set('insurance_type')}>
+                      <option value="">None</option>
+                      <option value="private">Private</option>
+                      <option value="government">Government scheme</option>
+                      <option value="corporate">Corporate / TPA</option>
+                    </select>
+                  </div>
+                  <div><label className="label">Provider</label>
+                    <input className="input" placeholder="Insurer / TPA" value={form.insurance_provider} onChange={set('insurance_provider')} /></div>
+                  <div><label className="label">Policy Number</label>
+                    <input className="input" value={form.insurance_policy_number} onChange={set('insurance_policy_number')} /></div>
+                  <div><label className="label">Govt Scheme Name</label>
+                    <input className="input" placeholder="e.g. Aarogyasri, PM-JAY" value={form.govt_scheme_name} onChange={set('govt_scheme_name')} /></div>
+                  <div><label className="label">Beneficiary ID</label>
+                    <input className="input" value={form.govt_beneficiary_id} onChange={set('govt_beneficiary_id')} /></div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {error && (

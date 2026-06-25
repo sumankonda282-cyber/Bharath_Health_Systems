@@ -734,14 +734,20 @@ def get_availability(db: Session = Depends(get_db), current: Staff = Depends(get
     for r in rows:
         day = r.day_of_week.title()   # "monday" → "Monday"
         schedule[day] = {
-            "start_time":          r.start_time,
-            "end_time":            r.end_time,
-            "slot_duration":       r.slot_minutes,
-            "blocked":             False,
-            "online_booking":      False,
-            "online_window_start": r.start_time,
-            "online_window_end":   r.end_time,
-            "breaks":              [],
+            "start_time":              r.start_time,
+            "end_time":                r.end_time,
+            "slot_duration":           r.slot_minutes,
+            "max_patients":            r.max_patients,
+            "blocked":                 False,
+            "online_booking":          (r.online_slots or 0) > 0,
+            "online_window_start":     r.start_time,
+            "online_window_end":       r.end_time,
+            "online_slots":            r.online_slots or 0,
+            "online_auto_confirm":     r.online_auto_confirm or 0,
+            "telehealth_slots":        r.telehealth_slots or 0,
+            "telehealth_auto_confirm": r.telehealth_auto_confirm or 0,
+            "walk_in_slots":           r.walk_in_slots or 0,
+            "breaks":                  [],
         }
 
     # Merge richer data stored in working_hours JSONB
@@ -784,29 +790,54 @@ def save_availability(
 
         is_blocked = day_data.get("blocked", False)
 
+        def _int(v, d=0):
+            try:
+                return int(v)
+            except (TypeError, ValueError):
+                return d
+
         if is_blocked:
             if existing:
                 existing.is_active = False
         else:
             start = day_data.get("start_time", "09:00")
             end   = day_data.get("end_time", "17:00")
-            slot  = int(day_data.get("slot_duration", 15))
+            slot  = _int(day_data.get("slot_duration"), 15)
+            # Slot allocation (read by the public booking flow in public.py)
+            max_p     = _int(day_data.get("max_patients"), 20)
+            online    = _int(day_data.get("online_slots"), 0)
+            online_ac = _int(day_data.get("online_auto_confirm"), 0)
+            tele      = _int(day_data.get("telehealth_slots"), 0)
+            tele_ac   = _int(day_data.get("telehealth_auto_confirm"), 0)
+            walk_in   = _int(day_data.get("walk_in_slots"), max(0, max_p - online - tele))
             if existing:
-                existing.start_time   = start
-                existing.end_time     = end
-                existing.slot_minutes = slot
-                existing.is_active    = True
+                existing.start_time              = start
+                existing.end_time                = end
+                existing.slot_minutes            = slot
+                existing.max_patients            = max_p
+                existing.online_slots            = online
+                existing.online_auto_confirm     = online_ac
+                existing.telehealth_slots        = tele
+                existing.telehealth_auto_confirm = tele_ac
+                existing.walk_in_slots           = walk_in
+                existing.is_active               = True
                 if doctor_branch_id and not existing.branch_id:
                     existing.branch_id = doctor_branch_id
             else:
                 db.add(DoctorSchedule(
-                    doctor_id    = profile.id,
-                    branch_id    = doctor_branch_id,
-                    day_of_week  = day.lower(),
-                    start_time   = start,
-                    end_time     = end,
-                    slot_minutes = slot,
-                    is_active    = True,
+                    doctor_id               = profile.id,
+                    branch_id               = doctor_branch_id,
+                    day_of_week             = day.lower(),
+                    start_time              = start,
+                    end_time                = end,
+                    slot_minutes            = slot,
+                    max_patients            = max_p,
+                    online_slots            = online,
+                    online_auto_confirm     = online_ac,
+                    telehealth_slots        = tele,
+                    telehealth_auto_confirm = tele_ac,
+                    walk_in_slots           = walk_in,
+                    is_active               = True,
                 ))
 
     # Persist full rich schedule + blocked_slots in working_hours JSONB

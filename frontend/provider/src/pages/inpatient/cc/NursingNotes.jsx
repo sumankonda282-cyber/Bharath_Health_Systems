@@ -1,10 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Lock, Search, Filter, ChevronDown, ChevronUp,
+import { Plus, Lock, Search, ChevronDown, ChevronUp,
   FileText, Clock, User, AlertTriangle, CheckCircle2, Loader2, X } from 'lucide-react'
 import api from '../../../api/client'
-import { useWardSession } from './WardSessionContext'
 
-import { GREEN, NAVY } from '@shared/constants/colors'
+import { GREEN } from '@shared/constants/colors'
 
 const NOTE_TYPES = [
   { value: 'general',     label: 'General Note',      color: '#6b7280' },
@@ -15,21 +14,8 @@ const NOTE_TYPES = [
   { value: 'education',   label: 'Patient Education',  color: '#7c3aed' },
 ]
 
-const MOCK_PATIENTS = [
-  { id: 1, name: 'Ravi Kumar',    bed: 'A-101', diagnosis: 'Post-op Hip Replacement' },
-  { id: 2, name: 'Sunita Devi',   bed: 'A-102', diagnosis: 'Gestational Diabetes' },
-  { id: 3, name: 'Mohan Sharma',  bed: 'B-201', diagnosis: 'COPD Exacerbation' },
-  { id: 4, name: 'Priya Nair',    bed: 'B-202', diagnosis: 'Hypertensive Crisis' },
-]
-
-const MOCK_NOTES = [
-  { id: 1, patient_id: 1, patient_name: 'Ravi Kumar', bed: 'A-101', note_type: 'assessment', note: 'Patient alert and oriented x3. Pain score 4/10. Wound site clean, no signs of infection. Ambulated 10m with physio support.', nurse_name: 'Nurse Kavitha', created_at: new Date(Date.now() - 3600000).toISOString(), signed: true },
-  { id: 2, patient_id: 2, patient_name: 'Sunita Devi', bed: 'A-102', note_type: 'intervention', note: 'Blood glucose 210mg/dL at 08:00. Insulin administered as per sliding scale — 6 units regular insulin SC. Repeat check scheduled at 10:00. Dietary counselling given.', nurse_name: 'Nurse Kavitha', created_at: new Date(Date.now() - 7200000).toISOString(), signed: true },
-  { id: 3, patient_id: 3, patient_name: 'Mohan Sharma', bed: 'B-201', note_type: 'general', note: 'SpO2 dropped to 88% at 14:30. O2 via face mask increased to 6L/min. Dr. Patel notified. Patient repositioned. SpO2 recovered to 94% within 10 minutes.', nurse_name: 'Nurse Rekha', created_at: new Date(Date.now() - 10800000).toISOString(), signed: true },
-  { id: 4, patient_id: 4, patient_name: 'Priya Nair', bed: 'B-202', note_type: 'handoff', note: 'BP 168/102 at shift end. Antihypertensive given. Patient anxious, family counselled. No chest pain or visual disturbances. Continue BP monitoring every 2 hours.', nurse_name: 'Nurse Rekha', created_at: new Date(Date.now() - 14400000).toISOString(), signed: false },
-]
-
 function timeSince(iso) {
+  if (!iso) return ''
   const diff = (Date.now() - new Date(iso)) / 60000
   if (diff < 60) return `${Math.floor(diff)}m ago`
   if (diff < 1440) return `${Math.floor(diff / 60)}h ago`
@@ -46,66 +32,64 @@ function NoteTypeBadge({ type }) {
   )
 }
 
-export default function NursingNotes() {
-  const { session } = useWardSession()
+export default function NursingNotes({ admission }) {
+  const admissionId = admission?.id
 
-  const [notes, setNotes]         = useState(MOCK_NOTES)
-  const [patients, setPatients]   = useState(MOCK_PATIENTS)
-  const [loading, setLoading]     = useState(false)
+  const [notes, setNotes]         = useState([])
+  const [loading, setLoading]     = useState(true)
   const [search, setSearch]       = useState('')
   const [filterType, setFilterType] = useState('all')
-  const [filterPatient, setFilterPatient] = useState('all')
   const [expanded, setExpanded]   = useState(null)
   const [addOpen, setAddOpen]     = useState(false)
 
-  // Add note form state
-  const [form, setForm]     = useState({ patient_id: '', note_type: 'general', note: '', priority: 'routine' })
+  // Add note form
+  const [form, setForm]     = useState({ note_type: 'general', note: '' })
   const [pin, setPin]       = useState('')
-  const [pinStep, setPinStep] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveErr, setSaveErr] = useState('')
 
-  useEffect(() => {
-    if (!session) return
+  const load = useCallback(async () => {
+    if (!admissionId) { setLoading(false); return }
     setLoading(true)
-    Promise.all([
-      api.get(`/inpatient/admissions/${session.ward_id || ''}/notes`).catch(() => null),
-      api.get(`/inpatient/admissions`).catch(() => null),
-    ]).then(([notesRes, patientsRes]) => {
-      if (notesRes?.length) setNotes(notesRes)
-      if (patientsRes?.length) setPatients(patientsRes)
-    }).finally(() => setLoading(false))
-  }, [session])
+    try {
+      const res = await api.get(`/inpatient/admissions/${admissionId}/notes`)
+      setNotes(Array.isArray(res) ? res : [])
+    } catch {
+      setNotes([])
+    } finally { setLoading(false) }
+  }, [admissionId])
+
+  useEffect(() => { load() }, [load])
 
   const filtered = notes.filter(n => {
-    const matchSearch = !search || n.patient_name?.toLowerCase().includes(search.toLowerCase()) || n.note?.toLowerCase().includes(search.toLowerCase())
+    const matchSearch = !search || n.note_text?.toLowerCase().includes(search.toLowerCase())
     const matchType   = filterType === 'all' || n.note_type === filterType
-    const matchPat    = filterPatient === 'all' || String(n.patient_id) === filterPatient
-    return matchSearch && matchType && matchPat
+    return matchSearch && matchType
   })
 
   const handleSave = async () => {
-    if (!form.patient_id || !form.note.trim()) { setSaveErr('Select a patient and enter a note.'); return }
-    if (!pin) { setPinStep(true); setSaveErr('Enter your PIN to sign the note.'); return }
+    if (!form.note.trim()) { setSaveErr('Enter a note.'); return }
+    if (!pin) { setSaveErr('Enter your PIN to sign the note.'); return }
     setSaveErr('')
     setSaving(true)
     try {
-      const patient = patients.find(p => String(p.id) === String(form.patient_id))
-      const newNote = {
-        id: Date.now(),
-        patient_id:   form.patient_id,
-        patient_name: patient?.name || '',
-        bed:          patient?.bed || '',
-        note_type:    form.note_type,
-        note:         form.note,
-        nurse_name:   session?.nurse_name || 'Nurse',
-        created_at:   new Date().toISOString(),
-        signed:       true,
+      // PIN re-verifies the signing clinician (sensitive clinical action)
+      try {
+        await api.post('/auth/staff/pin-identify', { pin })
+      } catch {
+        setSaveErr('Invalid PIN')
+        setSaving(false)
+        return
       }
-      await api.post('/inpatient/notes', { admission_id: form.patient_id, ...form }).catch(() => {})
-      setNotes(prev => [newNote, ...prev])
-      setForm({ patient_id: '', note_type: 'general', note: '', priority: 'routine' })
+      await api.post(`/inpatient/admissions/${admissionId}/notes`, {
+        note_text: form.note,
+        note_type: form.note_type,
+        is_handoff: form.note_type === 'handoff',
+      })
+      setForm({ note_type: 'general', note: '' })
+      setPin('')
       setAddOpen(false)
+      await load()
     } catch {
       setSaveErr('Failed to save note.')
     } finally {
@@ -121,8 +105,8 @@ export default function NursingNotes() {
           <h1 className="page-title">Nursing Notes</h1>
           <p className="text-xs text-gray-500 mt-0.5">{filtered.length} notes</p>
         </div>
-        <button onClick={() => setAddOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white"
+        <button onClick={() => setAddOpen(true)} disabled={!admissionId}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
           style={{ background: GREEN }}>
           <Plus size={16} /> Add Note
         </button>
@@ -141,18 +125,15 @@ export default function NursingNotes() {
           <option value="all">All Types</option>
           {NOTE_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
         </select>
-        <select value={filterPatient} onChange={e => setFilterPatient(e.target.value)}
-          className="px-3 py-1.5 rounded-xl border border-gray-200 text-sm focus:outline-none">
-          <option value="all">All Patients</option>
-          {patients.map(p => <option key={p.id} value={String(p.id)}>{p.name} — {p.bed}</option>)}
-        </select>
       </div>
 
       {/* Notes list */}
       {loading ? (
         <div className="flex justify-center py-16"><Loader2 size={24} className="animate-spin text-gray-400" /></div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-16 text-gray-400 text-sm">No notes found</div>
+        <div className="text-center py-16 text-gray-400 text-sm">
+          {notes.length === 0 ? 'No nursing notes recorded yet' : 'No notes match your filters'}
+        </div>
       ) : (
         <div className="space-y-3">
           {filtered.map(note => (
@@ -165,20 +146,23 @@ export default function NursingNotes() {
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold text-sm text-gray-900">{note.patient_name}</span>
-                        <span className="text-xs text-gray-400">Bed {note.bed}</span>
                         <NoteTypeBadge type={note.note_type} />
-                        {note.signed
-                          ? <span className="inline-flex items-center gap-1 text-xs text-green-700 font-medium"><CheckCircle2 size={11} /> Signed</span>
-                          : <span className="inline-flex items-center gap-1 text-xs text-amber-600 font-medium"><AlertTriangle size={11} /> Unsigned</span>}
+                        {note.is_handoff && (
+                          <span className="inline-flex items-center gap-1 text-xs text-amber-600 font-medium">
+                            <AlertTriangle size={11} /> Handoff
+                          </span>
+                        )}
+                        <span className="inline-flex items-center gap-1 text-xs text-green-700 font-medium">
+                          <CheckCircle2 size={11} /> Signed
+                        </span>
                       </div>
-                      <div className="text-xs text-gray-500 mt-1 truncate max-w-xs">{note.note}</div>
+                      <div className="text-xs text-gray-500 mt-1 truncate max-w-md">{note.note_text}</div>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 flex-shrink-0">
                     <div className="text-right hidden sm:block">
-                      <div className="text-xs text-gray-500 flex items-center gap-1"><User size={11} />{note.nurse_name}</div>
-                      <div className="text-xs text-gray-400 flex items-center gap-1 mt-0.5"><Clock size={11} />{timeSince(note.created_at)}</div>
+                      <div className="text-xs text-gray-500 flex items-center gap-1"><User size={11} />{note.written_by_name || 'Staff'}</div>
+                      <div className="text-xs text-gray-400 flex items-center gap-1 mt-0.5"><Clock size={11} />{timeSince(note.written_at || note.created_at)}</div>
                     </div>
                     {expanded === note.id ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
                   </div>
@@ -187,10 +171,15 @@ export default function NursingNotes() {
 
               {expanded === note.id && (
                 <div className="px-5 pb-5 border-t border-gray-100 pt-4">
-                  <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{note.note}</p>
+                  <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{note.note_text}</p>
                   <div className="mt-3 flex items-center gap-4 text-xs text-gray-400">
-                    <span className="flex items-center gap-1"><User size={11} />{note.nurse_name}</span>
-                    <span className="flex items-center gap-1"><Clock size={11} />{new Date(note.created_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</span>
+                    <span className="flex items-center gap-1"><User size={11} />{note.written_by_name || 'Staff'}</span>
+                    <span className="flex items-center gap-1"><Clock size={11} />
+                      {note.written_at || note.created_at
+                        ? new Date(note.written_at || note.created_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
+                        : '—'}
+                    </span>
+                    {note.shift && <span className="capitalize">{note.shift} shift</span>}
                   </div>
                 </div>
               )}
@@ -211,15 +200,6 @@ export default function NursingNotes() {
             </div>
 
             <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Patient *</label>
-                <select value={form.patient_id} onChange={e => setForm(f => ({ ...f, patient_id: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700">
-                  <option value="">Select patient…</option>
-                  {patients.map(p => <option key={p.id} value={String(p.id)}>{p.name} — Bed {p.bed}</option>)}
-                </select>
-              </div>
-
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1">Note Type</label>
                 <div className="flex flex-wrap gap-2">
