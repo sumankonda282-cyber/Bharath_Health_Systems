@@ -295,16 +295,18 @@ def save_iview_row(db: Session, submission: "FormSubmission") -> None:
 
 @router.get("/assessment-forms/")
 def list_forms(
-    db:       Session = Depends(get_db),
-    status:   Optional[str] = Query(None),
-    category: Optional[str] = Query(None),
-    q:        Optional[str] = Query(None),
-    limit:    int           = Query(50,  ge=1, le=500),
-    offset:   int           = Query(0,   ge=0),
+    db:          Session = Depends(get_db),
+    status:      Optional[str] = Query(None),
+    category:    Optional[str] = Query(None),
+    subcategory: Optional[str] = Query(None),
+    q:           Optional[str] = Query(None),
+    limit:       int           = Query(50,  ge=1, le=500),
+    offset:      int           = Query(0,   ge=0),
 ):
     query = db.query(AssessmentForm)
-    if status:   query = query.filter(AssessmentForm.status   == status)
-    if category: query = query.filter(AssessmentForm.category == category)
+    if status:      query = query.filter(AssessmentForm.status      == status)
+    if category:    query = query.filter(AssessmentForm.category    == category)
+    if subcategory: query = query.filter(AssessmentForm.subcategory == subcategory)
     if q:
         like = f"%{q}%"
         query = query.filter(
