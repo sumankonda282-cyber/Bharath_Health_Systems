@@ -1079,22 +1079,24 @@ function FormModal({ form, admissionId, onClose }) {
 
 // ── Patient Nav ───────────────────────────────────────────────────────────────
 const PATIENT_NAV = [
-  { key: 'dashboard',  icon: Activity,    label: 'Dashboard' },
-  { key: 'notes',      icon: FileText,    label: 'Progress Notes' },
-  { key: 'vitals',     icon: TrendingUp,  label: 'Vitals' },
-  { key: 'rounds',     icon: Stethoscope, label: 'Ward Rounds' },
-  { key: 'discharge',  icon: ShieldAlert, label: 'Discharge Summary' },
-  { key: 'billing',    icon: Banknote,    label: 'Billing' },
-  { key: 'timeline',   icon: Clock,       label: 'Timeline' },
-  { key: 'cc_provider', icon: Heart,         label: 'Provider View' },
+  // CareChart-parity sections first, in CareChart's order
+  { key: 'dashboard',      icon: Activity,      label: 'Dashboard' },
+  { key: 'cc_provider',    icon: Heart,         label: 'Provider View' },
   { key: 'cc_medications', icon: ClipboardList, label: 'Medications' },
-  { key: 'cc_mar',      icon: Pill,          label: 'MAR' },
-  { key: 'cc_orders',   icon: ShoppingBag,   label: 'Orders' },
-  { key: 'cc_docs',     icon: Edit3,         label: 'Documentation' },
-  { key: 'cc_diet',     icon: Utensils,      label: 'Diet & Nutrition' },
-  { key: 'cc_preop',    icon: Bed,           label: 'Pre / Post-Op' },
-  { key: 'cc_movement', icon: Navigation,    label: 'Patient Movement' },
-  { key: 'cc_nursing',  icon: MessageSquare, label: 'Nursing Notes' },
+  { key: 'cc_mar',         icon: Pill,          label: 'MAR' },
+  { key: 'cc_orders',      icon: ShoppingBag,   label: 'Orders' },
+  { key: 'cc_docs',        icon: Edit3,         label: 'Documentation' },
+  { key: 'cc_diet',        icon: Utensils,      label: 'Diet & Nutrition' },
+  { key: 'cc_preop',       icon: Bed,           label: 'Pre / Post-Op' },
+  { key: 'cc_nursing',     icon: MessageSquare, label: 'Nursing Notes' },
+  { key: 'cc_movement',    icon: Navigation,    label: 'Patient Movement' },
+  // Provider-specific sections (not in CareChart) — kept below the CareChart set
+  { key: 'notes',          icon: FileText,      label: 'Progress Notes' },
+  { key: 'vitals',         icon: TrendingUp,    label: 'Vitals' },
+  { key: 'rounds',         icon: Stethoscope,   label: 'Ward Rounds' },
+  { key: 'discharge',      icon: ShieldAlert,   label: 'Discharge Summary' },
+  { key: 'billing',        icon: Banknote,      label: 'Billing' },
+  { key: 'timeline',       icon: Clock,         label: 'Timeline' },
 ]
 
 // ── Main AdmissionChart ───────────────────────────────────────────────────────

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Component } from 'react'
 import {
   ArrowLeft, Search, Pin, ChevronDown, ChevronUp, Menu, X,
   Loader2, AlertCircle, Activity, Heart, TrendingUp, Droplets,
@@ -498,6 +498,24 @@ function AssessmentPanel({ onOpenForm, api }) {
   )
 }
 
+// ── Section error boundary — a crashing section shows a message, never a white screen ──
+class SectionErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { error: null } }
+  static getDerivedStateFromError(error) { return { error } }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="p-6 flex flex-col items-center justify-center gap-2 text-center h-full">
+          <AlertCircle size={20} className="text-red-500" />
+          <p className="text-sm font-semibold text-gray-700">This section couldn’t load.</p>
+          <p className="text-xs text-gray-400 max-w-sm break-words">{String(this.state.error?.message || this.state.error)}</p>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
 // ── Main shell export ────────────────────────────────────────────────────────
 export default function PatientChartShell({
   admission,
@@ -734,7 +752,9 @@ export default function PatientChartShell({
             />
           ) : (
             <div className="flex-1 overflow-y-auto">
-              <div className="p-5">{renderContent(activeNav)}</div>
+              <div className="p-5">
+                <SectionErrorBoundary key={activeNav}>{renderContent(activeNav)}</SectionErrorBoundary>
+              </div>
             </div>
           )}
         </div>
@@ -756,7 +776,7 @@ export default function PatientChartShell({
         {formsOpen && (
           <div className="flex-shrink-0 border-l overflow-hidden flex flex-col"
             style={{ width: 272, borderColor: '#e9eaec' }}>
-            <AssessmentPanel onOpenForm={onOpenForm} api={api} />
+            <SectionErrorBoundary><AssessmentPanel onOpenForm={onOpenForm} api={api} /></SectionErrorBoundary>
           </div>
         )}
       </div>
