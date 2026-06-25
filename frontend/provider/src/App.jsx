@@ -1,4 +1,3 @@
-import InstallPrompt from './components/InstallPrompt'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { TelehealthProvider } from './contexts/TelehealthContext'
@@ -101,7 +100,6 @@ function AppRoutes() {
 export default function App() {
   return (
     <>
-      <InstallPrompt appName="BH Provider" />
       <BrowserRouter>
         <AuthProvider>
           <TelehealthProvider>

@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import Layout from './components/Layout'
-import InstallPrompt from './components/InstallPrompt'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import CpoeQueue from './pages/CpoeQueue'
@@ -36,7 +35,6 @@ function PrivateRoute({ children }) {
 export default function App() {
   return (
     <AuthProvider>
-      <InstallPrompt appName="BH Pharmacy" />
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />

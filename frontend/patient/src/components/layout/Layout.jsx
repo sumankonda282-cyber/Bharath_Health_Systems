@@ -3,11 +3,10 @@ import { NavLink, useNavigate, useLocation, Outlet } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import {
   LayoutDashboard, Calendar, Pill, FlaskConical, Receipt, LogOut,
-  Menu, FileText, Smartphone, Video, Settings2, HelpCircle,
+  Menu, FileText, Video, Settings2, HelpCircle,
   RefreshCw, Copy, Check, ChevronDown, X
 } from 'lucide-react'
 import BrandLogo from '../BrandLogo'
-import InstallPrompt, { useInstallState, InstallModal } from '../InstallPrompt'
 import { cacheClear } from '../../utils/cache'
 import PatientNotificationBell from '../ui/NotificationBell'
 
@@ -112,21 +111,11 @@ export default function Layout() {
   const navigate = useNavigate()
   const location = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [showInstallModal, setShowInstallModal] = useState(false)
-  const [installing, setInstalling] = useState(false)
-  const { canInstall, isIos, installed, install } = useInstallState('BHarath Health')
 
   const currentLabel = NAV.find(n => {
     if (n.end) return location.pathname === n.to
     return location.pathname === n.to || location.pathname.startsWith(n.to + '/')
   })?.label || (location.pathname === '/settings' ? 'Settings' : 'Portal')
-
-  const handleInstall = async () => {
-    setInstalling(true)
-    await install()
-    setInstalling(false)
-    setShowInstallModal(false)
-  }
 
   const handleLogout = () => { logout(); navigate('/login') }
 
@@ -158,16 +147,6 @@ export default function Layout() {
           </NavLink>
         ))}
       </nav>
-      {canInstall && !installed && (
-        <div className="px-3 pb-3">
-          <button onClick={() => setShowInstallModal(true)}
-            className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-semibold"
-            style={{ background: 'rgba(245,130,30,0.15)', color: '#F5821E', border: '1px solid rgba(245,130,30,0.3)' }}>
-            <Smartphone size={14} />
-            {isIos ? 'Add to Home Screen' : 'Install App'}
-          </button>
-        </div>
-      )}
       <div className="h-3" />
     </div>
   )
@@ -220,12 +199,6 @@ export default function Layout() {
           </div>
         </main>
       </div>
-
-      <InstallPrompt appName="BHarath Health" />
-      {showInstallModal && (
-        <InstallModal appName="BHarath Health" isIos={isIos} installing={installing}
-          onInstall={handleInstall} onClose={() => setShowInstallModal(false)} />
-      )}
     </div>
   )
 }
