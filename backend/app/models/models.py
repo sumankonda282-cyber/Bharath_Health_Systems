@@ -402,6 +402,7 @@ class Appointment(Base):
     telehealth_joined_at = Column(DateTime, nullable=True)
     telehealth_room      = Column(String(120), nullable=True)
     triage_complaint   = Column(Text, nullable=True)
+    triage_level       = Column(String(10), nullable=True)   # red|orange|yellow|green
     visit_type         = Column(String(20), default="fresh")  # fresh|followup|emergency
     previsit_token     = Column(String(64), nullable=True, unique=True, index=True)
     previsit_data      = Column(JSON, nullable=True)

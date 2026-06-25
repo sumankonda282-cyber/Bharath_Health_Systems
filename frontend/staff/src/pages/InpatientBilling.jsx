@@ -55,7 +55,7 @@ function RoomChargeModal({ admissionId, onClose, onSaved }) {
     setSaving(true); setErr('')
     try {
       await api.post(`/inpatient/admissions/${admissionId}/charges/room-daily`, {
-        bed_type: bedType, rate, charge_date: chargeDate,
+        bed_type: bedType, rate_per_day: rate, charge_date: chargeDate,
       })
       onSaved(); onClose()
     } catch (ex) {
@@ -124,7 +124,7 @@ function PaymentModal({ admissionId, balanceDue, onClose, onSaved }) {
     setSaving(true); setErr('')
     try {
       await api.post(`/inpatient/admissions/${admissionId}/bill/record-payment`, {
-        amount: Number(form.amount),
+        amount_paid: Number(form.amount),
         payment_method: form.payment_method,
       })
       onSaved(); onClose()

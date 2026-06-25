@@ -3,9 +3,60 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from pydantic import BaseModel
 from app.db.session import get_db
-from app.core.security import get_current_platform_admin, hash_password
+from app.core.security import get_current_platform_admin, get_current_staff, hash_password
+from app.models.models import Staff, MaintenanceRequest
+from datetime import datetime
 
 router = APIRouter(prefix="/maintenance", tags=["maintenance"])
+
+
+def _maint_out(r: MaintenanceRequest):
+    return {
+        "id": r.id, "title": r.title, "description": r.description,
+        "category": r.category, "priority": r.priority, "status": r.status,
+        "location": r.location, "portal_source": r.portal_source,
+        "submitted_by": r.submitted_by, "assigned_to": r.assigned_to,
+        "notes": r.notes,
+        "resolved_at": str(r.resolved_at) if r.resolved_at else None,
+        "created_at": str(r.created_at) if r.created_at else None,
+    }
+
+
+@router.get("/requests")
+def list_maintenance_requests(
+    status: str = None,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Maintenance/facility requests for the current clinic."""
+    q = db.query(MaintenanceRequest).filter(MaintenanceRequest.clinic_id == current.clinic_id)
+    if status:
+        q = q.filter(MaintenanceRequest.status == status)
+    rows = q.order_by(MaintenanceRequest.created_at.desc()).limit(200).all()
+    return [_maint_out(r) for r in rows]
+
+
+@router.patch("/requests/{req_id}")
+def update_maintenance_request(
+    req_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    req = db.query(MaintenanceRequest).filter(
+        MaintenanceRequest.id == req_id,
+        MaintenanceRequest.clinic_id == current.clinic_id,
+    ).first()
+    if not req:
+        raise HTTPException(status_code=404, detail="Request not found")
+    for f in ("title", "description", "category", "priority", "status", "location", "notes", "assigned_to"):
+        if f in body:
+            setattr(req, f, body[f])
+    if body.get("status") in ("resolved", "closed") and not req.resolved_at:
+        req.resolved_at = datetime.utcnow()
+    db.commit()
+    db.refresh(req)
+    return _maint_out(req)
 
 
 class UpdateAdminRequest(BaseModel):
