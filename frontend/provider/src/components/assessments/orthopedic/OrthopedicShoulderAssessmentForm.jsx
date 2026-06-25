@@ -329,7 +329,7 @@ export default function OrthopedicShoulderAssessmentForm({ patientId, encounterI
     const flex = Number(romForwardFlex);
     const abd  = Number(romAbductAct);
     const er   = Number(romER);
-    const irMap = { 'T12': 2, 'L3': 4, 'L1': 6, 'T12(2)': 6, 'Buttock': 0, 'Thigh': 2, 'Waist': 4, 'T12': 6, 'T7': 8, 'T5': 10 };
+    const irMap = { 'L3': 4, 'L1': 6, 'T12(2)': 6, 'Buttock': 0, 'Thigh': 2, 'Waist': 4, 'T12': 6, 'T7': 8, 'T5': 10 };
     const irScore = romIRLevel ? (irMap[romIRLevel] ?? 0) : 0;
 
     const flexScore = flex >= 171 ? 10 : flex >= 141 ? 8 : flex >= 91 ? 6 : flex >= 61 ? 4 : flex >= 31 ? 2 : 0;

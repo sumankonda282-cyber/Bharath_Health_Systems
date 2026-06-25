@@ -739,6 +739,22 @@ class PatientReferral(Base):
     to_doctor   = relationship("DoctorProfile", foreign_keys=[to_doctor_id])
 
 
+class ClinicalAssessment(Base):
+    """Generic store for the component-based specialty assessment forms
+    (cardiology, ortho, peds, OBG, gastro, ENT, clinical scales) that POST to
+    /assessments with {type, patientId, encounterId, data}."""
+    __tablename__ = "clinical_assessments"
+    id              = Column(Integer, primary_key=True, index=True)
+    clinic_id       = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    branch_id       = Column(Integer, ForeignKey("branches.id"), nullable=True)
+    patient_id      = Column(Integer, ForeignKey("patients.id"), nullable=True)
+    encounter_id    = Column(String(50), nullable=True)   # appointment/admission/encounter ref (free)
+    assessment_type = Column(String(100), nullable=True)
+    data            = Column(JSON, default=dict)
+    created_by      = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    created_at      = Column(DateTime, server_default=func.now())
+
+
 # ── Lab Orders & Results ───────────────────────────────────────────────────────
 
 class LabOrder(Base):
