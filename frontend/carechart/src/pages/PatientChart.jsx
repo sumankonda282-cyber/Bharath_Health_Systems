@@ -820,6 +820,15 @@ export default function PatientChart() {
   const cautions = adm.caution_flags || adm.cautions || []
 
   const handleOpenForm = async (form) => {
+    // DB forms (admin-built) open in the assessments area with patient context;
+    // rich hardcoded clinical forms open in the existing PIN-gated in-chart modal.
+    if (form?.__db && form.id) {
+      const qp = new URLSearchParams({ form_id: String(form.id) })
+      if (adm.patient_id) qp.set('patient_id', String(adm.patient_id))
+      if (id) qp.set('admission_id', String(id))
+      navigate(`/assessments?${qp.toString()}`)
+      return
+    }
     const identity = await requestPin(`Open form: ${form.name} — ${adm.patient_name || ''}`)
     if (identity?.verified) setOpenForm(form)
   }
@@ -927,6 +936,7 @@ export default function PatientChart() {
         onNavChange={setActiveNav}
         renderContent={renderContent}
         onOpenForm={handleOpenForm}
+        api={api}
         openFormModal={openForm && (
           <AssessmentFullPageModal
             form={openForm}

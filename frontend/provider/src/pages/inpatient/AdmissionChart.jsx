@@ -1144,6 +1144,19 @@ export default function AdmissionChart() {
     }
   }
 
+  const openFormSmart = (form) => {
+    // DB forms (admin-built) open in the form-fill area with patient context;
+    // rich hardcoded clinical forms open in the existing in-chart modal.
+    if (form?.__db && form.id) {
+      const qp = new URLSearchParams()
+      if (pat?.id) qp.set('patient_id', pat.id)
+      if (admissionId) qp.set('admission_id', admissionId)
+      navigate(`/forms/fill/${form.id}?${qp.toString()}`)
+      return
+    }
+    setOpenForm(form)
+  }
+
   return (
     <>
       {showPrimaryDrModal && (
@@ -1166,7 +1179,8 @@ export default function AdmissionChart() {
         activeNav={activeNav}
         onNavChange={setActiveNav}
         renderContent={renderContent}
-        onOpenForm={setOpenForm}
+        onOpenForm={openFormSmart}
+        api={api}
         openFormModal={openForm && (
           <FormModal form={openForm} admissionId={admissionId} onClose={() => setOpenForm(null)} />
         )}
