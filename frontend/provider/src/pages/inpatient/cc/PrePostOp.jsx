@@ -108,162 +108,6 @@ function Row({ label, value, flag }) {
   )
 }
 
-// ─── mock data ────────────────────────────────────────────────────────────────
-function buildMock() {
-  return {
-    procedure: {
-      name: 'Laparoscopic Appendectomy', planned_name: 'Laparoscopic Appendectomy',
-      surgeon: 'Dr. Ananya Sharma', assistant: 'Dr. Rahul Nair',
-      anaesthetist: 'Dr. Pradeep Iyer', anaesthesia_type: 'General Anaesthesia',
-      ot_number: 'OT-3', scheduled_at: '2026-06-15T10:00:00',
-      expected_duration_min: 90, urgency: 'urgent',
-      ot_start: '2026-06-15T10:12:00', ot_end: '2026-06-15T11:07:00',
-      return_ward: '2026-06-15T12:30:00',
-    },
-    preop: {
-      vitals: { bp: '124/82', pulse: 88, temp: 37.1, spo2: 99, rr: 16, weight: 68, height: 168, bmi: 24.1 },
-      asa: 2,
-      comorbidities: ['Hypertension', 'Type 2 Diabetes'],
-      hold_meds: [
-        { drug: 'Metformin 500mg', action: 'Hold', instruction: 'Hold 24h pre-op' },
-        { drug: 'Aspirin 75mg', action: 'Hold', instruction: 'Held 7 days pre-op' },
-        { drug: 'Metoprolol 25mg', action: 'Continue', instruction: 'Morning dose with sip of water' },
-      ],
-      nbm_since: '2026-06-14T22:00:00',
-      last_solid: '2026-06-14T21:30:00',
-      last_clear: '2026-06-14T22:00:00',
-      fasting_confirmed: true,
-      skin_prep: { site_marked: true, laterality: 'Right iliac fossa', shaved: true, antiseptic_wash: true, bowel_prep_required: false, nail_polish: true, jewellery: true, prosthetics: false },
-      checklist: {
-        'Wristband confirmed':            { done: true,  time: '2026-06-15T08:30:00', by: 'RK' },
-        'Allergy band applied':           { done: true,  time: '2026-06-15T08:30:00', by: 'RK' },
-        'Name/DOB verbal check':          { done: true,  time: '2026-06-15T08:31:00', by: 'RK' },
-        'Consent signed':                 { done: true,  time: '2026-06-15T09:00:00', by: 'RK' },
-        'Anaesthesia consent':            { done: true,  time: '2026-06-15T09:05:00', by: 'RK' },
-        'Blood consent (if applicable)':  { done: false, time: null, by: null },
-        'Advance directive reviewed':     { done: true,  time: '2026-06-15T09:10:00', by: 'RK' },
-        'Blood results available':        { done: true,  time: '2026-06-15T09:00:00', by: 'RK' },
-        'Imaging available':              { done: true,  time: '2026-06-15T09:00:00', by: 'RK' },
-        'Blood group confirmed':          { done: true,  time: '2026-06-15T09:00:00', by: 'RK' },
-        'Cross-match done':               { done: false, time: null, by: null },
-        'IV access secured (18G, R AC)':  { done: true,  time: '2026-06-15T08:45:00', by: 'SP' },
-        'Pre-op meds given':              { done: true,  time: '2026-06-15T09:15:00', by: 'SP' },
-        'Conditions noted in notes':      { done: true,  time: '2026-06-15T09:00:00', by: 'RK' },
-        'Anaesthesia review done':        { done: true,  time: '2026-06-15T09:30:00', by: 'RK' },
-        'Cardiologist clearance (if req)':{ done: true,  time: '2026-06-15T08:00:00', by: 'RK' },
-        'Compression stockings applied':  { done: true,  time: '2026-06-15T09:00:00', by: 'SP' },
-        'Patient voided':                 { done: true,  time: '2026-06-15T09:20:00', by: 'RK' },
-        'Dentures removed':               { done: false, time: null, by: null },
-        'Hearing aids removed':           { done: false, time: null, by: null },
-        'Contact lenses removed':         { done: true,  time: '2026-06-15T09:00:00', by: 'RK' },
-        'Valuables secured':              { done: true,  time: '2026-06-15T08:35:00', by: 'RK' },
-        'ID re-confirmed at transfer':    { done: true,  time: '2026-06-15T09:45:00', by: 'SP' },
-        'Notes/imaging sent with patient':{ done: true,  time: '2026-06-15T09:45:00', by: 'SP' },
-        'Handover to OT nurse done':      { done: true,  time: '2026-06-15T09:47:00', by: 'SP' },
-      },
-      investigations: [
-        { test: 'Haemoglobin',  result: '11.2 g/dL',    status: 'available', flag: 'low' },
-        { test: 'WBC',          result: '14.8 ×10³/µL', status: 'available', flag: 'high' },
-        { test: 'Platelets',    result: '224 ×10³/µL',  status: 'available', flag: null },
-        { test: 'PT/INR',       result: '1.1',          status: 'available', flag: null },
-        { test: 'APTT',         result: '32 sec',       status: 'available', flag: null },
-        { test: 'Sodium',       result: '138 mEq/L',    status: 'available', flag: null },
-        { test: 'Potassium',    result: '4.1 mEq/L',    status: 'available', flag: null },
-        { test: 'Creatinine',   result: '0.9 mg/dL',    status: 'available', flag: null },
-        { test: 'Blood Glucose',result: '142 mg/dL',    status: 'available', flag: 'high' },
-        { test: 'Blood Group',  result: 'B +ve',        status: 'available', flag: null },
-        { test: 'ECG',          result: 'Normal sinus rhythm', status: 'available', flag: null },
-        { test: 'Chest X-Ray',  result: 'Clear lung fields',   status: 'available', flag: null },
-        { test: 'USG Abdomen',  result: 'Acute appendicitis',  status: 'available', flag: null },
-      ],
-      premeds: [
-        { drug: 'Ondansetron',  dose: '4 mg', route: 'IV', scheduled: '09:15', given: '09:17', by: 'SP', status: 'given' },
-        { drug: 'Pantoprazole', dose: '40 mg', route: 'IV', scheduled: '09:15', given: '09:18', by: 'SP', status: 'given' },
-        { drug: 'Metoprolol',   dose: '25 mg', route: 'PO', scheduled: '09:00', given: '09:05', by: 'SP', status: 'given' },
-        { drug: 'Cefazolin',    dose: '2g',    route: 'IV', scheduled: '09:30', given: null,    by: null,  status: 'pending' },
-      ],
-      ot_transfer: { done: true, time_left: '2026-06-15T09:47:00', escorted_by: 'Nurse Suresh Pillai', handover_to: 'OT Nurse Meena', mode: 'Trolley', iv_running: true, o2_required: false, family_informed: true, remarks: 'Patient calm and cooperative' },
-    },
-    intraop: {
-      procedure_performed: 'Laparoscopic Appendectomy',
-      start: '2026-06-15T10:12:00', end: '2026-06-15T11:07:00',
-      position: 'Supine with left lateral tilt', complications: 'None', blood_loss_ml: 80,
-      surgeon_summary: 'Inflamed appendix removed laparoscopically. No perforation. JP drain placed in RIF. Fascia closed. Skin stapled.',
-      anaesthesia_type: 'General Anaesthesia — TIVA',
-      agents: 'Propofol, Fentanyl, Rocuronium, Sevoflurane',
-      intubated: true, reversal: 'Neostigmine + Glycopyrrolate',
-      fluids: [{ type: 'Normal Saline 0.9%', volume_ml: 1000 }, { type: 'Ringer Lactate', volume_ml: 500 }],
-      blood_products: [], urine_output_ml: 220, count_correct: true,
-      drains: [{ name: 'JP Drain 1', type: 'Jackson-Pratt', site: 'Right Iliac Fossa', insertion_time: '2026-06-15T10:58:00', initial_output_ml: 10, secured: true }],
-      implants: [],
-    },
-    postop: {
-      return_ward: '2026-06-15T12:30:00', recovery_duration_min: 83, consciousness: 'Alert', pod: 1,
-      aldrete: { recorded_at: '2026-06-15T11:50:00', activity: 2, respiration: 2, circulation: 2, consciousness: 2, spo2: 2, by: 'Recovery Nurse Divya', nausea: false },
-      vitals: [
-        { time: '2026-06-15T12:35:00', bp: '118/76', pulse: 88, temp: 37.2, spo2: 98, rr: 16, avpu: 'A', pain_rest: 6, pain_move: 8, by: 'RK' },
-        { time: '2026-06-15T13:05:00', bp: '120/78', pulse: 84, temp: 37.3, spo2: 98, rr: 16, avpu: 'A', pain_rest: 5, pain_move: 7, by: 'RK' },
-        { time: '2026-06-15T14:00:00', bp: '122/80', pulse: 80, temp: 37.4, spo2: 99, rr: 15, avpu: 'A', pain_rest: 4, pain_move: 6, by: 'SP' },
-        { time: '2026-06-15T18:00:00', bp: '124/82', pulse: 78, temp: 37.5, spo2: 98, rr: 15, avpu: 'A', pain_rest: 3, pain_move: 4, by: 'SP' },
-        { time: '2026-06-15T22:00:00', bp: '122/80', pulse: 76, temp: 37.3, spo2: 99, rr: 14, avpu: 'A', pain_rest: 2, pain_move: 3, by: 'NK' },
-        { time: '2026-06-16T06:00:00', bp: '120/78', pulse: 74, temp: 37.2, spo2: 99, rr: 14, avpu: 'A', pain_rest: 2, pain_move: 2, by: 'NK' },
-      ],
-      pain_log: [
-        { time: '2026-06-15T12:40:00', site: 'Abdomen RIF', character: 'Sharp', rest: 6, move: 8, intervention: 'Morphine 2mg IV', response: 4, by: 'RK' },
-        { time: '2026-06-15T14:00:00', site: 'Abdomen RIF', character: 'Dull aching', rest: 4, move: 6, intervention: 'Paracetamol 1g IV', response: 3, by: 'SP' },
-        { time: '2026-06-15T22:00:00', site: 'Abdomen RIF', character: 'Mild aching', rest: 2, move: 3, intervention: 'Repositioned', response: 2, by: 'NK' },
-      ],
-      wounds: [
-        { id: 1, label: 'Wound 1 — Umbilical', site: 'Umbilicus', closure: 'Sutures', appearance: 'Dry', edges: 'Well-approximated', surrounding: 'Normal', dressing: 'Gauze + Tegaderm', last_changed: '2026-06-16T06:30:00', changed_by: 'NK', culture_sent: false, history: [{ time: '2026-06-15T13:00:00', appearance: 'Slightly moist', edges: 'Well-approximated', by: 'RK' }, { time: '2026-06-16T06:30:00', appearance: 'Dry', edges: 'Well-approximated', by: 'NK' }] },
-        { id: 2, label: 'Wound 2 — RIF port', site: 'Right Iliac Fossa', closure: 'Staples', appearance: 'Seeping', edges: 'Well-approximated', surrounding: 'Mild erythema', dressing: 'Absorbent pad', last_changed: '2026-06-16T06:35:00', changed_by: 'NK', culture_sent: false, history: [{ time: '2026-06-15T13:00:00', appearance: 'Seeping', edges: 'Well-approximated', by: 'RK' }] },
-      ],
-      drains: [
-        { id: 1, name: 'JP Drain 1', type: 'Jackson-Pratt', site: 'Right Iliac Fossa', suction: false, patency: 'Patent', color: 'Serosanguineous', shift_output: 45, total_output: 180, last_emptied: '2026-06-16T06:00:00', emptied_by: 'NK', removed: false, log: [{ time: '2026-06-15T12:30:00', amount: 10, color: 'Sanguineous', by: 'RK' }, { time: '2026-06-15T18:00:00', amount: 80, color: 'Serosanguineous', by: 'SP' }, { time: '2026-06-15T22:00:00', amount: 45, color: 'Serosanguineous', by: 'NK' }, { time: '2026-06-16T06:00:00', amount: 45, color: 'Serous', by: 'NK' }] },
-      ],
-      respiratory: {
-        o2: { type: 'Nasal Prongs', flow: 2, target_spo2: '≥95%', status: 'Weaning' },
-        spirometry: [{ time: '2026-06-15T14:00:00', target: 1000, achieved: 600, by: 'SP' }, { time: '2026-06-15T18:00:00', target: 1000, achieved: 800, by: 'SP' }, { time: '2026-06-16T06:00:00', target: 1000, achieved: 950, by: 'NK' }],
-        breath_sounds: [{ time: '2026-06-15T13:00:00', right: 'Vesicular', left: 'Vesicular', by: 'RK' }, { time: '2026-06-16T06:00:00', right: 'Vesicular', left: 'Reduced bases', by: 'NK' }],
-        deep_breathing: [{ shift: 'Afternoon 15 Jun', done: true, time: '2026-06-15T15:00:00', by: 'SP' }, { shift: 'Night 15 Jun', done: true, time: '2026-06-15T22:00:00', by: 'NK' }, { shift: 'Morning 16 Jun', done: true, time: '2026-06-16T07:00:00', by: 'NK' }],
-      },
-      fluid_balance: {
-        in: [{ type: 'NS 0.9% IV', volume: 1000, time: '2026-06-15T12:30:00' }, { type: 'RL IV', volume: 500, time: '2026-06-15T16:00:00' }, { type: 'Oral intake', volume: 300, time: '2026-06-15T19:00:00' }],
-        out: [{ type: 'Urine (catheter)', volume: 1100, time: '2026-06-15T12:30:00' }, { type: 'JP Drain', volume: 180, time: '2026-06-15T12:30:00' }],
-      },
-      mobility: [
-        { time: '2026-06-15T16:00:00', level: 'Sitting up', assisted_by: 'Nurse SP', tolerance: 'Good', pain: false, distance: null, by: 'SP' },
-        { time: '2026-06-15T20:00:00', level: 'Dangling', assisted_by: 'Nurse SP', tolerance: 'Good', pain: true, distance: null, by: 'SP' },
-        { time: '2026-06-16T07:30:00', level: 'Walking in room', assisted_by: 'Nurse NK', tolerance: 'Good', pain: false, distance: 10, by: 'NK' },
-      ],
-      dvt: { stockings_am: true, stockings_pm: true, scd: false, lmwh: 'Enoxaparin 40mg SC — Last: 15 Jun 22:00' },
-      milestones: {
-        'Return of bowel sounds':       { done: true,  time: '2026-06-15T18:00:00', by: 'SP',         notes: 'Heard all 4 quadrants' },
-        'First flatus':                 { done: true,  time: '2026-06-15T20:30:00', by: 'SP',         notes: '' },
-        'First oral intake':            { done: true,  time: '2026-06-15T19:00:00', by: 'SP',         notes: 'Sips of water tolerated' },
-        'Diet upgraded to soft':        { done: false, time: null, by: null, notes: '' },
-        'Diet upgraded to normal':      { done: false, time: null, by: null, notes: '' },
-        'Urinary catheter removed':     { done: false, time: null, by: null, notes: '' },
-        'First void post-catheter':     { done: false, time: null, by: null, notes: '' },
-        'All drains removed':           { done: false, time: null, by: null, notes: '' },
-        'IV to oral medications':       { done: false, time: null, by: null, notes: '' },
-        'First independent ambulation': { done: false, time: null, by: null, notes: '' },
-        'Wound reviewed by surgeon':    { done: true,  time: '2026-06-15T16:00:00', by: 'Dr. Sharma', notes: 'Satisfactory' },
-        'Patient education completed':  { done: false, time: null, by: null, notes: '' },
-        'Family education completed':   { done: false, time: null, by: null, notes: '' },
-        'Discharge criteria met':       { done: false, time: null, by: null, notes: '' },
-      },
-      surgeon_instructions: 'Sips of water when fully awake. Clear liquids in 4h if tolerating. Remove JP drain when output <30 mL/day × 2 days. Mobilise early — day 1 post-op. DVT prophylaxis Enoxaparin 40mg SC OD × 5 days. Wound review OPD at 1 week. Staples removal at 10 days.',
-      surgeon_instructions_reviewed: false,
-      discharge_criteria: {
-        'Vitals stable ≥24h': false, 'Afebrile ≥24h': false, 'Pain controlled on oral analgesics': false,
-        'Tolerating oral diet': false, 'Wound satisfactory — no active infection': false,
-        'Drain criteria met or drains removed': false, 'Urine output adequate': false,
-        'DVT prophylaxis completed': false, 'Patient/family education done': false,
-        'Follow-up appointment booked': false,
-      },
-    },
-  }
-}
 
 // ─── PREOP sections ───────────────────────────────────────────────────────────
 function PreopSchedule({ p, proc }) {
@@ -1036,6 +880,10 @@ const POSTOP_NAV = [
   { key: 'discharge', icon: FileText,      label: 'Discharge Criteria' },
 ]
 
+// Shown until real peri-op data is saved. All peri-op state persists in the
+// admission's `periop_data` JSONB blob (GET/POST /inpatient/admissions/{id}/periop).
+const EMPTY_PERIOP = { procedure: {}, preop: {}, intraop: {}, postop: {} }
+
 export default function PrePostOp({ admission }) {
   const [data,    setData]    = useState(null)
   const [loading, setLoading] = useState(true)
@@ -1048,43 +896,51 @@ export default function PrePostOp({ admission }) {
     setLoading(true)
     try {
       const res = await api.get(`/inpatient/admissions/${admission?.id}/periop`)
-      if (res?.procedure) setData(res)
-      else throw new Error('empty')
-    } catch { setData(buildMock()) } finally { setLoading(false) }
+      setData(res && Object.keys(res).length ? res : EMPTY_PERIOP)
+    } catch { setData(EMPTY_PERIOP) } finally { setLoading(false) }
   }, [admission?.id])
 
   useEffect(() => { if (admission?.id) load() }, [load])
 
+  // Persist the whole peri-op blob (optimistic local update + POST to /periop).
+  const save = useCallback((updater) => {
+    setData(cur => {
+      const next = updater(cur || EMPTY_PERIOP)
+      api.post(`/inpatient/admissions/${admission?.id}/periop`, next).catch(() => {})
+      return next
+    })
+  }, [admission?.id])
+
   const askPin = (title, onConfirm) => setPin({ title, onConfirm })
 
   const tickChecklist = key => askPin(`Confirm: ${key}`, () => {
-    setData(prev => ({
+    save(prev => ({
       ...prev,
       preop: { ...prev.preop, checklist: { ...prev.preop.checklist, [key]: { done: true, time: new Date().toISOString(), by: 'Me' } } }
     }))
   })
 
   const tickDischarge = key => askPin(`Confirm: ${key}`, () => {
-    setData(prev => ({
+    save(prev => ({
       ...prev,
       postop: { ...prev.postop, discharge_criteria: { ...prev.postop.discharge_criteria, [key]: true } }
     }))
   })
 
   const markMilestone = key => askPin(`Mark: ${key}`, () => {
-    setData(prev => ({
+    save(prev => ({
       ...prev,
       postop: { ...prev.postop, milestones: { ...prev.postop.milestones, [key]: { done: true, time: new Date().toISOString(), by: 'Me', notes: '' } } }
     }))
   })
 
   const reviewInstructions = () => askPin('Mark surgeon instructions reviewed', () => {
-    setData(prev => ({ ...prev, postop: { ...prev.postop, surgeon_instructions_reviewed: true } }))
+    save(prev => ({ ...prev, postop: { ...prev.postop, surgeon_instructions_reviewed: true } }))
   })
 
   if (loading) return <div className="flex items-center justify-center h-64"><Loader2 size={22} className="animate-spin" style={{ color: GREEN }} /></div>
 
-  const d = data || buildMock()
+  const d = data || EMPTY_PERIOP
   const proc = d.procedure || {}
   const po   = d.postop    || {}
   const pr   = d.preop     || {}
@@ -1139,7 +995,7 @@ export default function PrePostOp({ admission }) {
             <div className="flex-1 overflow-y-auto p-5">
               {preNav === 'schedule'       && <PreopSchedule p={pr} proc={proc} />}
               {preNav === 'assessment'     && <PreopAssessment p={pr} />}
-              {preNav === 'fasting'        && <FastingPrep p={pr} onPin={label => askPin(label, () => setData(prev => ({ ...prev, preop: { ...prev.preop, fasting_confirmed: true } })))} />}
+              {preNav === 'fasting'        && <FastingPrep p={pr} onPin={label => askPin(label, () => save(prev => ({ ...prev, preop: { ...prev.preop, fasting_confirmed: true } })))} />}
               {preNav === 'checklist'      && <Checklist checklist={pr.checklist || {}} onTick={tickChecklist} />}
               {preNav === 'investigations' && <Investigations items={pr.investigations || []} />}
               {preNav === 'premeds'        && <PreMeds premeds={pr.premeds || []} />}
@@ -1164,7 +1020,7 @@ export default function PrePostOp({ admission }) {
               {postNav === 'vitals'    && <VitalsMonitor vitals={po.vitals || []} onRecord={() => askPin('Record Post-op Vitals', () => {})} />}
               {postNav === 'pain'      && <PainManagement log={po.pain_log || []} onAdd={() => askPin('Log Pain Assessment', () => {})} />}
               {postNav === 'wound'     && <WoundCare wounds={po.wounds || []} onAssess={w => askPin(`Assess ${w.label}`, () => {})} />}
-              {postNav === 'drains'    && <DrainManagement drains={po.drains || []} onLog={d => askPin(`Log Output: ${d.name}`, () => {})} onRemove={d => askPin(`Remove: ${d.name}`, () => setData(prev => ({ ...prev, postop: { ...prev.postop, drains: prev.postop.drains.map(dr => dr.id === d.id ? { ...dr, removed: true } : dr) } })))} />}
+              {postNav === 'drains'    && <DrainManagement drains={po.drains || []} onLog={d => askPin(`Log Output: ${d.name}`, () => {})} onRemove={d => askPin(`Remove: ${d.name}`, () => save(prev => ({ ...prev, postop: { ...prev.postop, drains: (prev.postop.drains || []).map(dr => dr.id === d.id ? { ...dr, removed: true } : dr) } })))} />}
               {postNav === 'resp'      && <RespiratoryCard resp={po.respiratory} />}
               {postNav === 'fluid'     && <FluidBalance fb={po.fluid_balance} />}
               {postNav === 'mobility'  && <MobilityCard mobility={po.mobility || []} dvt={po.dvt} onLog={() => askPin('Log Ambulation', () => {})} />}
