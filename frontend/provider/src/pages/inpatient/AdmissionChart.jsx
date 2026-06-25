@@ -8,11 +8,23 @@ import {
   Settings2, Copy, CheckCircle2, ChevronDown,
   Printer, Banknote, Mic, MicOff, UserCheck, X as XIcon,
   Search, TrendingUp, ShieldAlert, Clock,
-  Loader2,
+  Loader2, Heart, Pill, ShoppingBag, Edit3, Utensils, Bed, Navigation, MessageSquare,
 } from 'lucide-react'
 import { PageLoader } from '../../components/ui/Spinner'
 import InpatientBilling from './InpatientBilling'
 import PatientChartShell from '@shared/inpatient/PatientChartShell'
+// CareChart inpatient sections copied in for full chart parity (CareChart is left
+// untouched). Provider gains Provider View / MAR / Orders / Documentation /
+// Diet / Pre-Post-Op / Patient Movement / Nursing Notes.
+import CcProviderView from './cc/ProviderView'
+import CcMedicationList from './cc/MedicationList'
+import CcMAR from './cc/MAR'
+import CcOrders from './cc/Orders'
+import CcDocumentation from './cc/Documentation'
+import CcDietNutrition from './cc/DietNutrition'
+import CcPrePostOp from './cc/PrePostOp'
+import CcPatientMovement from './cc/PatientMovement'
+import CcNursingNotes from './cc/NursingNotes'
 
 const GREEN = '#059669'
 const NAVY  = '#0F2557'
@@ -1074,6 +1086,15 @@ const PATIENT_NAV = [
   { key: 'discharge',  icon: ShieldAlert, label: 'Discharge Summary' },
   { key: 'billing',    icon: Banknote,    label: 'Billing' },
   { key: 'timeline',   icon: Clock,       label: 'Timeline' },
+  { key: 'cc_provider', icon: Heart,         label: 'Provider View' },
+  { key: 'cc_medications', icon: ClipboardList, label: 'Medications' },
+  { key: 'cc_mar',      icon: Pill,          label: 'MAR' },
+  { key: 'cc_orders',   icon: ShoppingBag,   label: 'Orders' },
+  { key: 'cc_docs',     icon: Edit3,         label: 'Documentation' },
+  { key: 'cc_diet',     icon: Utensils,      label: 'Diet & Nutrition' },
+  { key: 'cc_preop',    icon: Bed,           label: 'Pre / Post-Op' },
+  { key: 'cc_movement', icon: Navigation,    label: 'Patient Movement' },
+  { key: 'cc_nursing',  icon: MessageSquare, label: 'Nursing Notes' },
 ]
 
 // ── Main AdmissionChart ───────────────────────────────────────────────────────
@@ -1140,6 +1161,15 @@ export default function AdmissionChart() {
       case 'discharge': return <DischargeSummaryTab admissionId={admissionId} />
       case 'billing':  return <InpatientBilling admissionId={admissionId} admission={adm} />
       case 'timeline': return <TimelineTab admissionId={admissionId} />
+      case 'cc_provider': return <CcProviderView admission={adm} vitals={vitals} />
+      case 'cc_medications': return <CcMedicationList admission={adm} />
+      case 'cc_mar':      return <CcMAR admission={adm} />
+      case 'cc_orders':   return <CcOrders admission={adm} />
+      case 'cc_docs':     return <CcDocumentation admission={adm} />
+      case 'cc_diet':     return <CcDietNutrition admission={adm} />
+      case 'cc_preop':    return <CcPrePostOp admission={adm} />
+      case 'cc_movement': return <CcPatientMovement admission={adm} />
+      case 'cc_nursing':  return <CcNursingNotes admission={adm} />
       default:         return null
     }
   }
