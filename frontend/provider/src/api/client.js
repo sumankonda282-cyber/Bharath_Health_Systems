@@ -56,12 +56,21 @@ api.interceptors.response.use(
       return api.request(err.config)
     }
 
+    // Normalise FastAPI error bodies into a readable string. A 422 returns
+    // detail as an ARRAY of {loc,msg,type}; a plain object would otherwise
+    // render as "[object Object]" everywhere it's shown.
+    let detail = err.response?.data?.detail
+    if (Array.isArray(detail)) {
+      detail = detail.map(d => (d && (d.msg || d.message)) || (typeof d === 'string' ? d : JSON.stringify(d))).join(', ')
+    } else if (detail && typeof detail === 'object') {
+      detail = detail.msg || detail.message || JSON.stringify(detail)
+    }
     const message =
-      err.response?.data?.detail ||
+      detail ||
       err.response?.data?.message ||
       err.message ||
       'Something went wrong'
-    const error = new Error(message)
+    const error = new Error(typeof message === 'string' ? message : 'Something went wrong')
     error.status = status
     return Promise.reject(error)
   }
