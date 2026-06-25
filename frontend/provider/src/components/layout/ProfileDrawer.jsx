@@ -55,33 +55,6 @@ function TagInput({ label, tags, onChange }) {
   )
 }
 
-// ── Working hours input ──────────────────────────────────────────
-const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
-const DAY_LABELS = { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' }
-
-function WorkingHoursInput({ value, onChange }) {
-  return (
-    <div>
-      <label className="block text-xs font-semibold text-blue-200 mb-2">Working Hours</label>
-      <div className="grid grid-cols-2 gap-x-3 gap-y-2">
-        {DAYS.map(day => (
-          <div key={day} className="flex items-center gap-2">
-            <span className="text-xs text-blue-300 w-7">{DAY_LABELS[day]}</span>
-            <input
-              type="text"
-              value={value[day] || ''}
-              onChange={e => onChange({ ...value, [day]: e.target.value })}
-              placeholder="e.g. 9am-5pm"
-              className="flex-1 px-2 py-1 rounded text-xs text-white placeholder-blue-400 outline-none focus:ring-1 focus:ring-orange-400"
-              style={{ background: 'rgba(255,255,255,0.08)' }}
-            />
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 // ── Toggle ───────────────────────────────────────────────────────
 function Toggle({ label, checked, onChange }) {
   return (
@@ -132,7 +105,6 @@ export default function ProfileDrawer({ open, onClose }) {
     qualifications: [],
     achievements: [],
     languages: [],
-    working_hours: {},
     is_online: false,
     telehealth_available: false,
   })
@@ -150,7 +122,6 @@ export default function ProfileDrawer({ open, onClose }) {
         qualifications:       Array.isArray(d.qualifications) ? d.qualifications : [],
         achievements:         Array.isArray(d.achievements) ? d.achievements : [],
         languages:            Array.isArray(d.languages) ? d.languages : [],
-        working_hours:        d.working_hours || {},
         is_online:            !!d.is_online,
         telehealth_available: !!d.telehealth_available,
       })
@@ -283,11 +254,6 @@ export default function ProfileDrawer({ open, onClose }) {
                 label="Languages"
                 tags={form.languages}
                 onChange={v => set('languages', v)}
-              />
-
-              <WorkingHoursInput
-                value={form.working_hours}
-                onChange={v => set('working_hours', v)}
               />
 
               {/* Toggles */}
