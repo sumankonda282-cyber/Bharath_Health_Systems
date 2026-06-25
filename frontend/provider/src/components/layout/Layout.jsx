@@ -51,7 +51,7 @@ export default function Layout() {
 
       <main className={`flex-1 min-w-0 flex flex-col ${isFullPage ? 'overflow-hidden' : 'overflow-y-auto'}`}>
         <TopBar onMenuClick={() => setOpen(true)} onToggleSidebar={toggleCollapsed} onRefresh={handleRefresh} />
-        <div key={refreshKey} className={`flex-1 ${isFullPage ? 'overflow-hidden' : 'p-3 sm:p-4 lg:p-6'}`}>
+        <div key={refreshKey} className={`flex-1 ${isFullPage ? 'overflow-hidden' : 'p-2 sm:p-3 lg:p-4'}`}>
           <Outlet />
         </div>
       </main>
