@@ -251,7 +251,7 @@ export default function MedicationOrderForm({
       try {
         const [termRes, pharmRes] = await Promise.allSettled([
           api.get('/terminology/drugs/search', { params: { q: query, limit: 12 } }),
-          api.get('/pharmacy/drugs/search',    { params: { q: query, limit: 20 } }),
+          api.get('/pharmacy/medicines/search', { params: { q: query, limit: 20 } }),
         ])
         let termList    = termRes.status  === 'fulfilled' ? (Array.isArray(termRes.value)  ? termRes.value  : []) : []
         const pharmList = pharmRes.status === 'fulfilled' ? (Array.isArray(pharmRes.value) ? pharmRes.value : (pharmRes.value?.items || [])) : []

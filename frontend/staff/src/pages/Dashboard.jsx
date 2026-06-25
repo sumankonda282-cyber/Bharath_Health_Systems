@@ -38,7 +38,7 @@ function IPDSnapshot() {
   const [stats, setStats] = useState(null)
 
   useEffect(() => {
-    api.get('/inpatient/beds/board')
+    api.get('/inpatient/bed-board')
       .then(r => {
         const beds = Array.isArray(r) ? r : []
         setStats({

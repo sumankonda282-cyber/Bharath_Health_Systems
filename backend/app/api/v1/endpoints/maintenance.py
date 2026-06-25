@@ -36,6 +36,44 @@ def list_maintenance_requests(
     return [_maint_out(r) for r in rows]
 
 
+@router.post("/requests")
+def create_maintenance_request(
+    body: dict,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Create a maintenance/facility request from any staff portal."""
+    req = MaintenanceRequest(
+        clinic_id     = current.clinic_id,
+        title         = (body.get("title") or body.get("subject") or "Maintenance request").strip(),
+        description   = body.get("description") or body.get("details"),
+        category      = body.get("category") or "facility",
+        priority      = body.get("priority") or "medium",
+        location      = body.get("location"),
+        portal_source = body.get("portal_source") or body.get("source"),
+        submitted_by  = current.id,
+        status        = "new",
+    )
+    db.add(req)
+    db.commit()
+    db.refresh(req)
+    return _maint_out(req)
+
+
+@router.get("/requests/badge")
+def maintenance_badge(
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Open-request count for the nav badge."""
+    from sqlalchemy import func
+    count = db.query(func.count(MaintenanceRequest.id)).filter(
+        MaintenanceRequest.clinic_id == current.clinic_id,
+        MaintenanceRequest.status.in_(["new", "in_progress"]),
+    ).scalar() or 0
+    return {"count": int(count)}
+
+
 @router.patch("/requests/{req_id}")
 def update_maintenance_request(
     req_id: int,
