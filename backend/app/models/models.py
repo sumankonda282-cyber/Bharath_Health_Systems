@@ -2600,3 +2600,41 @@ class ClinicSubscription(Base):
     waived_until          = Column(Date, nullable=True)
     created_at            = Column(DateTime, server_default=func.now())
     updated_at            = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class SubscriptionInvoice(Base):
+    """A bill for a subscription period. Paid online (Razorpay) or by bank
+    transfer (reference confirmed by the platform). Amounts are computed
+    server-side from the plan — never trusted from the client."""
+    __tablename__ = "subscription_invoices"
+    id                 = Column(Integer, primary_key=True, index=True)
+    clinic_id          = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    plan_id            = Column(Integer, ForeignKey("plans.id"), nullable=True)
+    plan_key           = Column(String(40), nullable=True)
+    billing_cycle      = Column(String(12), default="monthly")
+    seats              = Column(Integer, default=0)
+    amount             = Column(Numeric(12, 2), nullable=False)
+    currency           = Column(String(8), default="INR")
+    status             = Column(String(20), default="pending")   # pending|paid|failed|cancelled|pending_verification
+    method             = Column(String(20), nullable=True)        # razorpay|bank_transfer
+    gateway_order_id   = Column(String(120), nullable=True)
+    gateway_payment_id = Column(String(120), nullable=True)
+    reference          = Column(String(200), nullable=True)
+    period_from        = Column(Date, nullable=True)
+    period_to          = Column(Date, nullable=True)
+    notes              = Column(Text, nullable=True)
+    created_by         = Column(Integer, nullable=True)
+    paid_at            = Column(DateTime, nullable=True)
+    created_at         = Column(DateTime, server_default=func.now())
+
+
+class WebhookEvent(Base):
+    """Idempotency + audit log for inbound payment-gateway webhooks."""
+    __tablename__ = "webhook_events"
+    id         = Column(Integer, primary_key=True, index=True)
+    provider   = Column(String(20), default="razorpay")
+    event_id   = Column(String(120), unique=True, nullable=True)
+    event_type = Column(String(60), nullable=True)
+    payload    = Column(JSON, nullable=True)
+    processed  = Column(Boolean, default=False)
+    created_at = Column(DateTime, server_default=func.now())

@@ -64,6 +64,11 @@ class Settings(BaseSettings):
     SUBSCRIPTION_ENFORCEMENT: str = "off"
     SUBSCRIPTION_GRACE_DAYS: int = 7
 
+    # Razorpay (subscription checkout) — graceful no-op until these are set
+    RAZORPAY_KEY_ID: str = ""
+    RAZORPAY_KEY_SECRET: str = ""
+    RAZORPAY_WEBHOOK_SECRET: str = ""
+
     @property
     def cors_origins_list(self) -> List[str]:
         defaults = [

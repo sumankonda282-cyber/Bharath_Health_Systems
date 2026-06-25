@@ -11,10 +11,9 @@ def _years_between(d1: date, d2: date) -> int:
 from sqlalchemy import or_
 from app.db.session import get_db
 from app.core.security import get_current_platform_admin, hash_password
-from app.models.models import Clinic, Branch, Staff, Patient, Appointment, PlatformAdmin, AuditLog, Invoice, Feedback, Department, Ward, Bed, PlatformSetting, SubscriptionPayment, PatientTag, LabOrder, Prescription, DoctorProfile, PatientUser, Plan, ClinicSubscription
-from app.services.entitlements import (
-    get_entitlements, snapshot_entitlements, sync_clinic_flags, ALL_MODULES, MODULE_CATALOG,
-)
+from app.models.models import Clinic, Branch, Staff, Patient, Appointment, PlatformAdmin, AuditLog, Invoice, Feedback, Department, Ward, Bed, PlatformSetting, SubscriptionPayment, PatientTag, LabOrder, Prescription, DoctorProfile, PatientUser, Plan, ClinicSubscription, SubscriptionInvoice
+from app.services.entitlements import get_entitlements, ALL_MODULES, MODULE_CATALOG
+from app.services.subscription import upsert_subscription, activate_paid
 
 import re
 import secrets
@@ -1342,38 +1341,9 @@ def _plan_out(p: Plan) -> dict:
     }
 
 
-def _upsert_subscription(db, clinic, plan, *, status, cycle="monthly", seats=0,
-                         period_end=None, price=None, waived=False,
-                         waived_reason=None, waived_by=None, waived_until=None):
-    """Write/refresh the clinic's single subscription row with a frozen
-    entitlement snapshot, and sync the legacy clinic columns + has_* flags."""
-    sub = db.query(ClinicSubscription).filter(ClinicSubscription.clinic_id == clinic.id).first()
-    if not sub:
-        sub = ClinicSubscription(clinic_id=clinic.id)
-        db.add(sub)
-    snap = snapshot_entitlements(plan)
-    sub.plan_id = plan.id
-    sub.plan_key = plan.key
-    sub.status = status
-    sub.billing_cycle = cycle
-    sub.seats = seats or 0
-    sub.entitlements_snapshot = snap
-    if price is not None:
-        sub.price_snapshot = Decimal(str(price))
-    sub.current_period_start = date.today()
-    sub.current_period_end = period_end
-    sub.is_waived = waived
-    sub.waived_reason = waived_reason
-    sub.waived_by = waived_by
-    sub.waived_until = waived_until
-
-    clinic.subscription_plan = plan.key
-    clinic.subscription_status = "active" if status in ("active", "comped", "grace") else status
-    eff_end = period_end or waived_until
-    if eff_end:
-        clinic.subscription_expires_at = datetime.combine(eff_end, datetime.min.time())
-    sync_clinic_flags(clinic, snap["modules"])
-    return sub
+def _upsert_subscription(db, clinic, plan, **kwargs):
+    """Thin delegate — canonical logic lives in app.services.subscription."""
+    return upsert_subscription(db, clinic, plan, **kwargs)
 
 
 @router.get("/plans")
@@ -1502,6 +1472,62 @@ def comp_clinic(clinic_id: int, body: dict, db: Session = Depends(get_db), curre
     db.commit()
     return {"message": "Free access granted", "plan_key": plan_key,
             "until": str(until) if until else None, "entitlements": get_entitlements(db, clinic)}
+
+
+@router.get("/invoices")
+def list_subscription_invoices(status: Optional[str] = None, clinic_id: Optional[int] = None,
+                               limit: int = 100, db: Session = Depends(get_db),
+                               current=Depends(get_current_platform_admin)):
+    q = db.query(SubscriptionInvoice)
+    if status:
+        q = q.filter(SubscriptionInvoice.status == status)
+    if clinic_id:
+        q = q.filter(SubscriptionInvoice.clinic_id == clinic_id)
+    rows = q.order_by(SubscriptionInvoice.created_at.desc()).limit(min(limit, 500)).all()
+    out = []
+    for i in rows:
+        clinic = db.query(Clinic).filter(Clinic.id == i.clinic_id).first()
+        out.append({
+            "id": i.id, "clinic_id": i.clinic_id, "clinic_name": clinic.name if clinic else None,
+            "plan_key": i.plan_key, "billing_cycle": i.billing_cycle, "seats": i.seats,
+            "amount": float(i.amount or 0), "currency": i.currency, "status": i.status,
+            "method": i.method, "reference": i.reference,
+            "period_to": str(i.period_to) if i.period_to else None,
+            "paid_at": str(i.paid_at) if i.paid_at else None,
+            "created_at": str(i.created_at) if i.created_at else None,
+        })
+    return out
+
+
+@router.post("/invoices/{invoice_id}/confirm")
+def confirm_subscription_invoice(invoice_id: int, body: dict = None, db: Session = Depends(get_db),
+                                 current=Depends(get_current_platform_admin)):
+    """Confirm a pending (bank-transfer) invoice → activate the subscription."""
+    body = body or {}
+    inv = db.query(SubscriptionInvoice).filter(SubscriptionInvoice.id == invoice_id).first()
+    if not inv:
+        raise HTTPException(404, "Invoice not found")
+    if inv.status == "paid":
+        return {"status": "paid", "message": "Already confirmed"}
+    clinic = db.query(Clinic).filter(Clinic.id == inv.clinic_id).first()
+    if not clinic:
+        raise HTTPException(404, "Clinic not found")
+    plan = db.query(Plan).filter(Plan.id == inv.plan_id).first() or \
+        db.query(Plan).filter(Plan.key == inv.plan_key).first()
+    if not plan:
+        raise HTTPException(404, "Plan not found for this invoice")
+
+    inv.method = inv.method or "bank_transfer"
+    inv.status = "paid"
+    inv.paid_at = datetime.now()
+    inv.period_to = activate_paid(db, clinic, plan, cycle=inv.billing_cycle, seats=inv.seats,
+                                  amount=inv.amount, method=inv.method, reference=inv.reference,
+                                  period_from=inv.period_from)
+    clinic.status = "active"
+    _log(db, "confirmed_invoice", "clinic", clinic.id, clinic.name, current,
+         reason=f"invoice #{inv.id}", comment=f"₹{inv.amount} via {inv.method}")
+    db.commit()
+    return {"status": "paid", "invoice_id": inv.id, "entitlements": get_entitlements(db, clinic)}
 
 
 # ── Subscription Payments ─────────────────────────────────────────────────────
