@@ -7,6 +7,7 @@ import {
   XCircle, CheckCircle2, ArrowLeft, Trash2, IndianRupee, Banknote,
   Package, Settings,
 } from 'lucide-react'
+import PlanBuilder from '../components/PlanBuilder'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -874,6 +875,7 @@ const TABS = [
 
 export default function Subscriptions() {
   const [tab, setTab] = useState('clinics')
+  const [showBuilder, setShowBuilder] = useState(false)
   const [clinics, setClinics] = useState([])
   const [planConfig, setPlanConfig] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -938,6 +940,10 @@ export default function Subscriptions() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-base font-bold text-white">Subscriptions</h1>
+        <button onClick={() => setShowBuilder(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold">
+          <Package size={13} /> Build Plans
+        </button>
       </div>
 
       {/* KPI Strip */}
@@ -1076,6 +1082,8 @@ export default function Subscriptions() {
           {tab === 'analytics' && planConfig && <AnalyticsTab clinics={clinics} planConfig={planConfig} />}
         </>
       )}
+
+      {showBuilder && <PlanBuilder onClose={() => setShowBuilder(false)} addToast={addToast} />}
     </div>
   )
 }

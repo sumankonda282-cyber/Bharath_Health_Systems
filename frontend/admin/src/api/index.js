@@ -63,7 +63,19 @@ export const adminApi = {
   getBillingConfig: (id) => api.get(`/platform/clinics/${id}/billing-config`),
   updateBillingConfig: (id, body) => api.put(`/platform/clinics/${id}/billing-config`, body),
 
-  // Plan config (subscription pricing)
+  // Plan config (legacy subscription pricing JSON)
   getPlanConfig: () => api.get('/platform/plan-config'),
   updatePlanConfig: (body) => api.put('/platform/plan-config', body),
+
+  // À-la-carte plans (authoritative catalog)
+  getPlans:    () => api.get('/platform/plans'),
+  createPlan:  (body) => api.post('/platform/plans', body),
+  updatePlan:  (id, body) => api.put(`/platform/plans/${id}`, body),
+
+  // Subscription invoices
+  getInvoices:    (params) => api.get('/platform/invoices', { params }),
+  confirmInvoice: (id, body) => api.post(`/platform/invoices/${id}/confirm`, body),
+
+  // Manual comp / fee waiver
+  compClinic: (id, body) => api.post(`/platform/clinics/${id}/comp`, body),
 }
