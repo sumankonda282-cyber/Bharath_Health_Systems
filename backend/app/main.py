@@ -118,6 +118,10 @@ class SecurityHeadersMiddleware:
 
 app.add_middleware(SecurityHeadersMiddleware)
 
+# Subscription / entitlement enforcement (off by default — see app/core/subscription_gate.py)
+from app.core.subscription_gate import SubscriptionGateMiddleware
+app.add_middleware(SubscriptionGateMiddleware)
+
 # -----------------------------
 # Routers
 # -----------------------------

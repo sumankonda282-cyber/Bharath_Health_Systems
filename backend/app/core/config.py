@@ -60,6 +60,10 @@ class Settings(BaseSettings):
     DAILY_API_KEY: str = ""
     DAILY_DOMAIN: str = "bharathhealthsystems.daily.co"
 
+    # Subscription enforcement — "off" (default) | "soft" (observe/log) | "hard" (block 402)
+    SUBSCRIPTION_ENFORCEMENT: str = "off"
+    SUBSCRIPTION_GRACE_DAYS: int = 7
+
     @property
     def cors_origins_list(self) -> List[str]:
         defaults = [
