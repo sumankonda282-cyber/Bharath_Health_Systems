@@ -17,6 +17,7 @@ import PatientChartShell from '@shared/inpatient/PatientChartShell'
 // untouched). Provider gains Provider View / MAR / Orders / Documentation /
 // Diet / Pre-Post-Op / Patient Movement / Nursing Notes.
 import CcProviderView from './cc/ProviderView'
+import CcMedicationList from './cc/MedicationList'
 import CcMAR from './cc/MAR'
 import CcOrders from './cc/Orders'
 import CcDocumentation from './cc/Documentation'
@@ -1086,6 +1087,7 @@ const PATIENT_NAV = [
   { key: 'billing',    icon: Banknote,    label: 'Billing' },
   { key: 'timeline',   icon: Clock,       label: 'Timeline' },
   { key: 'cc_provider', icon: Heart,         label: 'Provider View' },
+  { key: 'cc_medications', icon: ClipboardList, label: 'Medications' },
   { key: 'cc_mar',      icon: Pill,          label: 'MAR' },
   { key: 'cc_orders',   icon: ShoppingBag,   label: 'Orders' },
   { key: 'cc_docs',     icon: Edit3,         label: 'Documentation' },
@@ -1160,6 +1162,7 @@ export default function AdmissionChart() {
       case 'billing':  return <InpatientBilling admissionId={admissionId} admission={adm} />
       case 'timeline': return <TimelineTab admissionId={admissionId} />
       case 'cc_provider': return <CcProviderView admission={adm} vitals={vitals} />
+      case 'cc_medications': return <CcMedicationList admission={adm} />
       case 'cc_mar':      return <CcMAR admission={adm} />
       case 'cc_orders':   return <CcOrders admission={adm} />
       case 'cc_docs':     return <CcDocumentation admission={adm} />
