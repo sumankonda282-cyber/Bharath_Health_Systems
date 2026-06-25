@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { labApi, patientsApi } from '../../api'
+import { labApi } from '../../api'
 import { PageLoader } from '../../components/ui/Spinner'
-import { FlaskConical, CheckCircle, ChevronDown, ChevronRight, Search, X, Upload, FileText } from 'lucide-react'
+import { FlaskConical, CheckCircle, ChevronDown, ChevronRight, Search, X, Printer, Code, FileText, AlertTriangle } from 'lucide-react'
 import { format } from 'date-fns'
 
 const STATUS_META = {
   ordered:          { label: 'Ordered',          cls: 'badge-yellow',  next: 'sample_collected', action: 'Collect Sample' },
+  pending:          { label: 'Ordered',          cls: 'badge-yellow',  next: 'sample_collected', action: 'Collect Sample' },
   sample_collected: { label: 'Sample Collected',  cls: 'badge-blue',    next: 'processing',       action: 'Start Processing' },
+  collected:        { label: 'Sample Collected',  cls: 'badge-blue',    next: 'processing',       action: 'Start Processing' },
   processing:       { label: 'Processing',         cls: 'badge-purple',  next: null,               action: 'Enter Results' },
   completed:        { label: 'Completed',          cls: 'badge-green',   next: null,               action: 'View Results' },
   cancelled:        { label: 'Cancelled',          cls: 'badge-gray',    next: null,               action: null },
@@ -15,7 +17,203 @@ const STATUS_META = {
 
 const ALL_STATUSES = ['ordered', 'sample_collected', 'processing', 'completed']
 
-// ── Expanded patient row ───────────────────────────────────────────────────────
+const resultOf = (it) => it.result_value || it.result || ''
+const ageSex = (age, gender) => {
+  const g = gender ? gender[0].toUpperCase() : ''
+  if (age == null && !g) return '—'
+  return `${age ?? '—'}${g ? ` / ${g}` : ''}`
+}
+
+// ── Build the extended JSON report for a patient group ─────────────────────────
+function buildReport(group) {
+  return {
+    patient: {
+      name:   group.name,
+      mrn:    group.mrn || null,
+      uhid:   group.uhid || null,
+      age:    group.age ?? null,
+      gender: group.gender || null,
+      mobile: group.mobile || null,
+    },
+    health_center_id: group.hc_id || null,
+    generated_at: new Date().toISOString(),
+    order_count: group.orders.length,
+    orders: group.orders.map(o => ({
+      order_no:   o.order_no || `LAB-${o.id}`,
+      status:     o.status,
+      priority:   o.priority || 'routine',
+      condition:  o.condition || null,
+      ordered_by: o.ordered_by || o.doctor_name || null,
+      ordered_at: o.created_at || null,
+      results: (o.items || []).map(it => ({
+        test:            it.test_name || it.test?.name || 'Test',
+        result:          resultOf(it) || null,
+        unit:            it.unit || null,
+        reference_range: it.reference_range || null,
+        abnormal:        !!it.is_abnormal,
+        notes:           it.result_notes || null,
+      })),
+    })),
+  }
+}
+
+// ── Detail modal: complete results + extended JSON + print ─────────────────────
+function LabDetailModal({ group, onClose }) {
+  const [showJson, setShowJson] = useState(false)
+  const report = buildReport(group)
+
+  const printReport = () => {
+    const esc = (s) => String(s ?? '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]))
+    const rows = report.orders.map(o => `
+      <h3 style="margin:18px 0 4px">${esc(o.order_no)} · <span style="text-transform:capitalize">${esc(o.status)}</span></h3>
+      <div style="color:#555;font-size:12px;margin-bottom:6px">
+        Ordered by ${esc(o.ordered_by || '—')} ${o.ordered_at ? '· ' + esc(new Date(o.ordered_at).toLocaleString('en-IN')) : ''}
+        ${o.condition ? '<br/>Clinical note: ' + esc(o.condition) : ''}
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="background:#f0f4f8">
+          <th style="text-align:left;padding:6px;border:1px solid #e2e8f0">Test</th>
+          <th style="text-align:left;padding:6px;border:1px solid #e2e8f0">Result</th>
+          <th style="text-align:left;padding:6px;border:1px solid #e2e8f0">Unit</th>
+          <th style="text-align:left;padding:6px;border:1px solid #e2e8f0">Reference</th>
+          <th style="text-align:left;padding:6px;border:1px solid #e2e8f0">Flag</th>
+        </tr></thead>
+        <tbody>
+          ${(o.results.length ? o.results : [{ test: '—' }]).map(r => `
+            <tr>
+              <td style="padding:6px;border:1px solid #e2e8f0">${esc(r.test)}</td>
+              <td style="padding:6px;border:1px solid #e2e8f0;font-weight:700;color:${r.abnormal ? '#c00' : '#111'}">${esc(r.result || '—')}</td>
+              <td style="padding:6px;border:1px solid #e2e8f0">${esc(r.unit || '—')}</td>
+              <td style="padding:6px;border:1px solid #e2e8f0">${esc(r.reference_range || '—')}</td>
+              <td style="padding:6px;border:1px solid #e2e8f0">${r.abnormal ? '<b style="color:#c00">Abnormal</b>' : 'Normal'}</td>
+            </tr>${r.notes ? `<tr><td colspan="5" style="padding:4px 6px;border:1px solid #e2e8f0;color:#555;font-style:italic">Note: ${esc(r.notes)}</td></tr>` : ''}`).join('')}
+        </tbody>
+      </table>`).join('')
+
+    const html = `<!doctype html><html><head><title>Lab Report — ${esc(report.patient.name)}</title>
+      <meta charset="utf-8"/>
+      <style>body{font-family:system-ui,Arial,sans-serif;margin:32px;color:#111}h1{margin:0;color:#0F2557}.muted{color:#555;font-size:12px}</style>
+      </head><body>
+      <h1>Laboratory Report</h1>
+      <div class="muted">${report.health_center_id ? 'HC ID: ' + esc(report.health_center_id) + ' · ' : ''}Generated ${esc(new Date(report.generated_at).toLocaleString('en-IN'))}</div>
+      <hr/>
+      <div style="font-size:14px;margin:8px 0">
+        <b>${esc(report.patient.name)}</b>
+        ${report.patient.mrn ? ' · ' + esc(report.patient.mrn) : ''}
+        ${report.patient.age != null || report.patient.gender ? ' · ' + esc(ageSex(report.patient.age, report.patient.gender)) : ''}
+        ${report.patient.mobile ? ' · ' + esc(report.patient.mobile) : ''}
+      </div>
+      ${rows}
+      <hr style="margin-top:24px"/>
+      <div class="muted">This report was generated electronically by Bharath Health Systems.</div>
+      <script>window.onload=function(){window.print()}</script>
+      </body></html>`
+    const w = window.open('', '_blank', 'width=900,height=700')
+    if (!w) { alert('Please allow pop-ups to print the report.'); return }
+    w.document.write(html); w.document.close()
+  }
+
+  const copyJson = async () => {
+    try { await navigator.clipboard.writeText(JSON.stringify(report, null, 2)) } catch { /* clipboard unavailable */ }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(15,37,87,0.55)' }}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-start justify-between px-6 py-4 border-b border-gray-100">
+          <div>
+            <h3 className="font-bold text-lg" style={{ color: '#0F2557' }}>{group.name}</h3>
+            <div className="text-xs text-gray-500 mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5">
+              {group.mrn && <span className="font-mono">{group.mrn}</span>}
+              <span>{ageSex(group.age, group.gender)}</span>
+              {group.mobile && <span>{group.mobile}</span>}
+              {group.hc_id && <span className="text-gray-400">HC: {group.hc_id}</span>}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setShowJson(s => !s)}
+              className={`text-xs px-2.5 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 border ${showJson ? 'bg-blue-50 text-blue-700 border-blue-200' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+              <Code size={13} /> JSON
+            </button>
+            <button onClick={printReport}
+              className="text-xs px-2.5 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100">
+              <Printer size={13} /> Print
+            </button>
+            <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100"><X size={18} /></button>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-5">
+          {showJson ? (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Extended JSON</span>
+                <button onClick={copyJson} className="text-xs text-blue-600 hover:underline">Copy</button>
+              </div>
+              <pre className="text-xs bg-gray-900 text-green-200 rounded-xl p-4 overflow-x-auto leading-relaxed">
+{JSON.stringify(report, null, 2)}
+              </pre>
+            </div>
+          ) : (
+            report.orders.map((o, oi) => (
+              <div key={oi} className="border border-gray-200 rounded-xl overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-2.5 bg-gray-50 border-b border-gray-100">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs text-gray-500">{o.order_no}</span>
+                    <span className={`${(STATUS_META[o.status] || {}).cls || 'badge-gray'} text-xs`}>
+                      {(STATUS_META[o.status] || {}).label || o.status}
+                    </span>
+                    {o.priority && o.priority !== 'routine' && (
+                      <span className="badge-red text-xs capitalize">{o.priority}</span>
+                    )}
+                  </div>
+                  <span className="text-xs text-gray-400">
+                    {o.ordered_by ? `Dr. ${o.ordered_by}` : ''} {o.ordered_at ? `· ${new Date(o.ordered_at).toLocaleDateString('en-IN')}` : ''}
+                  </span>
+                </div>
+                {o.condition && (
+                  <div className="px-4 py-2 text-xs text-gray-600 border-b border-gray-100 bg-amber-50/40">
+                    <span className="font-semibold text-gray-500">Clinical note: </span>{o.condition}
+                  </div>
+                )}
+                {o.results.length === 0 ? (
+                  <div className="px-4 py-3 text-xs text-gray-400">No results entered yet.</div>
+                ) : (
+                  <table className="w-full text-xs">
+                    <thead className="bg-white">
+                      <tr>
+                        {['Test', 'Result', 'Unit', 'Reference', 'Flag'].map(h => (
+                          <th key={h} className="text-left px-3 py-2 text-gray-400 font-semibold uppercase tracking-wide">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {o.results.map((r, i) => (
+                        <tr key={i} className={r.abnormal ? 'bg-red-50' : ''}>
+                          <td className="px-3 py-2 font-medium text-gray-700">{r.test}</td>
+                          <td className={`px-3 py-2 font-bold ${r.abnormal ? 'text-red-600' : 'text-gray-900'}`}>{r.result || '—'}</td>
+                          <td className="px-3 py-2 text-gray-400">{r.unit || '—'}</td>
+                          <td className="px-3 py-2 text-gray-400">{r.reference_range || '—'}</td>
+                          <td className="px-3 py-2">{r.abnormal
+                            ? <span className="text-red-600 font-bold inline-flex items-center gap-1"><AlertTriangle size={11} /> Abnormal</span>
+                            : <span className="text-green-600">Normal</span>}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Expanded patient row (result-entry / processing workflow) ──────────────────
 function PatientOrdersRow({ orders, onRefresh }) {
   const [saving, setSaving]   = useState(false)
   const [results, setResults] = useState({}) // orderId → { items: [...] }
@@ -30,7 +228,7 @@ function PatientOrdersRow({ orders, onRefresh }) {
         items: (order.items || []).map(it => ({
           id: it.id,
           test_name: it.test_name || it.test?.name || '',
-          result_value: it.result_value || '',
+          result_value: resultOf(it),
           result_notes: it.result_notes || '',
           is_abnormal: it.is_abnormal || false,
           unit: it.unit || '',
@@ -57,7 +255,7 @@ function PatientOrdersRow({ orders, onRefresh }) {
       setTimeout(() => setFlash(''), 2000)
       onRefresh()
     } catch (e) {
-      setFlash('Error: ' + e.message)
+      setFlash('Error: ' + (e.message || 'Could not save results'))
     } finally { setSaving(false) }
   }
 
@@ -68,13 +266,15 @@ function PatientOrdersRow({ orders, onRefresh }) {
     try {
       await labApi.updateStatus(order.id, meta.next)
       onRefresh()
+    } catch (e) {
+      setFlash('Error: ' + (e.message || 'Could not update status'))
     } finally { setSaving(false) }
   }
 
   return (
     <div className="bg-gray-50 border-t border-gray-100 px-4 py-3 space-y-3">
       {flash && (
-        <div className="text-xs px-3 py-1.5 rounded-lg bg-green-50 text-green-700 border border-green-200">{flash}</div>
+        <div className={`text-xs px-3 py-1.5 rounded-lg border ${flash.startsWith('Error') ? 'bg-red-50 text-red-700 border-red-200' : 'bg-green-50 text-green-700 border-green-200'}`}>{flash}</div>
       )}
       {orders.map(order => {
         const meta = STATUS_META[order.status] || STATUS_META.ordered
@@ -86,7 +286,7 @@ function PatientOrdersRow({ orders, onRefresh }) {
             {/* Order header */}
             <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100">
               <div className="flex items-center gap-3">
-                <span className="font-mono text-xs text-gray-400">LAB-{order.id}</span>
+                <span className="font-mono text-xs text-gray-400">{order.order_no || `LAB-${order.id}`}</span>
                 <span className="text-sm font-medium text-gray-700">
                   {(order.items || []).map(it => it.test_name || it.test?.name).join(', ') || 'Lab order'}
                 </span>
@@ -120,7 +320,7 @@ function PatientOrdersRow({ orders, onRefresh }) {
                     {(order.items || []).map((it, i) => (
                       <tr key={i} className={it.is_abnormal ? 'bg-red-50' : ''}>
                         <td className="px-3 py-2 font-medium text-gray-700">{it.test_name || it.test?.name}</td>
-                        <td className={`px-3 py-2 font-bold ${it.is_abnormal ? 'text-red-600' : 'text-gray-900'}`}>{it.result_value || '—'}</td>
+                        <td className={`px-3 py-2 font-bold ${it.is_abnormal ? 'text-red-600' : 'text-gray-900'}`}>{resultOf(it) || '—'}</td>
                         <td className="px-3 py-2 text-gray-400">{it.unit || '—'}</td>
                         <td className="px-3 py-2 text-gray-400">{it.reference_range || '—'}</td>
                         <td className="px-3 py-2">{it.is_abnormal ? <span className="text-red-600 font-bold">↑ Abnormal</span> : <span className="text-green-600">Normal</span>}</td>
@@ -191,15 +391,19 @@ export default function Lab() {
   const today = format(new Date(), 'yyyy-MM-dd')
   const [orders, setOrders]       = useState([])
   const [loading, setLoading]     = useState(true)
+  const [error, setError]         = useState('')
   const [search, setSearch]       = useState('')
   const [statusFilter, setStatus] = useState('')
   const [dateFilter, setDate]     = useState(today)
   const [expanded, setExpanded]   = useState(new Set())
+  const [detail, setDetail]       = useState(null) // patient group for modal
 
   const load = () => {
     setLoading(true)
+    setError('')
     labApi.getOrders({ limit: 200, status: statusFilter || undefined })
       .then(r => setOrders(Array.isArray(r) ? r : []))
+      .catch(e => setError(e.message || 'Could not load lab orders'))
       .finally(() => setLoading(false))
   }
 
@@ -218,9 +422,21 @@ export default function Lab() {
     const map = {}
     q.forEach(o => {
       const pid = o.patient_id || o.patient?.id || o.id
-      const name = o.patient_name || o.patient?.full_name || 'Unknown'
-      const uhid = o.patient_uhid || o.patient?.clinic_patient_id || o.patient?.bh_id || ''
-      if (!map[pid]) map[pid] = { pid, name, uhid, mobile: o.patient?.mobile || '', orders: [] }
+      if (!map[pid]) {
+        map[pid] = {
+          pid,
+          name:   o.patient_name || o.patient?.full_name || 'Unknown',
+          mrn:    o.patient_mrn || o.patient_uhid || o.patient?.clinic_patient_id || o.patient?.bh_id || '',
+          uhid:   o.patient_uhid || '',
+          age:    o.patient_age ?? null,
+          gender: o.patient_gender || '',
+          mobile: o.patient_mobile || o.patient?.mobile || '',
+          hc_id:  o.hc_id || '',
+          condition: o.condition || '',
+          orderedBy: o.ordered_by || o.doctor_name || '',
+          orders: [],
+        }
+      }
       map[pid].orders.push(o)
     })
     return Object.values(map)
@@ -261,6 +477,15 @@ export default function Lab() {
         <span className="text-xs text-gray-400 ml-auto">{grouped.length} patient{grouped.length !== 1 ? 's' : ''}</span>
       </div>
 
+      {/* Error banner */}
+      {error && !loading && (
+        <div className="card p-3 mb-4 flex items-center gap-2 text-sm text-red-700 bg-red-50 border border-red-200">
+          <AlertTriangle size={16} className="flex-shrink-0" />
+          <span className="flex-1">{error}</span>
+          <button onClick={load} className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-white border border-red-200 hover:bg-red-100">Retry</button>
+        </div>
+      )}
+
       {/* Patient table */}
       <div className="card overflow-hidden">
         {loading ? <PageLoader /> : grouped.length === 0 ? (
@@ -275,15 +500,17 @@ export default function Lab() {
               <tr>
                 <th className="th w-8"></th>
                 <th className="th">Patient</th>
-                <th className="th">UHID</th>
-                <th className="th">Tests</th>
-                <th className="th">Ordered</th>
-                <th className="th">Status</th>
+                <th className="th">Age / Sex</th>
+                <th className="th">Condition</th>
+                <th className="th">Order</th>
+                <th className="th">Result Status</th>
+                <th className="th">Ordered By</th>
                 <th className="th">Action</th>
               </tr>
             </thead>
             <tbody>
-              {grouped.map(({ pid, name, uhid, mobile, orders: ptOrders }) => {
+              {grouped.map((group) => {
+                const { pid, name, mrn, age, gender, mobile, condition, orderedBy, orders: ptOrders } = group
                 const open = expanded.has(pid)
                 const statuses = [...new Set(ptOrders.map(o => o.status))]
                 const hasPending = ptOrders.some(o => o.status !== 'completed' && o.status !== 'cancelled')
@@ -291,24 +518,24 @@ export default function Lab() {
                 const latest = ptOrders[0]
 
                 return [
-                  <tr key={pid} className="tr-hover cursor-pointer" onClick={() => toggle(pid)}>
-                    <td className="td text-gray-400">
+                  <tr key={pid} className="tr-hover cursor-pointer" onClick={() => setDetail(group)}>
+                    <td className="td text-gray-400" onClick={e => { e.stopPropagation(); toggle(pid) }}>
                       {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                     </td>
                     <td className="td">
                       <div className="font-semibold text-gray-900">{name}</div>
-                      {mobile && <div className="text-xs text-gray-400">{mobile}</div>}
+                      <div className="text-xs text-gray-400 font-mono">{mrn || mobile || '—'}</div>
                     </td>
-                    <td className="td font-mono text-xs text-gray-500">{uhid || '—'}</td>
+                    <td className="td text-sm text-gray-600">{ageSex(age, gender)}</td>
+                    <td className="td max-w-[180px]">
+                      <span className="text-xs text-gray-600 line-clamp-2">{condition || '—'}</span>
+                    </td>
                     <td className="td">
                       <span className="text-sm text-gray-700">{testCount} test{testCount !== 1 ? 's' : ''}</span>
-                      <div className="text-xs text-gray-400">
+                      <div className="text-xs text-gray-400 truncate max-w-[160px]">
                         {ptOrders.flatMap(o => o.items || []).slice(0, 2).map(it => it.test_name || it.test?.name).join(', ')}
                         {testCount > 2 ? ` +${testCount - 2} more` : ''}
                       </div>
-                    </td>
-                    <td className="td text-xs text-gray-400">
-                      {latest?.created_at ? new Date(latest.created_at).toLocaleDateString('en-IN') : '—'}
                     </td>
                     <td className="td">
                       <div className="flex flex-wrap gap-1">
@@ -319,28 +546,35 @@ export default function Lab() {
                         ))}
                       </div>
                     </td>
+                    <td className="td text-xs text-gray-500">{orderedBy ? `Dr. ${orderedBy}` : '—'}</td>
                     <td className="td" onClick={e => e.stopPropagation()}>
                       <div className="flex gap-2">
                         {hasPending && (
                           <button
-                            onClick={() => { setExpanded(prev => new Set([...prev, pid])) }}
+                            onClick={() => setExpanded(prev => new Set([...prev, pid]))}
                             className="text-xs px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 font-semibold hover:bg-blue-100"
                           >
                             Process
                           </button>
                         )}
                         <button
-                          onClick={() => navigate(`/patients/${latest?.patient_id}`)}
+                          onClick={() => setDetail(group)}
+                          className="text-xs px-2.5 py-1 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 inline-flex items-center gap-1"
+                        >
+                          <FileText size={12} /> View
+                        </button>
+                        <button
+                          onClick={() => navigate(`/patients/${pid}`)}
                           className="text-xs px-2.5 py-1 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
                         >
-                          Patient Chart →
+                          Chart →
                         </button>
                       </div>
                     </td>
                   </tr>,
                   open && (
                     <tr key={`${pid}-expand`}>
-                      <td colSpan={7} className="p-0">
+                      <td colSpan={8} className="p-0">
                         <PatientOrdersRow orders={ptOrders} onRefresh={load} />
                       </td>
                     </tr>
@@ -351,6 +585,8 @@ export default function Lab() {
           </table>
         )}
       </div>
+
+      {detail && <LabDetailModal group={detail} onClose={() => setDetail(null)} />}
     </div>
   )
 }
