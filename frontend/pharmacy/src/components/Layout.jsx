@@ -328,7 +328,7 @@ export default function Layout() {
         </header>
 
         <main className="flex-1 overflow-y-auto bg-[#F0F4F8]">
-          <div className="p-4 md:p-6">
+          <div className="p-1.5 md:p-2">
             <Outlet />
           </div>
         </main>

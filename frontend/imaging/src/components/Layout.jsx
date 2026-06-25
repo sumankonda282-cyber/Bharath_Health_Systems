@@ -246,7 +246,7 @@ export default function Layout() {
           </button>
           <BrandLogo size="sm" />
         </div>
-        <div className="p-4 md:p-6">
+        <div className="p-1.5 md:p-2">
           <Outlet />
         </div>
       </main>
