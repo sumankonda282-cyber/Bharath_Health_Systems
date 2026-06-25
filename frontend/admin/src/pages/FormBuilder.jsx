@@ -1,13 +1,13 @@
 import { useReducer, useRef, useEffect, useCallback, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Save, Eye, EyeOff, Send, Plus } from 'lucide-react'
+import { ArrowLeft, Save, Eye, EyeOff, Send, Plus, Settings, X, Clock, PenLine } from 'lucide-react'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import api from '../api/client'
 import FieldPalette from '../components/formbuilder/FieldPalette'
 import FormCanvas from '../components/formbuilder/FormCanvas'
 import PropertiesPanel from '../components/formbuilder/PropertiesPanel'
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function genId(prefix) {
   return prefix + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7)
@@ -32,12 +32,13 @@ function makeSection(index) {
     repeatable: false,
     min_instances: 1,
     max_instances: 5,
+    applicability_mode: 'required',
     fields: [],
   }
 }
 
 function makeField(type) {
-  return {
+  const base = {
     id: genId('fld'),
     type,
     label: 'New Field',
@@ -48,13 +49,61 @@ function makeField(type) {
     hidden: false,
     placeholder: '',
     default_value: '',
+    col_span: 1,
     options: [],
     conditions: [],
     alert_rules: [],
   }
+
+  const typeDefaults = {
+    radio: {
+      options: [
+        { label: 'Option 1', value: 'option_1', score_weight: 0 },
+        { label: 'Option 2', value: 'option_2', score_weight: 0 },
+      ],
+      display_style: 'vertical',
+    },
+    checkbox: {
+      options: [
+        { label: 'Option 1', value: 'option_1', score_weight: 0 },
+        { label: 'Option 2', value: 'option_2', score_weight: 0 },
+      ],
+      display_style: 'vertical',
+    },
+    dropdown: {
+      options: [
+        { label: 'Option 1', value: 'option_1', score_weight: 0 },
+        { label: 'Option 2', value: 'option_2', score_weight: 0 },
+      ],
+    },
+    yes_no:            { yes_label: 'Yes', no_label: 'No', yes_no_style: 'toggle' },
+    scale:             { min: 0, max: 10, min_label: 'None', max_label: 'Worst' },
+    numeric_range:     { min: 0, max: 100, range_min_label: 'Min', range_max_label: 'Max', unit: '' },
+    calculated:        { formula: '', variables: [] },
+    score_display:     { score_source: '', display_bands: true },
+    vital_auto:        { vital_type: 'heart_rate', unit: 'bpm' },
+    patient_search:    { placeholder: 'Search patient…', multi_select: false },
+    staff_search:      { placeholder: 'Search staff / MD…', role_filter: 'any', multi_select: false },
+    medication_search: { placeholder: 'Search medication / Rx…', multi_select: true },
+    diagnosis_search:  { placeholder: 'Search diagnosis / ICD-10…', multi_select: true },
+    allergy_search:    { placeholder: 'Search allergy…', multi_select: true, include_severity: false, include_reaction: false },
+    procedure_search:  { placeholder: 'Search procedure / CPT…', multi_select: true, procedure_standard: 'any' },
+    lab_test_search:   { placeholder: 'Search lab test…', multi_select: true, include_result: false },
+    matrix: {
+      matrix_rows: [{ label: 'Row 1', value: 'row_1' }],
+      matrix_cols: [{ label: 'Col 1', value: 'col_1' }, { label: 'Col 2', value: 'col_2' }],
+      matrix_cell_type: 'radio',
+    },
+    stage_break: { label: 'Stage 1', stage_title: 'Stage 1', stage_number: 1, stage_description: '' },
+    table:     { columns: [{ label: 'Column 1', type: 'text' }], allow_add_rows: true },
+    signature: { role_required: 'any', include_timestamp: true },
+    body_map:  { body_region: 'full_body', multi_select: true },
+  }
+
+  return { ...base, ...(typeDefaults[type] || {}) }
 }
 
-// ─── Initial State ───────────────────────────────────────────────────────────
+// ─── Initial State ────────────────────────────────────────────────────────────
 
 const initialState = {
   form: {
@@ -62,6 +111,8 @@ const initialState = {
     title: 'Untitled Form',
     description: '',
     category: 'general',
+    subcategory: '',
+    icon: '📋',
     status: 'draft',
     is_iview_enabled: false,
     requires_cosign: false,
@@ -76,7 +127,7 @@ const initialState = {
   saving: false,
 }
 
-// ─── Reducer ─────────────────────────────────────────────────────────────────
+// ─── Reducer ──────────────────────────────────────────────────────────────────
 
 function reducer(state, action) {
   const { form } = state
@@ -102,13 +153,7 @@ function reducer(state, action) {
         isDirty: true,
         selectedId: newSection.id,
         selectedType: 'section',
-        form: {
-          ...form,
-          schema: {
-            ...form.schema,
-            sections: [...form.schema.sections, newSection],
-          },
-        },
+        form: { ...form, schema: { ...form.schema, sections: [...form.schema.sections, newSection] } },
       }
     }
 
@@ -121,16 +166,13 @@ function reducer(state, action) {
           ...form,
           schema: {
             ...form.schema,
-            sections: form.schema.sections.map((s) =>
-              s.id === sectionId ? { ...s, [key]: value } : s
-            ),
+            sections: form.schema.sections.map(s => s.id === sectionId ? { ...s, [key]: value } : s),
           },
         },
       }
     }
 
     case 'DELETE_SECTION': {
-      const remaining = form.schema.sections.filter((s) => s.id !== action.payload)
       return {
         ...state,
         isDirty: true,
@@ -138,7 +180,7 @@ function reducer(state, action) {
         selectedType: null,
         form: {
           ...form,
-          schema: { ...form.schema, sections: remaining },
+          schema: { ...form.schema, sections: form.schema.sections.filter(s => s.id !== action.payload) },
         },
       }
     }
@@ -155,7 +197,7 @@ function reducer(state, action) {
           ...form,
           schema: {
             ...form.schema,
-            sections: form.schema.sections.map((s) => {
+            sections: form.schema.sections.map(s => {
               if (s.id !== sectionId) return s
               const fields = [...s.fields]
               const insertAt = afterIndex != null ? afterIndex + 1 : fields.length
@@ -177,11 +219,11 @@ function reducer(state, action) {
           ...form,
           schema: {
             ...form.schema,
-            sections: form.schema.sections.map((s) => {
+            sections: form.schema.sections.map(s => {
               if (s.id !== sectionId) return s
               return {
                 ...s,
-                fields: s.fields.map((f) => {
+                fields: s.fields.map(f => {
                   if (f.id !== fieldId) return f
                   const updated = { ...f, [key]: value }
                   if (key === 'label') updated.field_id = labelToId(value)
@@ -205,9 +247,9 @@ function reducer(state, action) {
           ...form,
           schema: {
             ...form.schema,
-            sections: form.schema.sections.map((s) => {
+            sections: form.schema.sections.map(s => {
               if (s.id !== sectionId) return s
-              return { ...s, fields: s.fields.filter((f) => f.id !== fieldId) }
+              return { ...s, fields: s.fields.filter(f => f.id !== fieldId) }
             }),
           },
         },
@@ -217,7 +259,7 @@ function reducer(state, action) {
     case 'MOVE_FIELD': {
       const { fromSectionId, toSectionId, fromIndex, toIndex } = action.payload
       let movingField = null
-      const sections = form.schema.sections.map((s) => {
+      const sections = form.schema.sections.map(s => {
         if (s.id === fromSectionId) {
           const fields = [...s.fields]
           ;[movingField] = fields.splice(fromIndex, 1)
@@ -225,7 +267,7 @@ function reducer(state, action) {
         }
         return s
       })
-      const finalSections = sections.map((s) => {
+      const finalSections = sections.map(s => {
         if (s.id === toSectionId && movingField) {
           const fields = [...s.fields]
           fields.splice(toIndex, 0, movingField)
@@ -249,11 +291,11 @@ function reducer(state, action) {
           ...form,
           schema: {
             ...form.schema,
-            sections: form.schema.sections.map((s) => {
+            sections: form.schema.sections.map(s => {
               if (s.id !== sectionId) return s
               return {
                 ...s,
-                fields: s.fields.map((f) => {
+                fields: s.fields.map(f => {
                   if (f.id !== fieldId) return f
                   return { ...f, alert_rules: [...(f.alert_rules || []), rule] }
                 }),
@@ -273,11 +315,11 @@ function reducer(state, action) {
           ...form,
           schema: {
             ...form.schema,
-            sections: form.schema.sections.map((s) => {
+            sections: form.schema.sections.map(s => {
               if (s.id !== sectionId) return s
               return {
                 ...s,
-                fields: s.fields.map((f) => {
+                fields: s.fields.map(f => {
                   if (f.id !== fieldId) return f
                   const rules = [...(f.alert_rules || [])]
                   rules.splice(ruleIndex, 1)
@@ -291,50 +333,71 @@ function reducer(state, action) {
     }
 
     case 'SELECT':
-      return {
-        ...state,
-        selectedId: action.payload.id,
-        selectedType: action.payload.type,
-      }
+      return { ...state, selectedId: action.payload.id, selectedType: action.payload.type }
 
     case 'SET_SAVED':
-      return {
-        ...state,
-        isDirty: false,
-        saving: false,
-        form: { ...form, id: action.payload.id },
-      }
+      return { ...state, isDirty: false, saving: false, form: { ...form, id: action.payload.id } }
 
     case 'SET_SAVING':
       return { ...state, saving: action.payload }
 
     case 'SET_SCHEMA':
-      return {
-        ...state,
-        isDirty: true,
-        form: { ...form, schema: action.payload },
-      }
+      return { ...state, isDirty: true, form: { ...form, schema: action.payload } }
 
     case 'LOAD_FORM':
-      return {
-        ...state,
-        isDirty: false,
-        saving: false,
-        form: { ...initialState.form, ...action.payload },
-      }
+      return { ...state, isDirty: false, saving: false, form: { ...initialState.form, ...action.payload } }
 
     default:
       return state
   }
 }
 
-// ─── Status Badge ────────────────────────────────────────────────────────────
+// ─── Categories ───────────────────────────────────────────────────────────────
+
+const CATEGORIES = [
+  { value: 'general',      label: 'General' },
+  { value: 'clinical',     label: 'Clinical' },
+  { value: 'mental_health', label: 'Mental Health' },
+  { value: 'vitals',       label: 'Vitals' },
+  { value: 'pain',         label: 'Pain' },
+  { value: 'surgical',     label: 'Surgical' },
+  { value: 'icu',          label: 'ICU' },
+  { value: 'intake',       label: 'Intake' },
+  { value: 'admission',    label: 'Admission' },
+  { value: 'assessment',   label: 'Assessment' },
+  { value: 'nursing',      label: 'Nursing' },
+  { value: 'consent',      label: 'Consent' },
+  { value: 'discharge',    label: 'Discharge' },
+  { value: 'followup',     label: 'Follow-up' },
+  { value: 'survey',       label: 'Survey' },
+  { value: 'history',      label: 'History' },
+  { value: 'systems',      label: 'Systems Review' },
+  { value: 'pediatrics',   label: 'Pediatrics' },
+  { value: 'cardiology',   label: 'Cardiology' },
+  { value: 'ent',          label: 'ENT' },
+  { value: 'gastro',       label: 'Gastroenterology' },
+  { value: 'orthopedic',   label: 'Orthopedic' },
+  { value: 'obg',          label: 'OB/GYN' },
+  { value: 'respiratory',  label: 'Respiratory' },
+  { value: 'neurology',    label: 'Neurology' },
+  { value: 'oncology',     label: 'Oncology' },
+  { value: 'dermatology',  label: 'Dermatology' },
+  { value: 'pharmacy',     label: 'Pharmacy' },
+  { value: 'lab',          label: 'Lab' },
+  { value: 'radiology',    label: 'Radiology' },
+  { value: 'emergency',    label: 'Emergency' },
+  { value: 'palliative',   label: 'Palliative' },
+  { value: 'rehab',        label: 'Rehabilitation' },
+  { value: 'other',        label: 'Other' },
+]
+
+// ─── Status Badge ─────────────────────────────────────────────────────────────
 
 function StatusBadge({ status }) {
   const map = {
-    draft: 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30',
+    draft:     'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30',
     published: 'bg-green-500/20 text-green-400 border border-green-500/30',
-    retired: 'bg-gray-500/20 text-gray-400 border border-gray-500/30',
+    retired:   'bg-gray-500/20 text-gray-400 border border-gray-500/30',
   }
   return (
     <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${map[status] || map.draft}`}>
@@ -343,20 +406,163 @@ function StatusBadge({ status }) {
   )
 }
 
-// ─── Category Options ────────────────────────────────────────────────────────
+// ─── Form Settings Modal ──────────────────────────────────────────────────────
 
-const CATEGORIES = [
-  { value: 'general', label: 'General' },
-  { value: 'intake', label: 'Intake' },
-  { value: 'assessment', label: 'Assessment' },
-  { value: 'consent', label: 'Consent' },
-  { value: 'discharge', label: 'Discharge' },
-  { value: 'followup', label: 'Follow-up' },
-  { value: 'survey', label: 'Survey' },
-  { value: 'clinical', label: 'Clinical' },
-]
+const inputCls = 'w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#F5821E] transition-colors'
+const textareaCls = inputCls + ' resize-none'
 
-// ─── Main Component ──────────────────────────────────────────────────────────
+function Toggle({ value, onChange, label }) {
+  return (
+    <label className="flex items-center gap-2.5 cursor-pointer select-none">
+      <div
+        role="switch"
+        aria-checked={value}
+        className={`relative w-9 h-5 rounded-full transition-colors flex-shrink-0 ${value ? 'bg-[#F5821E]' : 'bg-gray-700'}`}
+        onClick={() => onChange(!value)}
+      >
+        <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${value ? 'translate-x-4' : 'translate-x-0.5'}`} />
+      </div>
+      {label && <span className="text-sm text-gray-300">{label}</span>}
+    </label>
+  )
+}
+
+function FormSettingsModal({ form, dispatch, onClose }) {
+  const set = (key, value) => dispatch({ type: 'SET_FORM_PROP', payload: { key, value } })
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-end">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative w-96 h-full bg-gray-900 border-l border-gray-800 shadow-2xl overflow-y-auto flex flex-col">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800 flex-shrink-0">
+          <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+            <Settings size={15} className="text-gray-400" />
+            Form Settings
+          </h2>
+          <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors">
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="flex-1 p-5 space-y-4 overflow-y-auto">
+          {/* Description */}
+          <div>
+            <label className="block text-xs font-medium text-gray-400 mb-1">Description</label>
+            <textarea
+              className={textareaCls}
+              rows={3}
+              value={form.description || ''}
+              onChange={e => set('description', e.target.value)}
+              placeholder="What is this form used for?"
+            />
+          </div>
+
+          {/* Icon */}
+          <div>
+            <label className="block text-xs font-medium text-gray-400 mb-1">Icon (emoji)</label>
+            <div className="flex items-center gap-2">
+              <div className="w-10 h-10 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center text-2xl">
+                {form.icon || '📋'}
+              </div>
+              <input
+                className={inputCls + ' flex-1'}
+                value={form.icon || ''}
+                onChange={e => set('icon', e.target.value)}
+                placeholder="📋"
+                maxLength={4}
+              />
+            </div>
+          </div>
+
+          {/* Subcategory */}
+          <div>
+            <label className="block text-xs font-medium text-gray-400 mb-1">Subcategory</label>
+            <input
+              className={inputCls}
+              value={form.subcategory || ''}
+              onChange={e => set('subcategory', e.target.value)}
+              placeholder="e.g. PHQ-9, Admission Triage…"
+            />
+          </div>
+
+          {/* Status */}
+          <div>
+            <label className="block text-xs font-medium text-gray-400 mb-1">Status</label>
+            <select
+              className={inputCls}
+              value={form.status || 'draft'}
+              onChange={e => set('status', e.target.value)}
+            >
+              <option value="draft">Draft</option>
+              <option value="published">Published</option>
+              <option value="retired">Retired</option>
+            </select>
+          </div>
+
+          <div className="border-t border-gray-800 pt-4 space-y-3">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Workflow</p>
+
+            {/* Co-sign */}
+            <Toggle
+              value={form.requires_cosign || false}
+              onChange={v => set('requires_cosign', v)}
+              label={
+                <span className="flex items-center gap-1.5 text-sm text-gray-300">
+                  <PenLine size={13} className="text-gray-400" />
+                  Requires co-sign
+                </span>
+              }
+            />
+
+            {/* Time limit */}
+            <div>
+              <label className="block text-xs font-medium text-gray-400 mb-1 flex items-center gap-1">
+                <Clock size={11} />
+                Time limit (minutes)
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={1}
+                  className={inputCls}
+                  value={form.time_limit_minutes || ''}
+                  onChange={e => set('time_limit_minutes', e.target.value === '' ? null : Number(e.target.value))}
+                  placeholder="No limit"
+                />
+                {form.time_limit_minutes && (
+                  <button
+                    onClick={() => set('time_limit_minutes', null)}
+                    className="text-gray-500 hover:text-red-400 transition-colors flex-shrink-0"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-gray-800 pt-4 space-y-3">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Integration</p>
+
+            <Toggle
+              value={form.is_iview_enabled || false}
+              onChange={v => set('is_iview_enabled', v)}
+              label="Enable iView flowsheet integration"
+            />
+
+            <Toggle
+              value={form.is_template || false}
+              onChange={v => set('is_template', v)}
+              label="Mark as template (shareable base form)"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Main Component ────────────────────────────────────────────────────────────
 
 export default function FormBuilder() {
   const { id: routeId } = useParams()
@@ -364,26 +570,24 @@ export default function FormBuilder() {
   const [state, dispatch] = useReducer(reducer, initialState)
   const { form, selectedId, selectedType, isDirty, saving } = state
 
-  const historyRef = useRef({ past: [], future: [] })
-  const copiedFieldRef = useRef(null)
+  const historyRef      = useRef({ past: [], future: [] })
+  const copiedFieldRef  = useRef(null)
   const autoSaveTimerRef = useRef(null)
-  const [previewMode, setPreviewMode] = useState(false)
-  const [paletteOpen, setPaletteOpen] = useState(false)
 
-  // ── Load existing form ──────────────────────────────────────────────────
+  const [previewMode,   setPreviewMode]   = useState(false)
+  const [paletteOpen,   setPaletteOpen]   = useState(false)
+  const [showSettings,  setShowSettings]  = useState(false)
+
+  // ── Load existing form ────────────────────────────────────────────────────
 
   useEffect(() => {
     if (!routeId) return
     api.get(`/assessment-forms/${routeId}`)
-      .then((data) => {
-        dispatch({ type: 'LOAD_FORM', payload: data })
-      })
-      .catch((err) => {
-        console.error('Failed to load form:', err)
-      })
+      .then(data => dispatch({ type: 'LOAD_FORM', payload: data }))
+      .catch(err => console.error('Failed to load form:', err))
   }, [routeId])
 
-  // ── History wrapper ─────────────────────────────────────────────────────
+  // ── History wrapper ───────────────────────────────────────────────────────
 
   const dispatchWithHistory = useCallback(
     (action) => {
@@ -395,10 +599,7 @@ export default function FormBuilder() {
       ]
       if (schemaChangingActions.includes(action.type)) {
         const snapshot = JSON.stringify(form.schema)
-        historyRef.current.past = [
-          ...historyRef.current.past.slice(-19),
-          snapshot,
-        ]
+        historyRef.current.past = [...historyRef.current.past.slice(-19), snapshot]
         historyRef.current.future = []
       }
       dispatch(action)
@@ -406,7 +607,7 @@ export default function FormBuilder() {
     [form.schema]
   )
 
-  // ── Undo / Redo ─────────────────────────────────────────────────────────
+  // ── Keyboard shortcuts ────────────────────────────────────────────────────
 
   useEffect(() => {
     function handleKeyDown(e) {
@@ -433,25 +634,24 @@ export default function FormBuilder() {
 
       if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
         if (selectedId && selectedType === 'field') {
-          const field = allFields.find((f) => f.field.id === selectedId)
-          if (field) copiedFieldRef.current = { ...field.field, sectionId: field.sectionId }
+          const entry = allFields.find(f => f.field.id === selectedId)
+          if (entry) copiedFieldRef.current = { ...entry.field, _sectionId: entry.sectionId }
         }
       }
 
       if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
         if (copiedFieldRef.current) {
-          const { sectionId, ...fieldData } = copiedFieldRef.current
-          const newField = { ...fieldData, id: genId('fld'), field_id: labelToId(fieldData.label + '_copy') }
-          const section = form.schema.sections.find((s) => s.id === sectionId)
-          if (section) {
-            dispatchWithHistory({
-              type: 'ADD_FIELD',
-              payload: {
-                sectionId,
-                fieldType: newField.type,
-                afterIndex: section.fields.length - 1,
-              },
-            })
+          const { _sectionId, ...fieldData } = copiedFieldRef.current
+          const targetSectionId = _sectionId || form.schema.sections[form.schema.sections.length - 1]?.id
+          if (targetSectionId) {
+            const newField = { ...fieldData, id: genId('fld'), field_id: labelToId(fieldData.label + '_copy') }
+            const section = form.schema.sections.find(s => s.id === targetSectionId)
+            if (section) {
+              dispatchWithHistory({
+                type: 'ADD_FIELD',
+                payload: { sectionId: targetSectionId, fieldType: newField.type },
+              })
+            }
           }
         }
       }
@@ -461,7 +661,7 @@ export default function FormBuilder() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [form.schema, selectedId, selectedType, dispatchWithHistory])
 
-  // ── Beforeunload warning ────────────────────────────────────────────────
+  // ── Beforeunload warning ──────────────────────────────────────────────────
 
   useEffect(() => {
     function handleBeforeUnload(e) {
@@ -473,7 +673,7 @@ export default function FormBuilder() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
   }, [isDirty])
 
-  // ── Auto-save ───────────────────────────────────────────────────────────
+  // ── Auto-save every 30s ───────────────────────────────────────────────────
 
   useEffect(() => {
     if (autoSaveTimerRef.current) clearInterval(autoSaveTimerRef.current)
@@ -483,22 +683,25 @@ export default function FormBuilder() {
     return () => clearInterval(autoSaveTimerRef.current)
   }, [isDirty, form])
 
-  // ── API: Save Draft ─────────────────────────────────────────────────────
+  // ── Save Draft ────────────────────────────────────────────────────────────
 
   async function saveDraft() {
     dispatch({ type: 'SET_SAVING', payload: true })
     try {
       const payload = {
-        title: form.title,
-        description: form.description,
-        category: form.category,
-        status: form.status,
-        is_iview_enabled: form.is_iview_enabled,
-        requires_cosign: form.requires_cosign,
-        time_limit_minutes: form.time_limit_minutes,
-        scoring_config: form.scoring_config,
-        alert_rules: form.alert_rules,
-        schema: form.schema,
+        title:               form.title,
+        description:         form.description,
+        category:            form.category,
+        subcategory:         form.subcategory,
+        icon:                form.icon,
+        status:              form.status,
+        is_iview_enabled:    form.is_iview_enabled,
+        is_template:         form.is_template,
+        requires_cosign:     form.requires_cosign,
+        time_limit_minutes:  form.time_limit_minutes,
+        scoring_config:      form.scoring_config,
+        alert_rules:         form.alert_rules,
+        schema:              form.schema,
       }
       let result
       if (form.id) {
@@ -513,12 +716,10 @@ export default function FormBuilder() {
     }
   }
 
-  // ── API: Publish ────────────────────────────────────────────────────────
+  // ── Publish ───────────────────────────────────────────────────────────────
 
   async function handlePublish() {
-    if (!form.id) {
-      await saveDraft()
-    }
+    if (!form.id) await saveDraft()
     try {
       await api.post(`/assessment-forms/${form.id}/publish`)
       dispatch({ type: 'SET_FORM_PROP', payload: { key: 'status', value: 'published' } })
@@ -528,24 +729,20 @@ export default function FormBuilder() {
     }
   }
 
-  // ── Derived: allFields flat list ────────────────────────────────────────
+  // ── Derived ───────────────────────────────────────────────────────────────
 
-  const allFields = form.schema.sections.flatMap((s) =>
-    s.fields.map((f) => ({ field: f, sectionId: s.id }))
-  )
-
-  // ── Active section (for palette) ────────────────────────────────────────
+  const allFields = form.schema.sections.flatMap(s => s.fields.map(f => ({ field: f, sectionId: s.id })))
 
   const activeSectionId = (() => {
     if (selectedType === 'section') return selectedId
     if (selectedType === 'field') {
-      const found = form.schema.sections.find((s) => s.fields.some((f) => f.id === selectedId))
+      const found = form.schema.sections.find(s => s.fields.some(f => f.id === selectedId))
       return found?.id ?? form.schema.sections[form.schema.sections.length - 1]?.id ?? null
     }
     return form.schema.sections[form.schema.sections.length - 1]?.id ?? null
   })()
 
-  // ── Handlers ────────────────────────────────────────────────────────────
+  // ── Handlers ──────────────────────────────────────────────────────────────
 
   function handleAddField(type, sectionId) {
     let targetSection = sectionId
@@ -567,40 +764,32 @@ export default function FormBuilder() {
     dispatch({ type: 'SELECT', payload: { id, type } })
   }
 
-  // ── DnD sensors ─────────────────────────────────────────────────────────
+  // ── DnD ───────────────────────────────────────────────────────────────────
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
-  )
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
   function handleDragEnd(event) {
     const { active, over } = event
     if (!over || active.id === over.id) return
 
-    const fromPalette = active.data.current?.fromPalette
-    if (fromPalette) {
+    if (active.data.current?.fromPalette) {
       const fieldType = active.data.current?.type
       const toSectionId = over.data.current?.sectionId ?? activeSectionId
-      if (fieldType && toSectionId) {
-        handleAddField(fieldType, toSectionId)
-      }
+      if (fieldType && toSectionId) handleAddField(fieldType, toSectionId)
       return
     }
 
     const fromSectionId = active.data.current?.sectionId
-    const toSectionId = over.data.current?.sectionId
-    const fromIndex = active.data.current?.index
-    const toIndex = over.data.current?.index
+    const toSectionId   = over.data.current?.sectionId
+    const fromIndex     = active.data.current?.index
+    const toIndex       = over.data.current?.index
 
     if (fromSectionId && toSectionId && fromIndex != null && toIndex != null) {
-      dispatchWithHistory({
-        type: 'MOVE_FIELD',
-        payload: { fromSectionId, toSectionId, fromIndex, toIndex },
-      })
+      dispatchWithHistory({ type: 'MOVE_FIELD', payload: { fromSectionId, toSectionId, fromIndex, toIndex } })
     }
   }
 
-  // ── Render ───────────────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -616,20 +805,23 @@ export default function FormBuilder() {
             <ArrowLeft size={18} />
           </button>
 
+          {/* Form icon */}
+          <span className="text-lg leading-none">{form.icon || '📋'}</span>
+
           <input
             type="text"
             value={form.title}
-            onChange={(e) => dispatch({ type: 'SET_TITLE', payload: e.target.value })}
+            onChange={e => dispatch({ type: 'SET_TITLE', payload: e.target.value })}
             className="flex-1 min-w-0 bg-transparent text-lg font-semibold text-white placeholder-gray-600 outline-none border-b border-transparent focus:border-orange-500 transition-colors py-0.5 max-w-xs"
             placeholder="Untitled Form"
           />
 
           <select
             value={form.category}
-            onChange={(e) => dispatch({ type: 'SET_CATEGORY', payload: e.target.value })}
+            onChange={e => dispatch({ type: 'SET_CATEGORY', payload: e.target.value })}
             className="bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg px-2 py-1.5 outline-none focus:border-orange-500 transition-colors"
           >
-            {CATEGORIES.map((c) => (
+            {CATEGORIES.map(c => (
               <option key={c.value} value={c.value}>{c.label}</option>
             ))}
           </select>
@@ -638,8 +830,21 @@ export default function FormBuilder() {
 
           <StatusBadge status={form.status} />
 
+          {/* Settings */}
           <button
-            onClick={() => setPreviewMode((v) => !v)}
+            onClick={() => setShowSettings(v => !v)}
+            title="Form Settings"
+            className={`p-1.5 rounded-lg transition-colors ${
+              showSettings
+                ? 'bg-[#F5821E]/20 text-[#F5821E] border border-[#F5821E]/30'
+                : 'bg-gray-800 text-gray-400 hover:text-white border border-gray-700'
+            }`}
+          >
+            <Settings size={16} />
+          </button>
+
+          <button
+            onClick={() => setPreviewMode(v => !v)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
               previewMode
                 ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
@@ -672,7 +877,7 @@ export default function FormBuilder() {
         {/* ── Three-column body ── */}
         <div className="flex flex-1 overflow-hidden">
           {/* Left: Field Palette */}
-          <aside className={`hidden md:flex flex-col w-48 flex-shrink-0 border-r border-gray-800 overflow-y-auto bg-gray-900`}>
+          <aside className="hidden md:flex flex-col w-48 flex-shrink-0 border-r border-gray-800 overflow-y-auto bg-gray-900">
             <FieldPalette
               onAddField={handleAddField}
               onAddSection={handleAddSection}
@@ -706,7 +911,7 @@ export default function FormBuilder() {
 
         {/* Mobile FAB */}
         <button
-          onClick={() => setPaletteOpen((v) => !v)}
+          onClick={() => setPaletteOpen(v => !v)}
           className="md:hidden fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-orange-500 hover:bg-orange-400 text-white shadow-lg flex items-center justify-center transition-colors"
           aria-label="Add field"
         >
@@ -726,8 +931,16 @@ export default function FormBuilder() {
             </div>
           </div>
         )}
+
+        {/* Form Settings Modal */}
+        {showSettings && (
+          <FormSettingsModal
+            form={form}
+            dispatch={dispatch}
+            onClose={() => setShowSettings(false)}
+          />
+        )}
       </div>
     </DndContext>
   )
 }
-

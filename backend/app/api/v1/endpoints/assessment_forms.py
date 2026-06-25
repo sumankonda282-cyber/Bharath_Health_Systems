@@ -377,16 +377,18 @@ def save_iview_row(db: Session, submission, form) -> None:
 
 @router.get("/assessment-forms/")
 def list_forms(
-    db:       Session = Depends(get_db),
-    status:   Optional[str] = Query(None),
-    category: Optional[str] = Query(None),
-    q:        Optional[str] = Query(None),
-    limit:    int           = Query(50,  ge=1, le=1000),
-    offset:   int           = Query(0,   ge=0),
+    db:          Session = Depends(get_db),
+    status:      Optional[str] = Query(None),
+    category:    Optional[str] = Query(None),
+    subcategory: Optional[str] = Query(None),
+    q:           Optional[str] = Query(None),
+    limit:       int           = Query(50,  ge=1, le=1000),
+    offset:      int           = Query(0,   ge=0),
 ):
     query = db.query(AssessmentForm)
-    if status:   query = query.filter(AssessmentForm.status   == status)
-    if category: query = query.filter(AssessmentForm.category == category)
+    if status:      query = query.filter(AssessmentForm.status      == status)
+    if category:    query = query.filter(AssessmentForm.category    == category)
+    if subcategory: query = query.filter(AssessmentForm.subcategory == subcategory)
     if q:
         like = f"%{q}%"
         query = query.filter(
@@ -487,6 +489,7 @@ def update_form(
         "title", "description", "category", "subcategory", "status",
         "schema", "scoring_config", "alert_rules", "is_template",
         "is_iview_enabled", "iview_config", "icon",
+        "requires_cosign", "time_limit_minutes",
     ]
     for field in updatable:
         if field in payload:

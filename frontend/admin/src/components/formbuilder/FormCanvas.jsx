@@ -18,76 +18,148 @@ import {
   CheckSquare, ChevronDown, Star, Calculator, Stethoscope, FlaskConical,
   Table, User, Minus, FileText, RefreshCw, PenLine, Camera, Paperclip,
   GripVertical, X, Eye, EyeOff, Clipboard, Plus, ChevronUp, ChevronRight,
+  Search, Users, Pill, BookOpen, AlertTriangle, Scissors, ToggleLeft,
+  BarChart2, LayoutGrid, Sliders, Activity, Layers, Ban,
 } from 'lucide-react'
 
-function genId(prefix) {
-  return prefix + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7)
-}
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function getFieldTypeIcon(type, size = 16) {
   const props = { size, className: 'text-gray-400 flex-shrink-0' }
   const map = {
-    text:       <Type {...props} />,
-    textarea:   <AlignLeft {...props} />,
-    number:     <Hash {...props} />,
-    date:       <Calendar {...props} />,
-    time:       <Clock {...props} />,
-    datetime:   <CalendarClock {...props} />,
-    radio:      <CircleDot {...props} />,
-    checkbox:   <CheckSquare {...props} />,
-    dropdown:   <ChevronDown {...props} />,
-    scale:      <Star {...props} />,
-    calculated: <Calculator {...props} />,
-    snomed:     <Stethoscope {...props} />,
-    loinc:      <FlaskConical {...props} />,
-    table:      <Table {...props} />,
-    body_map:   <User {...props} />,
-    label:      <Type {...props} />,
-    divider:    <Minus {...props} />,
-    rich_text:  <FileText {...props} />,
-    repeating:  <RefreshCw {...props} />,
-    signature:  <PenLine {...props} />,
-    photo:      <Camera {...props} />,
-    file:       <Paperclip {...props} />,
+    text:              <Type {...props} />,
+    textarea:          <AlignLeft {...props} />,
+    number:            <Hash {...props} />,
+    date:              <Calendar {...props} />,
+    time:              <Clock {...props} />,
+    datetime:          <CalendarClock {...props} />,
+    radio:             <CircleDot {...props} />,
+    checkbox:          <CheckSquare {...props} />,
+    dropdown:          <ChevronDown {...props} />,
+    yes_no:            <ToggleLeft {...props} />,
+    scale:             <Star {...props} />,
+    matrix:            <LayoutGrid {...props} />,
+    numeric_range:     <Sliders {...props} />,
+    calculated:        <Calculator {...props} />,
+    score_display:     <BarChart2 {...props} />,
+    vital_auto:        <Activity {...props} />,
+    patient_search:    <Search {...props} />,
+    staff_search:      <Users {...props} />,
+    medication_search: <Pill {...props} />,
+    diagnosis_search:  <BookOpen {...props} />,
+    allergy_search:    <AlertTriangle {...props} />,
+    procedure_search:  <Scissors {...props} />,
+    lab_test_search:   <FlaskConical {...props} />,
+    snomed:            <Stethoscope {...props} />,
+    loinc:             <FlaskConical {...props} />,
+    table:             <Table {...props} />,
+    body_map:          <User {...props} />,
+    label:             <Type {...props} />,
+    divider:           <Minus {...props} />,
+    rich_text:         <FileText {...props} />,
+    repeating:         <RefreshCw {...props} />,
+    stage_break:       <Layers {...props} />,
+    signature:         <PenLine {...props} />,
+    photo:             <Camera {...props} />,
+    file:              <Paperclip {...props} />,
   }
   return map[type] || <Type {...props} />
 }
 
+function getColSpanClass(field, sectionLayout) {
+  if (!sectionLayout || sectionLayout <= 1) return ''
+  const span = field.col_span || 1
+  if (sectionLayout === 2) return span >= 2 ? 'col-span-2' : 'col-span-1'
+  if (span >= 3) return 'col-span-3'
+  if (span === 2) return 'col-span-2'
+  return 'col-span-1'
+}
+
 const QUICK_ADD_TYPES = [
-  { type: 'text',     label: 'Text' },
-  { type: 'textarea', label: 'Textarea' },
-  { type: 'number',   label: 'Number' },
-  { type: 'date',     label: 'Date' },
-  { type: 'radio',    label: 'Radio' },
-  { type: 'checkbox', label: 'Checkbox' },
-  { type: 'dropdown', label: 'Dropdown' },
-  { type: 'scale',    label: 'Scale' },
-  { type: 'calculated', label: 'Calculated' },
-  { type: 'signature',  label: 'Signature' },
+  { type: 'text',              label: 'Text' },
+  { type: 'textarea',          label: 'Textarea' },
+  { type: 'number',            label: 'Number' },
+  { type: 'date',              label: 'Date' },
+  { type: 'radio',             label: 'Radio' },
+  { type: 'checkbox',          label: 'Checkbox' },
+  { type: 'dropdown',          label: 'Dropdown' },
+  { type: 'yes_no',            label: 'Yes / No' },
+  { type: 'scale',             label: 'Scale' },
+  { type: 'numeric_range',     label: 'Range' },
+  { type: 'calculated',        label: 'Calculated' },
+  { type: 'score_display',     label: 'Score' },
+  { type: 'patient_search',    label: 'Patient' },
+  { type: 'medication_search', label: 'Medication' },
+  { type: 'diagnosis_search',  label: 'Diagnosis' },
+  { type: 'signature',         label: 'Signature' },
+  { type: 'stage_break',       label: 'Stage Break' },
 ]
 
-// ─── FieldCard ────────────────────────────────────────────────────────────────
+// ─── FieldCard ─────────────────────────────────────────────────────────────────
 
-function FieldCard({ field, sectionId, isSelected, onSelect, dispatch, overlay = false }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({
+function FieldCard({ field, sectionId, sectionLayout, isSelected, onSelect, dispatch, overlay = false }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: field.id,
     data: { sectionId, fieldId: field.id },
   })
 
   const style = overlay
     ? {}
-    : {
-        transform: CSS.Transform.toString(transform),
-        transition,
-        opacity: isDragging ? 0.4 : 1,
-      }
+    : { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }
+
+  const isStageBreak = field.type === 'stage_break'
+  const colClass = isStageBreak ? 'col-span-full' : getColSpanClass(field, sectionLayout)
+
+  // Stage break: full-width horizontal rule with stage title
+  if (isStageBreak) {
+    return (
+      <div
+        ref={overlay ? undefined : setNodeRef}
+        style={style}
+        onClick={() => !overlay && onSelect(field.id, 'field')}
+        className={`${colClass} flex items-center gap-3 py-2 cursor-pointer group`}
+      >
+        <div
+          className={`flex-1 border-t-2 transition-colors ${
+            isSelected ? 'border-[#F5821E]' : 'border-dashed border-gray-600 group-hover:border-gray-500'
+          }`}
+        />
+        <div
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold whitespace-nowrap transition-all ${
+            isSelected
+              ? 'bg-[#F5821E]/10 border-[#F5821E]/40 text-[#F5821E]'
+              : 'bg-gray-800 border-gray-700 text-gray-400 group-hover:border-gray-500 group-hover:text-gray-200'
+          }`}
+        >
+          <div
+            {...(overlay ? {} : { ...attributes, ...listeners })}
+            className="cursor-grab"
+            onClick={e => e.stopPropagation()}
+          >
+            <GripVertical size={11} />
+          </div>
+          <Layers size={11} />
+          {field.stage_title || field.label || `Stage ${field.stage_number || 1}`}
+          {!overlay && (
+            <button
+              onClick={e => {
+                e.stopPropagation()
+                dispatch({ type: 'DELETE_FIELD', payload: { sectionId, fieldId: field.id } })
+              }}
+              className="ml-0.5 text-gray-600 hover:text-red-400 transition-colors"
+            >
+              <X size={11} />
+            </button>
+          )}
+        </div>
+        <div
+          className={`flex-1 border-t-2 transition-colors ${
+            isSelected ? 'border-[#F5821E]' : 'border-dashed border-gray-600 group-hover:border-gray-500'
+          }`}
+        />
+      </div>
+    )
+  }
 
   return (
     <div
@@ -95,10 +167,9 @@ function FieldCard({ field, sectionId, isSelected, onSelect, dispatch, overlay =
       style={style}
       onClick={() => !overlay && onSelect(field.id, 'field')}
       className={[
+        colClass,
         'bg-gray-800 border rounded-xl p-3 cursor-pointer transition-all flex items-start gap-2',
-        isSelected
-          ? 'border-[#F5821E] ring-1 ring-[#F5821E]/30'
-          : 'border-gray-700 hover:border-gray-600',
+        isSelected ? 'border-[#F5821E] ring-1 ring-[#F5821E]/30' : 'border-gray-700 hover:border-gray-600',
         overlay ? 'opacity-70 shadow-xl' : '',
       ].join(' ')}
     >
@@ -124,9 +195,10 @@ function FieldCard({ field, sectionId, isSelected, onSelect, dispatch, overlay =
             <EyeOff size={12} className="text-gray-500 flex-shrink-0" />
           )}
           {field.type === 'calculated' && (
-            <span className="text-xs bg-blue-900/50 text-blue-300 px-1 rounded font-mono">
-              &#402;
-            </span>
+            <span className="text-xs bg-blue-900/50 text-blue-300 px-1 rounded font-mono">&#402;</span>
+          )}
+          {field.col_span > 1 && sectionLayout > 1 && (
+            <span className="text-xs bg-indigo-900/50 text-indigo-300 px-1 rounded">×{field.col_span}</span>
           )}
         </div>
         <div className="flex items-center gap-2">
@@ -153,24 +225,18 @@ function FieldCard({ field, sectionId, isSelected, onSelect, dispatch, overlay =
   )
 }
 
-// ─── SectionBlock ─────────────────────────────────────────────────────────────
+// ─── SectionBlock ──────────────────────────────────────────────────────────────
 
 function SectionBlock({ section, selectedId, selectedType, dispatch, onSelect }) {
   const [showQuickAdd, setShowQuickAdd] = useState(false)
 
-  const isSelected = selectedId === section.id && selectedType === 'section'
+  const isSelected  = selectedId === section.id && selectedType === 'section'
+  const isNaAllowed = section.applicability_mode === 'na_allowed'
 
-  const gridClass = {
-    1: 'grid-cols-1',
-    2: 'grid-cols-2',
-    3: 'grid-cols-3',
-  }[section.layout] || 'grid-cols-1'
+  const gridClass = { 1: 'grid-cols-1', 2: 'grid-cols-2', 3: 'grid-cols-3' }[section.layout] || 'grid-cols-1'
 
   function handleAddField(type) {
-    dispatch({
-      type: 'ADD_FIELD',
-      payload: { sectionId: section.id, fieldType: type },
-    })
+    dispatch({ type: 'ADD_FIELD', payload: { sectionId: section.id, fieldType: type } })
     setShowQuickAdd(false)
   }
 
@@ -186,22 +252,25 @@ function SectionBlock({ section, selectedId, selectedType, dispatch, onSelect })
         className="flex items-center gap-2 px-4 py-3 border-b border-gray-700/60 cursor-pointer select-none"
         onClick={() => onSelect(section.id, 'section')}
       >
-        {/* Drag handle placeholder — sections are not sortable in this impl */}
         <GripVertical size={16} className="text-gray-600 flex-shrink-0 cursor-grab" />
 
-        {/* Editable title */}
         <input
           className="flex-1 bg-transparent text-white font-semibold text-sm focus:outline-none min-w-0"
           value={section.title}
           onClick={e => e.stopPropagation()}
           onChange={e =>
-            dispatch({
-              type: 'UPDATE_SECTION',
-              payload: { sectionId: section.id, key: 'title', value: e.target.value },
-            })
+            dispatch({ type: 'UPDATE_SECTION', payload: { sectionId: section.id, key: 'title', value: e.target.value } })
           }
           placeholder="Section title…"
         />
+
+        {/* N/A badge */}
+        {isNaAllowed && (
+          <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-medium flex-shrink-0">
+            <Ban size={10} />
+            N/A
+          </span>
+        )}
 
         {/* Layout buttons */}
         <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
@@ -210,16 +279,11 @@ function SectionBlock({ section, selectedId, selectedType, dispatch, onSelect })
               key={col}
               title={`${col} column${col > 1 ? 's' : ''}`}
               onClick={() =>
-                dispatch({
-                  type: 'UPDATE_SECTION',
-                  payload: { sectionId: section.id, key: 'layout', value: col },
-                })
+                dispatch({ type: 'UPDATE_SECTION', payload: { sectionId: section.id, key: 'layout', value: col } })
               }
               className={[
                 'w-6 h-6 rounded text-xs font-bold transition-colors',
-                section.layout === col
-                  ? 'bg-[#F5821E] text-white'
-                  : 'bg-gray-700 text-gray-400 hover:bg-gray-600',
+                section.layout === col ? 'bg-[#F5821E] text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600',
               ].join(' ')}
             >
               {col}
@@ -227,15 +291,12 @@ function SectionBlock({ section, selectedId, selectedType, dispatch, onSelect })
           ))}
         </div>
 
-        {/* Collapse toggle (only shown when collapsible) */}
+        {/* Collapse toggle (only when collapsible) */}
         {section.collapsible && (
           <button
             onClick={e => {
               e.stopPropagation()
-              dispatch({
-                type: 'UPDATE_SECTION',
-                payload: { sectionId: section.id, key: 'collapsed', value: !section.collapsed },
-              })
+              dispatch({ type: 'UPDATE_SECTION', payload: { sectionId: section.id, key: 'collapsed', value: !section.collapsed } })
             }}
             className="text-gray-500 hover:text-gray-300 transition-colors"
             title={section.collapsed ? 'Expand' : 'Collapse'}
@@ -260,10 +321,7 @@ function SectionBlock({ section, selectedId, selectedType, dispatch, onSelect })
       {/* Body */}
       {!section.collapsed && (
         <div className="p-4">
-          <SortableContext
-            items={section.fields.map(f => f.id)}
-            strategy={verticalListSortingStrategy}
-          >
+          <SortableContext items={section.fields.map(f => f.id)} strategy={verticalListSortingStrategy}>
             {section.fields.length > 0 ? (
               <div className={`grid ${gridClass} gap-3`}>
                 {section.fields.map(field => (
@@ -271,6 +329,7 @@ function SectionBlock({ section, selectedId, selectedType, dispatch, onSelect })
                     key={field.id}
                     field={field}
                     sectionId={section.id}
+                    sectionLayout={section.layout || 1}
                     isSelected={selectedId === field.id && selectedType === 'field'}
                     onSelect={onSelect}
                     dispatch={dispatch}
@@ -294,7 +353,7 @@ function SectionBlock({ section, selectedId, selectedType, dispatch, onSelect })
               Add Field
             </button>
             {showQuickAdd && (
-              <div className="absolute left-0 top-6 z-20 bg-gray-800 border border-gray-700 rounded-xl shadow-xl p-2 grid grid-cols-2 gap-1 w-52">
+              <div className="absolute left-0 top-6 z-20 bg-gray-800 border border-gray-700 rounded-xl shadow-xl p-2 grid grid-cols-2 gap-1 w-56">
                 {QUICK_ADD_TYPES.map(ft => (
                   <button
                     key={ft.type}
@@ -314,10 +373,10 @@ function SectionBlock({ section, selectedId, selectedType, dispatch, onSelect })
   )
 }
 
-// ─── FormCanvas ───────────────────────────────────────────────────────────────
+// ─── FormCanvas ────────────────────────────────────────────────────────────────
 
 export default function FormCanvas({ schema, selectedId, selectedType, dispatch, onSelect }) {
-  const [activeField, setActiveField] = useState(null)
+  const [activeItem, setActiveItem] = useState(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
@@ -329,7 +388,7 @@ export default function FormCanvas({ schema, selectedId, selectedType, dispatch,
       for (const sec of schema.sections) {
         const field = sec.fields.find(f => f.id === active.id)
         if (field) {
-          setActiveField(field)
+          setActiveItem({ field, sectionLayout: sec.layout || 1 })
           break
         }
       }
@@ -338,34 +397,27 @@ export default function FormCanvas({ schema, selectedId, selectedType, dispatch,
 
   function handleDragEnd(event) {
     const { active, over } = event
-    setActiveField(null)
+    setActiveItem(null)
     if (!over) return
 
     const activeId = active.id
     const overId   = over.id
 
-    // Drop from palette
+    // Drop from palette → add new field
     if (active.data.current?.fromPalette) {
       const targetSectionId =
         over.data.current?.sectionId ||
         (String(overId).startsWith('sec_') ? overId : null)
       if (!targetSectionId) return
-      dispatch({
-        type: 'ADD_FIELD',
-        payload: {
-          sectionId: targetSectionId,
-          fieldType: active.data.current.type,
-        },
-      })
+      dispatch({ type: 'ADD_FIELD', payload: { sectionId: targetSectionId, fieldType: active.data.current.type } })
       return
     }
 
-    // Reorder / move field
+    // Reorder / move field between sections
     if (String(activeId).startsWith('fld_') && activeId !== overId) {
       const fromSectionId = active.data.current?.sectionId
       const toSectionId   = over.data.current?.sectionId || fromSectionId
 
-      // Resolve indices
       const fromSection = schema.sections.find(s => s.id === fromSectionId)
       const toSection   = schema.sections.find(s => s.id === toSectionId)
       if (!fromSection || !toSection) return
@@ -385,10 +437,6 @@ export default function FormCanvas({ schema, selectedId, selectedType, dispatch,
     }
   }
 
-  function handleAddSection() {
-    dispatch({ type: 'ADD_SECTION' })
-  }
-
   return (
     <DndContext
       sensors={sensors}
@@ -398,15 +446,14 @@ export default function FormCanvas({ schema, selectedId, selectedType, dispatch,
     >
       <div className="flex-1 overflow-y-auto p-6">
         {schema.sections.length === 0 ? (
-          /* Empty state */
           <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center">
             <div className="w-20 h-20 rounded-full bg-gray-800 flex items-center justify-center mb-4">
               <Clipboard size={36} className="text-gray-600" />
             </div>
             <h3 className="text-lg font-semibold text-white mb-2">Start building your form</h3>
-            <p className="text-gray-500 text-sm mb-6">Add a section to get started</p>
+            <p className="text-gray-500 text-sm mb-6">Add a section to get started, or drag a field from the palette</p>
             <button
-              onClick={handleAddSection}
+              onClick={() => dispatch({ type: 'ADD_SECTION' })}
               className="flex items-center gap-2 px-5 py-2.5 bg-[#F5821E] hover:bg-[#e07010] text-white font-medium rounded-xl transition-colors"
             >
               <Plus size={16} />
@@ -423,13 +470,11 @@ export default function FormCanvas({ schema, selectedId, selectedType, dispatch,
                 selectedType={selectedType}
                 dispatch={dispatch}
                 onSelect={onSelect}
-                allSections={schema.sections}
               />
             ))}
 
-            {/* Add Section */}
             <button
-              onClick={handleAddSection}
+              onClick={() => dispatch({ type: 'ADD_SECTION' })}
               className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-gray-700 hover:border-[#F5821E] hover:text-[#F5821E] text-gray-500 rounded-xl transition-colors text-sm font-medium"
             >
               <Plus size={16} />
@@ -439,12 +484,12 @@ export default function FormCanvas({ schema, selectedId, selectedType, dispatch,
         )}
       </div>
 
-      {/* Drag overlay */}
       <DragOverlay>
-        {activeField ? (
+        {activeItem ? (
           <FieldCard
-            field={activeField}
+            field={activeItem.field}
             sectionId={null}
+            sectionLayout={activeItem.sectionLayout}
             isSelected={false}
             onSelect={() => {}}
             dispatch={() => {}}
