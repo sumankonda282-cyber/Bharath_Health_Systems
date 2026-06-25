@@ -69,6 +69,9 @@ class Settings(BaseSettings):
     RAZORPAY_KEY_SECRET: str = ""
     RAZORPAY_WEBHOOK_SECRET: str = ""
 
+    # Shared secret for the dunning cron endpoint (X-Cron-Key header)
+    CRON_SECRET: str = ""
+
     @property
     def cors_origins_list(self) -> List[str]:
         defaults = [

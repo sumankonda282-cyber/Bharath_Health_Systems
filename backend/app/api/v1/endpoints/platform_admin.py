@@ -1527,7 +1527,20 @@ def confirm_subscription_invoice(invoice_id: int, body: dict = None, db: Session
     _log(db, "confirmed_invoice", "clinic", clinic.id, clinic.name, current,
          reason=f"invoice #{inv.id}", comment=f"₹{inv.amount} via {inv.method}")
     db.commit()
+    try:
+        from app.services.dunning import notify_receipt
+        notify_receipt(db, clinic, inv)
+    except Exception:
+        pass
     return {"status": "paid", "invoice_id": inv.id, "entitlements": get_entitlements(db, clinic)}
+
+
+@router.post("/dunning/run")
+def run_dunning_now(db: Session = Depends(get_db), current=Depends(get_current_platform_admin)):
+    """Manually trigger the dunning pass (renewal reminders / lapse notices).
+    Idempotent — safe to run any time."""
+    from app.services.dunning import run_dunning
+    return run_dunning(db)
 
 
 # ── Subscription Payments ─────────────────────────────────────────────────────

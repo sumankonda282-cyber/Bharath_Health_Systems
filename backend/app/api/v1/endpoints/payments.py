@@ -11,7 +11,7 @@ always reach it to pay its way back in.
 import json
 from datetime import datetime, date
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Header
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -21,6 +21,7 @@ from app.models.models import Clinic, Plan, Staff, SubscriptionInvoice, WebhookE
 from app.services import razorpay_service
 from app.services.subscription import compute_price, activate_paid
 from app.services.entitlements import get_entitlements
+from app.services.dunning import notify_receipt
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 
@@ -200,6 +201,10 @@ def verify_subscription_payment(body: dict, db: Session = Depends(get_db),
                                period_from=inv.period_from)
     inv.period_to = period_end
     db.commit()
+    try:
+        notify_receipt(db, clinic, inv)
+    except Exception:
+        pass
     return {"status": "paid", "entitlements": get_entitlements(db, clinic)}
 
 
@@ -225,6 +230,7 @@ async def razorpay_webhook(request: Request, db: Session = Depends(get_db)):
     db.add(we)
 
     handled = False
+    receipt_ctx = None
     if event.get("event") in ("payment.captured", "order.paid"):
         payload = event.get("payload") or {}
         pay_entity = ((payload.get("payment") or {}).get("entity")) or {}
@@ -247,8 +253,14 @@ async def razorpay_webhook(request: Request, db: Session = Depends(get_db)):
                         amount=inv.amount, method="razorpay", reference=pay_id,
                         period_from=inv.period_from)
                     handled = True
+                    receipt_ctx = (clinic, inv)
     we.processed = handled
     db.commit()
+    if receipt_ctx:
+        try:
+            notify_receipt(db, *receipt_ctx)
+        except Exception:
+            pass
     return {"ok": True, "handled": handled}
 
 
@@ -296,3 +308,13 @@ def my_invoices(db: Session = Depends(get_db), current=Depends(_require_billing_
         SubscriptionInvoice.clinic_id == current.clinic_id
     ).order_by(SubscriptionInvoice.created_at.desc()).limit(50).all()
     return [_invoice_out(i) for i in rows]
+
+
+@router.post("/cron/dunning")
+def cron_dunning(x_cron_key: str = Header(None), db: Session = Depends(get_db)):
+    """Render Cron entry point for the daily dunning pass. Auth = X-Cron-Key
+    header matching CRON_SECRET (no user login). Allowlisted by the gate."""
+    if not settings.CRON_SECRET or x_cron_key != settings.CRON_SECRET:
+        raise HTTPException(403, "Invalid cron key")
+    from app.services.dunning import run_dunning
+    return run_dunning(db)
