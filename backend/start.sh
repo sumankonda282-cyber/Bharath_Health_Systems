@@ -774,6 +774,9 @@ timeout 180 python -m app.db.backfill_ids || echo "[bg-migrations] ID backfill f
 
 echo "[bg-migrations] Loading medical terminology library (idempotent)..."
 timeout 120 python -m app.seed_medical_library || echo "[bg-migrations] Medical library load failed (non-fatal)"
+
+echo "[bg-migrations] Seeding demo/test accounts (idempotent)..."
+timeout 60 python seed.py || echo "[bg-migrations] Demo seed failed (non-fatal)"
 echo "[bg-migrations] Done."
 ) &
 
