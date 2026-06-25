@@ -40,7 +40,9 @@ function PaymentModal({ invoice, onClose, onPaid }) {
     e.preventDefault()
     setPaying(true); setError('')
     try {
-      await api.post(`/billing/invoices/${invoice.id}/pay`, { payment_method: method })
+      await api.post(`/billing/invoices/${invoice.id}/pay`, null, {
+        params: { amount: invoice.amount ?? invoice.total_amount ?? invoice.total ?? 0, payment_method: method },
+      })
       onPaid(invoice.id)
       onClose()
     } catch (err) {

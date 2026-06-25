@@ -39,10 +39,11 @@ function PayModal({ invoice, onClose, onPaid }) {
     setError('')
     setSaving(true)
     try {
-      await api.post(`/billing/invoices/${invoice.id}/pay`, {
-        payment_method: form.payment_method,
-        amount_paid:    parseFloat(form.amount_paid),
-        reference_no:   form.reference_no || undefined,
+      await api.post(`/billing/invoices/${invoice.id}/pay`, null, {
+        params: {
+          amount: parseFloat(form.amount_paid),
+          payment_method: form.payment_method,
+        },
       })
       onPaid()
     } catch (err) {

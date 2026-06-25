@@ -55,11 +55,12 @@ function NewReturnModal({ onClose, onSuccess }) {
     setInvoice(null)
     setItems([])
     try {
-      const data = await api.get(`/pharmacy/invoices/${encodeURIComponent(id)}`)
+      const data = await api.get(`/billing/invoices/${encodeURIComponent(id)}`)
       setInvoice(data)
       setItems(
         (data.items || []).map(i => ({
           invoice_item_id: i.id,
+          medicine_id: i.medicine_id ?? i.reference_id ?? null,
           medicine_name: i.description || i.medicine_name || '—',
           billed_qty: Number(i.quantity) || 0,
           return_qty: 0,
@@ -102,8 +103,9 @@ function NewReturnModal({ onClose, onSuccess }) {
         reason,
         refund_method: refundMethod,
         items: returnableItems.map(i => ({
-          invoice_item_id: i.invoice_item_id,
-          quantity_returned: i.return_qty,
+          medicine_id: i.medicine_id,
+          medicine_name: i.medicine_name,
+          quantity: i.return_qty,
           unit_price: i.unit_price,
         })),
       })
