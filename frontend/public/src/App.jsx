@@ -1,4 +1,3 @@
-import InstallPrompt from './components/InstallPrompt'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import HomePage from './pages/HomePage'
 import FindClinics from './pages/FindClinics'
@@ -13,7 +12,6 @@ import PreVisitForm from './pages/PreVisitForm'
 export default function App() {
   return (
     <>
-      <InstallPrompt appName="BHarath Health" />
       <BrowserRouter>
       <Routes>
         <Route path="/" element={<HomePage />} />
