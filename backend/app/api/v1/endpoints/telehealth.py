@@ -21,7 +21,7 @@ from app.core.config import settings
 from app.core.security import get_current_staff
 from app.db.session import get_db
 from app.models.models import (
-    Appointment, TelehealthSession, TelehealthSessionEvent,
+    Appointment, TelehealthSession, TelehealthSessionEvent, DoctorProfile,
 )
 from app.utils.video import (
     get_or_create_room, create_meeting_token, delete_room,
@@ -174,6 +174,26 @@ def _staff_appt(db: Session, appointment_id: int, staff) -> Appointment:
     return appt
 
 
+def _my_doctor_profile(db: Session, staff):
+    return db.query(DoctorProfile).filter(DoctorProfile.staff_id == staff.id).first()
+
+
+def _assert_can_join(db: Session, appt: Appointment, staff):
+    """Doctor-level isolation: a doctor may act on a telehealth visit only if it
+    is assigned to them. Clinic admins/managers are allowed (oversight). Use the
+    transfer endpoint to reassign a visit to a covering doctor. Clinic isolation
+    is already enforced by _staff_appt."""
+    role = (getattr(staff, "role", "") or "").lower()
+    if role == "doctor":
+        dp = _my_doctor_profile(db, staff)
+        if not dp or appt.doctor_id != dp.id:
+            raise HTTPException(
+                403,
+                "This telehealth visit is assigned to another doctor. "
+                "Ask the front desk to transfer it to you.",
+            )
+
+
 # ── Staff endpoints ───────────────────────────────────────────────────────────
 
 @router.post("/appointments/{appointment_id}/join")
@@ -184,6 +204,7 @@ async def staff_join(
 ):
     """Doctor/staff joins — owner token (can admit knocking patients, mute, remove)."""
     appt = _staff_appt(db, appointment_id, current)
+    _assert_can_join(db, appt, current)
     return await issue_join(db, appt, role="doctor", actor_id=current.id)
 
 
@@ -201,6 +222,7 @@ async def complete_session(
     """
     body = body or {}
     appt = _staff_appt(db, appointment_id, current)
+    _assert_can_join(db, appt, current)
     sess = get_or_create_session(db, appt)
     now = _now_ist()
 
@@ -261,4 +283,61 @@ def session_status(
         "patient_joined": sess.patient_first_joined_at is not None,
         "rejoin_until": sess.reopened_until.isoformat() if sess.reopened_until else None,
         "reopen_count": sess.reopen_count or 0,
+    }
+
+
+@router.post("/appointments/{appointment_id}/transfer")
+def transfer_appointment(
+    appointment_id: int,
+    body: dict = None,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_staff),
+):
+    """Reassign a telehealth visit to another doctor in the same clinic.
+
+    Allowed for the front desk (receptionist / clinic_admin / clinic_manager) or
+    the currently-assigned doctor handing off when unavailable. Clinic isolation
+    is preserved (target must belong to this clinic); the room name is per
+    appointment, so the patient's link is unchanged after the transfer.
+    """
+    body = body or {}
+    appt = _staff_appt(db, appointment_id, current)
+
+    to_id = body.get("to_doctor_id")
+    if not to_id:
+        raise HTTPException(400, "to_doctor_id is required")
+
+    # Accept a doctor_profile id or a staff id; must be in this clinic.
+    target = db.query(DoctorProfile).filter(
+        DoctorProfile.id == to_id,
+        DoctorProfile.clinic_id == current.clinic_id,
+    ).first()
+    if not target:
+        target = db.query(DoctorProfile).filter(
+            DoctorProfile.staff_id == to_id,
+            DoctorProfile.clinic_id == current.clinic_id,
+        ).first()
+    if not target:
+        raise HTTPException(404, "Target doctor not found in this clinic")
+
+    role = (getattr(current, "role", "") or "").lower()
+    mine = _my_doctor_profile(db, current)
+    is_front_desk = role in ("receptionist", "clinic_admin", "clinic_manager")
+    is_assigned_doctor = role == "doctor" and mine is not None and appt.doctor_id == mine.id
+    if not (is_front_desk or is_assigned_doctor):
+        raise HTTPException(403, "Only the front desk or the assigned doctor can transfer this visit.")
+
+    prev_doctor_id = appt.doctor_id
+    appt.doctor_id = target.id
+
+    sess = get_or_create_session(db, appt)
+    _log_event(db, sess.id, "transferred", actor_type="staff", actor_id=current.id,
+               payload={"from_doctor_id": prev_doctor_id, "to_doctor_id": target.id})
+    db.commit()
+
+    return {
+        "ok": True,
+        "appointment_id": appt.id,
+        "to_doctor_id": target.id,
+        "to_doctor_name": target.staff.full_name if target.staff else None,
     }
