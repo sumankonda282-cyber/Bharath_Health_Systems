@@ -83,7 +83,7 @@ export default function Layout() {
           </button>
           <BrandLogo size="sm" />
         </div>
-        <div className="p-2 md:p-3">
+        <div className="p-1.5 md:p-2">
           <Outlet />
         </div>
       </main>

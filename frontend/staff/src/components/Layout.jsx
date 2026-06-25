@@ -290,7 +290,7 @@ export default function Layout() {
         {isHospital && <EmergencyAlertBanner />}
 
         <main className="flex-1 overflow-y-auto">
-          <div className="p-2 md:p-3">
+          <div className="p-1.5 md:p-2">
             <Outlet />
           </div>
         </main>
