@@ -363,7 +363,8 @@ export default function ClinicAdmin() {
       setShowAddStaff(false)
       setNewStaff({ full_name: '', email: '', mobile: '', role: 'receptionist', password: '', specialty: '', consultation_fee: 500, branch_id: '' })
       load()
-    } finally { setSaving(false) }
+    } catch (e) { alert(e?.response?.data?.detail || 'Could not add staff member') }
+    finally { setSaving(false) }
   }
 
   const openEditStaff = (s) => {
@@ -378,12 +379,15 @@ export default function ClinicAdmin() {
       await clinicApi.updateStaff(editStaff.id, { ...editStaffForm, branch_id: editStaffForm.branch_id || null })
       setEditStaff(null)
       load()
-    } finally { setSaving(false) }
+    } catch (e) { alert(e?.response?.data?.detail || 'Could not update staff member') }
+    finally { setSaving(false) }
   }
 
   const handleToggle = async (id) => {
-    await clinicApi.updateStaff(id, { is_active: !staff.find(s => s.id === id)?.is_active })
-    load()
+    try {
+      await clinicApi.updateStaff(id, { is_active: !staff.find(s => s.id === id)?.is_active })
+      load()
+    } catch (e) { alert(e?.response?.data?.detail || 'Could not update staff status') }
   }
 
   const handleSaveWeekSchedule = async (e) => {
@@ -408,7 +412,8 @@ export default function ClinicAdmin() {
       }
       setSaveSuccess(scheduleDoctor.full_name)
       setScheduleDoctor(null)
-    } finally { setSaving(false) }
+    } catch (e) { alert(e?.response?.data?.detail || 'Could not save the schedule') }
+    finally { setSaving(false) }
   }
 
   const quickSetupWorkweek = () => {
@@ -441,7 +446,8 @@ export default function ClinicAdmin() {
     try {
       await clinicApi.updateTelehealth(doc.profile_id, { telehealth_enabled: !doc.telehealth_enabled })
       load()
-    } finally { setTelehealthSaving(s => ({ ...s, [doc.id]: false })) }
+    } catch (e) { alert(e?.response?.data?.detail || 'Could not update telehealth setting') }
+    finally { setTelehealthSaving(s => ({ ...s, [doc.id]: false })) }
   }
 
   const handleTelehealthFee = async (doc, fee) => {
@@ -450,7 +456,8 @@ export default function ClinicAdmin() {
     try {
       await clinicApi.updateTelehealth(doc.profile_id, { telehealth_fee: fee ? Number(fee) : null })
       load()
-    } finally { setTelehealthSaving(s => ({ ...s, [`fee_${doc.id}`]: false })) }
+    } catch (e) { alert(e?.response?.data?.detail || 'Could not update telehealth fee') }
+    finally { setTelehealthSaving(s => ({ ...s, [`fee_${doc.id}`]: false })) }
   }
 
   const handleSaveProfile = async () => {
@@ -459,7 +466,8 @@ export default function ClinicAdmin() {
       await clinicApi.updateProfile(profileForm)
       setEditProfile(false)
       load()
-    } finally { setSaving(false) }
+    } catch (e) { alert(e?.response?.data?.detail || 'Could not save profile') }
+    finally { setSaving(false) }
   }
 
   if (loading) return <PageLoader />

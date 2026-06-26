@@ -217,10 +217,9 @@ function AssessmentPanel({ patientId, appointmentId }) {
       })
       setSaved(true)
       setTimeout(() => { setSaved(false); setActiveForm(null); setFormText('') }, 800)
-    } catch {
-      // Silently fail — assessment notes are supplementary
-      setActiveForm(null)
-      setFormText('')
+    } catch (e) {
+      // Keep the entered note so it isn't lost; let the doctor retry.
+      alert(e?.response?.data?.detail || 'Could not save the note. Your text is kept — please retry.')
     } finally { setSaving(false) }
   }
 
