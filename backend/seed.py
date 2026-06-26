@@ -73,8 +73,8 @@ def _seed_critical(db):
             clinic_id=clinic.id,
             name="Main Branch - Jubilee Hills",
             address="123 Jubilee Hills Road",
-            city="Hyderabad", state="Telangana", pincode="500033",
-            phone="040-12345678", email="main@apollodemo.com",
+            city="Hyderabad",
+            phone="040-12345678",
         )
         db.add(branch_main)
         db.commit()
@@ -87,6 +87,7 @@ def _seed_critical(db):
         dict(email="drrajan@apollodemo.com",  mobile="9000000006", full_name="Dr. Rajan Mehta",   role="doctor",             password="Doctor@123",    username="raja83"),
         dict(email="manager@apollodemo.com",  mobile="9000000007", full_name="Sunita Verma",      role="clinic_manager",     password="Manager@123",   username="suni42"),
         dict(email="ravi@apollodemo.com",     mobile="9000000003", full_name="Ravi Kumar",        role="receptionist",       password="Reception@123", username="ravi56"),
+        dict(email="sister@apollodemo.com",   mobile="9000000010", full_name="Sister Anitha",     role="nurse",              password="Nurse@123",     username="anit55"),
         dict(email="meera@apollodemo.com",    mobile="9000000004", full_name="Meera Patel",       role="pharmacist",         password="Pharmacy@123",  username="meer29"),
         dict(email="arjun@apollodemo.com",    mobile="9000000005", full_name="Arjun Singh",       role="lab_tech",           password="Lab@123",       username="arju74"),
         dict(email="kiran@apollodemo.com",    mobile="9000000008", full_name="Kiran Rao",         role="imaging_technician", password="Imaging@123",   username="kira38"),
@@ -126,12 +127,12 @@ def _seed_critical(db):
     # ── Doctor Profiles ───────────────────────────────────────────────
     if doctor1 and not _exists(db, DoctorProfile, staff_id=doctor1.id):
         db.add(DoctorProfile(
-            staff_id=doctor1.id, specialty="General Medicine",
+            staff_id=doctor1.id, clinic_id=clinic.id, specialty="General Medicine",
             qualification="MBBS, MD (Internal Medicine)", mci_number="AP-MED-12345",
             experience_years=8, consultation_fee=500,
             bio="Dr. Priya Sharma is an experienced general physician.",
             languages="English, Telugu, Hindi",
-            accepts_online_booking=True, avg_consultation_minutes=15,
+            accepting_appointments=True,
             telehealth_enabled=True, telehealth_fee=400,
             mci_verified=True,
         ))
@@ -144,12 +145,12 @@ def _seed_critical(db):
 
     if doctor2 and not _exists(db, DoctorProfile, staff_id=doctor2.id):
         db.add(DoctorProfile(
-            staff_id=doctor2.id, specialty="Cardiology",
+            staff_id=doctor2.id, clinic_id=clinic.id, specialty="Cardiology",
             qualification="MBBS, MD, DM (Cardiology)", mci_number="AP-MED-67890",
             experience_years=12, consultation_fee=800,
             bio="Dr. Rajan Mehta is a senior cardiologist.",
             languages="English, Telugu, Hindi",
-            accepts_online_booking=True, avg_consultation_minutes=20,
+            accepting_appointments=True,
             telehealth_enabled=True, telehealth_fee=600,
             mci_verified=True,
         ))
@@ -299,8 +300,7 @@ def _seed_sample_clinics(db):
             branch = Branch(
                 clinic_id=clinic.id, name="Main Branch",
                 address=cd.get("address"), city=cd.get("city"),
-                state=cd.get("state"), pincode=cd.get("pincode"),
-                phone=cd.get("phone"), email=cd.get("email"),
+                phone=cd.get("phone"),
             )
             db.add(branch)
             db.flush()
@@ -329,7 +329,7 @@ def _seed_sample_clinics(db):
                     consultation_fee=dd["consultation_fee"],
                     telehealth_enabled=True,
                     telehealth_fee=dd["telehealth_fee"],
-                    accepts_online_booking=True,
+                    accepting_appointments=True,
                     mci_verified=True,
                     languages="English, Hindi",
                     bio=f"{dd['name']} is a specialist with {dd['experience_years']} years of experience.",
@@ -404,6 +404,14 @@ def seed():
     try:
         branch_main = _seed_critical(db)
         _seed_demo_data(db, branch_main)
+        # Comprehensive cross-portal clinical demo data (idempotent, self-skipping).
+        # Isolated so any failure here never rolls back critical auth records above.
+        try:
+            from seed_clinical_demo import seed_clinical_demo
+            seed_clinical_demo(db)
+        except Exception as e:
+            db.rollback()
+            print(f"[seed]   ⚠ Clinical demo seed skipped (non-fatal): {e}")
         print("[seed] ✓ Seed complete!")
         print("=" * 55)
         print("  LOGIN CREDENTIALS")
@@ -411,10 +419,19 @@ def seed():
         print("  Platform Admin  : superadmin@bharathealth.com / SuperAdmin@123")
         print("  Clinic Admin    : admin@apollodemo.com / Admin@123")
         print("  Doctor          : drpriya@apollodemo.com / Doctor@123")
+        print("  Cardiologist    : drrajan@apollodemo.com / Doctor@123")
         print("  Receptionist    : ravi@apollodemo.com / Reception@123")
+        print("  Nurse           : sister@apollodemo.com / Nurse@123")
+        print("  Manager         : manager@apollodemo.com / Manager@123")
         print("  Pharmacist      : meera@apollodemo.com / Pharmacy@123")
         print("  Lab Technician  : arjun@apollodemo.com / Lab@123")
+        print("  Imaging Tech    : kiran@apollodemo.com / Imaging@123")
+        print("  Radiologist     : drsuresh@apollodemo.com / Radio@123")
         print("  Demo Provider   : demo@bharathhealthsystems.com / Demo@1234")
+        print("=" * 55)
+        print("  Demo patients (mobile 9300000001-12) carry cross-portal data:")
+        print("  OPD encounter, telehealth, inpatient, lab/imaging, pharmacy,")
+        print("  referrals, scheduler, chat & billing — log in to any portal.")
         print("=" * 55)
     except Exception as e:
         db.rollback()
