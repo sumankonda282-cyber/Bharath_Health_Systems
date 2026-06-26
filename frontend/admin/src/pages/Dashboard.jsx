@@ -16,7 +16,7 @@ const STATUS_COLORS = {
 
 function SectionCard({ title, icon: Icon, children, className = '', action }) {
   return (
-    <div className={`card-p ${className}`}>
+    <div className={`card-p animate-fade-up ${className}`}>
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           {Icon && <Icon className="h-4 w-4 text-ink-muted" />}
@@ -98,9 +98,10 @@ const KPI_TONES = {
   slate:   { chip: 'bg-slate-100',  icon: '#64748B' },
 }
 
-function KpiCard({ k }) {
+function KpiCard({ k, i = 0 }) {
   const tone = KPI_TONES[k.tone] || KPI_TONES.navy
   const Icon = k.icon
+  const delay = { animationDelay: `${i * 55}ms` }
   const inner = (
     <>
       <div className="flex items-start justify-between">
@@ -117,11 +118,11 @@ function KpiCard({ k }) {
     </>
   )
   return k.to ? (
-    <Link to={k.to} className="kpi-card group hover:shadow-card-hover hover:-translate-y-0.5 transition-all duration-150">
+    <Link to={k.to} style={delay} className="kpi-card group animate-fade-up hover:shadow-card-hover hover:-translate-y-0.5 transition-all duration-150">
       {inner}
     </Link>
   ) : (
-    <div className="kpi-card group">{inner}</div>
+    <div style={delay} className="kpi-card group animate-fade-up">{inner}</div>
   )
 }
 
@@ -237,15 +238,15 @@ export default function Dashboard() {
 
       {/* Row 1 — KPI strip */}
       <div className="grid grid-cols-2 gap-3.5 md:grid-cols-3 lg:grid-cols-6">
-        {kpis.map((k) => <KpiCard key={k.label} k={k} />)}
+        {kpis.map((k, i) => <KpiCard key={k.label} k={k} i={i} />)}
       </div>
 
       {/* Row 2 — activity */}
       <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
-        {activity.map((a) => {
+        {activity.map((a, i) => {
           const Icon = a.icon
           return (
-            <div key={a.label} className="kpi-card">
+            <div key={a.label} className="kpi-card animate-fade-up" style={{ animationDelay: `${i * 55 + 120}ms` }}>
               <div className="flex items-center gap-2 text-ink-muted">
                 {Icon && <Icon size={14} />}
                 <span className="text-[11px] font-semibold uppercase tracking-wide">{a.label}</span>

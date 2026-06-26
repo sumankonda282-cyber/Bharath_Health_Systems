@@ -45,7 +45,7 @@ export default function Login() {
           </div>
         </div>
 
-        <div className="relative">
+        <div className="relative animate-fade-up">
           <h2 className="text-[2.7rem] font-extrabold leading-[1.08] mb-5 tracking-tight">
             Platform control,<br />
             <span style={{ color: '#F5821E' }}>at your fingertips.</span>
@@ -54,8 +54,8 @@ export default function Login() {
             Oversee every health center, subscription and staff member across the BHarath Health network.
           </p>
           <div className="space-y-3">
-            {features.map(({ icon: Icon, text }) => (
-              <div key={text} className="flex items-center gap-3.5">
+            {features.map(({ icon: Icon, text }, i) => (
+              <div key={text} className="flex items-center gap-3.5 animate-fade-up" style={{ animationDelay: `${180 + i * 90}ms` }}>
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ring-1 ring-white/10"
                   style={{ background: 'rgba(245,130,30,0.16)' }}>
                   <Icon size={17} style={{ color: '#F5821E' }} />
@@ -82,7 +82,7 @@ export default function Login() {
             </div>
           </div>
 
-          <div className="bg-white border border-line rounded-3xl shadow-pop p-8">
+          <div className="bg-white border border-line rounded-3xl shadow-pop p-8 animate-scale-in">
             <div className="flex items-center gap-3 mb-7">
               <div className="w-11 h-11 rounded-2xl flex items-center justify-center bg-navy-50">
                 <ShieldCheck size={22} style={{ color: '#0F2557' }} />
