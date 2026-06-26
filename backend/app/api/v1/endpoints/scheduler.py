@@ -285,6 +285,9 @@ def add_members(group_id: int, body: dict, db: Session = Depends(get_db), curren
 @router.delete("/groups/{group_id}/members/{staff_id}")
 def remove_member(group_id: int, staff_id: int, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
     _require_manager(current)
+    g = db.query(StaffGroup).filter(StaffGroup.id == group_id, StaffGroup.clinic_id == current.clinic_id).first()
+    if not g:
+        raise HTTPException(status_code=404, detail="Group not found")
     m = db.query(StaffGroupMember).filter(
         StaffGroupMember.group_id == group_id, StaffGroupMember.staff_id == staff_id
     ).first()

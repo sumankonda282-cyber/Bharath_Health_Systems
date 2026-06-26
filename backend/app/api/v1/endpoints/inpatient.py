@@ -3437,6 +3437,9 @@ def get_inpatient_branches(db: Session = Depends(get_db), current: Staff = Depen
 @router.get("/wards/{ward_id}/dashboard-metrics")
 def ward_dashboard_metrics(ward_id: int, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
     from sqlalchemy import func
+    ward = db.query(Ward).filter(Ward.id == ward_id, Ward.clinic_id == current.clinic_id).first()
+    if not ward:
+        raise HTTPException(status_code=404, detail="Ward not found")
     admitted = db.query(Admission).filter(Admission.ward_id == ward_id, Admission.status == "admitted").count()
     discharging = db.query(Admission).filter(Admission.ward_id == ward_id, Admission.status == "pending_discharge").count()
     beds_total = db.query(Bed).filter(Bed.ward_id == ward_id).count()
