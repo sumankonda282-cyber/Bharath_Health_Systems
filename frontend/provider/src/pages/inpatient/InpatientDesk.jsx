@@ -302,7 +302,7 @@ function SelectLocationView({ onEnter }) {
     return 'Good evening'
   }
 
-  const firstName = user?.full_name?.split(' ')[0] || ''
+  const firstName = user?.full_name?.replace(/^(Dr|Mr|Mrs|Ms|Prof)\.?\s+/i, '').split(' ')[0] || ''
   const step      = ward ? 3 : department ? 2 : 1
 
   const stepStyle = (n, done, active) => ({
