@@ -282,7 +282,7 @@ def get_prescription(pres_id: int, db: Session = Depends(get_db), current: Staff
         "id": pres.id, "status": str(pres.status), "notes": pres.notes,
         "patient_id": pres.patient_id, "created_at": pres.created_at,
         "items": [
-            {"id": i.id, "medicine_name": i.medicine.name if i.medicine else "?",
+            {"id": i.id, "medicine_name": i.medicine_name or (i.medicine.name if i.medicine else "?"),
              "medicine_id": i.medicine_id, "dosage": i.dosage, "frequency": i.frequency,
              "duration": i.duration, "instructions": i.instructions,
              "quantity_prescribed": i.quantity_prescribed, "quantity_dispensed": i.quantity_dispensed}
@@ -1213,10 +1213,11 @@ def list_pending_prescriptions(
         staff = db.query(Staff).filter(Staff.id == rx.prescribed_by).first()
         items = []
         for item in rx.items:
-            med = db.query(Medicine).filter(Medicine.id == item.medicine_id).first()
+            med = db.query(Medicine).filter(Medicine.id == item.medicine_id).first() if item.medicine_id else None
             items.append({
                 "id":            item.id,
-                "medicine_name": med.name if med else "Unknown",
+                # Prefer the prescriber's free-text name; fall back to the catalogue.
+                "medicine_name": item.medicine_name or (med.name if med else "Unknown"),
                 "dosage":        item.dosage,
                 "frequency":     item.frequency,
                 "duration":      item.duration,
