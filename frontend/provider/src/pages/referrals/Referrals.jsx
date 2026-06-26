@@ -375,7 +375,7 @@ function NewReferralModal({ onClose, onCreated }) {
                   </button>
                 )}
               </div>
-              <textarea className="input resize-none" rows={3} value={form.current_medications} onChange={e => setForm(f => ({ ...f, current_medications: e.target.value }))} placeholder="Active & stopped medications from this clinic…" />
+              <textarea className="input resize-none" rows={3} value={form.current_medications} onChange={e => setForm(f => ({ ...f, current_medications: e.target.value }))} placeholder="Active & stopped medications from this health center…" />
             </div>
             <div>
               <div className="flex items-center justify-between">
@@ -686,7 +686,7 @@ export default function Referrals() {
           <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             className="input pl-8 w-48 text-sm"
-            placeholder={tab === 'outgoing' ? 'Search hospital…' : 'Search from clinic…'}
+            placeholder={tab === 'outgoing' ? 'Search hospital…' : 'Search from health center…'}
             value={hcSearch}
             onChange={e => setHcSearch(e.target.value)}
           />

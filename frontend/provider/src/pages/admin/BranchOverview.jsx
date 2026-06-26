@@ -168,7 +168,7 @@ export default function BranchOverview() {
       {branches.length === 0 ? (
         <div className="card p-12 text-center text-gray-400">
           <Building2 size={40} className="mx-auto mb-3 opacity-30" />
-          <p>No branches found. Add branches in Clinic Admin settings.</p>
+          <p>No branches found. Add branches in Health Center Admin settings.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">

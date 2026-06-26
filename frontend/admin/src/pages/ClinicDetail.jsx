@@ -152,7 +152,7 @@ export default function ClinicDetail() {
       <button onClick={load} className="btn-secondary text-sm">Try Again</button>
     </div>
   )
-  if (!clinic) return <div className="text-gray-500 p-8">Clinic not found</div>
+  if (!clinic) return <div className="text-gray-500 p-8">Health Center not found</div>
 
   const { billing } = clinic
 
@@ -255,7 +255,7 @@ export default function ClinicDetail() {
         {/* Clinic Info */}
         <div className="lg:col-span-2 space-y-5">
           <div className="card-p">
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">Clinic Information</h3>
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">Health Center Information</h3>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div><div className="text-gray-500 mb-0.5">Admin</div><div className="text-white">{clinic.admin_name}</div></div>
               <div><div className="text-gray-500 mb-0.5">Email</div><div className="text-white">{clinic.admin_email}</div></div>
@@ -526,7 +526,7 @@ export default function ClinicDetail() {
                 <div>
                   <label className="block text-xs text-gray-400 mb-1">Email</label>
                   <input type="email" className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500"
-                    placeholder="manager@clinic.com" value={managerForm.email}
+                    placeholder="manager@healthcenter.com" value={managerForm.email}
                     onChange={e => setManagerForm(f => ({ ...f, email: e.target.value }))} />
                 </div>
                 <div>

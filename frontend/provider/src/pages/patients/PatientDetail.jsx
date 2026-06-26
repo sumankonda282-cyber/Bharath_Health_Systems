@@ -124,7 +124,7 @@ function TagInput({ patientId, currentTags, onTagsChange }) {
                   placeholder="Type condition…" value={freeText} onChange={e => setFreeText(e.target.value)} onKeyDown={e => e.key === 'Enter' && submitFree()} />
                 <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">
                   <input type="checkbox" className="rounded" checked={saveToClinic} onChange={e => setSave(e.target.checked)} />
-                  Save to clinic tag library
+                  Save to health center tag library
                 </label>
                 <div className="flex gap-2">
                   <button onClick={() => { setFreeMode(false); setFreeText('') }} className="flex-1 text-xs py-1 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50">Cancel</button>

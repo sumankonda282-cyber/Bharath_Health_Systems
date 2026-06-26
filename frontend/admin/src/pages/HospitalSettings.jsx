@@ -99,7 +99,7 @@ function OverviewTab({ clinicId }) {
         </div>
 
         <div>
-          <label className="label">MRN / Clinic ID Prefix</label>
+          <label className="label">MRN / HC ID Prefix</label>
           <input
             className="input"
             value={config.clinic_prefix || ''}

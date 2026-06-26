@@ -132,7 +132,7 @@ function CorrectionModal({ patient, field, currentValue, onClose, onSubmitted })
     <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
         <h3 className="text-lg font-bold mb-1" style={{ color: '#0F2557' }}>Request Correction</h3>
-        <p className="text-xs text-gray-500 mb-4">This request will be reviewed by a clinic admin before being applied.</p>
+        <p className="text-xs text-gray-500 mb-4">This request will be reviewed by a health center admin before being applied.</p>
         <form onSubmit={submit} className="space-y-3">
           <div>
             <label className="label">Field</label>
@@ -343,7 +343,7 @@ function PatientDetail({ patient: initialPatient, staffRole, onClose }) {
           field={correctionModal.field}
           currentValue={correctionModal.currentValue}
           onClose={() => setCorrectionModal(null)}
-          onSubmitted={() => showToast('Correction request submitted — pending clinic admin approval')}
+          onSubmitted={() => showToast('Correction request submitted — pending health center admin approval')}
         />
       )}
       {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
@@ -481,7 +481,7 @@ export default function Patients() {
       <div className="card overflow-hidden">
         {loading ? <div className="flex justify-center py-16"><Loader2 size={28} className="animate-spin text-gray-400" /></div>
          : patients.length === 0 ? <div className="p-10 text-center text-gray-400"><Users size={32} className="mx-auto mb-2 opacity-30" /><p>No patients found</p></div>
-         : <div className="table-wrapper"><table className="table"><thead><tr><th className="th">Clinic ID</th><th className="th">Name</th><th className="th">Mobile</th><th className="th">Age / Gender</th><th className="th">Blood Group</th><th className="th">BH Health ID</th></tr></thead>
+         : <div className="table-wrapper"><table className="table"><thead><tr><th className="th">HC ID</th><th className="th">Name</th><th className="th">Mobile</th><th className="th">Age / Gender</th><th className="th">Blood Group</th><th className="th">BH Health ID</th></tr></thead>
             <tbody className="divide-y divide-gray-100">{patients.map(p => <tr key={p.id} className="tr-hover" onClick={() => setSelectedPatient(p)} style={{ cursor: 'pointer' }}>
               <td className="td font-mono text-xs text-gray-500">{p.clinic_patient_id || `#${p.id}`}</td>
               <td className="td font-medium">{p.full_name}</td>

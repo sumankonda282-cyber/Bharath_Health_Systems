@@ -176,7 +176,7 @@ export function printPrescription({ clinic = {}, doctor = {}, patient = {}, item
 
   <div class="hdr">
     <div>
-      <div class="clinic-name">${esc(clinic.name || 'Clinic')}</div>
+      <div class="clinic-name">${esc(clinic.name || 'Health Center')}</div>
       <div class="clinic-meta">
         ${clinic.address ? esc(clinic.address) + '<br/>' : ''}
         ${clinic.phone ? 'Ph: ' + esc(clinic.phone) : ''}${clinic.phone && clinic.email ? ' &nbsp;|&nbsp; ' : ''}${clinic.email ? 'Email: ' + esc(clinic.email) : ''}

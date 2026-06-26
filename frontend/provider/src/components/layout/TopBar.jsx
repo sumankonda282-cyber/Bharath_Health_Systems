@@ -27,7 +27,7 @@ const ROUTE_TITLES = [
   { pattern: /^\/billing/,             title: 'Billing' },
   { pattern: /^\/analytics/,           title: 'Analytics' },
   { pattern: /^\/referrals/,           title: 'Referrals' },
-  { pattern: /^\/admin/,               title: 'Clinic Admin' },
+  { pattern: /^\/admin/,               title: 'Health Center Admin' },
   { pattern: /^\/branch-overview/,     title: 'Branch Overview' },
   { pattern: /^\/platform/,            title: 'Platform Admin' },
 ]

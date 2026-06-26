@@ -344,7 +344,7 @@ export function printInvoice({ clinic = {}, patient = {}, invoice = {}, items = 
   <!-- ── Invoice header ── -->
   <div class="inv-hdr">
     <div>
-      <div class="clinic-name">${esc(clinic.name || 'Clinic')}</div>
+      <div class="clinic-name">${esc(clinic.name || 'Health Center')}</div>
       <div class="clinic-meta">
         ${clinic.address ? esc(clinic.address) + '<br/>' : ''}
         ${clinic.phone ? 'Ph: ' + esc(clinic.phone) : ''}${clinic.phone && clinic.email ? ' &nbsp;|&nbsp; ' : ''}${clinic.email ? esc(clinic.email) : ''}

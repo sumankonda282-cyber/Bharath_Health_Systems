@@ -213,7 +213,7 @@ export default function RegisterPatient() {
             </button>
           </div>
           {created.clinic_patient_id && (
-            <p className="text-xs text-gray-400 mb-6">Clinic ID: {created.clinic_patient_id}</p>
+            <p className="text-xs text-gray-400 mb-6">HC ID: {created.clinic_patient_id}</p>
           )}
           <div className="flex justify-center gap-3">
             <button onClick={() => navigate('/front-desk')}

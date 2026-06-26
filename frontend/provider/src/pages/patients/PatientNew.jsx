@@ -450,7 +450,7 @@ export default function PatientNew() {
                 <div className="font-mono text-lg font-bold text-green-800">{created.bh_id || '—'}</div>
               </div>
               <div className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 flex justify-between text-sm">
-                <span className="text-gray-500">Clinic MRN</span>
+                <span className="text-gray-500">Health Center MRN</span>
                 <span className="font-mono font-semibold text-gray-800">{created.clinic_patient_id || '—'}</span>
               </div>
             </div>

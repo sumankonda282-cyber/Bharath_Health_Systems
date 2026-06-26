@@ -189,7 +189,7 @@ export default function DutyRoster() {
         <div className="card p-10 text-center text-gray-400">
           <CalendarDays size={40} className="mx-auto mb-3 opacity-25" />
           <p className="font-semibold text-gray-600">No doctors found</p>
-          <p className="text-sm mt-1">Add doctors from Clinic Admin → Staff tab first.</p>
+          <p className="text-sm mt-1">Add doctors from Health Center Admin → Staff tab first.</p>
         </div>
       ) : (
         <>

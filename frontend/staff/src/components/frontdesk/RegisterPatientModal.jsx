@@ -214,7 +214,7 @@ export default function RegisterPatientModal({ open, onClose, doctors = [], onRe
               </button>
             </div>
             {created.clinic_patient_id && (
-              <p className="text-xs text-gray-400 mt-2">Clinic ID: {created.clinic_patient_id}</p>
+              <p className="text-xs text-gray-400 mt-2">HC ID: {created.clinic_patient_id}</p>
             )}
             <div className="flex justify-center gap-3 mt-6">
               <button onClick={onClose} className="px-4 py-2 text-sm rounded-lg border border-gray-200 hover:bg-gray-50">Done</button>

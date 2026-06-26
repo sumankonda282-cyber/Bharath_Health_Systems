@@ -46,7 +46,7 @@ export function ConfirmTransfersModal({ onClose, addToast }) {
           {rows.map(inv => (
             <div key={inv.id} className="flex items-center justify-between bg-gray-800/60 border border-gray-700 rounded-lg px-3 py-2.5">
               <div className="min-w-0">
-                <p className="text-sm text-white font-medium truncate">{inv.clinic_name || `Clinic #${inv.clinic_id}`}</p>
+                <p className="text-sm text-white font-medium truncate">{inv.clinic_name || `Health Center #${inv.clinic_id}`}</p>
                 <p className="text-[11px] text-gray-400 truncate">{inv.plan_key} · {inv.billing_cycle} · ref {inv.reference || '—'}</p>
               </div>
               <div className="flex items-center gap-3 flex-shrink-0">
@@ -123,7 +123,7 @@ export function CompClinicModal({ clinics = [], onClose, addToast }) {
         </div>
         <div>
           <label className={lbl}>Reason</label>
-          <input value={reason} onChange={e => setReason(e.target.value)} className={inp} placeholder="e.g. pilot, partner clinic" />
+          <input value={reason} onChange={e => setReason(e.target.value)} className={inp} placeholder="e.g. pilot, partner health center" />
         </div>
         {err && <p className="text-sm text-rose-400">{err}</p>}
         <div className="flex gap-3 pt-1">

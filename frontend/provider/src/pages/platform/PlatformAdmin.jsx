@@ -91,9 +91,9 @@ export default function PlatformAdmin() {
       {/* Stats */}
       {dashboard && (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-          <StatCard label="Total Clinics"      value={dashboard.total_clinics}    icon={Building2}   color="blue" />
-          <StatCard label="Active Clinics"     value={dashboard.active_clinics}   icon={CheckCircle} color="green" />
-          <StatCard label="Pending Clinics"    value={dashboard.pending_clinics}  icon={ShieldCheck} color="orange" />
+          <StatCard label="Total Health Centers"      value={dashboard.total_clinics}    icon={Building2}   color="blue" />
+          <StatCard label="Active Health Centers"     value={dashboard.active_clinics}   icon={CheckCircle} color="green" />
+          <StatCard label="Pending Health Centers"    value={dashboard.pending_clinics}  icon={ShieldCheck} color="orange" />
           <StatCard label="Pending Staff"      value={pendingStaff.length}        icon={Users}       color="red" />
           <StatCard label="Total Patients"     value={dashboard.total_patients}   icon={Building2}   color="purple" />
         </div>
@@ -103,7 +103,7 @@ export default function PlatformAdmin() {
       <div className="flex gap-1 bg-gray-100 p-1 rounded-lg mb-4 w-fit flex-wrap">
         <button onClick={() => setTab('pending')}
           className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${tab === 'pending' ? 'bg-white shadow text-gray-900' : 'text-gray-500'}`}>
-          Pending Clinics ({pending.length})
+          Pending Health Centers ({pending.length})
         </button>
         <button onClick={() => setTab('staff')}
           className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${tab === 'staff' ? 'bg-white shadow text-gray-900' : 'text-gray-500'}`}>
@@ -111,7 +111,7 @@ export default function PlatformAdmin() {
         </button>
         <button onClick={() => setTab('all')}
           className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${tab === 'all' ? 'bg-white shadow text-gray-900' : 'text-gray-500'}`}>
-          All Clinics
+          All Health Centers
         </button>
       </div>
 
@@ -121,13 +121,13 @@ export default function PlatformAdmin() {
           {pending.length === 0 ? (
             <div className="p-10 text-center text-gray-400">
               <CheckCircle size={36} className="mx-auto mb-2 opacity-30" />
-              <p>No pending clinic approvals</p>
+              <p>No pending health center approvals</p>
             </div>
           ) : (
             <div className="table-wrapper rounded-xl border-0">
               <table className="table">
                 <thead><tr>
-                  <th className="th">Clinic</th><th className="th">Specialty</th><th className="th">City</th>
+                  <th className="th">Health Center</th><th className="th">Specialty</th><th className="th">City</th>
                   <th className="th">Admin</th><th className="th">Date</th><th className="th">Actions</th>
                 </tr></thead>
                 <tbody className="divide-y divide-gray-100">
@@ -175,7 +175,7 @@ export default function PlatformAdmin() {
             <div className="table-wrapper rounded-xl border-0">
               <table className="table">
                 <thead><tr>
-                  <th className="th">Name</th><th className="th">Role</th><th className="th">Clinic</th>
+                  <th className="th">Name</th><th className="th">Role</th><th className="th">Health Center</th>
                   <th className="th">Contact</th><th className="th">Applied</th><th className="th">Actions</th>
                 </tr></thead>
                 <tbody className="divide-y divide-gray-100">
@@ -210,18 +210,18 @@ export default function PlatformAdmin() {
         </div>
       )}
 
-      {/* All Clinics */}
+      {/* All Health Centers */}
       {tab === 'all' && (
         <div className="card">
           <div className="p-4 border-b border-gray-100">
             <div className="relative"><Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input className="input pl-9" placeholder="Search clinics…" value={search} onChange={e => setSearch(e.target.value)} />
+              <input className="input pl-9" placeholder="Search health centers…" value={search} onChange={e => setSearch(e.target.value)} />
             </div>
           </div>
           <div className="table-wrapper rounded-xl border-0">
             <table className="table">
               <thead><tr>
-                <th className="th">Clinic</th><th className="th">City</th><th className="th">Plan</th>
+                <th className="th">Health Center</th><th className="th">City</th><th className="th">Plan</th>
                 <th className="th">Verified</th><th className="th">Active</th><th className="th">Actions</th>
               </tr></thead>
               <tbody className="divide-y divide-gray-100">

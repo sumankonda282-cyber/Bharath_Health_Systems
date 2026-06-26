@@ -33,7 +33,7 @@ const INDIAN_STATES = [
 const PAYMENT_METHODS = [
   { value: 'upi',      label: 'UPI',              sub: 'GPay, PhonePe, Paytm, BHIM', icon: Smartphone },
   { value: 'card',     label: 'Card / Net Banking', sub: 'Visa, Mastercard, RuPay',   icon: CreditCard },
-  { value: 'cash',     label: 'Cash at Clinic',    sub: 'Pay when you arrive',        icon: Banknote },
+  { value: 'cash',     label: 'Cash at Health Center',    sub: 'Pay when you arrive',        icon: Banknote },
 ]
 
 const fmt12 = (t) => {
@@ -771,7 +771,7 @@ function ConfirmationStep({ booking, context, patientPortalUrl, onClose }) {
           <div className="flex gap-2"><span className="w-16 flex-shrink-0">Doctor</span><span className="font-semibold text-gray-800">{booking.doctor_name}</span></div>
           <div className="flex gap-2"><span className="w-16 flex-shrink-0">Date</span><span className="font-semibold text-gray-800">{booking.date}</span></div>
           <div className="flex gap-2"><span className="w-16 flex-shrink-0">Time</span><span className="font-semibold text-gray-800">{fmt12(booking.slot)}</span></div>
-          {booking.clinic_name && <div className="flex gap-2"><span className="w-16 flex-shrink-0">Clinic</span><span className="font-semibold text-gray-800">{booking.clinic_name}</span></div>}
+          {booking.clinic_name && <div className="flex gap-2"><span className="w-16 flex-shrink-0">Health Center</span><span className="font-semibold text-gray-800">{booking.clinic_name}</span></div>}
         </div>
       </div>
 

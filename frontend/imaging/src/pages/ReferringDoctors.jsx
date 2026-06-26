@@ -51,7 +51,7 @@ function DoctorModal({ doctor, onClose, onSaved }) {
             <input className="input" value={form.specialization||''} onChange={set('specialization')} placeholder="Cardiologist, Oncologist..."/>
           </div>
           <div>
-            <label className="label">Hospital / Clinic</label>
+            <label className="label">Hospital / Health Center</label>
             <input className="input" value={form.hospital||''} onChange={set('hospital')} placeholder="Apollo, Fortis..."/>
           </div>
           <div>
@@ -65,7 +65,7 @@ function DoctorModal({ doctor, onClose, onSaved }) {
         </div>
         <div className="mt-4">
           <label className="label">Address</label>
-          <textarea className="input resize-none h-16" value={form.address||''} onChange={set('address')} placeholder="Clinic / Hospital address"/>
+          <textarea className="input resize-none h-16" value={form.address||''} onChange={set('address')} placeholder="Health Center / Hospital address"/>
         </div>
         <div className="mt-4">
           <label className="label">Notes</label>
