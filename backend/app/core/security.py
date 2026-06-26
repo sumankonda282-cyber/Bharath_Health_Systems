@@ -26,8 +26,8 @@ oauth2_scheme_patient = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/patient/logi
 # ── Role definitions ───────────────────────────────────────────────────────────
 
 CLINICAL_ROLES      = {'doctor', 'nurse', 'pathologist', 'radiologist'}
-LAB_ROLES           = {'doctor', 'nurse', 'pathologist', 'lab_technician', 'lab_tech'}
-IMAGING_ROLES       = {'doctor', 'nurse', 'radiologist', 'imaging_tech', 'imaging_technician'}
+LAB_ROLES           = {'doctor', 'nurse', 'pathologist', 'lab_technician', 'lab_tech', 'clinic_admin'}
+IMAGING_ROLES       = {'doctor', 'nurse', 'radiologist', 'imaging_tech', 'imaging_technician', 'clinic_admin'}
 PHARMACY_ROLES      = {'doctor', 'nurse', 'pharmacist'}
 SIGN_LAB_ROLES      = {'pathologist', 'doctor'}       # who can sign lab reports
 SIGN_IMAGING_ROLES  = {'radiologist', 'doctor'}       # who can sign imaging reports

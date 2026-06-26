@@ -4,6 +4,12 @@ from datetime import date, datetime
 from decimal import Decimal
 
 
+class _EmailCoerceMixin(BaseModel):
+    @field_validator('email', mode='before', check_fields=False)
+    @classmethod
+    def coerce_empty_email_to_none(cls, v):
+        return v if v else None
+
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
 
@@ -50,7 +56,7 @@ class ChangePasswordRequest(BaseModel):
 
 # ── Clinic ────────────────────────────────────────────────────────────────────
 
-class ClinicCreate(BaseModel):
+class ClinicCreate(_EmailCoerceMixin):
     name: str
     specialty: Optional[str] = None
     description: Optional[str] = None
@@ -63,7 +69,7 @@ class ClinicCreate(BaseModel):
     registration_number: Optional[str] = None
 
 
-class ClinicUpdate(BaseModel):
+class ClinicUpdate(_EmailCoerceMixin):
     name: Optional[str] = None
     specialty: Optional[str] = None
     description: Optional[str] = None
@@ -98,7 +104,7 @@ class ClinicOut(BaseModel):
 
 # ── Branch ────────────────────────────────────────────────────────────────────
 
-class BranchCreate(BaseModel):
+class BranchCreate(_EmailCoerceMixin):
     name: str
     address: Optional[str] = None
     city: Optional[str] = None
@@ -123,7 +129,7 @@ class BranchOut(BaseModel):
 
 # ── Staff ─────────────────────────────────────────────────────────────────────
 
-class StaffCreate(BaseModel):
+class StaffCreate(_EmailCoerceMixin):
     full_name: str
     email: Optional[EmailStr] = None
     mobile: Optional[str] = None
@@ -191,7 +197,7 @@ class DoctorScheduleCreate(BaseModel):
 
 # ── Patient ───────────────────────────────────────────────────────────────────
 
-class PatientCreate(BaseModel):
+class PatientCreate(_EmailCoerceMixin):
     full_name: str
     first_name: Optional[str] = None
     last_name: Optional[str] = None
@@ -226,7 +232,7 @@ class PatientCreate(BaseModel):
     govt_beneficiary_id: Optional[str] = None
 
 
-class PatientUpdate(BaseModel):
+class PatientUpdate(_EmailCoerceMixin):
     full_name: Optional[str] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
