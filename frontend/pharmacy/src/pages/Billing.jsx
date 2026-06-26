@@ -1084,10 +1084,6 @@ export default function Billing() {
 
   return (
     <div>
-      <div className="page-header">
-        <h1 className="page-title">Pharmacy Billing</h1>
-      </div>
-
       <div className="flex gap-1 mb-6 bg-white rounded-xl p-1 border border-gray-100 w-fit shadow-sm">
         {MAIN_TABS.map(t => (
           <button

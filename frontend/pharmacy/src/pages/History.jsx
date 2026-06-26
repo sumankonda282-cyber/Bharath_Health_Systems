@@ -66,11 +66,6 @@ export default function History() {
 
   return (
     <div>
-      <div className="page-header">
-        <h1 className="page-title">Dispensing History</h1>
-        <span className="text-sm text-gray-500">Print this page for records</span>
-      </div>
-
       {/* Summary stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <div className="card p-4 flex items-center gap-3">

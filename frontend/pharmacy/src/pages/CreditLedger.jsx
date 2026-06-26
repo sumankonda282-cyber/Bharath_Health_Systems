@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import api from '../api/client'
-import { BookMarked, CheckCircle, AlertCircle, RefreshCw, Plus, ChevronRight, ArrowLeft } from 'lucide-react'
+import { CheckCircle, AlertCircle, RefreshCw, Plus, ChevronRight, ArrowLeft } from 'lucide-react'
 
 function fmt(n) { return Number(n || 0).toFixed(2) }
 
@@ -212,9 +212,6 @@ export default function CreditLedger() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
-      <div className="page-header mb-6">
-        <h1 className="page-title flex items-center gap-2"><BookMarked className="w-5 h-5" /> Credit Ledger</h1>
-      </div>
       <div className="bg-white rounded-xl border border-gray-200 p-6">
         {loading ? (
           <div className="py-16 text-center text-gray-400 text-sm">Loading…</div>

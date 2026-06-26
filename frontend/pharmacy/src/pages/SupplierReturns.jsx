@@ -111,10 +111,6 @@ export default function SupplierReturns() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
-      <div className="page-header mb-6">
-        <h1 className="page-title flex items-center gap-2"><PackageX className="w-5 h-5" /> Return to Supplier</h1>
-      </div>
-
       {/* Form */}
       <div className="bg-white rounded-xl border border-gray-200 p-6 mb-8">
         <h2 className="font-semibold text-gray-800 mb-4">New Return</h2>

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
-  Wrench, Loader2, RefreshCw, X, CheckCircle2, Pencil, Save, ChevronUp, ChevronDown
+  Loader2, X, CheckCircle2, Pencil, Save, ChevronUp, ChevronDown
 } from 'lucide-react'
 import api from '../api/client'
 
@@ -308,22 +308,6 @@ export default function MaintenanceDashboard() {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: '#f0fdf4' }}>
-            <Wrench size={18} style={{ color: '#065F46' }} />
-          </div>
-          <div>
-            <h1 className="text-lg font-bold text-gray-800">Maintenance Requests</h1>
-            <p className="text-xs text-gray-400">All portals · {requests.length} total</p>
-          </div>
-        </div>
-        <button onClick={load} disabled={loading} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-100">
-          <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />Refresh
-        </button>
-      </div>
-
       {/* Stat filter cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {STATUSES.map(({ key, label, color, bg, ring }) => {

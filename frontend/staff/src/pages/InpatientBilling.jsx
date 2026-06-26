@@ -373,16 +373,7 @@ export default function InpatientBilling() {
   return (
     <div>
       {/* Page header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: '#0F2557' }}>
-            <Banknote size={20} className="text-white" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold" style={{ color: '#0F2557' }}>Inpatient Billing</h1>
-            <p className="text-sm text-gray-500">Manage charges and payments for admitted patients</p>
-          </div>
-        </div>
+      <div className="flex flex-wrap items-center justify-end gap-4 mb-6">
         {/* Search */}
         <div className="relative w-72">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />

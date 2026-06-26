@@ -417,8 +417,7 @@ export default function Patients() {
 
   return (
     <div>
-      <div className="page-header">
-        <h1 className="page-title">Patients</h1>
+      <div className="page-header justify-end">
         <button onClick={() => setShowNew(true)} className="btn-primary"><Plus size={16} />Register Patient</button>
       </div>
       <div className="relative mb-4">

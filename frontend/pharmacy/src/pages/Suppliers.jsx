@@ -93,7 +93,6 @@ export default function Suppliers() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">Suppliers</h1>
         <button onClick={openAdd} className="btn-primary"><Plus size={16} />Add Supplier</button>
       </div>
 

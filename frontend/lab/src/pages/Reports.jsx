@@ -393,11 +393,6 @@ export default function Reports() {
 
   return (
     <div>
-      <div className="page-header">
-        <h1 className="page-title">Reports</h1>
-        <button onClick={fetchData} className="btn-secondary text-sm">Refresh Data</button>
-      </div>
-
       {error && (
         <div className="flex items-center gap-2 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm mb-5">
           <AlertCircle size={16} />{error}

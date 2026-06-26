@@ -209,17 +209,8 @@ export default function FrontDesk() {
   return (
     <div className="space-y-4">
 
-      {/* ── Top Bar: Title + Action Buttons ── */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="page-title">Front Desk</h1>
-          <div className="flex items-center gap-2 text-xs text-gray-400 mt-0.5">
-            <Clock size={12} />
-            {dateMode === 'today' ? <span>{todayStr} · live</span> : <span>{rangeFrom} — {rangeTo}</span>}
-            {refreshing && <Loader2 size={12} className="animate-spin text-blue-400" />}
-          </div>
-        </div>
-
+      {/* ── Top Bar: Action Buttons ── */}
+      <div className="flex flex-wrap items-center justify-end gap-3">
         <div className="flex items-center gap-2 flex-wrap">
           {/* Patient Lookup */}
           <button onClick={() => navigate('/front-desk/lookup')}

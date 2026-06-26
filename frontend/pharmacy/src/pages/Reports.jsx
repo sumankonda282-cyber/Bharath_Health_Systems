@@ -955,9 +955,6 @@ function HSNGSTReport() {
 export default function Reports() {
   return (
     <div>
-      <div className="page-header">
-        <h1 className="page-title">Pharmacy Reports</h1>
-      </div>
       <div className="space-y-4">
         <ReportCard title="Daily Dispensing Report" icon={BarChart2} iconColor="#0F2557" iconBg="#0F255718">
           <DailyDispensing />

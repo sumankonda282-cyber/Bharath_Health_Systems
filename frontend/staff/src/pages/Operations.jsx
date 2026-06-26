@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api/client'
-import { Search, X, RefreshCw, Loader2, ChevronRight, Clock, CalendarDays, Video, Users } from 'lucide-react'
+import { Search, X, Loader2, ChevronRight, Clock, CalendarDays, Video, Users } from 'lucide-react'
 
 const today = () => new Date().toISOString().split('T')[0]
 
@@ -92,8 +92,7 @@ export default function Operations() {
   return (
     <div>
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-        <h1 className="page-title">Operations</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-3 mb-4">
         <div className="flex items-center gap-2">
           <div className="flex rounded-xl overflow-hidden border border-gray-200">
             <button onClick={() => setMode('live')}
@@ -107,7 +106,6 @@ export default function Operations() {
               Date Range
             </button>
           </div>
-          <button onClick={load} className="btn-secondary p-1.5"><RefreshCw size={15} /></button>
         </div>
       </div>
 

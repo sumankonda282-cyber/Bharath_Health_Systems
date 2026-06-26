@@ -109,7 +109,6 @@ export default function ReferringDoctors() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">Referring Doctors</h1>
         <div className="flex gap-3 items-center">
           <input className="input-sm" placeholder="Search doctors..." value={search} onChange={e => setSearch(e.target.value)}/>
           <button onClick={() => setModal('new')} className="btn-primary gap-2">

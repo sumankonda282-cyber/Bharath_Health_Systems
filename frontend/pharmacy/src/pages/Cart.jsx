@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import api from '../api/client'
 import {
   ShoppingCart, Loader2, Trash2, IndianRupee, X, CheckCircle,
-  AlertTriangle, Printer, RefreshCw, ChevronDown, ChevronRight,
+  AlertTriangle, Printer, ChevronDown, ChevronRight,
   CreditCard, Banknote, Smartphone, Building2, Shield, Tag,
 } from 'lucide-react'
 
@@ -325,16 +325,6 @@ export default function Cart() {
       )}
       {payModal && <PaymentModal patients={payModal.patients} total={payModal.total} onDispense={dispense} onClose={() => setPayModal(null)} />}
       {printModal && <PrintInvoiceModal invoiceIds={printModal} onClose={() => { setPrintModal(null); load(true) }} />}
-
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Prepared Cart</h1>
-          <p className="text-sm text-gray-500 mt-0.5">{totalItems} item{totalItems !== 1 ? 's' : ''} across {groups.length} patient{groups.length !== 1 ? 's' : ''}</p>
-        </div>
-        <button onClick={() => load()} className="btn-secondary" disabled={refreshing}>
-          <RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />Refresh
-        </button>
-      </div>
 
       {/* Batch action */}
       {groups.length > 0 && (

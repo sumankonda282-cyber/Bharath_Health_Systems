@@ -139,7 +139,6 @@ function LogoutAll() {
 export default function AccountSettings() {
   return (
     <div className="max-w-lg mx-auto p-4 space-y-6">
-      <h1 className="text-xl font-bold text-gray-800">Account Settings</h1>
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
         <div className="flex items-center gap-2 mb-4"><Lock size={16} style={{ color: ACCENT }} /><h2 className="font-semibold text-gray-800">Change Password</h2></div>
         <ChangePasswordForm />

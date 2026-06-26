@@ -53,7 +53,6 @@ export default function Pending() {
   }
   return (
     <div>
-      <div className="page-header"><h1 className="page-title">Pending Prescriptions</h1><span className="text-sm text-gray-500">{prescriptions.length} pending</span></div>
       {loading ? <div className="flex justify-center py-20"><Loader2 size={28} className="animate-spin text-gray-400"/></div>
        : prescriptions.length === 0 ? <div className="card p-16 text-center text-gray-400"><CheckCircle size={40} className="mx-auto mb-3 opacity-30"/><p className="font-medium">All prescriptions dispensed</p></div>
        : <div className="space-y-3">{prescriptions.map(rx => (

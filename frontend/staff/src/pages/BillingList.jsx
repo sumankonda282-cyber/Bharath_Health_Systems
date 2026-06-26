@@ -82,12 +82,6 @@ export default function BillingList() {
   return (
     <div className="p-4 md:p-6 max-w-6xl mx-auto">
 
-      {/* Header */}
-      <div className="mb-5">
-        <h1 className="text-2xl font-bold text-gray-900">Billing</h1>
-        <p className="text-sm text-gray-400 mt-0.5">{filtered.length} invoice{filtered.length !== 1 ? 's' : ''}</p>
-      </div>
-
       {/* Summary */}
       <div className="grid grid-cols-3 gap-3 mb-5">
         {[

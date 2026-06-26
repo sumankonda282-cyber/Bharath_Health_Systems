@@ -566,14 +566,6 @@ export default function Orders() {
 
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto">
-      <div className="flex items-center gap-3 mb-6">
-        <ScanLine size={22} style={{ color: '#0F2557' }} />
-        <div>
-          <h1 className="text-xl font-extrabold" style={{ color: '#0F2557' }}>Imaging Orders</h1>
-          <p className="text-xs text-gray-500">Review, upload reports, sign and release to patients</p>
-        </div>
-      </div>
-
       <UnmatchedQueue onResolved={load} />
 
       {/* Tabs */}

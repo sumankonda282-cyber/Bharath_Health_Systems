@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import api from '../api/client'
-import { ReceiptText, Loader2, AlertTriangle, Download, Printer, RefreshCw, FileText, ChevronDown, ChevronUp } from 'lucide-react'
+import { ReceiptText, Loader2, AlertTriangle, Download, Printer, FileText, ChevronDown, ChevronUp } from 'lucide-react'
 
 function todayStr() { return new Date().toISOString().slice(0, 10) }
 function monthStart() {
@@ -352,16 +352,6 @@ export default function GstReport() {
 
   return (
     <div>
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">GST / GSTR-1 Report</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Tax collection summary for filing GST returns</p>
-        </div>
-        <button onClick={() => load()} className="btn-secondary" disabled={loading}>
-          <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />Refresh
-        </button>
-      </div>
-
       {/* Date controls */}
       <div className="card p-4 mb-5">
         <div className="flex flex-wrap items-end gap-3">

@@ -449,10 +449,6 @@ export default function Orders() {
 
   return (
     <div>
-      <div className="page-header">
-        <h1 className="page-title">Lab Orders</h1>
-      </div>
-
       <UnmatchedQueue orders={orders} onResolved={fetchOrders} />
 
       {/* Status tabs */}
