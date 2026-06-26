@@ -78,7 +78,9 @@ export default function EmergencyAlertBanner() {
       await api.post(`/inpatient/emergency/${a.id}/acknowledge`)
       setAlerts(prev => prev.filter(x => x.id !== a.id))
       window.dispatchEvent(new CustomEvent('bharathhealthsystems:refresh'))
-    } catch {}
+    } catch (e) {
+      alert(e?.response?.data?.detail || 'Could not acknowledge the alert. Please retry.')
+    }
     setAcking(p => ({ ...p, [a.id]: false }))
   }
 
