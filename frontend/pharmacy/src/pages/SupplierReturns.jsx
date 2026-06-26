@@ -106,7 +106,7 @@ export default function SupplierReturns() {
     try {
       await api.put(`/pharmacy/supplier-returns/${id}/status?status=${status}`)
       fetchLog()
-    } catch {}
+    } catch (e) { alert(e?.response?.data?.detail || 'Could not update return status.') }
   }
 
   return (

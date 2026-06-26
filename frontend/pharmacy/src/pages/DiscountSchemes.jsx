@@ -59,7 +59,7 @@ export default function DiscountSchemes() {
     try {
       await api.put(`/pharmacy/discount-schemes/${s.id}`, { ...s, is_active: !s.is_active })
       fetchSchemes()
-    } catch {}
+    } catch (e) { alert(e?.response?.data?.detail || 'Could not update the scheme.') }
   }
 
   return (
