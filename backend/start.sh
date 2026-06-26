@@ -670,6 +670,7 @@ for _sql in [
     \"ALTER TABLE clinics ADD COLUMN IF NOT EXISTS latitude NUMERIC(10,7)\",
     \"ALTER TABLE clinics ADD COLUMN IF NOT EXISTS longitude NUMERIC(10,7)\",
     \"ALTER TABLE clinics ADD COLUMN IF NOT EXISTS capacity_description TEXT\",
+    \"ALTER TABLE clinics ADD COLUMN IF NOT EXISTS emergency_contacts JSONB DEFAULT '[]'\",
     \"CREATE TABLE IF NOT EXISTS specialties (id SERIAL PRIMARY KEY, name VARCHAR(200) NOT NULL UNIQUE, category VARCHAR(100), is_active BOOLEAN DEFAULT TRUE, sort_order INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT NOW())\",
     \"CREATE TABLE IF NOT EXISTS doctor_specialties (id SERIAL PRIMARY KEY, doctor_profile_id INTEGER NOT NULL REFERENCES doctor_profiles(id) ON DELETE CASCADE, specialty_name VARCHAR(200) NOT NULL, is_primary BOOLEAN DEFAULT FALSE, created_at TIMESTAMP DEFAULT NOW(), UNIQUE(doctor_profile_id, specialty_name))\",
     \"CREATE INDEX IF NOT EXISTS idx_doctor_specialties_doctor ON doctor_specialties(doctor_profile_id)\",
