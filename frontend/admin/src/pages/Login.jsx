@@ -47,8 +47,8 @@ export default function Login() {
 
         <div className="relative animate-fade-up">
           <h2 className="text-[2.7rem] font-extrabold leading-[1.08] mb-5 tracking-tight">
-            Platform control,<br />
-            <span style={{ color: '#F5821E' }}>at your fingertips.</span>
+            Every health center,<br />
+            <span style={{ color: '#F5821E' }}>one console.</span>
           </h2>
           <p className="text-blue-100/80 text-lg mb-9 max-w-md leading-relaxed">
             Oversee every health center, subscription and staff member across the BHarath Health network.
