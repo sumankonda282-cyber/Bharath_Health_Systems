@@ -1361,6 +1361,7 @@ def create_imaging_order(
         raise HTTPException(404, "Patient not found")
 
     order = ImagingOrder(
+        order_id       = ids.next_imaging_order_no(db, current.clinic_id),
         clinic_id      = current.clinic_id,
         branch_id      = current.branch_id,
         patient_id     = body["patient_id"],
@@ -1369,6 +1370,7 @@ def create_imaging_order(
         modality       = body.get("modality", "X-Ray"),
         body_part      = body.get("body_part"),
         clinical_notes = body.get("clinical_notes"),
+        priority       = body.get("priority", "routine"),
         status         = "ordered",
     )
     db.add(order)

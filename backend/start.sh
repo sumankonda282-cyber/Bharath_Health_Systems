@@ -798,6 +798,36 @@ timeout 180 python -m app.db.backfill_ids || echo "[bg-migrations] ID backfill f
 echo "[bg-migrations] Loading medical terminology library (idempotent)..."
 timeout 120 python -m app.seed_medical_library || echo "[bg-migrations] Medical library load failed (non-fatal)"
 
+echo "[bg-migrations] Seeding BH state groups for BHID generation (idempotent)..."
+python -c "
+from sqlalchemy import text
+from app.db.session import engine
+try:
+    with engine.begin() as conn:
+        conn.execute(text('''
+            INSERT INTO bh_state_groups (digit, label, states) VALUES
+            (0, 'North India (Mountains)', '[\"Jammu and Kashmir\", \"Ladakh\", \"Himachal Pradesh\", \"Uttarakhand\"]'),
+            (1, 'North India (Plains)', '[\"Punjab\", \"Haryana\", \"Delhi\", \"Chandigarh\", \"New Delhi\"]'),
+            (2, 'Uttar Pradesh', '[\"Uttar Pradesh\", \"UP\"]'),
+            (3, 'Central India', '[\"Rajasthan\", \"Madhya Pradesh\", \"Chhattisgarh\", \"MP\"]'),
+            (4, 'East India', '[\"Bihar\", \"Jharkhand\"]'),
+            (5, 'East India (Coast)', '[\"West Bengal\", \"Odisha\", \"Sikkim\", \"WB\"]'),
+            (6, 'Northeast India', '[\"Assam\", \"Meghalaya\", \"Manipur\", \"Mizoram\", \"Nagaland\", \"Tripura\", \"Arunachal Pradesh\"]'),
+            (7, 'West India', '[\"Maharashtra\", \"Goa\"]'),
+            (8, 'West India (Northwest)', '[\"Gujarat\", \"Dadra and Nagar Haveli\", \"Daman and Diu\"]'),
+            (9, 'South India', '[\"Karnataka\", \"Kerala\", \"Tamil Nadu\", \"Andhra Pradesh\", \"Telangana\", \"Puducherry\", \"TN\", \"AP\"]')
+            ON CONFLICT (digit) DO NOTHING
+        '''))
+        conn.execute(text('''
+            INSERT INTO bh_id_sequences (digit, next_seq)
+            SELECT digit, 1 FROM bh_state_groups
+            ON CONFLICT (digit) DO NOTHING
+        '''))
+    print('[bg-migrations] BH state groups seeded.')
+except Exception as e:
+    print(f'[bg-migrations] BH state groups seed warning: {e}')
+" || echo "[bg-migrations] BH state groups seed failed (non-fatal)"
+
 echo "[bg-migrations] Seeding demo/test accounts (idempotent)..."
 timeout 60 python seed.py || echo "[bg-migrations] Demo seed failed (non-fatal)"
 echo "[bg-migrations] Done."
