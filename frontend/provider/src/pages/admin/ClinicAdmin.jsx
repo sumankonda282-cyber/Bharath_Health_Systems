@@ -211,7 +211,7 @@ function BrandingTab({ clinicId, profile }) {
     setUploading(true)
     try {
       const r = await api.post('/clinic/profile/logo', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
-      setLogoUrl(r.data.logo_url)
+      setLogoUrl(r.logo_url)
       setMsg('Logo uploaded!')
     } catch { setMsg('Upload failed') } finally { setUploading(false) }
   }

@@ -140,14 +140,13 @@ export default function Timeline() {
       results => {
         const [appts, rxs, labs, bills] = results
         const merged = []
-        const apptData = appts.status === 'fulfilled' ? (Array.isArray(appts.value) ? appts.value : []) : []
-        apptData.forEach(a => merged.push({ ...a, _type: 'appointment' }))
-        const rxData = rxs.status === 'fulfilled' ? (Array.isArray(rxs.value) ? rxs.value : []) : []
-        rxData.forEach(r => merged.push({ ...r, _type: 'prescription' }))
-        const labData = labs.status === 'fulfilled' ? (Array.isArray(labs.value) ? labs.value : []) : []
-        labData.forEach(l => merged.push({ ...l, _type: 'lab' }))
-        const billData = bills.status === 'fulfilled' ? (Array.isArray(bills.value) ? bills.value : []) : []
-        billData.forEach(b => merged.push({ ...b, _type: 'bill' }))
+        const pick = (r, key) => r.status === 'fulfilled'
+          ? (r.value?.[key] || (Array.isArray(r.value) ? r.value : []))
+          : []
+        pick(appts, 'appointments').forEach(a => merged.push({ ...a, _type: 'appointment' }))
+        pick(rxs, 'prescriptions').forEach(r => merged.push({ ...r, _type: 'prescription' }))
+        pick(labs, 'lab_results').forEach(l => merged.push({ ...l, _type: 'lab' }))
+        pick(bills, 'bills').forEach(b => merged.push({ ...b, _type: 'bill' }))
         merged.sort((a, b) => new Date(getDate(b) || 0) - new Date(getDate(a) || 0))
         setEntries(merged)
         setLoading(false)
