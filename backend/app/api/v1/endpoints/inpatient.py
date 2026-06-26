@@ -3480,7 +3480,24 @@ def get_all_notes(ward_id: int = None, db: Session = Depends(get_db), current: S
     if ward_id:
         q = q.join(Admission, Admission.id == NursingNote.admission_id).filter(Admission.ward_id == ward_id)
     notes = q.order_by(NursingNote.created_at.desc()).limit(100).all()
-    return [{"id": n.id, "admission_id": n.admission_id, "note": n.note_text, "note_type": n.note_type, "created_at": n.created_at.isoformat() if n.created_at else None} for n in notes]
+    result = []
+    for n in notes:
+        adm = db.query(Admission).filter(Admission.id == n.admission_id).first()
+        pat = db.query(Patient).filter(Patient.id == adm.patient_id).first() if adm else None
+        bed = db.query(Bed).filter(Bed.id == adm.bed_id).first() if adm and adm.bed_id else None
+        nurse = db.query(Staff).filter(Staff.id == n.written_by).first() if n.written_by else None
+        result.append({
+            "id": n.id,
+            "admission_id": n.admission_id,
+            "patient_id": pat.id if pat else None,
+            "patient_name": pat.full_name if pat else "Unknown",
+            "bed": bed.bed_number if bed else "—",
+            "note": n.note_text,
+            "note_type": n.note_type,
+            "nurse_name": nurse.full_name if nurse else "Staff",
+            "created_at": n.created_at.isoformat() if n.created_at else None,
+        })
+    return result
 
 
 # ── Medications (alias for orders used by CareChart MedicationList) ───────────

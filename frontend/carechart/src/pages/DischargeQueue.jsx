@@ -288,7 +288,7 @@ export default function DischargeQueue() {
       const res = await api.get('/inpatient/discharge-queue', {
         params: wardId ? { ward_id: wardId } : {},
       })
-      setPatients(Array.isArray(res) ? res : (res?.data || []))
+      setPatients(Array.isArray(res) ? res : [])
     } catch {
       setError('Could not load the discharge queue. Please try again.')
       setPatients([])
