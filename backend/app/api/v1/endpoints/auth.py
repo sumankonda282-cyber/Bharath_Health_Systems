@@ -685,6 +685,18 @@ def platform_refresh_token(payload: RefreshRequest, db: Session = Depends(get_db
 
 from app.core.security import hash_password, verify_password, get_current_staff
 
+@router.get("/staff/pin-status")
+def pin_status(current=Depends(get_current_staff)):
+    """Self-service PIN status for the authenticated staff member."""
+    locked = bool(current.pin_locked_until and current.pin_locked_until > datetime.utcnow())
+    return {
+        "has_pin":            bool(current.pin_hash),
+        "pin_reset_required": bool(current.pin_reset_required),
+        "is_locked":          locked,
+        "locked_until":       current.pin_locked_until.isoformat() if current.pin_locked_until else None,
+    }
+
+
 @router.post("/staff/pin-setup")
 def pin_setup(body: dict, db: Session = Depends(get_db)):
     staff_id = body.get("staff_id")

@@ -43,6 +43,7 @@ function EditableRow({ req, idx, onUpdate }) {
   const [editing, setEditing]   = useState(false)
   const [saving, setSaving]     = useState(false)
   const [saved, setSaved]       = useState(false)
+  const [saveErr, setSaveErr]   = useState('')
   const [draft, setDraft]       = useState({})
 
   const startEdit = () => {
@@ -62,13 +63,14 @@ function EditableRow({ req, idx, onUpdate }) {
 
   const save = async () => {
     setSaving(true)
+    setSaveErr('')
     try {
       await api.patch(`/maintenance/requests/${req.id}`, draft)
       setSaved(true)
       setEditing(false)
       setTimeout(() => { setSaved(false); onUpdate() }, 800)
     } catch (e) {
-      console.error(e)
+      setSaveErr(e?.response?.data?.detail || 'Could not save changes')
     } finally {
       setSaving(false)
     }
@@ -227,6 +229,7 @@ function EditableRow({ req, idx, onUpdate }) {
                 {saving ? <Loader2 size={11} className="animate-spin" /> : <Save size={11} />}
                 Save
               </button>
+              {saveErr && <span className="text-[11px] text-red-600 max-w-[140px]">{saveErr}</span>}
               <button onClick={cancelEdit} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100">
                 <X size={13} />
               </button>
@@ -291,7 +294,7 @@ export default function MaintenanceDashboard() {
     .filter(r => !filterPri || r.priority === filterPri)
     .sort((a, b) => {
       const fn = SORT_FN[sortKey] || SORT_FN.created_at
-      return sortAsc ? fn(a, b) : -fn(a, b) * -1 || fn(a, b)
+      return sortAsc ? fn(a, b) : -fn(a, b)
     })
 
   const handleSort = key => {
