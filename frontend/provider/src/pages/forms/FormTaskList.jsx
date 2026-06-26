@@ -362,7 +362,7 @@ function FormLibrary({ patientId }) {
                         ? 'bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100'
                         : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700'
                     }`}
-                    title={isOrgFav(form.id) ? 'Shared with your clinic — click to remove' : 'Share with your whole clinic'}
+                    title={isOrgFav(form.id) ? 'Shared with your health center — click to remove' : 'Share with your whole health center'}
                   >
                     <Users size={13} />
                     {isOrgFav(form.id) ? 'Shared' : 'Org'}

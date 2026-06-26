@@ -49,7 +49,7 @@ function getDate(entry) {
 function AppointmentCard({ entry }) {
   return (
     <div>
-      <div className="font-semibold text-gray-800 text-sm">{entry.clinic_name || entry.clinic?.name || 'Clinic'}</div>
+      <div className="font-semibold text-gray-800 text-sm">{entry.clinic_name || entry.clinic?.name || 'Health Center'}</div>
       {entry.doctor_name || entry.doctor?.full_name
         ? <div className="text-xs text-gray-500 mt-0.5">Dr. {entry.doctor_name || entry.doctor?.full_name}</div>
         : null}

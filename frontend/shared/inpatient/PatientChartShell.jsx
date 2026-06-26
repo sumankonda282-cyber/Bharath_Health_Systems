@@ -402,7 +402,7 @@ function AssessmentPanel({ onOpenForm, api }) {
       <div className="flex-shrink-0 border-b" style={{ borderColor: '#e9eaec' }}>
         <div className="flex items-center gap-1.5 px-3 py-2.5">
           <Pin size={11} style={{ color: NAVY }} />
-          <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Pinned (Clinic)</span>
+          <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Pinned (Health Center)</span>
         </div>
         <div className="px-3 pb-2.5 flex flex-wrap gap-1.5">
           {orgForms.map(f => (

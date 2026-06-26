@@ -68,7 +68,7 @@ export default function BhidLookup() {
                   <div><span className="text-gray-400">Mobile</span><div className="font-medium">{r.mobile || '—'}</div></div>
                   <div><span className="text-gray-400">Gender</span><div className="font-medium capitalize">{r.gender || '—'}</div></div>
                   <div><span className="text-gray-400">DOB</span><div className="font-medium">{r.date_of_birth || '—'}</div></div>
-                  <div><span className="text-gray-400">Clinic</span><div className="font-medium flex items-center gap-1"><Building2 size={12}/>{r.clinic_name}</div></div>
+                  <div><span className="text-gray-400">Health Center</span><div className="font-medium flex items-center gap-1"><Building2 size={12}/>{r.clinic_name}</div></div>
                 </div>
               </div>
             ))}

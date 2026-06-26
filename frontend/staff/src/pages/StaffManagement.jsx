@@ -14,7 +14,7 @@ const ROLES = [
   { value: 'pharmacist',     label: 'Pharmacist' },
   { value: 'lab_technician', label: 'Lab Technician' },
   { value: 'imaging_tech',   label: 'Imaging Technician' },
-  { value: 'clinic_manager', label: 'Clinic Manager' },
+  { value: 'clinic_manager', label: 'Health Center Manager' },
   { value: 'clinic_admin',   label: 'Admin' },
 ]
 

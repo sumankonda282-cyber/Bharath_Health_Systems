@@ -806,7 +806,7 @@ export default function DischargeSummary({ admission }) {
           <div className="grid grid-cols-3 gap-4 mb-5 p-4 rounded-xl border" style={{ background: '#f0fdf4', borderColor: '#a7f3d0' }}>
             <Field label="Follow-up Date">{fmtDateTime(s.followup_date)}</Field>
             <Field label="Doctor">{s.followup_doctor}</Field>
-            <Field label="Clinic">{s.followup_clinic}</Field>
+            <Field label="Health Center">{s.followup_clinic}</Field>
           </div>
           <div className="grid grid-cols-1 gap-5">
             {[

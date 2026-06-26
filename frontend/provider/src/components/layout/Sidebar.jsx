@@ -23,7 +23,7 @@ const ALL_NAV = [
   { to: '/billing',      label: 'Billing',      icon: Receipt,         roles: ['clinic_admin','receptionist','clinic_manager'] },
   { to: '/analytics',   label: 'Analytics',    icon: BarChart3,       roles: ['clinic_admin','clinic_manager'] },
   { to: '/referrals',    label: 'Referrals',    icon: Send,            roles: ['clinic_admin','doctor'] },
-  { to: '/admin',            label: 'Clinic Admin',    icon: Settings,     roles: ['clinic_admin', 'clinic_manager'] },
+  { to: '/admin',            label: 'Health Center Admin',    icon: Settings,     roles: ['clinic_admin', 'clinic_manager'] },
   { to: '/inpatient-admin', label: 'Inpatient',       icon: BedDouble,    roles: ['clinic_admin'], hospitalOnly: true },
   { to: '/branch-overview', label: 'Branch Overview', icon: LayoutGrid,   roles: ['clinic_admin','clinic_manager'] },
   { to: '/platform',         label: 'Platform',        icon: ShieldCheck,  userType: 'platform_admin' },

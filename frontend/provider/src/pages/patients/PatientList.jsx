@@ -189,7 +189,7 @@ function TagInput({ patientId, currentTags, onTagsChange }) {
                 <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">
                   <input type="checkbox" className="rounded" checked={saveToClinic}
                     onChange={e => setSaveToClinic(e.target.checked)} />
-                  Save to clinic tag library
+                  Save to health center tag library
                 </label>
                 <div className="flex gap-2">
                   <button onClick={() => { setFreeMode(false); setFreeText('') }}

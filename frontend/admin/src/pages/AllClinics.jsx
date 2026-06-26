@@ -179,7 +179,7 @@ export default function AllClinics() {
           <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
           <input
             type="text" value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Search clinics…"
+            placeholder="Search health centers…"
             className="bg-gray-900 border border-gray-800 text-white text-xs rounded-lg pl-7 pr-7 py-1.5 outline-none focus:border-[#F5821E] w-44 placeholder-gray-500"
           />
           {search && (
@@ -233,14 +233,14 @@ export default function AllClinics() {
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-gray-500">
             <Building2 size={32} className="mb-3 opacity-30" />
-            <p className="text-sm">{clinics.length === 0 ? 'No clinics found' : 'No clinics match your filters'}</p>
+            <p className="text-sm">{clinics.length === 0 ? 'No health centers found' : 'No health centers match your filters'}</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-800 text-[10px] uppercase tracking-wider text-gray-500">
-                  <th className="px-4 py-3 text-left">Clinic</th>
+                  <th className="px-4 py-3 text-left">Health Center</th>
                   <th className="px-3 py-3 text-left">City / State</th>
                   <th className="px-3 py-3 text-left">Specialty</th>
                   <th className="px-3 py-3 text-left">Status</th>

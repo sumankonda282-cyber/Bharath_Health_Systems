@@ -649,7 +649,7 @@ function Step4({ data, onNext, onBack }) {
                 ? 'border-[#0F2557] bg-[#EEF2FF]'
                 : 'border-gray-200 bg-white hover:border-gray-300'
             }`}>
-            <div className="font-semibold text-sm text-gray-900 mb-0.5">Pay at Clinic</div>
+            <div className="font-semibold text-sm text-gray-900 mb-0.5">Pay at Health Center</div>
             <div className="text-xs text-gray-500">Pay when you visit</div>
           </button>
           <button type="button" disabled
@@ -773,7 +773,7 @@ function Step5({ booking }) {
           <div className="flex justify-between border-t pt-2 mt-1">
             <span className="text-gray-500">Payment</span>
             <span className="font-medium">
-              {booking.payment_mode === 'pay_at_clinic' ? 'Pay at Clinic' : booking.payment_mode}
+              {booking.payment_mode === 'pay_at_clinic' ? 'Pay at Health Center' : booking.payment_mode}
             </span>
           </div>
         )}

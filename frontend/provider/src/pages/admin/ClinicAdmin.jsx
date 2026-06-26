@@ -88,7 +88,7 @@ function BrandingTab({ clinicId, profile }) {
     <div className="card p-6 space-y-6 max-w-lg">
       <div>
         <h2 className="font-semibold text-gray-800 mb-1">Portal Branding</h2>
-        <p className="text-xs text-gray-500">Customise how your health center appears in all portals after login. The BHarath Health Systems platform name is replaced with your clinic's brand in the sidebar.</p>
+        <p className="text-xs text-gray-500">Customise how your health center appears in all portals after login. The BHarath Health Systems platform name is replaced with your health center's brand in the sidebar.</p>
       </div>
 
       <div>
@@ -107,7 +107,7 @@ function BrandingTab({ clinicId, profile }) {
       </div>
 
       <div>
-        <label className="label">Clinic Logo</label>
+        <label className="label">Health Center Logo</label>
         {logoUrl && (
           <div className="mb-3 flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-200">
             <img src={logoUrl.startsWith('/') ? `${API_BASE}${logoUrl}` : logoUrl} alt="Logo" style={{ height: 48, objectFit: 'contain' }} />
@@ -361,7 +361,7 @@ export default function ClinicAdmin() {
           { key: 'staff',      label: 'Staff',         icon: Users },
           { key: 'schedule',   label: 'Schedules',     icon: Calendar },
           { key: 'telehealth', label: 'Telehealth',    icon: Video },
-          { key: 'profile',    label: 'Clinic Profile', icon: Building2 },
+          { key: 'profile',    label: 'Health Center Profile', icon: Building2 },
           { key: 'branding',   label: 'Branding',       icon: Palette },
         ].map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
@@ -501,7 +501,7 @@ export default function ClinicAdmin() {
       {tab === 'profile' && profile && (
         <div className="card p-6">
           <div className="flex items-center justify-between mb-5">
-            <h2 className="font-semibold">Clinic Profile</h2>
+            <h2 className="font-semibold">Health Center Profile</h2>
             {editProfile ? (
               <div className="flex gap-2">
                 <button onClick={handleSaveProfile} disabled={saving} className="btn-primary text-sm">{saving ? 'Saving…' : 'Save'}</button>
@@ -513,7 +513,7 @@ export default function ClinicAdmin() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {[
-              ['Clinic Name', 'name'],
+              ['Health Center Name', 'name'],
               ['Specialty', 'specialty'],
               ['Phone', 'phone'],
               ['Email', 'email'],

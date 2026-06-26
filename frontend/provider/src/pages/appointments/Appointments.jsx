@@ -101,7 +101,7 @@ function ScheduleTab({ doctors }) {
     })
     if (d.clinic_id && !seen.has(d.clinic_id)) {
       seen.add(d.clinic_id)
-      clinics.push({ id: d.clinic_id, name: d.clinic_name || `Clinic ${d.clinic_id}` })
+      clinics.push({ id: d.clinic_id, name: d.clinic_name || `Health Center ${d.clinic_id}` })
     }
   })
 

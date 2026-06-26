@@ -428,7 +428,7 @@ export default function ClinicDetail() {
             <p className="text-gray-600 text-sm mb-4">{fullAddress}</p>
             <div className="rounded-xl overflow-hidden border border-gray-200" style={{ height: 280 }}>
               <iframe
-                title="Clinic Location"
+                title="Health Center Location"
                 width="100%"
                 height="100%"
                 loading="lazy"

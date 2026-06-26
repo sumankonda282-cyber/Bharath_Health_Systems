@@ -248,12 +248,12 @@ export default function StaffProfilePanel({ open, onClose }) {
                     <input className={roInputCls} value={profile?.qualification || '—'} readOnly />
                   </div>
                   <div>
-                    <label className={labelCls}>Clinic</label>
+                    <label className={labelCls}>Health Center</label>
                     <input className={roInputCls} value={profile?.clinic_name || '—'} readOnly />
                   </div>
                 </div>
                 <p className="text-xs text-gray-400 bg-gray-50 rounded-lg px-3 py-2">
-                  Work details are managed by clinic administration. Contact your manager to update these fields.
+                  Work details are managed by health center administration. Contact your manager to update these fields.
                 </p>
               </div>
             )}

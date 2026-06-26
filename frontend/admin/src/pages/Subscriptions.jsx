@@ -732,7 +732,7 @@ function PaymentsTab({ addToast }) {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-800 text-[10px] uppercase tracking-wider text-gray-500">
-                  <th className="px-4 py-3 text-left">Clinic</th>
+                  <th className="px-4 py-3 text-left">Health Center</th>
                   <th className="px-3 py-3 text-left">Amount</th>
                   <th className="px-3 py-3 text-left">Method</th>
                   <th className="px-3 py-3 text-left">Reference</th>
@@ -793,8 +793,8 @@ function AnalyticsTab({ clinics, planConfig }) {
     <div className="space-y-5">
       <div className="grid grid-cols-3 gap-3">
         <KpiCard icon={TrendingUp} label="Est. MRR" value={fmtMoney(totalMrr)} color="#10B981" />
-        <KpiCard icon={Building2} label="Paying Clinics" value={paidClinics} sub={`of ${activeClinics} active`} color="#F5821E" />
-        <KpiCard icon={IndianRupee} label="Avg Bill / Clinic" value={fmtMoney(avgBill)} sub="paid plans only" color="#8B5CF6" />
+        <KpiCard icon={Building2} label="Paying Health Centers" value={paidClinics} sub={`of ${activeClinics} active`} color="#F5821E" />
+        <KpiCard icon={IndianRupee} label="Avg Bill / Health Center" value={fmtMoney(avgBill)} sub="paid plans only" color="#8B5CF6" />
       </div>
 
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
@@ -835,7 +835,7 @@ function AnalyticsTab({ clinics, planConfig }) {
           <thead>
             <tr className="border-b border-gray-800 text-[10px] uppercase tracking-wider text-gray-500">
               <th className="px-4 py-2.5 text-left">Plan</th>
-              <th className="px-3 py-2.5 text-right">Clinics</th>
+              <th className="px-3 py-2.5 text-right">Health Centers</th>
               <th className="px-3 py-2.5 text-right">Rate/Dr</th>
               <th className="px-3 py-2.5 text-right">Est. MRR</th>
             </tr>
@@ -994,7 +994,7 @@ export default function Subscriptions() {
               <div className="flex flex-wrap gap-2 items-center">
                 <div className="relative">
                   <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
-                  <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search clinics…"
+                  <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search health centers…"
                     className="bg-gray-900 border border-gray-800 text-white text-xs rounded-lg pl-7 pr-7 py-1.5 outline-none focus:border-[#F5821E] w-44 transition-colors placeholder-gray-500" />
                   {search && (
                     <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white">

@@ -46,7 +46,7 @@ export default function Login() {
         </div>
         <div>
           <h2 className="text-4xl font-extrabold leading-tight mb-4">
-            {tab === 0 ? <>Front Desk,<br /></> : <>Clinic Ops,<br /></>}
+            {tab === 0 ? <>Front Desk,<br /></> : <>Health Center Ops,<br /></>}
             <span style={{ color: '#F5821E' }}>{tab === 0 ? 'Fully Digital.' : 'Fully in Control.'}</span>
           </h2>
           <p className="text-blue-200 text-lg mb-8">
@@ -93,7 +93,7 @@ export default function Login() {
               {tab === 0 ? 'Staff Sign In' : 'Manager Sign In'}
             </h2>
             <p className="text-gray-500 text-sm mb-5">
-              {tab === 0 ? 'Front desk & staff access' : 'Clinic operations & staff management'}
+              {tab === 0 ? 'Front desk & staff access' : 'Health Center operations & staff management'}
             </p>
 
             {/* Tabs */}
