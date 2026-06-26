@@ -24,20 +24,21 @@ def _seed_critical(db):
     """Platform admin + clinic staff. Committed independently."""
     print("[seed] Starting BHarath Health seed...")
 
-    # ── Platform Superadmin ───────────────────────────────────────────
-    if not _exists(db, PlatformAdmin, email="superadmin@bharathealth.com"):
-        db.add(PlatformAdmin(
-            full_name="BHarath Health Admin",
-            email="superadmin@bharathealth.com",
-            hashed_password=hash_password("SuperAdmin@123"),
-            is_active=True,
-        ))
-        print("[seed]   ✓ Platform admin created")
-    else:
-        admin = db.query(PlatformAdmin).filter_by(email="superadmin@bharathealth.com").first()
-        admin.hashed_password = hash_password("SuperAdmin@123")
-        admin.is_active = True
-        print("[seed]   ✓ Platform admin password refreshed")
+    # ── Platform Admins ───────────────────────────────────────────────
+    # Primary: used by admin portal login (matches Login.jsx placeholder)
+    for email, name, pwd in [
+        ("admin@bharathhealthsystems.com", "BHarath Health Admin", "Admin@1234"),
+        ("superadmin@bharathealth.com",    "BHarath Health Admin", "SuperAdmin@123"),
+    ]:
+        if not _exists(db, PlatformAdmin, email=email):
+            db.add(PlatformAdmin(full_name=name, email=email,
+                                 hashed_password=hash_password(pwd), is_active=True))
+            print(f"[seed]   ✓ Platform admin created: {email}")
+        else:
+            a = db.query(PlatformAdmin).filter_by(email=email).first()
+            a.hashed_password = hash_password(pwd)
+            a.is_active = True
+            print(f"[seed]   ✓ Platform admin refreshed: {email}")
 
     db.commit()
 
@@ -408,6 +409,7 @@ def seed():
         print("=" * 55)
         print("  LOGIN CREDENTIALS")
         print("=" * 55)
+        print("  Platform Admin  : admin@bharathhealthsystems.com / Admin@1234")
         print("  Platform Admin  : superadmin@bharathealth.com / SuperAdmin@123")
         print("  Clinic Admin    : admin@apollodemo.com / Admin@123")
         print("  Doctor          : drpriya@apollodemo.com / Doctor@123")
