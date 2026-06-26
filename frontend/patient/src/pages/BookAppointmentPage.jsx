@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import api, { bookingApi } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 import {
@@ -515,6 +515,7 @@ function SlotPicker({ doctor, onBack, onBooked }) {
 
 export default function BookAppointmentPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { user } = useAuth()
   const [doctor, setDoctor] = useState(null)
   const [allDoctors, setAllDoctors] = useState([])
@@ -541,6 +542,12 @@ export default function BookAppointmentPage() {
           }))
         )
         setAllDoctors(flat)
+        // Pre-select doctor if navigated from DoctorProfile
+        const prefillId = location.state?.prefillDoctorId
+        if (prefillId) {
+          const match = flat.find(d => String(d.id) === String(prefillId) || String(d.doctor_profile_id) === String(prefillId))
+          if (match) setDoctor(match)
+        }
       })
       .catch(() => {})
       .finally(() => setLoading(false))
