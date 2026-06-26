@@ -238,23 +238,24 @@ def lookup_patient(
         "date_of_birth": str(bh_profile.date_of_birth) if bh_profile and bh_profile.date_of_birth else (
             str(clinic_patient.date_of_birth) if clinic_patient and clinic_patient.date_of_birth else None
         ),
-        # Contact
+        # Contact — BHProfile carries only identity (+ state); contact/medical
+        # data lives on the PatientUser / clinic Patient record.
         "mobile": (patient_user.mobile if patient_user else None) or mobile or (clinic_patient.mobile if clinic_patient else None),
-        "email": (bh_profile.email if bh_profile else None) or (patient_user.email if patient_user else None) or (clinic_patient.email if clinic_patient else None),
+        "email": (patient_user.email if patient_user else None) or (clinic_patient.email if clinic_patient else None),
         # Medical
-        "blood_group": (bh_profile.blood_group if bh_profile else None) or (clinic_patient.blood_group if clinic_patient else None),
-        "allergies": (bh_profile.allergies if bh_profile else None) or (clinic_patient.allergies if clinic_patient else None),
-        # Address — prefer BHProfile, fall back to clinic patient
-        "address": (bh_profile.address if bh_profile else None) or (clinic_patient.address if clinic_patient else None),
-        "city": (bh_profile.city if bh_profile else None) or (clinic_patient.city if clinic_patient else None),
+        "blood_group": (clinic_patient.blood_group if clinic_patient else None),
+        "allergies": (clinic_patient.allergies if clinic_patient else None),
+        # Address — BHProfile only stores state; richer address on the clinic record
+        "address": (clinic_patient.address if clinic_patient else None),
+        "city": (clinic_patient.city if clinic_patient else None),
         "state": (bh_profile.state if bh_profile else None) or (clinic_patient.state if clinic_patient else None),
-        "pincode": (bh_profile.pincode if bh_profile else None) or (clinic_patient.pincode if clinic_patient else None),
-        # Emergency contact — prefer BHProfile, fall back to clinic patient
-        "emergency_contact_name": (bh_profile.emergency_contact_name if bh_profile else None) or (clinic_patient.emergency_contact_name if clinic_patient else None),
-        "emergency_contact_phone": (bh_profile.emergency_contact_phone if bh_profile else None) or (clinic_patient.emergency_contact_phone if clinic_patient else None),
-        # Local clinic record
+        "pincode": (clinic_patient.pincode if clinic_patient else None),
+        # Emergency contact — clinic record only
+        "emergency_contact_name": (clinic_patient.emergency_contact_name if clinic_patient else None),
+        "emergency_contact_phone": (clinic_patient.emergency_contact_phone if clinic_patient else None),
+        # Local clinic record (clinic_patient_id serves as the MRN in this system)
         "patient_id": clinic_patient.id if clinic_patient else None,
-        "mrn": clinic_patient.mrn if clinic_patient else None,
+        "mrn": clinic_patient.clinic_patient_id if clinic_patient else None,
         "clinic_patient_id": clinic_patient.clinic_patient_id if clinic_patient else None,
         "insurance_provider": clinic_patient.insurance_provider if clinic_patient else None,
         "insurance_policy_number": clinic_patient.insurance_policy_number if clinic_patient else None,

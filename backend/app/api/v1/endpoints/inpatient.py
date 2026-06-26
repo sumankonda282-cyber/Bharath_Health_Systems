@@ -1012,7 +1012,8 @@ def bhid_lookup(
 
     return {
         "bh_id": profile.bh_id,
-        "full_name": profile.full_name,
+        # BHProfile stores first_name/last_name, not a full_name column.
+        "full_name": f"{profile.first_name} {profile.last_name}".strip(),
         "date_of_birth": profile.date_of_birth,
         "gender": profile.gender,
         "mobile": user.mobile,
