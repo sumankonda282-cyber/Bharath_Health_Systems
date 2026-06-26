@@ -61,6 +61,8 @@ export default function Billing() {
       setShowNew(false)
       setForm({ patient_id: '', items: [{ description: '', item_type: 'consultation', quantity: 1, unit_price: '' }], discount: 0, tax: 0, notes: '' })
       load()
+    } catch (e) {
+      alert(e.response?.data?.detail || 'Failed to create invoice')
     } finally { setSaving(false) }
   }
 
@@ -87,6 +89,8 @@ export default function Billing() {
       await billingApi.pay(showPay.id, { payment_method: payMethod })
       setShowPay(null)
       load()
+    } catch (e) {
+      alert(e.response?.data?.detail || 'Failed to record payment')
     } finally { setSaving(false) }
   }
 

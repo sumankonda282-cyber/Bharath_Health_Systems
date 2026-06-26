@@ -78,12 +78,11 @@ function OrderDetail({ order, onAck, onCancel, admissionId }) {
   const submit = async (action) => {
     setLoading(true)
     try {
-      await api.post(`/inpatient/admissions/${admissionId}/orders/${order.id}/${action}`, { pin })
+      await api.post(`/inpatient/clinical-orders/${order.id}/${action}`, { pin })
       setDone(action)
       setTimeout(() => { action === 'acknowledge' ? onAck() : onCancel() }, 900)
-    } catch {
-      setDone(action)
-      setTimeout(() => { action === 'acknowledge' ? onAck() : onCancel() }, 900)
+    } catch (e) {
+      alert(e?.response?.data?.detail || `Could not ${action} the order. Please retry.`)
     } finally { setLoading(false) }
   }
 
@@ -327,9 +326,8 @@ function AddOrderDrawer({ type, admissionId, onClose, onSave }) {
       await api.post(`/inpatient/admissions/${admissionId}/orders`, { ...form, type, pin })
       setDone(true)
       setTimeout(() => { onSave(); onClose() }, 1000)
-    } catch {
-      setDone(true)
-      setTimeout(() => { onSave(); onClose() }, 1000)
+    } catch (e) {
+      alert(e?.response?.data?.detail || 'Could not submit the order. Please retry.')
     } finally { setLoading(false) }
   }
 

@@ -467,8 +467,12 @@ export default function Appointments() {
   }, [patientSearch])
 
   const handleStatusChange = async (id, status) => {
-    await appointmentsApi.update(id, { status })
-    loadAppts()
+    try {
+      await appointmentsApi.update(id, { status })
+      loadAppts()
+    } catch (e) {
+      setError(e?.response?.data?.detail || 'Could not update appointment status')
+    }
   }
 
   const handleWalkin = async (e) => {

@@ -5,7 +5,7 @@ import {
 } from 'lucide-react'
 import api from '../api/client'
 
-import { GREEN, RED } from '../constants/colors'
+import { GREEN, NAVY, RED } from '../constants/colors'
 const AMBER = '#d97706'
 const BLUE  = '#2563eb'
 

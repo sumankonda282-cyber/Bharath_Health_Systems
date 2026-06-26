@@ -551,11 +551,12 @@ export default function ShiftHandoff() {
         pin: pinValue,
         wardId: session?.ward?.id,
       })
-    } catch {
-      // fallback
+      setCompleted(true)
+    } catch (e) {
+      alert(e?.response?.data?.detail || 'Could not complete the handoff. Please retry.')
+    } finally {
+      setCompleting(false)
     }
-    setCompleted(true)
-    setCompleting(false)
   }
 
   if (completed) {
