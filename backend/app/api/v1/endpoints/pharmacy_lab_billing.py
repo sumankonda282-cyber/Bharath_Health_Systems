@@ -2395,7 +2395,7 @@ def get_alerts(
     three_days_ago = datetime.utcnow() - timedelta(days=3)
 
     low_stock = db.query(Medicine).filter(
-        Medicine.clinic_id == None,  # medicines are branch-scoped but check all active
+        Medicine.branch_id == None,  # medicines are branch-scoped but check all active
         Medicine.is_active == True,
         Medicine.stock_quantity <= Medicine.reorder_level,
     ).all() if False else db.query(Medicine).filter(
@@ -2922,7 +2922,7 @@ def create_stock_adjustment(
 ):
     med = db.query(Medicine).filter(
         Medicine.id == body.medicine_id,
-        Medicine.clinic_id == current.clinic_id,
+        Medicine.branch_id == current.branch_id,
     ).first()
     if not med:
         raise HTTPException(status_code=404, detail="Medicine not found")
@@ -3065,13 +3065,13 @@ def get_substitutes(
 ):
     source = db.query(Medicine).filter(
         Medicine.id == med_id,
-        Medicine.clinic_id == current.clinic_id,
+        Medicine.branch_id == current.branch_id,
     ).first()
     if not source or not source.generic_name:
         return {"substitutes": []}
 
     subs = db.query(Medicine).filter(
-        Medicine.clinic_id == current.clinic_id,
+        Medicine.branch_id == current.branch_id,
         Medicine.id != med_id,
         Medicine.generic_name.ilike(f"%{source.generic_name}%"),
         Medicine.stock_quantity > 0,
@@ -3352,7 +3352,7 @@ def auto_draft_po(
     db:      Session = Depends(get_db),
 ):
     med = db.query(Medicine).filter(
-        Medicine.id == med_id, Medicine.clinic_id == current.clinic_id
+        Medicine.id == med_id, Medicine.branch_id == current.branch_id
     ).first()
     if not med:
         raise HTTPException(404, "Medicine not found")
@@ -3664,7 +3664,7 @@ def create_supplier_return(
 
     for it in body.items:
         med = db.query(Medicine).filter(
-            Medicine.id == it.medicine_id, Medicine.clinic_id == current.clinic_id
+            Medicine.id == it.medicine_id, Medicine.branch_id == current.branch_id
         ).first()
         if not med:
             continue
@@ -4083,7 +4083,7 @@ def dispense_cart(
                 med = db.query(Medicine).filter(Medicine.id == ci.medicine_id).first()
             if not med and ci.medicine_name:
                 med = db.query(Medicine).filter(
-                    Medicine.clinic_id == current.clinic_id,
+                    Medicine.branch_id == current.branch_id,
                     Medicine.name.ilike(f"%{ci.medicine_name}%"),
                     Medicine.is_active == True,
                 ).first()
