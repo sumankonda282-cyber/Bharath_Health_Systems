@@ -102,6 +102,7 @@ class Clinic(Base):
     latitude                = Column(Numeric(10, 7), nullable=True)
     longitude               = Column(Numeric(10, 7), nullable=True)
     capacity_description    = Column(Text, nullable=True)
+    emergency_contacts      = Column(JSON, nullable=True, default=list)
     modules                 = Column(JSON, nullable=True)
     entitlement_overrides   = Column(JSON, nullable=True)   # per-clinic module add/remove or limit bumps
     billing_email           = Column(String(150), nullable=True)  # subscription billing contact

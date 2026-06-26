@@ -609,61 +609,47 @@ function Step3({ data, onNext, onBack }) {
   )
 }
 
-// Step 4: Payment (dev mode)
+// Step 4: Confirm & Request Appointment
 function Step4({ data, onNext, onBack }) {
-  const [paymentMode, setPaymentMode] = useState('pay_at_clinic')
-
   return (
     <div>
-      <h2 className="text-xl font-bold text-gray-900 mb-2">Payment</h2>
-
-      {/* Dev mode notice */}
-      <div className="flex items-center gap-2 bg-amber-50 border border-amber-300 rounded-xl px-4 py-3 mb-6">
-        <span className="text-amber-600 text-xs font-bold uppercase tracking-wider bg-amber-200 px-2 py-0.5 rounded-md">Dev Mode</span>
-        <span className="text-amber-700 text-sm">Payment gateway not live — no real charges will occur.</span>
-      </div>
+      <h2 className="text-xl font-bold text-gray-900 mb-2">Confirm Appointment</h2>
+      <p className="text-sm text-gray-500 mb-6">Review your details before submitting the request.</p>
 
       {/* Appointment summary */}
-      <div className="bg-[#EEF2FF] rounded-xl p-4 mb-6 text-sm space-y-2">
+      <div className="bg-[#EEF2FF] rounded-xl p-5 mb-5 text-sm space-y-3">
         <div className="flex justify-between text-gray-600">
           <span>Doctor</span><span className="font-medium text-gray-900">{data.doctor.name}</span>
         </div>
         <div className="flex justify-between text-gray-600">
+          <span>Health Center</span><span className="font-medium text-gray-900">{data.clinic.name}</span>
+        </div>
+        <div className="flex justify-between text-gray-600">
           <span>Date & Time</span><span className="font-medium text-gray-900">{data.date} · {fmt12(data.slot)}</span>
         </div>
+        <div className="flex justify-between text-gray-600">
+          <span>Patient</span><span className="font-medium text-gray-900">{data.patientData?.patient_name}</span>
+        </div>
         {data.doctor.fee && (
-          <div className="flex justify-between font-semibold border-t border-[#93c5fd] pt-2 mt-2 text-gray-900">
+          <div className="flex justify-between font-semibold border-t border-[#93c5fd] pt-3 mt-1 text-gray-900">
             <span>Consultation Fee</span>
             <span className="flex items-center gap-1"><IndianRupee className="w-3.5 h-3.5" />{data.doctor.fee}</span>
           </div>
         )}
       </div>
 
-      {/* Payment method */}
-      <div className="mb-6">
-        <label className="label">Payment Method</label>
-        <div className="grid grid-cols-2 gap-3">
-          <button type="button" onClick={() => setPaymentMode('pay_at_clinic')}
-            className={`p-4 rounded-xl border-2 text-left transition-all ${
-              paymentMode === 'pay_at_clinic'
-                ? 'border-[#0F2557] bg-[#EEF2FF]'
-                : 'border-gray-200 bg-white hover:border-gray-300'
-            }`}>
-            <div className="font-semibold text-sm text-gray-900 mb-0.5">Pay at Health Center</div>
-            <div className="text-xs text-gray-500">Pay when you visit</div>
-          </button>
-          <button type="button" disabled
-            className="p-4 rounded-xl border-2 border-gray-100 bg-gray-50 text-left opacity-50 cursor-not-allowed relative">
-            <div className="font-semibold text-sm text-gray-400 mb-0.5">Pay Online</div>
-            <div className="text-xs text-gray-400">Card / UPI / Net Banking</div>
-            <span className="absolute top-2 right-2 text-[9px] font-bold bg-amber-200 text-amber-700 px-1.5 py-0.5 rounded">COMING SOON</span>
-          </button>
+      {/* Payment info */}
+      <div className="flex items-start gap-3 bg-green-50 border border-green-200 rounded-xl p-4 mb-6">
+        <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+        <div>
+          <div className="font-semibold text-sm text-green-800">Pay at Health Center</div>
+          <div className="text-xs text-green-700 mt-0.5">No advance payment required. Pay when you arrive for your appointment.</div>
         </div>
       </div>
 
       <div className="flex gap-3">
         <button onClick={onBack} className="btn-outline flex-1">Back</button>
-        <button onClick={() => onNext({ payment_mode: paymentMode, amount_due: data.doctor.fee || null })}
+        <button onClick={() => onNext({ payment_mode: 'pay_at_clinic', amount_due: data.doctor.fee || null })}
           className="btn-primary flex-1">
           Request Appointment
         </button>

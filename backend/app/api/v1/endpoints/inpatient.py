@@ -275,8 +275,9 @@ def list_beds(
     if ward_id:
         q = q.filter(Bed.ward_id == ward_id)
     beds = q.all()
-    return [
-        {
+    result = []
+    for b in beds:
+        bed_dict = {
             "id": b.id,
             "ward_id": b.ward_id,
             "bed_number": b.bed_number,
@@ -284,8 +285,34 @@ def list_beds(
             "status": b.status,
             "current_admission_id": b.current_admission_id,
         }
-        for b in beds
-    ]
+        # Enrich occupied beds with admission + patient data for WardBoard display
+        if b.current_admission_id and b.status == "occupied":
+            adm = db.query(Admission).filter(
+                Admission.id == b.current_admission_id,
+                Admission.clinic_id == current.clinic_id,
+            ).first()
+            if adm:
+                age = None
+                if adm.patient and adm.patient.date_of_birth:
+                    today = dt.today()
+                    dob = adm.patient.date_of_birth
+                    age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+                bed_dict["admission"] = {
+                    "id": adm.id,
+                    "admission_id": adm.id,
+                    "patient_name": adm.patient.full_name if adm.patient else None,
+                    "age": age,
+                    "gender": adm.patient.gender[0].upper() if adm.patient and adm.patient.gender else None,
+                    "admitted_at": adm.admitted_at.isoformat() if adm.admitted_at else None,
+                    "primary_diagnosis": adm.primary_diagnosis,
+                    "diagnosis": adm.primary_diagnosis,
+                    "doctor_name": adm.doctor.full_name if adm.doctor else None,
+                    "triage_level": adm.triage_level,
+                    "caution_flags": [],
+                    "status": adm.status,
+                }
+        result.append(bed_dict)
+    return result
 
 
 @router.post("/beds")
@@ -402,6 +429,8 @@ def list_admissions(
     result = []
     for a in admissions:
         d = _admission_dict(a)
+        # Alias so CareChart Vitals/WardBoard can use patient.admission_id for sub-resource POSTs
+        d["admission_id"] = a.id
         if a.patient:
             d["patient_name"] = a.patient.full_name
             d["patient"] = {
@@ -409,11 +438,46 @@ def list_admissions(
                 "clinic_patient_id": a.patient.clinic_patient_id,
                 "mobile": a.patient.mobile,
             }
+            if a.patient.date_of_birth:
+                today = dt.today()
+                dob = a.patient.date_of_birth
+                d["age"] = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+            else:
+                d["age"] = None
+            d["gender"] = a.patient.gender[0].upper() if a.patient.gender else None
         if a.department:
             d["department_name"] = a.department.name
         if a.ward:
             d["ward_name"] = a.ward.name
+        if a.bed:
+            d["bed"] = f"Bed {a.bed.bed_number}"
+        elif a.bed_id:
+            d["bed"] = f"Bed {a.bed_id}"
+        else:
+            d["bed"] = None
+        d["diagnosis"] = a.primary_diagnosis
+        if a.doctor:
+            d["doctor"] = a.doctor.full_name
+        else:
+            d["doctor"] = None
+        d["flags"] = []
         d["admission_date"] = str(a.admitted_at.date()) if a.admitted_at else None
+        # Latest vital sign (for Vitals page last_vital display)
+        lv = db.query(VitalSign).filter(
+            VitalSign.admission_id == a.id,
+        ).order_by(VitalSign.recorded_at.desc()).first()
+        if lv:
+            bp = f"{lv.bp_systolic}/{lv.bp_diastolic}" if lv.bp_systolic and lv.bp_diastolic else None
+            d["last_vital"] = {
+                "recorded_at": lv.recorded_at.isoformat() if lv.recorded_at else None,
+                "blood_pressure": bp,
+                "pulse": lv.pulse,
+                "temperature": float(lv.temperature) if lv.temperature is not None else None,
+                "spo2": float(lv.spo2) if lv.spo2 is not None else None,
+                "rr": lv.respiration_rate,
+            }
+        else:
+            d["last_vital"] = None
         bill = db.query(InpatientBill).filter(
             InpatientBill.admission_id == a.id,
         ).first()

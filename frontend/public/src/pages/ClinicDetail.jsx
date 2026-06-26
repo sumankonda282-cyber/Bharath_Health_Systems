@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useNavigate } from 'react-router-dom'
 import {
   MapPin, Phone, Mail, Stethoscope, Clock,
   User, ArrowLeft, Building2, ChevronRight,
-  BadgeCheck, Shield, Video
+  BadgeCheck, Shield, Video, Languages, Globe,
+  IndianRupee, GraduationCap, Calendar
 } from 'lucide-react'
 import { publicApi } from '../api/client'
 import Navbar from '../components/Navbar'

@@ -241,26 +241,16 @@ export default function Dashboard() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4">
             {guardianOf.map(p => (
-              <div key={p.id} className="rounded-xl border border-blue-100 bg-blue-50/40 p-4 flex items-start justify-between gap-3">
-                <div>
-                  <div className="font-semibold text-sm" style={{ color: '#0F2557' }}>{p.full_name}</div>
-                  {p.bh_id && (
-                    <div className="text-xs font-mono text-gray-400 mt-0.5">{p.bh_id.toUpperCase()}</div>
-                  )}
-                  <div className="text-xs text-gray-500 mt-1">
-                    {p.age !== null && p.age !== undefined ? `${p.age} yrs` : ''}
-                    {p.age !== null && p.age !== undefined && p.gender ? ' · ' : ''}
-                    {p.gender ? p.gender.charAt(0).toUpperCase() + p.gender.slice(1) : ''}
-                  </div>
+              <div key={p.id} className="rounded-xl border border-blue-100 bg-blue-50/40 p-4">
+                <div className="font-semibold text-sm" style={{ color: '#0F2557' }}>{p.full_name}</div>
+                {p.bh_id && (
+                  <div className="text-xs font-mono text-gray-400 mt-0.5">{p.bh_id.toUpperCase()}</div>
+                )}
+                <div className="text-xs text-gray-500 mt-1">
+                  {p.age !== null && p.age !== undefined ? `${p.age} yrs` : ''}
+                  {p.age !== null && p.age !== undefined && p.gender ? ' · ' : ''}
+                  {p.gender ? p.gender.charAt(0).toUpperCase() + p.gender.slice(1) : ''}
                 </div>
-                <button
-                  className="text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors whitespace-nowrap"
-                  style={{ borderColor: '#0F2557', color: '#0F2557' }}
-                  onClick={() => {}}
-                  title="View records — coming soon"
-                >
-                  View Records
-                </button>
               </div>
             ))}
           </div>

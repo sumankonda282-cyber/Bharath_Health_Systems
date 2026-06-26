@@ -1050,9 +1050,10 @@ def admin_get_org_config(
     if not clinic:
         raise HTTPException(404, "Clinic not found")
     return {
-        "org_type":     getattr(clinic, "org_type", "clinic"),
-        "wards_enabled": getattr(clinic, "wards_enabled", False),
-        "clinic_prefix": clinic.clinic_prefix,
+        "org_type":           getattr(clinic, "org_type", "clinic"),
+        "wards_enabled":      getattr(clinic, "wards_enabled", False),
+        "clinic_prefix":      clinic.clinic_prefix,
+        "emergency_contacts": getattr(clinic, "emergency_contacts", None) or [],
     }
 
 
@@ -1072,6 +1073,8 @@ def admin_update_org_config(
         clinic.wards_enabled = body["wards_enabled"]
     if "clinic_prefix" in body:
         clinic.clinic_prefix = body["clinic_prefix"]
+    if "emergency_contacts" in body:
+        clinic.emergency_contacts = body["emergency_contacts"]
     db.commit()
     return {"detail": "org config updated"}
 

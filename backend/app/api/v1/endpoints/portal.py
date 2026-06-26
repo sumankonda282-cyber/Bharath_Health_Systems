@@ -84,6 +84,9 @@ def portal_me(
             return (date.today() - p.date_of_birth).days // 365
         return None
 
+    # Pull patient profile fields from the first linked Patient record
+    primary = patients[0] if patients else None
+
     return {
         "id": current.id,
         "full_name": full_name,
@@ -92,6 +95,13 @@ def portal_me(
         "preferred_language": current.preferred_language,
         "bh_id": bh_id,
         "linked_clinics": len(patients),
+        # Patient profile fields (populated from primary linked Patient record)
+        "date_of_birth": str(primary.date_of_birth) if primary and primary.date_of_birth else None,
+        "gender": primary.gender if primary else None,
+        "blood_group": primary.blood_group if primary else None,
+        "address": primary.address if primary else None,
+        "emergency_contact_name": primary.emergency_contact_name if primary else None,
+        "emergency_contact_phone": primary.emergency_contact_phone if primary else None,
         "guardian_of": [
             {
                 "id": p.id,

@@ -99,7 +99,7 @@ export default function NursingNotes() {
       const newNote = {
         id: Date.now(),
         patient_id:   form.patient_id,
-        patient_name: patient?.name || '',
+        patient_name: patient?.patient_name || patient?.name || '',
         bed:          patient?.bed || '',
         note_type:    form.note_type,
         note:         form.note,

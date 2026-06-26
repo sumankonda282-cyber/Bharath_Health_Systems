@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { Link } from 'react-router-dom'
 import api from '../api/client'
 import {
   Building2, Layers, BedDouble, LayoutGrid,
@@ -681,14 +682,20 @@ function BillingTab({ clinicId }) {
 const CONTACT_TYPES = ['Police', 'Fire', 'Ambulance', 'Blood Bank', 'Poison Control', 'Mental Health', 'Child Helpline', 'Women Helpline']
 
 function EmergencyTab({ clinicId }) {
-  const [contacts, setContacts] = useState([
-    { id: 1, type: 'Police', name: 'Local Police Station', phone: '100', alt_phone: '', notes: '' },
-    { id: 2, type: 'Ambulance', name: 'CATS Ambulance', phone: '102', alt_phone: '', notes: 'Nearest govt ambulance' },
-    { id: 3, type: 'Fire', name: 'Fire Brigade', phone: '101', alt_phone: '', notes: '' },
-  ])
-  const [adding, setAdding] = useState(false)
-  const [form, setForm] = useState({ type: 'Ambulance', name: '', phone: '', alt_phone: '', notes: '' })
-  const [saving, setSaving] = useState(false)
+  const [contacts, setContacts] = useState([])
+  const [adding, setAdding]     = useState(false)
+  const [form, setForm]         = useState({ type: 'Ambulance', name: '', phone: '', alt_phone: '', notes: '' })
+  const [saving, setSaving]     = useState(false)
+  const [saveMsg, setSaveMsg]   = useState('')
+  const [loading, setLoading]   = useState(true)
+
+  useEffect(() => {
+    if (!clinicId) return
+    api.get(`/platform/clinics/${clinicId}/org-config`)
+      .then(r => setContacts(r?.emergency_contacts || []))
+      .catch(() => setContacts([]))
+      .finally(() => setLoading(false))
+  }, [clinicId])
 
   const addContact = () => {
     if (!form.name || !form.phone) return
@@ -697,9 +704,24 @@ function EmergencyTab({ clinicId }) {
     setAdding(false)
   }
 
+  const saveContacts = async () => {
+    setSaving(true); setSaveMsg('')
+    try {
+      await api.put(`/platform/clinics/${clinicId}/org-config`, { emergency_contacts: contacts })
+      setSaveMsg('Saved')
+      setTimeout(() => setSaveMsg(''), 3000)
+    } catch { setSaveMsg('Save failed') }
+    finally { setSaving(false) }
+  }
+
+  if (loading) return <div className="flex justify-center py-10"><Loader2 size={24} className="animate-spin text-gray-400" /></div>
+
   return (
     <div className="space-y-4 max-w-2xl">
       <div className="space-y-2">
+        {contacts.length === 0 && !adding && (
+          <div className="text-sm text-gray-500 py-4 text-center">No emergency contacts saved yet. Add the local emergency services below.</div>
+        )}
         {contacts.map(c => (
           <div key={c.id} className="card p-4 flex items-start gap-4">
             <div className="w-9 h-9 rounded-xl bg-red-900/30 flex items-center justify-center flex-shrink-0">
@@ -757,70 +779,89 @@ function EmergencyTab({ clinicId }) {
           <Plus size={14} />Add Emergency Contact
         </button>
       )}
+      <div className="flex items-center gap-3 pt-2">
+        <button onClick={saveContacts} disabled={saving}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">
+          {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+          Save Contacts
+        </button>
+        {saveMsg && <span className="text-xs text-green-400">{saveMsg}</span>}
+      </div>
     </div>
   )
 }
 
 // ── Document Templates Tab ────────────────────────────────────────────────────────────────
-const DEFAULT_TEMPLATES = [
-  { id: 1, name: 'Discharge Summary', category: 'Discharge', fields: 12, last_edited: '2024-01-10', active: true },
-  { id: 2, name: 'OPD Prescription', category: 'Prescription', fields: 8, last_edited: '2024-01-08', active: true },
-  { id: 3, name: 'Lab Requisition', category: 'Lab', fields: 6, last_edited: '2024-01-05', active: true },
-  { id: 4, name: 'Consent for Surgery', category: 'Consent', fields: 4, last_edited: '2023-12-20', active: false },
-  { id: 5, name: 'Death Certificate', category: 'Certificate', fields: 10, last_edited: '2023-12-15', active: false },
-  { id: 6, name: 'Fitness Certificate', category: 'Certificate', fields: 5, last_edited: '2023-11-30', active: true },
-  { id: 7, name: 'Medico-Legal Report', category: 'Legal', fields: 14, last_edited: '2023-11-20', active: false },
-  { id: 8, name: 'Referral Letter', category: 'Referral', fields: 7, last_edited: '2023-11-10', active: true },
-]
-
 function TemplatesTab({ clinicId }) {
-  const [templates, setTemplates] = useState(DEFAULT_TEMPLATES)
+  const [templates, setTemplates] = useState([])
+  const [loading, setLoading]     = useState(true)
 
-  const toggle = (id) => setTemplates(prev => prev.map(t => t.id === id ? {...t, active: !t.active} : t))
+  useEffect(() => {
+    api.get('/assessment-forms')
+      .then(r => {
+        const list = Array.isArray(r) ? r : (r?.forms || r?.results || [])
+        setTemplates(list.map(f => ({
+          id:          f.id,
+          name:        f.name || f.title || 'Untitled',
+          category:    f.form_type || f.category || 'General',
+          fields:      f.fields_count ?? (Array.isArray(f.fields) ? f.fields.length : '—'),
+          last_edited: f.updated_at ? new Date(f.updated_at).toLocaleDateString('en-IN') : '—',
+          active:      f.status === 'published' || f.is_active === true,
+        })))
+      })
+      .catch(() => setTemplates([]))
+      .finally(() => setLoading(false))
+  }, [clinicId])
 
   return (
     <div className="space-y-3 max-w-3xl">
-      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-gray-900/40 border-b border-gray-800 text-xs text-gray-500 uppercase tracking-wide">
-              <th className="px-4 py-2.5 text-left">Template</th>
-              <th className="px-3 py-2.5 text-left">Category</th>
-              <th className="px-3 py-2.5 text-center">Fields</th>
-              <th className="px-3 py-2.5 text-left">Last Edited</th>
-              <th className="px-3 py-2.5 text-center">Active</th>
-              <th className="px-3 py-2.5 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-800">
-            {templates.map(t => (
-              <tr key={t.id} className="hover:bg-gray-800/40 transition-colors">
-                <td className="px-4 py-2.5">
-                  <div className="flex items-center gap-2">
-                    <FileText size={14} className="text-gray-500 flex-shrink-0" />
-                    <span className="font-medium text-white text-xs">{t.name}</span>
-                  </div>
-                </td>
-                <td className="px-3 py-2.5 text-xs text-gray-500">{t.category}</td>
-                <td className="px-3 py-2.5 text-center text-xs text-gray-400 font-medium">{t.fields}</td>
-                <td className="px-3 py-2.5 text-xs text-gray-500">{t.last_edited}</td>
-                <td className="px-3 py-2.5 text-center">
-                  <button onClick={() => toggle(t.id)}
-                    className={`w-9 h-5 rounded-full transition-colors relative ${t.active ? 'bg-blue-600' : 'bg-gray-700'}`}>
-                    <span className={`absolute top-0.5 h-4 w-4 bg-white rounded-full shadow transition-transform ${t.active ? 'translate-x-4' : 'translate-x-0.5'}`} />
-                  </button>
-                </td>
-                <td className="px-3 py-2.5 text-right">
-                  <span className="text-xs text-gray-600">—</span>
-                </td>
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 size={20} className="animate-spin text-gray-500" />
+        </div>
+      ) : templates.length === 0 ? (
+        <div className="text-center py-12 text-gray-500 text-sm bg-gray-900 border border-gray-800 rounded-xl">
+          No assessment forms found. Create one using the New Template button below.
+        </div>
+      ) : (
+        <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-900/40 border-b border-gray-800 text-xs text-gray-500 uppercase tracking-wide">
+                <th className="px-4 py-2.5 text-left">Template</th>
+                <th className="px-3 py-2.5 text-left">Category</th>
+                <th className="px-3 py-2.5 text-center">Fields</th>
+                <th className="px-3 py-2.5 text-left">Last Edited</th>
+                <th className="px-3 py-2.5 text-center">Status</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <button className="flex items-center gap-2 px-4 py-2 border border-dashed border-gray-700 rounded-xl text-sm text-gray-500 hover:text-gray-300 hover:border-gray-600 w-full max-w-xs justify-center transition-colors">
+            </thead>
+            <tbody className="divide-y divide-gray-800">
+              {templates.map(t => (
+                <tr key={t.id} className="hover:bg-gray-800/40 transition-colors">
+                  <td className="px-4 py-2.5">
+                    <div className="flex items-center gap-2">
+                      <FileText size={14} className="text-gray-500 flex-shrink-0" />
+                      <span className="font-medium text-white text-xs">{t.name}</span>
+                    </div>
+                  </td>
+                  <td className="px-3 py-2.5 text-xs text-gray-500">{t.category}</td>
+                  <td className="px-3 py-2.5 text-center text-xs text-gray-400 font-medium">{t.fields}</td>
+                  <td className="px-3 py-2.5 text-xs text-gray-500">{t.last_edited}</td>
+                  <td className="px-3 py-2.5 text-center">
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${t.active ? 'bg-green-900/40 text-green-400' : 'bg-gray-800 text-gray-500'}`}>
+                      {t.active ? 'Published' : 'Draft'}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <Link to="/forms/builder"
+        className="flex items-center gap-2 px-4 py-2 border border-dashed border-gray-700 rounded-xl text-sm text-gray-500 hover:text-gray-300 hover:border-gray-600 w-full max-w-xs justify-center transition-colors">
         <Plus size={14} />New Template
-      </button>
+      </Link>
     </div>
   )
 }
