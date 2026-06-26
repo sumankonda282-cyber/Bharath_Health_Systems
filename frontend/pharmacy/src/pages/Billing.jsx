@@ -902,7 +902,10 @@ function InvoiceHistory() {
     setPaying(true)
     setPayError('')
     try {
-      await api.post(`/billing/invoices/${payModal.id}/pay`, { payment_method: payMethod })
+      const amount = Number(payModal.total_amount || payModal.total || 0)
+      await api.post(`/billing/invoices/${payModal.id}/payments`, {
+        payments: [{ method: payMethod, amount }],
+      })
       setPayModal(null)
       load(true)
     } catch (ex) {

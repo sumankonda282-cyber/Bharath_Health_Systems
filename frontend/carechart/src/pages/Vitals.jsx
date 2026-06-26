@@ -178,7 +178,7 @@ function RecordDrawer({ patient, onClose, onSaved }) {
               <div className="flex flex-col gap-1.5">
                 <label className="text-[9px] font-bold uppercase tracking-wider text-gray-400">Systolic (mmHg)</label>
                 <input type="number" value={form.sys} onChange={e => set('sys', e.target.value)}
-                  placeholder="e.g. 120" className={inputCls} style={{ borderColor: '#e5e7eb', ...focusStyle }} />
+                  placeholder="e.g. 120" className={inputCls} style={{ borderColor: '#e5e7eb' }} />
                 <span className="text-[9px] text-gray-400">Normal 90–140</span>
               </div>
               <div className="flex flex-col gap-1.5">

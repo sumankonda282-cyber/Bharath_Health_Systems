@@ -69,11 +69,11 @@ export default function NursingNotes() {
     if (!session) return
     setLoading(true)
     Promise.all([
-      api.get(`/inpatient/admissions/${session.ward_id || ''}/notes`).catch(() => null),
-      api.get(`/inpatient/admissions`).catch(() => null),
+      api.get('/inpatient/notes', { params: session.ward_id ? { ward_id: session.ward_id } : {} }).catch(() => null),
+      api.get('/inpatient/admissions', { params: session.ward_id ? { ward_id: session.ward_id, status: 'admitted' } : { status: 'admitted' } }).catch(() => null),
     ]).then(([notesRes, patientsRes]) => {
-      if (notesRes?.length) setNotes(notesRes)
-      if (patientsRes?.length) setPatients(patientsRes)
+      if (Array.isArray(notesRes) && notesRes.length) setNotes(notesRes)
+      if (Array.isArray(patientsRes) && patientsRes.length) setPatients(patientsRes)
     }).finally(() => setLoading(false))
   }, [session])
 
