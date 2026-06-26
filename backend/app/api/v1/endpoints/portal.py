@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from jose import JWTError, jwt
 from app.db.session import get_db
@@ -74,9 +75,12 @@ def portal_me(
     elif patients:
         bh_id = patients[0].bh_id
 
-    # Patients for whom this user is registered as guardian
+    # Patients for whom this user is registered as guardian.
+    # Exclude patients already linked to a different portal account to prevent
+    # unrelated patients who share a phone number from seeing each other's records.
     guardian_patients = db.query(Patient).filter(
-        Patient.guardian_mobile == current.mobile
+        Patient.guardian_mobile == current.mobile,
+        or_(Patient.portal_user_id.is_(None), Patient.portal_user_id == current.id)
     ).all()
 
     def _age(p):
@@ -138,11 +142,15 @@ def portal_appointments(current=Depends(get_current_patient), db: Session = Depe
                 "doctor_profile_id": a.doctor_id,
             })
 
-    # Online bookings made via the public website or this portal, matched by
-    # account or mobile number — visible even before the health center confirms
+    # Online bookings made via the public website or this portal. Mobile-number
+    # fallback only applies to bookings not yet linked to any portal account —
+    # prevents patients who share a phone number from seeing each other's bookings.
     bookings = db.query(OnlineBooking).filter(
         (OnlineBooking.patient_user_id == current.id) |
-        (OnlineBooking.patient_mobile == current.mobile)
+        (
+            (OnlineBooking.patient_mobile == current.mobile) &
+            OnlineBooking.patient_user_id.is_(None)
+        )
     ).order_by(OnlineBooking.booking_date.desc()).limit(50).all()
     for b in bookings:
         if b.id in converted_booking_ids:
@@ -371,7 +379,8 @@ def portal_cancel_booking(
     # Try online booking first
     booking = db.query(OnlineBooking).filter(
         OnlineBooking.id == booking_id,
-        (OnlineBooking.patient_user_id == current.id) | (OnlineBooking.patient_mobile == current.mobile)
+        (OnlineBooking.patient_user_id == current.id) |
+        ((OnlineBooking.patient_mobile == current.mobile) & OnlineBooking.patient_user_id.is_(None))
     ).first()
     if booking:
         if booking.status in ('pending', 'confirmed', 'in_progress'):
@@ -412,7 +421,8 @@ def portal_reschedule_booking(
     from app.models.models import OnlineBooking
     booking = db.query(OnlineBooking).filter(
         OnlineBooking.id == booking_id,
-        (OnlineBooking.patient_user_id == current.id) | (OnlineBooking.patient_mobile == current.mobile)
+        (OnlineBooking.patient_user_id == current.id) |
+        ((OnlineBooking.patient_mobile == current.mobile) & OnlineBooking.patient_user_id.is_(None))
     ).first()
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")
