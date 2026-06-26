@@ -48,7 +48,7 @@ export default function Pending() {
   const dispense = async id => {
     setDispensing(id)
     try { await api.post(`/pharmacy/prescriptions/${id}/dispense`); load() }
-    catch {}
+    catch (e) { alert(e?.response?.data?.detail || 'Could not dispense. Please retry.') }
     finally { setDispensing(null) }
   }
   return (

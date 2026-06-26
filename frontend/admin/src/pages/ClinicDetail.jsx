@@ -142,6 +142,7 @@ export default function ClinicDetail() {
   const handlePlan = async () => {
     setSaving(true)
     try { await adminApi.changePlan(id, selectedPlan); setPlanModal(false); load() }
+    catch (ex) { alert(ex.message || 'Could not update plan') }
     finally { setSaving(false) }
   }
 

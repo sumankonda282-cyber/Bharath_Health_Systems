@@ -234,7 +234,7 @@ def confirm_online_booking(
 
     conf_patient = None
     if patient_id:
-        conf_patient = db.query(Patient).filter(Patient.id == patient_id).first()
+        conf_patient = db.query(Patient).filter(Patient.id == patient_id, Patient.clinic_id == current.clinic_id).first()
     if not conf_patient and booking.patient_mobile:
         conf_patient = db.query(Patient).filter(
             Patient.clinic_id == current.clinic_id,
@@ -316,6 +316,12 @@ def record_vitals(
     db: Session = Depends(get_db),
     current: Staff = Depends(get_current_staff),
 ):
+    appt = db.query(Appointment).filter(
+        Appointment.id == payload.appointment_id,
+        Appointment.clinic_id == current.clinic_id,
+    ).first()
+    if not appt:
+        raise HTTPException(status_code=404, detail="Appointment not found")
     existing = db.query(Vitals).filter(
         Vitals.appointment_id == payload.appointment_id
     ).first()
@@ -340,6 +346,12 @@ def save_soap_note(
 ):
     if current.role not in ['doctor', 'clinic_admin']:
         raise HTTPException(status_code=403, detail="Only doctors can write SOAP notes")
+    appt = db.query(Appointment).filter(
+        Appointment.id == payload.appointment_id,
+        Appointment.clinic_id == current.clinic_id,
+    ).first()
+    if not appt:
+        raise HTTPException(status_code=404, detail="Appointment not found")
     existing = db.query(SoapNote).filter(
         SoapNote.appointment_id == payload.appointment_id
     ).first()

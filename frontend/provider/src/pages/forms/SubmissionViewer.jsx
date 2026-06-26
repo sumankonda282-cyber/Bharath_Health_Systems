@@ -171,7 +171,7 @@ export default function SubmissionViewer() {
       win.print()
       win.addEventListener('afterprint', () => win.close())
     } catch (err) {
-      console.error('PDF export failed', err)
+      alert(err?.response?.data?.detail || 'PDF export failed. Please retry.')
     }
   }
 
@@ -190,7 +190,7 @@ export default function SubmissionViewer() {
       const res = await api.get(`/provider/forms/submissions/${id}/fhir`)
       downloadJson(res, `submission-${id}.fhir.json`)
     } catch (err) {
-      console.error('FHIR export failed', err)
+      alert(err?.response?.data?.detail || 'FHIR export failed. Please retry.')
     }
   }
 
@@ -199,7 +199,7 @@ export default function SubmissionViewer() {
       const res = await api.get(`/provider/forms/submissions/${id}/abdm`)
       downloadJson(res, `submission-${id}.abdm.json`)
     } catch (err) {
-      console.error('ABDM export failed', err)
+      alert(err?.response?.data?.detail || 'ABDM export failed. Please retry.')
     }
   }
 

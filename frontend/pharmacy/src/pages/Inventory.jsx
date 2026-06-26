@@ -113,7 +113,7 @@ export default function Inventory() {
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
   const [batchTarget, setBatchTarget] = useState(null)
-  const branchId = sessionStorage.getItem('branch_id')
+  const branchId = localStorage.getItem('branch_id')
 
   const load = useCallback(() => {
     setLoading(true)

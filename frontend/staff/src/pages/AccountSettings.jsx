@@ -6,10 +6,10 @@ const API = import.meta.env.VITE_API_URL ?? ''
 const ACCENT = '#1e3a5f'
 
 function useApi() {
-  const { token } = useAuth()
+  // Staff JWT is stored in localStorage as access_token (AuthContext exposes no token field).
   return (url, opts = {}) => fetch(`${API}${url}`, {
     ...opts,
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...(opts.headers || {}) },
+    headers: { Authorization: `Bearer ${localStorage.getItem('access_token') || ''}`, 'Content-Type': 'application/json', ...(opts.headers || {}) },
   }).then(async r => { const d = await r.json(); if (!r.ok) throw new Error(d.detail || 'Error'); return d })
 }
 
@@ -70,6 +70,7 @@ function ChangePasswordForm() {
 
 function PinManagement() {
   const api = useApi()
+  const { user } = useAuth()
   const [pinStatus, setPinStatus] = useState(null)
   const [pin, setPin] = useState('')
   const [loading, setLoading] = useState(false)
@@ -80,7 +81,7 @@ function PinManagement() {
   const save = async e => {
     e.preventDefault(); setLoading(true); setMsg(null)
     try {
-      const r = await api('/api/v1/auth/staff/pin-setup', { method: 'POST', body: JSON.stringify({ pin }) })
+      const r = await api('/api/v1/auth/staff/pin-setup', { method: 'POST', body: JSON.stringify({ pin, staff_id: user?.id }) })
       setMsg({ ok: true, msg: r.detail }); setPin('')
       api('/api/v1/auth/staff/pin-status').then(setPinStatus).catch(() => {})
     } catch (e) { setMsg({ ok: false, msg: e.message }) }
@@ -118,20 +119,19 @@ function PinManagement() {
 }
 
 function LogoutAll() {
-  const api = useApi()
   const { logout } = useAuth()
   const [loading, setLoading] = useState(false)
-  const go = async () => {
-    if (!confirm('Log out from all devices?')) return
+  // JWTs are stateless (no server-side revocation), so this clears the local
+  // session and returns to login — the honest behaviour for this device.
+  const go = () => {
+    if (!confirm('Log out and end this session?')) return
     setLoading(true)
-    try { await api('/api/v1/auth/staff/logout', { method: 'POST' }); logout() }
-    catch (e) { alert(e.message) }
-    finally { setLoading(false) }
+    logout()
   }
   return (
     <button onClick={go} disabled={loading}
       className="w-full py-2 bg-red-50 border border-red-200 text-red-700 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 hover:bg-red-100 disabled:opacity-50">
-      <LogOut size={14} />{loading ? 'Logging out…' : 'Log Out From All Devices'}
+      <LogOut size={14} />{loading ? 'Logging out…' : 'Log Out'}
     </button>
   )
 }

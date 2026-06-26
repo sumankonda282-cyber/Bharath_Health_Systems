@@ -180,7 +180,15 @@ export default function BookingStatus() {
     setError('')
     try {
       const data = await publicApi.getBookingStatus(c)
-      setBooking(data.booking || data)
+      const b = data.booking || data
+      // Backend returns booking_date / booking_time / branch_address; the card
+      // reads date / slot / clinic_address — normalise so they display.
+      setBooking(b ? {
+        ...b,
+        date:           b.date || b.booking_date,
+        slot:           b.slot || b.booking_time,
+        clinic_address: b.clinic_address || b.branch_address,
+      } : null)
     } catch (err) {
       setError(err.message || 'Booking not found. Please check your confirmation code.')
       setBooking(null)

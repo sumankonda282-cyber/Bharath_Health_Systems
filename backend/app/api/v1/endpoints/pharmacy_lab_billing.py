@@ -58,7 +58,7 @@ def edit_medicine(
     allowed = ['clinic_admin', 'pharmacist']
     if current.role not in allowed:
         raise HTTPException(status_code=403, detail="Access denied")
-    med = db.query(Medicine).filter(Medicine.id == med_id).first()
+    med = db.query(Medicine).filter(Medicine.id == med_id, Medicine.branch_id == current.branch_id).first()
     if not med:
         raise HTTPException(status_code=404, detail="Medicine not found")
     editable = [
@@ -185,7 +185,7 @@ def update_stock(
     db: Session = Depends(get_db),
     current: Staff = Depends(get_current_staff),
 ):
-    med = db.query(Medicine).filter(Medicine.id == med_id).first()
+    med = db.query(Medicine).filter(Medicine.id == med_id, Medicine.branch_id == current.branch_id).first()
     if not med:
         raise HTTPException(status_code=404, detail="Medicine not found")
     qty_before = med.stock_quantity or 0
@@ -275,7 +275,7 @@ def list_stock_transactions(
 def get_prescription(pres_id: int, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
     pres = db.query(Prescription).options(
         joinedload(Prescription.items).joinedload(PrescriptionItem.medicine)
-    ).filter(Prescription.id == pres_id).first()
+    ).filter(Prescription.id == pres_id, Prescription.clinic_id == current.clinic_id).first()
     if not pres:
         raise HTTPException(status_code=404, detail="Not found")
     return {
@@ -298,7 +298,7 @@ def dispense_prescription(pres_id: int, db: Session = Depends(get_db), current: 
         raise HTTPException(status_code=403, detail="Only pharmacists can dispense")
     pres = db.query(Prescription).options(
         joinedload(Prescription.items).joinedload(PrescriptionItem.medicine)
-    ).filter(Prescription.id == pres_id).first()
+    ).filter(Prescription.id == pres_id, Prescription.clinic_id == current.clinic_id).first()
     if not pres:
         raise HTTPException(status_code=404, detail="Not found")
     if pres.status == 'dispensed':
@@ -414,7 +414,7 @@ def list_lab_tests(
 def get_lab_order(order_id: int, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
     order = db.query(LabOrder).options(
         joinedload(LabOrder.items).joinedload(LabOrderItem.test)
-    ).filter(LabOrder.id == order_id).first()
+    ).filter(LabOrder.id == order_id, LabOrder.clinic_id == current.clinic_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Not found")
     return {
@@ -444,7 +444,7 @@ def update_order_status(
     status = status or (body or {}).get("status")
     if not status:
         raise HTTPException(status_code=422, detail="status is required")
-    order = db.query(LabOrder).filter(LabOrder.id == order_id).first()
+    order = db.query(LabOrder).filter(LabOrder.id == order_id, LabOrder.clinic_id == current.clinic_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Not found")
     order.status = status
@@ -463,6 +463,10 @@ def enter_result(
     allowed = ['lab_technician', 'clinic_admin']
     if current.role not in allowed:
         raise HTTPException(status_code=403, detail="Access denied")
+    # Verify the parent order belongs to this clinic before touching its items.
+    order = db.query(LabOrder).filter(LabOrder.id == order_id, LabOrder.clinic_id == current.clinic_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Not found")
     item = db.query(LabOrderItem).filter(
         LabOrderItem.id == item_id, LabOrderItem.order_id == order_id
     ).first()
@@ -472,7 +476,6 @@ def enter_result(
     item.result_notes = payload.result_notes
     item.is_abnormal = payload.is_abnormal
     item.completed_at = datetime.utcnow()
-    order = db.query(LabOrder).filter(LabOrder.id == order_id).first()
     if all(i.completed_at for i in order.items):
         order.status = 'completed'
     db.commit()
@@ -936,6 +939,54 @@ def _compute_lab_flag(value, ref):
     return 'N'
 
 
+# Curated adult panic / critical values (conventional units common in India).
+# (low_critical, high_critical); None = no limit on that side. Matched by
+# word-boundary keyword against the test name. Conservative on purpose.
+LAB_PANIC_VALUES = [
+    (("potassium", "k+"),                              2.5,     6.5),
+    (("sodium", "na+"),                                120.0,   160.0),
+    (("glucose", "blood sugar", "rbs", "fbs", "ppbs"), 40.0,    450.0),
+    (("calcium",),                                     6.0,     13.0),
+    (("magnesium",),                                   1.0,     4.7),
+    (("phosphorus", "phosphate"),                      1.0,     None),
+    (("haemoglobin", "hemoglobin", "hgb", "hb"),       7.0,     None),
+    (("platelet",),                                    20000.0, 1000000.0),
+    (("leucocyte", "leukocyte", "tlc", "wbc"),         2000.0,  30000.0),
+    (("creatinine",),                                  None,    7.4),
+    (("inr",),                                         None,    5.0),
+    (("bilirubin",),                                   None,    15.0),
+]
+
+
+def _name_has(name, kw):
+    """Keyword present in test name, not embedded inside a longer alpha word."""
+    return re.search(r'(?<![a-z])' + re.escape(kw) + r'(?![a-z])', name) is not None
+
+
+def _detect_lab_critical(test_name, value, flag=None):
+    """Return ('HH'|'LL', description) for a panic value, else (None, None).
+    Honours an explicit analyser critical flag (C/HH/LL) before the value test."""
+    if flag:
+        f = str(flag).upper()
+        if f in ('HH', 'LL'):
+            return (f, f"Analyser-flagged critical ({f})")
+        if f == 'C':
+            return ('HH', "Analyser-flagged critical")
+    try:
+        v = float(str(value).strip())
+    except (ValueError, TypeError, AttributeError):
+        return (None, None)
+    name = (test_name or "").lower()
+    for keywords, lo, hi in LAB_PANIC_VALUES:
+        if any(_name_has(name, k) for k in keywords):
+            if lo is not None and v < lo:
+                return ('LL', f"{test_name}: {value} — critical low (< {lo})")
+            if hi is not None and v > hi:
+                return ('HH', f"{test_name}: {value} — critical high (> {hi})")
+            return (None, None)
+    return (None, None)
+
+
 @lab_router.api_route("/orders/{order_id}/results", methods=["PUT", "POST"])
 def save_lab_results(
     order_id: int,
@@ -943,7 +994,7 @@ def save_lab_results(
     db: Session = Depends(get_db),
     current=Depends(get_current_staff),
 ):
-    from app.models.models import LabOrder, LabOrderItem, LabResult
+    from app.models.models import LabOrder, LabOrderItem, LabResult, LabCriticalAlert
     order = db.query(LabOrder).filter(
         LabOrder.id == order_id,
         LabOrder.clinic_id == current.clinic_id,
@@ -955,6 +1006,7 @@ def save_lab_results(
     # and tolerate either field name for each value.
     rows = body.get("results") or body.get("items") or []
     observations = []
+    critical_hits = []
     for r in rows:
         item = db.query(LabOrderItem).filter(
             LabOrderItem.id == (r.get("item_id") or r.get("id")),
@@ -971,7 +1023,13 @@ def save_lab_results(
                      or "")
         unit = r.get("unit") or (test.unit if test else None) or ""
         flag = _compute_lab_flag(value, ref_range)
-        computed_abnormal = flag in ('H', 'L')
+        test_label = item.test_name or (test.name if test else "")
+        crit_flag, crit_desc = _detect_lab_critical(test_label, value, r.get("flag"))
+        if crit_flag:
+            flag = crit_flag    # HH / LL overrides a plain H / L
+            critical_hits.append({"test_name": test_label, "value": str(value),
+                                  "flag": crit_flag, "desc": crit_desc})
+        computed_abnormal = flag in ('H', 'L', 'HH', 'LL')
 
         item.result_value = value
         # Prefer an explicit note; fall back to reference_range for older callers.
@@ -1016,6 +1074,27 @@ def save_lab_results(
             if result.source in (None, 'bridge'):
                 result.source = 'manual'
 
+    # Raise panic / critical-value alerts (deduped per order + test, unacknowledged)
+    # so the ordering doctor and ward are notified of urgent results.
+    for hit in critical_hits:
+        already = db.query(LabCriticalAlert).filter(
+            LabCriticalAlert.order_id == order_id,
+            LabCriticalAlert.test_name == hit["test_name"],
+            LabCriticalAlert.acknowledged_at.is_(None),
+        ).first()
+        if already:
+            continue
+        db.add(LabCriticalAlert(
+            clinic_id=order.clinic_id,
+            order_id=order_id,
+            patient_id=order.patient_id,
+            ordered_by=order.ordered_by,
+            test_name=hit["test_name"],
+            value=hit["value"],
+            flag=hit["flag"],
+            description=hit["desc"],
+        ))
+
     # Auto-transition OPD appointment: investigations_pending → review_pending
     if getattr(order, 'appointment_id', None):
         from app.models.models import Appointment as Appt
@@ -1043,6 +1122,75 @@ def complete_lab_order(
     order.status = 'completed'
     db.commit()
     return {"message": "Order completed"}
+
+
+# ── Lab critical-value (panic) alerts ─────────────────────────────────────────
+
+@lab_router.get("/critical-alerts/count")
+def lab_critical_alert_count(
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    from app.models.models import LabCriticalAlert
+    count = db.query(LabCriticalAlert).filter(
+        LabCriticalAlert.clinic_id == current.clinic_id,
+        LabCriticalAlert.acknowledged_at == None,
+    ).count()
+    return {"count": count}
+
+
+@lab_router.get("/critical-alerts")
+def list_lab_critical_alerts(
+    mine: bool = Query(False),
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Unacknowledged panic lab values for the health center. ``mine=true`` limits
+    to results the current doctor ordered (Provider critical-results feed)."""
+    from app.models.models import LabCriticalAlert, LabOrder, Patient as Pt
+    q = db.query(LabCriticalAlert).filter(
+        LabCriticalAlert.clinic_id == current.clinic_id,
+        LabCriticalAlert.acknowledged_at == None,
+    )
+    if mine:
+        q = q.filter(LabCriticalAlert.ordered_by == current.id)
+    alerts = q.order_by(LabCriticalAlert.created_at.desc()).all()
+    result = []
+    for a in alerts:
+        order = db.query(LabOrder).filter(LabOrder.id == a.order_id).first()
+        patient = db.query(Pt).filter(Pt.id == a.patient_id).first() if a.patient_id else None
+        result.append({
+            "id":           a.id,
+            "order_id":     a.order_id,
+            "order_ref":    order.order_id if order else None,
+            "patient_id":   a.patient_id,
+            "patient_name": patient.full_name if patient else "Unknown",
+            "test_name":    a.test_name,
+            "value":        a.value,
+            "flag":         a.flag,
+            "description":  a.description,
+            "created_at":   str(a.created_at),
+        })
+    return result
+
+
+@lab_router.post("/critical-alerts/{alert_id}/acknowledge")
+def acknowledge_lab_critical_alert(
+    alert_id: int,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    from app.models.models import LabCriticalAlert
+    alert = db.query(LabCriticalAlert).filter(
+        LabCriticalAlert.id == alert_id,
+        LabCriticalAlert.clinic_id == current.clinic_id,
+    ).first()
+    if not alert:
+        raise HTTPException(404, "Alert not found")
+    alert.acknowledged_by = current.id
+    alert.acknowledged_at = datetime.utcnow()
+    db.commit()
+    return {"message": "Alert acknowledged"}
 
 
 # ── Pharmacy pending list ──────────────────────────────────────────
@@ -2247,7 +2395,7 @@ def get_alerts(
     three_days_ago = datetime.utcnow() - timedelta(days=3)
 
     low_stock = db.query(Medicine).filter(
-        Medicine.clinic_id == None,  # medicines are branch-scoped but check all active
+        Medicine.branch_id == None,  # medicines are branch-scoped but check all active
         Medicine.is_active == True,
         Medicine.stock_quantity <= Medicine.reorder_level,
     ).all() if False else db.query(Medicine).filter(
@@ -2281,7 +2429,7 @@ def get_alerts(
     ).all()
 
     def med_name(med_id):
-        m = db.query(Medicine).filter(Medicine.id == med_id).first()
+        m = db.query(Medicine).filter(Medicine.id == med_id, Medicine.branch_id == current.branch_id).first()
         return m.name if m else "Unknown"
 
     return {
@@ -2774,7 +2922,7 @@ def create_stock_adjustment(
 ):
     med = db.query(Medicine).filter(
         Medicine.id == body.medicine_id,
-        Medicine.clinic_id == current.clinic_id,
+        Medicine.branch_id == current.branch_id,
     ).first()
     if not med:
         raise HTTPException(status_code=404, detail="Medicine not found")
@@ -2917,13 +3065,13 @@ def get_substitutes(
 ):
     source = db.query(Medicine).filter(
         Medicine.id == med_id,
-        Medicine.clinic_id == current.clinic_id,
+        Medicine.branch_id == current.branch_id,
     ).first()
     if not source or not source.generic_name:
         return {"substitutes": []}
 
     subs = db.query(Medicine).filter(
-        Medicine.clinic_id == current.clinic_id,
+        Medicine.branch_id == current.branch_id,
         Medicine.id != med_id,
         Medicine.generic_name.ilike(f"%{source.generic_name}%"),
         Medicine.stock_quantity > 0,
@@ -3204,7 +3352,7 @@ def auto_draft_po(
     db:      Session = Depends(get_db),
 ):
     med = db.query(Medicine).filter(
-        Medicine.id == med_id, Medicine.clinic_id == current.clinic_id
+        Medicine.id == med_id, Medicine.branch_id == current.branch_id
     ).first()
     if not med:
         raise HTTPException(404, "Medicine not found")
@@ -3516,7 +3664,7 @@ def create_supplier_return(
 
     for it in body.items:
         med = db.query(Medicine).filter(
-            Medicine.id == it.medicine_id, Medicine.clinic_id == current.clinic_id
+            Medicine.id == it.medicine_id, Medicine.branch_id == current.branch_id
         ).first()
         if not med:
             continue
@@ -3935,7 +4083,7 @@ def dispense_cart(
                 med = db.query(Medicine).filter(Medicine.id == ci.medicine_id).first()
             if not med and ci.medicine_name:
                 med = db.query(Medicine).filter(
-                    Medicine.clinic_id == current.clinic_id,
+                    Medicine.branch_id == current.branch_id,
                     Medicine.name.ilike(f"%{ci.medicine_name}%"),
                     Medicine.is_active == True,
                 ).first()

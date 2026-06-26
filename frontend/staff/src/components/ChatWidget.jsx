@@ -36,7 +36,7 @@ export default function ChatWidget() {
   // Decode staff id from JWT
   useEffect(() => {
     try {
-      const token = sessionStorage.getItem('access_token')
+      const token = localStorage.getItem('access_token')
       if (token) {
         const payload = JSON.parse(atob(token.split('.')[1]))
         myStaffId.current = payload.sub ? parseInt(payload.sub) : null

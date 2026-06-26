@@ -367,10 +367,10 @@ export default function Patients() {
   const [err, setErr] = useState('')
   const [toast, setToast] = useState(null)
 
-  // Best-effort: read role from JWT stored in sessionStorage
+  // Best-effort: read role from the staff JWT (stored in localStorage)
   const staffRole = (() => {
     try {
-      const token = sessionStorage.getItem('token') || ''
+      const token = localStorage.getItem('access_token') || ''
       if (!token) return ''
       const payload = JSON.parse(atob(token.split('.')[1]))
       return payload.role || ''

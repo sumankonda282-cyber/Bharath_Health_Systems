@@ -46,7 +46,8 @@ export default function Appointments() {
   }, [])
 
   const updateStatus = async (id, status) => {
-    try { await api.put(`/appointments/${id}`, { status }); load() } catch {}
+    try { await api.put(`/appointments/${id}`, { status }); load() }
+    catch (e) { setErr(e?.response?.data?.detail || 'Could not update appointment status') }
   }
 
   const book = async e => {

@@ -193,8 +193,8 @@ function MaintenanceModal({ wardId, beds, onClose }) {
         submitted_by_name: identity.full_name,
       })
       setDone(true)
-    } catch {
-      setDone(true)
+    } catch (e) {
+      alert(e?.response?.data?.detail || 'Could not submit the request. Please retry.')
     } finally {
       setSub(false)
     }

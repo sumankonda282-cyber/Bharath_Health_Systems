@@ -38,10 +38,13 @@ def _styles():
     return s
 
 
-def _header(story, styles, clinic_name, branch_name, address, doc_type):
+def _header(story, styles, clinic_name, branch_name, address, doc_type, hc_id=""):
     story.append(Paragraph("BharatHealth", styles["AppName"]))
     story.append(Paragraph(f"{clinic_name}  ·  {branch_name}", styles["Clinic"]))
-    story.append(Paragraph(address, styles["Sub"]))
+    sub = address or ""
+    if hc_id:
+        sub = f"{sub}  ·  HC ID: {hc_id}" if sub else f"HC ID: {hc_id}"
+    story.append(Paragraph(sub, styles["Sub"]))
     story.append(Spacer(1, 3*mm))
     story.append(HRFlowable(width="100%", thickness=1.5, color=PRIMARY))
     story.append(Spacer(1, 2*mm))
@@ -116,7 +119,7 @@ def generate_prescription_pdf(pres: dict, patient: dict, clinic: dict) -> bytes:
         story.append(Paragraph(f"Notes: {pres['notes']}", s["Body"]))
 
     story.append(Spacer(1, 12*mm))
-    story.append(HRFlowable(width="60mm", thickness=0.5, color=DARK, hAlign="RIGHT"))
+    story.append(HRFlowable(width=60*mm, thickness=0.5, color=DARK, hAlign="RIGHT"))
     story.append(Paragraph(f"Dr. {clinic.get('doctor_name','')}", ParagraphStyle(
         "Sign", fontSize=9, fontName="Helvetica-Bold", alignment=TA_RIGHT)))
     story.append(Paragraph("Signature & Stamp", ParagraphStyle(
@@ -133,7 +136,7 @@ def generate_lab_report_pdf(order: dict, patient: dict, clinic: dict) -> bytes:
     story = []
 
     _header(story, s, clinic.get("clinic_name",""), clinic.get("branch_name",""),
-            clinic.get("address",""), "LAB REPORT")
+            clinic.get("address",""), "LAB REPORT", clinic.get("hc_id",""))
     story.append(_patient_table(
         patient.get("full_name"), patient.get("uhid"),
         patient.get("age"), patient.get("gender"),
@@ -359,11 +362,69 @@ def generate_encounter_summary_pdf(enc: dict, patient: dict, clinic: dict) -> by
         story.append(Spacer(1, 3*mm))
 
     story.append(Spacer(1, 8*mm))
-    story.append(HRFlowable(width="60mm", thickness=0.5, color=DARK, hAlign="RIGHT"))
+    story.append(HRFlowable(width=60*mm, thickness=0.5, color=DARK, hAlign="RIGHT"))
     story.append(Paragraph(f"Dr. {clinic.get('doctor_name', '')}", ParagraphStyle(
         "SignEnc", fontSize=9, fontName="Helvetica-Bold", alignment=TA_RIGHT)))
     story.append(Paragraph("Signature & Stamp", ParagraphStyle(
         "SignSubEnc", fontSize=7, textColor=GRAY, alignment=TA_RIGHT)))
+
+    doc.build(story)
+    return buf.getvalue()
+
+
+def generate_imaging_report_pdf(study: dict, patient: dict, clinic: dict) -> bytes:
+    buf = BytesIO()
+    doc = _base_doc(buf)
+    s = _styles()
+    story = []
+
+    _header(story, s, clinic.get("clinic_name", ""), clinic.get("branch_name", ""),
+            clinic.get("address", ""), "IMAGING / RADIOLOGY REPORT", clinic.get("hc_id", ""))
+    story.append(_patient_table(
+        patient.get("full_name"), patient.get("uhid"),
+        patient.get("age"), patient.get("gender"),
+        clinic.get("doctor_name"),
+        datetime.now().strftime("%d %b %Y")
+    ))
+    story.append(Spacer(1, 4*mm))
+
+    # Study details
+    status = (study.get("status") or "—").replace("_", " ").title()
+    detail = [
+        ["Modality",  study.get("modality") or "—",          "Body Part", study.get("body_part") or "—"],
+        ["Study",     study.get("study_description") or "—",  "Status",    status],
+    ]
+    if study.get("contrast"):
+        detail.append(["Contrast", study.get("contrast"), "", ""])
+    dt = Table(detail, colWidths=[26*mm, 64*mm, 26*mm, 64*mm])
+    dt.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), LIGHT_BLUE),
+        ("FONTNAME",   (0, 0), (0, -1),  "Helvetica-Bold"),
+        ("FONTNAME",   (2, 0), (2, -1),  "Helvetica-Bold"),
+        ("FONTSIZE",   (0, 0), (-1, -1), 8),
+        ("GRID",       (0, 0), (-1, -1), 0.3, colors.white),
+        ("PADDING",    (0, 0), (-1, -1), 4),
+        ("VALIGN",     (0, 0), (-1, -1), "MIDDLE"),
+    ]))
+    story.append(dt)
+    story.append(Spacer(1, 5*mm))
+
+    def _section(title, text):
+        story.append(Paragraph(title, ParagraphStyle(
+            "ImgSec", fontSize=10, fontName="Helvetica-Bold", textColor=PRIMARY)))
+        story.append(Spacer(1, 1*mm))
+        story.append(Paragraph((text or "—").replace("\n", "<br/>"), s["Body"]))
+        story.append(Spacer(1, 4*mm))
+
+    _section("FINDINGS", study.get("findings"))
+    _section("IMPRESSION", study.get("impression"))
+
+    story.append(Spacer(1, 8*mm))
+    story.append(HRFlowable(width=60*mm, thickness=0.5, color=DARK, hAlign="RIGHT"))
+    story.append(Paragraph(study.get("radiologist") or "Reporting Radiologist", ParagraphStyle(
+        "RSign", fontSize=9, fontName="Helvetica-Bold", alignment=TA_RIGHT)))
+    story.append(Paragraph("Signature & Stamp", ParagraphStyle(
+        "RSignSub", fontSize=7, textColor=GRAY, alignment=TA_RIGHT)))
 
     doc.build(story)
     return buf.getvalue()

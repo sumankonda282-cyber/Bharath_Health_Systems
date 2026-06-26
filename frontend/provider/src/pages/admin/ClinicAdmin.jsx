@@ -132,6 +132,26 @@ function BridgeTab() {
         </div>
       </div>
 
+      {/* Connection status */}
+      <div className="flex items-center gap-2">
+        {(() => {
+          const ls = cfg?.last_seen ? new Date(cfg.last_seen) : null
+          const mins = ls ? Math.floor((Date.now() - ls.getTime()) / 60000) : null
+          const online = mins !== null && mins < 10
+          const label = online
+            ? 'Bridge connected'
+            : ls
+              ? `Last seen ${mins < 1 ? 'just now' : mins < 60 ? `${mins} min ago` : `${Math.floor(mins / 60)} h ago`}`
+              : 'Bridge not connected yet'
+          return (
+            <>
+              <span className={`w-2 h-2 rounded-full ${online ? 'bg-emerald-500' : ls ? 'bg-amber-400' : 'bg-gray-300'}`} />
+              <span className="text-xs text-gray-600">{label}</span>
+            </>
+          )
+        })()}
+      </div>
+
       {/* Connection settings */}
       <div className="rounded-lg border border-gray-200 px-4">
         <Row label="Health Center" value={cfg?.health_center} />
@@ -191,7 +211,7 @@ function BrandingTab({ clinicId, profile }) {
     setUploading(true)
     try {
       const r = await api.post('/clinic/profile/logo', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
-      setLogoUrl(r.data.logo_url)
+      setLogoUrl(r.logo_url)
       setMsg('Logo uploaded!')
     } catch { setMsg('Upload failed') } finally { setUploading(false) }
   }
@@ -343,7 +363,8 @@ export default function ClinicAdmin() {
       setShowAddStaff(false)
       setNewStaff({ full_name: '', email: '', mobile: '', role: 'receptionist', password: '', specialty: '', consultation_fee: 500, branch_id: '' })
       load()
-    } finally { setSaving(false) }
+    } catch (e) { alert(e?.response?.data?.detail || 'Could not add staff member') }
+    finally { setSaving(false) }
   }
 
   const openEditStaff = (s) => {
@@ -358,12 +379,15 @@ export default function ClinicAdmin() {
       await clinicApi.updateStaff(editStaff.id, { ...editStaffForm, branch_id: editStaffForm.branch_id || null })
       setEditStaff(null)
       load()
-    } finally { setSaving(false) }
+    } catch (e) { alert(e?.response?.data?.detail || 'Could not update staff member') }
+    finally { setSaving(false) }
   }
 
   const handleToggle = async (id) => {
-    await clinicApi.updateStaff(id, { is_active: !staff.find(s => s.id === id)?.is_active })
-    load()
+    try {
+      await clinicApi.updateStaff(id, { is_active: !staff.find(s => s.id === id)?.is_active })
+      load()
+    } catch (e) { alert(e?.response?.data?.detail || 'Could not update staff status') }
   }
 
   const handleSaveWeekSchedule = async (e) => {
@@ -388,7 +412,8 @@ export default function ClinicAdmin() {
       }
       setSaveSuccess(scheduleDoctor.full_name)
       setScheduleDoctor(null)
-    } finally { setSaving(false) }
+    } catch (e) { alert(e?.response?.data?.detail || 'Could not save the schedule') }
+    finally { setSaving(false) }
   }
 
   const quickSetupWorkweek = () => {
@@ -421,7 +446,8 @@ export default function ClinicAdmin() {
     try {
       await clinicApi.updateTelehealth(doc.profile_id, { telehealth_enabled: !doc.telehealth_enabled })
       load()
-    } finally { setTelehealthSaving(s => ({ ...s, [doc.id]: false })) }
+    } catch (e) { alert(e?.response?.data?.detail || 'Could not update telehealth setting') }
+    finally { setTelehealthSaving(s => ({ ...s, [doc.id]: false })) }
   }
 
   const handleTelehealthFee = async (doc, fee) => {
@@ -430,7 +456,8 @@ export default function ClinicAdmin() {
     try {
       await clinicApi.updateTelehealth(doc.profile_id, { telehealth_fee: fee ? Number(fee) : null })
       load()
-    } finally { setTelehealthSaving(s => ({ ...s, [`fee_${doc.id}`]: false })) }
+    } catch (e) { alert(e?.response?.data?.detail || 'Could not update telehealth fee') }
+    finally { setTelehealthSaving(s => ({ ...s, [`fee_${doc.id}`]: false })) }
   }
 
   const handleSaveProfile = async () => {
@@ -439,7 +466,8 @@ export default function ClinicAdmin() {
       await clinicApi.updateProfile(profileForm)
       setEditProfile(false)
       load()
-    } finally { setSaving(false) }
+    } catch (e) { alert(e?.response?.data?.detail || 'Could not save profile') }
+    finally { setSaving(false) }
   }
 
   if (loading) return <PageLoader />

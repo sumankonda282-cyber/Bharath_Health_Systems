@@ -342,9 +342,8 @@ function MedDrawer({ mode, med, onClose, onSave, admissionId }) {
       }
       setDone(true)
       setTimeout(() => { onSave(); onClose() }, 1200)
-    } catch {
-      setDone(true)
-      setTimeout(() => { onSave(); onClose() }, 1200)
+    } catch (e) {
+      alert(e?.response?.data?.detail || 'Could not save the medication. Please retry.')
     } finally {
       setSubmitting(false)
     }
@@ -576,9 +575,8 @@ function DiscModal({ med, onClose, onDone, admissionId }) {
       await api.post(`/inpatient/admissions/${admissionId}/medications/${med.id}/discontinue`, { reason, note, pin })
       setDone(true)
       setTimeout(() => { onDone(); onClose() }, 1000)
-    } catch {
-      setDone(true)
-      setTimeout(() => { onDone(); onClose() }, 1000)
+    } catch (e) {
+      alert(e?.response?.data?.detail || 'Could not discontinue the medication. Please retry.')
     } finally { setLoading(false) }
   }
 

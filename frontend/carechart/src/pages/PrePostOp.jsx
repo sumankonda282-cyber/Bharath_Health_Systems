@@ -1048,7 +1048,7 @@ export default function PrePostOp({ admission }) {
     setLoading(true)
     try {
       const res = await api.get(`/inpatient/admissions/${admission?.id}/periop`)
-      if (res.data?.procedure) setData(res.data)
+      if (res?.procedure) setData(res)
       else throw new Error('empty')
     } catch { setData(buildMock()) } finally { setLoading(false) }
   }, [admission?.id])

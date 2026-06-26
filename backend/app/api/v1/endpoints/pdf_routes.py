@@ -5,13 +5,15 @@ from app.db.session import get_db
 from app.core.security import get_current_staff, get_current_patient_user
 from app.models.models import (
     Prescription, PrescriptionItem, LabOrder, LabOrderItem,
-    Invoice, Patient, Branch, Clinic, Staff, Appointment, SoapNote, Vitals
+    Invoice, Patient, Branch, Clinic, Staff, Appointment, SoapNote, Vitals,
+    ImagingOrder, ImagingResult,
 )
 from app.services.pdf_service import (
     generate_prescription_pdf,
     generate_lab_report_pdf,
     generate_invoice_pdf,
     generate_encounter_summary_pdf,
+    generate_imaging_report_pdf,
 )
 from datetime import date
 
@@ -36,6 +38,7 @@ def _clinic_data(patient: Patient, db: Session, doctor_staff_id: int = None) -> 
         "branch_name":  branch.name if branch else "",
         "address":      address,
         "doctor_name":  doctor_name,
+        "hc_id":        (clinic.hc_id if clinic else "") or "",
     }
 
 
@@ -118,6 +121,42 @@ def download_lab_report(
     return Response(
         content=pdf, media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=lab_report_{order_id}.pdf"}
+    )
+
+
+def _imaging_study_dict(order: ImagingOrder, result, db: Session) -> dict:
+    radiologist = ""
+    if result and result.signed_by:
+        rdoc = db.query(Staff).filter(Staff.id == result.signed_by).first()
+        radiologist = f"Dr. {rdoc.full_name}" if rdoc else ""
+    return {
+        "modality":          order.modality,
+        "body_part":         order.body_part,
+        "study_description": order.study_description,
+        "status":            (result.status if result else order.status),
+        "contrast":          getattr(order, "contrast_agent", None) if getattr(order, "contrast_used", None) else None,
+        "findings":          result.findings if result else None,
+        "impression":        result.impression if result else None,
+        "radiologist":       radiologist,
+    }
+
+
+@router.get("/imaging-report/{order_id}")
+def download_imaging_report(
+    order_id: int,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_staff),
+):
+    order = db.query(ImagingOrder).filter(ImagingOrder.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Not found")
+    result = db.query(ImagingResult).filter(ImagingResult.order_id == order_id).first()
+    patient = db.query(Patient).filter(Patient.id == order.patient_id).first()
+    clinic_data = _clinic_data(patient, db, order.ordered_by)
+    pdf = generate_imaging_report_pdf(_imaging_study_dict(order, result, db), _patient_data(patient), clinic_data)
+    return Response(
+        content=pdf, media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=imaging_report_{order_id}.pdf"}
     )
 
 
@@ -306,6 +345,28 @@ def patient_download_lab_report(
     pdf = generate_lab_report_pdf(order_dict, _patient_data(patient), clinic_data)
     return Response(content=pdf, media_type="application/pdf",
                     headers={"Content-Disposition": f"attachment; filename=lab_report_{order_id}.pdf"})
+
+
+@router.get("/portal/imaging-report/{order_id}")
+def patient_download_imaging_report(
+    order_id: int,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_patient_user),
+):
+    order = db.query(ImagingOrder).filter(ImagingOrder.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Not found")
+    patient = db.query(Patient).filter(
+        Patient.id == order.patient_id,
+        Patient.portal_user_id == current.id
+    ).first()
+    if not patient:
+        raise HTTPException(status_code=403, detail="Access denied")
+    result = db.query(ImagingResult).filter(ImagingResult.order_id == order_id).first()
+    clinic_data = _clinic_data(patient, db, order.ordered_by)
+    pdf = generate_imaging_report_pdf(_imaging_study_dict(order, result, db), _patient_data(patient), clinic_data)
+    return Response(content=pdf, media_type="application/pdf",
+                    headers={"Content-Disposition": f"attachment; filename=imaging_report_{order_id}.pdf"})
 
 
 @router.get("/portal/invoice/{invoice_id}")

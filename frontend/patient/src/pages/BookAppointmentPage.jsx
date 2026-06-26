@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import {
   Stethoscope, Building2, Search, ChevronRight,
   ArrowLeft, X, Filter,
+  MapPin, Clock, CheckCircle, Calendar, Copy, Check,
 } from 'lucide-react'
 import BookingFlow from '../components/BookingFlow'
 
@@ -218,11 +219,12 @@ function SlotPicker({ doctor, onBack, onBooked }) {
   const handleVerifyOtp = async () => {
     setOtpLoading(true); setOtpError('')
     try {
-      await fetch(`${API_BASE}/api/v1/otp/verify`, {
+      const res = await fetch(`${API_BASE}/api/v1/otp/verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mobile: patientMobile.replace(/\D/g, ''), otp: otpValue }),
       })
+      if (!res.ok) throw new Error('Invalid OTP')
       const profile = suggestions[0]
       if (profile) setPatientName(profile.patient_name || profile.name || patientName)
       setShowOtp(false)

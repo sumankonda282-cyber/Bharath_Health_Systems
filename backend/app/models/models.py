@@ -55,6 +55,7 @@ class Clinic(Base):
     brand_name              = Column(String(200), nullable=True)  # display name shown in portals
     brand_color             = Column(String(20), nullable=True)   # hex color e.g. #0F2557
     bridge_api_key          = Column(String(64), nullable=True)   # per-health-center device-bridge key (HL7/ASTM/DICOM ingest)
+    bridge_last_seen        = Column(DateTime, nullable=True)      # last authenticated device-bridge call
     is_active               = Column(Boolean, default=True)
     is_verified             = Column(Boolean, default=False)
     status                  = Column(String(20), default="pending")  # pending|active|suspended|revoked
@@ -824,6 +825,24 @@ class LabResult(Base):
     signed_by_staff = relationship("Staff", foreign_keys=[signed_by])
 
 
+class LabCriticalAlert(Base):
+    """Panic / critical lab value flagged for urgent clinician attention.
+    Mirrors ImagingCriticalAlert so lab + imaging feed one critical-results surface."""
+    __tablename__ = "lab_critical_alerts"
+    id              = Column(Integer, primary_key=True, index=True)
+    clinic_id       = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    order_id        = Column(Integer, ForeignKey("lab_orders.id"), nullable=False)
+    patient_id      = Column(Integer, ForeignKey("patients.id"), nullable=True)
+    ordered_by      = Column(Integer, ForeignKey("staff.id"), nullable=True)   # recipient: ordering doctor
+    test_name       = Column(String(200), nullable=True)
+    value           = Column(String(100), nullable=True)
+    flag            = Column(String(4), nullable=True)    # HH | LL | C
+    description     = Column(Text, nullable=True)
+    created_at      = Column(DateTime, server_default=func.now())
+    acknowledged_by = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    acknowledged_at = Column(DateTime, nullable=True)
+
+
 # ── Imaging Orders & Results ───────────────────────────────────────────────────
 
 class ImagingOrder(Base):
@@ -843,6 +862,19 @@ class ImagingOrder(Base):
     status          = Column(String(30), default='pending')
     # pending → scheduled → acquired → pending_review → signed → cancelled
     abha_id         = Column(String(50), nullable=True)
+    # Acquisition metadata (set by the technician at the acquire step; columns
+    # already exist in the DB via start.sh — mapped here so the ORM persists
+    # them and the technician/contrast/dose analytics reports populate).
+    acquired_by          = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    acquired_at          = Column(DateTime, nullable=True)
+    technician_notes     = Column(Text, nullable=True)
+    contrast_used        = Column(Boolean, default=False)
+    contrast_agent       = Column(String(100), nullable=True)
+    contrast_volume_ml   = Column(Numeric(6, 2), nullable=True)
+    radiation_dose_mgy   = Column(Numeric(8, 3), nullable=True)
+    film_count           = Column(Integer, default=0)
+    referring_doctor     = Column(String(200), nullable=True)
+    referring_doctor_reg = Column(String(100), nullable=True)
     created_at      = Column(DateTime, server_default=func.now())
 
     result          = relationship("ImagingResult", back_populates="order", uselist=False)

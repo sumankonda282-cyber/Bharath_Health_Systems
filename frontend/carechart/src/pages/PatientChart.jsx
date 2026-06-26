@@ -428,14 +428,14 @@ function AdmissionFormModal({ admission, onClose }) {
     setOtpLoading(true); setOtpError('')
     try {
       const res = await api.post('/otp/verify', { mobile: phoneInput.trim(), otp: otpValue })
-      const token = res.data?.verified_token || res.data?.token
+      const token = res?.verified_token || res?.token
       setOtpToken(token)
       let profile = null
       try {
         const profileRes = await api.get('/public/patient-profile', { params: { verified_token: token } })
-        profile = profileRes.data
+        profile = profileRes
       } catch {
-        profile = res.data?.patient || res.data || {}
+        profile = res?.patient || res || {}
       }
       const p = profile
       const filled = {
