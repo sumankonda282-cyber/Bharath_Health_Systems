@@ -8,7 +8,7 @@ import {
   CreditCard, LayoutDashboard, LogOut, Users,
   Menu, X, Settings, BedDouble, LayoutGrid, Banknote, Wrench, HelpCircle,
   CalendarRange, UserCircle2, Plane, LayoutTemplate, Send, Monitor, RefreshCw,
-  UserCheck, ShieldAlert, Lock, CalendarClock,
+  UserCheck, ShieldAlert, Lock, CalendarClock, PanelLeft,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import BrandLogo from './BrandLogo'
@@ -123,6 +123,14 @@ export default function Layout() {
   const { user, logout } = useAuth()
   const location = useLocation()
   const [open, setOpen] = useState(false)
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return localStorage.getItem('staff_sidebar_collapsed') === '1' } catch { return false }
+  })
+  const toggleCollapsed = () => setCollapsed(c => {
+    const next = !c
+    try { localStorage.setItem('staff_sidebar_collapsed', next ? '1' : '0') } catch {}
+    return next
+  })
   const [helpOpen, setHelpOpen] = useState(false)
   const [maintBadge, setMaintBadge] = useState(0)
   const [dropdownOpen, setDropdownOpen] = useState(false)
@@ -148,47 +156,54 @@ export default function Layout() {
     return () => clearInterval(id)
   }, [isManager])
 
-  const sidebar = (
-    <aside className="w-60 flex flex-col h-full flex-shrink-0" style={{ background: '#0F2557' }}>
-      <div className="px-4 py-4 border-b border-white/10">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex flex-col gap-1">
-            <BrandLogo size="sm" light />
-            <span className="text-xs font-semibold tracking-wider uppercase" style={{ color: '#F5821E' }}>
-              {isManager ? 'Manager Portal' : 'Reception Portal'}
-            </span>
-          </div>
-          <button onClick={() => setOpen(false)} className="md:hidden text-white/60 hover:text-white p-1 mt-1 flex-shrink-0">
-            <X size={18} />
-          </button>
-        </div>
-        {user?.clinic_name && (
-          <div className="mt-3 px-3 py-2 rounded-xl" style={{ background: 'rgba(255,255,255,0.07)' }}>
-            <p className="text-xs font-semibold text-white truncate">{user.clinic_name}</p>
-            {user.org_type && (
-              <p className="text-xs mt-0.5 capitalize" style={{ color: 'rgba(255,255,255,0.45)' }}>{user.org_type}</p>
+  const renderSidebar = (isCollapsed = false) => (
+    <aside className={`${isCollapsed ? 'w-16' : 'w-60'} flex flex-col h-full flex-shrink-0 transition-all duration-200`} style={{ background: '#0F2557' }}>
+      <div className={`border-b border-white/10 ${isCollapsed ? 'px-2 py-4 flex justify-center' : 'px-4 py-4'}`}>
+        {isCollapsed ? (
+          <BrandLogo size="sm" light showText={false} />
+        ) : (
+          <>
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex flex-col gap-1">
+                <BrandLogo size="sm" light />
+                <span className="text-xs font-semibold tracking-wider uppercase" style={{ color: '#F5821E' }}>
+                  {isManager ? 'Manager Portal' : 'Reception Portal'}
+                </span>
+              </div>
+              <button onClick={() => setOpen(false)} className="md:hidden text-white/60 hover:text-white p-1 mt-1 flex-shrink-0">
+                <X size={18} />
+              </button>
+            </div>
+            {user?.clinic_name && (
+              <div className="mt-3 px-3 py-2 rounded-xl" style={{ background: 'rgba(255,255,255,0.07)' }}>
+                <p className="text-xs font-semibold text-white truncate">{user.clinic_name}</p>
+                {user.org_type && (
+                  <p className="text-xs mt-0.5 capitalize" style={{ color: 'rgba(255,255,255,0.45)' }}>{user.org_type}</p>
+                )}
+              </div>
             )}
-          </div>
+          </>
         )}
       </div>
 
       <nav className="flex-1 px-2 py-3 overflow-y-auto">
         {NAV.map(({ to, icon: Icon, label, locked }) => locked ? (
           <div key={to}
-            title="IPD module — contact admin to enable"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl mb-0.5 cursor-not-allowed select-none"
+            title={isCollapsed ? `${label} — locked` : 'IPD module — contact admin to enable'}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl mb-0.5 cursor-not-allowed select-none ${isCollapsed ? 'justify-center' : ''}`}
             style={{ opacity: 0.38 }}>
             <Icon size={17} className="flex-shrink-0 text-white" />
-            <span className="flex-1 text-sm font-medium text-white">{label}</span>
-            <Lock size={11} className="text-white/60 flex-shrink-0" />
+            {!isCollapsed && <span className="flex-1 text-sm font-medium text-white">{label}</span>}
+            {!isCollapsed && <Lock size={11} className="text-white/60 flex-shrink-0" />}
           </div>
         ) : (
           <NavLink key={to} to={to} end={to === '/'}
             onClick={() => setOpen(false)}
-            className={({ isActive }) => isActive ? 'sidebar-link-active' : 'sidebar-link'}>
+            title={isCollapsed ? label : undefined}
+            className={({ isActive }) => `${isActive ? 'sidebar-link-active' : 'sidebar-link'} ${isCollapsed ? 'justify-center' : ''}`}>
             <Icon size={17} className="flex-shrink-0" />
-            <span className="flex-1">{label}</span>
-            {to === '/maintenance' && maintBadge > 0 && (
+            {!isCollapsed && <span className="flex-1">{label}</span>}
+            {!isCollapsed && to === '/maintenance' && maintBadge > 0 && (
               <span className="ml-auto px-1.5 py-0.5 rounded-full text-white text-xs font-bold leading-none bg-red-500">
                 {maintBadge}
               </span>
@@ -198,15 +213,20 @@ export default function Layout() {
 
         {isScheduler && (
           <>
-            <div className="px-3 pt-4 pb-1 text-xs font-bold uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.35)' }}>
-              Scheduler
-            </div>
+            {!isCollapsed ? (
+              <div className="px-3 pt-4 pb-1 text-xs font-bold uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                Scheduler
+              </div>
+            ) : (
+              <div className="my-2 mx-2 border-t border-white/10" />
+            )}
             {SCHEDULER_NAV.map(({ to, icon: Icon, label }) => (
               <NavLink key={to} to={to} end={to === '/scheduler'}
                 onClick={() => setOpen(false)}
-                className={({ isActive }) => isActive ? 'sidebar-link-active' : 'sidebar-link'}>
+                title={isCollapsed ? label : undefined}
+                className={({ isActive }) => `${isActive ? 'sidebar-link-active' : 'sidebar-link'} ${isCollapsed ? 'justify-center' : ''}`}>
                 <Icon size={17} className="flex-shrink-0" />
-                <span>{label}</span>
+                {!isCollapsed && <span>{label}</span>}
               </NavLink>
             ))}
           </>
@@ -223,10 +243,10 @@ export default function Layout() {
         </div>
       )}
       <div className={`fixed inset-y-0 left-0 z-50 md:hidden transition-transform duration-300 ${open ? 'translate-x-0' : '-translate-x-full'}`}>
-        {sidebar}
+        {renderSidebar(false)}
       </div>
       <div className="hidden md:flex flex-shrink-0">
-        {sidebar}
+        {renderSidebar(collapsed)}
       </div>
 
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -234,6 +254,9 @@ export default function Layout() {
         <header className="flex items-center gap-3 px-4 py-2.5 sticky top-0 z-30 flex-shrink-0" style={{ background: '#0F2557' }}>
           <button onClick={() => setOpen(true)} className="md:hidden p-1.5 rounded-lg hover:bg-white/10 text-white/70">
             <Menu size={22} />
+          </button>
+          <button onClick={toggleCollapsed} className="hidden md:inline-flex p-1.5 rounded-lg hover:bg-white/10 transition-colors text-white/70" title="Toggle sidebar">
+            <PanelLeft size={20} />
           </button>
           <div className="md:hidden"><BrandLogo size="sm" light /></div>
           <span className="md:hidden text-xs font-semibold ml-1" style={{ color: '#F5821E' }}>{isManager ? 'Manager' : 'Reception'}</span>

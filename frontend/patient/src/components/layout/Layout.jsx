@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import {
   LayoutDashboard, Calendar, Pill, FlaskConical, Receipt, LogOut,
   Menu, FileText, Video, Settings2, HelpCircle,
-  RefreshCw, Copy, Check, ChevronDown, X
+  RefreshCw, Copy, Check, ChevronDown, X, PanelLeft
 } from 'lucide-react'
 import BrandLogo from '../BrandLogo'
 import { cacheClear } from '../../utils/cache'
@@ -64,10 +64,10 @@ function AvatarMenu({ user, onLogout }) {
   return (
     <div className="relative" ref={ref}>
       <button onClick={() => setOpen(!open)} title={user?.full_name}
-        className="flex items-center gap-1 pl-1 pr-1.5 py-1 rounded-full hover:bg-gray-100 transition-colors">
+        className="flex items-center gap-1 pl-1 pr-1.5 py-1 rounded-full hover:bg-white/10 transition-colors">
         <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs text-white flex-shrink-0"
           style={{ background: '#CC1414' }}>{initials}</div>
-        <ChevronDown size={13} className={`text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown size={13} className={`text-white/60 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
         <div className="absolute right-0 top-full mt-2 w-60 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 z-50">
@@ -111,6 +111,14 @@ export default function Layout() {
   const navigate = useNavigate()
   const location = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return localStorage.getItem('patient_sidebar_collapsed') === '1' } catch { return false }
+  })
+  const toggleCollapsed = () => setCollapsed(c => {
+    const next = !c
+    try { localStorage.setItem('patient_sidebar_collapsed', next ? '1' : '0') } catch {}
+    return next
+  })
 
   const currentLabel = NAV.find(n => {
     if (n.end) return location.pathname === n.to
@@ -127,11 +135,11 @@ export default function Layout() {
     window.location.reload()
   }
 
-  const SidebarContent = ({ mobile = false }) => (
+  const SidebarContent = ({ mobile = false, collapsed = false }) => (
     <div className="flex flex-col h-full" style={{ background: '#0F2557' }}>
-      <div className="px-4 py-4 flex items-center justify-between border-b" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
-        <BrandLogo size="sm" light />
-        {mobile && (
+      <div className={`flex items-center justify-between border-b ${collapsed ? 'px-2 py-4 justify-center' : 'px-4 py-4'}`} style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
+        {collapsed ? <BrandLogo size="sm" light showText={false} /> : <BrandLogo size="sm" light />}
+        {mobile && !collapsed && (
           <button onClick={() => setMobileOpen(false)} className="p-1.5 text-white/50 hover:text-white">
             <X size={18} />
           </button>
@@ -141,9 +149,10 @@ export default function Layout() {
         {NAV.map(item => (
           <NavLink key={item.to} to={item.to} end={item.end}
             onClick={() => setMobileOpen(false)}
-            className={({ isActive }) => isActive ? 'sidebar-link-active' : 'sidebar-link'}>
-            <item.icon size={17} />
-            <span>{item.label}</span>
+            title={collapsed ? item.label : undefined}
+            className={({ isActive }) => `${isActive ? 'sidebar-link-active' : 'sidebar-link'} ${collapsed ? 'justify-center' : ''}`}>
+            <item.icon size={17} className="flex-shrink-0" />
+            {!collapsed && <span>{item.label}</span>}
           </NavLink>
         ))}
       </nav>
@@ -154,8 +163,8 @@ export default function Layout() {
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: '#F0F4F8' }}>
       {/* Desktop sidebar */}
-      <aside className="hidden lg:flex flex-col w-52 flex-shrink-0">
-        <SidebarContent />
+      <aside className={`hidden lg:flex flex-col ${collapsed ? 'w-16' : 'w-52'} flex-shrink-0 transition-all duration-200`}>
+        <SidebarContent collapsed={collapsed} />
       </aside>
 
       {/* Mobile overlay */}
@@ -169,14 +178,18 @@ export default function Layout() {
       {/* Right panel: header + content */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Persistent top header */}
-        <header className="h-14 bg-white border-b border-gray-200 flex items-center px-4 lg:px-5 gap-3 flex-shrink-0 z-30">
+        <header className="h-14 border-b flex items-center px-4 lg:px-5 gap-3 flex-shrink-0 z-30" style={{ background: '#0F2557', borderColor: 'rgba(255,255,255,0.08)' }}>
           <button onClick={() => setMobileOpen(true)}
-            className="lg:hidden p-2 rounded-lg text-gray-500 hover:bg-gray-100 flex-shrink-0">
+            className="lg:hidden p-2 rounded-lg text-white/70 hover:bg-white/10 flex-shrink-0">
             <Menu size={20} />
+          </button>
+          <button onClick={toggleCollapsed} title="Toggle sidebar"
+            className="hidden lg:inline-flex p-2 rounded-lg text-white/70 hover:bg-white/10 transition-colors flex-shrink-0">
+            <PanelLeft size={20} />
           </button>
 
           {/* Section title */}
-          <span className="font-bold text-[15px] flex-1 min-w-0 truncate" style={{ color: '#0F2557' }}>
+          <span className="font-bold text-[15px] flex-1 min-w-0 truncate text-white">
             {currentLabel}
           </span>
 
@@ -185,7 +198,7 @@ export default function Layout() {
             <BHIDChip bhId={user?.bh_id} />
             <PatientNotificationBell />
             <button onClick={handleRefresh} title="Refresh data"
-              className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 transition-colors">
+              className="p-2 rounded-xl text-white/60 hover:bg-white/10 transition-colors">
               <RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />
             </button>
             <AvatarMenu user={user} onLogout={handleLogout} />

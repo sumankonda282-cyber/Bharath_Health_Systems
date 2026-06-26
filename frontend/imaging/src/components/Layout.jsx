@@ -1,11 +1,11 @@
 import ChatWidget from './ChatWidget'
 import BrandLogo from './BrandLogo'
 import { useState, useEffect, useRef } from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, ScanLine, LogOut, AlertCircle, FileEdit,
   CreditCard, BarChart2, Users, Menu, X, Bell, FileText, CheckCircle,
-  Calendar, UserCheck, ClipboardList,
+  Calendar, UserCheck, ClipboardList, PanelLeft, RefreshCw,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../api/client'
@@ -174,54 +174,75 @@ function CriticalAlertsBell() {
 
 export default function Layout() {
   const { user, logout } = useAuth()
+  const location = useLocation()
   const [open, setOpen] = useState(false)
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return localStorage.getItem('imaging_sidebar_collapsed') === '1' } catch { return false }
+  })
+  const toggleCollapsed = () => setCollapsed(c => {
+    const next = !c
+    try { localStorage.setItem('imaging_sidebar_collapsed', next ? '1' : '0') } catch {}
+    return next
+  })
 
   const role = user?.role
   const navItems = role === 'radiologist' ? RADIOLOGIST_NAV : TECHNICIAN_NAV
   const roleLabel = ROLE_LABELS[role] || (role ? role.replace(/_/g, ' ') : 'Staff')
 
-  const sidebar = (
-    <aside className="w-60 flex flex-col h-full flex-shrink-0" style={{ background: '#0F2557' }}>
-      <div className="px-5 py-5 border-b border-white/10 flex items-center justify-between">
-        <div className="flex items-center gap-2 min-w-0">
-          <BrandLogo size="sm" light />
-          <span className="text-xs font-semibold tracking-wider uppercase" style={{ color: '#F5821E' }}>Imaging</span>
-        </div>
-        <div className="flex items-center gap-1 flex-shrink-0">
-          <CriticalAlertsBell />
-          <button onClick={() => setOpen(false)} className="md:hidden text-white/60 hover:text-white">
-            <X size={20} />
-          </button>
-        </div>
+  const pageTitle = navItems.find(n => n.to === '/' ? location.pathname === '/' : location.pathname.startsWith(n.to))?.label || 'Imaging'
+  const todayLabel = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })
+
+  const renderSidebar = (isCollapsed = false) => (
+    <aside className={`${isCollapsed ? 'w-16' : 'w-60'} flex flex-col h-full flex-shrink-0 transition-all duration-200`} style={{ background: '#0F2557' }}>
+      <div className={`border-b border-white/10 flex items-center ${isCollapsed ? 'px-2 py-5 justify-center' : 'px-5 py-5 justify-between'}`}>
+        {isCollapsed ? (
+          <BrandLogo size="sm" light showText={false} />
+        ) : (
+          <>
+            <div className="flex items-center gap-2 min-w-0">
+              <BrandLogo size="sm" light />
+              <span className="text-xs font-semibold tracking-wider uppercase" style={{ color: '#F5821E' }}>Imaging</span>
+            </div>
+            <button onClick={() => setOpen(false)} className="md:hidden text-white/60 hover:text-white flex-shrink-0">
+              <X size={20} />
+            </button>
+          </>
+        )}
       </div>
       <nav className="flex-1 px-3 py-4 overflow-y-auto">
         {navItems.map(({ to, icon: Icon, label }) => (
           <NavLink key={to} to={to} end={to === '/'}
             onClick={() => setOpen(false)}
-            className={({ isActive }) => isActive ? 'sidebar-link-active' : 'sidebar-link'}>
-            <Icon size={17} />{label}
+            title={isCollapsed ? label : undefined}
+            className={({ isActive }) => `${isActive ? 'sidebar-link-active' : 'sidebar-link'} ${isCollapsed ? 'justify-center' : ''}`}>
+            <Icon size={17} className="flex-shrink-0" />{!isCollapsed && label}
           </NavLink>
         ))}
       </nav>
-      <div className="px-3 py-4 border-t border-white/10">
-        <div className="flex items-center gap-3 px-2 mb-3">
-          <div
-            className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-            style={{ background: 'rgba(245,130,30,0.25)', color: '#F5821E' }}
-          >
-            {getInitials(user?.full_name || user?.email)}
-          </div>
-          <div className="min-w-0">
-            <div className="text-white text-xs font-semibold truncate">{user?.full_name || user?.email}</div>
-            <span
-              className="inline-block text-xs font-semibold px-1.5 py-0.5 rounded-full mt-0.5"
-              style={{ background: 'rgba(245,130,30,0.2)', color: '#F5821E' }}
+      <div className={`border-t border-white/10 ${isCollapsed ? 'px-2 py-4' : 'px-3 py-4'}`}>
+        {!isCollapsed && (
+          <div className="flex items-center gap-3 px-2 mb-3">
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+              style={{ background: 'rgba(245,130,30,0.25)', color: '#F5821E' }}
             >
-              {roleLabel}
-            </span>
+              {getInitials(user?.full_name || user?.email)}
+            </div>
+            <div className="min-w-0">
+              <div className="text-white text-xs font-semibold truncate">{user?.full_name || user?.email}</div>
+              <span
+                className="inline-block text-xs font-semibold px-1.5 py-0.5 rounded-full mt-0.5"
+                style={{ background: 'rgba(245,130,30,0.2)', color: '#F5821E' }}
+              >
+                {roleLabel}
+              </span>
+            </div>
           </div>
-        </div>
-        <button onClick={logout} className="sidebar-link w-full"><LogOut size={15} />Sign Out</button>
+        )}
+        <button onClick={logout} title={isCollapsed ? 'Sign Out' : undefined}
+          className={`sidebar-link w-full ${isCollapsed ? 'justify-center' : ''}`}>
+          <LogOut size={15} className="flex-shrink-0" />{!isCollapsed && 'Sign Out'}
+        </button>
       </div>
     </aside>
   )
@@ -234,20 +255,32 @@ export default function Layout() {
         </div>
       )}
       <div className={`fixed inset-y-0 left-0 z-50 md:hidden transition-transform duration-300 ${open ? 'translate-x-0' : '-translate-x-full'}`}>
-        {sidebar}
+        {renderSidebar(false)}
       </div>
       <div className="hidden md:flex flex-shrink-0">
-        {sidebar}
+        {renderSidebar(collapsed)}
       </div>
-      <main className="flex-1 overflow-y-auto">
-        <div className="md:hidden flex items-center gap-3 px-4 py-3 border-b border-gray-200 bg-white sticky top-0 z-30">
-          <button onClick={() => setOpen(true)} className="p-1.5 rounded-lg text-gray-600 hover:bg-gray-100">
-            <Menu size={22} />
+      <main className="flex-1 flex flex-col overflow-hidden">
+        <header className="h-12 flex items-center gap-3 px-4 flex-shrink-0 z-30 sticky top-0" style={{ background: '#0F2557' }}>
+          <button onClick={() => setOpen(true)} className="md:hidden p-1.5 rounded-lg text-white/70 hover:bg-white/10">
+            <Menu size={20} />
           </button>
-          <BrandLogo size="sm" />
-        </div>
-        <div className="p-1.5 md:p-2">
-          <Outlet />
+          <button onClick={toggleCollapsed} className="hidden md:inline-flex p-1.5 rounded-lg text-white/70 hover:bg-white/10 transition-colors" title="Toggle sidebar">
+            <PanelLeft size={20} />
+          </button>
+          <div className="md:hidden"><BrandLogo size="sm" light /></div>
+          {pageTitle && <h1 className="hidden md:block text-sm font-bold text-white truncate">{pageTitle}</h1>}
+          <div className="flex-1" />
+          <span className="hidden md:block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.5)' }}>{todayLabel}</span>
+          <CriticalAlertsBell />
+          <button onClick={() => window.location.reload()} className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-white/60" title="Refresh">
+            <RefreshCw size={16} />
+          </button>
+        </header>
+        <div className="flex-1 overflow-y-auto">
+          <div className="p-1.5 md:p-2">
+            <Outlet />
+          </div>
         </div>
       </main>
       <ChatWidget />

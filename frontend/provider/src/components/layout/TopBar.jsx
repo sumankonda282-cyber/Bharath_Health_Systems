@@ -64,30 +64,30 @@ export default function TopBar({ onMenuClick, onToggleSidebar, onRefresh }) {
 
   return (
     <>
-      <header className="sticky top-0 z-30 flex items-center justify-between px-4 md:px-6 h-14 bg-white border-b border-gray-100 shadow-sm">
+      <header className="sticky top-0 z-30 flex items-center justify-between px-4 md:px-6 h-14 border-b shadow-sm" style={{ background: '#0F2557', borderColor: 'rgba(255,255,255,0.08)' }}>
         {/* Left: hamburger (mobile) + page title */}
         <div className="flex items-center gap-3">
           <button
             onClick={onToggleSidebar}
-            className="hidden md:inline-flex p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
+            className="hidden md:inline-flex p-1.5 rounded-lg text-white/70 hover:bg-white/10 hover:text-white transition-colors"
             title="Toggle sidebar"
           >
             <PanelLeft size={20} />
           </button>
           <button
             onClick={onMenuClick}
-            className="md:hidden p-1.5 rounded-lg text-gray-500 hover:bg-gray-100"
+            className="md:hidden p-1.5 rounded-lg text-white/70 hover:bg-white/10"
           >
             <Menu size={20} />
           </button>
-          <h1 className="text-base md:text-lg font-bold" style={{ color: '#0F2557' }}>{title}</h1>
+          <h1 className="text-base md:text-lg font-bold text-white">{title}</h1>
         </div>
 
         {/* Right: refresh + help + profile */}
         <div className="flex items-center gap-2">
           <button
             onClick={onRefresh}
-            className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+            className="p-2 rounded-lg text-white/60 hover:bg-white/10 hover:text-white transition-colors"
             title="Refresh page data"
           >
             <RefreshCw size={17} />
@@ -95,7 +95,7 @@ export default function TopBar({ onMenuClick, onToggleSidebar, onRefresh }) {
           <NotificationBell />
           <button
             onClick={() => setHelpOpen(true)}
-            className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+            className="p-2 rounded-lg text-white/60 hover:bg-white/10 hover:text-white transition-colors"
             title="Help & Support"
           >
             <HelpCircle size={18} />
@@ -106,7 +106,7 @@ export default function TopBar({ onMenuClick, onToggleSidebar, onRefresh }) {
           <div className="relative" ref={dropRef}>
             <button
               onClick={() => setDropOpen(o => !o)}
-              className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-xl hover:bg-gray-100 transition-colors"
+              className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-xl hover:bg-white/10 transition-colors"
             >
               <div
                 className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
@@ -115,10 +115,10 @@ export default function TopBar({ onMenuClick, onToggleSidebar, onRefresh }) {
                 {initials}
               </div>
               <div className="hidden sm:block text-left">
-                <div className="text-xs font-semibold text-gray-800 leading-tight">{user?.full_name}</div>
-                <div className="text-xs text-gray-400 capitalize leading-tight">{user?.role?.replace(/_/g, ' ')}</div>
+                <div className="text-xs font-semibold text-white leading-tight">{user?.full_name}</div>
+                <div className="text-xs text-white/50 capitalize leading-tight">{user?.role?.replace(/_/g, ' ')}</div>
               </div>
-              <ChevronDown size={14} className="text-gray-400 hidden sm:block" />
+              <ChevronDown size={14} className="text-white/50 hidden sm:block" />
             </button>
 
             {dropOpen && (

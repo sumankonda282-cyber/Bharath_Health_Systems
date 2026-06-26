@@ -8,7 +8,7 @@ import {
   CreditCard, BookMarked, Calculator,
   Truck, Building2, RotateCcw, Wallet,
   ReceiptText, BarChart3, Tag,
-  LogOut, Menu, X, Bell, AlertTriangle, Clock, RefreshCw, ChevronDown,
+  LogOut, Menu, X, Bell, AlertTriangle, Clock, RefreshCw, ChevronDown, PanelLeft,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../api/client'
@@ -225,20 +225,26 @@ function ProfileDropdown({ user, logout }) {
   )
 }
 
-function SidebarContent({ onClose }) {
+function SidebarContent({ onClose, collapsed = false }) {
   return (
     <div className="flex flex-col h-full" style={{ background: '#0F2557' }}>
-      <div className="px-4 py-4 flex items-center justify-between border-b" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
-        <div className="flex flex-col gap-0.5">
-          <BrandLogo size="sm" />
-          <span className="text-xs font-semibold tracking-wider uppercase" style={{ color: '#F5821E' }}>
-            Pharmacy Portal
-          </span>
-        </div>
-        {onClose && (
-          <button onClick={onClose} className="md:hidden text-white/50 hover:text-white p-1">
-            <X size={18} />
-          </button>
+      <div className={`flex items-center justify-between border-b ${collapsed ? 'px-2 py-4 justify-center' : 'px-4 py-4'}`} style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
+        {collapsed ? (
+          <BrandLogo size="sm" showText={false} />
+        ) : (
+          <>
+            <div className="flex flex-col gap-0.5">
+              <BrandLogo size="sm" />
+              <span className="text-xs font-semibold tracking-wider uppercase" style={{ color: '#F5821E' }}>
+                Pharmacy Portal
+              </span>
+            </div>
+            {onClose && (
+              <button onClick={onClose} className="md:hidden text-white/50 hover:text-white p-1">
+                <X size={18} />
+              </button>
+            )}
+          </>
         )}
       </div>
 
@@ -246,21 +252,25 @@ function SidebarContent({ onClose }) {
         <NavLink
           to="/dashboard"
           onClick={onClose}
-          className={({ isActive }) => isActive ? 'sidebar-link-active flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-semibold mb-1' : 'sidebar-link flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium mb-1'}
+          title={collapsed ? 'Dashboard' : undefined}
+          className={({ isActive }) => `${isActive ? 'sidebar-link-active font-semibold' : 'sidebar-link font-medium'} flex items-center gap-3 px-3 py-2 rounded-xl text-sm mb-1 ${collapsed ? 'justify-center' : ''}`}
         >
-          <LayoutDashboard size={17} />Dashboard
+          <LayoutDashboard size={17} className="flex-shrink-0" />{!collapsed && 'Dashboard'}
         </NavLink>
 
         {NAV_GROUPS.map(group => (
           <div key={group.label}>
-            <div className="nav-section-label">{group.label}</div>
+            {collapsed
+              ? <div className="my-2 mx-2 border-t border-white/10" />
+              : <div className="nav-section-label">{group.label}</div>}
             {group.items.map(({ to, icon: Icon, label }) => (
               <NavLink key={to} to={to}
                 onClick={onClose}
-                className={({ isActive }) => isActive ? 'sidebar-link-active' : 'sidebar-link'}
+                title={collapsed ? label : undefined}
+                className={({ isActive }) => `${isActive ? 'sidebar-link-active' : 'sidebar-link'} ${collapsed ? 'justify-center' : ''}`}
               >
                 <Icon size={16} className="flex-shrink-0" />
-                <span className="flex-1 truncate">{label}</span>
+                {!collapsed && <span className="flex-1 truncate">{label}</span>}
               </NavLink>
             ))}
           </div>
@@ -272,6 +282,14 @@ function SidebarContent({ onClose }) {
 
 export default function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return localStorage.getItem('pharmacy_sidebar_collapsed') === '1' } catch { return false }
+  })
+  const toggleCollapsed = () => setCollapsed(c => {
+    const next = !c
+    try { localStorage.setItem('pharmacy_sidebar_collapsed', next ? '1' : '0') } catch {}
+    return next
+  })
   const { user, logout } = useAuth()
   const location = useLocation()
   const pageTitle = PAGE_TITLES[location.pathname] || 'Pharmacy'
@@ -280,8 +298,8 @@ export default function Layout() {
   return (
     <div className="flex h-screen overflow-hidden bg-[#F0F4F8]">
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex flex-col w-56 flex-shrink-0">
-        <SidebarContent />
+      <aside className={`hidden md:flex flex-col ${collapsed ? 'w-16' : 'w-56'} flex-shrink-0 transition-all duration-200`}>
+        <SidebarContent collapsed={collapsed} />
       </aside>
 
       {/* Mobile overlay */}
@@ -300,6 +318,9 @@ export default function Layout() {
         <header className="h-12 flex items-center gap-3 px-4 flex-shrink-0 z-30 border-b border-gray-800/60" style={{ background: '#0F2557' }}>
           <button onClick={() => setMobileOpen(true)} className="md:hidden p-1.5 rounded-lg text-white/70 hover:bg-white/10">
             <Menu size={20} />
+          </button>
+          <button onClick={toggleCollapsed} className="hidden md:inline-flex p-1.5 rounded-lg text-white/70 hover:bg-white/10 transition-colors" title="Toggle sidebar">
+            <PanelLeft size={20} />
           </button>
           <div className="md:hidden">
             <BrandLogo size="sm" />
