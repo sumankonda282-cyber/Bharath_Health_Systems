@@ -70,7 +70,7 @@ export default function NursingNotes() {
     setLoading(true)
     Promise.all([
       api.get('/inpatient/notes', { params: session.ward_id ? { ward_id: session.ward_id } : {} }).catch(() => null),
-      api.get('/inpatient/admissions', { params: session.ward_id ? { ward_id: session.ward_id, status: 'admitted' } : { status: 'admitted' } }).catch(() => null),
+      api.get('/inpatient/admissions', { params: session.ward_id ? { ward_id: session.ward_id, status: 'active' } : { status: 'active' } }).catch(() => null),
     ]).then(([notesRes, patientsRes]) => {
       if (Array.isArray(notesRes) && notesRes.length) setNotes(notesRes)
       if (Array.isArray(patientsRes) && patientsRes.length) setPatients(patientsRes)

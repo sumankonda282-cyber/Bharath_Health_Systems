@@ -389,12 +389,44 @@ def list_admissions(
 ):
     q = db.query(Admission).filter(Admission.clinic_id == current.clinic_id)
     if status:
-        q = q.filter(Admission.status == status)
+        statuses = [s.strip() for s in status.split(',') if s.strip()]
+        if len(statuses) > 1:
+            q = q.filter(Admission.status.in_(statuses))
+        elif statuses:
+            q = q.filter(Admission.status == statuses[0])
     if department_id:
         q = q.filter(Admission.department_id == department_id)
     if ward_id:
         q = q.filter(Admission.ward_id == ward_id)
-    return [_admission_dict(a) for a in q.all()]
+    admissions = q.order_by(Admission.id.desc()).all()
+    result = []
+    for a in admissions:
+        d = _admission_dict(a)
+        if a.patient:
+            d["patient_name"] = a.patient.full_name
+            d["patient"] = {
+                "full_name": a.patient.full_name,
+                "clinic_patient_id": a.patient.clinic_patient_id,
+                "mobile": a.patient.mobile,
+            }
+        if a.department:
+            d["department_name"] = a.department.name
+        if a.ward:
+            d["ward_name"] = a.ward.name
+        d["admission_date"] = str(a.admitted_at.date()) if a.admitted_at else None
+        bill = db.query(InpatientBill).filter(
+            InpatientBill.admission_id == a.id,
+        ).first()
+        if bill:
+            d["bill"] = {
+                "status": bill.status,
+                "bill_number": bill.bill_number,
+                "gross_total": float(bill.gross_total or 0),
+                "amount_paid": float(bill.amount_paid or 0),
+                "discount": float(bill.discount or 0),
+            }
+        result.append(d)
+    return result
 
 
 @router.post("/admissions")
