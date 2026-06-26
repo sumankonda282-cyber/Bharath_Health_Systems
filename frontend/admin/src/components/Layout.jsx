@@ -79,7 +79,7 @@ function FeedbackBell() {
     try {
       await api.post(`/platform/feedback/${id}/read`)
       setItems(prev => prev.filter(i => i.id !== id))
-    } catch {}
+    } catch { alert('Could not mark as read. Please retry.') }
   }
 
   return (

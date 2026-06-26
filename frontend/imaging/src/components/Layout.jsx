@@ -85,7 +85,9 @@ function CriticalAlertsBell() {
       await api.post(`/imaging/critical-alerts/${id}/acknowledge`)
       setAlerts(prev => prev.filter(a => a.id !== id))
       setCount(c => Math.max(0, c - 1))
-    } catch {}
+    } catch {
+      alert('Could not acknowledge the alert. Please retry.')
+    }
     setAcking(null)
   }
 
