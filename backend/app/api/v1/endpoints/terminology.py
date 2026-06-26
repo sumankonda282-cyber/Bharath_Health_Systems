@@ -175,8 +175,17 @@ def search_drugs(
         .limit(limit).all()
     )
     return [{
-        "id": d.id, "generic": d.generic, "atc": d.atc, "drug_class": d.drug_class,
-        "routes": d.routes, "brands": d.brands, "rx_only": d.rx_only,
+        "id": d.id,
+        "generic": d.generic,
+        "name": d.generic,
+        "generic_name": d.generic,
+        "atc": d.atc,
+        "drug_class": d.drug_class,
+        "routes": d.routes,
+        "brands_raw": d.brands,
+        "brands": d.brands.split("|") if d.brands else [],
+        "primary_brand": d.primary_brand,
+        "rx_only": d.rx_only,
         "formulations": _json.loads(d.formulations) if d.formulations else [],
     } for d in rows]
 
