@@ -5,6 +5,7 @@ import TopBar from './TopBar'
 import { Outlet } from 'react-router-dom'
 import ChatWidget from '../ChatWidget'
 import TelehealthWidget from '../TelehealthWidget'
+import CriticalResultsBanner from '../CriticalResultsBanner'
 import { cacheClear } from '../../utils/cache'
 
 const FULL_PAGE_PREFIXES = ['/inpatient/admission/', '/opd/']
@@ -51,6 +52,7 @@ export default function Layout() {
 
       <main className={`flex-1 min-w-0 flex flex-col ${isFullPage ? 'overflow-hidden' : 'overflow-y-auto'}`}>
         <TopBar onMenuClick={() => setOpen(true)} onToggleSidebar={toggleCollapsed} onRefresh={handleRefresh} />
+        <CriticalResultsBanner />
         <div key={refreshKey} className={`flex-1 ${isFullPage ? 'overflow-hidden' : 'p-1.5 sm:p-2'}`}>
           <Outlet />
         </div>

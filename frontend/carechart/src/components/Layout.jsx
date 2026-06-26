@@ -9,6 +9,7 @@ import {
 import { useAuth } from '../contexts/AuthContext'
 import { useWardSession } from '../contexts/WardSessionContext'
 import EmergencyAlertBanner from './EmergencyAlertBanner'
+import CriticalResultsBanner from './CriticalResultsBanner'
 import ChatWidget from './ChatWidget'
 import BrandLogo from './BrandLogo'
 import HelpWidget from './HelpWidget'
@@ -277,6 +278,7 @@ export default function Layout({ children }) {
         </header>
 
         <main className="flex-1 overflow-y-auto">
+          <CriticalResultsBanner />
           {children}
         </main>
       </div>
