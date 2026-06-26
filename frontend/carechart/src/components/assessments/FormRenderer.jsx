@@ -67,7 +67,7 @@ export default function FormRenderer({ formKey, patientId, encounterId, onSaved,
     api.get('/assessment-forms/', { params: { subcategory: formKey, status: 'published', limit: 1 } })
       .then(res => {
         if (cancelled) return
-        const forms = res.data?.forms || []
+        const forms = res?.forms || []
         setDbFormId(forms.length > 0 ? forms[0].id : null)
       })
       .catch(() => { if (!cancelled) setDbFormId(null) })

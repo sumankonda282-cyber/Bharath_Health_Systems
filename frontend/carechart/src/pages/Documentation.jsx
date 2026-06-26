@@ -868,9 +868,9 @@ export default function Documentation({ admission }) {
     setLoading(true)
     try {
       const res = await api.get(`/inpatient/admissions/${admissionId}/documents`)
-      if (res.data?.length) {
-        setDocs(res.data)
-        setSelected(res.data[0])
+      if (res?.length) {
+        setDocs(res)
+        setSelected(res[0])
       } else { throw new Error('empty') }
     } catch {
       const mock = buildMock(admission)

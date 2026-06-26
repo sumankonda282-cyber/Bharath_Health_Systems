@@ -413,7 +413,7 @@ export default function SchemaFormRenderer({ formId, patientId, encounterId, onS
     setLoading(true)
     setLoadErr(null)
     api.get(`/assessment-forms/${formId}`)
-      .then(res => { setForm(res.data); setLoading(false) })
+      .then(res => { setForm(res); setLoading(false) })
       .catch(err => {
         setLoadErr(err.response?.data?.detail || 'Failed to load form')
         setLoading(false)
