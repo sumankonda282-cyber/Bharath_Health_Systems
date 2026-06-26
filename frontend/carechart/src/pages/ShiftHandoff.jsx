@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ChevronRight,
@@ -23,295 +23,6 @@ import {
 } from 'lucide-react'
 import api from '../api/client'
 import { useWardSession } from '../contexts/WardSessionContext'
-
-// ─── Mock Data ───────────────────────────────────────────────────────────────
-
-const MOCK_PATIENTS = [
-  {
-    id: 'adm-001',
-    bed: 'A1',
-    name: 'Rajesh Kumar',
-    age: 58,
-    gender: 'M',
-    doctor: 'Dr. Sharma',
-    diagnosis: 'Acute MI (STEMI)',
-    acuity: 'HIGH',
-    signed: false,
-    vitals: { bp: '140/90', pulse: 102, temp: 37.8, spo2: 94, rr: 22, time: '05:30' },
-    iv: { site: 'Right ACF', gauge: '18G', day: 3, rate: '80 ml/hr NS' },
-    diet: 'Cardiac diet, fluid restriction 1.2L/day',
-    medsDue: [
-      { time: '07:00', drug: 'Tab Aspirin 75mg', route: 'PO' },
-      { time: '07:00', drug: 'Inj Enoxaparin 60mg', route: 'SC' },
-      { time: '08:00', drug: 'Tab Atorvastatin 80mg', route: 'PO' },
-    ],
-    tasks: [
-      { label: 'Repeat ECG at 07:00', done: false },
-      { label: 'Troponin I — 08:00 draw', done: false },
-      { label: 'Cardiology review — pending', done: false },
-    ],
-    alerts: ['STEMI — monitoring for re-infarction', 'Hold if HR < 50 or SBP < 90'],
-    tags: [
-      { id: 't-001', priority: 'urgent', nurse: 'Sr. Meena', ts: '04:45', note: 'Patient anxious, diaphoretic at 04:30 — watch closely.' },
-      { id: 't-002', priority: 'watch', nurse: 'Sr. Priya', ts: '03:10', note: 'Family requested update before 08:00. Contact Mr. Vijay Kumar: 98XXXXXXXX.' },
-    ],
-    nurseNote: 'High-risk STEMI on continuous tele monitoring. Cardio SOS if chest pain recurs or ST changes.',
-  },
-  {
-    id: 'adm-002',
-    bed: 'A2',
-    name: 'Sunita Devi',
-    age: 62,
-    gender: 'F',
-    doctor: 'Dr. Mehta',
-    diagnosis: 'Septic Shock (UTI source)',
-    acuity: 'HIGH',
-    signed: false,
-    vitals: { bp: '85/50', pulse: 118, temp: 39.2, spo2: 92, rr: 26, time: '05:15' },
-    iv: { site: 'Left EJ (CVC)', gauge: '7Fr', day: 1, rate: 'Nor 0.1 mcg/kg/min' },
-    diet: 'NPO (ICU transfer pending)',
-    medsDue: [
-      { time: '06:00', drug: 'Inj Piperacillin-Tazobactam 4.5g', route: 'IV' },
-      { time: '07:00', drug: 'Inj Noradrenaline titrate', route: 'IV infusion' },
-    ],
-    tasks: [
-      { label: 'Urine C&S result — check lab', done: false },
-      { label: 'ICU transfer bed confirmation', done: false },
-    ],
-    alerts: ['MAP < 65 — on vasopressor', 'Urgent ICU transfer initiated'],
-    tags: [
-      { id: 't-003', priority: 'urgent', nurse: 'Sr. Meena', ts: '05:00', note: 'MAP dropped to 58 at 05:00 — Nor rate increased. ICU resident informed.' },
-    ],
-    nurseNote: 'Septic shock — vasopressor dependent. ICU transfer awaited. Keep resus trolley ready.',
-  },
-  {
-    id: 'adm-003',
-    bed: 'A3',
-    name: 'Mohammed Aslam',
-    age: 44,
-    gender: 'M',
-    doctor: 'Dr. Krishnan',
-    diagnosis: 'DKA (Type 1 DM)',
-    acuity: 'HIGH',
-    signed: false,
-    vitals: { bp: '110/70', pulse: 98, temp: 37.2, spo2: 97, rr: 20, time: '05:00' },
-    iv: { site: 'Left ACF', gauge: '20G', day: 2, rate: 'Insulin 6U/hr + NS 100ml/hr' },
-    diet: 'NPO until acidosis resolves',
-    medsDue: [
-      { time: '06:00', drug: 'Inj Regular Insulin infusion adjust per protocol', route: 'IV' },
-      { time: '07:00', drug: 'Inj KCl 20mEq in 200ml', route: 'IV (K+ 3.1)' },
-    ],
-    tasks: [
-      { label: 'ABG at 06:00', done: false },
-      { label: 'RBS q1h until < 250', done: false },
-    ],
-    alerts: ['K+ 3.1 — potassium replacement ongoing', 'pH 7.22 at midnight — recheck ABG 06:00'],
-    tags: [
-      { id: 't-004', priority: 'urgent', nurse: 'Sr. Lakshmi', ts: '04:00', note: 'RBS 195 at 04:00. Insulin reduced to 4U/hr per protocol. ABG pending.' },
-      { id: 't-005', priority: 'watch', nurse: 'Sr. Rekha', ts: '02:30', note: 'Patient vomited × 1 at 02:30 — antiemetic given. Monitor.' },
-    ],
-    nurseNote: 'DKA resolving. Hourly RBS, 2-hourly ABG. Alert if RBS < 150 or pH < 7.2.',
-  },
-  {
-    id: 'adm-004',
-    bed: 'B1',
-    name: 'Geeta Bai',
-    age: 70,
-    gender: 'F',
-    doctor: 'Dr. Nair',
-    diagnosis: 'COPD Exacerbation',
-    acuity: 'MED',
-    signed: false,
-    vitals: { bp: '130/80', pulse: 88, temp: 37.0, spo2: 90, rr: 18, time: '04:30' },
-    iv: { site: 'Right ACF', gauge: '22G', day: 4, rate: 'IV Aminophylline 250mg' },
-    diet: 'Soft diet, high protein',
-    medsDue: [
-      { time: '07:00', drug: 'Neb Ipratropium + Salbutamol', route: 'NEB' },
-      { time: '08:00', drug: 'Tab Prednisolone 40mg', route: 'PO' },
-    ],
-    tasks: [{ label: 'Chest X-ray review with Dr. Nair at 09:00', done: false }],
-    alerts: ['SpO2 target 88–92% (hypoxic drive)'],
-    tags: [
-      { id: 't-006', priority: 'watch', nurse: 'Sr. Priya', ts: '03:45', note: 'SpO2 dipped to 87% briefly — O2 increased to 2L. Recovered to 90%.' },
-    ],
-    nurseNote: 'Stable but SpO2 borderline. Continue controlled O2. Neb q6h as charted.',
-  },
-  {
-    id: 'adm-005',
-    bed: 'B2',
-    name: 'Harpreet Singh',
-    age: 52,
-    gender: 'M',
-    doctor: 'Dr. Gupta',
-    diagnosis: 'Hypertensive Crisis',
-    acuity: 'MED',
-    signed: false,
-    vitals: { bp: '185/110', pulse: 82, temp: 36.9, spo2: 98, rr: 16, time: '05:00' },
-    iv: { site: 'Left ACF', gauge: '20G', day: 1, rate: 'Labetalol infusion 2mg/min' },
-    diet: 'Low sodium diet',
-    medsDue: [
-      { time: '07:00', drug: 'Tab Amlodipine 10mg', route: 'PO' },
-      { time: '07:00', drug: 'Tab Telmisartan 80mg', route: 'PO' },
-    ],
-    tasks: [{ label: 'BP q30min — target < 160/100 by 08:00', done: false }],
-    alerts: ['End-organ damage workup pending — ECG, creatinine, fundus'],
-    tags: [],
-    nurseNote: 'BP trending down. Continue Labetalol titration. Alert if SBP < 130.',
-  },
-  {
-    id: 'adm-006',
-    bed: 'B3',
-    name: 'Anjali Pawar',
-    age: 35,
-    gender: 'F',
-    doctor: 'Dr. Iyer',
-    diagnosis: 'Dengue Fever (Warning Signs)',
-    acuity: 'MED',
-    signed: false,
-    vitals: { bp: '100/70', pulse: 94, temp: 38.6, spo2: 98, rr: 16, time: '04:00' },
-    iv: { site: 'Right ACF', gauge: '20G', day: 3, rate: 'RL 100ml/hr' },
-    diet: 'Oral fluids encouraged, soft diet',
-    medsDue: [
-      { time: '06:00', drug: 'Tab Paracetamol 500mg', route: 'PO' },
-    ],
-    tasks: [{ label: 'Platelet count at 06:00 (trend 78k→62k)', done: false }],
-    alerts: ['Platelet falling — bleeding precautions', 'Monitor for abdominal pain, restlessness'],
-    tags: [
-      { id: 't-007', priority: 'info', nurse: 'Sr. Rekha', ts: '01:00', note: 'Platelet 62k — informed Dr. Iyer. Repeat at 06:00.' },
-    ],
-    nurseNote: 'Dengue warning signs. Strict IO chart, watch for bleeding gums or petechiae.',
-  },
-  {
-    id: 'adm-007',
-    bed: 'C1',
-    name: 'Venkatesh Rao',
-    age: 48,
-    gender: 'M',
-    doctor: 'Dr. Sharma',
-    diagnosis: 'Community Acquired Pneumonia',
-    acuity: 'MED',
-    signed: false,
-    vitals: { bp: '118/76', pulse: 86, temp: 38.1, spo2: 96, rr: 19, time: '04:15' },
-    iv: { site: 'Right Hand', gauge: '20G', day: 2, rate: 'Ceftriaxone 2g in NS 100ml' },
-    diet: 'Normal diet, high fluids',
-    medsDue: [
-      { time: '08:00', drug: 'Inj Ceftriaxone 2g', route: 'IV' },
-      { time: '07:00', drug: 'Tab Azithromycin 500mg', route: 'PO' },
-    ],
-    tasks: [{ label: 'Sputum C&S pending — remind lab', done: false }],
-    alerts: [],
-    tags: [],
-    nurseNote: 'Improving. SpO2 stable on room air. Continue antibiotics per chart.',
-  },
-  {
-    id: 'adm-008',
-    bed: 'C2',
-    name: 'Padma Krishnaswamy',
-    age: 67,
-    gender: 'F',
-    doctor: 'Dr. Mehta',
-    diagnosis: 'Acute Pyelonephritis',
-    acuity: 'MED',
-    signed: false,
-    vitals: { bp: '124/78', pulse: 90, temp: 38.4, spo2: 99, rr: 15, time: '04:00' },
-    iv: { site: 'Left ACF', gauge: '22G', day: 2, rate: 'NS 75ml/hr + Gentamicin' },
-    diet: 'High fluid intake, normal diet',
-    medsDue: [
-      { time: '06:00', drug: 'Inj Gentamicin 180mg', route: 'IV OD' },
-      { time: '07:00', drug: 'Tab Co-amoxiclav 625mg', route: 'PO' },
-    ],
-    tasks: [{ label: 'Urine output hourly — log in chart', done: false }],
-    alerts: [],
-    tags: [],
-    nurseNote: 'Fever settling. Ensure adequate hydration. Monitor renal function.',
-  },
-  {
-    id: 'adm-009',
-    bed: 'D1',
-    name: 'Suresh Pillai',
-    age: 45,
-    gender: 'M',
-    doctor: 'Dr. Krishnan',
-    diagnosis: 'Stable Angina — Angiogram done',
-    acuity: 'ROU',
-    signed: true,
-    vitals: { bp: '122/80', pulse: 68, temp: 36.8, spo2: 99, rr: 14, time: '04:00' },
-    iv: { site: 'Right ACF (saline lock)', gauge: '20G', day: 2, rate: 'Saline lock' },
-    diet: 'Normal cardiac diet',
-    medsDue: [
-      { time: '07:00', drug: 'Tab Aspirin 75mg', route: 'PO' },
-      { time: '07:00', drug: 'Tab Metoprolol 25mg', route: 'PO' },
-    ],
-    tasks: [],
-    alerts: [],
-    tags: [],
-    nurseNote: 'Post-angiogram. Stable, discharge expected tomorrow.',
-  },
-  {
-    id: 'adm-010',
-    bed: 'D2',
-    name: 'Kavitha Nambiar',
-    age: 38,
-    gender: 'F',
-    doctor: 'Dr. Nair',
-    diagnosis: 'Bronchial Asthma (mild attack)',
-    acuity: 'ROU',
-    signed: true,
-    vitals: { bp: '116/74', pulse: 72, temp: 36.7, spo2: 98, rr: 14, time: '04:00' },
-    iv: { site: 'None', gauge: '—', day: 0, rate: 'Oral medications only' },
-    diet: 'Normal diet',
-    medsDue: [
-      { time: '06:00', drug: 'MDI Salbutamol 2 puffs', route: 'INH' },
-    ],
-    tasks: [],
-    alerts: [],
-    tags: [],
-    nurseNote: 'Asthma settling well. Discharge likely if SpO2 > 97% by morning round.',
-  },
-  {
-    id: 'adm-011',
-    bed: 'D3',
-    name: 'Rajan Menon',
-    age: 55,
-    gender: 'M',
-    doctor: 'Dr. Gupta',
-    diagnosis: 'T2DM — Glycaemic Optimization',
-    acuity: 'ROU',
-    signed: true,
-    vitals: { bp: '128/82', pulse: 74, temp: 36.9, spo2: 98, rr: 14, time: '04:00' },
-    iv: { site: 'None', gauge: '—', day: 0, rate: 'No IV' },
-    diet: 'Diabetic diet 1800kcal',
-    medsDue: [
-      { time: '07:00', drug: 'Inj Glargine 20U', route: 'SC' },
-      { time: 'PRE-MEAL', drug: 'Inj Aspart per sliding scale', route: 'SC' },
-    ],
-    tasks: [],
-    alerts: [],
-    tags: [],
-    nurseNote: 'Sugars trending to target. Diabetes educator visit at 10:00.',
-  },
-  {
-    id: 'adm-012',
-    bed: 'E1',
-    name: 'Shobha Reddy',
-    age: 29,
-    gender: 'F',
-    doctor: 'Dr. Iyer',
-    diagnosis: 'Enteric Fever (Typhoid)',
-    acuity: 'ROU',
-    signed: true,
-    vitals: { bp: '112/70', pulse: 70, temp: 37.5, spo2: 99, rr: 14, time: '04:00' },
-    iv: { site: 'Right Hand (saline lock)', gauge: '22G', day: 4, rate: 'Saline lock' },
-    diet: 'Soft bland diet',
-    medsDue: [
-      { time: '08:00', drug: 'Tab Cefixime 400mg', route: 'PO' },
-    ],
-    tasks: [],
-    alerts: [],
-    tags: [],
-    nurseNote: 'Day 4 antibiotics, fever controlled. Planned discharge day 7.',
-  },
-]
 
 const ACUITY_CONFIG = {
   HIGH: { label: 'HIGH', dot: '🔴', bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200' },
@@ -745,8 +456,22 @@ export default function ShiftHandoff() {
   const [shift, setShift] = useState('morning')
   const [fromNurse, setFromNurse] = useState('')
   const [toNurse, setToNurse] = useState('')
-  const [patients, setPatients] = useState(MOCK_PATIENTS)
+  const [patients, setPatients] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
   const [openRow, setOpenRow] = useState(null)
+
+  const wardId = session?.ward?.id
+
+  useEffect(() => {
+    if (!wardId) return
+    setLoading(true)
+    setError(null)
+    api.get(`/inpatient/wards/${wardId}/handoff-roster`)
+      .then(data => setPatients(Array.isArray(data) ? data : []))
+      .catch(() => setError('Failed to load handoff roster. Please retry.'))
+      .finally(() => setLoading(false))
+  }, [wardId])
 
   // filters (the old stat-card numbers now live in the filter chips)
   const [acuityFilter, setAcuityFilter] = useState('ALL')
@@ -853,8 +578,43 @@ export default function ShiftHandoff() {
     )
   }
 
+  if (loading) {
+    return (
+      <div className="p-3 space-y-2">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="h-12 bg-gray-100 rounded-lg animate-pulse" />
+        ))}
+      </div>
+    )
+  }
+
   return (
     <div className="p-3 space-y-3">
+      {/* ── Error banner ── */}
+      {error && (
+        <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-lg px-4 py-2.5">
+          <span className="text-sm text-red-700">{error}</span>
+          <button
+            onClick={() => {
+              if (!wardId) return
+              setLoading(true); setError(null)
+              api.get(`/inpatient/wards/${wardId}/handoff-roster`)
+                .then(data => setPatients(Array.isArray(data) ? data : []))
+                .catch(() => setError('Failed to load handoff roster. Please retry.'))
+                .finally(() => setLoading(false))
+            }}
+            className="text-xs font-semibold text-red-700 border border-red-300 rounded px-2.5 py-1 hover:bg-red-100 ml-4"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+      {/* ── No ward selected ── */}
+      {!wardId && !error && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-700">
+          No ward selected. Please select a ward from the session to load the handoff roster.
+        </div>
+      )}
       {/* ── Compact toolbar: title + shift selector (folded the duplicate header) ── */}
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-base font-bold text-gray-900">Shift Handoff</h1>

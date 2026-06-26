@@ -4,7 +4,7 @@ Departments, Wards, Beds, Admissions (ADT), Atomic Token Generation, Referrals, 
 """
 import random
 import string
-from datetime import datetime, date as dt, date as date_type
+from datetime import datetime, date as dt, date as date_type, timedelta
 from decimal import Decimal
 from typing import Optional, List
 
@@ -1387,6 +1387,279 @@ def shift_handoff(
                 "total": len(today_mar),
             },
         })
+    return result
+
+
+@router.get("/wards/{ward_id}/handoff-roster")
+def handoff_roster(
+    ward_id: int,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Enriched shift-handoff roster for CareChart Shift Handoff page.
+    Returns all active admissions with vitals, meds due today, pending clinical
+    tasks, IV orders, diet orders, incident alerts, and handoff nursing tags."""
+    ward = db.query(Ward).filter(
+        Ward.id == ward_id,
+        Ward.clinic_id == current.clinic_id,
+    ).first()
+    if not ward:
+        raise HTTPException(status_code=404, detail="Ward not found")
+
+    admissions = (
+        db.query(Admission)
+        .filter(
+            Admission.ward_id == ward_id,
+            Admission.clinic_id == current.clinic_id,
+            Admission.status == "active",
+        )
+        .order_by(Admission.admitted_at)
+        .all()
+    )
+    if not admissions:
+        return []
+
+    adm_ids = [a.id for a in admissions]
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    today_date = datetime.utcnow().date()
+
+    # ── Batch-load all related data ──────────────────────────────────────────
+
+    patients_map = {
+        p.id: p
+        for p in db.query(Patient).filter(
+            Patient.id.in_(list({a.patient_id for a in admissions}))
+        ).all()
+    }
+
+    bed_ids = [a.bed_id for a in admissions if a.bed_id]
+    beds_map = (
+        {b.id: b for b in db.query(Bed).filter(Bed.id.in_(bed_ids)).all()}
+        if bed_ids else {}
+    )
+
+    doctor_ids = list(
+        {a.admitting_doctor_id for a in admissions if a.admitting_doctor_id}
+        | {a.primary_doctor_id for a in admissions if a.primary_doctor_id}
+    )
+    doctors_map = (
+        {d.id: d for d in db.query(Staff).filter(Staff.id.in_(doctor_ids)).all()}
+        if doctor_ids else {}
+    )
+
+    # Latest vital per admission
+    vitals_sub = (
+        db.query(VitalSign.admission_id, func.max(VitalSign.id).label("max_id"))
+        .filter(VitalSign.admission_id.in_(adm_ids))
+        .group_by(VitalSign.admission_id)
+        .subquery()
+    )
+    vitals_map = {
+        v.admission_id: v
+        for v in db.query(VitalSign).join(
+            vitals_sub, VitalSign.id == vitals_sub.c.max_id
+        ).all()
+    }
+
+    # Scheduled medication administrations due today
+    meds_raw = db.query(MedicationAdministration).filter(
+        MedicationAdministration.admission_id.in_(adm_ids),
+        MedicationAdministration.scheduled_time >= today_start,
+        MedicationAdministration.status == "scheduled",
+    ).order_by(MedicationAdministration.scheduled_time).all()
+    meds_map: dict = {}
+    for m in meds_raw:
+        meds_map.setdefault(m.admission_id, []).append(m)
+
+    # First active continuous IV order per admission
+    iv_raw = db.query(MedicationOrder).filter(
+        MedicationOrder.admission_id.in_(adm_ids),
+        MedicationOrder.status == "active",
+        MedicationOrder.is_continuous == True,
+    ).all()
+    iv_map: dict = {}
+    for o in iv_raw:
+        if o.admission_id not in iv_map:
+            iv_map[o.admission_id] = o
+
+    # Pending clinical orders → tasks
+    tasks_raw = db.query(ClinicalOrder).filter(
+        ClinicalOrder.admission_id.in_(adm_ids),
+        ClinicalOrder.status.in_(["pending", "acknowledged", "in_progress"]),
+    ).order_by(ClinicalOrder.ordered_at).all()
+    tasks_map: dict = {}
+    for co in tasks_raw:
+        tasks_map.setdefault(co.admission_id, []).append(co)
+
+    # Latest active diet order per admission
+    diet_raw = db.query(ClinicalOrder).filter(
+        ClinicalOrder.admission_id.in_(adm_ids),
+        ClinicalOrder.order_type == "diet",
+        ClinicalOrder.status != "cancelled",
+    ).order_by(ClinicalOrder.ordered_at.desc()).all()
+    diet_map: dict = {}
+    for d in diet_raw:
+        if d.admission_id not in diet_map:
+            diet_map[d.admission_id] = d
+
+    # Latest nursing note (general / shift_handoff) per admission
+    notes_sub = (
+        db.query(NursingNote.admission_id, func.max(NursingNote.id).label("max_id"))
+        .filter(
+            NursingNote.admission_id.in_(adm_ids),
+            NursingNote.note_type.in_(["general", "shift_handoff"]),
+        )
+        .group_by(NursingNote.admission_id)
+        .subquery()
+    )
+    notes_map = {
+        n.admission_id: n
+        for n in db.query(NursingNote).join(
+            notes_sub, NursingNote.id == notes_sub.c.max_id
+        ).all()
+    }
+
+    # Incident notes in last 24 h → alerts
+    incident_raw = db.query(NursingNote).filter(
+        NursingNote.admission_id.in_(adm_ids),
+        NursingNote.note_type == "incident",
+        NursingNote.written_at >= datetime.utcnow() - timedelta(hours=24),
+    ).order_by(NursingNote.written_at.desc()).all()
+    alerts_map: dict = {}
+    for n in incident_raw:
+        alerts_map.setdefault(n.admission_id, []).append((n.note_text or "")[:300])
+
+    # Handoff-flagged nursing notes in last 12 h → tags
+    tag_raw = db.query(NursingNote).filter(
+        NursingNote.admission_id.in_(adm_ids),
+        NursingNote.is_handoff == True,
+        NursingNote.written_at >= datetime.utcnow() - timedelta(hours=12),
+    ).order_by(NursingNote.written_at.desc()).all()
+
+    tag_writer_ids = list({n.written_by for n in tag_raw if n.written_by})
+    tag_writers = (
+        {s.id: s for s in db.query(Staff).filter(Staff.id.in_(tag_writer_ids)).all()}
+        if tag_writer_ids else {}
+    )
+    tags_map: dict = {}
+    for n in tag_raw:
+        writer = tag_writers.get(n.written_by)
+        txt = (n.note_text or "").lower()
+        priority = (
+            "urgent" if any(w in txt for w in ("urgent", "critical", "emergency"))
+            else "watch" if any(w in txt for w in ("watch", "monitor", "check"))
+            else "info"
+        )
+        tags_map.setdefault(n.admission_id, []).append({
+            "id": n.id,
+            "priority": priority,
+            "nurse": writer.full_name if writer else "Nurse",
+            "ts": n.written_at.strftime("%H:%M") if n.written_at else "—",
+            "note": n.note_text or "",
+        })
+
+    # ── Assemble ─────────────────────────────────────────────────────────────
+
+    result = []
+    for adm in admissions:
+        patient = patients_map.get(adm.patient_id)
+        if not patient:
+            continue
+
+        bed = beds_map.get(adm.bed_id) if adm.bed_id else None
+        doctor = doctors_map.get(adm.primary_doctor_id or adm.admitting_doctor_id)
+        vital = vitals_map.get(adm.id)
+        iv_ord = iv_map.get(adm.id)
+        diet_ord = diet_map.get(adm.id)
+        note = notes_map.get(adm.id)
+
+        # Age
+        age = None
+        if patient.date_of_birth:
+            dob = patient.date_of_birth
+            age = today_date.year - dob.year - (
+                (today_date.month, today_date.day) < (dob.month, dob.day)
+            )
+
+        # Acuity: triage_level → vital thresholds → default ROU
+        triage = (adm.triage_level or "").lower()
+        if triage == "red":
+            acuity = "HIGH"
+        elif triage in ("orange", "yellow"):
+            acuity = "MED"
+        elif vital:
+            spo2_v = float(vital.spo2) if vital.spo2 else 100.0
+            sbp = vital.bp_systolic or 120
+            pr = vital.pulse or 70
+            if spo2_v < 90 or sbp < 90 or sbp > 180 or pr > 120:
+                acuity = "HIGH"
+            elif spo2_v < 95 or sbp > 160 or pr > 100:
+                acuity = "MED"
+            else:
+                acuity = "ROU"
+        else:
+            acuity = "ROU"
+
+        # Vitals
+        if vital:
+            bp_str = (
+                f"{vital.bp_systolic}/{vital.bp_diastolic}" if vital.bp_systolic else "—"
+            )
+            vitals_dict = {
+                "bp": bp_str,
+                "pulse": vital.pulse or 0,
+                "temp": float(vital.temperature) if vital.temperature else 0.0,
+                "spo2": float(vital.spo2) if vital.spo2 else 0.0,
+                "rr": vital.respiration_rate or 0,
+                "time": vital.recorded_at.strftime("%H:%M") if vital.recorded_at else "—",
+            }
+        else:
+            vitals_dict = {"bp": "—", "pulse": 0, "temp": 0.0, "spo2": 0.0, "rr": 0, "time": "—"}
+
+        # IV
+        if iv_ord:
+            days_iv = max(0, (datetime.utcnow() - iv_ord.ordered_at).days) if iv_ord.ordered_at else 0
+            rate_str = " ".join(filter(None, [iv_ord.iv_fluid, iv_ord.iv_rate])) or (
+                f"{iv_ord.drug_name} {iv_ord.dose or ''}".strip()
+            )
+            iv_dict = {"site": "IV Access", "gauge": "—", "day": days_iv, "rate": rate_str}
+        else:
+            iv_dict = {"site": "None", "gauge": "—", "day": 0, "rate": "No IV"}
+
+        # Meds due today
+        med_list = []
+        for m in meds_map.get(adm.id, []):
+            t_str = m.scheduled_time.strftime("%H:%M") if m.scheduled_time else "—"
+            drug_label = m.medicine_name + (f" {m.dose}" if m.dose else "")
+            med_list.append({"time": t_str, "drug": drug_label, "route": m.route or "—"})
+
+        # Pending tasks
+        task_list = [
+            {"label": co.order_detail, "done": False}
+            for co in tasks_map.get(adm.id, [])
+        ]
+
+        result.append({
+            "id": str(adm.id),
+            "admission_id": adm.id,
+            "bed": bed.bed_number if bed else (str(adm.bed_id) if adm.bed_id else "—"),
+            "name": patient.full_name,
+            "age": age,
+            "gender": (patient.gender or "")[:1].upper() or "—",
+            "doctor": doctor.full_name if doctor else "—",
+            "diagnosis": adm.primary_diagnosis or "—",
+            "acuity": acuity,
+            "signed": False,
+            "vitals": vitals_dict,
+            "iv": iv_dict,
+            "diet": diet_ord.order_detail if diet_ord else "Per chart",
+            "medsDue": med_list,
+            "tasks": task_list,
+            "alerts": alerts_map.get(adm.id, []),
+            "tags": tags_map.get(adm.id, []),
+            "nurseNote": note.note_text if note else "",
+        })
+
     return result
 
 
