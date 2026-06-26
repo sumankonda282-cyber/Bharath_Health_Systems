@@ -112,10 +112,10 @@ class BranchOut(BaseModel):
     id: int
     clinic_id: int
     name: str
-    city: Optional[str]
-    state: Optional[str]
-    phone: Optional[str]
-    is_active: bool
+    city: Optional[str] = None
+    state: Optional[str] = None
+    phone: Optional[str] = None
+    is_active: bool = True
 
     class Config:
         from_attributes = True
