@@ -419,13 +419,14 @@ def get_lab_order(order_id: int, db: Session = Depends(get_db), current: Staff =
         raise HTTPException(status_code=404, detail="Not found")
     return {
         "id": order.id, "patient_id": order.patient_id,
-        "status": str(order.status), "notes": order.notes,
+        "status": str(order.status), "notes": order.clinical_notes,
         "created_at": order.created_at,
         "items": [
             {"id": i.id, "test_id": i.test_id,
-             "test_name": i.test.name if i.test else "?",
-             "normal_range": i.test.normal_range if i.test else None,
-             "unit": i.test.unit if i.test else None,
+             # Prefer the order item's own stored values over the catalogue test.
+             "test_name": i.test_name or (i.test.name if i.test else "?"),
+             "normal_range": i.reference_range or (i.test.normal_range if i.test else None),
+             "unit": i.unit or (i.test.unit if i.test else None),
              "result_value": i.result_value, "result_notes": i.result_notes,
              "is_abnormal": i.is_abnormal, "completed_at": i.completed_at}
             for i in order.items
