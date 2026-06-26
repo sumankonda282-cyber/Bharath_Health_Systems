@@ -54,6 +54,7 @@ class Clinic(Base):
     logo_url                = Column(String(500), nullable=True)
     brand_name              = Column(String(200), nullable=True)  # display name shown in portals
     brand_color             = Column(String(20), nullable=True)   # hex color e.g. #0F2557
+    bridge_api_key          = Column(String(64), nullable=True)   # per-health-center device-bridge key (HL7/ASTM/DICOM ingest)
     is_active               = Column(Boolean, default=True)
     is_verified             = Column(Boolean, default=False)
     status                  = Column(String(20), default="pending")  # pending|active|suspended|revoked

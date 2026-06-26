@@ -216,6 +216,44 @@ def upload_logo(
     return {"logo_url": clinic.logo_url}
 
 
+# ── Device Bridge (HL7 / ASTM / DICOM ingest key) ─────────────────────────────
+
+@router.get("/bridge-config")
+def get_bridge_config(db: Session = Depends(get_db), current=Depends(require_clinic_admin)):
+    """Return this health center's device-bridge connection settings so the
+    on-site bridge agent (lab/imaging machines) can be configured. The API key
+    authenticates HL7/ASTM/DICOM/PDF result ingestion for this health center only."""
+    clinic = db.query(Clinic).filter(Clinic.id == current.clinic_id).first()
+    if not clinic:
+        raise HTTPException(status_code=404, detail="Health center not found")
+    return {
+        "clinic_id":         clinic.id,
+        "health_center":     clinic.name,
+        "bridge_api_key":    clinic.bridge_api_key,   # null until generated
+        "has_key":           bool(clinic.bridge_api_key),
+        "default_hl7_port":  2575,
+        "default_astm_port": 2576,
+    }
+
+
+@router.post("/bridge-key/rotate")
+def rotate_bridge_key(db: Session = Depends(get_db), current=Depends(require_clinic_admin)):
+    """Generate (or regenerate) the device-bridge API key for this health center.
+    Regenerating immediately invalidates the previous key — the on-site bridge
+    agent must then be updated with the new key."""
+    clinic = db.query(Clinic).filter(Clinic.id == current.clinic_id).first()
+    if not clinic:
+        raise HTTPException(status_code=404, detail="Health center not found")
+    clinic.bridge_api_key = secrets.token_hex(32)   # 64 hex chars, fits VARCHAR(64)
+    db.commit()
+    db.refresh(clinic)
+    return {
+        "clinic_id":      clinic.id,
+        "bridge_api_key": clinic.bridge_api_key,
+        "message":        "Bridge API key generated. Update your on-site bridge agent with this key.",
+    }
+
+
 # ── Branches ──────────────────────────────────────────────────────────────────
 
 @router.get("/branches", response_model=List[BranchOut])
