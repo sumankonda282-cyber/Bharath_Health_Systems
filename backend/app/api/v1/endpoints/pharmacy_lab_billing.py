@@ -1,3 +1,4 @@
+import re
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from pydantic import BaseModel
 from sqlalchemy.orm import Session, joinedload
@@ -898,6 +899,43 @@ def list_lab_orders(
     return result
 
 
+# ── Lab reference-range flag engine ───────────────────────────────────────────
+
+def _parse_ref_range(ref):
+    """Parse a reference-range string into (low, high) floats; either may be None.
+    Handles '13-17', '13–17', '13 - 17', '70-110 mg/dL', '<200', '> 40', 'up to 5.0'."""
+    if not ref or not isinstance(ref, str):
+        return (None, None)
+    s = ref.strip().lower().replace('–', '-').replace('—', '-')
+    m = re.search(r'(?:<=|<|up\s*to|less than|≤)\s*([0-9]+\.?[0-9]*)', s)
+    if m:
+        return (None, float(m.group(1)))
+    m = re.search(r'(?:>=|>|greater than|≥|above)\s*([0-9]+\.?[0-9]*)', s)
+    if m:
+        return (float(m.group(1)), None)
+    m = re.search(r'([0-9]+\.?[0-9]*)\s*-\s*([0-9]+\.?[0-9]*)', s)
+    if m:
+        return (float(m.group(1)), float(m.group(2)))
+    return (None, None)
+
+
+def _compute_lab_flag(value, ref):
+    """Return 'H' | 'L' | 'N' | '' for a value against a reference-range string.
+    '' = not computable (qualitative result or unparseable range)."""
+    try:
+        v = float(str(value).strip())
+    except (ValueError, TypeError, AttributeError):
+        return ''
+    low, high = _parse_ref_range(ref)
+    if low is None and high is None:
+        return ''
+    if low is not None and v < low:
+        return 'L'
+    if high is not None and v > high:
+        return 'H'
+    return 'N'
+
+
 @lab_router.api_route("/orders/{order_id}/results", methods=["PUT", "POST"])
 def save_lab_results(
     order_id: int,
@@ -905,7 +943,7 @@ def save_lab_results(
     db: Session = Depends(get_db),
     current=Depends(get_current_staff),
 ):
-    from app.models.models import LabOrder, LabOrderItem
+    from app.models.models import LabOrder, LabOrderItem, LabResult
     order = db.query(LabOrder).filter(
         LabOrder.id == order_id,
         LabOrder.clinic_id == current.clinic_id,
@@ -916,22 +954,67 @@ def save_lab_results(
     # Accept both wrapper keys ("results" from provider, "items" from lab portal)
     # and tolerate either field name for each value.
     rows = body.get("results") or body.get("items") or []
+    observations = []
     for r in rows:
         item = db.query(LabOrderItem).filter(
             LabOrderItem.id == (r.get("item_id") or r.get("id")),
             LabOrderItem.order_id == order_id,
         ).first()
-        if item:
-            item.result_value = r.get("result") or r.get("result_value") or ""
-            # Prefer an explicit note; fall back to reference_range for older callers.
-            notes = r.get("result_notes")
-            if notes is None:
-                notes = r.get("reference_range", "")
-            item.result_notes = notes
-            item.is_abnormal = bool(r.get("is_abnormal", False))
-            item.completed_at = datetime.utcnow()
+        if not item:
+            continue
+
+        value = r.get("result") or r.get("result_value") or ""
+        # Resolve reference range + unit: explicit value → test-catalogue default.
+        test = item.test
+        ref_range = (r.get("reference_range")
+                     or (test.normal_range if test else None)
+                     or "")
+        unit = r.get("unit") or (test.unit if test else None) or ""
+        flag = _compute_lab_flag(value, ref_range)
+        computed_abnormal = flag in ('H', 'L')
+
+        item.result_value = value
+        # Prefer an explicit note; fall back to reference_range for older callers.
+        notes = r.get("result_notes")
+        if notes is None:
+            notes = ref_range
+        item.result_notes    = notes
+        item.reference_range = ref_range or None
+        item.unit            = unit or None
+        item.flag            = flag or None
+        # Honour an explicit manual abnormal flag OR an auto-computed one.
+        item.is_abnormal     = bool(r.get("is_abnormal", False)) or computed_abnormal
+        item.completed_at    = datetime.utcnow()
+
+        observations.append({
+            "test_name": item.test_name or (test.name if test else ""),
+            "value":     value,
+            "unit":      unit,
+            "ref_range": ref_range,
+            "flag":      flag or ("A" if item.is_abnormal else "N"),
+        })
 
     order.status = 'completed'
+
+    # Persist the canonical structured result (same JSON shape the device bridge
+    # writes) so manual and machine results share one source of truth and the
+    # flag-coloured review UI lights up for both. Never overwrite a signed result.
+    if observations:
+        result = db.query(LabResult).filter(LabResult.order_id == order_id).first()
+        if result is None:
+            db.add(LabResult(
+                order_id=order_id,
+                raw_format='MANUAL',
+                observations=observations,
+                status='pending_review',
+                source='manual',
+            ))
+        elif result.status != 'signed':
+            result.observations = observations
+            if not result.raw_format:
+                result.raw_format = 'MANUAL'
+            if result.source in (None, 'bridge'):
+                result.source = 'manual'
 
     # Auto-transition OPD appointment: investigations_pending → review_pending
     if getattr(order, 'appointment_id', None):

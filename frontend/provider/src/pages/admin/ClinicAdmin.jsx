@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { clinicApi } from '../../api'
 import { PageLoader } from '../../components/ui/Spinner'
 import Modal from '../../components/ui/Modal'
-import { Settings, Users, UserPlus, Building2, Calendar, Plus, Edit2, ToggleLeft, ToggleRight, Clock, CheckCircle, Video, Palette, Upload } from 'lucide-react'
+import { Settings, Users, UserPlus, Building2, Calendar, Plus, Edit2, ToggleLeft, ToggleRight, Clock, CheckCircle, Video, Palette, Upload, Cable, Copy, RefreshCw, KeyRound, AlertTriangle, Check } from 'lucide-react'
 import api from '../../api/client'
 
 const ROLES = ['doctor', 'receptionist', 'manager', 'pharmacist', 'lab_technician', 'imaging_tech', 'nurse', 'clinic_admin']
@@ -54,6 +54,126 @@ function TelehealthFeeInput({ doc, saving, onSave }) {
 }
 
 const API_BASE = import.meta.env.VITE_API_URL || 'https://BharathHealthSystems-api.onrender.com'
+
+function BridgeTab() {
+  const [cfg, setCfg]                 = useState(null)
+  const [loading, setLoading]         = useState(true)
+  const [error, setError]             = useState('')
+  const [rotating, setRotating]       = useState(false)
+  const [confirmRotate, setConfirmRotate] = useState(false)
+  const [copied, setCopied]           = useState('')
+
+  const API_URL = (import.meta.env.VITE_API_URL || 'https://bharatcliniq-api.onrender.com').replace(/\/$/, '')
+
+  const load = () => {
+    setLoading(true); setError('')
+    api.get('/clinic/bridge-config')
+      .then(d => setCfg(d))
+      .catch(() => setError('Failed to load device bridge settings.'))
+      .finally(() => setLoading(false))
+  }
+  useEffect(() => { load() }, [])
+
+  const rotate = async () => {
+    setRotating(true)
+    try {
+      const r = await api.post('/clinic/bridge-key/rotate', {})
+      setCfg(c => ({ ...c, bridge_api_key: r.bridge_api_key, has_key: true }))
+      setConfirmRotate(false)
+      setError('')
+    } catch {
+      setError('Could not generate key. Please retry.')
+    } finally {
+      setRotating(false)
+    }
+  }
+
+  const copy = (label, value) => {
+    if (!value) return
+    navigator.clipboard?.writeText(String(value))
+    setCopied(label)
+    setTimeout(() => setCopied(''), 1500)
+  }
+
+  if (loading) return <div className="card p-6 text-gray-400">Loading device bridge settings…</div>
+  if (error && !cfg) return (
+    <div className="card p-6">
+      <p className="text-sm text-red-600 mb-3">{error}</p>
+      <button onClick={load} className="btn-secondary text-sm">Retry</button>
+    </div>
+  )
+
+  const Row = ({ label, value, mono }) => (
+    <div className="flex items-center justify-between gap-3 py-2.5 border-b border-gray-100 last:border-0">
+      <span className="text-sm text-gray-500 flex-shrink-0">{label}</span>
+      <div className="flex items-center gap-2 min-w-0">
+        <code className={`text-sm truncate max-w-[280px] text-gray-800 ${mono ? 'font-mono' : ''}`}>{value || '—'}</code>
+        {value && (
+          <button onClick={() => copy(label, value)} className="text-gray-400 hover:text-gray-700 flex-shrink-0" title="Copy">
+            {copied === label ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+          </button>
+        )}
+      </div>
+    </div>
+  )
+
+  return (
+    <div className="card p-6 max-w-2xl space-y-5">
+      <div className="flex items-start gap-3">
+        <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: '#0F2557' }}>
+          <Cable size={20} className="text-white" />
+        </div>
+        <div>
+          <h2 className="font-semibold text-gray-800">Device Bridge</h2>
+          <p className="text-sm text-gray-500 mt-0.5">
+            Connect your lab analysers and imaging machines. The on-site bridge agent reads results
+            (HL7 / ASTM / DICOM / PDF) and posts them straight into your portals — no manual typing.
+          </p>
+        </div>
+      </div>
+
+      {/* Connection settings */}
+      <div className="rounded-lg border border-gray-200 px-4">
+        <Row label="Health Center" value={cfg?.health_center} />
+        <Row label="Clinic ID"     value={cfg?.clinic_id} mono />
+        <Row label="API URL"       value={API_URL} mono />
+        <Row label="Bridge API Key" value={cfg?.bridge_api_key || 'Not generated yet'} mono />
+      </div>
+
+      {/* Key actions */}
+      <div className="flex items-center gap-3 flex-wrap">
+        {!cfg?.has_key ? (
+          <button onClick={rotate} disabled={rotating} className="btn-primary text-sm">
+            <KeyRound size={14} />{rotating ? 'Generating…' : 'Generate Bridge Key'}
+          </button>
+        ) : !confirmRotate ? (
+          <button onClick={() => setConfirmRotate(true)} className="btn-secondary text-sm">
+            <RefreshCw size={14} />Regenerate Key
+          </button>
+        ) : (
+          <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex-wrap">
+            <AlertTriangle size={15} className="text-amber-600 flex-shrink-0" />
+            <span className="text-xs text-amber-800">Regenerating invalidates the current key — the bridge agent must be updated. Continue?</span>
+            <button onClick={rotate} disabled={rotating} className="text-xs font-semibold text-white bg-amber-600 hover:bg-amber-700 rounded px-2.5 py-1">
+              {rotating ? 'Working…' : 'Yes, regenerate'}
+            </button>
+            <button onClick={() => setConfirmRotate(false)} className="text-xs text-gray-500 hover:text-gray-700">Cancel</button>
+          </div>
+        )}
+      </div>
+      {error && cfg && <p className="text-xs text-red-600">{error}</p>}
+
+      {/* Setup steps */}
+      <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-600 space-y-1.5">
+        <p className="font-semibold text-gray-700 mb-1">Setup</p>
+        <p>1. Install the BharatHealth Bridge agent on a PC at your facility (Windows).</p>
+        <p>2. Open its configuration and paste the <b>API URL</b>, <b>Clinic ID</b> and <b>Bridge API Key</b> above.</p>
+        <p>3. Point analysers to HL7 port <b>{cfg?.default_hl7_port || 2575}</b> / ASTM port <b>{cfg?.default_astm_port || 2576}</b>, and set the DICOM / PDF watch folders.</p>
+        <p>4. Results flow in automatically and appear in the Lab / Imaging portals for verification.</p>
+      </div>
+    </div>
+  )
+}
 
 function BrandingTab({ clinicId, profile }) {
   const [brandName, setBrandName]   = useState(profile.brand_name || '')
@@ -363,6 +483,7 @@ export default function ClinicAdmin() {
           { key: 'telehealth', label: 'Telehealth',    icon: Video },
           { key: 'profile',    label: 'Health Center Profile', icon: Building2 },
           { key: 'branding',   label: 'Branding',       icon: Palette },
+          { key: 'bridge',     label: 'Device Bridge',  icon: Cable },
         ].map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
             className={`flex items-center gap-1.5 px-4 py-1.5 rounded-md text-sm font-medium transition-all ${tab === t.key ? 'bg-white shadow text-gray-900' : 'text-gray-500'}`}>
@@ -546,6 +667,8 @@ export default function ClinicAdmin() {
       {tab === 'branding' && profile && (
         <BrandingTab clinicId={profile.id} profile={profile} onSaved={() => {}} />
       )}
+
+      {tab === 'bridge' && <BridgeTab />}
 
       {/* Add Staff Modal */}
       <Modal open={showAddStaff} onClose={() => setShowAddStaff(false)} title="Add Staff Member" size="lg">

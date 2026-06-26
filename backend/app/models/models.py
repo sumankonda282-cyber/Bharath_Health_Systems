@@ -54,6 +54,7 @@ class Clinic(Base):
     logo_url                = Column(String(500), nullable=True)
     brand_name              = Column(String(200), nullable=True)  # display name shown in portals
     brand_color             = Column(String(20), nullable=True)   # hex color e.g. #0F2557
+    bridge_api_key          = Column(String(64), nullable=True)   # per-health-center device-bridge key (HL7/ASTM/DICOM ingest)
     is_active               = Column(Boolean, default=True)
     is_verified             = Column(Boolean, default=False)
     status                  = Column(String(20), default="pending")  # pending|active|suspended|revoked
@@ -785,14 +786,17 @@ class LabOrder(Base):
 
 class LabOrderItem(Base):
     __tablename__ = "lab_order_items"
-    id           = Column(Integer, primary_key=True, index=True)
-    order_id     = Column(Integer, ForeignKey("lab_orders.id"), nullable=False)
-    test_id      = Column(Integer, ForeignKey("lab_tests.id"), nullable=True)
-    test_name    = Column(String(200), nullable=True)
-    result_value = Column(Text, nullable=True)
-    result_notes = Column(Text, nullable=True)
-    is_abnormal  = Column(Boolean, default=False)
-    completed_at = Column(DateTime, nullable=True)
+    id              = Column(Integer, primary_key=True, index=True)
+    order_id        = Column(Integer, ForeignKey("lab_orders.id"), nullable=False)
+    test_id         = Column(Integer, ForeignKey("lab_tests.id"), nullable=True)
+    test_name       = Column(String(200), nullable=True)
+    result_value    = Column(Text, nullable=True)
+    result_notes    = Column(Text, nullable=True)
+    reference_range = Column(String(100), nullable=True)   # resolved range used for flagging
+    unit            = Column(String(50), nullable=True)
+    flag            = Column(String(4), nullable=True)      # H | L | HH | LL | N | A (computed)
+    is_abnormal     = Column(Boolean, default=False)
+    completed_at    = Column(DateTime, nullable=True)
 
     order = relationship("LabOrder", back_populates="items")
     test  = relationship("LabTest")
