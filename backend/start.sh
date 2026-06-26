@@ -141,6 +141,7 @@ safe_cols = [
     \"ALTER TABLE staff ADD COLUMN IF NOT EXISTS has_inpatient_access BOOLEAN DEFAULT FALSE\",
     \"UPDATE staff SET is_first_login = FALSE WHERE is_first_login IS NULL\",
     \"ALTER TABLE clinics ADD COLUMN IF NOT EXISTS bridge_api_key VARCHAR(64)\",
+    \"ALTER TABLE clinics ADD COLUMN IF NOT EXISTS bridge_last_seen TIMESTAMP\",
     \"ALTER TABLE clinics ADD COLUMN IF NOT EXISTS brand_name VARCHAR(200)\",
     \"ALTER TABLE doctor_profiles ADD COLUMN IF NOT EXISTS input_mode VARCHAR(20) DEFAULT 'type'\",
     \"ALTER TABLE doctor_profiles ADD COLUMN IF NOT EXISTS achievements JSONB\",

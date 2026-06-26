@@ -132,6 +132,26 @@ function BridgeTab() {
         </div>
       </div>
 
+      {/* Connection status */}
+      <div className="flex items-center gap-2">
+        {(() => {
+          const ls = cfg?.last_seen ? new Date(cfg.last_seen) : null
+          const mins = ls ? Math.floor((Date.now() - ls.getTime()) / 60000) : null
+          const online = mins !== null && mins < 10
+          const label = online
+            ? 'Bridge connected'
+            : ls
+              ? `Last seen ${mins < 1 ? 'just now' : mins < 60 ? `${mins} min ago` : `${Math.floor(mins / 60)} h ago`}`
+              : 'Bridge not connected yet'
+          return (
+            <>
+              <span className={`w-2 h-2 rounded-full ${online ? 'bg-emerald-500' : ls ? 'bg-amber-400' : 'bg-gray-300'}`} />
+              <span className="text-xs text-gray-600">{label}</span>
+            </>
+          )
+        })()}
+      </div>
+
       {/* Connection settings */}
       <div className="rounded-lg border border-gray-200 px-4">
         <Row label="Health Center" value={cfg?.health_center} />

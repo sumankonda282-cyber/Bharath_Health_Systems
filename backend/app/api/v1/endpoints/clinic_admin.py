@@ -231,6 +231,7 @@ def get_bridge_config(db: Session = Depends(get_db), current=Depends(require_cli
         "health_center":     clinic.name,
         "bridge_api_key":    clinic.bridge_api_key,   # null until generated
         "has_key":           bool(clinic.bridge_api_key),
+        "last_seen":         clinic.bridge_last_seen.isoformat() if clinic.bridge_last_seen else None,
         "default_hl7_port":  2575,
         "default_astm_port": 2576,
     }

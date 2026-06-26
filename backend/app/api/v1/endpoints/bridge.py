@@ -15,10 +15,40 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.models.models import (
-    Clinic, LabOrder, LabResult, ImagingOrder, ImagingResult, UnmatchedResult, Staff
+    Clinic, LabOrder, LabResult, ImagingOrder, ImagingResult, UnmatchedResult, Staff,
+    LabCriticalAlert,
 )
 
 router = APIRouter(prefix='/bridge', tags=['bridge'])
+
+
+def _raise_bridge_lab_criticals(db: Session, order: LabOrder, observations: list):
+    """Create critical-value alerts from analyser-flagged panic results (HL7 OBX-8
+    flag = HH/LL/C). Deduped per order+test. Mirrors the manual-entry cascade so
+    machine results reach the ordering doctor + ward too."""
+    CRIT = {'HH', 'LL', 'C'}
+    for obs in observations or []:
+        flag = str(obs.get('flag', '')).upper()
+        if flag not in CRIT:
+            continue
+        test_name = obs.get('identifier') or obs.get('test_name') or 'Lab result'
+        already = db.query(LabCriticalAlert).filter(
+            LabCriticalAlert.order_id == order.id,
+            LabCriticalAlert.test_name == test_name,
+            LabCriticalAlert.acknowledged_at.is_(None),
+        ).first()
+        if already:
+            continue
+        db.add(LabCriticalAlert(
+            clinic_id   = order.clinic_id,
+            order_id    = order.id,
+            patient_id  = order.patient_id,
+            ordered_by  = order.ordered_by,
+            test_name   = test_name,
+            value       = str(obs.get('value', '')),
+            flag        = 'HH' if flag in ('HH', 'C') else 'LL',
+            description = f"Analyser-flagged critical ({flag}): {test_name} {obs.get('value', '')}",
+        ))
 
 # ── Auth ───────────────────────────────────────────────────────────────────────
 
@@ -33,6 +63,9 @@ def get_clinic_by_key(
     expected = getattr(clinic, 'bridge_api_key', None)
     if not expected or expected != x_bridge_key:
         raise HTTPException(403, 'Invalid bridge API key')
+    # Stamp connectivity so the Device Bridge card can show "last seen".
+    clinic.bridge_last_seen = datetime.utcnow()
+    db.commit()
     return clinic
 
 
@@ -101,6 +134,9 @@ def ingest_lab(payload: LabIngestPayload, clinic: Clinic = Depends(get_clinic_by
             status       = 'pending_review',
         )
         db.add(result)
+
+    # Critical-value cascade: honour analyser-flagged panic results (HL7 OBX-8).
+    _raise_bridge_lab_criticals(db, order, parsed.get('observations', []))
 
     order.status = 'pending_review'
     if parsed.get('abha_id'):

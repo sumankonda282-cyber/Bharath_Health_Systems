@@ -127,6 +127,11 @@ class APIClient:
         except requests.exceptions.ConnectionError:
             log.warning(f'API unreachable, queuing {path}')
             self._retry_queue.append((path, payload))
+            # Bound the queue so a long outage can't grow it without limit.
+            if len(self._retry_queue) > 5000:
+                dropped = len(self._retry_queue) - 5000
+                self._retry_queue = self._retry_queue[-5000:]
+                log.warning(f'Retry queue capped at 5000; dropped {dropped} oldest item(s)')
             self._save_queue()
             return False
         except Exception as e:
