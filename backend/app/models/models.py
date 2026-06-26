@@ -786,14 +786,17 @@ class LabOrder(Base):
 
 class LabOrderItem(Base):
     __tablename__ = "lab_order_items"
-    id           = Column(Integer, primary_key=True, index=True)
-    order_id     = Column(Integer, ForeignKey("lab_orders.id"), nullable=False)
-    test_id      = Column(Integer, ForeignKey("lab_tests.id"), nullable=True)
-    test_name    = Column(String(200), nullable=True)
-    result_value = Column(Text, nullable=True)
-    result_notes = Column(Text, nullable=True)
-    is_abnormal  = Column(Boolean, default=False)
-    completed_at = Column(DateTime, nullable=True)
+    id              = Column(Integer, primary_key=True, index=True)
+    order_id        = Column(Integer, ForeignKey("lab_orders.id"), nullable=False)
+    test_id         = Column(Integer, ForeignKey("lab_tests.id"), nullable=True)
+    test_name       = Column(String(200), nullable=True)
+    result_value    = Column(Text, nullable=True)
+    result_notes    = Column(Text, nullable=True)
+    reference_range = Column(String(100), nullable=True)   # resolved range used for flagging
+    unit            = Column(String(50), nullable=True)
+    flag            = Column(String(4), nullable=True)      # H | L | HH | LL | N | A (computed)
+    is_abnormal     = Column(Boolean, default=False)
+    completed_at    = Column(DateTime, nullable=True)
 
     order = relationship("LabOrder", back_populates="items")
     test  = relationship("LabTest")

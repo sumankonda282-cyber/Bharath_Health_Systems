@@ -361,6 +361,7 @@ safe_cols = [
     \"ALTER TABLE lab_order_items ADD COLUMN IF NOT EXISTS is_abnormal BOOLEAN DEFAULT FALSE\",
     \"ALTER TABLE lab_order_items ADD COLUMN IF NOT EXISTS reference_range VARCHAR(100)\",
     \"ALTER TABLE lab_order_items ADD COLUMN IF NOT EXISTS unit VARCHAR(50)\",
+    \"ALTER TABLE lab_order_items ADD COLUMN IF NOT EXISTS flag VARCHAR(4)\",
     \"ALTER TABLE appointments ADD COLUMN IF NOT EXISTS online_booking_id INTEGER\",
     \"ALTER TABLE patients ADD COLUMN IF NOT EXISTS clinic_patient_id VARCHAR(20)\",
     \"ALTER TABLE patients ADD COLUMN IF NOT EXISTS portal_user_id INTEGER\",
