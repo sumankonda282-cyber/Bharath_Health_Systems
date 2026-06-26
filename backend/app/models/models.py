@@ -862,6 +862,19 @@ class ImagingOrder(Base):
     status          = Column(String(30), default='pending')
     # pending → scheduled → acquired → pending_review → signed → cancelled
     abha_id         = Column(String(50), nullable=True)
+    # Acquisition metadata (set by the technician at the acquire step; columns
+    # already exist in the DB via start.sh — mapped here so the ORM persists
+    # them and the technician/contrast/dose analytics reports populate).
+    acquired_by          = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    acquired_at          = Column(DateTime, nullable=True)
+    technician_notes     = Column(Text, nullable=True)
+    contrast_used        = Column(Boolean, default=False)
+    contrast_agent       = Column(String(100), nullable=True)
+    contrast_volume_ml   = Column(Numeric(6, 2), nullable=True)
+    radiation_dose_mgy   = Column(Numeric(8, 3), nullable=True)
+    film_count           = Column(Integer, default=0)
+    referring_doctor     = Column(String(200), nullable=True)
+    referring_doctor_reg = Column(String(100), nullable=True)
     created_at      = Column(DateTime, server_default=func.now())
 
     result          = relationship("ImagingResult", back_populates="order", uselist=False)

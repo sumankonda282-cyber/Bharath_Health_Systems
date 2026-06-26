@@ -538,7 +538,9 @@ def seed_clinical_demo(db):
                               branch_id=branch.id, patient_id=pt["aarav"].id, appointment_id=a.id,
                               ordered_by=drpriya.id, modality="CR", body_part="Chest",
                               study_description="Chest X-ray PA view", clinical_notes="r/o pneumonia",
-                              priority="routine", status="signed")
+                              priority="routine", status="signed",
+                              acquired_by=kiran.id if kiran else None,
+                              acquired_at=datetime.now() - timedelta(hours=20))
             db.add(io)
             db.flush()
             db.add(ImagingResult(order_id=io.id, modality="CR",
@@ -723,7 +725,9 @@ def seed_clinical_demo(db):
                               ordered_by=drpriya.id, modality="CR", body_part="Knee (Right)",
                               study_description="X-ray Right Knee AP/Lateral",
                               clinical_notes="r/o fracture", priority="routine",
-                              status="pending_review")
+                              status="pending_review", acquired_by=kiran.id if kiran else None,
+                              acquired_at=datetime.now() - timedelta(hours=3),
+                              technician_notes="2 views acquired. Patient cooperative.")
             db.add(io)
             db.flush()
             db.add(ImagingResult(order_id=io.id, modality="CR", status="pending_review", source="manual"))

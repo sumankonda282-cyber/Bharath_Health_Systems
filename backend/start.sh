@@ -426,6 +426,11 @@ safe_cols = [
     \"CREATE TABLE IF NOT EXISTS notification_log (id SERIAL PRIMARY KEY, clinic_id INTEGER REFERENCES clinics(id), kind VARCHAR(40), channel VARCHAR(10), dedup_key VARCHAR(180) UNIQUE, recipient VARCHAR(200), subject VARCHAR(200), status VARCHAR(20) DEFAULT 'sent', created_at TIMESTAMP DEFAULT NOW())\",
     \"CREATE TABLE IF NOT EXISTS visitor_policies (id SERIAL PRIMARY KEY, clinic_id INTEGER NOT NULL REFERENCES clinics(id), ward_id INTEGER REFERENCES wards(id), visit_start VARCHAR(5) DEFAULT '10:00', visit_end VARCHAR(5) DEFAULT '20:00', max_active INTEGER DEFAULT 5, max_persons INTEGER DEFAULT 2, attender_allowed BOOLEAN DEFAULT TRUE, lockdown BOOLEAN DEFAULT FALSE, updated_at TIMESTAMP DEFAULT NOW())\",
     \"CREATE TABLE IF NOT EXISTS visitor_passes (id SERIAL PRIMARY KEY, clinic_id INTEGER NOT NULL REFERENCES clinics(id), pass_code VARCHAR(12) UNIQUE NOT NULL, pass_type VARCHAR(10) DEFAULT 'visit', admission_id INTEGER NOT NULL REFERENCES admissions(id), patient_id INTEGER NOT NULL REFERENCES patients(id), visitor_name VARCHAR(200) NOT NULL, relation VARCHAR(50), visitor_mobile VARCHAR(20), id_proof_type VARCHAR(50), id_proof_number VARCHAR(100), persons INTEGER DEFAULT 1, valid_from TIMESTAMP NOT NULL, valid_until TIMESTAMP NOT NULL, status VARCHAR(20) DEFAULT 'active', checked_in_at TIMESTAMP, checked_out_at TIMESTAMP, revoked_by INTEGER REFERENCES staff(id), created_by INTEGER REFERENCES staff(id), created_at TIMESTAMP DEFAULT NOW())\",
+    # visitor_passes — align prod with the ORM model: issued_by/note/revoke_reason exist on the
+    # model but were absent from the original DDL, so pass creation (VisitorPass(issued_by=...)) failed.
+    \"ALTER TABLE visitor_passes ADD COLUMN IF NOT EXISTS issued_by INTEGER REFERENCES staff(id)\",
+    \"ALTER TABLE visitor_passes ADD COLUMN IF NOT EXISTS note TEXT\",
+    \"ALTER TABLE visitor_passes ADD COLUMN IF NOT EXISTS revoke_reason VARCHAR(300)\",
 
     # ── platform_settings (key-value config, queried by _get_rate_card on every clinic endpoint) ──
     \"CREATE TABLE IF NOT EXISTS platform_settings (key VARCHAR(100) PRIMARY KEY, value JSONB NOT NULL DEFAULT '{}', updated_at TIMESTAMP DEFAULT NOW(), updated_by INTEGER REFERENCES platform_admins(id))\",
