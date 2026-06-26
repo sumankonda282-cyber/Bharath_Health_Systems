@@ -19,6 +19,7 @@ import {
   Wrench,
   FileText,
   Lock,
+  Search,
 } from 'lucide-react'
 import api from '../api/client'
 import { useWardSession } from '../contexts/WardSessionContext'
@@ -375,6 +376,32 @@ function TagChip({ count }) {
   )
 }
 
+// Filter chip with an inline count — replaces the stat cards (the numbers double as filters)
+function FilterChip({ label, count, active, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors"
+      style={{
+        background: active ? '#4f46e5' : 'white',
+        color: active ? 'white' : '#374151',
+        borderColor: active ? '#4f46e5' : '#d1d5db',
+      }}
+    >
+      {label}
+      <span
+        className="rounded-full px-1.5 text-[10px] font-bold leading-none py-0.5"
+        style={{
+          background: active ? 'rgba(255,255,255,0.25)' : '#f3f4f6',
+          color: active ? 'white' : '#6b7280',
+        }}
+      >
+        {count}
+      </span>
+    </button>
+  )
+}
+
 // ─── Patient Accordion Row ────────────────────────────────────────────────────
 
 function PatientRow({ patient, isOpen, onToggle, onSign, onTagAdd, onTagDelete }) {
@@ -721,6 +748,11 @@ export default function ShiftHandoff() {
   const [patients, setPatients] = useState(MOCK_PATIENTS)
   const [openRow, setOpenRow] = useState(null)
 
+  // filters (the old stat-card numbers now live in the filter chips)
+  const [acuityFilter, setAcuityFilter] = useState('ALL')
+  const [statusFilter, setStatusFilter] = useState('ALL')
+  const [search, setSearch] = useState('')
+
   // Ward notes
   const [erAdmissions, setErAdmissions] = useState('')
   const [oncallDoctor, setOncallDoctor] = useState('Dr. Sharma')
@@ -737,12 +769,20 @@ export default function ShiftHandoff() {
 
   const totalPatients = patients.length
   const signedCount = patients.filter(p => p.signed).length
-  const progressPct = Math.round((signedCount / totalPatients) * 100)
-  const allSigned = signedCount === totalPatients
+  const unsignedCount = totalPatients - signedCount
+  const progressPct = totalPatients ? Math.round((signedCount / totalPatients) * 100) : 0
+  const allSigned = totalPatients > 0 && signedCount === totalPatients
 
-  const criticalCount = patients.filter(p => p.acuity === 'HIGH').length
-  const pendingTasksCount = patients.reduce((acc, p) => acc + p.tasks.filter(t => !t.done).length, 0)
-  const dischargesDue = 2 // mock
+  const acuityCounts = { HIGH: 0, MED: 0, ROU: 0 }
+  patients.forEach(p => { if (acuityCounts[p.acuity] !== undefined) acuityCounts[p.acuity] += 1 })
+
+  const visible = patients.filter(p => {
+    const q = search.trim().toLowerCase()
+    const matchSearch = !q || [p.name, p.bed, p.diagnosis, p.doctor].some(v => (v || '').toLowerCase().includes(q))
+    const matchAcuity = acuityFilter === 'ALL' || p.acuity === acuityFilter
+    const matchStatus = statusFilter === 'ALL' || (statusFilter === 'signed' ? p.signed : !p.signed)
+    return matchSearch && matchAcuity && matchStatus
+  })
 
   const toggleRow = useCallback((id) => {
     setOpenRow(prev => (prev === id ? null : id))
@@ -814,78 +854,48 @@ export default function ShiftHandoff() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* ── Top Header ── */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            {/* Title + shift selector */}
-            <div className="flex items-center gap-4">
-              <div>
-                <h1 className="text-base font-bold text-gray-900">Shift Handoff</h1>
-                <p className="text-[10px] text-gray-500">
-                  {session?.ward?.name || 'Ward 4A'} · {session?.hospital?.name || 'BharatCliniQ'} · {new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                </p>
-              </div>
-
-              {/* Shift pills */}
-              <div className="flex gap-1">
-                {SHIFTS.map(s => (
-                  <button
-                    key={s.id}
-                    onClick={() => setShift(s.id)}
-                    className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${shift === s.id ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-gray-300 hover:border-indigo-400'}`}
-                  >
-                    {s.label} <span className="font-normal opacity-70">{s.time}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* From / To nurses */}
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5">
-                <User className="w-3.5 h-3.5 text-gray-400" />
-                <input
-                  value={fromNurse}
-                  onChange={e => setFromNurse(e.target.value)}
-                  placeholder="From nurse"
-                  className="border rounded-lg px-2.5 py-1.5 text-xs bg-white focus:outline-none w-36"
-                />
-              </div>
-              <span className="text-gray-400 text-xs">→</span>
-              <div className="flex items-center gap-1.5">
-                <User className="w-3.5 h-3.5 text-gray-400" />
-                <input
-                  value={toNurse}
-                  onChange={e => setToNurse(e.target.value)}
-                  placeholder="To nurse"
-                  className="border rounded-lg px-2.5 py-1.5 text-xs bg-white focus:outline-none w-36"
-                />
-              </div>
-            </div>
-          </div>
+    <div className="p-3 space-y-3">
+      {/* ── Compact toolbar: title + shift selector (folded the duplicate header) ── */}
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 className="text-base font-bold text-gray-900">Shift Handoff</h1>
+        <div className="flex gap-1">
+          {SHIFTS.map(s => (
+            <button
+              key={s.id}
+              onClick={() => setShift(s.id)}
+              className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${shift === s.id ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-gray-300 hover:border-indigo-400'}`}
+            >
+              {s.label} <span className="font-normal opacity-70">{s.time}</span>
+            </button>
+          ))}
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-4 space-y-4">
-        {/* ── Stat Cards ── */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { label: 'Beds Occupied', value: 18, icon: <Activity className="w-4 h-4 text-indigo-500" />, color: 'text-indigo-700', bg: 'bg-indigo-50 border-indigo-200' },
-            { label: 'Critical Patients', value: criticalCount, icon: <AlertTriangle className="w-4 h-4 text-red-500" />, color: 'text-red-700', bg: 'bg-red-50 border-red-200' },
-            { label: 'Pending Tasks', value: pendingTasksCount, icon: <FileText className="w-4 h-4 text-amber-500" />, color: 'text-amber-700', bg: 'bg-amber-50 border-amber-200' },
-            { label: 'Discharges Due', value: dischargesDue, icon: <CheckCircle className="w-4 h-4 text-emerald-500" />, color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-200' },
-          ].map((card, i) => (
-            <div key={i} className={`rounded-xl border p-3 ${card.bg}`}>
-              <div className="flex items-center justify-between mb-1">
-                {card.icon}
-                <span className={`text-2xl font-bold ${card.color}`}>{card.value}</span>
-              </div>
-              <p className="text-[11px] font-medium text-gray-600">{card.label}</p>
-            </div>
-          ))}
+      {/* ── Filter / count bar (the stat-card numbers now live here as filters) ── */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative">
+          <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Search patient, bed, diagnosis…"
+            className="border rounded-lg pl-7 pr-3 py-1.5 text-xs bg-white focus:outline-none w-56"
+            style={{ borderColor: '#d1d5db' }} />
         </div>
+        <FilterChip label="All" count={totalPatients} active={acuityFilter === 'ALL'} onClick={() => setAcuityFilter('ALL')} />
+        <FilterChip label="🔴 High" count={acuityCounts.HIGH} active={acuityFilter === 'HIGH'} onClick={() => setAcuityFilter(f => f === 'HIGH' ? 'ALL' : 'HIGH')} />
+        <FilterChip label="🟡 Med" count={acuityCounts.MED} active={acuityFilter === 'MED'} onClick={() => setAcuityFilter(f => f === 'MED' ? 'ALL' : 'MED')} />
+        <FilterChip label="🟢 Rou" count={acuityCounts.ROU} active={acuityFilter === 'ROU'} onClick={() => setAcuityFilter(f => f === 'ROU' ? 'ALL' : 'ROU')} />
+        <span className="w-px h-5 bg-gray-200 mx-1" />
+        <FilterChip label="Unsigned" count={unsignedCount} active={statusFilter === 'unsigned'} onClick={() => setStatusFilter(s => s === 'unsigned' ? 'ALL' : 'unsigned')} />
+        <FilterChip label="Signed" count={signedCount} active={statusFilter === 'signed'} onClick={() => setStatusFilter(s => s === 'signed' ? 'ALL' : 'signed')} />
+        {(search || acuityFilter !== 'ALL' || statusFilter !== 'ALL') && (
+          <button onClick={() => { setSearch(''); setAcuityFilter('ALL'); setStatusFilter('ALL') }}
+            className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600">
+            <X size={12} /> Clear
+          </button>
+        )}
+      </div>
+
+      <div className="space-y-3">
 
         {/* ── Patient Table ── */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
@@ -915,7 +925,11 @@ export default function ShiftHandoff() {
 
           {/* Rows */}
           <div>
-            {patients.map(p => (
+            {visible.length === 0 ? (
+              <div className="px-4 py-10 text-center text-sm text-gray-400">
+                {patients.length === 0 ? 'No patients in this handoff.' : 'No patients match the current filters.'}
+              </div>
+            ) : visible.map(p => (
               <PatientRow
                 key={p.id}
                 patient={p}
@@ -1003,7 +1017,30 @@ export default function ShiftHandoff() {
         </div>
 
         {/* ── Footer ── */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 space-y-3">
+          {/* Handoff from → to (moved here from the header) */}
+          <div className="flex flex-wrap items-center gap-2 pb-3 border-b border-gray-100">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mr-1">Handoff</span>
+            <div className="flex items-center gap-1.5">
+              <User className="w-3.5 h-3.5 text-gray-400" />
+              <input
+                value={fromNurse}
+                onChange={e => setFromNurse(e.target.value)}
+                placeholder="From nurse"
+                className="border rounded-lg px-2.5 py-1.5 text-xs bg-white focus:outline-none w-40"
+              />
+            </div>
+            <span className="text-gray-400 text-xs">→</span>
+            <div className="flex items-center gap-1.5">
+              <User className="w-3.5 h-3.5 text-gray-400" />
+              <input
+                value={toNurse}
+                onChange={e => setToNurse(e.target.value)}
+                placeholder="To nurse"
+                className="border rounded-lg px-2.5 py-1.5 text-xs bg-white focus:outline-none w-40"
+              />
+            </div>
+          </div>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="text-xs text-gray-500">
               {!allSigned && (

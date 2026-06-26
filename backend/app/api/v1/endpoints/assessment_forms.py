@@ -40,10 +40,15 @@ router = APIRouter(tags=["Assessment Forms"])
 # ---------------------------------------------------------------------------
 
 @router.get("/assessment-forms/favorites")
-def list_favorites(db: Session = Depends(get_db), current = Depends(get_current_staff)):
-    """Favorite form ids for the current staff's clinic: `personal` (this staff
-    member only) and `organization` (shared across the whole clinic/health
-    center, all branches)."""
+def list_favorites(
+    ward_id: Optional[int] = Query(None),
+    db: Session = Depends(get_db),
+    current = Depends(get_current_staff),
+):
+    """Favorite form ids for the current staff's clinic:
+    `personal` (this staff member only), `organization` (shared across the whole
+    clinic/health center, all branches) and, when `ward_id` is supplied, `ward`
+    (shared by everyone working in that ward)."""
     if not current:
         raise HTTPException(status_code=401, detail="Authentication required")
     rows = db.query(StaffFormFavorite).filter(
@@ -51,23 +56,27 @@ def list_favorites(db: Session = Depends(get_db), current = Depends(get_current_
     ).all()
     personal     = [r.form_id for r in rows if r.scope == "personal" and r.staff_id == current.id]
     organization = [r.form_id for r in rows if r.scope == "organization"]
-    return {"personal": personal, "organization": organization}
+    ward         = [r.form_id for r in rows if r.scope == "ward" and ward_id and r.ward_id == ward_id]
+    return {"personal": personal, "organization": organization, "ward": ward}
 
 
 @router.post("/assessment-forms/favorites/{form_id}", status_code=201)
 def add_favorite(
     form_id: int,
     scope:   str = Query("personal"),
+    ward_id: Optional[int] = Query(None),
     db:      Session = Depends(get_db),
     current = Depends(get_current_staff),
 ):
     """Star a form. scope=personal → only this staff member; scope=organization
-    → everyone in the clinic. Any clinical staff may set an organization favorite.
-    Idempotent."""
+    → everyone in the clinic; scope=ward → everyone working in `ward_id`. Any
+    clinical staff may set an organization or ward favorite. Idempotent."""
     if not current:
         raise HTTPException(status_code=401, detail="Authentication required")
-    if scope not in ("personal", "organization"):
-        raise HTTPException(status_code=400, detail="scope must be 'personal' or 'organization'")
+    if scope not in ("personal", "organization", "ward"):
+        raise HTTPException(status_code=400, detail="scope must be 'personal', 'organization' or 'ward'")
+    if scope == "ward" and not ward_id:
+        raise HTTPException(status_code=400, detail="ward_id is required for scope='ward'")
     if not db.query(AssessmentForm).filter(AssessmentForm.id == form_id).first():
         raise HTTPException(status_code=404, detail="Form not found")
     q = db.query(StaffFormFavorite).filter(
@@ -77,30 +86,37 @@ def add_favorite(
     )
     if scope == "personal":
         q = q.filter(StaffFormFavorite.staff_id == current.id)
+    if scope == "ward":
+        q = q.filter(StaffFormFavorite.ward_id == ward_id)
     if not q.first():
         db.add(StaffFormFavorite(
             clinic_id = current.clinic_id,
             staff_id  = current.id,
             form_id   = form_id,
             scope     = scope,
+            ward_id   = ward_id if scope == "ward" else None,
         ))
         db.commit()
-    return {"status": "ok", "form_id": form_id, "scope": scope}
+    return {"status": "ok", "form_id": form_id, "scope": scope, "ward_id": ward_id if scope == "ward" else None}
 
 
 @router.delete("/assessment-forms/favorites/{form_id}")
 def remove_favorite(
     form_id: int,
     scope:   str = Query("personal"),
+    ward_id: Optional[int] = Query(None),
     db:      Session = Depends(get_db),
     current = Depends(get_current_staff),
 ):
     """Unstar a form. personal removes only this staff member's star;
-    organization removes the clinic-wide star (any clinical staff may remove it)."""
+    organization removes the clinic-wide star; ward removes the ward's star
+    (any clinical staff may remove an organization or ward star)."""
     if not current:
         raise HTTPException(status_code=401, detail="Authentication required")
-    if scope not in ("personal", "organization"):
-        raise HTTPException(status_code=400, detail="scope must be 'personal' or 'organization'")
+    if scope not in ("personal", "organization", "ward"):
+        raise HTTPException(status_code=400, detail="scope must be 'personal', 'organization' or 'ward'")
+    if scope == "ward" and not ward_id:
+        raise HTTPException(status_code=400, detail="ward_id is required for scope='ward'")
     q = db.query(StaffFormFavorite).filter(
         StaffFormFavorite.clinic_id == current.clinic_id,
         StaffFormFavorite.form_id == form_id,
@@ -108,9 +124,11 @@ def remove_favorite(
     )
     if scope == "personal":
         q = q.filter(StaffFormFavorite.staff_id == current.id)
+    if scope == "ward":
+        q = q.filter(StaffFormFavorite.ward_id == ward_id)
     q.delete(synchronize_session=False)
     db.commit()
-    return {"status": "ok", "form_id": form_id, "scope": scope}
+    return {"status": "ok", "form_id": form_id, "scope": scope, "ward_id": ward_id if scope == "ward" else None}
 
 
 # ---------------------------------------------------------------------------
