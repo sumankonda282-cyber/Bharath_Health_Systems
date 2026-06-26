@@ -234,7 +234,7 @@ def confirm_online_booking(
 
     conf_patient = None
     if patient_id:
-        conf_patient = db.query(Patient).filter(Patient.id == patient_id).first()
+        conf_patient = db.query(Patient).filter(Patient.id == patient_id, Patient.clinic_id == current.clinic_id).first()
     if not conf_patient and booking.patient_mobile:
         conf_patient = db.query(Patient).filter(
             Patient.clinic_id == current.clinic_id,

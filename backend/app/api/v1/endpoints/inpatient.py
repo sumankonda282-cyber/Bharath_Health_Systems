@@ -844,7 +844,7 @@ def update_referral(
     db: Session = Depends(get_db),
     current: Staff = Depends(get_current_staff),
 ):
-    ref = db.query(InpatientReferral).filter(InpatientReferral.id == referral_id).first()
+    ref = db.query(InpatientReferral).filter(InpatientReferral.id == referral_id, InpatientReferral.clinic_id == current.clinic_id).first()
     if not ref:
         raise HTTPException(status_code=404, detail="Referral not found")
 
@@ -3341,7 +3341,7 @@ def acknowledge_clinical_order(
     db: Session = Depends(get_db),
     current: Staff = Depends(get_current_staff),
 ):
-    order = db.query(ClinicalOrder).filter(ClinicalOrder.id == order_id).first()
+    order = db.query(ClinicalOrder).filter(ClinicalOrder.id == order_id, ClinicalOrder.clinic_id == current.clinic_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     order.status           = "acknowledged"
@@ -3357,7 +3357,7 @@ def start_clinical_order(
     db: Session = Depends(get_db),
     current: Staff = Depends(get_current_staff),
 ):
-    order = db.query(ClinicalOrder).filter(ClinicalOrder.id == order_id).first()
+    order = db.query(ClinicalOrder).filter(ClinicalOrder.id == order_id, ClinicalOrder.clinic_id == current.clinic_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     order.status = "in_progress"
@@ -3372,7 +3372,7 @@ def complete_clinical_order(
     db: Session = Depends(get_db),
     current: Staff = Depends(get_current_staff),
 ):
-    order = db.query(ClinicalOrder).filter(ClinicalOrder.id == order_id).first()
+    order = db.query(ClinicalOrder).filter(ClinicalOrder.id == order_id, ClinicalOrder.clinic_id == current.clinic_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     order.status       = "completed"
@@ -3390,7 +3390,7 @@ def cancel_clinical_order(
     db: Session = Depends(get_db),
     current: Staff = Depends(get_current_staff),
 ):
-    order = db.query(ClinicalOrder).filter(ClinicalOrder.id == order_id).first()
+    order = db.query(ClinicalOrder).filter(ClinicalOrder.id == order_id, ClinicalOrder.clinic_id == current.clinic_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     order.status       = "cancelled"
@@ -3465,7 +3465,7 @@ def get_ward_rounds(ward_id: int = None, admission_id: int = None, db: Session =
 
 @router.get("/admissions/{admission_id}/ward-rounds")
 def get_admission_ward_rounds(admission_id: int, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
-    rounds = db.query(WardRound).filter(WardRound.admission_id == admission_id).order_by(WardRound.created_at.desc()).all()
+    rounds = db.query(WardRound).filter(WardRound.admission_id == admission_id, WardRound.clinic_id == current.clinic_id).order_by(WardRound.created_at.desc()).all()
     return [{"id": r.id, "subjective": r.subjective, "objective": r.objective, "assessment": r.assessment, "plan": r.plan, "round_date": r.round_date.isoformat() if r.round_date else None, "created_at": r.created_at.isoformat() if r.created_at else None, "doctor_id": r.doctor_id} for r in rounds]
 
 
@@ -3484,7 +3484,7 @@ def get_all_notes(ward_id: int = None, db: Session = Depends(get_db), current: S
 
 @router.get("/admissions/{admission_id}/medications")
 def get_medications(admission_id: int, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
-    orders = db.query(MedicationOrder).filter(MedicationOrder.admission_id == admission_id).order_by(MedicationOrder.ordered_at.desc()).all()
+    orders = db.query(MedicationOrder).filter(MedicationOrder.admission_id == admission_id, MedicationOrder.clinic_id == current.clinic_id).order_by(MedicationOrder.ordered_at.desc()).all()
     return [{"id": o.id, "drug_name": o.drug_name, "generic_name": o.generic_name, "dose": o.dose, "route": o.route, "frequency": o.frequency, "duration_days": o.duration_days, "instructions": o.instructions, "is_prn": o.is_prn, "is_stat": o.is_stat, "status": o.status, "ordered_at": o.ordered_at.isoformat() if o.ordered_at else None} for o in orders]
 
 
@@ -3510,7 +3510,7 @@ def add_medication(admission_id: int, body: dict, db: Session = Depends(get_db),
 
 @router.patch("/admissions/{admission_id}/medications/{med_id}")
 def update_medication(admission_id: int, med_id: int, body: dict, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
-    order = db.query(MedicationOrder).filter(MedicationOrder.id == med_id, MedicationOrder.admission_id == admission_id).first()
+    order = db.query(MedicationOrder).filter(MedicationOrder.id == med_id, MedicationOrder.admission_id == admission_id, MedicationOrder.clinic_id == current.clinic_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Medication not found")
     if "infusion_rate" in body and "iv_rate" not in body:
@@ -3527,7 +3527,7 @@ def update_medication(admission_id: int, med_id: int, body: dict, db: Session = 
 
 @router.post("/admissions/{admission_id}/medications/{med_id}/discontinue")
 def discontinue_medication(admission_id: int, med_id: int, body: dict, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
-    order = db.query(MedicationOrder).filter(MedicationOrder.id == med_id, MedicationOrder.admission_id == admission_id).first()
+    order = db.query(MedicationOrder).filter(MedicationOrder.id == med_id, MedicationOrder.admission_id == admission_id, MedicationOrder.clinic_id == current.clinic_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Medication not found")
     order.status = "discontinued"
@@ -3539,7 +3539,7 @@ def discontinue_medication(admission_id: int, med_id: int, body: dict, db: Sessi
 
 @router.post("/admissions/{admission_id}/medications/{med_id}/administer")
 def administer_medication(admission_id: int, med_id: int, body: dict, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
-    order = db.query(MedicationOrder).filter(MedicationOrder.id == med_id).first()
+    order = db.query(MedicationOrder).filter(MedicationOrder.id == med_id, MedicationOrder.clinic_id == current.clinic_id).first()
     # The MAR UI sends `action` (given | held | not_given) — map it to status so a
     # held/not-given dose is NOT silently recorded as "given".
     status = body.get("status") or body.get("action") or "given"
@@ -3583,7 +3583,7 @@ def add_nursing_entry(admission_id: int, body: dict, db: Session = Depends(get_d
 
 @router.get("/admissions/{admission_id}/provider-notes")
 def get_provider_notes(admission_id: int, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
-    notes = db.query(ProgressNote).filter(ProgressNote.admission_id == admission_id).order_by(ProgressNote.note_time.desc()).all()
+    notes = db.query(ProgressNote).filter(ProgressNote.admission_id == admission_id, ProgressNote.clinic_id == current.clinic_id).order_by(ProgressNote.note_time.desc()).all()
     return [{"id": n.id, "subjective": n.subjective, "assessment": n.assessment, "plan": n.plan, "note_type": n.note_type, "note_date": n.note_date.isoformat() if n.note_date else None, "note_time": n.note_time.isoformat() if n.note_time else None, "written_by": n.written_by} for n in notes]
 
 
@@ -3591,13 +3591,13 @@ def get_provider_notes(admission_id: int, db: Session = Depends(get_db), current
 
 @router.get("/admissions/{admission_id}/movements")
 def get_movements(admission_id: int, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
-    transfers = db.query(AdmissionTransfer).filter(AdmissionTransfer.admission_id == admission_id).order_by(AdmissionTransfer.transferred_at.desc()).all()
+    transfers = db.query(AdmissionTransfer).join(Admission, Admission.id == AdmissionTransfer.admission_id).filter(AdmissionTransfer.admission_id == admission_id, Admission.clinic_id == current.clinic_id).order_by(AdmissionTransfer.transferred_at.desc()).all()
     return [{"id": t.id, "from_ward": getattr(t, "from_ward_id", None), "to_ward": getattr(t, "to_ward_id", None), "reason": getattr(t, "reason", None), "transferred_at": t.transferred_at.isoformat() if t.transferred_at else None} for t in transfers]
 
 
 @router.get("/admissions/{admission_id}/patient-movement")
 def get_patient_movement(admission_id: int, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
-    transfers = db.query(AdmissionTransfer).filter(AdmissionTransfer.admission_id == admission_id).order_by(AdmissionTransfer.transferred_at.desc()).all()
+    transfers = db.query(AdmissionTransfer).join(Admission, Admission.id == AdmissionTransfer.admission_id).filter(AdmissionTransfer.admission_id == admission_id, Admission.clinic_id == current.clinic_id).order_by(AdmissionTransfer.transferred_at.desc()).all()
     return [{"id": t.id, "from_ward": getattr(t, "from_ward_id", None), "to_ward": getattr(t, "to_ward_id", None), "reason": getattr(t, "reason", None), "transferred_at": t.transferred_at.isoformat() if t.transferred_at else None} for t in transfers]
 
 
@@ -3605,7 +3605,7 @@ def get_patient_movement(admission_id: int, db: Session = Depends(get_db), curre
 
 @router.get("/admissions/{admission_id}/documents")
 def get_documents(admission_id: int, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
-    sessions = db.query(DocumentationSession).filter(DocumentationSession.admission_id == admission_id).order_by(DocumentationSession.created_at.desc()).all()
+    sessions = db.query(DocumentationSession).filter(DocumentationSession.admission_id == admission_id, DocumentationSession.clinic_id == current.clinic_id).order_by(DocumentationSession.created_at.desc()).all()
     return [{"id": s.id, "doc_type": getattr(s, "doc_type", None), "status": getattr(s, "status", None), "created_at": s.created_at.isoformat() if s.created_at else None} for s in sessions]
 
 

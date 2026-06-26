@@ -275,7 +275,7 @@ def list_stock_transactions(
 def get_prescription(pres_id: int, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
     pres = db.query(Prescription).options(
         joinedload(Prescription.items).joinedload(PrescriptionItem.medicine)
-    ).filter(Prescription.id == pres_id).first()
+    ).filter(Prescription.id == pres_id, Prescription.clinic_id == current.clinic_id).first()
     if not pres:
         raise HTTPException(status_code=404, detail="Not found")
     return {
@@ -298,7 +298,7 @@ def dispense_prescription(pres_id: int, db: Session = Depends(get_db), current: 
         raise HTTPException(status_code=403, detail="Only pharmacists can dispense")
     pres = db.query(Prescription).options(
         joinedload(Prescription.items).joinedload(PrescriptionItem.medicine)
-    ).filter(Prescription.id == pres_id).first()
+    ).filter(Prescription.id == pres_id, Prescription.clinic_id == current.clinic_id).first()
     if not pres:
         raise HTTPException(status_code=404, detail="Not found")
     if pres.status == 'dispensed':
@@ -414,7 +414,7 @@ def list_lab_tests(
 def get_lab_order(order_id: int, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
     order = db.query(LabOrder).options(
         joinedload(LabOrder.items).joinedload(LabOrderItem.test)
-    ).filter(LabOrder.id == order_id).first()
+    ).filter(LabOrder.id == order_id, LabOrder.clinic_id == current.clinic_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Not found")
     return {
@@ -444,7 +444,7 @@ def update_order_status(
     status = status or (body or {}).get("status")
     if not status:
         raise HTTPException(status_code=422, detail="status is required")
-    order = db.query(LabOrder).filter(LabOrder.id == order_id).first()
+    order = db.query(LabOrder).filter(LabOrder.id == order_id, LabOrder.clinic_id == current.clinic_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Not found")
     order.status = status
@@ -463,6 +463,10 @@ def enter_result(
     allowed = ['lab_technician', 'clinic_admin']
     if current.role not in allowed:
         raise HTTPException(status_code=403, detail="Access denied")
+    # Verify the parent order belongs to this clinic before touching its items.
+    order = db.query(LabOrder).filter(LabOrder.id == order_id, LabOrder.clinic_id == current.clinic_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Not found")
     item = db.query(LabOrderItem).filter(
         LabOrderItem.id == item_id, LabOrderItem.order_id == order_id
     ).first()
@@ -472,7 +476,6 @@ def enter_result(
     item.result_notes = payload.result_notes
     item.is_abnormal = payload.is_abnormal
     item.completed_at = datetime.utcnow()
-    order = db.query(LabOrder).filter(LabOrder.id == order_id).first()
     if all(i.completed_at for i in order.items):
         order.status = 'completed'
     db.commit()

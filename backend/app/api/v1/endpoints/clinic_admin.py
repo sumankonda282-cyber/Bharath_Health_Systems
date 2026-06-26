@@ -762,7 +762,10 @@ def set_doctor_schedule(
     db: Session = Depends(get_db),
     current=Depends(require_clinic_admin),
 ):
-    doctor = db.query(DoctorProfile).filter(DoctorProfile.id == doctor_profile_id).first()
+    doctor = db.query(DoctorProfile).filter(
+        DoctorProfile.id == doctor_profile_id,
+        DoctorProfile.clinic_id == current.clinic_id,
+    ).first()
     if not doctor:
         raise HTTPException(404, "Doctor profile not found")
 
@@ -792,6 +795,14 @@ def get_doctor_schedules(
     db: Session = Depends(get_db),
     current=Depends(get_current_staff),
 ):
+    # Scope via the doctor profile's clinic (robust even if legacy schedule rows
+    # have a null clinic_id).
+    doctor = db.query(DoctorProfile).filter(
+        DoctorProfile.id == doctor_profile_id,
+        DoctorProfile.clinic_id == current.clinic_id,
+    ).first()
+    if not doctor:
+        raise HTTPException(404, "Doctor profile not found")
     return db.query(DoctorSchedule).filter(DoctorSchedule.doctor_id == doctor_profile_id).all()
 
 
