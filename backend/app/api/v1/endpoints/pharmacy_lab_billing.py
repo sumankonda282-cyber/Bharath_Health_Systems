@@ -58,7 +58,7 @@ def edit_medicine(
     allowed = ['clinic_admin', 'pharmacist']
     if current.role not in allowed:
         raise HTTPException(status_code=403, detail="Access denied")
-    med = db.query(Medicine).filter(Medicine.id == med_id).first()
+    med = db.query(Medicine).filter(Medicine.id == med_id, Medicine.branch_id == current.branch_id).first()
     if not med:
         raise HTTPException(status_code=404, detail="Medicine not found")
     editable = [
@@ -185,7 +185,7 @@ def update_stock(
     db: Session = Depends(get_db),
     current: Staff = Depends(get_current_staff),
 ):
-    med = db.query(Medicine).filter(Medicine.id == med_id).first()
+    med = db.query(Medicine).filter(Medicine.id == med_id, Medicine.branch_id == current.branch_id).first()
     if not med:
         raise HTTPException(status_code=404, detail="Medicine not found")
     qty_before = med.stock_quantity or 0
@@ -2429,7 +2429,7 @@ def get_alerts(
     ).all()
 
     def med_name(med_id):
-        m = db.query(Medicine).filter(Medicine.id == med_id).first()
+        m = db.query(Medicine).filter(Medicine.id == med_id, Medicine.branch_id == current.branch_id).first()
         return m.name if m else "Unknown"
 
     return {
