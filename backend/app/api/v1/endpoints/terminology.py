@@ -175,8 +175,17 @@ def search_drugs(
         .limit(limit).all()
     )
     return [{
-        "id": d.id, "generic": d.generic, "atc": d.atc, "drug_class": d.drug_class,
-        "routes": d.routes, "brands": d.brands, "rx_only": d.rx_only,
+        "id": d.id,
+        "generic": d.generic,
+        "name": d.generic,
+        "generic_name": d.generic,
+        "atc": d.atc,
+        "drug_class": d.drug_class,
+        "routes": d.routes,
+        "brands_raw": d.brands,
+        "brands": d.brands.split("|") if d.brands else [],
+        "primary_brand": d.primary_brand,
+        "rx_only": d.rx_only,
         "formulations": _json.loads(d.formulations) if d.formulations else [],
     } for d in rows]
 
@@ -285,6 +294,62 @@ def get_drug_interactions(
         }
         for r in rows
     ]
+
+
+class InteractionCheckRequest(BaseModel):
+    generics: List[str] = []
+
+
+@router.post("/drugs/check-interactions")
+def check_drug_interactions(
+    payload: InteractionCheckRequest,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Check pair-wise drug-drug interactions for a list of generic names.
+    Used by the prescription form to flag conflicts against the current med chart."""
+    names = [n.strip().lower() for n in payload.generics if n.strip()]
+    if len(names) < 2:
+        return []
+
+    from sqlalchemy import or_, and_
+    results = []
+    seen = set()
+    for i, drug_a in enumerate(names):
+        for drug_b in names[i + 1:]:
+            pair = tuple(sorted([drug_a, drug_b]))
+            if pair in seen:
+                continue
+            seen.add(pair)
+            rows = (
+                db.query(DrugInteraction)
+                .filter(
+                    or_(
+                        and_(
+                            DrugInteraction.drug_a.ilike(f"%{drug_a}%"),
+                            DrugInteraction.drug_b.ilike(f"%{drug_b}%"),
+                        ),
+                        and_(
+                            DrugInteraction.drug_a.ilike(f"%{drug_b}%"),
+                            DrugInteraction.drug_b.ilike(f"%{drug_a}%"),
+                        ),
+                    )
+                )
+                .order_by(DrugInteraction.severity)
+                .all()
+            )
+            for r in rows:
+                results.append({
+                    "drug_a": r.drug_a,
+                    "drug_b": r.drug_b,
+                    "severity": r.severity,
+                    "interaction_type": getattr(r, "interaction_type", "drug-drug"),
+                    "effect": r.effect,
+                    "management": r.management,
+                })
+    _sev_order = {"contraindicated": 0, "major": 1, "moderate": 2, "minor": 3}
+    results.sort(key=lambda x: _sev_order.get(x["severity"] or "minor", 4))
+    return results
 
 
 @router.get("/counselling/suggest")
