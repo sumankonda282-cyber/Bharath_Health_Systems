@@ -273,15 +273,7 @@ function BillingDrawer({ admission, onClose, onChanged }) {
               {(admission.tpa_id || admission.insurance_provider) && (
                 <SummaryRow label="TPA / Insurance" value={tpaAmount} />
               )}
-              <div className="flex justify-between items-center py-1.5 text-sm">
-                <span className="text-gray-600">Discount</span>
-                <div className="flex items-center gap-1">
-                  <span className="text-gray-400 text-xs">₹</span>
-                  <input type="number" min="0" step="0.01" value={discount}
-                    onChange={e => setDiscount(e.target.value)}
-                    className="w-24 border border-gray-300 rounded px-2 py-0.5 text-sm text-right focus:outline-none focus:ring-1 focus:ring-blue-400" />
-                </div>
-              </div>
+              <SummaryRow label="Discount" value={discountAmt} />
               <Divider />
               <SummaryRow label="Patient Payable" value={patientPayable} bold />
               <SummaryRow label="Amount Paid" value={amountPaid} />

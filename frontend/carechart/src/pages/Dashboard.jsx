@@ -136,7 +136,7 @@ export default function Dashboard() {
       setMetrics(data)
     } catch {
       try {
-        const admissions = await api.get('/inpatient/admissions', { params: { ward_id: wardId, status: 'admitted' } })
+        const admissions = await api.get('/inpatient/admissions', { params: { ward_id: wardId, status: 'active' } })
         const list = Array.isArray(admissions) ? admissions : (admissions.items || [])
         const now = Date.now()
         const pendingVitals = list.filter(a => !a.last_vitals_at || (now - new Date(a.last_vitals_at).getTime()) > 4 * 3600 * 1000)
@@ -161,7 +161,7 @@ export default function Dashboard() {
     if (!wardId) return
     setTableLoading(true)
     try {
-      const admissions = await api.get('/inpatient/admissions', { params: { ward_id: wardId, status: 'admitted' } })
+      const admissions = await api.get('/inpatient/admissions', { params: { ward_id: wardId, status: 'active' } })
       const list = Array.isArray(admissions) ? admissions : (admissions.items || [])
       const now = Date.now()
       let rows = list
