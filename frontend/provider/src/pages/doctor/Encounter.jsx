@@ -124,6 +124,9 @@ const DURATION_OPTIONS = ['3 days', '5 days', '7 days', '10 days', '14 days', '3
 const FOOD_OPTIONS    = ['Before food', 'After food', 'With food', 'Empty stomach', 'Bedtime']
 const ROUTES          = ['Oral', 'IV', 'IM', 'SC', 'Topical', 'Inhaled', 'Sublingual', 'Nasal', 'Ophthalmic', 'Rectal']
 
+const ROUTE_MAP = { PO: 'Oral', IV: 'IV', IM: 'IM', SC: 'SC', PR: 'Rectal', Top: 'Topical', IN: 'Inhaled', SL: 'Sublingual', Op: 'Ophthalmic' }
+const FORM_LABEL = { Tab: 'Tab', Cap: 'Cap', Syr: 'Syr', Inj: 'Inj', Supp: 'Supp', Cream: 'Cream', Drop: 'Drop', Gel: 'Gel', Oint: 'Oint', Patch: 'Patch', Sol: 'Sol' }
+
 // ─── Demographics Bar ─────────────────────────────────────────────────────────
 function DemographicsBar({ patient = {}, vitals = {}, complaint }) {
   const age = calcAge(patient.date_of_birth)
@@ -444,7 +447,25 @@ function ChipSelect({ options, selected, onToggle, multi = true }) {
   )
 }
 
-// ─── Drug search hook ─────────────────────────────────────────────────────────
+// ─── Drug search hook (expanded: one entry per formulation) ──────────────────
+function expandDrugResults(drugs) {
+  const entries = []
+  for (const d of drugs) {
+    const fmts = d.formulations || []
+    if (fmts.length === 0) {
+      entries.push({ ...d, formulation: null, label: d.generic })
+    } else {
+      for (const fmt of fmts) {
+        const doses = (fmt.doses || []).map(n => `${n} ${fmt.unit || 'mg'}`)
+        const brand = d.brands?.[0] || ''
+        const label = `${d.generic}${doses.length ? ` ${doses[0]}` : ''} · ${FORM_LABEL[fmt.form] || fmt.form}${brand ? ` (${brand})` : ''}`
+        entries.push({ ...d, formulation: fmt, label })
+      }
+    }
+  }
+  return entries
+}
+
 function useDrugSearch() {
   const [query, setQuery]     = useState('')
   const [results, setResults] = useState([])
@@ -460,10 +481,11 @@ function useDrugSearch() {
     setLoading(true)
     timerRef.current = setTimeout(async () => {
       try {
-        const res = await api.get('/terminology/drugs/search', { params: { q, limit: 8 } })
-        const data = Array.isArray(res) ? res : (res?.data || res?.results || [])
-        cachePut(`drug:${q}`, data)
-        setResults(data)
+        const res = await api.get('/terminology/drugs/search', { params: { q, limit: 10 } })
+        const raw = Array.isArray(res) ? res : (res?.data || res?.results || [])
+        const expanded = expandDrugResults(raw)
+        cachePut(`drug:${q}`, expanded)
+        setResults(expanded)
       } catch { setResults([]) }
       finally { setLoading(false) }
     }, 350)
@@ -471,6 +493,35 @@ function useDrugSearch() {
 
   const clear = useCallback(() => { setQuery(''); setResults([]) }, [])
   return { query, results, loading, search, clear }
+}
+
+// ─── Drug intelligence hook (counselling + food interactions) ─────────────────
+function useDrugIntelligence() {
+  const [intel, setIntel] = useState(null)
+  const [loading, setLoading] = useState(false)
+
+  const fetch = useCallback(async (generic) => {
+    if (!generic) { setIntel(null); return }
+    const cKey = `intel:${generic}`
+    const cached = cacheGet(cKey)
+    if (cached) { setIntel(cached); return }
+    setLoading(true)
+    try {
+      const [counselRes, foodRes] = await Promise.all([
+        api.get('/terminology/drugs/counselling', { params: { generic } }).catch(() => null),
+        api.get('/terminology/drugs/food-interactions', { params: { generic } }).catch(() => null),
+      ])
+      const tips = counselRes?.tips || counselRes?.data?.tips || []
+      const food = Array.isArray(foodRes) ? foodRes : (foodRes?.data || [])
+      const result = { tips, food }
+      cachePut(cKey, result)
+      setIntel(result)
+    } catch { setIntel(null) }
+    finally { setLoading(false) }
+  }, [])
+
+  const clear = useCallback(() => setIntel(null), [])
+  return { intel, loading, fetch, clear }
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
@@ -533,6 +584,8 @@ export default function Encounter() {
 
   // Drug search (for medications section)
   const drugSearch = useDrugSearch()
+  const drugIntel  = useDrugIntelligence()
+  const [rxInteractions, setRxInteractions] = useState([])
 
   // Lab/Imaging search
   const [labSearch,     setLabSearch]     = useState('')
@@ -553,7 +606,7 @@ export default function Encounter() {
 
   // Drug mini-form
   const [rxDraft, setRxDraft] = useState({
-    drug: null, dosage: '', route: 'Oral', brand: '',
+    drug: null, formulation: null, dosage: '', route: 'Oral', brand: '',
     freq: [], timing: [], duration: '', food: '', notes: '',
   })
 
@@ -821,11 +874,11 @@ export default function Encounter() {
   }, [sections])
 
   // ─── Rx helpers ───────────────────────────────────────────────────────────────
-  const addRxItem = () => {
+  const addRxItem = async () => {
     if (!rxDraft.drug) return
     const item = {
       drug_id:   rxDraft.drug.id,
-      drug_name: rxDraft.drug.generic_name || rxDraft.drug.name,
+      drug_name: rxDraft.drug.generic_name || rxDraft.drug.name || rxDraft.drug.generic,
       dosage:    rxDraft.dosage,
       route:     rxDraft.route,
       brand:     rxDraft.brand,
@@ -835,12 +888,33 @@ export default function Encounter() {
       food:      rxDraft.food,
       notes:     rxDraft.notes,
     }
-    setRxItems(prev => [...prev, item])
-    setRxDraft({ drug: null, dosage: '', route: 'Oral', brand: '', freq: [], timing: [], duration: '', food: '', notes: '' })
+    const newList = [...rxItems, item]
+    setRxItems(newList)
+    setRxDraft({ drug: null, formulation: null, dosage: '', route: 'Oral', brand: '', freq: [], timing: [], duration: '', food: '', notes: '' })
     drugSearch.clear()
+    drugIntel.clear()
+    // Check interactions across the updated full med list
+    const generics = newList.map(rx => rx.drug_name).filter(Boolean)
+    if (generics.length >= 2) {
+      try {
+        const res = await api.post('/terminology/drugs/check-interactions', { generics })
+        setRxInteractions(Array.isArray(res) ? res : (res?.data || []))
+      } catch { /* non-fatal */ }
+    }
   }
 
-  const removeRxItem = idx => setRxItems(prev => prev.filter((_, i) => i !== idx))
+  const removeRxItem = idx => {
+    const newList = rxItems.filter((_, i) => i !== idx)
+    setRxItems(newList)
+    const generics = newList.map(rx => rx.drug_name).filter(Boolean)
+    if (generics.length >= 2) {
+      api.post('/terminology/drugs/check-interactions', { generics })
+        .then(res => setRxInteractions(Array.isArray(res) ? res : (res?.data || [])))
+        .catch(() => {})
+    } else {
+      setRxInteractions([])
+    }
+  }
 
   const toggleRxChip = (field, val) => {
     setRxDraft(d => {
@@ -1383,6 +1457,33 @@ export default function Encounter() {
                   </div>
                 )}
 
+                {/* Drug interactions banner across entire Rx list */}
+                {rxInteractions.length > 0 && (
+                  <div className="space-y-1.5">
+                    {rxInteractions.filter(ix => ix.severity === 'contraindicated' || ix.severity === 'major').map((ix, i) => (
+                      <div key={i} className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs">
+                        <span className="text-red-600 font-bold mt-0.5">⊗</span>
+                        <div>
+                          <span className="font-semibold text-red-700 uppercase tracking-wide">{ix.severity}</span>
+                          <span className="text-red-600 ml-1">{ix.drug_a} + {ix.drug_b}</span>
+                          {ix.effect && <p className="text-red-500 mt-0.5">{ix.effect}</p>}
+                          {ix.management && <p className="text-red-400 italic mt-0.5">{ix.management}</p>}
+                        </div>
+                      </div>
+                    ))}
+                    {rxInteractions.filter(ix => ix.severity === 'moderate').map((ix, i) => (
+                      <div key={`mod-${i}`} className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs">
+                        <span className="text-amber-500 font-bold mt-0.5">⚠</span>
+                        <div>
+                          <span className="font-semibold text-amber-700">Moderate</span>
+                          <span className="text-amber-600 ml-1">{ix.drug_a} + {ix.drug_b}</span>
+                          {ix.effect && <p className="text-amber-500 mt-0.5">{ix.effect}</p>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 {!isLocked && (
                   <div className="border border-dashed border-blue-200 rounded-xl p-3 space-y-3 bg-blue-50/30">
                     <p className="text-xs font-semibold text-gray-600">Add Medication</p>
@@ -1395,54 +1496,117 @@ export default function Encounter() {
                         }
                         <input
                           className="flex-1 text-sm outline-none placeholder-gray-400"
-                          placeholder="Search drug / generic name…"
-                          value={rxDraft.drug ? (rxDraft.drug.generic_name || rxDraft.drug.name) : drugSearch.query}
+                          placeholder="Search generic or brand name…"
+                          value={rxDraft.drug ? rxDraft.drug.label : drugSearch.query}
                           onChange={e => {
-                            if (rxDraft.drug) setRxDraft(d => ({ ...d, drug: null }))
+                            if (rxDraft.drug) setRxDraft(d => ({ ...d, drug: null, formulation: null, dosage: '', route: 'Oral' }))
                             drugSearch.search(e.target.value)
+                            drugIntel.clear()
                           }}
                         />
                         {(drugSearch.query || rxDraft.drug) && (
-                          <button onClick={() => { drugSearch.clear(); setRxDraft(d => ({ ...d, drug: null })) }}>
+                          <button onClick={() => { drugSearch.clear(); drugIntel.clear(); setRxDraft(d => ({ ...d, drug: null, formulation: null, dosage: '', route: 'Oral' })) }}>
                             <X size={13} className="text-gray-400" />
                           </button>
                         )}
                       </div>
                       {drugSearch.results.length > 0 && !rxDraft.drug && (
-                        <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg z-40 max-h-48 overflow-y-auto mt-1">
-                          {drugSearch.results.map((d, i) => (
-                            <button
-                              key={i}
-                              onClick={() => {
-                                setRxDraft(dr => ({ ...dr, drug: d, brand: d.brands?.[0] || '' }))
-                                drugSearch.clear()
-                              }}
-                              className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm border-b border-gray-50 last:border-0"
-                            >
-                              <span className="font-medium">{d.generic_name || d.name}</span>
-                              {d.generic_name && d.name !== d.generic_name && (
-                                <span className="ml-2 text-xs text-gray-400">{d.name}</span>
-                              )}
-                              {d.strength && (
-                                <span className="ml-2 text-xs text-blue-500">{d.strength}</span>
-                              )}
-                            </button>
-                          ))}
+                        <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg z-40 max-h-56 overflow-y-auto mt-1">
+                          {drugSearch.results.map((d, i) => {
+                            const fmt = d.formulation
+                            const formBadge = fmt ? (FORM_LABEL[fmt.form] || fmt.form) : null
+                            return (
+                              <button
+                                key={i}
+                                onClick={() => {
+                                  const autoRoute = fmt ? (ROUTE_MAP[fmt.route] || 'Oral') : 'Oral'
+                                  const doses = fmt?.doses || []
+                                  const unit  = fmt?.unit || 'mg'
+                                  const autoD = doses.length === 1 ? `${doses[0]} ${unit}` : ''
+                                  setRxDraft(dr => ({
+                                    ...dr,
+                                    drug: d,
+                                    formulation: fmt,
+                                    route: autoRoute,
+                                    dosage: autoD,
+                                    brand: d.brands?.[0] || '',
+                                  }))
+                                  drugSearch.clear()
+                                  drugIntel.fetch(d.generic || d.generic_name || d.name)
+                                }}
+                                className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm border-b border-gray-50 last:border-0"
+                              >
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  {formBadge && (
+                                    <span className="text-[10px] font-semibold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">{formBadge}</span>
+                                  )}
+                                  <span className="font-medium text-gray-800">{d.generic || d.generic_name || d.name}</span>
+                                  {fmt?.doses?.length > 0 && (
+                                    <span className="text-xs text-blue-500">{fmt.doses.join('/')} {fmt.unit}</span>
+                                  )}
+                                  {d.brands?.[0] && (
+                                    <span className="text-xs text-gray-400">({d.brands[0]})</span>
+                                  )}
+                                </div>
+                              </button>
+                            )
+                          })}
                         </div>
                       )}
                     </div>
 
                     {rxDraft.drug && (
                       <>
+                        {/* Drug intelligence: counselling + food */}
+                        {(drugIntel.intel?.tips?.length > 0 || drugIntel.intel?.food?.length > 0) && (
+                          <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 space-y-1.5">
+                            {drugIntel.intel.tips?.length > 0 && (
+                              <div>
+                                <p className="text-[10px] font-semibold text-green-700 uppercase tracking-wide mb-1">Counselling Tips</p>
+                                {drugIntel.intel.tips.map((tip, ti) => (
+                                  <p key={ti} className="text-xs text-green-700 flex items-start gap-1">
+                                    <span className="mt-0.5 flex-shrink-0">💡</span>{tip}
+                                  </p>
+                                ))}
+                              </div>
+                            )}
+                            {drugIntel.intel.food?.length > 0 && (
+                              <div>
+                                <p className="text-[10px] font-semibold text-orange-700 uppercase tracking-wide mb-1">Food / Lifestyle</p>
+                                {drugIntel.intel.food.map((fi, fi2) => (
+                                  <p key={fi2} className="text-xs text-orange-600 flex items-start gap-1">
+                                    <span className="mt-0.5 flex-shrink-0">⚠</span>
+                                    <span><b>{fi.food}</b>{fi.effect ? ` — ${fi.effect}` : ''}</span>
+                                  </p>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
                         <div className="grid grid-cols-2 gap-2">
                           <div>
                             <label className="text-[10px] text-gray-500 uppercase tracking-wide">Dosage / Strength</label>
-                            <input
-                              className="w-full mt-0.5 text-sm border border-gray-200 rounded-lg px-2 py-1.5 outline-none focus:border-blue-300"
-                              placeholder="e.g. 500mg, 5ml"
-                              value={rxDraft.dosage}
-                              onChange={e => setRxDraft(d => ({ ...d, dosage: e.target.value }))}
-                            />
+                            {rxDraft.formulation?.doses?.length > 1 ? (
+                              <select
+                                className="w-full mt-0.5 text-sm border border-gray-200 rounded-lg px-2 py-1.5 outline-none bg-white focus:border-blue-300"
+                                value={rxDraft.dosage}
+                                onChange={e => setRxDraft(d => ({ ...d, dosage: e.target.value }))}
+                              >
+                                <option value="">Select dose</option>
+                                {rxDraft.formulation.doses.map(dose => {
+                                  const label = `${dose} ${rxDraft.formulation.unit || 'mg'}`
+                                  return <option key={dose} value={label}>{label}</option>
+                                })}
+                              </select>
+                            ) : (
+                              <input
+                                className="w-full mt-0.5 text-sm border border-gray-200 rounded-lg px-2 py-1.5 outline-none focus:border-blue-300"
+                                placeholder="e.g. 500mg, 5ml"
+                                value={rxDraft.dosage}
+                                onChange={e => setRxDraft(d => ({ ...d, dosage: e.target.value }))}
+                              />
+                            )}
                           </div>
                           {rxDraft.drug.brands?.length > 0 && (
                             <div>
@@ -1460,7 +1624,9 @@ export default function Encounter() {
                         </div>
 
                         <div>
-                          <label className="text-[10px] text-gray-500 uppercase tracking-wide mb-1 block">Route</label>
+                          <label className="text-[10px] text-gray-500 uppercase tracking-wide mb-1 block">
+                            Route{rxDraft.formulation ? <span className="ml-1 text-blue-500 normal-case">(auto-filled)</span> : ''}
+                          </label>
                           <ChipSelect
                             options={ROUTES}
                             selected={rxDraft.route}
