@@ -205,18 +205,19 @@ function UploadModal({ order, onClose, onUploaded }) {
     if (!file) { setError('Please select a file.'); return }
     setSaving(true)
     setError('')
-    try {
-      const reader = new FileReader()
-      reader.onload = async ev => {
+    const reader = new FileReader()
+    reader.onload = async ev => {
+      try {
         const b64 = ev.target.result.split(',')[1]
         await api.post(`/imaging-orders/${order.order_id}/upload-pdf`, { pdf_b64: b64 })
         onUploaded()
+      } catch (e) {
+        setError(e.response?.data?.detail || e.message || 'Upload failed')
+        setSaving(false)
       }
-      reader.readAsDataURL(file)
-    } catch (e) {
-      setError(e.response?.data?.detail || e.message)
-      setSaving(false)
     }
+    reader.onerror = () => { setError('Could not read the file.'); setSaving(false) }
+    reader.readAsDataURL(file)
   }
 
   return (
