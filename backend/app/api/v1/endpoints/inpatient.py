@@ -485,7 +485,7 @@ def list_admissions(
             d["bill"] = {
                 "status": bill.status,
                 "bill_number": bill.bill_number,
-                "gross_total": float(bill.gross_total or 0),
+                "gross_total": float(bill.total or 0),
                 "amount_paid": float(bill.amount_paid or 0),
                 "discount": float(bill.discount or 0),
             }
