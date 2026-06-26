@@ -380,13 +380,10 @@ def patient_chart(
 @router.get("/profile")
 def get_my_doctor_profile(db: Session = Depends(get_db), current: Staff = Depends(require_doctor)):
     profile = db.query(DoctorProfile).filter(DoctorProfile.staff_id == current.id).first()
-    # qualifications: prefer the new JSON list; fall back to splitting the old text field
+    # qualifications: split the stored comma-separated text field into a list
     qualifications = None
-    if profile:
-        if profile.qualifications_list is not None:
-            qualifications = profile.qualifications_list
-        elif profile.qualification:
-            qualifications = [q.strip() for q in profile.qualification.split(',') if q.strip()]
+    if profile and profile.qualification:
+        qualifications = [q.strip() for q in profile.qualification.split(',') if q.strip()]
     return {
         "id":                  current.id,
         "full_name":           current.full_name,
@@ -402,9 +399,11 @@ def get_my_doctor_profile(db: Session = Depends(get_db), current: Staff = Depend
         "languages":           [l.strip() for l in profile.languages.split(',') if l.strip()] if profile and profile.languages else [],
         "telehealth_enabled":  profile.telehealth_enabled if profile else False,
         "telehealth_available": profile.telehealth_enabled if profile else False,
-        "is_online":           profile.is_online if profile else False,
-        "achievements":        profile.achievements if profile else [],
-        "working_hours":       profile.working_hours if profile else {},
+        # is_online / achievements / working_hours are not columns on DoctorProfile;
+        # return safe defaults so the contract holds without crashing.
+        "is_online":           getattr(profile, "is_online", False) if profile else False,
+        "achievements":        getattr(profile, "achievements", []) if profile else [],
+        "working_hours":       getattr(profile, "working_hours", {}) if profile else {},
         "doctor_profile_id":   profile.id if profile else None,
         "input_mode":          profile.input_mode if profile else 'type',
     }

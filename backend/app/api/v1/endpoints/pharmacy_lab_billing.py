@@ -1727,19 +1727,19 @@ def report_tat(
     from sqlalchemy import text
     sql = text("""
         SELECT
-            COALESCE(modality, 'Unknown') AS modality,
-            COUNT(*) FILTER (WHERE status = 'acquired' AND acquired_at IS NOT NULL) AS acquired_count,
-            AVG(EXTRACT(EPOCH FROM (acquired_at - created_at))/3600)
-                FILTER (WHERE status = 'acquired' AND acquired_at IS NOT NULL) AS avg_acquire_tat_hrs,
-            COUNT(*) FILTER (WHERE status IN ('signed') AND ir.signed_at IS NOT NULL) AS signed_count,
+            COALESCE(io.modality, 'Unknown') AS modality,
+            COUNT(*) FILTER (WHERE io.status = 'acquired' AND io.acquired_at IS NOT NULL) AS acquired_count,
+            AVG(EXTRACT(EPOCH FROM (io.acquired_at - io.created_at))/3600)
+                FILTER (WHERE io.status = 'acquired' AND io.acquired_at IS NOT NULL) AS avg_acquire_tat_hrs,
+            COUNT(*) FILTER (WHERE io.status IN ('signed') AND ir.signed_at IS NOT NULL) AS signed_count,
             AVG(EXTRACT(EPOCH FROM (ir.signed_at - io.created_at))/3600)
                 FILTER (WHERE io.status = 'signed' AND ir.signed_at IS NOT NULL) AS avg_sign_tat_hrs
         FROM imaging_orders io
         LEFT JOIN imaging_results ir ON ir.order_id = io.id
         WHERE io.clinic_id = :clinic_id
           AND DATE(io.created_at) BETWEEN :from_date AND :to_date
-        GROUP BY modality
-        ORDER BY modality
+        GROUP BY io.modality
+        ORDER BY io.modality
     """)
     rows = db.execute(sql, {"clinic_id": current.clinic_id, "from_date": from_date, "to_date": to_date}).fetchall()
     return [
@@ -3836,16 +3836,17 @@ def get_cpoe_queue(
         if len(names) > 1:
             for i, d1 in enumerate(names):
                 for d2 in names[i + 1:]:
+                    # DrugInteraction columns are drug_a / drug_b (not drug1/drug2).
                     found = db.query(DrugInteraction).filter(
-                        (DrugInteraction.drug1.ilike(f"%{d1[:20]}%") & DrugInteraction.drug2.ilike(f"%{d2[:20]}%")) |
-                        (DrugInteraction.drug1.ilike(f"%{d2[:20]}%") & DrugInteraction.drug2.ilike(f"%{d1[:20]}%"))
+                        (DrugInteraction.drug_a.ilike(f"%{d1[:20]}%") & DrugInteraction.drug_b.ilike(f"%{d2[:20]}%")) |
+                        (DrugInteraction.drug_a.ilike(f"%{d2[:20]}%") & DrugInteraction.drug_b.ilike(f"%{d1[:20]}%"))
                     ).first()
                     if found:
                         interactions.append({
                             "drug1":       d1,
                             "drug2":       d2,
-                            "severity":    getattr(found, "severity", "moderate"),
-                            "description": getattr(found, "description", "Possible interaction — verify with prescriber"),
+                            "severity":    found.severity or "moderate",
+                            "description": found.effect or found.management or "Possible interaction — verify with prescriber",
                         })
         pdata["interactions"]     = interactions
         pdata["has_interactions"] = len(interactions) > 0

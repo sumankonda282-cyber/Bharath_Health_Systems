@@ -485,7 +485,7 @@ def list_admissions(
             d["bill"] = {
                 "status": bill.status,
                 "bill_number": bill.bill_number,
-                "gross_total": float(bill.gross_total or 0),
+                "gross_total": float(bill.total or 0),
                 "amount_paid": float(bill.amount_paid or 0),
                 "discount": float(bill.discount or 0),
             }
@@ -1012,7 +1012,8 @@ def bhid_lookup(
 
     return {
         "bh_id": profile.bh_id,
-        "full_name": profile.full_name,
+        # BHProfile stores first_name/last_name, not a full_name column.
+        "full_name": f"{profile.first_name} {profile.last_name}".strip(),
         "date_of_birth": profile.date_of_birth,
         "gender": profile.gender,
         "mobile": user.mobile,
@@ -1924,7 +1925,12 @@ def _progress_note_dict(n: ProgressNote, db: Session) -> dict:
         "assessment": n.assessment,
         "plan": n.plan,
         "written_by_name": name,
-        "created_at": n.created_at.isoformat(),
+        # ProgressNote has no created_at column; note_time is a full DateTime
+        # (defaults to utcnow at insert), so it is the effective creation time.
+        "created_at": (
+            n.note_time.isoformat() if n.note_time
+            else (str(n.note_date) if n.note_date else None)
+        ),
     }
 
 
@@ -3721,8 +3727,9 @@ def get_patient_movement(admission_id: int, db: Session = Depends(get_db), curre
 
 @router.get("/admissions/{admission_id}/documents")
 def get_documents(admission_id: int, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
-    sessions = db.query(DocumentationSession).filter(DocumentationSession.admission_id == admission_id, DocumentationSession.clinic_id == current.clinic_id).order_by(DocumentationSession.created_at.desc()).all()
-    return [{"id": s.id, "doc_type": getattr(s, "doc_type", None), "status": getattr(s, "status", None), "created_at": s.created_at.isoformat() if s.created_at else None} for s in sessions]
+    # DocumentationSession has no created_at; signed_at is its timestamp.
+    sessions = db.query(DocumentationSession).filter(DocumentationSession.admission_id == admission_id, DocumentationSession.clinic_id == current.clinic_id).order_by(DocumentationSession.signed_at.desc()).all()
+    return [{"id": s.id, "doc_type": getattr(s, "doc_type", None), "status": getattr(s, "status", None), "shift": s.shift, "note": s.note, "created_at": s.signed_at.isoformat() if s.signed_at else None} for s in sessions]
 
 
 # ── Discharge checklist + confirm ─────────────────────────────────────────────
