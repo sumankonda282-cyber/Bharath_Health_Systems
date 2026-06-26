@@ -102,7 +102,8 @@ export default function Login() {
         <BrandLogo size="md" light />
         <div>
           <h2 className="text-3xl font-extrabold leading-tight mb-3">
-            Ward care,<br />at your fingertips.
+            Comprehensive care,<br />
+            <span style={{ color: '#F5821E' }}>continuously tracked.</span>
           </h2>
           <p className="text-green-100 text-sm leading-relaxed">
             CareChart connects nurses, doctors and ward staff in one unified portal — vitals, orders, assessments and handoffs in one place.

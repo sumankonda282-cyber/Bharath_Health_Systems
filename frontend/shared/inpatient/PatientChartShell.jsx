@@ -234,7 +234,7 @@ function DashboardContent({ adm, patient, vitals, loading, dashboardActions, onE
   const hasPatientInfo = Object.keys(pat).length > 0
 
   return (
-    <div className="p-5 flex flex-col gap-5 overflow-y-auto h-full">
+    <div className="px-0 pt-0 pb-5 flex flex-col gap-5 overflow-y-auto h-full">
 
       {/* Stat cards grid */}
       <div>
@@ -752,7 +752,7 @@ export default function PatientChartShell({
             />
           ) : (
             <div className="flex-1 overflow-y-auto">
-              <div className="p-5">
+              <div className="px-0 pt-0 pb-5">
                 <SectionErrorBoundary key={activeNav}>{renderContent(activeNav)}</SectionErrorBoundary>
               </div>
             </div>
