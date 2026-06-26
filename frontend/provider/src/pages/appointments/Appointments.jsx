@@ -516,7 +516,8 @@ export default function Appointments() {
     try {
       await appointmentsApi.cancelBooking(id)
       loadAppts()
-    } catch { /* silent */ } finally { setActioningId(null) }
+    } catch (e) { setConfirmError(e?.response?.data?.detail || 'Could not cancel the booking') }
+    finally { setActioningId(null) }
   }
 
   // Action label logic

@@ -40,31 +40,41 @@ export default function PlatformAdmin() {
 
   const handleVerify = async (id) => {
     setSaving(true)
-    try { await platformApi.verify(id); load() } finally { setSaving(false) }
+    try { await platformApi.verify(id); load() }
+    catch (e) { alert(e?.response?.data?.detail || 'Could not approve') }
+    finally { setSaving(false) }
   }
 
   const handleReject = async (id) => {
     setSaving(true)
-    try { await platformApi.reject(id); load() } finally { setSaving(false) }
+    try { await platformApi.reject(id); load() }
+    catch (e) { alert(e?.response?.data?.detail || 'Could not reject') }
+    finally { setSaving(false) }
   }
 
   const handleVerifyStaff = async (id) => {
     setSaving(true)
-    try { await platformApi.verifyStaff(id); load() } finally { setSaving(false) }
+    try { await platformApi.verifyStaff(id); load() }
+    catch (e) { alert(e?.response?.data?.detail || 'Could not verify staff') }
+    finally { setSaving(false) }
   }
 
   const handleRejectStaff = async (id) => {
     setSaving(true)
-    try { await platformApi.rejectStaff(id); load() } finally { setSaving(false) }
+    try { await platformApi.rejectStaff(id); load() }
+    catch (e) { alert(e?.response?.data?.detail || 'Could not reject staff') }
+    finally { setSaving(false) }
   }
 
   const handleToggle = async (clinic) => {
-    if (clinic.is_active) {
-      await platformApi.suspend(clinic.id)
-    } else {
-      await platformApi.reactivate(clinic.id)
-    }
-    load()
+    try {
+      if (clinic.is_active) {
+        await platformApi.suspend(clinic.id)
+      } else {
+        await platformApi.reactivate(clinic.id)
+      }
+      load()
+    } catch (e) { alert(e?.response?.data?.detail || 'Could not update status') }
   }
 
   const handleSubscription = async () => {
@@ -73,7 +83,8 @@ export default function PlatformAdmin() {
       await platformApi.setSubscription(showSubscription.id, newPlan, 'active')
       setShowSubscription(null)
       load()
-    } finally { setSaving(false) }
+    } catch (e) { alert(e?.response?.data?.detail || 'Could not update subscription') }
+    finally { setSaving(false) }
   }
 
   const filtered = allClinics.filter(c =>
