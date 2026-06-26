@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Video, Loader2, AlertTriangle, Clock, RefreshCw, User } from 'lucide-react'
+import { Video, Loader2, AlertTriangle, Clock, User } from 'lucide-react'
 import api from '../api/client'
 
 function todayIST() {
@@ -51,18 +51,6 @@ export default function Telehealth() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6 gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Video size={22} className="text-emerald-600" /> Telehealth Monitor
-          </h1>
-          <p className="text-sm text-gray-500 mt-1">Today's video consultations — view only</p>
-        </div>
-        <button onClick={load} className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50">
-          <RefreshCw size={14} /> Refresh
-        </button>
-      </div>
-
       <div className="grid grid-cols-3 gap-4 mb-6">
         <StatPill label="Live Now"  count={live}      color="#16a34a" />
         <StatPill label="Waiting"   count={waiting}   color="#d97706" />

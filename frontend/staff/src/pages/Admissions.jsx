@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import api from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 import {
-  Plus, Search, RefreshCw, BedDouble, UserCheck, LogOut,
+  Plus, Search, BedDouble, UserCheck, LogOut,
   ArrowRightLeft, X, ChevronDown, ChevronUp, Loader2, AlertCircle,
   Clock, Filter,
 } from 'lucide-react'
@@ -768,16 +768,8 @@ export default function Admissions() {
   return (
     <div className="max-w-7xl">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
-        <div>
-          <h1 className="text-2xl font-bold" style={{ color: '#0F2557' }}>Admissions (IPD)</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Inpatient desk — admissions, beds &amp; discharges</p>
-        </div>
+      <div className="flex flex-wrap items-center justify-end gap-3 mb-5">
         <div className="flex gap-2">
-          <button onClick={() => setRefresh(v => v + 1)}
-            className="flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-xl text-sm hover:bg-gray-50">
-            <RefreshCw size={14} />Refresh
-          </button>
           <button onClick={() => setShowAdmit(true)}
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white"
             style={{ background: '#0F2557' }}>

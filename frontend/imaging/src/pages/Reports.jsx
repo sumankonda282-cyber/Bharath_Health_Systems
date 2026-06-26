@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import api from '../api/client'
 import { cachedFetch, TTL } from '../utils/cache'
-import { BarChart2, ChevronDown, ChevronUp, Loader2, AlertCircle, RefreshCw } from 'lucide-react'
+import { BarChart2, ChevronDown, ChevronUp, Loader2, AlertCircle } from 'lucide-react'
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10)
@@ -329,14 +329,6 @@ export default function Reports() {
 
   return (
     <div>
-      <div className="page-header">
-        <h1 className="page-title">Analytics & Reports</h1>
-        <button onClick={fetchOrders} className="btn-secondary gap-2">
-          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-          Refresh
-        </button>
-      </div>
-
       {error && (
         <div className="flex items-center gap-3 p-4 mb-4 bg-red-50 border border-red-200 rounded-2xl text-red-700 text-sm">
           <AlertCircle size={16} />

@@ -157,15 +157,6 @@ export default function DrugRegister() {
   return (
     <div>
       <div className="page-header">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: '#0F255718' }}>
-            <BookOpen size={19} style={{ color: '#0F2557' }} />
-          </div>
-          <div>
-            <h1 className="page-title">Drug Register</h1>
-            <p className="text-sm text-gray-400 mt-0.5">Schedule H / X controlled drug dispensing record</p>
-          </div>
-        </div>
         <div className="flex gap-2">
           <button
             onClick={doPrint}

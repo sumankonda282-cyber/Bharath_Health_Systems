@@ -45,13 +45,6 @@ export default function PendingReview() {
 
   return (
     <div>
-      <div className="page-header">
-        <h1 className="page-title">Pending Review</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          {loading ? 'Loading…' : `${orders.length} scan${orders.length !== 1 ? 's' : ''} awaiting report`}
-        </p>
-      </div>
-
       {error && (
         <div className="flex items-center gap-3 p-4 mb-4 bg-red-50 border border-red-200 rounded-2xl text-red-700 text-sm">
           <AlertCircle size={16} />

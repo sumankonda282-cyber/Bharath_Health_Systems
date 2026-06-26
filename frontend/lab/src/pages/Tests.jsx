@@ -166,7 +166,6 @@ export default function Tests() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">Test Catalog</h1>
         <button onClick={() => setShowModal(true)} className="btn-primary">
           <Plus size={16} /> Add Test
         </button>

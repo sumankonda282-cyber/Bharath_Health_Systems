@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import api from '../api/client'
-import { RefreshCw, Loader2, ClipboardList } from 'lucide-react'
+import { Loader2, ClipboardList } from 'lucide-react'
 
 const STATUS_ORDER = { waiting: 0, scheduled: 1, in_progress: 2, completed: 3, cancelled: 4 }
 
@@ -22,13 +22,6 @@ export default function Queue() {
 
   return (
     <div>
-      <div className="page-header">
-        <h1 className="page-title">Live Queue</h1>
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-500">Auto-refreshes every 30s</span>
-          <button onClick={load} className="btn-secondary"><RefreshCw size={15} /></button>
-        </div>
-      </div>
       {loading ? <div className="flex justify-center py-20"><Loader2 size={28} className="animate-spin text-gray-400" /></div> : (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">

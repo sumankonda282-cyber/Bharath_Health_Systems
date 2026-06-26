@@ -40,8 +40,6 @@ export default function PatientHistory() {
 
   return (
     <div>
-      <div className="page-header"><h1 className="page-title">Patient Test History</h1></div>
-
       <div className="flex gap-3 mb-6">
         <div className="relative flex-1">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />

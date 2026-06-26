@@ -161,10 +161,6 @@ export default function Billing() {
 
   return (
     <div>
-      <div className="page-header">
-        <h1 className="page-title">Imaging Billing</h1>
-      </div>
-
       {/* Summary cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <div className="card p-5">

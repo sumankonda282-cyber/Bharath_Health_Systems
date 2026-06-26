@@ -185,7 +185,6 @@ export default function Schedule() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">Imaging Schedule</h1>
         <div className="flex gap-3 items-center">
           <input type="date" className="input-sm" value={date} onChange={e => setDate(e.target.value)}/>
           <button onClick={() => setModal('add-slot')} className="btn-primary gap-2">

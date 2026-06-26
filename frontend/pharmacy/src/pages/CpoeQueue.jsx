@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import api from '../api/client'
 import {
-  ClipboardList, RefreshCw, Loader2, ChevronDown, ChevronRight,
+  ClipboardList, Loader2, ChevronDown, ChevronRight,
   AlertTriangle, ShoppingCart, CheckCircle, User, Plus,
 } from 'lucide-react'
 
@@ -243,19 +243,6 @@ export default function CpoeQueue() {
           {toast}
         </div>
       )}
-
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">CPOE Queue</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            Pending OPD prescriptions + active IPD medication orders
-            {statCount > 0 && <span className="ml-2 badge-stat px-2 py-0.5 rounded-full text-[11px]">{statCount} STAT</span>}
-          </p>
-        </div>
-        <button onClick={() => load()} className="btn-secondary" disabled={refreshing}>
-          <RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />Refresh
-        </button>
-      </div>
 
       <div className="toolbar mb-4">
         {[

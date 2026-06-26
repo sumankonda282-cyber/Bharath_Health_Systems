@@ -207,11 +207,6 @@ export default function ResultEntry() {
 
   return (
     <div>
-      <div className="page-header">
-        <h1 className="page-title">Enter Results</h1>
-        <button onClick={fetchOrders} className="btn-secondary text-sm">Refresh</button>
-      </div>
-
       {/* Filter tabs */}
       <div className="flex gap-1 mb-5 bg-white rounded-xl border border-gray-200 p-1 w-fit shadow-sm">
         {FILTER_TABS.map(tab => (

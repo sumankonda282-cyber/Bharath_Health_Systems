@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import api from '../api/client'
-import { UserSearch, ChevronDown, ChevronRight, Download, Search, Loader2, AlertCircle } from 'lucide-react'
+import { ChevronDown, ChevronRight, Download, Search, Loader2, AlertCircle } from 'lucide-react'
 
 function todayStr() { return new Date().toISOString().split('T')[0] }
 
@@ -52,12 +52,6 @@ export default function PatientMedicationHistory() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
-      <div className="page-header mb-6">
-        <h1 className="page-title flex items-center gap-2">
-          <UserSearch className="w-5 h-5" /> Patient Medication History
-        </h1>
-      </div>
-
       <form onSubmit={handleSearch} className="bg-white rounded-xl border border-gray-200 p-5 mb-6 flex gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />

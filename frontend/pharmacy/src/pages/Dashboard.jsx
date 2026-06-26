@@ -4,7 +4,7 @@ import api from '../api/client'
 import {
   Pill, Package, ClipboardList, ShoppingCart, IndianRupee,
   TrendingUp, AlertTriangle, Clock, Loader2, PackagePlus, BarChart3,
-  CheckCircle, AlertCircle, RefreshCw,
+  CheckCircle, AlertCircle,
 } from 'lucide-react'
 
 function todayStr() { return new Date().toISOString().slice(0, 10) }
@@ -182,13 +182,6 @@ export default function Dashboard() {
 
   return (
     <div>
-      <div className="page-header">
-        <h1 className="page-title">Pharmacy Dashboard</h1>
-        <button onClick={() => load(true)} className="btn-secondary" disabled={refreshing}>
-          <RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />Refresh
-        </button>
-      </div>
-
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <KpiCard label="Revenue Today"    value={fmtCur(revenueToday)} icon={IndianRupee}  color="#0F2557" />

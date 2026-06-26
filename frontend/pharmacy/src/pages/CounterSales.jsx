@@ -673,9 +673,6 @@ export default function CounterSales() {
 
   return (
     <div>
-      <div className="page-header">
-        <h1 className="page-title">Counter Sales</h1>
-      </div>
       <div className="flex gap-1 mb-6 bg-white rounded-xl p-1 border border-gray-200 shadow-sm w-fit">
         {MAIN_TABS.map(t => (
           <button key={t} onClick={() => setMainTab(t)}

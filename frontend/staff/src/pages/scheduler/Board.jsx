@@ -166,11 +166,7 @@ export default function Board() {
 
   return (
     <div>
-      <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
-        <div>
-          <h1 className="text-xl font-extrabold text-gray-800">Schedule Board</h1>
-          <p className="text-sm text-gray-500">Drag a shift onto a cell to assign · click ✕ on a chip to remove</p>
-        </div>
+      <div className="flex items-center justify-end flex-wrap gap-3 mb-4">
         <div className="flex items-center gap-2 flex-wrap">
           <button onClick={copyToNextWeek} className="btn-secondary btn-sm" title="Copy this week's shifts to next week">
             <Copy size={13} />Copy → Next Week

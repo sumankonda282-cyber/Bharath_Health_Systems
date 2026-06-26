@@ -208,7 +208,6 @@ export default function Inventory() {
     <div>
       {batchTarget && <BatchPanel med={batchTarget} onClose={() => setBatchTarget(null)} />}
       <div className="page-header">
-        <h1 className="page-title">Medicine Inventory</h1>
         <button onClick={openAdd} className="btn-primary"><Plus size={16} />Add Medicine</button>
       </div>
 

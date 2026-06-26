@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import api from '../api/client'
 import { cachedFetch, cacheInvalidate, TTL } from '../utils/cache'
 import {
-  History, Loader2, Search, Eye, Printer, X, RefreshCw, AlertTriangle,
+  History, Loader2, Search, Eye, Printer, X, AlertTriangle,
   CheckCircle, Clock,
 } from 'lucide-react'
 
@@ -157,11 +157,6 @@ export default function RxHistory() {
   return (
     <div>
       {viewInvoice && <PrintModal invoice={viewInvoice} onClose={() => setViewInvoice(null)} />}
-
-      <div className="page-header">
-        <h1 className="page-title">Rx History</h1>
-        <button onClick={() => load(true)} className="btn-secondary"><RefreshCw size={15} />Refresh</button>
-      </div>
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4 mb-5">

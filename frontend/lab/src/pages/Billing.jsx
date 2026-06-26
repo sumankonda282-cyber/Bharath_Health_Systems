@@ -135,11 +135,6 @@ export default function Billing() {
 
   return (
     <div>
-      <div className="page-header">
-        <h1 className="page-title">Billing</h1>
-        <button onClick={fetchInvoices} className="btn-secondary text-sm">Refresh</button>
-      </div>
-
       {/* Summary cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <div className="card p-5 flex items-center gap-4">

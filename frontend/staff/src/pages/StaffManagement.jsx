@@ -209,11 +209,7 @@ export default function StaffManagement() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Manage Staff</h1>
-          <p className="text-sm text-gray-500 mt-0.5">{staff.length} staff members · click a row to edit</p>
-        </div>
+      <div className="flex items-center justify-end mb-6 flex-wrap gap-3">
         <button onClick={openCreate} className="btn-primary text-sm">
           <PlusCircle size={15} />Add Staff
         </button>

@@ -38,13 +38,6 @@ export default function Dashboard() {
 
   return (
     <div>
-      <div className="page-header">
-        <h1 className="page-title">Lab Dashboard</h1>
-        <span className="text-sm text-gray-500">
-          {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
-        </span>
-      </div>
-
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         <StatCard icon={Clock}        label="Pending Orders" value={pending.length}   color="#F5821E" />
         <StatCard icon={FlaskConical} label="Processing"     value={inProcess.length} color="#3B82F6" />

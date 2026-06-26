@@ -76,13 +76,6 @@ export default function Dashboard() {
 
   return (
     <div>
-      <div className="page-header">
-        <h1 className="page-title">Imaging Dashboard</h1>
-        <span className="text-sm text-gray-500">
-          {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
-        </span>
-      </div>
-
       {isRadiologist ? (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
           <StatCard icon={ScanLine}    label="Pending Review"   value={pendingReview}        color="#F5821E" />

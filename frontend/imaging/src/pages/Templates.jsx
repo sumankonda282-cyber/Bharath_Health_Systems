@@ -129,7 +129,6 @@ export default function Templates() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">Report Templates</h1>
         <div className="flex gap-3 items-center">
           <select className="input-sm" value={filterMod} onChange={e => setFilterMod(e.target.value)}>
             <option value="all">All Modalities</option>

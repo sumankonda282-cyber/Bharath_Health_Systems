@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api/client'
-import { AlertCircle, Clock, Loader2, FileEdit, RefreshCw } from 'lucide-react'
+import { AlertCircle, Clock, Loader2, FileEdit } from 'lucide-react'
 
 function timeSince(dateStr) {
   if (!dateStr) return '—'
@@ -119,20 +119,6 @@ export default function PendingReports() {
 
   return (
     <div>
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Pending Reports</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            {orders.length} report{orders.length !== 1 ? 's' : ''} pending ·{' '}
-            <span className="text-gray-400">Refreshes every 60s</span>
-          </p>
-        </div>
-        <button onClick={fetchOrders} className="btn-secondary gap-2">
-          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-          Refresh
-        </button>
-      </div>
-
       {error && (
         <div className="flex items-center gap-3 p-4 mb-4 bg-red-50 border border-red-200 rounded-2xl text-red-700 text-sm">
           <AlertCircle size={16} />

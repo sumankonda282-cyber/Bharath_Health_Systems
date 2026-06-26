@@ -329,7 +329,6 @@ export default function PurchaseOrders() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">Purchase Orders</h1>
         <button onClick={() => setShowCreate(true)} className="btn-primary">
           <Plus size={16} />New PO
         </button>

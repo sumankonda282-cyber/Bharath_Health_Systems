@@ -196,7 +196,6 @@ export default function StockIn() {
       )}
 
       <div className="page-header">
-        <h1 className="page-title">Receive / Adjust Stock</h1>
         <button
           onClick={() => setShowScanner(true)}
           className="btn-primary flex items-center gap-2"

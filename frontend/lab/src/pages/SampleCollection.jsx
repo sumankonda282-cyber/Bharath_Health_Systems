@@ -135,11 +135,6 @@ export default function SampleCollection() {
 
   return (
     <div>
-      <div className="page-header">
-        <h1 className="page-title">Sample Collection</h1>
-        <button onClick={fetchOrders} className="btn-secondary text-sm">Refresh</button>
-      </div>
-
       {error && (
         <div className="flex items-center gap-2 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm mb-5">
           <AlertCircle size={16} />{error}

@@ -13,6 +13,7 @@ import {
 import { useAuth } from '../contexts/AuthContext'
 import BrandLogo from './BrandLogo'
 import api from '../api/client'
+import NotificationBell from '@shared/components/NotificationBell'
 
 const MANAGER_BASE_NAV = [
   { to: '/',            icon: LayoutDashboard, label: 'Dashboard' },
@@ -157,7 +158,7 @@ export default function Layout() {
   }, [isManager])
 
   const renderSidebar = (isCollapsed = false) => (
-    <aside className={`${isCollapsed ? 'w-16' : 'w-60'} flex flex-col h-full flex-shrink-0 transition-all duration-200`} style={{ background: '#0F2557' }}>
+    <aside className={`${isCollapsed ? 'w-16' : 'w-56'} flex flex-col h-full flex-shrink-0 transition-all duration-200`} style={{ background: '#0F2557' }}>
       <div className={`border-b border-white/10 ${isCollapsed ? 'px-2 py-4 flex justify-center' : 'px-4 py-4'}`}>
         {isCollapsed ? (
           <BrandLogo size="sm" light showText={false} />
@@ -276,6 +277,8 @@ export default function Layout() {
             className="p-1.5 rounded-lg hover:bg-white/10 transition-colors" style={{ color: 'rgba(255,255,255,0.6)' }} title="Refresh data">
             <RefreshCw size={16} />
           </button>
+
+          <NotificationBell />
 
           <button onClick={() => setHelpOpen(true)}
             className="p-1.5 rounded-lg hover:bg-white/10 transition-colors" style={{ color: 'rgba(255,255,255,0.6)' }} title="Help & Support">
