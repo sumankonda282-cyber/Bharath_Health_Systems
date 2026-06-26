@@ -51,9 +51,9 @@ function timeAgo(dateStr) {
 }
 
 const TYPE_COLORS = {
-  suggestion: { bg: '#0F255715', color: '#93c5fd', label: 'Suggestion' },
-  bug:        { bg: '#CC141415', color: '#f87171', label: 'Bug' },
-  general:    { bg: '#F5821E15', color: '#F5821E', label: 'General' },
+  suggestion: { bg: '#EEF2FB', color: '#0F2557', label: 'Suggestion' },
+  bug:        { bg: '#FEF2F2', color: '#DC2626', label: 'Bug' },
+  general:    { bg: '#FFF4E8', color: '#E06D0A', label: 'General' },
 }
 
 function FeedbackBell() {
@@ -86,44 +86,44 @@ function FeedbackBell() {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(v => !v)}
-        className="relative p-1.5 rounded-lg text-gray-400 hover:bg-white/10 flex items-center justify-center transition-colors"
+        className="relative w-9 h-9 rounded-lg text-ink-soft hover:bg-slate-100 flex items-center justify-center transition-colors"
         title="Feedback"
       >
         <Bell size={18} />
         {items.length > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-0.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+          <span className="absolute top-1 right-1 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white">
             {items.length}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 top-12 w-80 bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl z-50 overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-800 flex items-center justify-between">
-            <span className="text-white font-semibold text-sm">Unread Feedback</span>
-            <span className="text-gray-500 text-xs">{items.length} unread</span>
+        <div className="absolute right-0 top-12 w-80 bg-white border border-line rounded-2xl shadow-pop z-50 overflow-hidden">
+          <div className="px-4 py-3 border-b border-line flex items-center justify-between">
+            <span className="text-ink font-semibold text-sm">Unread Feedback</span>
+            <span className="text-ink-muted text-xs">{items.length} unread</span>
           </div>
           {items.length === 0 ? (
-            <div className="px-4 py-8 text-center text-gray-500 text-sm">No unread feedback</div>
+            <div className="px-4 py-10 text-center text-ink-muted text-sm">No unread feedback</div>
           ) : (
-            <ul className="max-h-96 overflow-y-auto divide-y divide-gray-800">
+            <ul className="max-h-96 overflow-y-auto divide-y divide-line">
               {items.map(item => {
                 const tc = TYPE_COLORS[item.type] || TYPE_COLORS.general
                 return (
-                  <li key={item.id} className="px-4 py-3 hover:bg-gray-800/50 transition-colors">
-                    <div className="flex items-start justify-between gap-2 mb-1">
-                      <span className="font-medium text-white text-sm truncate">{item.name}</span>
-                      <span className="text-gray-500 text-xs whitespace-nowrap flex-shrink-0">{timeAgo(item.created_at)}</span>
+                  <li key={item.id} className="px-4 py-3 hover:bg-slate-50 transition-colors">
+                    <div className="flex items-start justify-between gap-2 mb-1.5">
+                      <span className="font-semibold text-ink text-sm truncate">{item.name}</span>
+                      <span className="text-ink-muted text-xs whitespace-nowrap flex-shrink-0">{timeAgo(item.created_at)}</span>
                     </div>
-                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: tc.bg, color: tc.color }}>
+                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full" style={{ background: tc.bg, color: tc.color }}>
                       {tc.label}
                     </span>
-                    <p className="text-gray-400 text-xs leading-relaxed mt-1.5 mb-2 line-clamp-2">
+                    <p className="text-ink-soft text-xs leading-relaxed mt-1.5 mb-2 line-clamp-2">
                       {item.message.length > 80 ? item.message.slice(0, 80) + '…' : item.message}
                     </p>
                     <button
                       onClick={() => markRead(item.id)}
-                      className="text-xs text-blue-400 hover:text-blue-300 font-medium"
+                      className="text-xs text-navy-600 hover:text-navy-700 font-semibold"
                     >
                       Mark Read
                     </button>
@@ -152,34 +152,34 @@ function ProfileDropdown({ user, logout }) {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(v => !v)}
-        className="flex items-center gap-1.5 p-1 rounded-xl hover:bg-white/10 transition-colors"
+        className="flex items-center gap-2 pl-1 pr-2 py-1 rounded-xl hover:bg-slate-100 transition-colors"
         title={user?.email}
       >
         <div
-          className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-          style={{ background: 'rgba(245,130,30,0.25)', color: '#F5821E' }}
+          className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+          style={{ background: '#0F2557' }}
         >
           {getInitials(user?.email || user?.full_name)}
         </div>
         <div className="hidden md:block text-left">
-          <div className="text-xs font-semibold text-white leading-tight max-w-[120px] truncate">
+          <div className="text-xs font-semibold text-ink leading-tight max-w-[140px] truncate">
             {user?.email || user?.full_name}
           </div>
-          <div className="text-[11px] leading-tight" style={{ color: 'rgba(255,255,255,0.5)' }}>Super Admin</div>
+          <div className="text-[11px] leading-tight text-ink-muted">Super Admin</div>
         </div>
-        <ChevronDown size={13} className="text-gray-400" />
+        <ChevronDown size={14} className="text-ink-muted" />
       </button>
 
       {open && (
-        <div className="absolute right-0 top-12 w-56 bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl z-50 overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-800">
-            <div className="text-white text-sm font-semibold truncate">{user?.email || user?.full_name}</div>
-            <div className="text-gray-500 text-xs">Super Admin</div>
+        <div className="absolute right-0 top-12 w-56 bg-white border border-line rounded-2xl shadow-pop z-50 overflow-hidden">
+          <div className="px-4 py-3 border-b border-line">
+            <div className="text-ink text-sm font-semibold truncate">{user?.email || user?.full_name}</div>
+            <div className="text-ink-muted text-xs">Super Admin</div>
           </div>
           <div className="p-2">
             <button
               onClick={logout}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300 text-sm font-medium transition-colors"
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-red-600 hover:bg-red-50 text-sm font-medium transition-colors"
             >
               <LogOut size={15} />Sign Out
             </button>
@@ -192,21 +192,21 @@ function ProfileDropdown({ user, logout }) {
 
 function SidebarContent({ onClose, collapsed = false }) {
   return (
-    <div className="flex flex-col h-full" style={{ background: '#0F2557' }}>
+    <div className="flex flex-col h-full bg-white">
       {/* Brand header */}
-      <div className={`flex items-center justify-between border-b ${collapsed ? 'px-2 py-4 justify-center' : 'px-4 py-4'}`} style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
+      <div className={`flex items-center justify-between border-b border-line ${collapsed ? 'px-2 py-4 justify-center' : 'px-4 py-3.5'}`}>
         {collapsed ? (
-          <BrandLogo size="sm" showText={false} />
+          <BrandLogo size="sm" showText={false} tone="dark" />
         ) : (
           <>
             <div className="flex flex-col gap-1">
-              <BrandLogo size="sm" />
-              <span className="text-xs font-semibold tracking-wider uppercase" style={{ color: '#F5821E' }}>
-                Admin Portal
+              <BrandLogo size="sm" tone="dark" />
+              <span className="text-[10px] font-bold tracking-widest uppercase pl-0.5" style={{ color: '#E06D0A' }}>
+                Admin Console
               </span>
             </div>
             {onClose && (
-              <button onClick={onClose} className="md:hidden text-white/50 hover:text-white p-1">
+              <button onClick={onClose} className="md:hidden text-ink-muted hover:text-ink p-1">
                 <X size={18} />
               </button>
             )}
@@ -215,18 +215,28 @@ function SidebarContent({ onClose, collapsed = false }) {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-2 py-3 overflow-y-auto">
+      <nav className="flex-1 px-2.5 py-3 overflow-y-auto">
+        {!collapsed && <div className="eyebrow px-3 mb-1.5 mt-1">Platform</div>}
         {NAV.map(({ to, icon: Icon, label }) => (
           <NavLink key={to} to={to}
             onClick={onClose}
             title={collapsed ? label : undefined}
-            className={({ isActive }) => `${isActive ? 'sidebar-link-active' : 'sidebar-link'} ${collapsed ? 'justify-center' : ''}`}
+            className={({ isActive }) => `${isActive ? 'sidebar-link-active' : 'sidebar-link'} ${collapsed ? 'justify-center !border-l-0' : ''}`}
           >
-            <Icon size={17} className="flex-shrink-0" />
+            <Icon size={18} className="flex-shrink-0" />
             {!collapsed && <span className="flex-1 truncate">{label}</span>}
           </NavLink>
         ))}
       </nav>
+
+      {/* Footer note */}
+      {!collapsed && (
+        <div className="px-4 py-3 border-t border-line">
+          <div className="text-[11px] text-ink-muted leading-relaxed">
+            BHarath Health · Platform Control
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -247,60 +257,61 @@ export default function Layout() {
   const todayLabel = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#0a0f1e]">
+    <div className="flex h-screen overflow-hidden bg-canvas">
       {/* Desktop sidebar */}
-      <aside className={`hidden md:flex flex-col ${collapsed ? 'w-16' : 'w-52'} flex-shrink-0 transition-all duration-200`}>
+      <aside className={`hidden md:flex flex-col ${collapsed ? 'w-[68px]' : 'w-60'} flex-shrink-0 border-r border-line shadow-rail transition-all duration-200`}>
         <SidebarContent collapsed={collapsed} />
       </aside>
 
       {/* Mobile overlay */}
       {mobileOpen && (
         <div className="md:hidden fixed inset-0 z-50 flex">
-          <div className="w-52 flex flex-col">
+          <div className="w-64 flex flex-col border-r border-line shadow-pop">
             <SidebarContent onClose={() => setMobileOpen(false)} />
           </div>
-          <div className="flex-1 bg-black/50" onClick={() => setMobileOpen(false)} />
+          <div className="flex-1 bg-slate-900/40 backdrop-blur-[1px]" onClick={() => setMobileOpen(false)} />
         </div>
       )}
 
       {/* Right panel */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Top header */}
-        <header className="h-12 flex items-center gap-3 px-4 flex-shrink-0 z-30 border-b border-gray-800/60" style={{ background: '#0F2557' }}>
-          <button onClick={() => setMobileOpen(true)} className="md:hidden p-1.5 rounded-lg text-white/70 hover:bg-white/10">
+        <header className="h-14 flex items-center gap-3 px-4 flex-shrink-0 z-30 bg-white border-b border-line shadow-xs">
+          <button onClick={() => setMobileOpen(true)} className="md:hidden w-9 h-9 rounded-lg text-ink-soft hover:bg-slate-100 flex items-center justify-center">
             <Menu size={20} />
           </button>
-          <button onClick={toggleCollapsed} className="hidden md:inline-flex p-1.5 rounded-lg text-white/70 hover:bg-white/10 transition-colors" title="Toggle sidebar">
-            <PanelLeft size={20} />
+          <button onClick={toggleCollapsed} className="hidden md:inline-flex w-9 h-9 rounded-lg text-ink-soft hover:bg-slate-100 items-center justify-center transition-colors" title="Toggle sidebar">
+            <PanelLeft size={19} />
           </button>
           <div className="md:hidden">
-            <BrandLogo size="sm" />
+            <BrandLogo size="sm" tone="dark" />
           </div>
 
           {pageTitle && (
-            <h1 className="hidden md:block text-sm font-bold text-white truncate">{pageTitle}</h1>
+            <h1 className="hidden md:block text-base font-bold text-ink tracking-tight truncate">{pageTitle}</h1>
           )}
 
           <div className="flex-1" />
 
-          <span className="hidden md:block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.5)' }}>
+          <span className="hidden md:block text-xs font-medium text-ink-muted mr-1">
             {todayLabel}
           </span>
 
           <button
             onClick={() => window.location.reload()}
-            className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-white/60"
+            className="w-9 h-9 rounded-lg hover:bg-slate-100 transition-colors text-ink-soft flex items-center justify-center"
             title="Refresh"
           >
             <RefreshCw size={16} />
           </button>
 
           <FeedbackBell />
+          <div className="w-px h-6 bg-line mx-0.5" />
           <ProfileDropdown user={user} logout={logout} />
         </header>
 
         <main className="flex-1 overflow-y-auto">
-          <div className="p-1.5 md:p-2">
+          <div className="p-4 md:p-6 max-w-[1600px] mx-auto">
             <Outlet />
           </div>
         </main>
