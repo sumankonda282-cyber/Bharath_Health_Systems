@@ -7,7 +7,7 @@ from datetime import datetime, date as dt_date
 from decimal import Decimal
 
 from app.db.session import get_db
-from app.core.security import get_current_staff, require_billing_waive
+from app.core.security import get_current_staff, require_billing_waive, require_lab_access, require_imaging_access
 from app.core import ids
 from app.models.models import (
     Medicine, Prescription, PrescriptionItem,
@@ -411,7 +411,7 @@ def list_lab_tests(
 
 
 @lab_router.get("/orders/{order_id}")
-def get_lab_order(order_id: int, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
+def get_lab_order(order_id: int, db: Session = Depends(get_db), current: Staff = Depends(require_lab_access)):
     order = db.query(LabOrder).options(
         joinedload(LabOrder.items).joinedload(LabOrderItem.test)
     ).filter(LabOrder.id == order_id, LabOrder.clinic_id == current.clinic_id).first()
@@ -438,7 +438,7 @@ def update_order_status(
     order_id: int,
     status: str = Query(None),
     body: dict = Body(None),
-    db: Session = Depends(get_db), current: Staff = Depends(get_current_staff),
+    db: Session = Depends(get_db), current: Staff = Depends(require_lab_access),
 ):
     # Status may arrive as a query param (provider) or in the JSON body (lab portal).
     status = status or (body or {}).get("status")
@@ -850,7 +850,7 @@ def list_lab_orders(
     status: str = None,
     limit: int = 30,
     db: Session = Depends(get_db),
-    current=Depends(get_current_staff),
+    current=Depends(require_lab_access),
 ):
     from app.models.models import LabOrder, LabOrderItem, LabTest, Patient, Staff, DoctorProfile
     q = db.query(LabOrder).filter(LabOrder.clinic_id == current.clinic_id)
@@ -992,7 +992,7 @@ def save_lab_results(
     order_id: int,
     body: dict,
     db: Session = Depends(get_db),
-    current=Depends(get_current_staff),
+    current=Depends(require_lab_access),
 ):
     from app.models.models import LabOrder, LabOrderItem, LabResult, LabCriticalAlert
     order = db.query(LabOrder).filter(
@@ -1110,7 +1110,7 @@ def save_lab_results(
 def complete_lab_order(
     order_id: int,
     db: Session = Depends(get_db),
-    current=Depends(get_current_staff),
+    current=Depends(require_lab_access),
 ):
     from app.models.models import LabOrder
     order = db.query(LabOrder).filter(
@@ -1129,7 +1129,7 @@ def complete_lab_order(
 @lab_router.get("/critical-alerts/count")
 def lab_critical_alert_count(
     db: Session = Depends(get_db),
-    current: Staff = Depends(get_current_staff),
+    current: Staff = Depends(require_lab_access),
 ):
     from app.models.models import LabCriticalAlert
     count = db.query(LabCriticalAlert).filter(
@@ -1143,7 +1143,7 @@ def lab_critical_alert_count(
 def list_lab_critical_alerts(
     mine: bool = Query(False),
     db: Session = Depends(get_db),
-    current: Staff = Depends(get_current_staff),
+    current: Staff = Depends(require_lab_access),
 ):
     """Unacknowledged panic lab values for the health center. ``mine=true`` limits
     to results the current doctor ordered (Provider critical-results feed)."""
@@ -1178,7 +1178,7 @@ def list_lab_critical_alerts(
 def acknowledge_lab_critical_alert(
     alert_id: int,
     db: Session = Depends(get_db),
-    current: Staff = Depends(get_current_staff),
+    current: Staff = Depends(require_lab_access),
 ):
     from app.models.models import LabCriticalAlert
     alert = db.query(LabCriticalAlert).filter(
@@ -1325,7 +1325,7 @@ def list_imaging_orders(
     skip: int = 0,
     limit: int = 50,
     db: Session = Depends(get_db),
-    current: Staff = Depends(get_current_staff),
+    current: Staff = Depends(require_imaging_access),
 ):
     from app.models.models import ImagingOrder, Patient as Pt, Staff as St
     q = db.query(ImagingOrder).filter(ImagingOrder.clinic_id == current.clinic_id)
@@ -1350,7 +1350,7 @@ def list_imaging_orders(
 def create_imaging_order(
     body: dict,
     db: Session = Depends(get_db),
-    current: Staff = Depends(get_current_staff),
+    current: Staff = Depends(require_imaging_access),
 ):
     from app.models.models import ImagingOrder, Patient as Pt
     patient = db.query(Pt).filter(
@@ -1361,6 +1361,7 @@ def create_imaging_order(
         raise HTTPException(404, "Patient not found")
 
     order = ImagingOrder(
+        order_id       = ids.next_imaging_order_no(db, current.clinic_id),
         clinic_id      = current.clinic_id,
         branch_id      = current.branch_id,
         patient_id     = body["patient_id"],
@@ -1369,6 +1370,7 @@ def create_imaging_order(
         modality       = body.get("modality", "X-Ray"),
         body_part      = body.get("body_part"),
         clinical_notes = body.get("clinical_notes"),
+        priority       = body.get("priority", "routine"),
         status         = "ordered",
     )
     db.add(order)
@@ -1382,7 +1384,7 @@ def update_imaging_order(
     order_id: int,
     body: dict,
     db: Session = Depends(get_db),
-    current: Staff = Depends(get_current_staff),
+    current: Staff = Depends(require_imaging_access),
 ):
     from app.models.models import ImagingOrder, ImagingResult
     order = db.query(ImagingOrder).filter(
@@ -1429,7 +1431,7 @@ def update_imaging_order(
 def get_imaging_order(
     order_id: int,
     db: Session = Depends(get_db),
-    current: Staff = Depends(get_current_staff),
+    current: Staff = Depends(require_imaging_access),
 ):
     from app.models.models import ImagingOrder, Patient as Pt, Staff as St
     order = db.query(ImagingOrder).filter(
@@ -1622,7 +1624,7 @@ def flag_critical_alert(
 @imaging_router.get("/critical-alerts/count")
 def get_critical_alert_count(
     db: Session = Depends(get_db),
-    current: Staff = Depends(get_current_staff),
+    current: Staff = Depends(require_imaging_access),
 ):
     from app.models.models import ImagingCriticalAlert
     count = db.query(ImagingCriticalAlert).filter(
@@ -1635,7 +1637,7 @@ def get_critical_alert_count(
 @imaging_router.get("/critical-alerts")
 def list_critical_alerts(
     db: Session = Depends(get_db),
-    current: Staff = Depends(get_current_staff),
+    current: Staff = Depends(require_imaging_access),
 ):
     from app.models.models import ImagingCriticalAlert, ImagingOrder, Patient as Pt
     alerts = db.query(ImagingCriticalAlert).filter(
@@ -1665,7 +1667,7 @@ def list_critical_alerts(
 def acknowledge_critical_alert(
     alert_id: int,
     db: Session = Depends(get_db),
-    current: Staff = Depends(get_current_staff),
+    current: Staff = Depends(require_imaging_access),
 ):
     from app.models.models import ImagingCriticalAlert
     alert = db.query(ImagingCriticalAlert).filter(

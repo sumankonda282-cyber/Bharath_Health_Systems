@@ -17,15 +17,35 @@ from app.schemas.schemas import (
 router = APIRouter(prefix="/appointments", tags=["appointments"])
 
 
-def _next_token(db, doctor_id, appt_date, branch_id) -> int:
-    # Use SELECT MAX + FOR UPDATE to prevent duplicate tokens under concurrent requests
+def _next_token(db, doctor_id, appt_date, branch_id, clinic_id) -> int:
+    from app.models.models import AppointmentTokenSequence
     from sqlalchemy import func
-    row = db.query(func.max(Appointment.token_number)).filter(
-        Appointment.doctor_id == doctor_id,
-        Appointment.appointment_date == appt_date,
-        Appointment.branch_id == branch_id,
-    ).with_for_update().scalar()
-    return (row or 0) + 1
+    seq = db.query(AppointmentTokenSequence).filter_by(
+        doctor_id=doctor_id,
+        date=appt_date,
+        branch_id=branch_id,
+        clinic_id=clinic_id,
+    ).with_for_update().first()
+    if seq:
+        seq.last_token += 1
+        token = seq.last_token
+    else:
+        max_tok = db.query(func.max(Appointment.token_number)).filter(
+            Appointment.doctor_id == doctor_id,
+            Appointment.appointment_date == appt_date,
+            Appointment.branch_id == branch_id,
+        ).scalar() or 0
+        token = max_tok + 1
+        seq = AppointmentTokenSequence(
+            clinic_id=clinic_id,
+            doctor_id=doctor_id,
+            date=appt_date,
+            branch_id=branch_id,
+            last_token=token,
+        )
+        db.add(seq)
+    db.flush()
+    return token
 
 
 @router.post("/", response_model=AppointmentOut)
@@ -53,18 +73,13 @@ def create_appointment(
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
 
-    doctor_profile = db.query(DoctorProfile).filter(DoctorProfile.id == payload.doctor_id).first()
-    doctor_name = doctor_profile.staff.full_name if doctor_profile and doctor_profile.staff else ""
-
-    token = _next_token(db, payload.doctor_id, payload.appointment_date, branch_id)
+    token = _next_token(db, payload.doctor_id, payload.appointment_date, branch_id, current.clinic_id)
     _hc = ids.ensure_hc_id_by_clinic_id(db, current.clinic_id)
     appt = Appointment(
         clinic_id=current.clinic_id,
         branch_id=branch_id,
         token_number=token,
         encounter_no=ids.next_encounter_no(db, current.clinic_id, _hc),
-        patient_name=patient.full_name,
-        doctor_name=doctor_name,
         **payload.model_dump(),
     )
     db.add(appt)
@@ -268,7 +283,7 @@ def confirm_online_booking(
     if portal_user and not booking.patient_user_id:
         booking.patient_user_id = portal_user.id
 
-    token = _next_token(db, booking.doctor_id, booking.booking_date, booking.branch_id)
+    token = _next_token(db, booking.doctor_id, booking.booking_date, booking.branch_id, current.clinic_id)
     _hc = ids.ensure_hc_id_by_clinic_id(db, current.clinic_id)
     appt = Appointment(
         clinic_id=current.clinic_id,

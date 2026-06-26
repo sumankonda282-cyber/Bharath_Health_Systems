@@ -7,6 +7,7 @@ from datetime import date as dt, timedelta
 from app.db.session import get_db
 from app.core.security import get_current_staff
 from app.core.config import settings
+from app.core import ids
 from app.models.models import (
     Staff, Patient, Appointment, DoctorProfile,
     Vitals, SoapNote, Prescription, PrescriptionItem,
@@ -261,12 +262,13 @@ def complete_encounter(
         tests = lab_data.get("items") or lab_data.get("tests") or []
         if tests:
             lo = LabOrder(
+                order_id=ids.next_lab_order_no(db, appt.clinic_id),
                 clinic_id=appt.clinic_id,
                 branch_id=current.branch_id,
                 patient_id=appt.patient_id,
                 appointment_id=appointment_id,
                 ordered_by=current.id,
-                notes=lab_data.get("notes"),
+                clinical_notes=lab_data.get("clinical_notes") or lab_data.get("notes"),
             )
             db.add(lo)
             db.flush()
