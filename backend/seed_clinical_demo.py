@@ -196,6 +196,13 @@ def seed_clinical_demo(db):
     priya_profile_id = dp_priya.id if dp_priya else None
     rajan_profile_id = dp_rajan.id if dp_rajan else priya_profile_id
 
+    # Defensive: ensure demo doctor profiles are clinic-scoped (older seeds may
+    # have left clinic_id NULL, which would hide them from clinic doctor lists).
+    for _dp in (dp_priya, dp_rajan):
+        if _dp and not _dp.clinic_id:
+            _dp.clinic_id = clinic.id
+    db.commit()
+
     # ── Clinic capabilities — turn every module on for the demo ──────────────
     try:
         clinic.has_pharmacy = True
