@@ -1924,7 +1924,12 @@ def _progress_note_dict(n: ProgressNote, db: Session) -> dict:
         "assessment": n.assessment,
         "plan": n.plan,
         "written_by_name": name,
-        "created_at": n.created_at.isoformat(),
+        # ProgressNote has no created_at column; note_time is a full DateTime
+        # (defaults to utcnow at insert), so it is the effective creation time.
+        "created_at": (
+            n.note_time.isoformat() if n.note_time
+            else (str(n.note_date) if n.note_date else None)
+        ),
     }
 
 
