@@ -164,7 +164,8 @@ async function _downloadPdf(path, filename) {
 }
 
 export const pdfApi = {
-  prescription: (id) => _downloadPdf(`/pdf/prescription/${id}`, `prescription-${id}.pdf`),
-  invoice:      (id) => _downloadPdf(`/pdf/invoice/${id}`,      `invoice-${id}.pdf`),
-  labReport:    (id) => _downloadPdf(`/pdf/lab-report/${id}`,   `lab-report-${id}.pdf`),
+  prescription:  (id) => _downloadPdf(`/pdf/prescription/${id}`,   `prescription-${id}.pdf`),
+  invoice:       (id) => _downloadPdf(`/pdf/invoice/${id}`,        `invoice-${id}.pdf`),
+  labReport:     (id) => _downloadPdf(`/pdf/lab-report/${id}`,     `lab-report-${id}.pdf`),
+  imagingReport: (id) => _downloadPdf(`/pdf/imaging-report/${id}`, `imaging-report-${id}.pdf`),
 }
