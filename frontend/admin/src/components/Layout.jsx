@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import {
   LayoutDashboard, Clock, Building2, ShieldCheck,
   ClipboardList, BarChart3, LogOut, Menu, X, Search, CreditCard, Hospital,
-  FileText, Users, Bell, RefreshCw, ChevronDown,
+  FileText, Users, Bell, RefreshCw, ChevronDown, PanelLeft,
 } from 'lucide-react'
 import api from '../api/client'
 import BrandLogo from './BrandLogo'
@@ -190,21 +190,27 @@ function ProfileDropdown({ user, logout }) {
   )
 }
 
-function SidebarContent({ onClose }) {
+function SidebarContent({ onClose, collapsed = false }) {
   return (
     <div className="flex flex-col h-full" style={{ background: '#0F2557' }}>
       {/* Brand header */}
-      <div className="px-4 py-4 flex items-center justify-between border-b" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
-        <div className="flex flex-col gap-1">
-          <BrandLogo size="sm" />
-          <span className="text-xs font-semibold tracking-wider uppercase" style={{ color: '#F5821E' }}>
-            Admin Portal
-          </span>
-        </div>
-        {onClose && (
-          <button onClick={onClose} className="md:hidden text-white/50 hover:text-white p-1">
-            <X size={18} />
-          </button>
+      <div className={`flex items-center justify-between border-b ${collapsed ? 'px-2 py-4 justify-center' : 'px-4 py-4'}`} style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
+        {collapsed ? (
+          <BrandLogo size="sm" showText={false} />
+        ) : (
+          <>
+            <div className="flex flex-col gap-1">
+              <BrandLogo size="sm" />
+              <span className="text-xs font-semibold tracking-wider uppercase" style={{ color: '#F5821E' }}>
+                Admin Portal
+              </span>
+            </div>
+            {onClose && (
+              <button onClick={onClose} className="md:hidden text-white/50 hover:text-white p-1">
+                <X size={18} />
+              </button>
+            )}
+          </>
         )}
       </div>
 
@@ -213,10 +219,11 @@ function SidebarContent({ onClose }) {
         {NAV.map(({ to, icon: Icon, label }) => (
           <NavLink key={to} to={to}
             onClick={onClose}
-            className={({ isActive }) => isActive ? 'sidebar-link-active' : 'sidebar-link'}
+            title={collapsed ? label : undefined}
+            className={({ isActive }) => `${isActive ? 'sidebar-link-active' : 'sidebar-link'} ${collapsed ? 'justify-center' : ''}`}
           >
             <Icon size={17} className="flex-shrink-0" />
-            <span className="flex-1 truncate">{label}</span>
+            {!collapsed && <span className="flex-1 truncate">{label}</span>}
           </NavLink>
         ))}
       </nav>
@@ -226,6 +233,14 @@ function SidebarContent({ onClose }) {
 
 export default function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return localStorage.getItem('admin_sidebar_collapsed') === '1' } catch { return false }
+  })
+  const toggleCollapsed = () => setCollapsed(c => {
+    const next = !c
+    try { localStorage.setItem('admin_sidebar_collapsed', next ? '1' : '0') } catch {}
+    return next
+  })
   const { user, logout } = useAuth()
   const location = useLocation()
   const pageTitle = PAGE_TITLES[location.pathname] || ''
@@ -234,8 +249,8 @@ export default function Layout() {
   return (
     <div className="flex h-screen overflow-hidden bg-[#0a0f1e]">
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex flex-col w-52 flex-shrink-0">
-        <SidebarContent />
+      <aside className={`hidden md:flex flex-col ${collapsed ? 'w-16' : 'w-52'} flex-shrink-0 transition-all duration-200`}>
+        <SidebarContent collapsed={collapsed} />
       </aside>
 
       {/* Mobile overlay */}
@@ -254,6 +269,9 @@ export default function Layout() {
         <header className="h-12 flex items-center gap-3 px-4 flex-shrink-0 z-30 border-b border-gray-800/60" style={{ background: '#0F2557' }}>
           <button onClick={() => setMobileOpen(true)} className="md:hidden p-1.5 rounded-lg text-white/70 hover:bg-white/10">
             <Menu size={20} />
+          </button>
+          <button onClick={toggleCollapsed} className="hidden md:inline-flex p-1.5 rounded-lg text-white/70 hover:bg-white/10 transition-colors" title="Toggle sidebar">
+            <PanelLeft size={20} />
           </button>
           <div className="md:hidden">
             <BrandLogo size="sm" />

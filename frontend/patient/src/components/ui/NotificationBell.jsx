@@ -84,7 +84,7 @@ export default function PatientNotificationBell() {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(o => !o)}
-        className="relative p-2 rounded-xl text-gray-500 hover:bg-gray-100 transition-colors"
+        className="relative p-2 rounded-xl text-white/70 hover:bg-white/10 transition-colors"
         title="Notifications"
       >
         <Bell size={18} />
