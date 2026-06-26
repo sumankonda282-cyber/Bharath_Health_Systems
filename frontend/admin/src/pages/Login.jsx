@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { Navigate } from 'react-router-dom'
-import { ShieldCheck, Loader2, Building2, BarChart3, ClipboardList, Eye, EyeOff, AlertCircle, ArrowRight } from 'lucide-react'
+import { ShieldCheck, Loader2, Building2, BarChart3, ClipboardList, Eye, EyeOff, AlertCircle } from 'lucide-react'
 import BrandLogo from '../components/BrandLogo'
 
 export default function Login() {
@@ -23,73 +23,71 @@ export default function Login() {
   }
 
   const features = [
-    { icon: Building2,     text: 'Manage all health centers and subscriptions' },
+    { icon: Building2,     text: 'Manage all clinics and their subscriptions' },
     { icon: ShieldCheck,   text: 'Approve staff verification requests' },
-    { icon: BarChart3,     text: 'Platform-wide reports and MRR' },
+    { icon: BarChart3,     text: 'View platform-wide reports and MRR' },
     { icon: ClipboardList, text: 'Full audit log across all operations' },
   ]
 
   return (
-    <div className="min-h-screen flex bg-canvas" style={{ fontFamily: 'Inter, sans-serif' }}>
+    <div className="min-h-screen flex" style={{ fontFamily: 'Inter, sans-serif' }}>
       {/* Left branded panel */}
-      <div className="hidden lg:flex lg:w-[46%] xl:w-1/2 flex-col justify-between p-12 text-white relative overflow-hidden"
-        style={{ background: 'linear-gradient(150deg, #0B1C44 0%, #0F2557 55%, #15347a 100%)' }}>
-        {/* ambient glows */}
-        <div className="pointer-events-none absolute -top-24 -right-24 w-96 h-96 rounded-full" style={{ background: 'radial-gradient(circle, rgba(245,130,30,0.22), transparent 70%)' }} />
-        <div className="pointer-events-none absolute -bottom-32 -left-20 w-96 h-96 rounded-full" style={{ background: 'radial-gradient(circle, rgba(59,130,246,0.18), transparent 70%)' }} />
-
-        <div className="relative">
-          <BrandLogo size="md" tone="light" />
-          <div className="text-[11px] font-bold mt-3 tracking-[0.2em] uppercase" style={{ color: '#F5821E' }}>
+      <div
+        className="hidden lg:flex lg:w-1/2 flex-col justify-between p-10 text-white"
+        style={{ background: 'linear-gradient(145deg, #0F2557 0%, #1a3a7a 100%)' }}
+      >
+        <div>
+          <BrandLogo size="md" />
+          <div className="text-xs font-semibold mt-2 tracking-widest uppercase" style={{ color: '#F5821E' }}>
             Super Admin Portal
           </div>
         </div>
-
-        <div className="relative animate-fade-up">
-          <h2 className="text-[2.7rem] font-extrabold leading-[1.08] mb-5 tracking-tight">
-            Every health center,<br />
-            <span style={{ color: '#F5821E' }}>one console.</span>
+        <div>
+          <h2 className="text-4xl font-extrabold leading-tight mb-4">
+            Platform Control,<br />
+            <span style={{ color: '#F5821E' }}>At Your Fingertips.</span>
           </h2>
-          <p className="text-blue-100/80 text-lg mb-9 max-w-md leading-relaxed">
-            Oversee every health center, subscription and staff member across the BHarath Health network.
+          <p className="text-blue-200 text-lg mb-8">
+            Oversee every health center, subscription, and staff member across the BHarath Health network.
           </p>
-          <div className="space-y-3">
-            {features.map(({ icon: Icon, text }, i) => (
-              <div key={text} className="flex items-center gap-3.5 animate-fade-up" style={{ animationDelay: `${180 + i * 90}ms` }}>
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ring-1 ring-white/10"
-                  style={{ background: 'rgba(245,130,30,0.16)' }}>
-                  <Icon size={17} style={{ color: '#F5821E' }} />
-                </div>
-                <span className="text-blue-50/90 text-[15px]">{text}</span>
+          {features.map(({ icon: Icon, text }) => (
+            <div key={text} className="flex items-center gap-3 mb-3">
+              <div
+                className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                style={{ background: 'rgba(245,130,30,0.2)' }}
+              >
+                <Icon size={16} style={{ color: '#F5821E' }} />
               </div>
-            ))}
-          </div>
+              <span className="text-blue-100 text-sm">{text}</span>
+            </div>
+          ))}
         </div>
-
-        <div className="relative text-xs tracking-wide" style={{ color: 'rgba(147,197,253,0.7)' }}>
+        <div className="text-xs" style={{ color: '#93c5fd' }}>
           BHarath Health · Super Admin Portal · Restricted Access
         </div>
       </div>
 
       {/* Right form panel */}
-      <div className="flex-1 flex items-center justify-center p-6">
-        <div className="w-full max-w-[400px]">
+      <div className="flex-1 flex items-center justify-center p-6" style={{ background: '#0f172a' }}>
+        <div className="w-full max-w-md">
           {/* Mobile logo */}
           <div className="flex flex-col items-center mb-8 lg:hidden">
-            <BrandLogo size="md" tone="dark" />
-            <div className="text-[11px] font-bold tracking-[0.2em] uppercase mt-2" style={{ color: '#E06D0A' }}>
+            <BrandLogo size="md" />
+            <div className="text-xs font-semibold tracking-widest uppercase mt-2" style={{ color: '#F5821E' }}>
               Super Admin Portal
             </div>
           </div>
 
-          <div className="bg-white border border-line rounded-3xl shadow-pop p-8 animate-scale-in">
-            <div className="flex items-center gap-3 mb-7">
-              <div className="w-11 h-11 rounded-2xl flex items-center justify-center bg-navy-50">
-                <ShieldCheck size={22} style={{ color: '#0F2557' }} />
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8">
+            {/* Desktop heading */}
+            <div className="hidden lg:flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+                style={{ background: 'rgba(245,130,30,0.15)' }}>
+                <ShieldCheck size={20} style={{ color: '#F5821E' }} />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-ink leading-none tracking-tight">Admin Sign In</h2>
-                <p className="text-ink-muted text-xs mt-1">Restricted to authorised administrators</p>
+                <h2 className="text-xl font-extrabold text-white leading-none">Admin Sign In</h2>
+                <p className="text-gray-500 text-xs mt-0.5">Restricted to authorised administrators</p>
               </div>
             </div>
 
@@ -110,7 +108,7 @@ export default function Login() {
                 <label className="label">Password</label>
                 <div className="relative">
                   <input
-                    className="input pr-11"
+                    className="input pr-10"
                     type={showPw ? 'text' : 'password'}
                     value={password}
                     onChange={e => setPassword(e.target.value)}
@@ -120,22 +118,23 @@ export default function Login() {
                   <button
                     type="button"
                     onClick={() => setShowPw(v => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-muted hover:text-ink-soft"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
                   >
-                    {showPw ? <EyeOff size={17} /> : <Eye size={17} />}
+                    {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
               </div>
 
               {error && (
-                <div className="flex items-start gap-2 p-3 rounded-xl text-red-700 text-sm bg-red-50 ring-1 ring-inset ring-red-600/15">
+                <div className="flex items-start gap-2 p-3 rounded-xl text-red-400 text-sm"
+                  style={{ background: 'rgba(220,38,38,0.1)', border: '1px solid rgba(220,38,38,0.2)' }}>
                   <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
                   <span>{error}</span>
                 </div>
               )}
 
-              <div className="flex justify-end -mt-1">
-                <a href="/reset-password" className="text-xs font-semibold text-navy-600 hover:text-navy-700">
+              <div className="flex justify-end">
+                <a href="/reset-password" className="text-xs" style={{ color: '#F5821E' }}>
                   Forgot password?
                 </a>
               </div>
@@ -143,15 +142,18 @@ export default function Login() {
               <button
                 type="submit"
                 disabled={loading}
-                className="btn-primary w-full py-3 text-[15px] group"
+                className="w-full py-3 rounded-xl font-semibold text-sm text-white transition-colors flex items-center justify-center gap-2"
+                style={{ background: '#0F2557' }}
+                onMouseEnter={e => { if (!loading) e.currentTarget.style.background = '#0a1a3e' }}
+                onMouseLeave={e => e.currentTarget.style.background = '#0F2557'}
               >
                 {loading
-                  ? <><Loader2 size={17} className="animate-spin" />Signing in…</>
-                  : <><ShieldCheck size={17} />Sign In to Admin<ArrowRight size={16} className="opacity-0 -ml-2 group-hover:opacity-100 group-hover:ml-0 transition-all" /></>}
+                  ? <><Loader2 size={16} className="animate-spin" />Signing in…</>
+                  : <><ShieldCheck size={16} />Sign In to Admin</>}
               </button>
             </form>
           </div>
-          <p className="text-center text-ink-muted text-xs mt-5">
+          <p className="text-center text-gray-600 text-xs mt-4">
             Access restricted to authorised BHarath Health administrators only
           </p>
         </div>

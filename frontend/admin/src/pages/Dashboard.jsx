@@ -1,45 +1,34 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  Users, IndianRupee, AlertTriangle, TrendingUp, Building2, Stethoscope,
-  Clock, CalendarDays, FileText, UserPlus, ArrowUpRight, Activity, LineChart,
+  Users,
+  IndianRupee,
+  AlertTriangle,
+  TrendingUp,
 } from 'lucide-react'
-import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
 import { adminApi } from '../api'
 
 const STATUS_COLORS = {
-  active:    '#16A34A',
-  pending:   '#F5821E',
-  suspended: '#F59E0B',
-  revoked:   '#DC2626',
+  active: '#22c55e',
+  pending: '#F5821E',
+  suspended: '#eab308',
+  revoked: '#ef4444',
 }
 
-function SectionCard({ title, icon: Icon, children, className = '', action }) {
+function InlineTrend({ note = 'Trend data unavailable' }) {
   return (
-    <div className={`card-p animate-fade-up ${className}`}>
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          {Icon && <Icon className="h-4 w-4 text-ink-muted" />}
-          <span className="text-sm font-semibold text-ink">{title}</span>
-        </div>
-        {action}
-      </div>
-      {children}
-    </div>
-  )
-}
-
-function EmptyTrend({ label }) {
-  return (
-    <div className="rounded-xl border border-dashed border-line bg-slate-50/60 px-3 pt-3 pb-2">
-      <div className="text-[11px] font-semibold text-ink-muted mb-2">{label}</div>
-      <div className="relative h-14">
-        <svg viewBox="0 0 200 56" preserveAspectRatio="none" className="h-full w-full">
-          <line x1="0" y1="44" x2="200" y2="44" stroke="#E6EAF0" strokeWidth="1.5" />
-        </svg>
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-[11px] text-ink-muted">No trend data yet</span>
-        </div>
+    <div className="relative h-16 w-full">
+      <svg viewBox="0 0 200 60" preserveAspectRatio="none" className="h-full w-full">
+        <line x1="0" y1="48" x2="200" y2="48" stroke="#1f2937" strokeWidth="1" />
+        <polyline
+          points="0,46 40,44 80,45 120,43 160,44 200,42"
+          fill="none"
+          stroke="#374151"
+          strokeWidth="2"
+        />
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-center">
+        <span className="text-[11px] text-gray-600">{note}</span>
       </div>
     </div>
   )
@@ -47,36 +36,53 @@ function EmptyTrend({ label }) {
 
 function StatusDonut({ segments }) {
   const total = segments.reduce((s, x) => s + x.value, 0)
-  const pieData = segments.filter((s) => s.value > 0)
+  const radius = 30
+  const circumference = 2 * Math.PI * radius
+  let offset = 0
+
   return (
-    <div className="flex items-center gap-5">
-      <div className="relative h-32 w-32 flex-shrink-0">
-        {total > 0 ? (
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie data={pieData} dataKey="value" nameKey="label" cx="50%" cy="50%"
-                   innerRadius={42} outerRadius={60} paddingAngle={2} stroke="none">
-                {pieData.map((s) => <Cell key={s.key} fill={s.color} />)}
-              </Pie>
-            </PieChart>
-          </ResponsiveContainer>
-        ) : (
-          <div className="h-full w-full rounded-full border-[10px] border-slate-100" />
-        )}
-        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-          <span className="text-2xl font-bold text-ink leading-none tracking-tight">{total}</span>
-          <span className="text-[10px] text-ink-muted mt-0.5">Total</span>
-        </div>
-      </div>
-      <div className="flex flex-col gap-2 flex-1">
+    <div className="flex items-center gap-4">
+      <svg viewBox="0 0 80 80" className="h-24 w-24 -rotate-90">
+        <circle cx="40" cy="40" r={radius} fill="none" stroke="#1f2937" strokeWidth="10" />
+        {total > 0 &&
+          segments.map((seg) => {
+            const frac = seg.value / total
+            const dash = frac * circumference
+            const el = (
+              <circle
+                key={seg.key}
+                cx="40"
+                cy="40"
+                r={radius}
+                fill="none"
+                stroke={seg.color}
+                strokeWidth="10"
+                strokeDasharray={`${dash} ${circumference - dash}`}
+                strokeDashoffset={-offset}
+              />
+            )
+            offset += dash
+            return el
+          })}
+      </svg>
+      <div className="flex flex-col gap-1">
         {segments.map((seg) => (
-          <div key={seg.key} className="flex items-center gap-2 text-xs">
-            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: seg.color }} />
-            <span className="text-ink-soft">{seg.label}</span>
-            <span className="ml-auto font-semibold text-ink tabular-nums">{seg.value}</span>
+          <div key={seg.key} className="flex items-center gap-2 text-[11px]">
+            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: seg.color }} />
+            <span className="text-gray-400">{seg.label}</span>
+            <span className="ml-auto font-semibold text-white">{seg.value}</span>
           </div>
         ))}
       </div>
+    </div>
+  )
+}
+
+function ChartCard({ title, children }) {
+  return (
+    <div className="card-sm p-3">
+      <div className="mb-2 text-[11px] uppercase tracking-wide text-gray-500">{title}</div>
+      {children}
     </div>
   )
 }
@@ -89,43 +95,6 @@ const MODULES = [
   { key: 'inpatient',  label: 'Inpatient' },
 ]
 
-const KPI_TONES = {
-  navy:    { chip: 'bg-navy-50',    icon: '#0F2557' },
-  emerald: { chip: 'bg-emerald-50', icon: '#16A34A' },
-  saffron: { chip: 'bg-saffron-50', icon: '#E06D0A' },
-  blue:    { chip: 'bg-blue-50',    icon: '#2563EB' },
-  amber:   { chip: 'bg-amber-50',   icon: '#D97706' },
-  slate:   { chip: 'bg-slate-100',  icon: '#64748B' },
-}
-
-function KpiCard({ k, i = 0 }) {
-  const tone = KPI_TONES[k.tone] || KPI_TONES.navy
-  const Icon = k.icon
-  const delay = { animationDelay: `${i * 55}ms` }
-  const inner = (
-    <>
-      <div className="flex items-start justify-between">
-        <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${tone.chip}`}>
-          {Icon && <Icon size={18} style={{ color: tone.icon }} />}
-        </div>
-        {k.to && <ArrowUpRight size={15} className="text-ink-muted opacity-0 group-hover:opacity-100 transition-opacity" />}
-      </div>
-      <div className="mt-3">
-        <div className="text-2xl font-bold text-ink tracking-tight leading-none">{k.value}</div>
-        <div className="text-[13px] font-medium text-ink-soft mt-1.5">{k.label}</div>
-        <div className="text-[11px] text-ink-muted mt-0.5">{k.sub}</div>
-      </div>
-    </>
-  )
-  return k.to ? (
-    <Link to={k.to} style={delay} className="kpi-card group animate-fade-up hover:shadow-card-hover hover:-translate-y-0.5 transition-all duration-150">
-      {inner}
-    </Link>
-  ) : (
-    <div style={delay} className="kpi-card group animate-fade-up">{inner}</div>
-  )
-}
-
 export default function Dashboard() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -137,33 +106,41 @@ export default function Dashboard() {
     setError(false)
     adminApi
       .getDashboard()
-      .then((d) => { if (active) setData(d) })
-      .catch(() => { if (active) setError(true) })
-      .finally(() => { if (active) setLoading(false) })
-    return () => { active = false }
+      .then((d) => {
+        if (active) setData(d)
+      })
+      .catch(() => {
+        if (active) setError(true)
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+    return () => {
+      active = false
+    }
   }, [])
-
-  const reload = () => {
-    setLoading(true)
-    setError(false)
-    adminApi.getDashboard()
-      .then(d => setData(d)).catch(() => setError(true)).finally(() => setLoading(false))
-  }
 
   if (loading) {
     return (
       <div className="flex justify-center py-32">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-navy-600" />
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-gray-800 border-t-[#F5821E]" />
       </div>
     )
   }
 
+  const reload = () => {
+    let active = true
+    setLoading(true)
+    setError(false)
+    adminApi.getDashboard().then(d => { if (active) setData(d) }).catch(() => { if (active) setError(true) }).finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }
+
   if (error || !data) {
     return (
-      <div className="card-p border-red-200 bg-red-50/60 text-sm text-red-700 flex items-center gap-3">
-        <AlertTriangle size={18} />
+      <div className="card-sm border border-red-500/40 p-4 text-sm text-red-400 flex items-center gap-3">
         <span>Failed to load dashboard.</span>
-        <button onClick={reload} className="ml-auto btn-danger py-1.5 px-3 text-xs">Retry</button>
+        <button onClick={reload} className="ml-auto px-3 py-1 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-300 text-xs font-medium transition-colors">Retry</button>
       </div>
     )
   }
@@ -184,6 +161,7 @@ export default function Dashboard() {
   const new_patients_today = data.new_patients_today ?? '—'
   const module_adoption = data.module_adoption || {}
   const expiring_soon = data.expiring_soon ?? null
+  const oldest_pending_days = data.oldest_pending_days ?? null
 
   const statusSegments = [
     { key: 'active', label: 'Active', value: active_clinics, color: STATUS_COLORS.active },
@@ -194,202 +172,272 @@ export default function Dashboard() {
 
   const alerts = []
   if (pending_clinics > 0) {
-    alerts.push({ key: 'pending-hc', color: '#F5821E', to: '/pending',
-      text: `${pending_clinics} Health Center${pending_clinics > 1 ? 's' : ''} awaiting approval` })
+    alerts.push({
+      key: 'pending-hc',
+      color: '#F5821E',
+      to: '/pending',
+      text: `${pending_clinics} Health Center${pending_clinics > 1 ? 's' : ''} awaiting approval`,
+    })
   }
   if (pending_staff > 0) {
-    alerts.push({ key: 'pending-staff', color: '#D97706', to: '/staff',
-      text: `${pending_staff} staff awaiting verification` })
+    alerts.push({
+      key: 'pending-staff',
+      color: '#eab308',
+      to: '/staff',
+      text: `${pending_staff} staff awaiting verification`,
+    })
   }
   const inactiveHc = suspended_clinics + revoked_clinics
   if (inactiveHc > 0) {
-    alerts.push({ key: 'inactive-hc', color: '#DC2626', to: null,
-      text: `${inactiveHc} Health Center${inactiveHc > 1 ? 's' : ''} suspended/revoked` })
+    alerts.push({
+      key: 'inactive-hc',
+      color: '#ef4444',
+      to: null,
+      text: `${inactiveHc} Health Center${inactiveHc > 1 ? 's' : ''} suspended/revoked`,
+    })
   }
 
   const kpis = [
-    { to: '/clinics', label: 'Health Centers', value: total_clinics, icon: Building2, tone: 'navy',
-      sub: `${active_clinics} active · ${pending_clinics} pending` },
-    { to: '/patients', label: 'Total Patients', value: total_patients.toLocaleString('en-IN'), icon: Users, tone: 'blue', sub: 'Platform-wide' },
-    { to: '/clinics', label: 'Doctors', value: total_doctors.toLocaleString('en-IN'), icon: Stethoscope, tone: 'emerald', sub: 'Active' },
-    { to: '/subscriptions', label: 'Platform MRR', value: `₹${mrr.toLocaleString('en-IN')}`, icon: IndianRupee, tone: 'navy', sub: 'Est. monthly' },
-    { to: '/clinics', label: 'Expiring < 7d', value: expiring_soon ?? '—', icon: Clock, tone: 'saffron',
-      sub: <span className={expiring_soon > 0 ? 'text-saffron-600 font-semibold' : ''}>At risk</span> },
-    { to: '/pending', label: 'Pending', value: pending_clinics + pending_staff, icon: AlertTriangle, tone: 'amber',
-      sub: `${pending_clinics} HC · ${pending_staff} staff` },
+    {
+      to: '/health-centers',
+      label: 'Health Centers',
+      value: total_clinics,
+      sub: <span>{active_clinics} active · {pending_clinics} pending</span>,
+    },
+    { to: '/patients', label: 'Total Patients', value: total_patients, sub: 'Platform-wide' },
+    { to: '/health-centers', label: 'Doctors', value: total_doctors, sub: 'Active' },
+    {
+      to: '/payments',
+      label: 'Platform MRR',
+      value: `₹${mrr.toLocaleString('en-IN')}`,
+      sub: 'Est. monthly',
+    },
+    {
+      to: '/health-centers',
+      label: 'Expiring <7d',
+      value: expiring_soon ?? '—',
+      sub: <span className={expiring_soon > 0 ? 'text-[#F5821E]' : 'text-gray-500'}>At risk</span>,
+    },
+    {
+      to: '/pending',
+      label: 'Pending',
+      value: pending_clinics + pending_staff,
+      sub: <span>{pending_clinics} HC · {pending_staff} staff</span>,
+    },
   ]
 
   const activity = [
-    { label: 'Appointments Today', value: appointments_today, icon: CalendarDays },
-    { label: 'Invoices Today', value: invoices_today, icon: FileText },
-    { label: 'New Patients Today', value: new_patients_today, icon: UserPlus },
-    { label: 'New HCs This Month', value: new_this_month, icon: Building2 },
+    { label: 'Appointments Today', value: appointments_today, sub: 'Today' },
+    { label: 'Invoices Today', value: invoices_today, sub: 'Today' },
+    { label: 'New Patients Today', value: new_patients_today, sub: 'Today' },
+    { label: 'New HCs This Month', value: new_this_month, sub: 'This month' },
   ]
 
   return (
-    <div className="space-y-5">
-      {/* Page header */}
-      <div className="page-header !mb-1">
-        <div>
-          <h1 className="page-title">Platform Analytics</h1>
-          <p className="text-sm text-ink-soft mt-0.5">Network-wide overview across all health centers.</p>
-        </div>
-      </div>
-
+    <div className="space-y-3">
       {/* Row 1 — KPI strip */}
-      <div className="grid grid-cols-2 gap-3.5 md:grid-cols-3 lg:grid-cols-6">
-        {kpis.map((k, i) => <KpiCard key={k.label} k={k} i={i} />)}
-      </div>
-
-      {/* Row 2 — activity */}
-      <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
-        {activity.map((a, i) => {
-          const Icon = a.icon
-          return (
-            <div key={a.label} className="kpi-card animate-fade-up" style={{ animationDelay: `${i * 55 + 120}ms` }}>
-              <div className="flex items-center gap-2 text-ink-muted">
-                {Icon && <Icon size={14} />}
-                <span className="text-[11px] font-semibold uppercase tracking-wide">{a.label}</span>
-              </div>
-              <div className="text-2xl font-bold text-ink tracking-tight mt-1">{a.value}</div>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+        {kpis.map((k) => {
+          const inner = (
+            <>
+              <div className="text-[10px] uppercase tracking-wide text-gray-500">{k.label}</div>
+              <div className="text-2xl font-bold text-white">{k.value}</div>
+              <div className="text-[11px] text-gray-500">{k.sub}</div>
+            </>
+          )
+          return k.to ? (
+            <Link key={k.label} to={k.to} className="kpi-card transition-colors hover:border-[#F5821E]/50">
+              {inner}
+            </Link>
+          ) : (
+            <div key={k.label} className="kpi-card">
+              {inner}
             </div>
           )
         })}
       </div>
 
-      {/* Row 3 — trends + status donut */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-        <SectionCard title="Platform Trends" icon={LineChart} className="lg:col-span-2">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <EmptyTrend label="MRR" />
-            <EmptyTrend label="Health Centers" />
-            <EmptyTrend label="Patients" />
+      {/* Row 2 — activity cards */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {activity.map((a) => (
+          <div key={a.label} className="kpi-card">
+            <div className="text-[10px] uppercase tracking-wide text-gray-500">{a.label}</div>
+            <div className="text-2xl font-bold text-white">{a.value}</div>
+            <div className="text-[11px] text-gray-500">{a.sub}</div>
           </div>
-        </SectionCard>
-
-        <SectionCard title="Health Center Status" icon={Activity}>
-          <StatusDonut segments={statusSegments} />
-        </SectionCard>
+        ))}
       </div>
 
-      {/* Row 4 — module adoption / SLA / revenue at risk */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-        <SectionCard title="Module Adoption" icon={Activity}>
-          <div className="flex flex-col gap-3">
-            {MODULES.map((m) => {
-              const pct = module_adoption[m.key] ?? 0
-              return (
-                <div key={m.key} className="flex items-center gap-3 text-xs">
-                  <span className="w-20 shrink-0 text-ink-soft font-medium">{m.label}</span>
-                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
-                    <div className="h-full rounded-full bg-navy-600 transition-all" style={{ width: `${pct}%` }} />
+      {/* Row 3 — charts + operational panel */}
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <ChartCard title="MRR Trend">
+              <InlineTrend />
+            </ChartCard>
+            <ChartCard title="HC Growth">
+              <InlineTrend />
+            </ChartCard>
+            <ChartCard title="Patient Growth">
+              <InlineTrend />
+            </ChartCard>
+            <ChartCard title="Health Center Status">
+              <StatusDonut segments={statusSegments} />
+            </ChartCard>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <div className="card-sm p-3">
+            <div className="mb-2 text-[11px] uppercase tracking-wide text-gray-500">Module Adoption</div>
+            <div className="flex flex-col gap-2">
+              {MODULES.map((m) => {
+                const pct = module_adoption[m.key] ?? 0
+                return (
+                  <div key={m.key} className="flex items-center gap-2 text-[11px]">
+                    <span className="w-20 shrink-0 text-gray-400">{m.label}</span>
+                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-800">
+                      <div className="h-full bg-[#F5821E]" style={{ width: `${pct}%` }} />
+                    </div>
+                    <span className="w-8 text-right text-gray-400">{pct}%</span>
                   </div>
-                  <span className="w-9 text-right font-semibold text-ink tabular-nums">{pct}%</span>
-                </div>
-              )
-            })}
+                )
+              })}
+            </div>
           </div>
-        </SectionCard>
 
-        <SectionCard title="Approval SLA" icon={Clock}>
-          <div className="flex flex-col divide-y divide-line">
-            <div className="flex items-center justify-between py-2 text-sm">
-              <span className="text-ink-soft">Oldest pending</span>
-              <span className="font-semibold text-ink">—</span>
-            </div>
-            <div className="flex items-center justify-between py-2 text-sm">
-              <span className="text-ink-soft">Avg approval time</span>
-              <span className="font-semibold text-ink">—</span>
+          <div className="card-sm p-3">
+            <div className="mb-2 text-[11px] uppercase tracking-wide text-gray-500">Approval SLA</div>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-gray-400">Oldest pending</span>
+                <span className="font-semibold text-white">—</span>
+              </div>
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-gray-400">Avg approval</span>
+                <span className="font-semibold text-white">—</span>
+              </div>
             </div>
           </div>
-        </SectionCard>
 
-        <SectionCard title="Revenue at Risk" icon={IndianRupee}>
-          <div className="flex flex-col divide-y divide-line">
-            <div className="flex items-center justify-between py-2 text-sm">
-              <span className="text-ink-soft">Health Centers at risk</span>
-              <span className="font-semibold text-ink">{inactiveHc || '—'}</span>
+          <div className="card-sm p-3">
+            <div className="mb-2 text-[11px] uppercase tracking-wide text-gray-500">Revenue at Risk</div>
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="text-gray-400">HCs at risk</span>
+              <span className="font-semibold text-white">—</span>
             </div>
-            <div className="flex items-center justify-between py-2 text-sm">
-              <span className="text-ink-soft">Est. monthly exposure</span>
-              <span className="font-bold text-saffron-600">₹{mrr.toLocaleString('en-IN')}</span>
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="text-gray-400">Exposure</span>
+              <span className="font-semibold text-[#F5821E]">₹{mrr.toLocaleString('en-IN')}</span>
             </div>
           </div>
-        </SectionCard>
+        </div>
       </div>
 
-      {/* Row 5 — ranking tables */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <SectionCard title="Top Health Centers by MRR" icon={TrendingUp}>
+      {/* Row 4 — ranking tables */}
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        <div className="card-sm p-3">
+          <div className="mb-2 flex items-center gap-2 text-[11px] uppercase tracking-wide text-gray-500">
+            <TrendingUp className="h-3.5 w-3.5" /> Top Health Centers by MRR
+          </div>
           <table className="w-full">
             <thead>
-              <tr className="border-b border-line">
-                <th className="th-sm rounded-l-lg">Rank</th><th className="th-sm">Name</th>
-                <th className="th-sm">Plan</th><th className="th-sm">Doctors</th><th className="th-sm rounded-r-lg">MRR</th>
+              <tr>
+                <th className="th-sm">Rank</th>
+                <th className="th-sm">Name</th>
+                <th className="th-sm">Plan</th>
+                <th className="th-sm">Doctors</th>
+                <th className="th-sm">MRR</th>
               </tr>
             </thead>
             <tbody>
-              <tr><td className="td-sm text-center text-ink-muted py-8" colSpan={5}>No ranking data available</td></tr>
+              <tr>
+                <td className="td-sm text-center text-gray-600" colSpan={5}>
+                  No ranking data available
+                </td>
+              </tr>
             </tbody>
           </table>
-        </SectionCard>
+        </div>
 
-        <SectionCard title="Top by Patients" icon={Users}>
+        <div className="card-sm p-3">
+          <div className="mb-2 flex items-center gap-2 text-[11px] uppercase tracking-wide text-gray-500">
+            <Users className="h-3.5 w-3.5" /> Top by Patients
+          </div>
           <table className="w-full">
             <thead>
-              <tr className="border-b border-line">
-                <th className="th-sm rounded-l-lg">Rank</th><th className="th-sm">Name</th>
-                <th className="th-sm">City</th><th className="th-sm rounded-r-lg">Patients</th>
+              <tr>
+                <th className="th-sm">Rank</th>
+                <th className="th-sm">Name</th>
+                <th className="th-sm">City</th>
+                <th className="th-sm">Patients</th>
               </tr>
             </thead>
             <tbody>
-              <tr><td className="td-sm text-center text-ink-muted py-8" colSpan={4}>No ranking data available</td></tr>
+              <tr>
+                <td className="td-sm text-center text-gray-600" colSpan={4}>
+                  No ranking data available
+                </td>
+              </tr>
             </tbody>
           </table>
-        </SectionCard>
+        </div>
       </div>
 
-      {/* Row 6 — alerts */}
-      <SectionCard title="Alerts" icon={AlertTriangle}>
-        {alerts.length === 0 ? (
-          <div className="py-6 text-center text-sm text-ink-muted">No active alerts — everything looks healthy.</div>
-        ) : (
-          <div className="divide-y divide-line">
-            {alerts.map((a) => {
+      {/* Row 5 — alerts feed */}
+      <div className="card-sm p-3">
+        <div className="mb-2 flex items-center gap-2 text-[11px] uppercase tracking-wide text-gray-500">
+          <AlertTriangle className="h-3.5 w-3.5" /> Alerts
+        </div>
+        <div className="max-h-48 overflow-y-auto">
+          {alerts.length === 0 ? (
+            <div className="py-4 text-center text-[11px] text-gray-600">No active alerts</div>
+          ) : (
+            alerts.map((a) => {
               const row = (
-                <div className="flex items-center gap-3 py-3">
-                  <span className="h-2.5 w-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: a.color }} />
-                  <span className="text-sm text-ink-soft">{a.text}</span>
-                  {a.to && <ArrowUpRight size={15} className="ml-auto text-ink-muted" />}
+                <div className="flex items-center gap-3 border-b border-gray-800/40 py-1.5">
+                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: a.color }} />
+                  <span className="text-[12px] text-gray-300">{a.text}</span>
                 </div>
               )
-              return a.to
-                ? <Link key={a.key} to={a.to} className="block -mx-2 px-2 rounded-lg hover:bg-slate-50 transition-colors">{row}</Link>
-                : <div key={a.key}>{row}</div>
-            })}
-          </div>
-        )}
-      </SectionCard>
+              return a.to ? (
+                <Link key={a.key} to={a.to} className="block hover:bg-gray-800/30">
+                  {row}
+                </Link>
+              ) : (
+                <div key={a.key}>{row}</div>
+              )
+            })
+          )}
+        </div>
+      </div>
 
-      {/* Rate card */}
-      <SectionCard title="Rate Card" icon={IndianRupee}>
+      {/* Rate Card — real data from endpoint */}
+      <div className="card-sm p-3">
+        <div className="mb-2 flex items-center gap-2 text-[11px] uppercase tracking-wide text-gray-500">
+          <IndianRupee className="h-3.5 w-3.5" /> Rate Card
+        </div>
         {Object.keys(rate_card).length === 0 ? (
-          <div className="py-6 text-center text-sm text-ink-muted">No rate card configured</div>
+          <div className="py-4 text-center text-[11px] text-gray-600">No rate card configured</div>
         ) : (
-          <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {Object.entries(rate_card).map(([plan, info]) => (
-              <div key={plan} className="rounded-xl border border-line bg-slate-50/60 p-3.5">
-                <div className="eyebrow">{info.label || plan}</div>
-                <div className="text-lg font-bold text-ink mt-1">
-                  ₹{Number(info.price_per_doctor || 0).toLocaleString('en-IN')}
-                  <span className="text-xs font-medium text-ink-muted"> /doctor</span>
+              <div key={plan} className="kpi-card">
+                <div className="text-[10px] uppercase tracking-wide text-gray-500">
+                  {info.label || plan}
                 </div>
-                <div className="text-[11px] text-ink-muted mt-0.5">Max {info.max_doctors ?? '—'} doctors</div>
+                <div className="text-sm font-bold text-white">
+                  ₹{Number(info.price_per_doctor || 0).toLocaleString('en-IN')}
+                  <span className="text-[11px] font-normal text-gray-500"> /doctor</span>
+                </div>
+                <div className="text-[11px] text-gray-500">
+                  Max {info.max_doctors ?? '—'} doctors
+                </div>
               </div>
             ))}
           </div>
         )}
-      </SectionCard>
+      </div>
     </div>
   )
 }
