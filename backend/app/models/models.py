@@ -1272,6 +1272,10 @@ class Admission(Base):
     insurance_company     = Column(String(200), nullable=True)
     policy_number         = Column(String(100), nullable=True)
     pre_auth_number       = Column(String(100), nullable=True)
+    # Discharge workflow (CareChart discharge queue)
+    discharge_checklist   = Column(JSON, nullable=True)         # {clinical:{...}, documentation:{...}, logistics:{...}}
+    discharge_notes       = Column(Text, nullable=True)
+    discharge_destination = Column(String(120), nullable=True) # Home | Rehabilitation Centre | ...
     # Emergency pre-registration fields
     triage_level          = Column(String(10), nullable=True)   # red|orange|yellow|green
     brought_by            = Column(String(50), nullable=True)   # ambulance|relative|police|walk_in|other
@@ -2205,16 +2209,20 @@ class iViewObservation(Base):
 
 
 class StaffFormFavorite(Base):
-    """Favorite assessment forms. scope='personal' → visible only to that staff
-    member; scope='organization' → visible to every staff member in the clinic
-    (the health center, spanning all its branches). Always tenant-isolated by
-    clinic_id, which is taken from the JWT, never the client."""
+    """Favorite assessment forms.
+    scope='personal'     → visible only to that staff member;
+    scope='organization' → visible to every staff member in the clinic
+                           (the health center, spanning all its branches);
+    scope='ward'         → visible to staff working in that ward (ward_id set).
+    Always tenant-isolated by clinic_id, which is taken from the JWT, never the
+    client. ward_id is only populated for scope='ward'."""
     __tablename__ = "staff_form_favorites"
     id         = Column(Integer, primary_key=True, index=True)
     clinic_id  = Column(Integer, ForeignKey("clinics.id"), nullable=False, index=True)
     staff_id   = Column(Integer, ForeignKey("staff.id"), nullable=False, index=True)
     form_id    = Column(Integer, ForeignKey("assessment_forms.id", ondelete="CASCADE"), nullable=False, index=True)
-    scope      = Column(String(20), nullable=False, default="personal")  # personal | organization
+    ward_id    = Column(Integer, ForeignKey("wards.id"), nullable=True, index=True)  # set only when scope='ward'
+    scope      = Column(String(20), nullable=False, default="personal")  # personal | organization | ward
     created_at = Column(DateTime, server_default=func.now())
 
 

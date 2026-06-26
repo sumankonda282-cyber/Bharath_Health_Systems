@@ -10,7 +10,8 @@ from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import text
+from sqlalchemy.orm.attributes import flag_modified
+from sqlalchemy import text, or_, and_, func
 
 from app.db.session import get_db
 from app.core.security import get_current_staff
@@ -613,6 +614,125 @@ def _admission_dict(a: Admission) -> dict:
         "eta_minutes": getattr(a, "eta_minutes", None),
         "arrived_at": getattr(a, "arrived_at", None),
     }
+
+
+# ── Discharge Queue ─────────────────────────────────────────────────────────────
+
+def _blank_task():
+    return {"done": False, "by": None, "at": None}
+
+
+def _default_discharge_checklist() -> dict:
+    """Canonical discharge checklist skeleton (matches the CareChart UI)."""
+    return {
+        "clinical": {
+            "summary_signed": _blank_task(),
+            "final_vitals": _blank_task(),
+            "medications_counselled": _blank_task(),
+            "iv_removed": _blank_task(),
+        },
+        "documentation": {
+            "letter_printed": _blank_task(),
+            "opd_booked": _blank_task(),
+        },
+        "logistics": {
+            "family_informed": _blank_task(),
+            "transport_arranged": {"done": False, "by": None, "at": None, "transport_mode": None},
+            "belongings_returned": _blank_task(),
+        },
+    }
+
+
+def _checklist_pending(checklist: dict) -> int:
+    """Count of not-yet-done tasks across all sections."""
+    pending = 0
+    for section in (checklist or {}).values():
+        if isinstance(section, dict):
+            for task in section.values():
+                if isinstance(task, dict) and not task.get("done"):
+                    pending += 1
+    return pending
+
+
+@router.get("/discharge-queue")
+def discharge_queue(
+    ward_id: Optional[int] = Query(None),
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Enriched discharge worklist for the CareChart Discharge Queue.
+
+    Returns currently-admitted patients (active / discharge_pending) plus anyone
+    discharged *today*, with patient, bed and doctor names joined, length-of-stay
+    computed, and a derived discharge status (READY / PENDING / DELAYED /
+    DISCHARGED) based on the stored discharge checklist."""
+    today = datetime.utcnow().date()
+    q = db.query(Admission, Patient).join(
+        Patient, Patient.id == Admission.patient_id
+    ).filter(Admission.clinic_id == current.clinic_id)
+    if ward_id:
+        q = q.filter(Admission.ward_id == ward_id)
+    q = q.filter(
+        or_(
+            Admission.status.in_(["active", "discharge_pending"]),
+            and_(
+                Admission.status == "discharged",
+                func.date(Admission.discharged_at) == today,
+            ),
+        )
+    )
+    rows = q.order_by(Admission.admitted_at.desc()).all()
+
+    # Resolve bed/doctor names without N+1 surprises: batch-load referenced rows.
+    bed_ids    = {a.bed_id for a, _ in rows if a.bed_id}
+    doctor_ids = {a.admitting_doctor_id for a, _ in rows if a.admitting_doctor_id}
+    beds    = {b.id: b for b in db.query(Bed).filter(Bed.id.in_(bed_ids)).all()} if bed_ids else {}
+    doctors = {s.id: s for s in db.query(Staff).filter(Staff.id.in_(doctor_ids)).all()} if doctor_ids else {}
+
+    result = []
+    for adm, pat in rows:
+        bed    = beds.get(adm.bed_id)
+        doctor = doctors.get(adm.admitting_doctor_id)
+
+        age = None
+        if pat.date_of_birth:
+            age = today.year - pat.date_of_birth.year - (
+                (today.month, today.day) < (pat.date_of_birth.month, pat.date_of_birth.day)
+            )
+        los = 0
+        if adm.admitted_at:
+            los = max(0, (today - adm.admitted_at.date()).days)
+
+        checklist = adm.discharge_checklist or _default_discharge_checklist()
+        pending = _checklist_pending(checklist)
+
+        if adm.status == "discharged":
+            status = "DISCHARGED"
+        elif pending == 0:
+            status = "READY"
+        elif adm.expected_discharge and adm.expected_discharge < today:
+            status = "DELAYED"
+        else:
+            status = "PENDING"
+
+        result.append({
+            "id": adm.id,
+            "admission_number": adm.admission_number,
+            "bed": bed.bed_number if bed else "—",
+            "name": pat.full_name,
+            "age": age,
+            "gender": pat.gender,
+            "diagnosis": adm.primary_diagnosis or "—",
+            "doctor": doctor.full_name if doctor else "—",
+            "destination": adm.discharge_destination or "Home",
+            "los": los,
+            "status": status,
+            "admission_date": adm.admitted_at.isoformat() if adm.admitted_at else None,
+            "discharge_time": adm.discharged_at.isoformat() if adm.discharged_at else None,
+            "notes": adm.discharge_notes or "",
+            "checklist": checklist,
+        })
+    return result
 
 
 # ── Atomic Token Generation ────────────────────────────────────────────────────
@@ -3220,26 +3340,57 @@ def get_documents(admission_id: int, db: Session = Depends(get_db), current: Sta
 
 @router.patch("/admissions/{admission_id}/discharge-checklist")
 def update_discharge_checklist(admission_id: int, body: dict, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
+    """Persist a discharge-checklist change. Accepts either a full
+    ``{"checklist": {...}}`` replacement, or a single-task update
+    ``{"section", "key", "done", "by", "at", "transport_mode"?}``."""
     adm = db.query(Admission).filter(Admission.id == admission_id, Admission.clinic_id == current.clinic_id).first()
     if not adm:
         raise HTTPException(status_code=404, detail="Admission not found")
-    if hasattr(adm, "discharge_checklist"):
-        adm.discharge_checklist = body.get("checklist") or body
+
+    checklist = adm.discharge_checklist or _default_discharge_checklist()
+    if isinstance(body.get("checklist"), dict):
+        checklist = body["checklist"]
+    elif body.get("section") and body.get("key"):
+        section, key = body["section"], body["key"]
+        task = dict(checklist.get(section, {}).get(key, {}))
+        task["done"] = bool(body.get("done", True))
+        task["by"] = body.get("by")
+        task["at"] = body.get("at")
+        if "transport_mode" in body:
+            task["transport_mode"] = body.get("transport_mode")
+        checklist.setdefault(section, {})[key] = task
+
+    adm.discharge_checklist = checklist
+    flag_modified(adm, "discharge_checklist")  # JSON column: ensure in-place change is detected
+    # Once every task is ticked, mark the admission ready for discharge.
+    if adm.status == "active" and _checklist_pending(checklist) == 0:
+        adm.status = "discharge_pending"
     db.commit()
-    return {"ok": True}
+    return {"ok": True, "checklist": checklist, "pending": _checklist_pending(checklist)}
 
 
 @router.post("/admissions/{admission_id}/confirm-discharge")
 def confirm_discharge(admission_id: int, body: dict, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
+    """Finalise a discharge: stamp the time, persist notes/destination, free the bed."""
     adm = db.query(Admission).filter(Admission.id == admission_id, Admission.clinic_id == current.clinic_id).first()
     if not adm:
         raise HTTPException(status_code=404, detail="Admission not found")
     adm.status = "discharged"
-    adm.actual_discharge = datetime.utcnow()
-    if hasattr(adm, "discharge_notes"):
+    adm.discharged_at = datetime.utcnow()
+    if body.get("notes") is not None:
         adm.discharge_notes = body.get("notes")
+    if body.get("destination"):
+        adm.discharge_destination = body.get("destination")
+
+    # Free the bed so the bed board reflects the discharge immediately.
+    if adm.bed_id:
+        bed = db.query(Bed).filter(Bed.id == adm.bed_id).first()
+        if bed:
+            bed.status = "vacant"
+            bed.current_admission_id = None
+
     db.commit()
-    return {"ok": True}
+    return {"ok": True, "discharged_at": adm.discharged_at.isoformat()}
 
 
 # ── Periop (Pre/Post-Op) ──────────────────────────────────────────────────────

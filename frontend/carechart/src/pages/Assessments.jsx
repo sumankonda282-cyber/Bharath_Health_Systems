@@ -475,7 +475,7 @@ function CareFormCard({ cf, onEdit, onClone, onDelete, onTogglePublish }) {
 }
 
 // ── Assessment library card ───────────────────────────────────────────────────
-function AssessmentCard({ form, onEdit, onOpen, isPersonalFav, isOrgFav, onToggleFav }) {
+function AssessmentCard({ form, onEdit, onOpen, isWardFav, isOrgFav, onToggleFav }) {
   const title = form.title || form.name || '—'
   const hasJsx = !!(form.subcategory)
   return (
@@ -501,13 +501,13 @@ function AssessmentCard({ form, onEdit, onOpen, isPersonalFav, isOrgFav, onToggl
           {onToggleFav && (
             <>
               <button
-                onClick={() => onToggleFav(form.id, 'personal')}
+                onClick={() => onToggleFav(form.id, 'ward')}
                 className="w-7 h-7 rounded-lg border flex items-center justify-center transition-colors"
-                style={isPersonalFav
+                style={isWardFav
                   ? { borderColor: '#fbbf24', background: '#fef9c3' }
                   : { borderColor: '#e5e7eb', background: 'white' }}
-                title={isPersonalFav ? 'Remove my star' : 'Save to my forms'}>
-                <Star size={11} fill={isPersonalFav ? '#f59e0b' : 'none'} style={{ color: isPersonalFav ? '#f59e0b' : '#9ca3af' }} />
+                title={isWardFav ? "Remove from this ward's forms" : "Save to this ward's forms"}>
+                <Star size={11} fill={isWardFav ? '#f59e0b' : 'none'} style={{ color: isWardFav ? '#f59e0b' : '#9ca3af' }} />
               </button>
               <button
                 onClick={() => onToggleFav(form.id, 'organization')}
@@ -552,6 +552,7 @@ function AssessmentCard({ form, onEdit, onOpen, isPersonalFav, isOrgFav, onToggl
 // ── Main component ────────────────────────────────────────────────────────────
 export default function Assessments() {
   const { session } = useWardSession()
+  const wardId = session?.ward?.id
   const [tab, setTab]           = useState('care-forms')  // care-forms | library | submissions
   const [forms, setForms]       = useState([])
   const [careForms, setCareForms] = useState([])
@@ -559,37 +560,42 @@ export default function Assessments() {
   const [loading, setLoading]   = useState(true)
   const [search, setSearch]     = useState('')
   const [catFilter, setCatFilter] = useState('')
+  const [sortBy, setSortBy]     = useState('name')  // name | category
   const [builder, setBuilder]   = useState(null)   // null | care form object (new or existing)
   const [openForm, setOpenForm] = useState(null)   // null | { title, subcategory, ... }
-  const [favPersonal, setFavPersonal] = useState([])
-  const [favOrg, setFavOrg]           = useState([])
+  const [favWard, setFavWard]   = useState([])     // favorites for the current ward
+  const [favOrg, setFavOrg]     = useState([])     // clinic-wide favorites
 
+  // Favorites are scoped to the ward (★) and the organization. Re-fetch when the
+  // active ward changes so ward favorites stay correct.
   useEffect(() => {
-    api.get('/assessment-forms/favorites')
-      .then(r => { setFavPersonal(r.data?.personal || []); setFavOrg(r.data?.organization || []) })
+    api.get('/assessment-forms/favorites', { params: wardId ? { ward_id: wardId } : {} })
+      .then(r => { setFavWard(r?.ward || []); setFavOrg(r?.organization || []) })
       .catch(() => {})
-  }, [])
+  }, [wardId])
 
-  const isPersonalFav = useCallback((id) => favPersonal.includes(id), [favPersonal])
-  const isOrgFav      = useCallback((id) => favOrg.includes(id), [favOrg])
+  const isWardFav = useCallback((id) => favWard.includes(id), [favWard])
+  const isOrgFav  = useCallback((id) => favOrg.includes(id), [favOrg])
 
-  // Toggle a favorite with optimistic update; revert + warn on failure.
+  // Toggle a ward or organization favorite with optimistic update; revert + warn on failure.
   const toggleFav = useCallback((id, scope) => {
-    const isPersonal = scope === 'personal'
-    const cur    = isPersonal ? favPersonal : favOrg
-    const setter = isPersonal ? setFavPersonal : setFavOrg
+    const isWard = scope === 'ward'
+    if (isWard && !wardId) { alert('No active ward — open a ward to save ward favorites.'); return }
+    const cur    = isWard ? favWard : favOrg
+    const setter = isWard ? setFavWard : setFavOrg
     const has    = cur.includes(id)
+    const params = isWard ? { scope, ward_id: wardId } : { scope }
     setter(has ? cur.filter(x => x !== id) : [...cur, id])  // optimistic
     const req = has
-      ? api.delete(`/assessment-forms/favorites/${id}`, { params: { scope } })
-      : api.post(`/assessment-forms/favorites/${id}`, null, { params: { scope } })
+      ? api.delete(`/assessment-forms/favorites/${id}`, { params })
+      : api.post(`/assessment-forms/favorites/${id}`, null, { params })
     req.catch(() => {
       setter(cur)  // revert
-      alert(`Could not update ${scope === 'organization' ? 'organization' : 'personal'} favorite. Please try again.`)
+      alert(`Could not update ${isWard ? 'ward' : 'organization'} favorite. Please try again.`)
     })
-  }, [favPersonal, favOrg])
+  }, [favWard, favOrg, wardId])
 
-  const favIds = useMemo(() => Array.from(new Set([...favPersonal, ...favOrg])), [favPersonal, favOrg])  // "My Forms" = personal ∪ org
+  const favIds = useMemo(() => Array.from(new Set([...favWard, ...favOrg])), [favWard, favOrg])  // "My Forms" = ward ∪ org
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -598,8 +604,8 @@ export default function Assessments() {
         api.get('/assessment-forms/', { params: { status: 'published', limit: 1000 } }),
         api.get('/carechart/care-forms'),
       ])
-      const poolData = fPool.status  === 'fulfilled' ? (fPool.value.data?.forms   || []) : []
-      const cfData   = cForms.status === 'fulfilled' ? (Array.isArray(cForms.value.data) ? cForms.value.data : cForms.value.data?.items || []) : []
+      const poolData = fPool.status  === 'fulfilled' ? (fPool.value?.forms || []) : []
+      const cfData   = cForms.status === 'fulfilled' ? (Array.isArray(cForms.value) ? cForms.value : (cForms.value?.items || [])) : []
       setForms(poolData.length ? poolData : MOCK_FORMS)
       setCareForms(cfData.length ? cfData : MOCK_CARE_FORMS)
       setSubmissions([])
@@ -635,12 +641,19 @@ export default function Assessments() {
     api.post(`/carechart/care-forms/${cf.id}/${cf.published ? 'unpublish' : 'publish'}`).catch(() => {})
   }
 
-  // Library filter
+  // Library filter + sort
   const categories = [...new Set(forms.map(f => f.category))].sort()
-  const filteredForms = useMemo(() => forms.filter(f =>
-    (!catFilter || f.category === catFilter) &&
-    (!search || f.name.toLowerCase().includes(search.toLowerCase()) || f.description?.toLowerCase().includes(search.toLowerCase()))
-  ), [forms, catFilter, search])
+  const filteredForms = useMemo(() => {
+    const q = search.toLowerCase()
+    const out = forms.filter(f =>
+      (!catFilter || f.category === catFilter) &&
+      (!q || (f.title || f.name || '').toLowerCase().includes(q) || f.description?.toLowerCase().includes(q))
+    )
+    const byName = (a, b) => (a.title || a.name || '').localeCompare(b.title || b.name || '')
+    if (sortBy === 'name') out.sort(byName)
+    else if (sortBy === 'category') out.sort((a, b) => (a.category || '').localeCompare(b.category || '') || byName(a, b))
+    return out
+  }, [forms, catFilter, search, sortBy])
 
   const TABS = [
     { key: 'care-forms',  label: 'Care Forms',        icon: ClipboardList, count: careForms.length },
@@ -760,10 +773,10 @@ export default function Assessments() {
                           <span title="Shared with your whole clinic" style={{ color: '#2563eb' }}><Users size={10} /></span>
                         )}
                         <button
-                          onClick={e => { e.stopPropagation(); toggleFav(f.id, 'personal') }}
-                          className={isPersonalFav(f.id) ? 'text-yellow-500 hover:text-yellow-700' : 'text-gray-300 hover:text-yellow-500'}
-                          title={isPersonalFav(f.id) ? 'Remove my star' : 'Add my star'}>
-                          <Star size={10} fill={isPersonalFav(f.id) ? 'currentColor' : 'none'} />
+                          onClick={e => { e.stopPropagation(); toggleFav(f.id, 'ward') }}
+                          className={isWardFav(f.id) ? 'text-yellow-500 hover:text-yellow-700' : 'text-gray-300 hover:text-yellow-500'}
+                          title={isWardFav(f.id) ? 'Remove from ward' : 'Add to ward'}>
+                          <Star size={10} fill={isWardFav(f.id) ? 'currentColor' : 'none'} />
                         </button>
                       </div>
                     </div>
@@ -812,14 +825,22 @@ export default function Assessments() {
                 )
               })}
             </div>
-            <span className="ml-auto text-[10px] text-gray-400">{filteredForms.length} assessments</span>
+            <div className="ml-auto flex items-center gap-2">
+              <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+                className="border rounded-lg px-2 py-1.5 text-[11px] bg-white focus:outline-none text-gray-600"
+                style={{ borderColor: '#e5e7eb' }} title="Sort assessments">
+                <option value="name">Sort: Name (A–Z)</option>
+                <option value="category">Sort: Category</option>
+              </select>
+              <span className="text-[10px] text-gray-400">{filteredForms.length} assessments</span>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-3">
             {filteredForms.map(f => (
               <AssessmentCard
                 key={f.id} form={f} onEdit={() => {}} onOpen={setOpenForm}
-                isPersonalFav={isPersonalFav(f.id)} isOrgFav={isOrgFav(f.id)} onToggleFav={toggleFav}
+                isWardFav={isWardFav(f.id)} isOrgFav={isOrgFav(f.id)} onToggleFav={toggleFav}
               />
             ))}
           </div>
