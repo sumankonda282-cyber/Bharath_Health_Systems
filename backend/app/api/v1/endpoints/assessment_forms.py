@@ -862,29 +862,34 @@ def list_pool(
     limit:    int           = Query(50,  ge=1, le=500),
     offset:   int           = Query(0,   ge=0),
 ):
-    query = db.query(FormPool)
-    if category: query = query.filter(FormPool.category == category)
+    # FormPool is a join table (form_id -> assessment_forms); display fields
+    # (title/description/category/icon/schema) live on the AssessmentForm.
+    query = db.query(FormPool, AssessmentForm).join(
+        AssessmentForm, AssessmentForm.id == FormPool.form_id
+    ).filter(FormPool.is_active == True)
+    if category: query = query.filter(AssessmentForm.category == category)
     if q:
         like = f"%{q}%"
         query = query.filter(
-            FormPool.title.ilike(like) | FormPool.description.ilike(like)
+            AssessmentForm.title.ilike(like) | AssessmentForm.description.ilike(like)
         )
     total = query.count()
-    items = query.order_by(FormPool.title).offset(offset).limit(limit).all()
+    rows = query.order_by(AssessmentForm.title).offset(offset).limit(limit).all()
     return {
         "total":  total,
         "offset": offset,
         "limit":  limit,
         "items": [
             {
-                "id":          i.id,
-                "title":       i.title,
-                "description": i.description,
-                "category":    i.category,
-                "icon":        i.icon,
-                "schema":      i.schema,
+                "id":          pool.id,
+                "form_id":     form.id,
+                "title":       form.title,
+                "description": form.description,
+                "category":    form.category,
+                "icon":        form.icon,
+                "schema":      form.schema,
             }
-            for i in items
+            for pool, form in rows
         ],
     }
 
@@ -902,19 +907,23 @@ def instantiate_from_pool(
     template = db.query(FormPool).filter(FormPool.id == pool_id).first()
     if not template:
         raise HTTPException(status_code=404, detail="Pool template not found")
+    # FormPool only references a form_id; the real definition is the AssessmentForm.
+    src = db.query(AssessmentForm).filter(AssessmentForm.id == template.form_id).first()
+    if not src:
+        raise HTTPException(status_code=404, detail="Pool source form not found")
 
     form = AssessmentForm(
-        title            = payload.get("title",       template.title),
-        description      = payload.get("description", template.description),
-        category         = payload.get("category",    template.category),
+        title            = payload.get("title",       src.title),
+        description      = payload.get("description", src.description),
+        category         = payload.get("category",    src.category),
         status           = "draft",
-        schema           = template.schema,
-        scoring_config   = template.schema.get("scoring_config") if template.schema else None,
-        alert_rules      = template.schema.get("alert_rules")    if template.schema else None,
+        schema           = src.schema,
+        scoring_config   = src.scoring_config,
+        alert_rules      = src.alert_rules,
         is_template      = False,
-        is_iview_enabled = bool(template.schema and template.schema.get("is_iview_enabled")),
-        iview_config     = template.schema.get("iview_config")   if template.schema else None,
-        icon             = payload.get("icon",        template.icon),
+        is_iview_enabled = bool(src.is_iview_enabled),
+        iview_config     = src.iview_config,
+        icon             = payload.get("icon",        src.icon),
         version          = 1,
         created_at       = datetime.utcnow(),
         updated_at       = datetime.utcnow(),
