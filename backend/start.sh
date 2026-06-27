@@ -85,6 +85,21 @@ echo "[startup] Critical migrations complete."
 # Render's port scan times out after ~5 min if uvicorn doesn't start first.
 (
 set +e  # don't let migration failures kill the background job
+
+# ── One-time operational data wipe (opt-in, deploy-triggered) ──────────────────
+# Runs FIRST in the background job — within seconds of startup — so a later restart
+# or redeploy can never cut it off before it completes. Runs ONLY when
+# RESET_OPERATIONAL_DATA is set, exactly once per distinct token value (a sentinel in
+# platform_settings prevents re-wiping on later deploys). Wipes all clinics/staff/
+# patients/clinical records; keeps reference libraries. Uses SUPERADMIN_EMAIL/
+# SUPERADMIN_PASSWORD for the admin it recreates.
+if [ -n "${RESET_OPERATIONAL_DATA:-}" ]; then
+    echo "[bg-migrations] RESET_OPERATIONAL_DATA set ('${RESET_OPERATIONAL_DATA}') — running one-time operational wipe..."
+    CONFIRM_RESET=YES RESET_TOKEN="${RESET_OPERATIONAL_DATA}" timeout 300 python reset_operational_data.py \
+        && echo "[bg-migrations] operational wipe step complete." \
+        || echo "[bg-migrations] operational wipe failed (non-fatal)"
+fi
+
 echo "[bg-migrations] Applying safe column additions (idempotent)..."
 python -c "
 from sqlalchemy import text
@@ -828,17 +843,6 @@ try:
 except Exception as e:
     print(f'[bg-migrations] BH state groups seed warning: {e}')
 " || echo "[bg-migrations] BH state groups seed failed (non-fatal)"
-
-# ── One-time operational data wipe (opt-in, deploy-triggered) ──────────────────
-# Runs ONLY when RESET_OPERATIONAL_DATA is set, exactly once per distinct token
-# value (a sentinel in platform_settings prevents re-wiping on later deploys).
-# Wipes all clinics/staff/patients/clinical records; keeps reference libraries.
-# Set SUPERADMIN_EMAIL/SUPERADMIN_PASSWORD for the admin it recreates.
-if [ -n "${RESET_OPERATIONAL_DATA:-}" ]; then
-    echo "[bg-migrations] RESET_OPERATIONAL_DATA set ('${RESET_OPERATIONAL_DATA}') — running one-time operational wipe..."
-    CONFIRM_RESET=YES RESET_TOKEN="${RESET_OPERATIONAL_DATA}" timeout 180 python reset_operational_data.py \
-        || echo "[bg-migrations] operational wipe failed (non-fatal)"
-fi
 
 echo "[bg-migrations] Seeding demo/test accounts (idempotent)..."
 timeout 60 python seed.py || echo "[bg-migrations] Demo seed failed (non-fatal)"
