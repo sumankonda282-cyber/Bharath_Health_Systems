@@ -819,11 +819,11 @@ def platform_forgot_password(request: Request, payload: ForgotPasswordRequest, d
     if not admin:
         return {"detail": "If that email exists, a reset link has been sent."}
 
+    # DB-backed token (survives redeploys / multiple instances, unlike an in-memory dict)
     token = secrets.token_urlsafe(32)
-    _platform_reset_tokens[token] = {
-        "admin_id": admin.id,
-        "expires": datetime.utcnow() + timedelta(minutes=30),
-    }
+    admin.otp_code = token
+    admin.otp_expiry = datetime.utcnow() + timedelta(minutes=30)
+    db.commit()
 
     # Determine the platform admin portal URL from settings / env
     base_url = "https://admin.bharathhealthsystems.com"
@@ -841,24 +841,41 @@ def platform_forgot_password(request: Request, payload: ForgotPasswordRequest, d
 
 @router.post("/platform/reset-password")
 def platform_reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
-    """Consume a reset token and set a new password."""
-    record = _platform_reset_tokens.get(payload.token)
-    if not record:
+    """Consume a reset token (DB-backed) and set a new password."""
+    if not payload.token:
         raise HTTPException(status_code=400, detail="Invalid or expired reset token.")
-    if datetime.utcnow() > record["expires"]:
-        _platform_reset_tokens.pop(payload.token, None)
+    admin = db.query(PlatformAdmin).filter(PlatformAdmin.otp_code == payload.token).first()
+    if not admin:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token.")
+    if not admin.otp_expiry or datetime.utcnow() > admin.otp_expiry:
+        admin.otp_code = None
+        admin.otp_expiry = None
+        db.commit()
         raise HTTPException(status_code=400, detail="Reset token has expired. Request a new one.")
 
     if len(payload.new_password) < 8:
         raise HTTPException(status_code=422, detail="Password must be at least 8 characters.")
 
-    admin = db.query(PlatformAdmin).filter(PlatformAdmin.id == record["admin_id"]).first()
-    if not admin:
-        raise HTTPException(status_code=404, detail="Admin not found.")
-
     admin.hashed_password = hash_password(payload.new_password)
     admin.token_version = (admin.token_version or 1) + 1  # invalidate existing sessions
+    admin.otp_code = None
+    admin.otp_expiry = None
     db.commit()
-    _platform_reset_tokens.pop(payload.token, None)
 
     return {"detail": "Password updated successfully. Please log in with your new password."}
+
+
+@router.post("/platform/change-password")
+def platform_change_password(
+    payload: ChangePasswordRequest,
+    db: Session = Depends(get_db),
+    admin=Depends(get_current_platform_admin),
+):
+    """Self-service password change for a logged-in platform admin — no email needed."""
+    if not verify_password(payload.current_password, admin.hashed_password):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    if len(payload.new_password) < 8:
+        raise HTTPException(status_code=422, detail="New password must be at least 8 characters.")
+    admin.hashed_password = hash_password(payload.new_password)
+    db.commit()
+    return {"detail": "Password changed successfully."}
