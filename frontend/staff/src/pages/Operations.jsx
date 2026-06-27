@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api/client'
-import { Search, X, Loader2, ChevronRight, Clock, CalendarDays, Video, Users } from 'lucide-react'
+import { Search, X, Loader2, ChevronRight, Clock, CalendarDays, Video, Users, AlertTriangle, RefreshCw } from 'lucide-react'
 
 const today = () => new Date().toISOString().split('T')[0]
 
@@ -50,6 +50,7 @@ export default function Operations() {
   const [dateTo, setDateTo] = useState(today())
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
   const [filterType, setFilterType] = useState('')
@@ -67,9 +68,13 @@ export default function Operations() {
     if (filterType) params.visit_type = filterType
     if (filterBilling) params.billing_status = filterBilling
     if (search) params.search = search
+    setError(null)
     api.get('/clinic/billing/operations', { params })
-      .then(r => setRows(Array.isArray(r) ? r : []))
-      .catch(() => setRows([]))
+      .then(r => { setRows(Array.isArray(r) ? r : []); setError(null) })
+      .catch(err => {
+        setRows([])
+        setError(err?.response?.data?.detail || err?.message || 'Failed to load operations data')
+      })
       .finally(() => setLoading(false))
   }, [mode, dateFrom, dateTo, filterStatus, filterType, filterBilling, search])
 
@@ -91,34 +96,7 @@ export default function Operations() {
 
   return (
     <div>
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-3 mb-4">
-        <div className="flex items-center gap-2">
-          <div className="flex rounded-xl overflow-hidden border border-gray-200">
-            <button onClick={() => setMode('live')}
-              className={`px-4 py-1.5 text-sm font-medium transition-colors ${mode === 'live' ? 'text-white' : 'text-gray-600 hover:bg-gray-50'}`}
-              style={mode === 'live' ? { background: '#0F2557' } : {}}>
-              Live Today
-            </button>
-            <button onClick={() => setMode('range')}
-              className={`px-4 py-1.5 text-sm font-medium transition-colors ${mode === 'range' ? 'text-white' : 'text-gray-600 hover:bg-gray-50'}`}
-              style={mode === 'range' ? { background: '#0F2557' } : {}}>
-              Date Range
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Date range picker */}
-      {mode === 'range' && (
-        <div className="flex flex-wrap items-center gap-2 mb-4">
-          <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="input w-auto" />
-          <span className="text-gray-400 text-sm">to</span>
-          <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="input w-auto" />
-        </div>
-      )}
-
-      {/* Live stat pills */}
+      {/* Live stat pills (KPIs, not filters) */}
       {mode === 'live' && (
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
           {[
@@ -139,8 +117,29 @@ export default function Operations() {
         </div>
       )}
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-2 mb-4">
+      {/* Consolidated toolbar: mode toggle + (date range) + filters + count */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <div className="flex rounded-xl overflow-hidden border border-gray-200 flex-shrink-0">
+          <button onClick={() => setMode('live')}
+            className={`px-4 py-1.5 text-sm font-medium transition-colors ${mode === 'live' ? 'text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+            style={mode === 'live' ? { background: '#0F2557' } : {}}>
+            Live Today
+          </button>
+          <button onClick={() => setMode('range')}
+            className={`px-4 py-1.5 text-sm font-medium transition-colors ${mode === 'range' ? 'text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+            style={mode === 'range' ? { background: '#0F2557' } : {}}>
+            Date Range
+          </button>
+        </div>
+
+        {mode === 'range' && (
+          <>
+            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="input w-auto text-sm py-1.5" />
+            <span className="text-gray-400 text-sm">to</span>
+            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="input w-auto text-sm py-1.5" />
+          </>
+        )}
+
         <div className="relative">
           <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
           <input placeholder="Search patient…" value={search}
@@ -170,13 +169,28 @@ export default function Operations() {
             <X size={12} />Clear
           </button>
         )}
-        <span className="text-xs text-gray-400 self-center">{rows.length} records</span>
+        <span className="text-xs text-gray-400 ml-auto whitespace-nowrap">{rows.length} records</span>
       </div>
 
       {/* Table */}
       <div className="card overflow-hidden">
         {loading ? (
           <div className="flex justify-center py-20"><Loader2 size={28} className="animate-spin text-gray-400" /></div>
+        ) : error ? (
+          <div className="m-4 rounded-lg border border-red-200 bg-red-50 p-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle size={20} className="flex-shrink-0 mt-0.5" style={{ color: '#CC1414' }} />
+              <div className="flex-1">
+                <p className="font-semibold" style={{ color: '#CC1414' }}>Failed to load operations data</p>
+                <p className="text-sm text-red-600 mt-0.5">{error}</p>
+              </div>
+              <button onClick={load}
+                className="flex-shrink-0 flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-medium text-white"
+                style={{ background: '#CC1414' }}>
+                <RefreshCw size={14} />Retry
+              </button>
+            </div>
+          </div>
         ) : rows.length === 0 ? (
           <div className="p-12 text-center text-gray-400">
             <Users size={32} className="mx-auto mb-2 opacity-30" />

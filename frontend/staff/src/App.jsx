@@ -24,6 +24,7 @@ import AccountSettings from './pages/AccountSettings'
 import Admissions from './pages/Admissions'
 import BedBoard from './pages/BedBoard'
 import InpatientBilling from './pages/InpatientBilling'
+import ManagerBilling from './pages/ManagerBilling'
 import Telehealth from './pages/Telehealth'
 import MaintenanceDashboard from './pages/MaintenanceDashboard'
 import VisitorDesk from './pages/VisitorDesk'
@@ -92,7 +93,7 @@ function AppRoutes() {
         <Route path="managers" element={<Gate managers><ManagerManagement /></Gate>} />
         <Route path="admissions" element={<Admissions />} />
         <Route path="bed-board" element={<BedBoard />} />
-        <Route path="inpatient-billing" element={<InpatientBilling />} />
+        <Route path="inpatient-billing" element={<ManagerBilling />} />
         <Route path="maintenance" element={<MaintenanceDashboard />} />
         <Route path="visitor-desk" element={<VisitorDesk />} />
         <Route path="emergency-admission" element={<EmergencyAdmission />} />

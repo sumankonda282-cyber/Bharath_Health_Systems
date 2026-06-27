@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../api/client'
 import DoctorSlotBoard from '../components/dashboard/DoctorSlotBoard'
+import ManagerDashboard from './dashboard/ManagerDashboard'
 import {
   CalendarDays, Clock, CheckCircle, Video, CreditCard, ChevronRight,
   BedDouble, Loader2, Bell, ShieldAlert,
@@ -213,6 +214,9 @@ export default function Dashboard() {
   const goBilling    = () => navigate('/billing')
   const goOperations = () => navigate('/operations')
   const goEmergency  = (path = '/emergency-admission') => navigate(path)
+
+  // Manager view gets the full business-analytics dashboard.
+  if (isManager) return <ManagerDashboard />
 
   return (
     <div>

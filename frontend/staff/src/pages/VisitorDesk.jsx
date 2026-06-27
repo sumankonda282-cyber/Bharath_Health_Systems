@@ -3,7 +3,7 @@ import {
   Search, UserCheck, Loader2, Printer, X, CheckCircle, AlertCircle,
   Clock, LogIn, LogOut, Ban, RotateCcw, ChevronDown, ChevronRight,
   ShieldAlert, Users, Edit3, CalendarClock, Settings, Plus, BadgeCheck,
-  BedDouble, Ticket, ScanLine, ArrowRight,
+  BedDouble, Ticket, ScanLine, ArrowRight, Pause, Play, XCircle, Check, Minus,
 } from 'lucide-react'
 import api from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
@@ -19,17 +19,25 @@ const fmtTime = (s) => {
   if (!s) return '—'
   return new Date(s).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
 }
+const fmtDate = (s) => {
+  if (!s) return '—'
+  return new Date(s).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' })
+}
 
 const STATUS_COLORS = {
   active:      'bg-green-100 text-green-800 border-green-200',
   checked_in:  'bg-blue-100 text-blue-800 border-blue-200',
+  on_hold:     'bg-amber-100 text-amber-800 border-amber-200',
   checked_out: 'bg-gray-100 text-gray-600 border-gray-200',
+  cancelled:   'bg-slate-100 text-slate-600 border-slate-200',
   revoked:     'bg-red-100 text-red-700 border-red-200',
 }
 const STATUS_LABELS = {
   active:      'Active',
   checked_in:  'Checked In',
+  on_hold:     'On Hold',
   checked_out: 'Checked Out',
+  cancelled:   'Cancelled',
   revoked:     'Revoked',
 }
 
@@ -136,6 +144,38 @@ function RevokeModal({ pass, onDone, onClose }) {
             {saving && <Loader2 size={13} className="animate-spin" />} Revoke
           </button>
           <button onClick={onClose} className="px-4 py-2 text-sm rounded-xl border border-gray-200 hover:bg-gray-50">Cancel</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function CancelModal({ pass, onDone, onClose }) {
+  const [reason, setReason] = useState('')
+  const [saving, setSaving] = useState(false)
+  const submit = async () => {
+    setSaving(true)
+    try {
+      await api.post(`/inpatient/visitor-passes/${pass.id}/cancel`, { reason })
+      onDone()
+    } catch (e) {
+      alert(e?.message || 'Failed')
+    }
+    setSaving(false)
+  }
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl p-6 w-96" onClick={e => e.stopPropagation()}>
+        <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2"><XCircle size={16} className="text-slate-500" /> Cancel Pass</h3>
+        <p className="text-sm text-gray-600 mb-4">Cancel pass <span className="font-mono font-bold">{pass.pass_code}</span> for {pass.visitor_name}?</p>
+        <textarea className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-100 focus:border-slate-300" rows={2}
+          placeholder="Reason (optional)" value={reason} onChange={e => setReason(e.target.value)} />
+        <div className="flex gap-2 mt-4">
+          <button onClick={submit} disabled={saving}
+            className="flex-1 py-2 bg-slate-600 text-white text-sm rounded-xl font-medium hover:bg-slate-700 disabled:opacity-50 flex items-center justify-center gap-2">
+            {saving && <Loader2 size={13} className="animate-spin" />} Cancel Pass
+          </button>
+          <button onClick={onClose} className="px-4 py-2 text-sm rounded-xl border border-gray-200 hover:bg-gray-50">Back</button>
         </div>
       </div>
     </div>
@@ -257,7 +297,7 @@ function EditPassModal({ pass, onDone, onClose }) {
 // ── Pass Row ──────────────────────────────────────────────────────────────────
 
 function PassRow({ pass, onRefresh, clinicName }) {
-  const [modal, setModal] = useState(null) // 'revoke' | 'extend' | 'edit' | 'print'
+  const [modal, setModal] = useState(null) // 'revoke' | 'cancel' | 'extend' | 'edit' | 'print'
   const [acting, setActing] = useState(null)
 
   const doAction = async (action) => {
@@ -266,6 +306,8 @@ function PassRow({ pass, onRefresh, clinicName }) {
       if (action === 'checkin')  await api.post(`/inpatient/visitor-passes/${pass.id}/checkin`)
       if (action === 'checkout') await api.post(`/inpatient/visitor-passes/${pass.id}/checkout`)
       if (action === 'reprint')  await api.post(`/inpatient/visitor-passes/${pass.id}/reprint`)
+      if (action === 'hold')     await api.post(`/inpatient/visitor-passes/${pass.id}/hold`, {})
+      if (action === 'resume')   await api.post(`/inpatient/visitor-passes/${pass.id}/resume`, {})
       onRefresh()
     } catch (e) {
       alert(e?.message || 'Failed')
@@ -274,31 +316,48 @@ function PassRow({ pass, onRefresh, clinicName }) {
   }
 
   const isPast = pass.valid_until && new Date(pass.valid_until) < new Date()
+  const isExpiredHighlight = isPast && !['revoked', 'cancelled', 'checked_out'].includes(pass.status)
+  const wardLine = pass.ward_name || '—'
 
   return (
     <>
       <tr className="tr-hover text-sm">
-        <td className="td font-mono font-bold text-blue-700">{pass.pass_code}</td>
-        <td className="td">
-          <div className="font-medium text-gray-800">{pass.patient_name}</div>
-          <div className="text-xs text-gray-400">{pass.admission_number}</div>
-        </td>
-        <td className="td text-gray-600">
-          {pass.ward_name || '—'}{pass.bed_number ? `/${pass.bed_number}` : ''}
-        </td>
+        {/* Visitor */}
         <td className="td">
           <div className="font-medium text-gray-800">{pass.visitor_name}</div>
-          <div className="text-xs text-gray-400">{pass.relation || ''}{pass.visitor_mobile ? ` · ${pass.visitor_mobile}` : ''}</div>
+          <div className="text-xs text-gray-400">{pass.relation || '—'}</div>
         </td>
-        <td className="td text-center">
-          <span className="text-gray-700 font-semibold">{pass.persons}</span>
-          <span className="text-gray-400 text-xs"> {pass.pass_type === 'attender' ? 'AT' : 'VP'}</span>
+        {/* Patient */}
+        <td className="td">
+          <div className="font-medium text-gray-800">{pass.patient_name}</div>
+          <div className="text-xs text-gray-400">{pass.admission_number || '—'}</div>
         </td>
+        {/* Ward */}
+        <td className="td text-gray-600">
+          <div>{wardLine}</div>
+          {pass.bed_number && <div className="text-xs text-gray-400">Bed {pass.bed_number}</div>}
+        </td>
+        {/* Issued (valid_from) */}
+        <td className="td text-xs text-gray-500">
+          <div>{fmtDate(pass.valid_from)}</div>
+          <div className="text-gray-400">{fmtTime(pass.valid_from)}</div>
+        </td>
+        {/* Expires (valid_until) */}
         <td className="td text-xs">
-          <div>{fmtTime(pass.valid_from)}</div>
-          <div className={isPast && pass.status !== 'revoked' ? 'text-red-500 font-medium' : 'text-gray-500'}>{fmtTime(pass.valid_until)}</div>
+          <div className={isExpiredHighlight ? 'text-red-500 font-medium' : 'text-gray-500'}>{fmtDate(pass.valid_until)}</div>
+          <div className={isExpiredHighlight ? 'text-red-500' : 'text-gray-400'}>{fmtTime(pass.valid_until)}</div>
         </td>
+        {/* Contact */}
+        <td className="td text-gray-600 text-xs">{pass.visitor_mobile || '—'}</td>
+        {/* PIN */}
+        <td className="td text-center">
+          {pass.pin_verified
+            ? <Check size={15} className="inline text-green-600" />
+            : <Minus size={15} className="inline text-gray-300" />}
+        </td>
+        {/* Status */}
         <td className="td"><PassBadge status={pass.status} /></td>
+        {/* Actions */}
         <td className="td">
           <div className="flex items-center gap-1 flex-wrap">
             {pass.status === 'active' && !isPast && (
@@ -314,21 +373,38 @@ function PassRow({ pass, onRefresh, clinicName }) {
               </button>
             )}
             {['active', 'checked_in'].includes(pass.status) && (
-              <>
-                <button onClick={() => setModal('extend')} className="p-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 transition" title="Extend">
-                  <CalendarClock size={12} />
-                </button>
-                <button onClick={() => setModal('revoke')} className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 transition" title="Revoke">
-                  <Ban size={12} />
-                </button>
-              </>
+              <button onClick={() => doAction('hold')} disabled={acting === 'hold'}
+                className="p-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 transition" title="Hold">
+                {acting === 'hold' ? <Loader2 size={12} className="animate-spin" /> : <Pause size={12} />}
+              </button>
             )}
-            {pass.status !== 'revoked' && (
+            {pass.status === 'on_hold' && (
+              <button onClick={() => doAction('resume')} disabled={acting === 'resume'}
+                className="p-1.5 rounded-lg bg-green-50 hover:bg-green-100 text-green-700 transition" title="Resume">
+                {acting === 'resume' ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
+              </button>
+            )}
+            {['active', 'checked_in'].includes(pass.status) && (
+              <button onClick={() => setModal('extend')} className="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition" title="Extend">
+                <CalendarClock size={12} />
+              </button>
+            )}
+            {['active', 'on_hold'].includes(pass.status) && (
+              <button onClick={() => setModal('cancel')} className="p-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-600 transition" title="Cancel">
+                <XCircle size={12} />
+              </button>
+            )}
+            {['active', 'checked_in', 'on_hold'].includes(pass.status) && (
+              <button onClick={() => setModal('revoke')} className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 transition" title="Revoke">
+                <Ban size={12} />
+              </button>
+            )}
+            {!['revoked', 'cancelled'].includes(pass.status) && (
               <button onClick={() => setModal('edit')} className="p-1.5 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-600 transition" title="Edit">
                 <Edit3 size={12} />
               </button>
             )}
-            <button onClick={() => { doAction('reprint'); setModal('print') }} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition" title="Print">
+            <button onClick={() => { doAction('reprint'); setModal('print') }} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition" title="Reprint">
               <Printer size={12} />
             </button>
           </div>
@@ -336,6 +412,7 @@ function PassRow({ pass, onRefresh, clinicName }) {
       </tr>
 
       {modal === 'revoke' && <RevokeModal pass={pass} onDone={() => { setModal(null); onRefresh() }} onClose={() => setModal(null)} />}
+      {modal === 'cancel' && <CancelModal pass={pass} onDone={() => { setModal(null); onRefresh() }} onClose={() => setModal(null)} />}
       {modal === 'extend' && <ExtendModal pass={pass} onDone={() => { setModal(null); onRefresh() }} onClose={() => setModal(null)} />}
       {modal === 'edit'   && <EditPassModal pass={pass} onDone={() => { setModal(null); onRefresh() }} onClose={() => setModal(null)} />}
       {modal === 'print'  && <PrintSlip pass={pass} clinicName={clinicName} onClose={() => setModal(null)} />}
@@ -610,7 +687,8 @@ function IssuePassTab({ onIssued, user }) {
 function GateLogTab({ user }) {
   const [passes, setPasses] = useState([])
   const [loading, setLoading] = useState(true)
-  const [date, setDate] = useState(istToday())
+  const [dateFrom, setDateFrom] = useState(istToday())
+  const [dateTo, setDateTo] = useState(istToday())
   const [statusFilter, setStatusFilter] = useState('')
   const [search, setSearch] = useState('')
   const [verifyCode, setVerifyCode] = useState('')
@@ -621,14 +699,14 @@ function GateLogTab({ user }) {
     setLoading(true)
     try {
       const params = { limit: 200 }
-      if (date) params.date = date
-      if (statusFilter) params.status = statusFilter
+      if (dateFrom) params.date_from = dateFrom
+      if (dateTo) params.date_to = dateTo
       if (search.trim()) params.q = search.trim()
       const r = await api.get('/inpatient/visitor-passes', { params })
       setPasses(Array.isArray(r) ? r : [])
     } catch { setPasses([]) }
     setLoading(false)
-  }, [date, statusFilter, search])
+  }, [dateFrom, dateTo, search])
 
   useEffect(() => { load() }, [load])
 
@@ -653,9 +731,23 @@ function GateLogTab({ user }) {
   const stats = {
     active:      passes.filter(p => p.status === 'active').length,
     checked_in:  passes.filter(p => p.status === 'checked_in').length,
+    on_hold:     passes.filter(p => p.status === 'on_hold').length,
     checked_out: passes.filter(p => p.status === 'checked_out').length,
+    cancelled:   passes.filter(p => p.status === 'cancelled').length,
     revoked:     passes.filter(p => p.status === 'revoked').length,
   }
+
+  const filtered = statusFilter ? passes.filter(p => p.status === statusFilter) : passes
+
+  const chips = [
+    { key: '',            label: 'All',         count: passes.length },
+    { key: 'active',      label: 'Active',      count: stats.active },
+    { key: 'checked_in',  label: 'Inside',      count: stats.checked_in },
+    { key: 'on_hold',     label: 'On hold',     count: stats.on_hold },
+    { key: 'checked_out', label: 'Checked out', count: stats.checked_out },
+    { key: 'cancelled',   label: 'Cancelled',   count: stats.cancelled },
+    { key: 'revoked',     label: 'Revoked',     count: stats.revoked },
+  ]
 
   return (
     <div className="space-y-4">
@@ -696,67 +788,75 @@ function GateLogTab({ user }) {
         )}
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-4 gap-3">
-        {[
-          { key: '', label: 'All', value: passes.length, color: 'text-gray-700', bg: 'bg-gray-50 border-gray-200' },
-          { key: 'active', label: 'Active', value: stats.active, color: 'text-green-700', bg: 'bg-green-50 border-green-200' },
-          { key: 'checked_in', label: 'Inside', value: stats.checked_in, color: 'text-blue-700', bg: 'bg-blue-50 border-blue-200' },
-          { key: 'revoked', label: 'Revoked', value: stats.revoked, color: 'text-red-700', bg: 'bg-red-50 border-red-200' },
-        ].map(s => (
-          <button key={s.key} onClick={() => setStatusFilter(s.key)}
-            className={`card p-3 text-center border transition ${s.bg} ${statusFilter === s.key ? 'ring-2 ring-blue-400' : ''}`}>
-            <div className={`text-2xl font-bold ${s.color}`}>{loading ? '—' : s.value}</div>
-            <div className={`text-xs font-medium ${s.color}`}>{s.label}</div>
-          </button>
-        ))}
-      </div>
-
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-3">
-        <input type="date" className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300"
-          value={date} onChange={e => setDate(e.target.value)} />
-        <div className="relative flex-1 min-w-40">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input className="w-full pl-9 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300"
-            value={search} onChange={e => setSearch(e.target.value)} placeholder="Search code, visitor, patient…" />
+      {/* Toolbar: status chips + date range + search */}
+      <div className="card p-3 space-y-3">
+        {/* Status chips */}
+        <div className="flex flex-wrap items-center gap-2">
+          {chips.map(c => {
+            const active = statusFilter === c.key
+            return (
+              <button key={c.key} onClick={() => setStatusFilter(c.key)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition ${
+                  active
+                    ? 'bg-[#0F2557] text-white border-[#0F2557] ring-2 ring-[#0F2557]/30'
+                    : 'bg-white text-gray-600 border-gray-200 hover:border-[#0F2557]/40 hover:text-[#0F2557]'
+                }`}>
+                {c.label}
+                <span className={`inline-flex items-center justify-center min-w-[1.25rem] px-1 rounded-full text-[11px] font-semibold ${
+                  active ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'
+                }`}>{loading ? '·' : c.count}</span>
+              </button>
+            )
+          })}
         </div>
-        <select className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300"
-          value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
-          <option value="">All statuses</option>
-          <option value="active">Active</option>
-          <option value="checked_in">Checked In</option>
-          <option value="checked_out">Checked Out</option>
-          <option value="revoked">Revoked</option>
-        </select>
+
+        {/* Date range + search */}
+        <div className="flex flex-wrap items-center gap-3 border-t border-gray-100 pt-3">
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <CalendarClock size={14} className="text-gray-400" />
+            <input type="date" aria-label="From date"
+              className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300"
+              value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+            <span className="text-gray-400">→</span>
+            <input type="date" aria-label="To date"
+              className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300"
+              value={dateTo} onChange={e => setDateTo(e.target.value)} />
+          </div>
+          <div className="relative flex-1 min-w-40">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input className="w-full pl-9 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300"
+              value={search} onChange={e => setSearch(e.target.value)} placeholder="Search code, visitor, patient…" />
+          </div>
+        </div>
       </div>
 
       {/* Table */}
       <div className="card overflow-hidden">
         {loading ? (
           <div className="flex justify-center py-12"><Loader2 size={24} className="animate-spin text-gray-300" /></div>
-        ) : passes.length === 0 ? (
+        ) : filtered.length === 0 ? (
           <div className="p-12 text-center text-gray-400">
             <Ticket size={32} className="mx-auto mb-2 opacity-30" />
-            <p>No visitor passes found</p>
+            <p>{statusFilter ? 'No passes match this filter' : 'No visitor passes found'}</p>
           </div>
         ) : (
           <div className="table-wrapper">
             <table className="table">
               <thead>
                 <tr>
-                  <th className="th">Pass Code</th>
-                  <th className="th">Patient</th>
-                  <th className="th">Ward/Bed</th>
                   <th className="th">Visitor</th>
-                  <th className="th text-center">Persons</th>
-                  <th className="th">From/Until</th>
+                  <th className="th">Patient</th>
+                  <th className="th">Ward</th>
+                  <th className="th">Issued</th>
+                  <th className="th">Expires</th>
+                  <th className="th">Contact</th>
+                  <th className="th text-center">PIN</th>
                   <th className="th">Status</th>
                   <th className="th">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {passes.map(p => <PassRow key={p.id} pass={p} onRefresh={load} clinicName={user?.clinic_name} />)}
+                {filtered.map(p => <PassRow key={p.id} pass={p} onRefresh={load} clinicName={user?.clinic_name} />)}
               </tbody>
             </table>
           </div>

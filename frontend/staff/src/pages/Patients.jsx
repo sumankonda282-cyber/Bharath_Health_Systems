@@ -355,7 +355,11 @@ function PatientDetail({ patient: initialPatient, staffRole, onClose }) {
 export default function Patients() {
   const [patients, setPatients] = useState([])
   const [search, setSearch] = useState('')
+  const [genderFilter, setGenderFilter] = useState('')
+  const [bloodFilter, setBloodFilter] = useState('')
+  const [platformFilter, setPlatformFilter] = useState('') // '' | 'registered' | 'unregistered'
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const [showNew, setShowNew] = useState(false)
   const [selectedPatient, setSelectedPatient] = useState(null)
   const [form, setForm] = useState({
@@ -379,16 +383,18 @@ export default function Patients() {
 
   const load = useCallback(() => {
     setLoading(true)
+    setError('')
     if (!search) {
       cachedFetch(
         'recep_patients_list',
         () => api.get('/patients', { params: { limit: 50 } }),
         r => { setPatients(Array.isArray(r) ? r : []); setLoading(false) },
         TTL.SHORT
-      ).catch(() => setLoading(false))
+      ).catch(e => { setError(e?.message || 'Could not load patients'); setLoading(false) })
     } else {
       api.get('/patients', { params: { search, limit: 50 } })
         .then(r => setPatients(Array.isArray(r) ? r : []))
+        .catch(e => setError(e?.message || 'Could not load patients'))
         .finally(() => setLoading(false))
     }
   }, [search])
@@ -415,14 +421,38 @@ export default function Patients() {
     finally { setSaving(false) }
   }
 
+  // Client-side filters applied over the server-loaded (search-filtered) list
+  const visiblePatients = patients.filter(p => {
+    if (genderFilter && (p.gender || '').toLowerCase() !== genderFilter) return false
+    if (bloodFilter && p.blood_group !== bloodFilter) return false
+    if (platformFilter === 'registered' && !p.bh_id) return false
+    if (platformFilter === 'unregistered' && p.bh_id) return false
+    return true
+  })
+
   return (
     <div>
-      <div className="page-header justify-end">
-        <button onClick={() => setShowNew(true)} className="btn-primary"><Plus size={16} />Register Patient</button>
-      </div>
-      <div className="relative mb-4">
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-        <input className="input pl-9" placeholder="Search by name or mobile…" value={search} onChange={e => setSearch(e.target.value)} />
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input className="input pl-9" placeholder="Search by name or mobile…" value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
+        <select className="input w-auto" value={genderFilter} onChange={e => setGenderFilter(e.target.value)} aria-label="Filter by gender">
+          <option value="">All genders</option>
+          <option value="male">Male</option>
+          <option value="female">Female</option>
+          <option value="other">Other</option>
+        </select>
+        <select className="input w-auto" value={bloodFilter} onChange={e => setBloodFilter(e.target.value)} aria-label="Filter by blood group">
+          <option value="">All blood groups</option>
+          {'A+ A- B+ B- O+ O- AB+ AB-'.split(' ').map(g => <option key={g} value={g}>{g}</option>)}
+        </select>
+        <select className="input w-auto" value={platformFilter} onChange={e => setPlatformFilter(e.target.value)} aria-label="Filter by platform registration">
+          <option value="">All patients</option>
+          <option value="registered">Registered (has BH-ID)</option>
+          <option value="unregistered">Not registered</option>
+        </select>
+        <button onClick={() => setShowNew(true)} className="btn-primary ml-auto"><Plus size={16} />Register Patient</button>
       </div>
 
       {/* Registration modal */}
@@ -477,11 +507,19 @@ export default function Patients() {
         </div>
       )}
 
+      {error && (
+        <div className="flex items-center justify-between gap-3 mb-4 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-sm" style={{ color: '#CC1414' }}>
+          <span className="flex items-center gap-2"><AlertCircle size={16} />{error}</span>
+          <button onClick={load} className="btn-secondary text-xs py-1 px-3 border-red-200 text-red-600 hover:bg-red-100">Retry</button>
+        </div>
+      )}
+
       <div className="card overflow-hidden">
         {loading ? <div className="flex justify-center py-16"><Loader2 size={28} className="animate-spin text-gray-400" /></div>
-         : patients.length === 0 ? <div className="p-10 text-center text-gray-400"><Users size={32} className="mx-auto mb-2 opacity-30" /><p>No patients found</p></div>
+         : error ? <div className="p-10 text-center text-gray-400"><AlertCircle size={32} className="mx-auto mb-2 opacity-30" /><p>Could not load patients</p></div>
+         : visiblePatients.length === 0 ? <div className="p-10 text-center text-gray-400"><Users size={32} className="mx-auto mb-2 opacity-30" /><p>No patients found</p></div>
          : <div className="table-wrapper"><table className="table"><thead><tr><th className="th">HC ID</th><th className="th">Name</th><th className="th">Mobile</th><th className="th">Age / Gender</th><th className="th">Blood Group</th><th className="th">BH Health ID</th></tr></thead>
-            <tbody className="divide-y divide-gray-100">{patients.map(p => <tr key={p.id} className="tr-hover" onClick={() => setSelectedPatient(p)} style={{ cursor: 'pointer' }}>
+            <tbody className="divide-y divide-gray-100">{visiblePatients.map(p => <tr key={p.id} className="tr-hover" onClick={() => setSelectedPatient(p)} style={{ cursor: 'pointer' }}>
               <td className="td font-mono text-xs text-gray-500">{p.clinic_patient_id || `#${p.id}`}</td>
               <td className="td font-medium">{p.full_name}</td>
               <td className="td">{p.mobile}</td>
