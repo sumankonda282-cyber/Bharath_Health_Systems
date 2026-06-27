@@ -11,6 +11,7 @@ def _years_between(d1: date, d2: date) -> int:
 from sqlalchemy import or_
 from app.db.session import get_db
 from app.core.security import get_current_platform_admin, hash_password
+from app.core import ids
 from app.models.models import Clinic, Branch, Staff, StaffDepartment, Patient, Appointment, PlatformAdmin, AuditLog, Invoice, Feedback, Department, Ward, Bed, PlatformSetting, SubscriptionPayment, PatientTag, LabOrder, Prescription, DoctorProfile, PatientUser, Plan, ClinicSubscription, SubscriptionInvoice
 from app.services.entitlements import get_entitlements, ALL_MODULES, MODULE_CATALOG
 from app.services.subscription import upsert_subscription, activate_paid
@@ -517,6 +518,9 @@ def create_clinic_manager(
     db.add(manager)
     db.flush()
     manager.username = _generate_username(full_name, db)
+    # Role-prefixed, center-unique employee ID (e.g. HC00001-MG0001).
+    _hc = ids.ensure_hc_id_by_clinic_id(db, clinic_id)
+    manager.employee_id = ids.next_employee_id(db, clinic_id, _hc, "clinic_manager")
     if scope == "department" and dept:
         db.add(StaffDepartment(staff_id=manager.id, department_id=dept.id, is_primary=True))
     _log(db, "created_manager", "staff", clinic_id, full_name, current)
@@ -551,6 +555,7 @@ def create_clinic_manager(
         "scope_label":   role_label,
         "department":    manager.department,
         "username":      manager.username,
+        "employee_id":   manager.employee_id,
         "temp_password": temp_password,
         "email_sent":    email_sent,
         "sms_sent":      sms_sent,

@@ -19,6 +19,7 @@ const MANAGER_BASE_NAV = [
   { to: '/',            icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/operations',  icon: LayoutGrid,      label: 'Operations', mod: 'appointments' },
   { to: '/patients',    icon: Users,           label: 'Patients',   mod: 'patients' },
+  { to: '/inpatient-billing', icon: CreditCard, label: 'Billing',   mod: 'billing' },
 ]
 const MANAGER_NAV = [
   { to: '/staff',       icon: Settings, label: 'Manage Staff', mod: 'staff' },
@@ -100,7 +101,7 @@ const PAGE_TITLES = {
   '/billing':             { recep: 'Billing',           manager: 'Billing' },
   '/admissions':          { recep: 'Admissions',        manager: 'Admissions' },
   '/bed-board':           { recep: 'Bed Board',         manager: 'Bed Board' },
-  '/inpatient-billing':   { recep: 'IPD Billing',       manager: 'IPD Billing' },
+  '/inpatient-billing':   { recep: 'IPD Billing',       manager: 'Billing' },
   '/operations':          { recep: 'Operations',        manager: 'Operations' },
   '/patients':            { recep: 'Patients',          manager: 'Patients' },
   '/staff':               { recep: 'Manage Staff',      manager: 'Manage Staff' },
@@ -145,7 +146,7 @@ export default function Layout() {
   // Managers: nav filtered by the manager's module permissions (no-op for admins /
   // unrestricted managers). Receptionists: always show hospital nav, locked if not a hospital.
   let NAV = isManager
-    ? [...MANAGER_BASE_NAV, ...(isHospital ? HOSPITAL_NAV : []), ...MANAGER_NAV].filter(it => !it.mod || perms.canModule(it.mod))
+    ? [...MANAGER_BASE_NAV, ...(isHospital ? HOSPITAL_NAV.filter(it => it.to !== '/inpatient-billing') : []), ...MANAGER_NAV].filter(it => !it.mod || perms.canModule(it.mod))
     : [...RECEP_NAV, ...HOSPITAL_NAV.map(item => ({ ...item, locked: !isHospital }))]
   if (isManager && perms.canManageManagers) NAV = [...NAV, MANAGERS_NAV]
 

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import api from '../api/client'
 import { cacheInvalidate } from '../utils/cache'
 import { usePerms } from '../contexts/AuthContext'
+import { formatEmployeeId, matchesEmployeeQuery } from '../utils/ids'
 import {
   PlusCircle, Eye, EyeOff, AlertCircle, CheckCircle,
   ToggleLeft, ToggleRight, Pencil, X, Loader2, Users,
@@ -15,6 +16,8 @@ const ROLES = [
   { value: 'pharmacist',     label: 'Pharmacist' },
   { value: 'lab_technician', label: 'Lab Technician' },
   { value: 'imaging_tech',   label: 'Imaging Technician' },
+  { value: 'radiologist',    label: 'Radiologist' },
+  { value: 'pathologist',    label: 'Pathologist' },
   { value: 'clinic_manager', label: 'Health Center Manager' },
   { value: 'clinic_admin',   label: 'Admin' },
 ]
@@ -25,6 +28,8 @@ const PORTAL_MAP = {
   pharmacist:      ['Pharmacy Portal', 'CareChart App'],
   lab_technician:  ['Lab Portal', 'CareChart App'],
   imaging_tech:    ['Imaging Portal', 'CareChart App'],
+  radiologist:     ['Imaging Portal', 'Provider Portal'],
+  pathologist:     ['Lab Portal', 'Provider Portal'],
   nurse:           ['CareChart App'],
   clinic_manager:  ['Staff Portal (Manager View)'],
   clinic_admin:    ['All Portals'],
@@ -40,6 +45,8 @@ const ROLE_BADGE = {
   pharmacist:    'bg-amber-100 text-amber-800',
   lab_technician:'bg-orange-100 text-orange-800',
   imaging_tech:  'bg-rose-100 text-rose-800',
+  radiologist:   'bg-fuchsia-100 text-fuchsia-800',
+  pathologist:   'bg-cyan-100 text-cyan-800',
   clinic_manager:'bg-indigo-100 text-indigo-800',
   clinic_admin:  'bg-gray-100 text-gray-800',
 }
@@ -163,6 +170,8 @@ export default function StaffManagement() {
     try {
       const payload = { ...form }
       if (!payload.password) delete payload.password
+      // employee_id is auto-generated (role-prefixed, center-unique) — never overwrite it from the client
+      delete payload.employee_id
       if (payload.reporting_manager_id === '') payload.reporting_manager_id = null
       else if (payload.reporting_manager_id) payload.reporting_manager_id = Number(payload.reporting_manager_id)
       if (!payload.date_of_birth) payload.date_of_birth = null
@@ -217,7 +226,7 @@ export default function StaffManagement() {
   const hasFilters = filterName || filterRole || filterDept || filterType
   const filtered = staff.filter(s => {
     if (filterName && !s.full_name?.toLowerCase().includes(filterName.toLowerCase()) &&
-        !s.employee_id?.toLowerCase().includes(filterName.toLowerCase())) return false
+        !matchesEmployeeQuery(s.employee_id, filterName)) return false
     if (filterRole && s.role !== filterRole) return false
     if (filterDept && !s.department?.toLowerCase().includes(filterDept.toLowerCase())) return false
     if (filterType && s.employment_type !== filterType) return false
@@ -228,25 +237,17 @@ export default function StaffManagement() {
 
   return (
     <div>
-      <div className="flex items-center justify-end mb-6 flex-wrap gap-3">
-        {perms.canDuty('create_staff') && (
-          <button onClick={openCreate} className="btn-primary text-sm">
-            <PlusCircle size={15} />Add Staff
-          </button>
-        )}
-      </div>
-
       {success && (
         <div className="flex items-center gap-2 p-3 mb-4 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm">
           <CheckCircle size={15} />{success}
         </div>
       )}
 
-      {/* Smart filters */}
-      <div className="flex flex-wrap gap-2 mb-4">
+      {/* Toolbar: filters + Add Staff inline */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
         <input
           className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-200 w-48"
-          placeholder="Name or employee ID…"
+          placeholder="Name or 4-digit ID…"
           value={filterName}
           onChange={e => setFilterName(e.target.value)}
         />
@@ -283,6 +284,11 @@ export default function StaffManagement() {
         {hasFilters && (
           <span className="text-xs text-gray-400 self-center">{filtered.length} of {staff.length}</span>
         )}
+        {perms.canDuty('create_staff') && (
+          <button onClick={openCreate} className="btn-primary text-sm ml-auto">
+            <PlusCircle size={15} />Add Staff
+          </button>
+        )}
       </div>
 
       {/* Staff table */}
@@ -310,7 +316,7 @@ export default function StaffManagement() {
                   <tr key={s.id} className="border-b border-gray-50 hover:bg-gray-50 cursor-pointer" onClick={() => { if (perms.canDuty('edit_staff')) openEdit(s) }}>
                     <td className="px-4 py-3">
                       <div className="font-semibold text-gray-800">{s.full_name}</div>
-                      {s.employee_id && <div className="text-xs text-gray-400">ID: {s.employee_id}</div>}
+                      {s.employee_id && <div className="text-xs text-gray-400" title={s.employee_id}>ID: {formatEmployeeId(s.employee_id)}</div>}
                     </td>
                     <td className="px-4 py-3">
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${ROLE_BADGE[s.role] || 'bg-gray-100 text-gray-600'}`}>
@@ -413,7 +419,10 @@ export default function StaffManagement() {
                 {tab === 'job' && (<>
                   <div>
                     <label className="label">Employee ID</label>
-                    <input className="input" placeholder="EMP001" value={form.employee_id} onChange={e => f('employee_id', e.target.value)} />
+                    <input className="input bg-gray-50 text-gray-500 cursor-not-allowed"
+                      value={editing ? formatEmployeeId(form.employee_id) : 'Auto-generated on save'}
+                      readOnly disabled />
+                    <p className="text-xs text-gray-400 mt-1">Auto-generated · role-prefixed and unique within this health center. The 4-digit number is the staff member's identity code across portals.</p>
                   </div>
                   <div>
                     <label className="label">Designation</label>

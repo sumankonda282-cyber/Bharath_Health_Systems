@@ -188,6 +188,30 @@ def staff_department_limit(staff):
     return None
 
 
+def role_rank(role: str, manager_scope: str = None) -> int:
+    """Org-hierarchy precedence for downward-only management.
+
+    A staff member may only edit / deactivate / reset-password staff of a STRICTLY
+    lower rank — never a peer or someone above them (no upward control).
+    clinic_admin(100) > center supervisor(85) > department manager(80) > everyone else(50).
+    """
+    if role == 'clinic_admin':
+        return 100
+    if role == 'clinic_manager':
+        return 85 if manager_scope == 'center' else 80
+    return 50
+
+
+def assert_can_manage(actor, target):
+    """403 unless ``actor`` outranks ``target`` (downward-only). Self is always allowed."""
+    if getattr(actor, 'id', None) == getattr(target, 'id', None):
+        return
+    if role_rank(getattr(target, 'role', None), getattr(target, 'manager_scope', None)) >= \
+       role_rank(getattr(actor, 'role', None), getattr(actor, 'manager_scope', None)):
+        raise HTTPException(status_code=403,
+                            detail="You can only manage staff below your level, not peers or supervisors.")
+
+
 def require_duty(duty: str):
     """Dependency factory — 403 unless the actor holds ``duty`` (unrestricted actors pass)."""
     def _dep(current=Depends(get_current_staff)):

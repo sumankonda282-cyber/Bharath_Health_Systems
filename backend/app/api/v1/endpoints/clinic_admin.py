@@ -16,13 +16,14 @@ from app.db.session import get_db
 from app.core.security import (
     get_current_staff, hash_password,
     staff_is_restricted, staff_has_duty, staff_can_manage_role, staff_department_limit,
+    assert_can_manage,
 )
 from app.core import ids
 from app.core.config import settings
 from app.models.models import (
     Clinic, Branch, Staff, DoctorProfile, DoctorSchedule,
     Appointment, Invoice, Patient, OnlineBooking, DoctorDeskAssignment,
-    FollowUpReminder, Department, StaffDepartment
+    FollowUpReminder, Department, StaffDepartment, Admission, Bed
 )
 from app.services.email_service import send_welcome_email
 from app.services.sms_service import send_sms
@@ -461,6 +462,7 @@ def update_staff(
     s = db.query(Staff).filter(Staff.id == staff_id, Staff.clinic_id == current.clinic_id).first()
     if not s:
         raise HTTPException(404, "Staff not found")
+    assert_can_manage(current, s)  # downward-only: never edit a peer or someone above you
     if staff_is_restricted(current):
         if not staff_has_duty(current, "edit_staff"):
             raise HTTPException(403, "You do not have permission to edit staff.")
@@ -498,6 +500,7 @@ def toggle_staff(
     staff = db.query(Staff).filter(Staff.id == staff_id, Staff.clinic_id == current.clinic_id).first()
     if not staff:
         raise HTTPException(404, "Staff not found")
+    assert_can_manage(current, staff)  # downward-only
     if staff_is_restricted(current):
         if not staff_has_duty(current, "deactivate_staff"):
             raise HTTPException(403, "You do not have permission to deactivate staff.")
@@ -524,6 +527,7 @@ def reset_staff_password_clinic(
     s = db.query(Staff).filter(Staff.id == staff_id, Staff.clinic_id == current.clinic_id).first()
     if not s:
         raise HTTPException(404, "Staff not found")
+    assert_can_manage(current, s)  # downward-only: cannot reset a peer's or supervisor's password
     if staff_is_restricted(current):
         if s.role in ("clinic_admin", "clinic_manager"):
             raise HTTPException(403, "You cannot reset a manager's password.")
@@ -547,6 +551,48 @@ def reset_staff_password_clinic(
         except Exception:
             sms_sent = False
     return {"staff_name": s.full_name, "temp_password": temp_password, "email_sent": email_sent, "sms_sent": sms_sent}
+
+
+@router.get("/staff/by-code/{code}")
+def resolve_staff_by_code(code: str, db: Session = Depends(get_db), current=Depends(get_current_staff)):
+    """Resolve a 4-digit staff code (the numeric suffix of employee_id) to the individual,
+    scoped to the caller's health center. Used across portals to attribute documentation
+    to the person who performed it (they enter their 4 digits)."""
+    digits = "".join(ch for ch in (code or "") if ch.isdigit())
+    if not digits:
+        raise HTTPException(400, "Enter the 4-digit staff code")
+    digits = digits[-4:].zfill(4)
+    rows = db.query(Staff).filter(Staff.clinic_id == current.clinic_id).all()
+    matches = [s for s in rows if (s.employee_id or "")[-4:] == digits]
+    if not matches:
+        raise HTTPException(404, "No staff with that code in this health center")
+    if len(matches) > 1:
+        # center-wide unique by design; expose any legacy collisions rather than guessing
+        return {"ambiguous": True, "candidates": [
+            {"id": s.id, "full_name": s.full_name, "role": s.role,
+             "employee_id": s.employee_id, "is_active": s.is_active} for s in matches]}
+    s = matches[0]
+    return {"id": s.id, "full_name": s.full_name, "role": s.role,
+            "employee_id": s.employee_id, "department": s.department, "is_active": s.is_active}
+
+
+@router.get("/my-supervisor")
+def my_supervisor(db: Session = Depends(get_db), current=Depends(get_current_staff)):
+    """The single manager/admin this staff member reports to (read-only) — so a manager
+    can see whom they report to without seeing peers or the rest of the org."""
+    if not current.reporting_manager_id:
+        return {"reporting_to": None}
+    sup = db.query(Staff).filter(Staff.id == current.reporting_manager_id).first()
+    if not sup:
+        return {"reporting_to": None}
+    role_label = MANAGER_SCOPE_LABELS.get(
+        sup.manager_scope or "",
+        (sup.role or "manager").replace("_", " ").title())
+    return {"reporting_to": {
+        "id": sup.id, "full_name": sup.full_name, "role": sup.role,
+        "scope_label": role_label, "department": sup.department,
+        "employee_id": sup.employee_id,
+    }}
 
 
 def _generate_username(full_name: str, db) -> str:
@@ -573,15 +619,20 @@ def _can_manage_managers(current) -> bool:
 def list_clinic_managers(db: Session = Depends(get_db), current=Depends(require_clinic_admin)):
     if not _can_manage_managers(current):
         raise HTTPException(403, "Supervisor access required.")
-    rows = db.query(Staff).filter(
+    q = db.query(Staff).filter(
         Staff.clinic_id == current.clinic_id, Staff.role == "clinic_manager"
-    ).order_by(Staff.full_name).all()
+    )
+    if current.role != "clinic_admin":
+        # Downward-only: a supervisor sees ONLY the managers reporting to them — never
+        # peers or the managers above them. clinic_admin (the owner) sees everyone.
+        q = q.filter(Staff.reporting_manager_id == current.id)
+    rows = q.order_by(Staff.full_name).all()
     return [{
         "id": s.id, "full_name": s.full_name, "email": s.email, "mobile": s.mobile,
         "manager_scope": s.manager_scope,
         "scope_label": MANAGER_SCOPE_LABELS.get(s.manager_scope or "", "Manager"),
         "department": s.department, "is_active": s.is_active,
-        "permissions": s.permissions, "username": s.username,
+        "employee_id": s.employee_id, "username": s.username,
     } for s in rows]
 
 
@@ -642,6 +693,9 @@ def create_clinic_manager(body: dict, db: Session = Depends(get_db), current=Dep
     db.add(manager)
     db.flush()
     manager.username = _generate_username(full_name, db)
+    # Role-prefixed, center-unique employee ID (e.g. HC00001-MG0001) — same scheme as create_staff.
+    _hc = ids.ensure_hc_id_by_clinic_id(db, current.clinic_id)
+    manager.employee_id = ids.next_employee_id(db, current.clinic_id, _hc, "clinic_manager")
     if scope == "department" and dept:
         db.add(StaffDepartment(staff_id=manager.id, department_id=dept.id, is_primary=True))
     db.commit()
@@ -664,6 +718,7 @@ def create_clinic_manager(body: dict, db: Session = Depends(get_db), current=Dep
         "id": manager.id, "full_name": manager.full_name, "email": manager.email,
         "mobile": manager.mobile, "username": manager.username, "scope": scope,
         "scope_label": role_label, "department": manager.department,
+        "employee_id": manager.employee_id,
         "temp_password": temp_password, "email_sent": email_sent, "sms_sent": sms_sent,
         "login_url": STAFF_PORTAL_URL,
     }
@@ -1127,6 +1182,115 @@ def get_revenue(
         "totals":    {"total": total, "count": count, "avg": avg},
         "by_doctor": sorted(doctor_map.values(), key=lambda x: x["total"], reverse=True),
         "billing":   billing,
+    }
+
+
+@router.get("/analytics/overview")
+def analytics_overview(
+    period: str = "month",
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current=Depends(require_clinic_admin),
+):
+    """Rich business-analytics breakdowns for the Manager dashboard — appointment status/type
+    mix, revenue trend, payment-mode & billing-status mix, new-vs-returning patients, and
+    admissions/occupancy. Each block ships the aggregate so charts can drill into a table."""
+    from datetime import timedelta
+    from sqlalchemy import func
+
+    today = date.today()
+    if date_from and date_to:
+        try:
+            d_from, d_to = date.fromisoformat(date_from), date.fromisoformat(date_to)
+        except ValueError:
+            raise HTTPException(400, "Invalid date_from/date_to (use YYYY-MM-DD)")
+        period = "custom"
+    elif period == "today":
+        d_from = d_to = today
+    elif period == "week":
+        d_from, d_to = today - timedelta(days=6), today
+    elif period == "year":
+        d_from, d_to = today - timedelta(days=364), today
+    else:
+        period, d_from, d_to = "month", today - timedelta(days=29), today
+
+    cid = current.clinic_id
+    start_dt = datetime.combine(d_from, datetime.min.time())
+    end_dt = datetime.combine(d_to, datetime.max.time())
+
+    appts = db.query(Appointment).filter(
+        Appointment.clinic_id == cid,
+        Appointment.appointment_date >= d_from,
+        Appointment.appointment_date <= d_to,
+    ).all()
+    appt_status, appt_type = {}, {}
+    for a in appts:
+        s = a.status or "unknown"
+        appt_status[s] = appt_status.get(s, 0) + 1
+        t = getattr(a, "visit_type", None) or getattr(a, "mode", None) or "walk_in"
+        appt_type[t] = appt_type.get(t, 0) + 1
+
+    invoices = db.query(Invoice).filter(
+        Invoice.clinic_id == cid,
+        Invoice.created_at >= start_dt, Invoice.created_at <= end_dt,
+        Invoice.status != "cancelled",
+    ).all()
+    billed = sum(float(i.total or 0) for i in invoices)
+    collected = sum(float(i.amount_paid or 0) for i in invoices)
+    pay_modes, bill_status, rev_by_day = {}, {}, {}
+    for i in invoices:
+        pm = i.payment_method or "unpaid"
+        pay_modes[pm] = round(pay_modes.get(pm, 0) + float(i.amount_paid or 0), 2)
+        bs = i.status or "pending"
+        bill_status[bs] = bill_status.get(bs, 0) + 1
+        k = str((i.created_at or start_dt).date())
+        rev_by_day[k] = rev_by_day.get(k, 0) + float(i.total or 0)
+
+    span = (d_to - d_from).days + 1
+    trend = []
+    for n in range(min(span, 90)):
+        dd = d_from + timedelta(days=n)
+        trend.append({"date": str(dd), "label": dd.strftime("%d %b"),
+                      "revenue": round(rev_by_day.get(str(dd), 0), 2)})
+
+    new_patients = db.query(func.count(Patient.id)).filter(
+        Patient.clinic_id == cid, Patient.created_at >= start_dt, Patient.created_at <= end_dt).scalar() or 0
+    total_patients = db.query(func.count(Patient.id)).filter(
+        Patient.clinic_id == cid, Patient.is_active == True).scalar() or 0
+
+    active_adm = db.query(func.count(Admission.id)).filter(
+        Admission.clinic_id == cid, Admission.status == "active").scalar() or 0
+    period_adm = db.query(func.count(Admission.id)).filter(
+        Admission.clinic_id == cid, Admission.admitted_at >= start_dt, Admission.admitted_at <= end_dt).scalar() or 0
+    beds = db.query(Bed).filter(Bed.clinic_id == cid).all()
+    occ = {"vacant": 0, "occupied": 0, "maintenance": 0}
+    for b in beds:
+        occ[b.status] = occ.get(b.status, 0) + 1
+    dept_names = {d.id: d.name for d in db.query(Department).filter(Department.clinic_id == cid).all()}
+    adm_by_dept = {}
+    for a in db.query(Admission).filter(Admission.clinic_id == cid, Admission.status == "active").all():
+        dn = dept_names.get(getattr(a, "department_id", None), "Unassigned") or "Unassigned"
+        adm_by_dept[dn] = adm_by_dept.get(dn, 0) + 1
+
+    return {
+        "period": period, "date_from": str(d_from), "date_to": str(d_to),
+        "kpis": {
+            "total_patients": int(total_patients), "new_patients": int(new_patients),
+            "appointments": len(appts), "completed": appt_status.get("completed", 0),
+            "billed": round(billed, 2), "collected": round(collected, 2),
+            "pending": round(max(billed - collected, 0), 2),
+            "active_admissions": int(active_adm), "period_admissions": int(period_adm),
+            "beds_total": len(beds), "beds_occupied": occ.get("occupied", 0), "beds_vacant": occ.get("vacant", 0),
+        },
+        "appointments_by_status": appt_status,
+        "appointments_by_type": appt_type,
+        "revenue_trend": trend,
+        "payment_modes": pay_modes,
+        "billing_status": bill_status,
+        "patients": {"new": int(new_patients), "returning": max(int(total_patients) - int(new_patients), 0)},
+        "occupancy": occ,
+        "admissions_by_department": adm_by_dept,
     }
 
 

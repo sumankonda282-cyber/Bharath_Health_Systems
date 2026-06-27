@@ -120,7 +120,7 @@ function EditEmergencyModal({ emrg, doctors, departments, wards, beds, onDone, o
 
         <div className="p-6 space-y-4">
           {/* Triage */}
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {TRIAGE.map(t => (
               <button key={t.id} onClick={() => set('triage_level', t.id)}
                 className={`py-2 rounded-xl text-xs font-bold transition border-2 ${form.triage_level === t.id ? `${t.bg} text-white border-transparent` : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-gray-300'}`}>
@@ -129,7 +129,7 @@ function EditEmergencyModal({ emrg, doctors, departments, wards, beds, onDone, o
             ))}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="col-span-2">
               <label className={labelCls}>Patient Name <span className="text-red-400 text-xs">(correctable)</span></label>
               <input className={inputCls} value={form.patient_name} onChange={e => set('patient_name', e.target.value)} placeholder="Full name or 'Unidentified'" />
@@ -174,7 +174,7 @@ function EditEmergencyModal({ emrg, doctors, departments, wards, beds, onDone, o
 
           <div className="border-t border-gray-100 pt-3">
             <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Initial Vitals (update if available)</p>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {[['bp','BP (mmHg)'],['pulse','Pulse (bpm)'],['spo2','SpO₂ (%)'],['temp','Temp (°C)'],['rr','RR (/min)'],['gcs','GCS (3-15)']].map(([k,lbl]) => (
                 <div key={k}>
                   <label className={labelCls}>{lbl}</label>
@@ -184,7 +184,7 @@ function EditEmergencyModal({ emrg, doctors, departments, wards, beds, onDone, o
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 border-t border-gray-100 pt-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 border-t border-gray-100 pt-3">
             <div>
               <label className={labelCls}>Department</label>
               <select className={inputCls} value={form.department_id} onChange={e => { set('department_id', e.target.value); set('ward_id', ''); set('bed_id', '') }}>
@@ -330,7 +330,7 @@ export default function EmergencyAdmission() {
 
   if (done) {
     return (
-      <div className="max-w-xl mx-auto space-y-4">
+      <div className="max-w-xl lg:max-w-3xl mx-auto space-y-4">
         {/* Status card */}
         <div className={`rounded-2xl border-2 p-6 ${triageConfig?.light || 'bg-orange-50 border-orange-300'}`}>
           <div className="flex items-start justify-between mb-4">
@@ -347,7 +347,7 @@ export default function EmergencyAdmission() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
             {done.doctor_name && (
               <div className="bg-white/70 rounded-xl px-3 py-2">
                 <div className="text-xs text-gray-500">Doctor</div>
@@ -460,7 +460,7 @@ export default function EmergencyAdmission() {
   // ── Registration form ──────────────────────────────────────────────────────
 
   return (
-    <div className="max-w-2xl mx-auto space-y-4">
+    <div className="max-w-2xl lg:max-w-4xl mx-auto space-y-4">
       {/* Header */}
       <div className="flex items-center gap-3">
         <button onClick={() => navigate(-1)} className="p-2 rounded-xl hover:bg-gray-100 text-gray-500">
@@ -493,7 +493,7 @@ export default function EmergencyAdmission() {
 
       {/* Patient Identity */}
       <Section title="2 — Patient Identity (can be partial)">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="col-span-2">
             <label className={labelCls}>Name <span className="text-gray-400 font-normal">(leave blank if unidentified)</span></label>
             <input className={inputCls} value={form.patient_name} onChange={e => set('patient_name', e.target.value)}
@@ -521,7 +521,7 @@ export default function EmergencyAdmission() {
 
       {/* Emergency Details */}
       <Section title="3 — Emergency Details">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="col-span-2">
             <label className={labelCls}>Chief Complaint / Injury Description *</label>
             <textarea className={inputCls} rows={2} value={form.chief_complaint}
@@ -557,7 +557,7 @@ export default function EmergencyAdmission() {
 
       {/* Initial Vitals */}
       <Section title="4 — Initial Vitals (from paramedic / caller — optional)">
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {[
             ['bp',    'BP (mmHg)',    '120/80'],
             ['pulse', 'Pulse (bpm)',  '72'],
@@ -576,7 +576,7 @@ export default function EmergencyAdmission() {
 
       {/* Resource Assignment */}
       <Section title="5 — Pre-Assign Resources">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className={labelCls}>Department</label>
             <select className={inputCls} value={form.department_id}

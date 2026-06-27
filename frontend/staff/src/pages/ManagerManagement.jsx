@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import api from '../api/client'
+import { formatEmployeeId } from '../utils/ids'
 import {
   PlusCircle, X, Loader2, ShieldCheck, Building2, Layers, Mail, Phone,
-  Check, Briefcase, Users, CheckCircle, Copy, KeyRound,
+  Check, Briefcase, Users, CheckCircle, Copy, KeyRound, UserCheck,
 } from 'lucide-react'
 
 // Department-manager permission catalog (supervisor-only duties/roles are excluded —
@@ -73,6 +74,7 @@ export default function ManagerManagement() {
   const [saving, setSaving] = useState(false)
   const [error, setError]   = useState('')
   const [created, setCreated] = useState(null)
+  const [supervisor, setSupervisor] = useState(undefined) // undefined=loading, null=top of org
 
   const load = useCallback(async () => {
     setLoading(true); setLoadError('')
@@ -84,6 +86,11 @@ export default function ManagerManagement() {
     } finally { setLoading(false) }
   }, [])
   useEffect(() => { load() }, [load])
+  useEffect(() => {
+    api.get('/clinic/my-supervisor')
+      .then(d => setSupervisor(d?.reporting_to || null))
+      .catch(() => setSupervisor(null))
+  }, [])
 
   const openCreate = () => { setForm(EMPTY); setError(''); setCreated(null); setOpen(true) }
   const applyTemplate = key => {
@@ -125,10 +132,26 @@ export default function ManagerManagement() {
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
           <h1 className="text-lg font-bold text-gray-800">Health Center Managers</h1>
-          <p className="text-sm text-gray-500">Create department managers and control exactly what each can do.</p>
+          <p className="text-sm text-gray-500">Create and supervise the managers below you — you only see managers who report to you.</p>
         </div>
         <button onClick={openCreate} className="btn-primary text-sm"><PlusCircle size={15} />Add Manager</button>
       </div>
+
+      {supervisor && (
+        <div className="mb-4 flex items-center gap-3 px-4 py-3 rounded-2xl bg-indigo-50 border border-indigo-100">
+          <div className="w-9 h-9 rounded-xl bg-indigo-100 flex items-center justify-center flex-shrink-0">
+            <UserCheck size={16} className="text-indigo-600" />
+          </div>
+          <div className="text-sm">
+            <div className="text-xs text-gray-500">You report to</div>
+            <div className="font-semibold text-gray-800">
+              {supervisor.full_name}
+              {supervisor.employee_id && <span className="ml-2 text-xs font-normal text-gray-400">{formatEmployeeId(supervisor.employee_id)}</span>}
+            </div>
+            <div className="text-xs text-gray-500">{supervisor.scope_label}{supervisor.department ? ` · ${supervisor.department}` : ''}</div>
+          </div>
+        </div>
+      )}
 
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
         {loading ? (
@@ -154,7 +177,11 @@ export default function ManagerManagement() {
                   <tr key={m.id} className="border-b border-gray-50">
                     <td className="px-4 py-3">
                       <div className="font-semibold text-gray-800">{m.full_name}</div>
-                      {m.username && <div className="text-xs text-gray-400">@{m.username}</div>}
+                      <div className="text-xs text-gray-400">
+                        {m.employee_id && <span title={m.employee_id}>{formatEmployeeId(m.employee_id)}</span>}
+                        {m.employee_id && m.username && <span> · </span>}
+                        {m.username && <span>@{m.username}</span>}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700">

@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import {
   Plus, Search, BedDouble, UserCheck, LogOut,
   ArrowRightLeft, X, ChevronDown, ChevronUp, Loader2, AlertCircle,
-  Clock, Filter,
+  Clock, RefreshCw,
 } from 'lucide-react'
 
 // ── PrimaryDrModal ────────────────────────────────────────────────────────────
@@ -507,201 +507,19 @@ function TransferModal({ admission, onClose, onSuccess }) {
   )
 }
 
-// ── AssignBedModal ─────────────────────────────────────────────────────────────
-function AssignBedModal({ bed, admissions, onClose, onSuccess }) {
-  const [selectedAdmission, setSelectedAdmission] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [err, setErr] = useState('')
-
-  const unassigned = admissions.filter(a => !a.bed_id && a.status === 'active')
-
-  const submit = async e => {
-    e.preventDefault()
-    if (!selectedAdmission) { setErr('Please select an admission'); return }
-    setSaving(true); setErr('')
-    try {
-      await api.put(`/inpatient/beds/${bed.id}`, { status: 'occupied', current_admission_id: parseInt(selectedAdmission) })
-      await api.patch(`/inpatient/admissions/${selectedAdmission}`, { bed_id: bed.id, ward_id: bed.ward_id })
-      onSuccess('Bed assigned successfully')
-    } catch (ex) {
-      setErr(ex?.response?.data?.detail || ex.message || 'Assignment failed')
-    } finally { setSaving(false) }
-  }
-
-  return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
-        <div className="border-b border-gray-100 px-6 py-4 flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-bold" style={{ color: '#0F2557' }}>Assign Bed {bed.bed_number}</h2>
-            <p className="text-sm text-gray-500">{bed.ward_name}</p>
-          </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500"><X size={18} /></button>
-        </div>
-        <form onSubmit={submit} className="p-6 space-y-4">
-          {unassigned.length === 0 ? (
-            <p className="text-gray-500 text-sm text-center py-4">No unassigned active admissions</p>
-          ) : (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Select Patient (Admitted, No Bed)</label>
-              <select className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={selectedAdmission} onChange={e => setSelectedAdmission(e.target.value)} required>
-                <option value="">Select patient…</option>
-                {unassigned.map(a => (
-                  <option key={a.id} value={a.id}>
-                    {a.patient_name} — #{a.admission_number}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-          {err && <p className="text-red-600 text-sm flex items-center gap-1"><AlertCircle size={14} />{err}</p>}
-          <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-xl text-sm font-medium hover:bg-gray-50">Cancel</button>
-            <button type="submit" disabled={saving || unassigned.length === 0}
-              className="flex-1 px-4 py-2 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2"
-              style={{ background: '#0F2557' }}>
-              {saving ? <Loader2 size={15} className="animate-spin" /> : <BedDouble size={15} />}
-              {saving ? 'Assigning…' : 'Assign Bed'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  )
-}
-
-// ── BedBoardPanel ─────────────────────────────────────────────────────────────
-function BedBoardPanel({ allAdmissions, onAssignBed, refresh }) {
-  const [departments, setDepartments] = useState([])
-  const [board, setBoard] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [deptFilter, setDeptFilter] = useState('')
-
-  const load = useCallback(() => {
-    setLoading(true)
-    const params = deptFilter ? `?department_id=${deptFilter}` : ''
-    api.get(`/inpatient/bed-board${params}`)
-      .then(r => setBoard(Array.isArray(r) ? r : (r?.items || r?.data || [])))
-      .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [deptFilter])
-
-  useEffect(() => {
-    api.get('/inpatient/departments').then(r => setDepartments(Array.isArray(r) ? r : (r?.items || r?.data || []))).catch(() => {})
-  }, [])
-
-  useEffect(() => { load() }, [load, refresh])
-
-  // Group beds by ward
-  const wardMap = {}
-  board.forEach(bed => {
-    const key = bed.ward_id || 'unknown'
-    if (!wardMap[key]) wardMap[key] = { id: key, name: bed.ward_name || 'Unknown Ward', floor: bed.floor || '', beds: [] }
-    wardMap[key].beds.push(bed)
-  })
-  const wards = Object.values(wardMap)
-
-  return (
-    <div>
-      <div className="flex items-center gap-3 mb-4">
-        <Filter size={15} className="text-gray-400" />
-        <select className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none"
-          value={deptFilter} onChange={e => setDeptFilter(e.target.value)}>
-          <option value="">All Departments</option>
-          {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-        </select>
-      </div>
-
-      {loading ? (
-        <div className="flex items-center justify-center py-16">
-          <Loader2 size={28} className="animate-spin text-gray-400" />
-        </div>
-      ) : wards.length === 0 ? (
-        <div className="text-center py-16 text-gray-400">
-          <BedDouble size={40} className="mx-auto mb-3 opacity-30" />
-          <p className="font-medium">No wards configured</p>
-          <p className="text-sm">Configure wards in Hospital Settings</p>
-        </div>
-      ) : (
-        <div className="space-y-5">
-          {wards.map(ward => (
-            <div key={ward.id} className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
-              <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between"
-                style={{ background: '#F8FAFF' }}>
-                <div>
-                  <span className="font-semibold text-sm" style={{ color: '#0F2557' }}>{ward.name}</span>
-                  {ward.floor && <span className="ml-2 text-xs text-gray-400">Floor {ward.floor}</span>}
-                </div>
-                <div className="flex gap-3 text-xs text-gray-500">
-                  <span className="flex items-center gap-1">
-                    <span className="w-2.5 h-2.5 rounded-full bg-green-400 inline-block" />
-                    {ward.beds.filter(b => b.status === 'vacant').length} vacant
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <span className="w-2.5 h-2.5 rounded-full bg-red-400 inline-block" />
-                    {ward.beds.filter(b => b.status === 'occupied').length} occupied
-                  </span>
-                </div>
-              </div>
-              <div className="p-4 flex flex-wrap gap-2">
-                {ward.beds.map(bed => (
-                  <BedChip key={bed.id} bed={bed}
-                    onClick={() => bed.status === 'vacant' ? onAssignBed(bed) : null} />
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function BedChip({ bed, onClick }) {
-  const isVacant = bed.status === 'vacant'
-  const isMaint = bed.status === 'maintenance'
-  const isOccupied = bed.status === 'occupied'
-
-  return (
-    <button
-      onClick={onClick}
-      disabled={!isVacant}
-      className={`rounded-xl px-3 py-2 text-left transition-all min-w-[100px] max-w-[140px]
-        ${isVacant ? 'bg-green-50 border border-green-200 hover:border-green-400 hover:shadow-sm cursor-pointer' : ''}
-        ${isOccupied ? 'bg-red-50 border border-red-200 cursor-default' : ''}
-        ${isMaint ? 'bg-gray-100 border border-gray-200 cursor-default opacity-60' : ''}
-      `}
-    >
-      <div className={`text-xs font-bold ${isVacant ? 'text-green-700' : isOccupied ? 'text-red-700' : 'text-gray-500'}`}>
-        {bed.bed_number}
-      </div>
-      {isOccupied && (
-        <>
-          <div className="text-xs font-medium text-gray-700 truncate mt-0.5">{bed.patient_name || '—'}</div>
-          <div className="text-xs text-gray-400 truncate">{bed.admission_number || ''}</div>
-        </>
-      )}
-      {isVacant && <div className="text-xs text-green-600">Vacant</div>}
-      {isMaint && <div className="text-xs text-gray-400">Maintenance</div>}
-    </button>
-  )
-}
-
 // ── Main Admissions Page ──────────────────────────────────────────────────────
 export default function Admissions() {
   const { user } = useAuth()
   const [tab, setTab] = useState('active')
   const [admissions, setAdmissions] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [deptFilter, setDeptFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('active')
   const [departments, setDepartments] = useState([])
   const [showAdmit, setShowAdmit] = useState(false)
   const [dischargeTarget, setDischargeTarget] = useState(null)
   const [transferTarget, setTransferTarget] = useState(null)
-  const [assignBedTarget, setAssignBedTarget] = useState(null)
   const [primaryDrTarget, setPrimaryDrTarget] = useState(null)
   const [toast, setToast] = useState(null)
   const [refresh, setRefresh] = useState(0)
@@ -711,17 +529,20 @@ export default function Admissions() {
 
   const loadAdmissions = useCallback(() => {
     setLoading(true)
+    setError('')
     const params = new URLSearchParams()
     if (statusFilter) params.set('status', statusFilter)
     if (deptFilter) params.set('department_id', deptFilter)
     api.get(`/inpatient/admissions?${params}`)
       .then(r => setAdmissions(Array.isArray(r) ? r : (r?.items || r?.data || [])))
-      .catch(() => {})
+      .catch(ex => setError(ex?.response?.data?.detail || ex.message || 'Failed to load admissions'))
       .finally(() => setLoading(false))
   }, [statusFilter, deptFilter])
 
   useEffect(() => {
-    api.get('/inpatient/departments').then(r => setDepartments(Array.isArray(r) ? r : (r?.items || r?.data || []))).catch(() => {})
+    api.get('/inpatient/departments')
+      .then(r => setDepartments(Array.isArray(r) ? r : (r?.items || r?.data || [])))
+      .catch(ex => setError(ex?.response?.data?.detail || ex.message || 'Failed to load departments'))
   }, [])
 
   useEffect(() => { loadAdmissions() }, [loadAdmissions, refresh])
@@ -744,7 +565,6 @@ export default function Admissions() {
     setShowAdmit(false)
     setDischargeTarget(null)
     setTransferTarget(null)
-    setAssignBedTarget(null)
     setPrimaryDrTarget(null)
   }
 
@@ -761,23 +581,11 @@ export default function Admissions() {
 
   const TABS = [
     { key: 'active', label: 'Active Admissions' },
-    { key: 'board', label: 'Bed Board' },
     { key: 'discharge', label: 'Discharge Queue' },
   ]
 
   return (
     <div className="max-w-7xl">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-end gap-3 mb-5">
-        <div className="flex gap-2">
-          <button onClick={() => setShowAdmit(true)}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white"
-            style={{ background: '#0F2557' }}>
-            <Plus size={15} />New Admission
-          </button>
-        </div>
-      </div>
-
       {/* Tabs */}
       <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-5 w-fit">
         {TABS.map(t => (
@@ -792,8 +600,8 @@ export default function Admissions() {
       {/* ── Active Admissions Tab ── */}
       {tab === 'active' && (
         <div>
-          {/* Filter bar */}
-          <div className="flex flex-wrap gap-3 mb-4">
+          {/* Filter + actions toolbar */}
+          <div className="flex flex-wrap items-center gap-3 mb-4">
             <select className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none"
               value={deptFilter} onChange={e => setDeptFilter(e.target.value)}>
               <option value="">All Departments</option>
@@ -806,7 +614,26 @@ export default function Admissions() {
               <option value="discharged">Discharged</option>
               <option value="">All Statuses</option>
             </select>
+            <button onClick={() => setShowAdmit(true)}
+              className="ml-auto flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white"
+              style={{ background: '#0F2557' }}>
+              <Plus size={15} />New Admission
+            </button>
           </div>
+
+          {error && (
+            <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm"
+              style={{ background: '#FDECEC', borderColor: '#F3B5B5', color: '#CC1414' }}>
+              <span className="flex items-center gap-2">
+                <AlertCircle size={16} />{error}
+              </span>
+              <button onClick={loadAdmissions}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white"
+                style={{ background: '#CC1414' }}>
+                <RefreshCw size={13} />Retry
+              </button>
+            </div>
+          )}
 
           {loading ? (
             <div className="flex items-center justify-center py-16">
@@ -873,15 +700,6 @@ export default function Admissions() {
         </div>
       )}
 
-      {/* ── Bed Board Tab ── */}
-      {tab === 'board' && (
-        <BedBoardPanel
-          allAdmissions={admissions}
-          onAssignBed={bed => setAssignBedTarget(bed)}
-          refresh={refresh}
-        />
-      )}
-
       {/* ── Discharge Queue Tab ── */}
       {tab === 'discharge' && (
         <div>
@@ -920,14 +738,6 @@ export default function Admissions() {
       {dischargeTarget && <DischargeModal admission={dischargeTarget} onClose={() => setDischargeTarget(null)} onSuccess={handleSuccess} />}
       {transferTarget && <TransferModal admission={transferTarget} onClose={() => setTransferTarget(null)} onSuccess={handleSuccess} />}
       {primaryDrTarget && <PrimaryDrModal admission={primaryDrTarget} onClose={() => setPrimaryDrTarget(null)} onSuccess={handleSuccess} />}
-      {assignBedTarget && (
-        <AssignBedModal
-          bed={assignBedTarget}
-          admissions={admissions}
-          onClose={() => setAssignBedTarget(null)}
-          onSuccess={handleSuccess}
-        />
-      )}
 
       {/* Toast */}
       {toast && <Toast msg={toast.msg} type={toast.type} onClose={hideToast} />}
