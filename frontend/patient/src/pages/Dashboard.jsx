@@ -136,11 +136,22 @@ const STATUS_COLORS = {
   cancelled: 'badge-gray', in_progress: 'badge-blue',
 }
 
+function calcAge(dob) {
+  if (!dob) return null
+  const today = new Date()
+  const birth = new Date(dob)
+  let age = today.getFullYear() - birth.getFullYear()
+  const m = today.getMonth() - birth.getMonth()
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--
+  return age
+}
+
 export default function Dashboard() {
   const { user } = useAuth()
   const [appointments, setAppointments] = useState([])
   const [prescriptions, setPrescriptions] = useState([])
   const [guardianOf, setGuardianOf] = useState([])
+  const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -156,6 +167,7 @@ export default function Dashboard() {
         setPrescriptions((p?.data?.prescriptions || p?.prescriptions || p?.data || []).slice(0, 3))
         const meData = me?.data || me
         setGuardianOf(Array.isArray(meData?.guardian_of) ? meData.guardian_of : [])
+        setProfile(meData || {})
         setLoading(false)
       }
     ).catch(() => setLoading(false))
@@ -167,44 +179,107 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-5">
-      {/* BHID Health Card */}
-      <div className="rounded-2xl p-4 text-white relative overflow-hidden"
+      {/* BHID Digital Health ID Card */}
+      <div className="rounded-2xl text-white relative overflow-hidden"
         style={{ background: 'linear-gradient(135deg, #0F2557 0%, #1a3a7a 60%, #0a1a3e 100%)' }}>
-        {/* Decorative */}
-        <div className="absolute -top-8 -right-8 w-40 h-40 rounded-full pointer-events-none" style={{ background:'rgba(245,130,30,0.12)' }} />
-        <div className="absolute -bottom-6 left-1/3 w-28 h-28 rounded-full pointer-events-none" style={{ background:'rgba(204,20,20,0.10)' }} />
+        {/* Decorative circles */}
+        <div className="absolute -top-10 -right-10 w-52 h-52 rounded-full pointer-events-none" style={{ background:'rgba(245,130,30,0.08)' }} />
+        <div className="absolute -bottom-8 left-1/4 w-36 h-36 rounded-full pointer-events-none" style={{ background:'rgba(204,20,20,0.08)' }} />
+        <div className="absolute top-1/2 right-10 w-20 h-20 rounded-full pointer-events-none" style={{ background:'rgba(255,255,255,0.03)' }} />
 
-        <div className="relative">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <img src={logoImg} alt="BHarath Health" style={{ height: 24, width: 'auto' }} />
-              <span className="font-extrabold text-xs tracking-wider text-white/80">BHarath Health Systems</span>
+        {/* Card Header */}
+        <div className="relative flex items-center justify-between px-5 pt-4 pb-3 border-b" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
+          <div className="flex items-center gap-2">
+            <img src={logoImg} alt="BHarath Health" style={{ height: 22, width: 'auto' }} />
+            <span className="font-extrabold text-[11px] tracking-wider text-white/70 uppercase">BHarath Health Systems</span>
+          </div>
+          <div className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold"
+            style={{ background: 'rgba(245,130,30,0.18)', color: '#fbbf24', border: '1px solid rgba(245,130,30,0.25)' }}>
+            <Heart size={9} />
+            Digital Health ID
+          </div>
+        </div>
+
+        {/* Card Body */}
+        <div className="relative px-5 py-4">
+          <div className="flex items-start gap-4">
+            {/* Avatar */}
+            <div className="flex-shrink-0 w-16 h-16 rounded-2xl flex items-center justify-center font-extrabold text-2xl border-2"
+              style={{ background: 'rgba(245,130,30,0.15)', borderColor: 'rgba(245,130,30,0.3)', color: '#F5821E' }}>
+              {(profile?.full_name || user?.full_name || 'P').charAt(0).toUpperCase()}
             </div>
-            <div className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
-              style={{ background: 'rgba(245,130,30,0.2)', color: '#fbbf24' }}>
-              <Heart size={10} />
-              Digital Health Card
+
+            {/* Name + BHID + demographics */}
+            <div className="flex-1 min-w-0">
+              <div className="text-[10px] font-medium mb-0.5" style={{ color: '#93c5fd' }}>Patient Name</div>
+              <div className="text-lg font-bold tracking-wide leading-tight">{profile?.full_name || user?.full_name || 'Patient'}</div>
+              <div className="font-mono text-sm font-bold tracking-widest mt-1" style={{ color: '#F5821E' }}>
+                {(profile?.bh_id || user?.bh_id || 'BH-XXXXXXXX').toUpperCase()}
+              </div>
+            </div>
+
+            {/* Clinics count */}
+            <div className="flex-shrink-0 text-right">
+              <div className="text-[10px] font-medium mb-0.5" style={{ color: '#93c5fd' }}>Linked Clinics</div>
+              <div className="text-xl font-bold">{profile?.linked_clinics ?? user?.linked_clinics ?? 0}</div>
             </div>
           </div>
 
-          <div className="flex items-end justify-between mb-1">
-            <div>
-              <div className="text-[10px] mb-0.5 font-medium" style={{ color: '#93c5fd' }}>Patient Name</div>
-              <div className="text-lg font-bold tracking-wide">{user?.full_name || 'Patient'}</div>
+          {/* Demographics row */}
+          {profile && (profile.date_of_birth || profile.gender || profile.blood_group || profile.phone) && (
+            <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {profile.date_of_birth && (
+                <div className="rounded-xl px-3 py-2" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                  <div className="text-[9px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: 'rgba(147,197,253,0.7)' }}>Age / DOB</div>
+                  <div className="text-xs font-bold text-white">
+                    {calcAge(profile.date_of_birth) !== null ? `${calcAge(profile.date_of_birth)} yrs` : '—'}
+                  </div>
+                  <div className="text-[10px]" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                    {new Date(profile.date_of_birth).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </div>
+                </div>
+              )}
+              {profile.gender && (
+                <div className="rounded-xl px-3 py-2" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                  <div className="text-[9px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: 'rgba(147,197,253,0.7)' }}>Gender</div>
+                  <div className="text-xs font-bold text-white capitalize">{profile.gender}</div>
+                </div>
+              )}
+              {profile.blood_group && (
+                <div className="rounded-xl px-3 py-2" style={{ background: 'rgba(204,20,20,0.15)', border: '1px solid rgba(204,20,20,0.25)' }}>
+                  <div className="text-[9px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: 'rgba(252,165,165,0.8)' }}>Blood Group</div>
+                  <div className="text-sm font-extrabold" style={{ color: '#fca5a5' }}>{profile.blood_group}</div>
+                </div>
+              )}
+              {profile.phone && (
+                <div className="rounded-xl px-3 py-2" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                  <div className="text-[9px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: 'rgba(147,197,253,0.7)' }}>Mobile</div>
+                  <div className="text-xs font-bold text-white">{profile.phone}</div>
+                </div>
+              )}
             </div>
-            <div className="text-right">
-              <div className="text-[10px] mb-0.5 font-medium" style={{ color: '#93c5fd' }}>Health Centers</div>
-              <div className="text-base font-bold">{user?.linked_clinics || 0}</div>
-            </div>
-          </div>
+          )}
 
-          <div>
-            <div className="text-[10px] mb-0.5 font-medium" style={{ color: '#93c5fd' }}>BHID / Health ID</div>
-            <div className="font-mono text-sm font-bold tracking-widest" style={{ color: '#F5821E' }}>
-              {user?.bh_id ? user.bh_id.toUpperCase() : 'BH-XXXXXXXX'}
+          {/* Chronic conditions */}
+          {profile?.chronic_conditions?.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {profile.chronic_conditions.slice(0, 4).map((c, i) => (
+                <span key={i} className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                  style={{ background: 'rgba(245,130,30,0.15)', color: '#fbbf24', border: '1px solid rgba(245,130,30,0.2)' }}>
+                  {c}
+                </span>
+              ))}
+              {profile.chronic_conditions.length > 4 && (
+                <span className="text-[10px] font-medium" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                  +{profile.chronic_conditions.length - 4} more
+                </span>
+              )}
             </div>
-          </div>
+          )}
+        </div>
 
+        {/* PIN section */}
+        <div className="relative px-5 pb-4">
           <HistoryPinSection />
         </div>
       </div>

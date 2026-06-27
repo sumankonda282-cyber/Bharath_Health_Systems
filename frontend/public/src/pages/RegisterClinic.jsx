@@ -402,7 +402,8 @@ function Step2({ data, onChange, onNext, onBack }) {
 
   const validate = () => {
     const e = {}
-    if (!data.doctor_name?.trim()) e.doctor_name = 'Full name is required'
+    if (!data.doctor_first_name?.trim()) e.doctor_first_name = 'First name is required'
+    if (!data.doctor_last_name?.trim()) e.doctor_last_name = 'Last name is required'
     if (!data.doctor_email?.trim() || !/\S+@\S+\.\S+/.test(data.doctor_email)) e.doctor_email = 'Valid email required — login credentials will be sent here'
     if (!data.doctor_phone?.trim() || !/^[6-9]\d{9}$/.test(data.doctor_phone)) e.doctor_phone = 'Valid 10-digit phone required — credentials also sent via SMS'
     if (!data.doctor_specialties?.length) e.doctor_specialties = 'At least one specialty is required'
@@ -430,8 +431,11 @@ function Step2({ data, onChange, onNext, onBack }) {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Field label="Full Name" required error={errors.doctor_name}>
-          <input type="text" {...inp('doctor_name')} placeholder="Dr. / Mr. / Ms. Full Name" />
+        <Field label="First Name" required error={errors.doctor_first_name}>
+          <input type="text" {...inp('doctor_first_name')} placeholder="Dr. / Mr. / Ms. First Name" />
+        </Field>
+        <Field label="Last Name" required error={errors.doctor_last_name}>
+          <input type="text" {...inp('doctor_last_name')} placeholder="Last Name" />
         </Field>
         <Field label="Designation / Role" optional>
           <input type="text" {...inp('designation')} placeholder="e.g. Chief Medical Officer, Director" />
@@ -521,7 +525,7 @@ function Step3({ data, onBack, onSubmit, submitting, error }) {
     { label: 'Address',              value: data.address },
     { label: 'Map Location',         value: data.latitude ? `${Number(data.latitude).toFixed(5)}, ${Number(data.longitude).toFixed(5)}` : null },
     null,
-    { label: 'Contact Name',         value: data.doctor_name },
+    { label: 'Contact Name',         value: [data.doctor_first_name, data.doctor_last_name].filter(Boolean).join(' ') },
     { label: 'Designation',          value: data.designation },
     { label: 'Login Email',          value: data.doctor_email },
     { label: 'Mobile',               value: data.doctor_phone },
@@ -649,7 +653,7 @@ export default function RegisterClinic() {
           longitude:            formData.longitude,
         },
         doctor: {
-          full_name:           formData.doctor_name,
+          full_name:           [formData.doctor_first_name, formData.doctor_last_name].filter(Boolean).join(' '),
           email:               formData.doctor_email,
           mobile:              formData.doctor_phone,
           qualification:       formData.qualification,

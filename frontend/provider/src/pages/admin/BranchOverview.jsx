@@ -3,7 +3,7 @@ import { clinicApi, appointmentsApi, billingApi } from '../../api'
 import { PageLoader } from '../../components/ui/Spinner'
 import {
   Building2, Calendar, TrendingUp, Clock, Users,
-  Activity, RefreshCw
+  Activity
 } from 'lucide-react'
 import { format } from 'date-fns'
 
@@ -140,14 +140,6 @@ export default function BranchOverview() {
             {format(new Date(), 'EEEE, MMMM d, yyyy')} &bull; {branches.length} branch{branches.length !== 1 ? 'es' : ''}
           </p>
         </div>
-        <button
-          onClick={() => load(true)}
-          disabled={refreshing}
-          className="btn-secondary flex items-center gap-2"
-        >
-          <RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />
-          Refresh
-        </button>
       </div>
 
       {error && (

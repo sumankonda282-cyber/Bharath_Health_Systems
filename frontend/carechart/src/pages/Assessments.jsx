@@ -927,14 +927,26 @@ export default function Assessments() {
             </div>
             {/* Body */}
             <div className="overflow-y-auto p-5 max-h-[80vh]">
-              <FormRenderer
-                formKey={openForm.subcategory}
-                patientId={null}
-                encounterId={null}
-                admission={null}
-                onSaved={() => setOpenForm(null)}
-                onClose={() => setOpenForm(null)}
-              />
+              {openForm.subcategory ? (
+                <FormRenderer
+                  formKey={openForm.subcategory}
+                  patientId={null}
+                  encounterId={null}
+                  admission={null}
+                  onSaved={() => setOpenForm(null)}
+                  onClose={() => setOpenForm(null)}
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center py-16 text-gray-400 gap-3">
+                  <FileText size={32} className="opacity-30" />
+                  <p className="text-sm font-medium text-gray-500">No form renderer registered for this assessment</p>
+                  <p className="text-xs text-gray-400 text-center max-w-xs">This form type doesn't have a rich UI component yet. Fill it as a structured schema form via the patient chart.</p>
+                  <button onClick={() => setOpenForm(null)}
+                    className="mt-2 px-4 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
+                    Close
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

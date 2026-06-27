@@ -8,6 +8,7 @@ import { useAuth } from '../../contexts/AuthContext'
 export default function Pharmacy() {
   const { user } = useAuth()
   const [tab, setTab] = useState('pending')
+  const [lowStockOnly, setLowStockOnly] = useState(false)
   const [medicines, setMedicines] = useState([])
   const [pending, setPending] = useState([])
   const [search, setSearch] = useState('')
@@ -58,28 +59,44 @@ export default function Pharmacy() {
         <button onClick={() => setShowAddMed(true)} className="btn-primary"><Plus size={16} />Add Medicine</button>
       </div>
 
-      {/* Stats */}
+      {/* Stats — each card is a clickable filter */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
-        <div className="card p-4 flex items-center gap-3">
-          <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center"><Pill size={18} className="text-blue-600" /></div>
+        <button
+          onClick={() => { setTab('inventory'); setLowStockOnly(false) }}
+          className={`card p-4 flex items-center gap-3 text-left w-full transition-all hover:shadow-md ${tab === 'inventory' && !lowStockOnly ? 'ring-2 ring-blue-500' : ''}`}
+        >
+          <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0"><Pill size={18} className="text-blue-600" /></div>
           <div><div className="text-xl font-bold">{medicines.length}</div><div className="text-xs text-gray-500">Total Medicines</div></div>
-        </div>
-        <div className="card p-4 flex items-center gap-3">
-          <div className="w-10 h-10 bg-yellow-100 rounded-xl flex items-center justify-center"><AlertTriangle size={18} className="text-yellow-600" /></div>
-          <div><div className="text-xl font-bold">{lowStock.length}</div><div className="text-xs text-gray-500">Low Stock</div></div>
-        </div>
-        <div className="card p-4 flex items-center gap-3">
-          <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center"><Package size={18} className="text-orange-600" /></div>
-          <div><div className="text-xl font-bold">{pending.length}</div><div className="text-xs text-gray-500">Pending Dispensing</div></div>
-        </div>
+        </button>
+        <button
+          onClick={() => { setTab('inventory'); setLowStockOnly(true) }}
+          className={`card p-4 flex items-center gap-3 text-left w-full transition-all hover:shadow-md ${lowStockOnly ? 'ring-2 ring-yellow-500' : ''}`}
+        >
+          <div className="w-10 h-10 bg-yellow-100 rounded-xl flex items-center justify-center flex-shrink-0"><AlertTriangle size={18} className="text-yellow-600" /></div>
+          <div><div className="text-xl font-bold text-yellow-600">{lowStock.length}</div><div className="text-xs text-gray-500">Low Stock</div></div>
+        </button>
+        <button
+          onClick={() => { setTab('pending'); setLowStockOnly(false) }}
+          className={`card p-4 flex items-center gap-3 text-left w-full transition-all hover:shadow-md ${tab === 'pending' ? 'ring-2 ring-orange-500' : ''}`}
+        >
+          <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center flex-shrink-0"><Package size={18} className="text-orange-600" /></div>
+          <div><div className="text-xl font-bold text-orange-600">{pending.length}</div><div className="text-xs text-gray-500">Pending Dispensing</div></div>
+        </button>
       </div>
 
       {/* Tabs */}
       <div className="flex gap-1 bg-gray-100 p-1 rounded-lg mb-4 w-fit">
         {['pending', 'inventory'].map(t => (
-          <button key={t} onClick={() => setTab(t)} className={`px-4 py-1.5 rounded-md text-sm font-medium capitalize transition-all ${tab === t ? 'bg-white shadow text-gray-900' : 'text-gray-500'}`}>{t}</button>
+          <button key={t} onClick={() => { setTab(t); setLowStockOnly(false) }} className={`px-4 py-1.5 rounded-md text-sm font-medium capitalize transition-all ${tab === t ? 'bg-white shadow text-gray-900' : 'text-gray-500'}`}>{t}</button>
         ))}
       </div>
+      {lowStockOnly && tab === 'inventory' && (
+        <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-700 w-fit">
+          <AlertTriangle size={14} className="text-yellow-500" />
+          Showing low stock items only
+          <button onClick={() => setLowStockOnly(false)} className="ml-1 text-yellow-500 hover:text-yellow-700 font-medium">Clear ✕</button>
+        </div>
+      )}
 
       {/* Pending Prescriptions */}
       {tab === 'pending' && (
@@ -137,7 +154,7 @@ export default function Pharmacy() {
                   <th className="th">Strength</th><th className="th">Stock</th><th className="th">Price</th><th className="th">Status</th>
                 </tr></thead>
                 <tbody className="divide-y divide-gray-100">
-                  {medicines.map(m => (
+                  {(lowStockOnly ? lowStock : medicines).map(m => (
                     <tr key={m.id} className="tr-hover">
                       <td className="td font-medium">{m.name}</td>
                       <td className="td text-gray-500 text-xs">{m.generic_name || '—'}</td>

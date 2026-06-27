@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTelehealth } from '../../contexts/TelehealthContext'
 import { useAuth } from '../../contexts/AuthContext'
 import {
-  Video, Clock, CheckCircle2, XCircle, Loader2, RefreshCw,
+  Video, Clock, CheckCircle2, XCircle, Loader2,
   AlertTriangle, Calendar, FileText, UserCheck
 } from 'lucide-react'
 import api from '../../api/client'
@@ -141,16 +141,9 @@ export default function TelehealthDesk() {
         <StatCard label="Completed" value={completed.length} icon={<CheckCircle2 size={18} className="text-green-500" />} />
       </div>
 
-      {/* Refresh */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-sm font-semibold text-gray-700">Today's Telehealth Sessions</h2>
-        <div className="flex items-center gap-2">
-          {lastUpdate && <span className="text-xs text-gray-400">Updated {lastUpdate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
-          <button onClick={() => load()} disabled={loading}
-            className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50">
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh
-          </button>
-        </div>
+        {lastUpdate && <span className="text-xs text-gray-400">Auto-updated · {lastUpdate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
       </div>
 
       {error && (

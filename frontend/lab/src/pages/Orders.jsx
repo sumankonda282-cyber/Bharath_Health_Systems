@@ -428,7 +428,7 @@ export default function Orders() {
       )
       setOrders(detailed)
     } catch (err) {
-      setError(err.message)
+      setError(err.response?.data?.detail || err.message || 'Failed to load lab orders')
     } finally {
       setLoading(false)
     }

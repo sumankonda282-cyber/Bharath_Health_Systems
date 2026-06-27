@@ -31,13 +31,30 @@ export default function Billing() {
   const [payMethod, setPayMethod] = useState('Cash')
   const [saving, setSaving] = useState(false)
 
+  const [counts, setCounts] = useState({ pending: null, paid: null, all: null })
+
+  const loadCounts = () => {
+    Promise.all([
+      billingApi.getInvoices({ status: 'pending', limit: 200 }),
+      billingApi.getInvoices({ status: 'paid', limit: 200 }),
+      billingApi.getInvoices({ limit: 200 }),
+    ]).then(([p, pd, all]) => {
+      setCounts({
+        pending: Array.isArray(p) ? p.length : 0,
+        paid: Array.isArray(pd) ? pd.length : 0,
+        all: Array.isArray(all) ? all.length : 0,
+      })
+    }).catch(() => {})
+  }
+
   const load = () => {
     setLoading(true)
-    billingApi.getInvoices({ status: filter, limit: 50 })
+    billingApi.getInvoices({ status: filter, limit: 100 })
       .then(r => setInvoices(Array.isArray(r) ? r : []))
       .finally(() => setLoading(false))
   }
 
+  useEffect(() => { loadCounts() }, [])
   useEffect(() => { load() }, [filter])
 
   useEffect(() => {
@@ -105,7 +122,7 @@ export default function Billing() {
           <button key={s} onClick={() => setFilter(s)}
             className={`px-4 py-1.5 rounded-md text-sm font-medium capitalize transition-all ${filter === s ? 'bg-white shadow text-gray-900' : 'text-gray-500'}`}
           >
-            {s}
+            {s}{counts[s] !== null ? ` (${counts[s]})` : ''}
           </button>
         ))}
       </div>
