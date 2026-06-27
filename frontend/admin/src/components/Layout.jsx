@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import {
   LayoutDashboard, Clock, Building2, ShieldCheck,
   ClipboardList, BarChart3, LogOut, Menu, X, Search, CreditCard, Hospital,
-  FileText, Users, Bell, RefreshCw, ChevronDown, PanelLeft,
+  FileText, Users, Bell, RefreshCw, ChevronDown, PanelLeft, KeyRound,
 } from 'lucide-react'
 import api from '../api/client'
 import BrandLogo from './BrandLogo'
@@ -138,7 +138,7 @@ function FeedbackBell() {
   )
 }
 
-function ProfileDropdown({ user, logout }) {
+function ProfileDropdown({ user, logout, onChangePassword }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
 
@@ -177,6 +177,12 @@ function ProfileDropdown({ user, logout }) {
             <div className="text-gray-500 text-xs">Super Admin</div>
           </div>
           <div className="p-2">
+            <button
+              onClick={() => { setOpen(false); onChangePassword && onChangePassword() }}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-gray-300 hover:bg-white/5 hover:text-white text-sm font-medium transition-colors"
+            >
+              <KeyRound size={15} />Change Password
+            </button>
             <button
               onClick={logout}
               className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300 text-sm font-medium transition-colors"
@@ -231,8 +237,63 @@ function SidebarContent({ onClose, collapsed = false }) {
   )
 }
 
+function ChangePasswordModal({ open, onClose }) {
+  const [cur, setCur] = useState('')
+  const [nw, setNw] = useState('')
+  const [conf, setConf] = useState('')
+  const [show, setShow] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState('')
+  const [ok, setOk] = useState(false)
+  if (!open) return null
+
+  const close = () => { setCur(''); setNw(''); setConf(''); setErr(''); setOk(false); onClose() }
+  const submit = async (e) => {
+    e.preventDefault(); setErr('')
+    if (nw.length < 8) { setErr('New password must be at least 8 characters.'); return }
+    if (nw !== conf) { setErr('New passwords do not match.'); return }
+    setSaving(true)
+    try {
+      await api.post('/auth/platform/change-password', { current_password: cur, new_password: nw })
+      setOk(true)
+    } catch (ex) { setErr(ex.message || 'Could not change password.') }
+    finally { setSaving(false) }
+  }
+
+  const inputCls = 'w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500'
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60">
+      <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-sm p-6">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-lg font-bold text-white">Change Password</h3>
+          <button onClick={close} className="text-gray-500 hover:text-white"><X size={18} /></button>
+        </div>
+        {ok ? (
+          <>
+            <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-3 text-emerald-300 text-sm mb-4">Password changed successfully.</div>
+            <button onClick={close} className="btn-primary w-full justify-center text-sm">Done</button>
+          </>
+        ) : (
+          <form onSubmit={submit} className="space-y-3">
+            <input className={inputCls} type={show ? 'text' : 'password'} placeholder="Current password" value={cur} onChange={e => setCur(e.target.value)} required autoFocus />
+            <input className={inputCls} type={show ? 'text' : 'password'} placeholder="New password (min 8 chars)" value={nw} onChange={e => setNw(e.target.value)} required />
+            <input className={inputCls} type={show ? 'text' : 'password'} placeholder="Confirm new password" value={conf} onChange={e => setConf(e.target.value)} required />
+            <label className="flex items-center gap-2 text-xs text-gray-400 select-none"><input type="checkbox" checked={show} onChange={e => setShow(e.target.checked)} />Show passwords</label>
+            {err && <p className="text-red-400 text-xs">{err}</p>}
+            <div className="flex gap-3 pt-1">
+              <button type="button" onClick={close} className="btn-secondary flex-1 justify-center text-sm">Cancel</button>
+              <button type="submit" disabled={saving} className="btn-primary flex-1 justify-center text-sm">{saving ? 'Saving…' : 'Change Password'}</button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [pwModal, setPwModal] = useState(false)
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem('admin_sidebar_collapsed') === '1' } catch { return false }
   })
@@ -296,7 +357,7 @@ export default function Layout() {
           </button>
 
           <FeedbackBell />
-          <ProfileDropdown user={user} logout={logout} />
+          <ProfileDropdown user={user} logout={logout} onChangePassword={() => setPwModal(true)} />
         </header>
 
         <main className="flex-1 overflow-y-auto">
@@ -305,6 +366,8 @@ export default function Layout() {
           </div>
         </main>
       </div>
+
+      <ChangePasswordModal open={pwModal} onClose={() => setPwModal(false)} />
     </div>
   )
 }
