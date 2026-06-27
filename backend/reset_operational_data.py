@@ -29,10 +29,12 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from sqlalchemy import text                       # noqa: E402
-from app.db.session import SessionLocal           # noqa: E402
-from app.core.security import hash_password        # noqa: E402
-from app.models.models import PlatformAdmin        # noqa: E402
+from sqlalchemy import text                                    # noqa: E402
+from app.db.session import SessionLocal                        # noqa: E402
+from app.core.security import hash_password                     # noqa: E402
+from app.models.models import PlatformAdmin, PlatformSetting    # noqa: E402
+
+RESET_TOKEN_KEY = "reset_applied_token"
 
 # Reference libraries + form templates + platform config — never emptied.
 PRESERVE = {
@@ -174,8 +176,18 @@ def main():
         print("  ⚠ SUPERADMIN_EMAIL / SUPERADMIN_PASSWORD not set — using default "
               "superadmin@bharathealth.com / SuperAdmin@123 (change before go-live).")
 
+    # Deploy-triggered path (start.sh sets RESET_TOKEN) is idempotent: a given token
+    # wipes exactly once, so redeploys never re-wipe. Manual runs (no token) always run.
+    reset_token = os.getenv("RESET_TOKEN")
+
     db = SessionLocal()
     try:
+        if reset_token:
+            row = db.query(PlatformSetting).filter_by(key=RESET_TOKEN_KEY).first()
+            if row and isinstance(row.value, dict) and str(row.value.get("token")) == reset_token:
+                print(f"[reset] token '{reset_token}' already applied — skipping (no re-wipe).")
+                return
+
         all_tables = _all_tables(db)
         missing = PRESERVE - all_tables
         if missing:
@@ -210,6 +222,16 @@ def main():
         ))
         db.commit()
         print(f"[reset] platform superadmin ready: {admin_email}")
+
+        # remember which deploy-token applied this wipe (lives in preserved platform_settings)
+        if reset_token:
+            row = db.query(PlatformSetting).filter_by(key=RESET_TOKEN_KEY).first()
+            if row:
+                row.value = {"token": reset_token}
+            else:
+                db.add(PlatformSetting(key=RESET_TOKEN_KEY, value={"token": reset_token}))
+            db.commit()
+            print(f"[reset] recorded applied token '{reset_token}'")
 
         # summary
         def n(t):
