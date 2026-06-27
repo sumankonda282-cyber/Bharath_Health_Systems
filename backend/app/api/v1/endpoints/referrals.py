@@ -282,7 +282,7 @@ def get_referred_patient_records(
             for item in rx.items:
                 med = item.medicine
                 rx_items.append({
-                    "drug":     med.name if med else "Unknown",
+                    "drug":     item.medicine_name or (med.name if med else "Unknown"),
                     "dosage":   item.dosage,
                     "frequency": item.frequency,
                     "duration": item.duration,
@@ -291,9 +291,9 @@ def get_referred_patient_records(
         lab_items = []
         for lo in labs:
             for item in lo.items:
-                test = db.query(LabTest).filter(LabTest.id == item.test_id).first()
+                test = db.query(LabTest).filter(LabTest.id == item.test_id).first() if item.test_id else None
                 lab_items.append({
-                    "test":   test.name if test else "Unknown",
+                    "test":   item.test_name or (test.name if test else "Unknown"),
                     "result": item.result_value,
                 })
 

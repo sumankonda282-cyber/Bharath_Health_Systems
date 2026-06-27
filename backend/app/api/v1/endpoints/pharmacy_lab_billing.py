@@ -282,7 +282,7 @@ def get_prescription(pres_id: int, db: Session = Depends(get_db), current: Staff
         "id": pres.id, "status": str(pres.status), "notes": pres.notes,
         "patient_id": pres.patient_id, "created_at": pres.created_at,
         "items": [
-            {"id": i.id, "medicine_name": i.medicine.name if i.medicine else "?",
+            {"id": i.id, "medicine_name": i.medicine_name or (i.medicine.name if i.medicine else "?"),
              "medicine_id": i.medicine_id, "dosage": i.dosage, "frequency": i.frequency,
              "duration": i.duration, "instructions": i.instructions,
              "quantity_prescribed": i.quantity_prescribed, "quantity_dispensed": i.quantity_dispensed}
@@ -419,13 +419,14 @@ def get_lab_order(order_id: int, db: Session = Depends(get_db), current: Staff =
         raise HTTPException(status_code=404, detail="Not found")
     return {
         "id": order.id, "patient_id": order.patient_id,
-        "status": str(order.status), "notes": order.notes,
+        "status": str(order.status), "notes": order.clinical_notes,
         "created_at": order.created_at,
         "items": [
             {"id": i.id, "test_id": i.test_id,
-             "test_name": i.test.name if i.test else "?",
-             "normal_range": i.test.normal_range if i.test else None,
-             "unit": i.test.unit if i.test else None,
+             # Prefer the order item's own stored values over the catalogue test.
+             "test_name": i.test_name or (i.test.name if i.test else "?"),
+             "normal_range": i.reference_range or (i.test.normal_range if i.test else None),
+             "unit": i.unit or (i.test.unit if i.test else None),
              "result_value": i.result_value, "result_notes": i.result_notes,
              "is_abnormal": i.is_abnormal, "completed_at": i.completed_at}
             for i in order.items
@@ -460,7 +461,8 @@ def enter_result(
     payload: LabResultUpdate,
     db: Session = Depends(get_db), current: Staff = Depends(get_current_staff),
 ):
-    allowed = ['lab_technician', 'clinic_admin']
+    # 'lab_tech' and 'lab_technician' are both valid lab roles (see security.LAB_ROLES).
+    allowed = ['lab_technician', 'lab_tech', 'clinic_admin']
     if current.role not in allowed:
         raise HTTPException(status_code=403, detail="Access denied")
     # Verify the parent order belongs to this clinic before touching its items.
@@ -1213,10 +1215,11 @@ def list_pending_prescriptions(
         staff = db.query(Staff).filter(Staff.id == rx.prescribed_by).first()
         items = []
         for item in rx.items:
-            med = db.query(Medicine).filter(Medicine.id == item.medicine_id).first()
+            med = db.query(Medicine).filter(Medicine.id == item.medicine_id).first() if item.medicine_id else None
             items.append({
                 "id":            item.id,
-                "medicine_name": med.name if med else "Unknown",
+                # Prefer the prescriber's free-text name; fall back to the catalogue.
+                "medicine_name": item.medicine_name or (med.name if med else "Unknown"),
                 "dosage":        item.dosage,
                 "frequency":     item.frequency,
                 "duration":      item.duration,
@@ -1486,7 +1489,7 @@ def create_imaging_template(
     current: Staff = Depends(get_current_staff),
 ):
     from app.models.models import ImagingReportTemplate
-    allowed = ['clinic_admin', 'radiologist', 'imaging_technician']
+    allowed = ['clinic_admin', 'radiologist', 'imaging_technician', 'imaging_tech']
     if current.role not in allowed:
         raise HTTPException(403, "Access denied")
     t = ImagingReportTemplate(
@@ -1511,7 +1514,7 @@ def update_imaging_template(
     current: Staff = Depends(get_current_staff),
 ):
     from app.models.models import ImagingReportTemplate
-    allowed = ['clinic_admin', 'radiologist', 'imaging_technician']
+    allowed = ['clinic_admin', 'radiologist', 'imaging_technician', 'imaging_tech']
     if current.role not in allowed:
         raise HTTPException(403, "Access denied")
     t = db.query(ImagingReportTemplate).filter(
@@ -1560,7 +1563,7 @@ def acquire_imaging_order(
     current: Staff = Depends(get_current_staff),
 ):
     from app.models.models import ImagingOrder
-    allowed = ['clinic_admin', 'imaging_technician']
+    allowed = ['clinic_admin', 'imaging_technician', 'imaging_tech']
     if current.role not in allowed:
         raise HTTPException(403, "Only imaging technicians or admins can acquire studies")
     order = db.query(ImagingOrder).filter(
