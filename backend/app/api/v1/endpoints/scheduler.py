@@ -773,7 +773,10 @@ def save_availability(
 ):
     profile = db.query(DoctorProfile).filter(DoctorProfile.staff_id == current.id).first()
     if not profile:
-        raise HTTPException(status_code=404, detail="Doctor profile not found. Contact your clinic admin.")
+        profile = DoctorProfile(staff_id=current.id, clinic_id=current.clinic_id)
+        db.add(profile)
+        db.commit()
+        db.refresh(profile)
 
     # Resolve doctor's branch_id from their clinic
     doctor_branch = db.query(Branch).filter(

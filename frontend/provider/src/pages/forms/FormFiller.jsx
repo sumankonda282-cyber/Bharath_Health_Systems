@@ -446,6 +446,18 @@ export default function FormFiller() {
 
       {/* Form sections */}
       <div className="max-w-4xl mx-auto w-full px-4 py-6 flex-1">
+        {sections.length === 0 && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
+            <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <AlertTriangle size={28} className="text-gray-400" />
+            </div>
+            <h3 className="text-base font-bold text-gray-700 mb-2">No form sections configured</h3>
+            <p className="text-sm text-gray-400 mb-6">This assessment form has no fields yet. Ask your admin to configure sections and fields in the Form Builder.</p>
+            <button onClick={() => navigate(-1)} className="px-5 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
+              Go Back
+            </button>
+          </div>
+        )}
         {sections.map((section, si) => {
           if (sections.length > 1 && si !== activeSection) return null
           return (

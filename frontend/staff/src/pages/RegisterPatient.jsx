@@ -134,6 +134,10 @@ export default function RegisterPatient() {
   const submit = async () => {
     if (!form.full_name.trim()) { setError('Patient name is required'); return }
     if (!form.mobile.trim()) { setError('Mobile number is required'); return }
+    if (form.date_of_birth) {
+      const dob = new Date(form.date_of_birth)
+      if (isNaN(dob.getTime()) || dob > new Date()) { setError('Date of birth must be a valid past date'); return }
+    }
     setSaving(true); setError('')
     try {
       const payload = { ...form }
@@ -165,8 +169,12 @@ export default function RegisterPatient() {
             setShowOtp(false)
             try {
               const r = await api.get('/patients/lookup', { params: { mobile: form.mobile } })
+              if (r?.found && r?.id) {
+                navigate(`/patients/${r.id}`)
+                return
+              }
               if (r?.found) {
-                set('full_name', r.full_name || '')
+                set('full_name', r.full_name || r.masked_name || '')
                 set('email', r.email || '')
                 set('date_of_birth', r.date_of_birth || '')
                 set('gender', r.gender || '')
@@ -253,8 +261,7 @@ export default function RegisterPatient() {
                           setLookupLoading(true)
                           try {
                             const r = await api.get('/patients/lookup', { params: { mobile: val } })
-                            const names = r?.names || (r?.masked_name ? [r.masked_name] : [])
-                            setSuggestions(r?.found ? names.map(n => ({ label: n, data: r })) : [{ label: null, data: null }])
+                            setSuggestions(r?.found ? [{ label: r.masked_name || r.names?.[0] || val, data: r }] : [{ label: null, data: null }])
                             setShowDrop(true)
                           } catch { setSuggestions([]) }
                           finally { setLookupLoading(false) }

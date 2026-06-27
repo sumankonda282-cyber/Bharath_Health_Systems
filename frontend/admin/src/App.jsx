@@ -47,12 +47,12 @@ export default function App() {
           <Route path="hospital-settings" element={<HospitalSettings />} />
           <Route path="forms"             element={<FormPool />} />
           <Route path="forms/analytics"   element={<FormAnalytics />} />
-          <Route path="forms/builder"     element={<FormBuilder />} />
-          <Route path="forms/builder/:id" element={<FormBuilder />} />
           <Route path="forms/preview/:id" element={<FormPreview />} />
           <Route path="forms/preview"     element={<FormPreview />} />
           <Route path="population"        element={<PopulationDashboard />} />
         </Route>
+        <Route path="/forms/builder" element={<PrivateRoute><FormBuilder /></PrivateRoute>} />
+        <Route path="/forms/builder/:id" element={<PrivateRoute><FormBuilder /></PrivateRoute>} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </BrowserRouter>

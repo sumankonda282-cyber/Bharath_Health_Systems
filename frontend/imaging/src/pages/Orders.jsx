@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import api from '../api/client'
 import {
   ScanLine, Loader2, AlertCircle, X, ChevronDown, ChevronUp,
@@ -544,25 +544,25 @@ export default function Orders() {
   const [error, setError]     = useState('')
   const [tab, setTab]         = useState('all')
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true)
     setError('')
     try {
       const params = tab !== 'all' ? { params: { status: tab } } : {}
       const r = await api.get('/imaging-orders', params)
-      setOrders(Array.isArray(r) ? r : [])
+      setOrders(Array.isArray(r) ? r : (r?.orders || r?.items || r?.data || []))
     } catch (e) {
-      setError(e.response?.data?.detail || 'Failed to load orders')
+      setError(e.response?.data?.detail || e.message || 'Failed to load imaging orders')
     } finally {
       setLoading(false)
     }
-  }
+  }, [tab])
 
   useEffect(() => {
     load()
     const interval = setInterval(load, 30_000)
     return () => clearInterval(interval)
-  }, [tab])
+  }, [load])
 
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto">
