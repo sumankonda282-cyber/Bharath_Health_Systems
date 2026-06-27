@@ -15,6 +15,10 @@ from app.models.models import (
 from app.core.security import hash_password
 from datetime import date, datetime, timedelta
 
+# Demo/mock data is OFF by default so production deploys never re-introduce mock
+# clinics/staff/patients. Set SEED_DEMO_DATA=true to restore demo data for testing.
+SEED_DEMO_DATA = os.getenv("SEED_DEMO_DATA", "false").lower() in ("1", "true", "yes")
+
 
 def _exists(db, model, **filters):
     return db.query(model).filter_by(**filters).first() is not None
@@ -24,22 +28,30 @@ def _seed_critical(db):
     """Platform admin + clinic staff. Committed independently."""
     print("[seed] Starting BHarath Health seed...")
 
-    # ── Platform Superadmin ───────────────────────────────────────────
-    if not _exists(db, PlatformAdmin, email="superadmin@bharathealth.com"):
+    # ── Platform Superadmin (env-driven; falls back to legacy default) ─
+    admin_email = os.getenv("SUPERADMIN_EMAIL") or "superadmin@bharathealth.com"
+    admin_pw = os.getenv("SUPERADMIN_PASSWORD") or "SuperAdmin@123"
+    admin = db.query(PlatformAdmin).filter_by(email=admin_email).first()
+    if not admin:
         db.add(PlatformAdmin(
             full_name="BHarath Health Admin",
-            email="superadmin@bharathealth.com",
-            hashed_password=hash_password("SuperAdmin@123"),
+            email=admin_email,
+            hashed_password=hash_password(admin_pw),
             is_active=True,
         ))
-        print("[seed]   ✓ Platform admin created")
+        print(f"[seed]   ✓ Platform admin created ({admin_email})")
     else:
-        admin = db.query(PlatformAdmin).filter_by(email="superadmin@bharathealth.com").first()
-        admin.hashed_password = hash_password("SuperAdmin@123")
+        admin.hashed_password = hash_password(admin_pw)
         admin.is_active = True
-        print("[seed]   ✓ Platform admin password refreshed")
+        print(f"[seed]   ✓ Platform admin password refreshed ({admin_email})")
 
     db.commit()
+
+    # Demo data is gated OFF by default so production deploys never re-introduce
+    # mock clinics/staff/patients. Set SEED_DEMO_DATA=true to restore demo data.
+    if not SEED_DEMO_DATA:
+        print("[seed]   SEED_DEMO_DATA off — skipping demo clinic/staff/patients")
+        return None
 
     # ── Demo Clinic ───────────────────────────────────────────────────
     clinic = db.query(Clinic).filter_by(slug="apollo-demo-clinic").first()
@@ -403,35 +415,39 @@ def seed():
     db = SessionLocal()
     try:
         branch_main = _seed_critical(db)
-        _seed_demo_data(db, branch_main)
-        # Comprehensive cross-portal clinical demo data (idempotent, self-skipping).
-        # Isolated so any failure here never rolls back critical auth records above.
-        try:
-            from seed_clinical_demo import seed_clinical_demo
-            seed_clinical_demo(db)
-        except Exception as e:
-            db.rollback()
-            print(f"[seed]   ⚠ Clinical demo seed skipped (non-fatal): {e}")
+        # Demo data only when SEED_DEMO_DATA=true (default off → clean production slate).
+        if SEED_DEMO_DATA and branch_main:
+            _seed_demo_data(db, branch_main)
+            # Comprehensive cross-portal clinical demo data (idempotent, self-skipping).
+            # Isolated so any failure here never rolls back critical auth records above.
+            try:
+                from seed_clinical_demo import seed_clinical_demo
+                seed_clinical_demo(db)
+            except Exception as e:
+                db.rollback()
+                print(f"[seed]   ⚠ Clinical demo seed skipped (non-fatal): {e}")
         print("[seed] ✓ Seed complete!")
+        admin_email = os.getenv("SUPERADMIN_EMAIL") or "superadmin@bharathealth.com"
         print("=" * 55)
         print("  LOGIN CREDENTIALS")
         print("=" * 55)
-        print("  Platform Admin  : superadmin@bharathealth.com / SuperAdmin@123")
-        print("  Clinic Admin    : admin@apollodemo.com / Admin@123")
-        print("  Doctor          : drpriya@apollodemo.com / Doctor@123")
-        print("  Cardiologist    : drrajan@apollodemo.com / Doctor@123")
-        print("  Receptionist    : ravi@apollodemo.com / Reception@123")
-        print("  Nurse           : sister@apollodemo.com / Nurse@123")
-        print("  Manager         : manager@apollodemo.com / Manager@123")
-        print("  Pharmacist      : meera@apollodemo.com / Pharmacy@123")
-        print("  Lab Technician  : arjun@apollodemo.com / Lab@123")
-        print("  Imaging Tech    : kiran@apollodemo.com / Imaging@123")
-        print("  Radiologist     : drsuresh@apollodemo.com / Radio@123")
-        print("  Demo Provider   : demo@bharathhealthsystems.com / Demo@1234")
-        print("=" * 55)
-        print("  Demo patients (mobile 9300000001-12) carry cross-portal data:")
-        print("  OPD encounter, telehealth, inpatient, lab/imaging, pharmacy,")
-        print("  referrals, scheduler, chat & billing — log in to any portal.")
+        print(f"  Platform Admin  : {admin_email} / (SUPERADMIN_PASSWORD)")
+        if SEED_DEMO_DATA:
+            print("  Clinic Admin    : admin@apollodemo.com / Admin@123")
+            print("  Doctor          : drpriya@apollodemo.com / Doctor@123")
+            print("  Cardiologist    : drrajan@apollodemo.com / Doctor@123")
+            print("  Receptionist    : ravi@apollodemo.com / Reception@123")
+            print("  Nurse           : sister@apollodemo.com / Nurse@123")
+            print("  Manager         : manager@apollodemo.com / Manager@123")
+            print("  Pharmacist      : meera@apollodemo.com / Pharmacy@123")
+            print("  Lab Technician  : arjun@apollodemo.com / Lab@123")
+            print("  Imaging Tech    : kiran@apollodemo.com / Imaging@123")
+            print("  Radiologist     : drsuresh@apollodemo.com / Radio@123")
+            print("  Demo Provider   : demo@bharathhealthsystems.com / Demo@1234")
+            print("=" * 55)
+            print("  Demo patients (mobile 9300000001-12) carry cross-portal data.")
+        else:
+            print("  (demo data disabled — SEED_DEMO_DATA=true to enable)")
         print("=" * 55)
     except Exception as e:
         db.rollback()

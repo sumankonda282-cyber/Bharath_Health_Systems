@@ -829,6 +829,17 @@ except Exception as e:
     print(f'[bg-migrations] BH state groups seed warning: {e}')
 " || echo "[bg-migrations] BH state groups seed failed (non-fatal)"
 
+# ── One-time operational data wipe (opt-in, deploy-triggered) ──────────────────
+# Runs ONLY when RESET_OPERATIONAL_DATA is set, exactly once per distinct token
+# value (a sentinel in platform_settings prevents re-wiping on later deploys).
+# Wipes all clinics/staff/patients/clinical records; keeps reference libraries.
+# Set SUPERADMIN_EMAIL/SUPERADMIN_PASSWORD for the admin it recreates.
+if [ -n "${RESET_OPERATIONAL_DATA:-}" ]; then
+    echo "[bg-migrations] RESET_OPERATIONAL_DATA set ('${RESET_OPERATIONAL_DATA}') — running one-time operational wipe..."
+    CONFIRM_RESET=YES RESET_TOKEN="${RESET_OPERATIONAL_DATA}" timeout 180 python reset_operational_data.py \
+        || echo "[bg-migrations] operational wipe failed (non-fatal)"
+fi
+
 echo "[bg-migrations] Seeding demo/test accounts (idempotent)..."
 timeout 60 python seed.py || echo "[bg-migrations] Demo seed failed (non-fatal)"
 echo "[bg-migrations] Done."
