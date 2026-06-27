@@ -41,9 +41,10 @@ def _seed_critical(db):
         ))
         print(f"[seed]   ✓ Platform admin created ({admin_email})")
     else:
-        admin.hashed_password = hash_password(admin_pw)
+        # Never overwrite an existing admin's password — the admin manages their own
+        # password through the portal. Only ensure the account stays active.
         admin.is_active = True
-        print(f"[seed]   ✓ Platform admin password refreshed ({admin_email})")
+        print(f"[seed]   ✓ Platform admin verified active ({admin_email})")
 
     db.commit()
 
