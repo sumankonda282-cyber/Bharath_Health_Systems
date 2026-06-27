@@ -467,7 +467,9 @@ def patient_create_profile(payload: ProfileCreateRequest, db: Session = Depends(
         raise HTTPException(status_code=400, detail="Maximum 5 profiles allowed per mobile number.")
 
     state = (payload.state or "").strip()
-    digit = _get_state_digit(state, db) if state else 9
+    if not state:
+        raise HTTPException(status_code=400, detail="State is required — it determines your permanent BH ID.")
+    digit = _get_state_digit(state, db)
 
     seq    = _next_bh_seq(digit, db)
     bh_id  = _make_bh_id(digit, seq)

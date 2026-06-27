@@ -334,6 +334,10 @@ function StepCreateProfile({ verifiedToken, onBack, onCreated }) {
       setError('First name and last name are required.')
       return
     }
+    if (!form.state) {
+      setError('Please select your state — it determines your permanent BH ID.')
+      return
+    }
     setLoading(true)
     try {
       const res = await api.post('/auth/patient/create-profile', {
@@ -407,15 +411,17 @@ function StepCreateProfile({ verifiedToken, onBack, onCreated }) {
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">State</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">State <span className="text-red-500">*</span></label>
           <select
             className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 transition-all bg-white"
             value={form.state}
             onChange={e => setForm(f => ({ ...f, state: e.target.value }))}
+            required
           >
             <option value="">Select state</option>
             {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
+          <p className="text-xs text-gray-400 mt-1">Sets the region code in your permanent BH ID.</p>
         </div>
         {error && (
           <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
