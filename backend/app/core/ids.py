@@ -122,15 +122,20 @@ def next_branch_code(db: Session, clinic_id: int, hc_id: str) -> str:
     return f"{hc_id}-B{seq:02d}"
 
 
-# ─── Employee ID (per clinic, per role) ───────────────────────────────────────
+# ─── Employee ID (role prefix + center-wide running number) ───────────────────
 def emp_prefix_for_role(role: str) -> str:
     return ROLE_PREFIX.get((role or "").strip().lower(), DEFAULT_EMP_PREFIX)
 
 
 def next_employee_id(db: Session, clinic_id: int, hc_id: str, role: str) -> str:
-    """e.g. ``HC00001-DR0001`` — per-clinic, per-role running employee number."""
+    """e.g. ``HC00001-DR0001`` — role prefix + a per-clinic (center-wide) running number.
+
+    The 4-digit suffix is unique across the WHOLE health center (one ``emp`` counter
+    per clinic, shared by every role), so those 4 digits alone identify the individual
+    when entered across portals while documenting. The role prefix is kept for display.
+    """
     prefix = emp_prefix_for_role(role)
-    seq = next_sequence(db, "clinic", clinic_id, f"emp_{prefix}")
+    seq = next_sequence(db, "clinic", clinic_id, "emp")  # center-wide, shared across roles
     return f"{hc_id}-{prefix}{seq:04d}"
 
 

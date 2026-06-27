@@ -156,15 +156,17 @@ def backfill_employee_ids():
     re-runs and runtime-minted ids never collide."""
     try:
         with engine.begin() as conn:
-            # seed counters above any already-conforming employee ids
+            # Seed ONE center-wide 'emp' counter per clinic, above the highest existing
+            # 4-digit suffix across ALL roles, so the numbers stay unique within a center
+            # (those 4 digits double as the cross-portal documentation identity code).
             conn.execute(text(
                 "INSERT INTO id_sequences (scope_type, scope_id, kind, next_val) "
-                "SELECT 'clinic', s.clinic_id, 'emp_' || (" + _ROLE_CASE + "), "
+                "SELECT 'clinic', s.clinic_id, 'emp', "
                 "       MAX(CAST(SUBSTRING(s.employee_id FROM '[0-9]+$') AS INTEGER)) + 1 "
                 "FROM staff s JOIN clinics c ON c.id = s.clinic_id "
                 "WHERE c.hc_id IS NOT NULL "
-                "  AND s.employee_id ~ ('^' || c.hc_id || '-' || (" + _ROLE_CASE + ") || '[0-9]{4}$') "
-                "GROUP BY s.clinic_id, (" + _ROLE_CASE + ") "
+                "  AND s.employee_id ~ ('^' || c.hc_id || '-[A-Z]{2}[0-9]{4}$') "
+                "GROUP BY s.clinic_id "
                 "ON CONFLICT (scope_type, scope_id, kind) "
                 "DO UPDATE SET next_val = GREATEST(id_sequences.next_val, EXCLUDED.next_val)"
             ))

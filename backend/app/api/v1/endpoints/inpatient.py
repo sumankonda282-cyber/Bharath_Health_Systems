@@ -14,7 +14,7 @@ from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy import text, or_, and_, func
 
 from app.db.session import get_db
-from app.core.security import get_current_staff
+from app.core.security import get_current_staff, require_billing_waive
 from app.core import ids
 from app.models.models import (
     Clinic, Staff, Patient, Appointment,
@@ -26,6 +26,7 @@ from app.models.models import (
     InpatientCharge, InpatientBill, Invoice,
     VisitorPass, VisitorPolicy,
     MedicationOrder, ClinicalOrder, DocumentationSession,
+    BedStatusLog, BillingWaiverLog,
 )
 
 router = APIRouter(prefix="/inpatient", tags=["inpatient"])
@@ -347,11 +348,69 @@ def update_bed(
     ).first()
     if not bed:
         raise HTTPException(status_code=404, detail="Bed not found")
+    old_status = bed.status
     for field in ("bed_type", "status", "current_admission_id"):
         if field in body:
             setattr(bed, field, body[field])
+    if "status" in body and body["status"] != old_status:
+        db.add(BedStatusLog(
+            clinic_id=current.clinic_id, bed_id=bed.id, ward_id=bed.ward_id,
+            old_status=old_status, new_status=body["status"], reason=body.get("reason"),
+            changed_by=current.id, changed_by_name=current.full_name,
+        ))
     db.commit()
     return {"detail": "updated"}
+
+
+@router.post("/beds/{bed_id}/status")
+def set_bed_status(
+    bed_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Set a bed's status (vacant | occupied | maintenance) with an audited reason.
+    Writes a BedStatusLog row so repairs / maintenance / reopens are tracked."""
+    bed = db.query(Bed).filter(Bed.id == bed_id, Bed.clinic_id == current.clinic_id).first()
+    if not bed:
+        raise HTTPException(status_code=404, detail="Bed not found")
+    new_status = (body.get("status") or "").strip()
+    if new_status not in ("vacant", "occupied", "maintenance"):
+        raise HTTPException(status_code=400, detail="status must be vacant, occupied or maintenance")
+    if bed.current_admission_id and new_status != "occupied":
+        raise HTTPException(status_code=400, detail="Bed has an active admission — discharge or transfer first")
+    old_status = bed.status
+    bed.status = new_status
+    db.add(BedStatusLog(
+        clinic_id=current.clinic_id, bed_id=bed.id, ward_id=bed.ward_id,
+        old_status=old_status, new_status=new_status, reason=(body.get("reason") or None),
+        changed_by=current.id, changed_by_name=current.full_name,
+    ))
+    db.commit()
+    return {"detail": "updated", "bed_id": bed.id, "status": new_status}
+
+
+@router.get("/beds/status-logs")
+def bed_status_logs(
+    bed_id: Optional[int] = Query(None),
+    limit: int = Query(100),
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Recent bed status changes for the clinic (optionally for a single bed)."""
+    q = db.query(BedStatusLog).filter(BedStatusLog.clinic_id == current.clinic_id)
+    if bed_id:
+        q = q.filter(BedStatusLog.bed_id == bed_id)
+    rows = q.order_by(BedStatusLog.created_at.desc()).limit(min(limit, 500)).all()
+    bed_numbers = {b.id: b.bed_number for b in db.query(Bed).filter(Bed.clinic_id == current.clinic_id).all()}
+    ward_names = {w.id: w.name for w in db.query(Ward).filter(Ward.clinic_id == current.clinic_id).all()}
+    return [{
+        "id": r.id, "bed_id": r.bed_id, "bed_number": bed_numbers.get(r.bed_id),
+        "ward_id": r.ward_id, "ward_name": ward_names.get(r.ward_id),
+        "old_status": r.old_status, "new_status": r.new_status, "reason": r.reason,
+        "changed_by_name": r.changed_by_name,
+        "created_at": r.created_at.isoformat() if r.created_at else None,
+    } for r in rows]
 
 
 @router.get("/bed-board")
@@ -359,36 +418,55 @@ def bed_board(
     db: Session = Depends(get_db),
     current: Staff = Depends(get_current_staff),
 ):
-    """Full bed board: all depts → wards → beds → current patient name."""
-    depts = db.query(Department).filter(
-        Department.clinic_id == current.clinic_id,
-        Department.is_active == True,
+    """Full bed board grouped department → ward → bed. EVERY active ward in the clinic is
+    included — even wards with no department (grouped under 'Unassigned'), which the old
+    version dropped — and each bed carries ward/floor/department context so the board can
+    filter client-side by status / ward / floor / department."""
+    wards = db.query(Ward).filter(
+        Ward.clinic_id == current.clinic_id, Ward.is_active == True,
     ).all()
+    dept_names = {d.id: d.name for d in db.query(Department).filter(
+        Department.clinic_id == current.clinic_id).all()}
 
-    result = []
-    for dept in depts:
-        dept_data = {"id": dept.id, "name": dept.name, "wards": []}
-        for ward in dept.wards:
-            if not ward.is_active:
-                continue
-            ward_data = {"id": ward.id, "name": ward.name, "beds": []}
-            for bed in ward.beds:
-                bed_info = {
-                    "id": bed.id,
-                    "bed_number": bed.bed_number,
-                    "status": bed.status,
-                    "patient_name": None,
-                }
-                if bed.current_admission_id:
-                    adm = db.query(Admission).filter(Admission.id == bed.current_admission_id).first()
-                    if adm:
-                        pat = db.query(Patient).filter(Patient.id == adm.patient_id).first()
-                        if pat:
-                            bed_info["patient_name"] = pat.full_name
-                ward_data["beds"].append(bed_info)
-            dept_data["wards"].append(ward_data)
-        result.append(dept_data)
-    return result
+    groups = {}   # dept_key -> dept_data
+    order = []
+    for ward in wards:
+        dkey = ward.department_id or 0
+        dname = dept_names.get(ward.department_id) if ward.department_id else "Unassigned"
+        dname = dname or "Unassigned"
+        if dkey not in groups:
+            groups[dkey] = {"id": ward.department_id, "name": dname, "wards": []}
+            order.append(dkey)
+        ward_data = {
+            "id": ward.id, "name": ward.name,
+            "floor": ward.floor, "wing": ward.wing,
+            "department_id": ward.department_id, "department_name": dname,
+            "beds": [],
+        }
+        for bed in ward.beds:
+            bed_info = {
+                "id": bed.id,
+                "bed_number": bed.bed_number,
+                "bed_type": bed.bed_type,
+                "status": bed.status,
+                "ward_id": ward.id,
+                "ward_name": ward.name,
+                "floor": ward.floor,
+                "department_id": ward.department_id,
+                "department_name": dname,
+                "patient_name": None,
+                "admission_number": None,
+            }
+            if bed.current_admission_id:
+                adm = db.query(Admission).filter(Admission.id == bed.current_admission_id).first()
+                if adm:
+                    bed_info["admission_number"] = getattr(adm, "admission_number", None) or getattr(adm, "admission_no", None)
+                    pat = db.query(Patient).filter(Patient.id == adm.patient_id).first()
+                    if pat:
+                        bed_info["patient_name"] = pat.full_name
+            ward_data["beds"].append(bed_info)
+        groups[dkey]["wards"].append(ward_data)
+    return [groups[k] for k in order]
 
 
 # ── Admissions (ADT) ───────────────────────────────────────────────────────────
@@ -2384,6 +2462,55 @@ def generate_bill(
     return _bill_dict(bill)
 
 
+@router.post("/admissions/{admission_id}/bill/waiver")
+def waive_inpatient_bill(
+    admission_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(require_billing_waive),
+):
+    """Manager/doctor applies an audited fee waiver/discount to an IPD bill.
+    Increments the bill discount, recomputes totals, and records a BillingWaiverLog."""
+    _get_admission_or_404(db, admission_id, current.clinic_id)
+    bill = db.query(InpatientBill).filter(
+        InpatientBill.admission_id == admission_id,
+        InpatientBill.clinic_id == current.clinic_id,
+    ).first()
+    if not bill:
+        raise HTTPException(status_code=404, detail="Bill not found. Generate it first.")
+    try:
+        amount = Decimal(str(body.get("waiver_amount", 0)))
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid waiver amount")
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail="Waiver amount must be greater than zero")
+    reason = (body.get("reason") or "").strip()
+    if not reason:
+        raise HTTPException(status_code=400, detail="A waiver reason is required")
+
+    gross = (bill.subtotal or Decimal("0")) + (bill.gst_amount or Decimal("0"))
+    current_discount = bill.discount or Decimal("0")
+    max_waiver = gross - current_discount
+    if amount > max_waiver:
+        amount = max_waiver  # never waive below zero
+    bill.discount = current_discount + amount
+    bill.total = gross - bill.discount
+    bill.patient_payable = bill.total - (bill.tpa_approved_amount or Decimal("0"))
+    bill.updated_at = datetime.utcnow()
+
+    db.add(BillingWaiverLog(
+        invoice_id=bill.invoice_id,   # null until the bill is finalized into an invoice
+        clinic_id=current.clinic_id,
+        waived_by=current.id,
+        waiver_amount=amount,
+        reason=reason[:50],
+        notes=(f"IPD admission {admission_id} / bill {bill.bill_number}. " + (body.get("notes") or "")).strip(),
+    ))
+    db.commit()
+    db.refresh(bill)
+    return _bill_dict(bill)
+
+
 @router.post("/admissions/{admission_id}/bill/finalize")
 def finalize_bill(
     admission_id: int,
@@ -2514,6 +2641,7 @@ def _pass_dict(p: VisitorPass, db: Session) -> dict:
         "valid_from": p.valid_from.isoformat() if p.valid_from else None,
         "valid_until": p.valid_until.isoformat() if p.valid_until else None,
         "status": p.status,
+        "pin_verified": bool(p.pin_verified),
         "checked_in_at": p.checked_in_at.isoformat() if p.checked_in_at else None,
         "checked_out_at": p.checked_out_at.isoformat() if p.checked_out_at else None,
         "note": p.note,
@@ -2704,6 +2832,8 @@ def bulk_revoke_passes(
 @router.get("/visitor-passes")
 def list_visitor_passes(
     date: Optional[str] = Query(None),
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
     patient_id: Optional[int] = Query(None),
     admission_id: Optional[int] = Query(None),
     ward_id: Optional[int] = Query(None),
@@ -2720,6 +2850,10 @@ def list_visitor_passes(
             VisitorPass.created_at >= f"{date} 00:00:00",
             VisitorPass.created_at <= f"{date} 23:59:59",
         )
+    if date_from:
+        query = query.filter(VisitorPass.created_at >= f"{date_from} 00:00:00")
+    if date_to:
+        query = query.filter(VisitorPass.created_at <= f"{date_to} 23:59:59")
     if patient_id:
         query = query.filter(VisitorPass.patient_id == patient_id)
     if admission_id:
@@ -2820,6 +2954,7 @@ def issue_visitor_pass(
         note=body.get("note"),
         override_note=override_note or None,
         issued_by=current.id,
+        pin_verified=bool(body.get("pin_verified")),
         print_count=1,
         edit_log=[],
     )
@@ -2935,6 +3070,72 @@ def revoke_visitor_pass(
     p.status = "revoked"
     p.revoked_by = current.id
     p.revoke_reason = body.get("reason", "")
+    db.commit()
+    db.refresh(p)
+    return _pass_dict(p, db)
+
+
+@router.post("/visitor-passes/{pass_id}/hold")
+def hold_visitor_pass(
+    pass_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Temporarily suspend a pass (e.g. patient in a procedure). Reversible via /resume."""
+    p = db.query(VisitorPass).filter(
+        VisitorPass.id == pass_id, VisitorPass.clinic_id == current.clinic_id,
+    ).first()
+    if not p:
+        raise HTTPException(status_code=404, detail="Pass not found")
+    if p.status not in ("active", "checked_in"):
+        raise HTTPException(status_code=400, detail=f"Cannot hold a '{p.status}' pass")
+    p.status = "on_hold"
+    if body.get("reason"):
+        p.revoke_reason = body["reason"]
+    db.commit()
+    db.refresh(p)
+    return _pass_dict(p, db)
+
+
+@router.post("/visitor-passes/{pass_id}/resume")
+def resume_visitor_pass(
+    pass_id: int,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Lift a hold — return the pass to active."""
+    p = db.query(VisitorPass).filter(
+        VisitorPass.id == pass_id, VisitorPass.clinic_id == current.clinic_id,
+    ).first()
+    if not p:
+        raise HTTPException(status_code=404, detail="Pass not found")
+    if p.status != "on_hold":
+        raise HTTPException(status_code=400, detail="Pass is not on hold")
+    p.status = "active"
+    db.commit()
+    db.refresh(p)
+    return _pass_dict(p, db)
+
+
+@router.post("/visitor-passes/{pass_id}/cancel")
+def cancel_visitor_pass(
+    pass_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Void a pass that was issued in error / never used (terminal, before check-out)."""
+    p = db.query(VisitorPass).filter(
+        VisitorPass.id == pass_id, VisitorPass.clinic_id == current.clinic_id,
+    ).first()
+    if not p:
+        raise HTTPException(status_code=404, detail="Pass not found")
+    if p.status in ("checked_out", "revoked", "cancelled"):
+        raise HTTPException(status_code=400, detail=f"Cannot cancel a '{p.status}' pass")
+    p.status = "cancelled"
+    p.revoked_by = current.id
+    p.revoke_reason = body.get("reason") or "cancelled"
     db.commit()
     db.refresh(p)
     return _pass_dict(p, db)

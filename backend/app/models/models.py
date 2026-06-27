@@ -1807,8 +1807,15 @@ class MaintenanceRequest(Base):
     priority      = Column(String(20),  nullable=False, default="medium")
     # urgent | high | medium | low
     status        = Column(String(30),  nullable=False, default="new")
-    # new | in_progress | resolved | closed
+    # new(open) | in_progress | repaired | replaced | resolved | closed
     location      = Column(String(200), nullable=True)
+    # Structured location (manager portal). location stays as the free-text fallback.
+    ward_id       = Column(Integer, ForeignKey("wards.id"), nullable=True)
+    floor         = Column(String(20), nullable=True)
+    branch_id     = Column(Integer, ForeignKey("branches.id"), nullable=True)
+    bed_number    = Column(String(20), nullable=True)
+    issue_type    = Column(String(50), nullable=True)
+    submitter_name = Column(String(200), nullable=True)
     portal_source = Column(String(50),  nullable=True)
     submitted_by  = Column(Integer, ForeignKey("staff.id"), nullable=True)
     assigned_to   = Column(Integer, ForeignKey("staff.id"), nullable=True)
@@ -2419,7 +2426,8 @@ class VisitorPass(Base):
     persons         = Column(Integer, default=1)
     valid_from      = Column(DateTime, nullable=False)
     valid_until     = Column(DateTime, nullable=False)
-    status          = Column(String(20), default="active")   # active|checked_in|checked_out|revoked
+    status          = Column(String(20), default="active")   # active|checked_in|checked_out|on_hold|cancelled|revoked
+    pin_verified    = Column(Boolean, default=False)
     checked_in_at   = Column(DateTime, nullable=True)
     checked_out_at  = Column(DateTime, nullable=True)
     note            = Column(Text, nullable=True)
@@ -2434,6 +2442,21 @@ class VisitorPass(Base):
     admission = relationship("Admission", foreign_keys=[admission_id])
     patient   = relationship("Patient", foreign_keys=[patient_id])
     issuer    = relationship("Staff", foreign_keys=[issued_by])
+
+
+class BedStatusLog(Base):
+    """Audit trail of bed status changes (occupied/vacant/maintenance, repairs, reopens)."""
+    __tablename__ = "bed_status_logs"
+    id              = Column(Integer, primary_key=True, index=True)
+    clinic_id       = Column(Integer, ForeignKey("clinics.id"), nullable=False)
+    bed_id          = Column(Integer, ForeignKey("beds.id"), nullable=False)
+    ward_id         = Column(Integer, ForeignKey("wards.id"), nullable=True)
+    old_status      = Column(String(20), nullable=True)
+    new_status      = Column(String(20), nullable=False)
+    reason          = Column(String(300), nullable=True)
+    changed_by      = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    changed_by_name = Column(String(200), nullable=True)
+    created_at      = Column(DateTime, server_default=func.now())
 
 
 class DiseaseCounselling(Base):
