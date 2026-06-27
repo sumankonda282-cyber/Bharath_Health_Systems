@@ -812,7 +812,11 @@ echo "[bg-migrations] Standardizing identifiers (HC ID / branch / employee / enc
 timeout 180 python -m app.db.backfill_ids || echo "[bg-migrations] ID backfill failed (non-fatal)"
 
 echo "[bg-migrations] Loading medical terminology library (idempotent)..."
-timeout 120 python -m app.seed_medical_library || echo "[bg-migrations] Medical library load failed (non-fatal)"
+# 1200s (was 120s): the full library — ~5000 drugs + lab/imaging catalogs, then the
+# ~12k ICD-10 codes whose per-code validation is slow on free-tier CPUs — needs more
+# than two minutes to finish. The 120s cap was killing it mid-load (only ~157 drugs
+# landed). It runs in the background after uvicorn binds the port, so a long cap is safe.
+timeout 1200 python -m app.seed_medical_library || echo "[bg-migrations] Medical library load failed (non-fatal)"
 
 echo "[bg-migrations] Seeding BH state groups for BHID generation (idempotent)..."
 python -c "

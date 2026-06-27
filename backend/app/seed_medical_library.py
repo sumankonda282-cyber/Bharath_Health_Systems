@@ -191,23 +191,37 @@ def seed_extra_terms():
 
 
 def seed_drug_data():
-    loaders = []
+    # Drugs load first and on their own: the canonical ~5000-entry India formulary.
+    # The table has no unique key, and an earlier build seeded a small base list under
+    # different generic names (e.g. "Paracetamol" vs "Paracetamol 650mg"), so guarding
+    # by name would leave stale rows behind. Instead, whenever the table is short of the
+    # full set, RESET it (clear + reload) inside one transaction — atomic, self-healing
+    # from any partial/stale state, and never duplicating. Once full it is skipped.
     try:
         from app.seed_data.drugs import DRUGS
-        loaders.append((
-            "drugs", DRUGS, 4500,
-            "INSERT INTO drugs (generic, atc, drug_class, routes, brands, primary_brand, rx_only, is_active) "
-            "VALUES (:generic, :atc, :drug_class, :routes, :brands, :primary_brand, :rx_only, TRUE) "
-            "ON CONFLICT DO NOTHING",
-            lambda d: {
-                "generic": d["generic"][:200], "atc": d.get("atc"),
-                "drug_class": d.get("drug_class"), "routes": d.get("routes"),
-                "brands": d.get("brands"), "primary_brand": d.get("primary_brand"),
-                "rx_only": d.get("rx_only", True),
-            },
-        ))
+        with engine.begin() as conn:
+            existing = _count(conn, "SELECT count(*) FROM drugs")
+            if existing >= 4500:
+                print(f"[medlib] drugs already loaded ({existing}) — skipping")
+            else:
+                conn.execute(text("DELETE FROM drugs"))
+                rows = [{
+                    "generic": d["generic"][:200], "atc": d.get("atc"),
+                    "drug_class": d.get("drug_class"), "routes": d.get("routes"),
+                    "brands": d.get("brands"), "primary_brand": d.get("primary_brand"),
+                    "rx_only": d.get("rx_only", True),
+                } for d in DRUGS]
+                _batched_insert(
+                    conn,
+                    "INSERT INTO drugs (generic, atc, drug_class, routes, brands, primary_brand, rx_only, is_active) "
+                    "VALUES (:generic, :atc, :drug_class, :routes, :brands, :primary_brand, :rx_only, TRUE)",
+                    rows,
+                )
+                print(f"[medlib] drugs loaded: {len(rows)} (reset from {existing})")
     except ImportError as e:
         print(f"[medlib] drugs seed missing: {e}")
+
+    loaders = []
     try:
         from app.seed_data.interactions import INTERACTIONS
         loaders.append((
@@ -462,15 +476,20 @@ def seed_drug_formulations():
 
 
 def main():
+    # Order matters on slow / free-tier hosts. Load the fast, clinically essential
+    # pick-lists first (drugs, lab tests, imaging catalog) so prescribing and order
+    # entry work within seconds of boot, then run the large/slow ICD-10 + curated
+    # term loads (which validate every code and can take minutes) last. Every step
+    # is idempotent, so an interrupted boot just resumes the unfinished steps.
     steps = [
-        ("icd10 reference", seed_icd10_reference),
-        ("curated terms", seed_curated_terms),
-        ("extra terms", seed_extra_terms),
         ("drug data", seed_drug_data),
         ("drug formulations", seed_drug_formulations),
         ("lab tests", seed_lab_tests),
         ("imaging catalog", seed_imaging_catalog),
         ("disease counselling", seed_disease_counselling),
+        ("icd10 reference", seed_icd10_reference),
+        ("curated terms", seed_curated_terms),
+        ("extra terms", seed_extra_terms),
     ]
     for name, fn in steps:
         try:
