@@ -36,7 +36,9 @@ export function AuthProvider({ children }) {
     if (r.refresh_token) localStorage.setItem('refresh_token', r.refresh_token)
     if (r.clinic_id) localStorage.setItem('clinic_id', r.clinic_id)
     if (r.branch_id) localStorage.setItem('branch_id', r.branch_id)
-    setUser(r)
+    // Pull the full profile (incl. permissions + manager_scope) so module/duty gating
+    // is correct immediately, not just after the next reload.
+    try { const me = await api.get('/auth/staff/me'); setUser({ ...r, ...me }) } catch { setUser(r) }
     return r
   }
 
@@ -56,3 +58,27 @@ export function AuthProvider({ children }) {
 }
 
 export const useAuth = () => useContext(AuthContext)
+
+// Health Center Manager permissions, mirrored from the backend. A staff member is
+// RESTRICTED only when they carry a non-empty permissions map and aren't clinic_admin;
+// everyone else (admin, receptionist, legacy managers) is unrestricted, so existing
+// behavior is unchanged.
+export const usePerms = () => {
+  const { user } = useAuth()
+  const role = user?.role
+  const perms = (user && user.permissions && typeof user.permissions === 'object') ? user.permissions : null
+  const restricted = role !== 'clinic_admin' && !!perms && Object.keys(perms).length > 0
+  const scope = user?.manager_scope || null
+  return {
+    role,
+    restricted,
+    scope,
+    department: user?.department || null,
+    canModule: (m) => !restricted || !!(perms?.modules?.[m]),
+    canDuty: (d) => !restricted || !!(perms?.duties?.[d]),
+    manageableRoles: restricted ? (perms?.manageable_roles || []) : null, // null ⇒ unrestricted
+    canManageManagers:
+      role === 'clinic_admin' ||
+      (role === 'clinic_manager' && (!restricted || (scope === 'center' && !!(perms?.duties?.create_managers)))),
+  }
+}

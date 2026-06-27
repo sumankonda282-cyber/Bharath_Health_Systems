@@ -227,6 +227,8 @@ def staff_me(current=Depends(get_current_staff), db: Session = Depends(get_db)):
         "emergency_contact_name":  current.emergency_contact_name,
         "emergency_contact_mobile": current.emergency_contact_mobile,
         "avatar_url":              current.avatar_url,
+        "permissions":             current.permissions,
+        "manager_scope":           current.manager_scope,
     }
 
 
