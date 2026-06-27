@@ -13,15 +13,47 @@ def _generate_temp_password() -> str:
             return pwd
 
 from app.db.session import get_db
-from app.core.security import get_current_staff, hash_password
+from app.core.security import (
+    get_current_staff, hash_password,
+    staff_is_restricted, staff_has_duty, staff_can_manage_role, staff_department_limit,
+)
 from app.core import ids
 from app.core.config import settings
 from app.models.models import (
     Clinic, Branch, Staff, DoctorProfile, DoctorSchedule,
     Appointment, Invoice, Patient, OnlineBooking, DoctorDeskAssignment,
-    FollowUpReminder
+    FollowUpReminder, Department, StaffDepartment
 )
-from datetime import datetime
+from app.services.email_service import send_welcome_email
+from app.services.sms_service import send_sms
+from datetime import datetime, timedelta
+
+STAFF_PORTAL_URL = "https://staff.bharathhealthsystems.com"
+MANAGER_SCOPE_LABELS = {"center": "Health Center Supervisor", "department": "Health Center Manager"}
+
+
+def _normalize_mobile(raw) -> str:
+    if raw in (None, ""):
+        return ""
+    digits = "".join(ch for ch in str(raw) if ch.isdigit())
+    return digits[-10:] if len(digits) >= 10 else digits
+
+
+def _cap_permissions(requested: dict, ceiling) -> dict:
+    """A supervisor can't grant access they don't hold themselves. Intersect the
+    requested permission map with the creator's. clinic_admin passes ceiling=None
+    (no cap)."""
+    if not isinstance(ceiling, dict) or not ceiling:
+        return requested
+    req = requested if isinstance(requested, dict) else {}
+    out = {"modules": {}, "duties": {}, "manageable_roles": []}
+    for grp in ("modules", "duties"):
+        cap = ceiling.get(grp) or {}
+        for k, v in (req.get(grp) or {}).items():
+            out[grp][k] = bool(v) and bool(cap.get(k, False))
+    cap_roles = set(ceiling.get("manageable_roles") or [])
+    out["manageable_roles"] = [r for r in (req.get("manageable_roles") or []) if r in cap_roles]
+    return out
 from app.schemas.schemas import (
     ClinicUpdate, BranchCreate, BranchOut,
     StaffCreate, StaffOut, DoctorProfileCreate,
@@ -297,6 +329,9 @@ def list_staff(
     current=Depends(require_clinic_admin),
 ):
     q = db.query(Staff).filter(Staff.clinic_id == current.clinic_id)
+    dept_limit = staff_department_limit(current)
+    if dept_limit:  # department-scoped managers only see their own department
+        q = q.filter(Staff.department == dept_limit)
     if role:
         q = q.filter(Staff.role == role)
     rows = q.order_by(Staff.full_name).all()
@@ -330,6 +365,17 @@ def create_staff(
     db: Session = Depends(get_db),
     current=Depends(require_clinic_admin),
 ):
+    target_role = body.get("role", "receptionist")
+    if staff_is_restricted(current):  # scoped Health Center Manager
+        if not staff_has_duty(current, "create_staff"):
+            raise HTTPException(403, "You do not have permission to create staff.")
+        if target_role in ("clinic_admin", "clinic_manager"):
+            raise HTTPException(403, "Managers are created from Manage Managers, not here.")
+        if not staff_can_manage_role(current, target_role):
+            raise HTTPException(403, f"You are not allowed to create '{target_role}' accounts.")
+        _dl = staff_department_limit(current)
+        if _dl:  # force the new hire into the manager's own department
+            body["department"] = _dl
     clinic = db.query(Clinic).filter(Clinic.id == current.clinic_id).first()
     if body.get("role") == "doctor" and clinic.subscription_plan == "free":
         doc_count = db.query(Staff).filter(
@@ -415,6 +461,18 @@ def update_staff(
     s = db.query(Staff).filter(Staff.id == staff_id, Staff.clinic_id == current.clinic_id).first()
     if not s:
         raise HTTPException(404, "Staff not found")
+    if staff_is_restricted(current):
+        if not staff_has_duty(current, "edit_staff"):
+            raise HTTPException(403, "You do not have permission to edit staff.")
+        if s.role in ("clinic_admin", "clinic_manager"):
+            raise HTTPException(403, "You cannot edit managers or admins.")
+        _dl = staff_department_limit(current)
+        if _dl and s.department != _dl:
+            raise HTTPException(403, "You can only edit staff in your department.")
+        if "role" in body and not staff_can_manage_role(current, body["role"]):
+            raise HTTPException(403, "You cannot assign that role.")
+        if _dl:
+            body.pop("department", None)  # cannot move staff out of their department
     updatable = [
         "full_name", "mobile", "is_active", "branch_id", "role",
         "employee_id", "designation", "department", "ward",
@@ -440,9 +498,175 @@ def toggle_staff(
     staff = db.query(Staff).filter(Staff.id == staff_id, Staff.clinic_id == current.clinic_id).first()
     if not staff:
         raise HTTPException(404, "Staff not found")
+    if staff_is_restricted(current):
+        if not staff_has_duty(current, "deactivate_staff"):
+            raise HTTPException(403, "You do not have permission to deactivate staff.")
+        if staff.role in ("clinic_admin", "clinic_manager"):
+            raise HTTPException(403, "You cannot deactivate managers or admins.")
+        _dl = staff_department_limit(current)
+        if _dl and staff.department != _dl:
+            raise HTTPException(403, "You can only manage staff in your department.")
     staff.is_active = not staff.is_active
     db.commit()
     return {"id": staff.id, "is_active": staff.is_active}
+
+
+@router.post("/staff/{staff_id}/reset-password")
+def reset_staff_password_clinic(
+    staff_id: int,
+    db: Session = Depends(get_db),
+    current=Depends(require_clinic_admin),
+):
+    """Clinic-side password reset by an admin/manager (gated by the reset_passwords duty).
+    Issues a fresh temp password (forced change on first login) and delivers it."""
+    if staff_is_restricted(current) and not staff_has_duty(current, "reset_passwords"):
+        raise HTTPException(403, "You do not have permission to reset passwords.")
+    s = db.query(Staff).filter(Staff.id == staff_id, Staff.clinic_id == current.clinic_id).first()
+    if not s:
+        raise HTTPException(404, "Staff not found")
+    if staff_is_restricted(current):
+        if s.role in ("clinic_admin", "clinic_manager"):
+            raise HTTPException(403, "You cannot reset a manager's password.")
+        _dl = staff_department_limit(current)
+        if _dl and s.department != _dl:
+            raise HTTPException(403, "You can only reset staff in your department.")
+    temp_password = _generate_temp_password()
+    s.hashed_password = hash_password(temp_password)
+    s.is_first_login = True
+    s.temp_pw_expiry = datetime.utcnow() + timedelta(hours=48)
+    db.commit()
+    email_sent = sms_sent = False
+    if s.email:
+        try:
+            email_sent = send_welcome_email(s.email, s.full_name, s.role, temp_password, STAFF_PORTAL_URL)
+        except Exception:
+            email_sent = False
+    if s.mobile:
+        try:
+            sms_sent = send_sms(s.mobile, f"BHarath Health: your password was reset. Temp password: {temp_password}. Sign in at {STAFF_PORTAL_URL} and change it on first login.")
+        except Exception:
+            sms_sent = False
+    return {"staff_name": s.full_name, "temp_password": temp_password, "email_sent": email_sent, "sms_sent": sms_sent}
+
+
+def _generate_username(full_name: str, db) -> str:
+    first = ''.join(c for c in (full_name or 'user').strip().split()[0].lower() if c.isalpha())[:4].ljust(4, 'x')
+    for _ in range(40):
+        username = first + ''.join(secrets.choice(string.digits) for _ in range(2))
+        if not db.query(Staff).filter(Staff.username == username).first():
+            return username
+    for _ in range(40):
+        username = first + ''.join(secrets.choice(string.digits) for _ in range(4))
+        if not db.query(Staff).filter(Staff.username == username).first():
+            return username
+    raise HTTPException(500, "Could not generate a unique username")
+
+
+def _can_manage_managers(current) -> bool:
+    """clinic_admin / legacy admins, or a center-scope supervisor with the create_managers duty."""
+    if not staff_is_restricted(current):
+        return True
+    return current.manager_scope == "center" and staff_has_duty(current, "create_managers")
+
+
+@router.get("/managers")
+def list_clinic_managers(db: Session = Depends(get_db), current=Depends(require_clinic_admin)):
+    if not _can_manage_managers(current):
+        raise HTTPException(403, "Supervisor access required.")
+    rows = db.query(Staff).filter(
+        Staff.clinic_id == current.clinic_id, Staff.role == "clinic_manager"
+    ).order_by(Staff.full_name).all()
+    return [{
+        "id": s.id, "full_name": s.full_name, "email": s.email, "mobile": s.mobile,
+        "manager_scope": s.manager_scope,
+        "scope_label": MANAGER_SCOPE_LABELS.get(s.manager_scope or "", "Manager"),
+        "department": s.department, "is_active": s.is_active,
+        "permissions": s.permissions, "username": s.username,
+    } for s in rows]
+
+
+@router.post("/managers")
+def create_clinic_manager(body: dict, db: Session = Depends(get_db), current=Depends(require_clinic_admin)):
+    """A Health Center Supervisor (or clinic_admin) creates a department manager."""
+    if not _can_manage_managers(current):
+        raise HTTPException(403, "You do not have permission to create managers.")
+
+    full_name = (body.get("full_name") or "").strip()
+    if not full_name:
+        raise HTTPException(400, "full_name is required")
+    email = (body.get("email") or "").strip() or None
+    mobile = None
+    if body.get("mobile") not in (None, ""):
+        mobile = _normalize_mobile(body.get("mobile"))
+        if len(mobile) != 10:
+            raise HTTPException(400, "Mobile must be a 10-digit number")
+    if email and db.query(Staff).filter(Staff.email == email).first():
+        raise HTTPException(400, "Email already registered")
+    if mobile and db.query(Staff).filter(Staff.mobile == mobile).first():
+        raise HTTPException(400, "Mobile already registered")
+
+    # A non-admin supervisor can only create DEPARTMENT managers (no privilege escalation).
+    scope = body.get("scope") if body.get("scope") in ("center", "department") else "department"
+    if scope == "center" and current.role != "clinic_admin":
+        scope = "department"
+
+    permissions = body.get("permissions") if isinstance(body.get("permissions"), dict) else None
+    if staff_is_restricted(current) and permissions is not None:
+        permissions = _cap_permissions(permissions, current.permissions)  # can't grant beyond own
+
+    department_name = (body.get("department") or "").strip() or None
+    dept = None
+    if body.get("department_id"):
+        dept = db.query(Department).filter(
+            Department.id == body["department_id"], Department.clinic_id == current.clinic_id
+        ).first()
+        if dept:
+            department_name = dept.name
+
+    temp_password = _generate_temp_password()
+    manager = Staff(
+        clinic_id            = current.clinic_id,
+        full_name            = full_name,
+        email                = email,
+        mobile               = mobile,
+        hashed_password      = hash_password(temp_password),
+        role                 = "clinic_manager",
+        manager_scope        = scope,
+        department           = department_name if scope == "department" else None,
+        permissions          = permissions,
+        reporting_manager_id = current.id,
+        is_active            = True,
+        is_first_login       = True,
+        temp_pw_expiry       = datetime.utcnow() + timedelta(hours=48),
+    )
+    db.add(manager)
+    db.flush()
+    manager.username = _generate_username(full_name, db)
+    if scope == "department" and dept:
+        db.add(StaffDepartment(staff_id=manager.id, department_id=dept.id, is_primary=True))
+    db.commit()
+    db.refresh(manager)
+
+    role_label = MANAGER_SCOPE_LABELS.get(scope, "Health Center Manager")
+    email_sent = sms_sent = False
+    if email:
+        try:
+            email_sent = send_welcome_email(email, full_name, role_label, temp_password, STAFF_PORTAL_URL)
+        except Exception:
+            email_sent = False
+    if mobile:
+        try:
+            sms_sent = send_sms(mobile, f"BHarath Health: {role_label} account created. Username: {manager.username}, Temp password: {temp_password}. Sign in at {STAFF_PORTAL_URL} and change it on first login.")
+        except Exception:
+            sms_sent = False
+
+    return {
+        "id": manager.id, "full_name": manager.full_name, "email": manager.email,
+        "mobile": manager.mobile, "username": manager.username, "scope": scope,
+        "scope_label": role_label, "department": manager.department,
+        "temp_password": temp_password, "email_sent": email_sent, "sms_sent": sms_sent,
+        "login_url": STAFF_PORTAL_URL,
+    }
 
 
 # ── Doctor Profiles & Schedules ───────────────────────────────────────────────

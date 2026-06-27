@@ -145,6 +145,58 @@ def require_any_staff(current=Depends(get_current_staff)):
     return current
 
 
+# ── Health Center Manager permissions (scope + module/duty access) ──────────────
+# A staff member is RESTRICTED only when they carry a non-empty ``permissions`` map
+# (set when an admin/supervisor creates a Health Center Manager). Everyone else —
+# clinic_admin, legacy managers, doctors, receptionists, service-desk staff — has no
+# map and is treated as UNRESTRICTED, so the other portals are entirely unaffected.
+# clinic_admin (the owner) is always unrestricted.
+
+def _effective_permissions(staff):
+    if getattr(staff, 'role', None) == 'clinic_admin':
+        return None
+    perms = getattr(staff, 'permissions', None)
+    return perms if isinstance(perms, dict) and perms else None
+
+
+def staff_is_restricted(staff) -> bool:
+    """True only for a scoped Health Center Manager (carries a permissions map)."""
+    return _effective_permissions(staff) is not None
+
+
+def staff_has_module(staff, module: str) -> bool:
+    perms = _effective_permissions(staff)
+    return True if perms is None else bool((perms.get('modules') or {}).get(module, False))
+
+
+def staff_has_duty(staff, duty: str) -> bool:
+    perms = _effective_permissions(staff)
+    return True if perms is None else bool((perms.get('duties') or {}).get(duty, False))
+
+
+def staff_can_manage_role(staff, role: str) -> bool:
+    perms = _effective_permissions(staff)
+    return True if perms is None else (role in (perms.get('manageable_roles') or []))
+
+
+def staff_department_limit(staff):
+    """Department a manager is confined to, or None when unrestricted / center-scoped."""
+    if _effective_permissions(staff) is None:
+        return None
+    if getattr(staff, 'manager_scope', None) == 'department':
+        return getattr(staff, 'department', None)
+    return None
+
+
+def require_duty(duty: str):
+    """Dependency factory — 403 unless the actor holds ``duty`` (unrestricted actors pass)."""
+    def _dep(current=Depends(get_current_staff)):
+        if not staff_has_duty(current, duty):
+            raise HTTPException(status_code=403, detail=f"Permission denied: {duty.replace('_', ' ')}.")
+        return current
+    return _dep
+
+
 # ── Token helpers ──────────────────────────────────────────────────────────────
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
