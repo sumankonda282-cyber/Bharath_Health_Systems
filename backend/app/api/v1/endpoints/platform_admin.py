@@ -11,9 +11,11 @@ def _years_between(d1: date, d2: date) -> int:
 from sqlalchemy import or_
 from app.db.session import get_db
 from app.core.security import get_current_platform_admin, hash_password
-from app.models.models import Clinic, Branch, Staff, Patient, Appointment, PlatformAdmin, AuditLog, Invoice, Feedback, Department, Ward, Bed, PlatformSetting, SubscriptionPayment, PatientTag, LabOrder, Prescription, DoctorProfile, PatientUser, Plan, ClinicSubscription, SubscriptionInvoice
+from app.models.models import Clinic, Branch, Staff, StaffDepartment, Patient, Appointment, PlatformAdmin, AuditLog, Invoice, Feedback, Department, Ward, Bed, PlatformSetting, SubscriptionPayment, PatientTag, LabOrder, Prescription, DoctorProfile, PatientUser, Plan, ClinicSubscription, SubscriptionInvoice
 from app.services.entitlements import get_entitlements, ALL_MODULES, MODULE_CATALOG
 from app.services.subscription import upsert_subscription, activate_paid
+from app.services.email_service import send_welcome_email
+from app.services.sms_service import send_sms
 
 import re
 import secrets
@@ -420,6 +422,23 @@ def get_clinic_detail(
 
 # ── Clinic Actions ────────────────────────────────────────────────────────────
 
+# Health-center manager hierarchy. Both tiers are stored as role "clinic_manager"
+# (renaming roles would break every portal); manager_scope separates them.
+MANAGER_SCOPE_LABELS = {
+    "center":     "Health Center Supervisor",
+    "department": "Health Center Manager",
+}
+STAFF_PORTAL_URL = "https://staff.bharathhealthsystems.com"
+
+
+def _normalize_mobile(raw) -> str:
+    """Return a clean 10-digit mobile (last 10 of whatever digits are present), or ''."""
+    if raw in (None, ""):
+        return ""
+    digits = "".join(ch for ch in str(raw) if ch.isdigit())
+    return digits[-10:] if len(digits) >= 10 else digits
+
+
 @router.post("/clinics/{clinic_id}/create-manager")
 def create_clinic_manager(
     clinic_id: int,
@@ -427,50 +446,116 @@ def create_clinic_manager(
     db: Session = Depends(get_db),
     current=Depends(get_current_platform_admin),
 ):
-    """Super admin creates a Clinic Manager account for an approved clinic."""
+    """Super admin creates a Health Center Supervisor / Manager for an approved clinic.
+
+    Backward-compatible: only ``full_name`` is required; ``scope``, ``department``,
+    ``department_id``, ``permissions`` and ``reporting_manager_id`` are optional.
+    The temp password is delivered by email and/or SMS (best-effort) and also
+    returned once so the admin can share it if no channel is configured.
+    """
     clinic = db.query(Clinic).filter(Clinic.id == clinic_id).first()
     if not clinic:
         raise HTTPException(404, "Clinic not found")
 
-    email  = body.get("email")
-    mobile = body.get("mobile")
-    if not body.get("full_name"):
+    full_name = (body.get("full_name") or "").strip()
+    if not full_name:
         raise HTTPException(400, "full_name is required")
+
+    email = (body.get("email") or "").strip() or None
+    mobile = None
+    if body.get("mobile") not in (None, ""):
+        mobile = _normalize_mobile(body.get("mobile"))
+        if len(mobile) != 10:
+            raise HTTPException(400, "Mobile must be a 10-digit number")
+
     if email and db.query(Staff).filter(Staff.email == email).first():
         raise HTTPException(400, "Email already registered")
     if mobile and db.query(Staff).filter(Staff.mobile == mobile).first():
         raise HTTPException(400, "Mobile already registered")
 
+    scope = body.get("scope") if body.get("scope") in ("center", "department") else "center"
+    permissions = body.get("permissions") if isinstance(body.get("permissions"), dict) else None
+
+    # Resolve department (department managers). Accept an id (preferred) or a name.
+    department_name = (body.get("department") or "").strip() or None
+    department_id = body.get("department_id")
+    dept = None
+    if department_id:
+        dept = db.query(Department).filter(
+            Department.id == department_id, Department.clinic_id == clinic_id
+        ).first()
+        if dept:
+            department_name = dept.name
+
+    # Optional supervisor this manager reports to (must belong to the same clinic).
+    reporting_manager_id = None
+    if body.get("reporting_manager_id"):
+        try:
+            rid = int(body["reporting_manager_id"])
+        except (TypeError, ValueError):
+            rid = None
+        if rid and db.query(Staff).filter(Staff.id == rid, Staff.clinic_id == clinic_id).first():
+            reporting_manager_id = rid
+
     temp_password = _generate_temp_password()
 
     manager = Staff(
-        clinic_id       = clinic_id,
-        full_name       = body["full_name"],
-        email           = email,
-        mobile          = mobile,
-        hashed_password = hash_password(temp_password),
-        role            = "clinic_manager",
-        is_active       = True,
-        is_first_login  = True,
-        temp_pw_expiry  = datetime.utcnow() + timedelta(hours=48),
+        clinic_id            = clinic_id,
+        full_name            = full_name,
+        email                = email,
+        mobile               = mobile,
+        hashed_password      = hash_password(temp_password),
+        role                 = "clinic_manager",
+        manager_scope        = scope,
+        department           = department_name if scope == "department" else None,
+        permissions          = permissions,
+        reporting_manager_id = reporting_manager_id,
+        is_active            = True,
+        is_first_login       = True,
+        temp_pw_expiry       = datetime.utcnow() + timedelta(hours=48),
     )
     db.add(manager)
     db.flush()
-    manager.username = _generate_username(body["full_name"], db)
-    _log(db, "created_manager", "staff", clinic_id, body["full_name"], current)
+    manager.username = _generate_username(full_name, db)
+    if scope == "department" and dept:
+        db.add(StaffDepartment(staff_id=manager.id, department_id=dept.id, is_primary=True))
+    _log(db, "created_manager", "staff", clinic_id, full_name, current)
     db.commit()
     db.refresh(manager)
 
-    # Temp password returned in response only — not logged
+    # Deliver credentials (best-effort — never blocks creation; gated by env keys).
+    role_label = MANAGER_SCOPE_LABELS.get(scope, "Health Center Manager")
+    email_sent = sms_sent = False
+    if email:
+        try:
+            email_sent = send_welcome_email(email, full_name, role_label, temp_password, STAFF_PORTAL_URL)
+        except Exception:
+            email_sent = False
+    if mobile:
+        try:
+            sms_sent = send_sms(
+                mobile,
+                f"BHarath Health: {role_label} account created. Username: {manager.username}, "
+                f"Temp password: {temp_password}. Sign in at {STAFF_PORTAL_URL} and change it on first login.",
+            )
+        except Exception:
+            sms_sent = False
 
     return {
         "id":            manager.id,
         "full_name":     manager.full_name,
         "email":         manager.email,
+        "mobile":        manager.mobile,
         "role":          manager.role,
+        "scope":         scope,
+        "scope_label":   role_label,
+        "department":    manager.department,
         "username":      manager.username,
         "temp_password": temp_password,
-        "message":       "Clinic Manager created. Share credentials immediately — shown only once.",
+        "email_sent":    email_sent,
+        "sms_sent":      sms_sent,
+        "login_url":     STAFF_PORTAL_URL,
+        "message":       f"{role_label} created. Share credentials immediately — shown only once.",
     }
 
 
