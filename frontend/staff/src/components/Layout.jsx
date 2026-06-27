@@ -8,22 +8,23 @@ import {
   CreditCard, LayoutDashboard, LogOut, Users,
   Menu, X, Settings, BedDouble, LayoutGrid, Banknote, Wrench, HelpCircle,
   CalendarRange, UserCircle2, Plane, LayoutTemplate, Send, Monitor, RefreshCw,
-  UserCheck, ShieldAlert, Lock, CalendarClock, PanelLeft,
+  UserCheck, ShieldAlert, Lock, CalendarClock, PanelLeft, ShieldCheck,
 } from 'lucide-react'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth, usePerms } from '../contexts/AuthContext'
 import BrandLogo from './BrandLogo'
 import api from '../api/client'
 import NotificationBell from '@shared/components/NotificationBell'
 
 const MANAGER_BASE_NAV = [
   { to: '/',            icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/operations',  icon: LayoutGrid,      label: 'Operations' },
-  { to: '/patients',    icon: Users,           label: 'Patients' },
+  { to: '/operations',  icon: LayoutGrid,      label: 'Operations', mod: 'appointments' },
+  { to: '/patients',    icon: Users,           label: 'Patients',   mod: 'patients' },
 ]
 const MANAGER_NAV = [
-  { to: '/staff',       icon: Settings, label: 'Manage Staff' },
+  { to: '/staff',       icon: Settings, label: 'Manage Staff', mod: 'staff' },
   { to: '/maintenance', icon: Wrench,   label: 'Maintenance' },
 ]
+const MANAGERS_NAV = { to: '/managers', icon: ShieldCheck, label: 'Managers' }
 const RECEP_NAV = [
   { to: '/',               icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/front-desk',     icon: Monitor,         label: 'Front Desk' },
@@ -31,11 +32,11 @@ const RECEP_NAV = [
   { to: '/billing',        icon: CreditCard,      label: 'Billing' },
 ]
 const HOSPITAL_NAV = [
-  { to: '/admissions',          icon: BedDouble,    label: 'Admissions' },
-  { to: '/bed-board',           icon: LayoutGrid,   label: 'Bed Board' },
-  { to: '/inpatient-billing',   icon: Banknote,     label: 'IPD Billing' },
-  { to: '/visitor-desk',        icon: UserCheck,    label: 'Visitor Desk' },
-  { to: '/emergency-admission', icon: ShieldAlert,  label: 'Emergency' },
+  { to: '/admissions',          icon: BedDouble,    label: 'Admissions',  mod: 'inpatient' },
+  { to: '/bed-board',           icon: LayoutGrid,   label: 'Bed Board',   mod: 'inpatient' },
+  { to: '/inpatient-billing',   icon: Banknote,     label: 'IPD Billing', mod: 'inpatient' },
+  { to: '/visitor-desk',        icon: UserCheck,    label: 'Visitor Desk', mod: 'inpatient' },
+  { to: '/emergency-admission', icon: ShieldAlert,  label: 'Emergency',   mod: 'inpatient' },
 ]
 const SCHEDULER_NAV = [
   { to: '/scheduler',           icon: CalendarRange,   label: 'Schedule Board' },
@@ -137,14 +138,16 @@ export default function Layout() {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [profilePanelOpen, setProfilePanelOpen] = useState(false)
 
+  const perms = usePerms()
   const isManager = ['clinic_manager', 'clinic_admin'].includes(user?.role)
-  const isScheduler = isManager
+  const isScheduler = isManager && perms.canModule('scheduler')
   const isHospital = user?.org_type === 'hospital'
-  // Managers: unchanged — hospital nav only shown if isHospital
-  // Receptionists: always show hospital nav items but lock them if not a hospital
-  const NAV = isManager
-    ? [...MANAGER_BASE_NAV, ...(isHospital ? HOSPITAL_NAV : []), ...MANAGER_NAV]
+  // Managers: nav filtered by the manager's module permissions (no-op for admins /
+  // unrestricted managers). Receptionists: always show hospital nav, locked if not a hospital.
+  let NAV = isManager
+    ? [...MANAGER_BASE_NAV, ...(isHospital ? HOSPITAL_NAV : []), ...MANAGER_NAV].filter(it => !it.mod || perms.canModule(it.mod))
     : [...RECEP_NAV, ...HOSPITAL_NAV.map(item => ({ ...item, locked: !isHospital }))]
+  if (isManager && perms.canManageManagers) NAV = [...NAV, MANAGERS_NAV]
 
   const pageTitle = getPageTitle(location.pathname, isManager)
   const todayLabel = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })

@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import FollowUpReminders from './pages/FollowUpReminders'
-import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { AuthProvider, useAuth, usePerms } from './contexts/AuthContext'
 import Layout from './components/Layout'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
@@ -15,6 +15,7 @@ import Queue from './pages/Queue'
 import Operations from './pages/Operations'
 import PatientBilling from './pages/PatientBilling'
 import StaffManagement from './pages/StaffManagement'
+import ManagerManagement from './pages/ManagerManagement'
 import RegisterPatient from './pages/RegisterPatient'
 import BookAppointment from './pages/BookAppointment'
 import PatientLookup from './pages/PatientLookup'
@@ -35,16 +36,16 @@ import Patterns from './pages/scheduler/Patterns'
 import PublishLog from './pages/scheduler/PublishLog'
 import { Loader2 } from 'lucide-react'
 
-function ManagerOnly({ children }) {
+// Gate a manager route by role, an optional required module, or the manage-managers right.
+// Unrestricted actors (admin / legacy managers) pass every module check.
+function Gate({ children, module, managers }) {
   const { user, loading } = useAuth()
+  const perms = usePerms()
   if (loading) return <div className="h-screen flex items-center justify-center"><Loader2 size={36} className="animate-spin text-gray-400" /></div>
-  return ['clinic_manager', 'clinic_admin'].includes(user?.role) ? children : <Navigate to="/" replace />
-}
-
-function SchedulerOnly({ children }) {
-  const { user, loading } = useAuth()
-  if (loading) return <div className="h-screen flex items-center justify-center"><Loader2 size={36} className="animate-spin text-gray-400" /></div>
-  return ['clinic_manager', 'clinic_admin'].includes(user?.role) ? children : <Navigate to="/" replace />
+  if (!['clinic_manager', 'clinic_admin'].includes(user?.role)) return <Navigate to="/" replace />
+  if (managers && !perms.canManageManagers) return <Navigate to="/" replace />
+  if (module && !perms.canModule(module)) return <Navigate to="/" replace />
+  return children
 }
 
 function AppRoutes() {
@@ -87,7 +88,8 @@ function AppRoutes() {
         <Route path="billing/:invoiceId" element={<BillingDetail />} />
         <Route path="queue" element={<Queue />} />
         <Route path="follow-ups" element={<FollowUpReminders />} />
-        <Route path="staff" element={<ManagerOnly><StaffManagement /></ManagerOnly>} />
+        <Route path="staff" element={<Gate module="staff"><StaffManagement /></Gate>} />
+        <Route path="managers" element={<Gate managers><ManagerManagement /></Gate>} />
         <Route path="admissions" element={<Admissions />} />
         <Route path="bed-board" element={<BedBoard />} />
         <Route path="inpatient-billing" element={<InpatientBilling />} />
@@ -95,12 +97,12 @@ function AppRoutes() {
         <Route path="visitor-desk" element={<VisitorDesk />} />
         <Route path="emergency-admission" element={<EmergencyAdmission />} />
         <Route path="account" element={<AccountSettings />} />
-        <Route path="scheduler" element={<SchedulerOnly><Board /></SchedulerOnly>} />
-        <Route path="scheduler/setup" element={<SchedulerOnly><Setup /></SchedulerOnly>} />
-        <Route path="scheduler/groups" element={<SchedulerOnly><Groups /></SchedulerOnly>} />
-        <Route path="scheduler/leaves" element={<SchedulerOnly><Leaves /></SchedulerOnly>} />
-        <Route path="scheduler/patterns" element={<SchedulerOnly><Patterns /></SchedulerOnly>} />
-        <Route path="scheduler/publish-log" element={<SchedulerOnly><PublishLog /></SchedulerOnly>} />
+        <Route path="scheduler" element={<Gate module="scheduler"><Board /></Gate>} />
+        <Route path="scheduler/setup" element={<Gate module="scheduler"><Setup /></Gate>} />
+        <Route path="scheduler/groups" element={<Gate module="scheduler"><Groups /></Gate>} />
+        <Route path="scheduler/leaves" element={<Gate module="scheduler"><Leaves /></Gate>} />
+        <Route path="scheduler/patterns" element={<Gate module="scheduler"><Patterns /></Gate>} />
+        <Route path="scheduler/publish-log" element={<Gate module="scheduler"><PublishLog /></Gate>} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

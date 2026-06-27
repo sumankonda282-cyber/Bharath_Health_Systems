@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
 import api from '../api/client'
 import { cacheInvalidate } from '../utils/cache'
+import { usePerms } from '../contexts/AuthContext'
 import {
   PlusCircle, Eye, EyeOff, AlertCircle, CheckCircle,
   ToggleLeft, ToggleRight, Pencil, X, Loader2, Users,
-  Building2, Shield, BookOpen, Phone, Info,
+  Building2, Shield, BookOpen, Phone, Info, KeyRound, Copy,
 } from 'lucide-react'
 
 const ROLES = [
@@ -85,6 +86,12 @@ export default function StaffManagement() {
   const [filterRole, setFilterRole]   = useState('')
   const [filterDept, setFilterDept]   = useState('')
   const [filterType, setFilterType]   = useState('')
+  const [pwdReset, setPwdReset]       = useState(null)
+  const [resettingId, setResettingId] = useState(null)
+
+  const perms = usePerms()
+  // Restricted managers can only create the roles they're allowed to manage.
+  const ALLOWED_ROLES = perms.manageableRoles ? ROLES.filter(r => perms.manageableRoles.includes(r.value)) : ROLES
 
   const load = useCallback(async (invalidate = false) => {
     setLoading(true)
@@ -103,7 +110,7 @@ export default function StaffManagement() {
 
   const openCreate = () => {
     setEditing(null)
-    setForm(EMPTY_FORM)
+    setForm({ ...EMPTY_FORM, role: ALLOWED_ROLES[0]?.value || 'receptionist' })
     setTab('identity')
     setError('')
     setSuccess('')
@@ -193,6 +200,18 @@ export default function StaffManagement() {
     }
   }
 
+  const handleResetPwd = async (s) => {
+    setResettingId(s.id)
+    try {
+      const r = await api.post(`/clinic/staff/${s.id}/reset-password`)
+      setPwdReset({ name: s.full_name, temp_password: r.temp_password, email_sent: r.email_sent, sms_sent: r.sms_sent })
+    } catch (err) {
+      alert(err.message)
+    } finally {
+      setResettingId(null)
+    }
+  }
+
   const managers = staff.filter(s => ['clinic_manager', 'clinic_admin'].includes(s.role))
 
   const hasFilters = filterName || filterRole || filterDept || filterType
@@ -210,9 +229,11 @@ export default function StaffManagement() {
   return (
     <div>
       <div className="flex items-center justify-end mb-6 flex-wrap gap-3">
-        <button onClick={openCreate} className="btn-primary text-sm">
-          <PlusCircle size={15} />Add Staff
-        </button>
+        {perms.canDuty('create_staff') && (
+          <button onClick={openCreate} className="btn-primary text-sm">
+            <PlusCircle size={15} />Add Staff
+          </button>
+        )}
       </div>
 
       {success && (
@@ -286,7 +307,7 @@ export default function StaffManagement() {
               </thead>
               <tbody>
                 {filtered.map(s => (
-                  <tr key={s.id} className="border-b border-gray-50 hover:bg-gray-50 cursor-pointer" onClick={() => openEdit(s)}>
+                  <tr key={s.id} className="border-b border-gray-50 hover:bg-gray-50 cursor-pointer" onClick={() => { if (perms.canDuty('edit_staff')) openEdit(s) }}>
                     <td className="px-4 py-3">
                       <div className="font-semibold text-gray-800">{s.full_name}</div>
                       {s.employee_id && <div className="text-xs text-gray-400">ID: {s.employee_id}</div>}
@@ -318,14 +339,26 @@ export default function StaffManagement() {
                       {s.employment_type?.replace('_', ' ') || '—'}
                     </td>
                     <td className="px-4 py-3 text-center" onClick={e => e.stopPropagation()}>
-                      <button onClick={() => toggleActive(s)} disabled={togglingId === s.id} className="text-gray-400 hover:text-gray-700 disabled:opacity-50">
-                        {s.is_active ? <ToggleRight size={22} className="text-green-500" /> : <ToggleLeft size={22} />}
-                      </button>
+                      {perms.canDuty('deactivate_staff') ? (
+                        <button onClick={() => toggleActive(s)} disabled={togglingId === s.id} className="text-gray-400 hover:text-gray-700 disabled:opacity-50">
+                          {s.is_active ? <ToggleRight size={22} className="text-green-500" /> : <ToggleLeft size={22} />}
+                        </button>
+                      ) : (
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${s.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{s.is_active ? 'Active' : 'Inactive'}</span>
+                      )}
                     </td>
-                    <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
-                      <button onClick={() => openEdit(s)} className="text-gray-400 hover:text-indigo-600 p-1">
-                        <Pencil size={14} />
-                      </button>
+                    <td className="px-4 py-3 text-right whitespace-nowrap" onClick={e => e.stopPropagation()}>
+                      {perms.canDuty('reset_passwords') && (
+                        <button onClick={() => handleResetPwd(s)} disabled={resettingId === s.id} title="Reset password"
+                          className="text-gray-400 hover:text-amber-600 p-1 disabled:opacity-50">
+                          {resettingId === s.id ? <Loader2 size={14} className="animate-spin" /> : <KeyRound size={14} />}
+                        </button>
+                      )}
+                      {perms.canDuty('edit_staff') && (
+                        <button onClick={() => openEdit(s)} title="Edit" className="text-gray-400 hover:text-indigo-600 p-1">
+                          <Pencil size={14} />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -461,7 +494,7 @@ export default function StaffManagement() {
                       f('role', newRole)
                       f('secondary_roles', (form.secondary_roles || []).filter(r => r !== newRole))
                     }}>
-                      {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                      {ALLOWED_ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
                     </select>
                   </div>
 
@@ -482,7 +515,7 @@ export default function StaffManagement() {
                   <div className="sm:col-span-2">
                     <label className="label">Additional Roles <span className="text-gray-400 font-normal">(optional — for staff with multiple responsibilities)</span></label>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-1.5">
-                      {ROLES.filter(r => r.value !== form.role).map(r => (
+                      {ALLOWED_ROLES.filter(r => r.value !== form.role).map(r => (
                         <label key={r.value} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer select-none">
                           <input
                             type="checkbox"
@@ -558,6 +591,27 @@ export default function StaffManagement() {
                 </div>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Password reset result */}
+      {pwdReset && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setPwdReset(null)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm z-10 p-6">
+            <h3 className="font-bold text-gray-800 mb-1">Password reset</h3>
+            <p className="text-sm text-gray-500 mb-4">{pwdReset.name}</p>
+            <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 flex items-center justify-between gap-2 mb-3">
+              <span className="font-mono text-indigo-700 tracking-wider select-all">{pwdReset.temp_password}</span>
+              <button onClick={() => navigator.clipboard.writeText(pwdReset.temp_password || '')} className="text-gray-400 hover:text-gray-700"><Copy size={15} /></button>
+            </div>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {pwdReset.email_sent && <span className="text-xs px-2 py-1 rounded-lg bg-green-50 text-green-700 border border-green-200">Emailed</span>}
+              {pwdReset.sms_sent && <span className="text-xs px-2 py-1 rounded-lg bg-green-50 text-green-700 border border-green-200">Texted</span>}
+            </div>
+            <p className="text-xs text-amber-600 mb-4">Shown once. Staff must change it on first login.</p>
+            <button onClick={() => setPwdReset(null)} className="btn-primary w-full justify-center text-sm">Done</button>
           </div>
         </div>
       )}
