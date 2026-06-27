@@ -40,6 +40,7 @@ export const adminApi = {
 
   // Clinic Manager
   createManager: (clinicId, body) => api.post(`/platform/clinics/${clinicId}/create-manager`, body),
+  getClinicDepartments: (clinicId) => api.get(`/platform/clinics/${clinicId}/departments`),
 
   // Patient Lookup (platform-wide)
   searchPatients: (params) => api.get('/platform/patients/search', { params }),

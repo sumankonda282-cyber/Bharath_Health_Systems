@@ -197,6 +197,13 @@ class Staff(Base):
     address                  = Column(Text, nullable=True)
     modules                  = Column(JSON, nullable=True)
     secondary_roles          = Column(JSON, nullable=True)
+    # Manager hierarchy + access control (admin-portal "Create Health Center Manager").
+    # manager_scope: 'center' (Health Center Supervisor — whole center) | 'department'
+    # (Health Center Manager — scoped to assigned department[s]). permissions holds the
+    # access map {modules:{}, duties:{}, manageable_roles:[]}. Stored now; enforced in a
+    # later phase (defaults to allow for legacy staff with no permissions set).
+    manager_scope            = Column(String(20), nullable=True)
+    permissions              = Column(JSON, nullable=True)
     scheduled_removal_date   = Column(Date, nullable=True)
     removal_reason           = Column(String(200), nullable=True)
     created_at           = Column(DateTime, server_default=func.now())

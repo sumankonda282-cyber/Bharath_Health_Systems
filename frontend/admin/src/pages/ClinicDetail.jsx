@@ -1,10 +1,73 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { adminApi } from '../api'
-import { ArrowLeft, CheckCircle, XCircle, PauseCircle, RefreshCw, FileText, ExternalLink, IndianRupee, KeyRound, Copy, UserPlus, CreditCard, Activity, Users, CalendarCheck, FlaskConical, Pill, Stethoscope } from 'lucide-react'
+import { ArrowLeft, CheckCircle, XCircle, PauseCircle, RefreshCw, FileText, ExternalLink, IndianRupee, KeyRound, Copy, UserPlus, CreditCard, Activity, Users, CalendarCheck, FlaskConical, Pill, Stethoscope, ShieldCheck, Building2, Layers, Mail, Phone, Check, X, Briefcase } from 'lucide-react'
 import ActionModal from '../components/ActionModal'
 
-const MANAGER_EMPTY = { full_name: '', email: '', mobile: '' }
+// ── Health Center Manager: permission catalog + role templates ──────────────────
+const MODULE_DEFS = [
+  { key: 'appointments', label: 'Appointments & Front Desk' },
+  { key: 'patients',     label: 'Patient Records' },
+  { key: 'billing',      label: 'Billing & Payments' },
+  { key: 'pharmacy',     label: 'Pharmacy' },
+  { key: 'lab',          label: 'Laboratory' },
+  { key: 'imaging',      label: 'Imaging / Radiology' },
+  { key: 'scheduler',    label: 'Staff Scheduling' },
+  { key: 'inpatient',    label: 'Inpatient / CareChart' },
+  { key: 'reports',      label: 'Reports & Analytics' },
+  { key: 'staff',        label: 'Staff Management' },
+]
+const DUTY_DEFS = [
+  { key: 'create_staff',     label: 'Create / onboard staff' },
+  { key: 'edit_staff',       label: 'Edit staff details' },
+  { key: 'deactivate_staff', label: 'Activate / deactivate staff' },
+  { key: 'reset_passwords',  label: 'Reset staff passwords' },
+  { key: 'manage_schedules', label: 'Build & publish schedules' },
+  { key: 'approve_leave',    label: 'Approve leave requests' },
+  { key: 'view_revenue',     label: 'View revenue & financials' },
+  { key: 'waive_bills',      label: 'Approve fee waivers' },
+  { key: 'create_managers',  label: 'Create other managers', supervisorOnly: true },
+  { key: 'manage_profile',   label: 'Edit center profile & branches', supervisorOnly: true },
+]
+const ROLE_DEFS = [
+  { key: 'doctor',         label: 'Doctor' },
+  { key: 'nurse',          label: 'Nurse' },
+  { key: 'receptionist',   label: 'Receptionist' },
+  { key: 'pharmacist',     label: 'Pharmacist' },
+  { key: 'lab_technician', label: 'Lab Technician' },
+  { key: 'imaging_tech',   label: 'Imaging Technician' },
+  { key: 'clinic_manager', label: 'Manager', supervisorOnly: true },
+]
+const allOn = defs => defs.reduce((a, d) => ({ ...a, [d.key]: true }), {})
+
+const MANAGER_TEMPLATES = [
+  { key: 'supervisor', label: 'Health Center Supervisor', desc: 'Full center oversight — manages all managers & staff',
+    scope: 'center', modules: allOn(MODULE_DEFS), duties: allOn(DUTY_DEFS), roles: ROLE_DEFS.map(r => r.key) },
+  { key: 'frontdesk', label: 'Front-Desk Manager', desc: 'Appointments, registration, billing & reception staff',
+    scope: 'department', modules: { appointments: true, patients: true, billing: true, scheduler: true, staff: true },
+    duties: { create_staff: true, edit_staff: true, reset_passwords: true, manage_schedules: true, approve_leave: true }, roles: ['receptionist'] },
+  { key: 'pharmacy', label: 'Pharmacy Manager', desc: 'Pharmacy operations, inventory & pharmacy staff',
+    scope: 'department', modules: { pharmacy: true, billing: true, reports: true, staff: true },
+    duties: { create_staff: true, edit_staff: true, reset_passwords: true, view_revenue: true }, roles: ['pharmacist'] },
+  { key: 'lab', label: 'Lab Manager', desc: 'Laboratory queue, results & lab staff',
+    scope: 'department', modules: { lab: true, billing: true, reports: true, staff: true },
+    duties: { create_staff: true, edit_staff: true, reset_passwords: true }, roles: ['lab_technician'] },
+  { key: 'imaging', label: 'Imaging Manager', desc: 'Radiology orders, reporting & imaging staff',
+    scope: 'department', modules: { imaging: true, billing: true, reports: true, staff: true },
+    duties: { create_staff: true, edit_staff: true, reset_passwords: true }, roles: ['imaging_tech'] },
+  { key: 'clinical', label: 'Clinical / Nursing Supervisor', desc: 'Wards, scheduling & clinical staff across the center',
+    scope: 'center', modules: { patients: true, inpatient: true, appointments: true, scheduler: true, reports: true, staff: true },
+    duties: { create_staff: true, edit_staff: true, reset_passwords: true, manage_schedules: true, approve_leave: true }, roles: ['doctor', 'nurse'] },
+  { key: 'custom', label: 'Custom', desc: 'Start blank and choose everything yourself',
+    scope: 'department', modules: {}, duties: {}, roles: [] },
+]
+
+const MANAGER_EMPTY = {
+  full_name: '', designation: '', email: '', mobile: '',
+  scope: 'center', department_id: '', department: '',
+  template: 'supervisor',
+  modules: allOn(MODULE_DEFS), duties: allOn(DUTY_DEFS), manageable_roles: ROLE_DEFS.map(r => r.key),
+}
 
 const STATUS_BADGE = { active: 'badge-active', pending: 'badge-pending', suspended: 'badge-suspended', revoked: 'badge-revoked' }
 const PLAN_COLORS  = { free: 'badge-free', basic: 'badge-basic', pro: 'badge-pro', enterprise: 'badge-enterprise' }
@@ -49,7 +112,39 @@ export default function ClinicDetail() {
   const [managerForm, setManagerForm]   = useState(MANAGER_EMPTY)
   const [managerSaving, setManagerSaving] = useState(false)
   const [managerError, setManagerError] = useState('')
-  const [managerSuccess, setManagerSuccess] = useState(null) // { full_name, temp_password }
+  const [managerSuccess, setManagerSuccess] = useState(null) // { full_name, temp_password, ... }
+  const [departments, setDepartments] = useState([])
+
+  useEffect(() => {
+    if (!managerModal) return
+    adminApi.getClinicDepartments(id)
+      .then(d => setDepartments(Array.isArray(d) ? d : []))
+      .catch(() => setDepartments([]))
+  }, [managerModal, id])
+
+  const openManagerModal = () => {
+    setManagerForm(MANAGER_EMPTY); setManagerError(''); setManagerSuccess(null); setManagerModal(true)
+  }
+  const applyTemplate = tplKey => {
+    const tpl = MANAGER_TEMPLATES.find(t => t.key === tplKey) || MANAGER_TEMPLATES[0]
+    setManagerForm(f => ({ ...f, template: tpl.key, scope: tpl.scope,
+      modules: { ...tpl.modules }, duties: { ...tpl.duties }, manageable_roles: [...tpl.roles] }))
+  }
+  const toggleMap = (field, key) => setManagerForm(f => ({ ...f, template: 'custom', [field]: { ...f[field], [key]: !f[field][key] } }))
+  const toggleRole = key => setManagerForm(f => {
+    const has = f.manageable_roles.includes(key)
+    return { ...f, template: 'custom', manageable_roles: has ? f.manageable_roles.filter(r => r !== key) : [...f.manageable_roles, key] }
+  })
+  const setScope = scope => setManagerForm(f => {
+    const duties = { ...f.duties }
+    let roles = [...f.manageable_roles]
+    if (scope === 'department') {
+      DUTY_DEFS.filter(d => d.supervisorOnly).forEach(d => { delete duties[d.key] })
+      roles = roles.filter(r => !ROLE_DEFS.find(rd => rd.key === r)?.supervisorOnly)
+    }
+    return { ...f, scope, duties, manageable_roles: roles }
+  })
+  const onMobileChange = v => setManagerForm(f => ({ ...f, mobile: v.replace(/\D/g, '').slice(0, 10) }))
 
   const load = () => {
     setLoading(true)
@@ -102,8 +197,21 @@ export default function ClinicDetail() {
   const handleCreateManager = async e => {
     e.preventDefault(); setManagerError(''); setManagerSaving(true)
     try {
-      const res = await adminApi.createManager(id, managerForm)
-      setManagerSuccess({ full_name: managerForm.full_name, temp_password: res.temp_password || res.password || '' })
+      const f = managerForm
+      const payload = {
+        full_name: f.full_name.trim(),
+        designation: f.designation?.trim() || undefined,
+        email: f.email?.trim() || undefined,
+        mobile: f.mobile || undefined,
+        scope: f.scope,
+        permissions: { modules: f.modules, duties: f.duties, manageable_roles: f.manageable_roles },
+      }
+      if (f.scope === 'department') {
+        if (f.department_id) payload.department_id = Number(f.department_id)
+        else if (f.department?.trim()) payload.department = f.department.trim()
+      }
+      const res = await adminApi.createManager(id, payload)
+      setManagerSuccess({ ...res, full_name: payload.full_name })
       setManagerForm(MANAGER_EMPTY)
       if (activeTab === 'staff') loadStaff()
     } catch (ex) {
@@ -157,6 +265,15 @@ export default function ClinicDetail() {
 
   const { billing } = clinic
 
+  // Create-manager modal derived state
+  const mf = managerForm
+  const mobileValid = !mf.mobile || mf.mobile.length === 10
+  const deptOk = mf.scope !== 'department' || !!(mf.department_id || mf.department?.trim())
+  const canCreate = !!mf.full_name.trim() && mobileValid && deptOk
+  const noChannel = !mf.email?.trim() && !mf.mobile
+  const visibleDuties = DUTY_DEFS.filter(d => mf.scope === 'center' || !d.supervisorOnly)
+  const visibleRoles  = ROLE_DEFS.filter(r => mf.scope === 'center' || !r.supervisorOnly)
+
   return (
     <div>
       <div className="mb-6">
@@ -183,7 +300,7 @@ export default function ClinicDetail() {
             )}
             <button onClick={() => { setPlanModal(true); setSelectedPlan(clinic.plan) }} className="btn-secondary text-xs">Change Plan</button>
             {clinic.status === 'active' && (
-              <button onClick={() => { setManagerModal(true); setManagerError(''); setManagerSuccess(null) }} className="btn-secondary text-xs">
+              <button onClick={openManagerModal} className="btn-secondary text-xs">
                 <UserPlus size={13} />Create Manager
               </button>
             )}
@@ -496,54 +613,223 @@ export default function ClinicDetail() {
 
       {/* Create Manager Modal */}
       {managerModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-sm p-6">
-            <h3 className="text-lg font-bold text-white mb-1">Create Health Center Manager</h3>
-            <p className="text-sm text-gray-400 mb-4">{clinic.name}</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-4 px-6 py-5 border-b border-gray-800">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-500/15 flex items-center justify-center shrink-0">
+                  <ShieldCheck size={20} style={{ color: ACCENT }} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white leading-tight">Create Health Center Manager</h3>
+                  <p className="text-sm text-gray-400 mt-0.5">{clinic.name}</p>
+                </div>
+              </div>
+              <button onClick={() => { setManagerModal(false); setManagerSuccess(null) }} className="text-gray-500 hover:text-white p-1 -m-1"><X size={20} /></button>
+            </div>
 
             {managerSuccess ? (
               <>
-                <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4 mb-4">
-                  <div className="text-green-400 font-semibold text-sm mb-2">Manager created: {managerSuccess.full_name}</div>
-                  <div className="text-xs text-gray-400 mb-1">Backend-generated temp password (shown once):</div>
-                  <div className="bg-gray-800 rounded-lg p-2 font-mono text-indigo-300 text-center tracking-widest select-all">
-                    {managerSuccess.temp_password || '(not returned by server)'}
+                <div className="flex-1 overflow-y-auto p-6 space-y-5">
+                  <div className="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4">
+                    <CheckCircle size={22} className="text-emerald-400 shrink-0" />
+                    <div>
+                      <div className="text-emerald-300 font-semibold">{managerSuccess.full_name} created</div>
+                      <div className="text-xs text-gray-400">{managerSuccess.scope_label || 'Health Center Manager'}{managerSuccess.department ? ` · ${managerSuccess.department}` : ''}</div>
+                    </div>
                   </div>
-                  <p className="text-xs text-amber-400 mt-2">Share privately — not stored in plain text after this.</p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="bg-gray-800/60 rounded-xl p-4">
+                      <div className="text-xs text-gray-500 mb-1">Username</div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-mono text-white text-sm select-all">{managerSuccess.username || '—'}</span>
+                        <button onClick={() => navigator.clipboard.writeText(managerSuccess.username || '')} className="text-gray-400 hover:text-white"><Copy size={14} /></button>
+                      </div>
+                    </div>
+                    <div className="bg-gray-800/60 rounded-xl p-4">
+                      <div className="text-xs text-gray-500 mb-1">Temporary password</div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-mono text-indigo-300 text-sm tracking-wider select-all">{managerSuccess.temp_password || '—'}</span>
+                        <button onClick={() => navigator.clipboard.writeText(managerSuccess.temp_password || '')} className="text-gray-400 hover:text-white"><Copy size={14} /></button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Delivery status */}
+                  <div className="space-y-2">
+                    <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Credential delivery</div>
+                    <div className="flex flex-wrap gap-2">
+                      {managerSuccess.email && (
+                        <span className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border ${managerSuccess.email_sent ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' : 'border-gray-700 bg-gray-800 text-gray-400'}`}>
+                          <Mail size={12} />{managerSuccess.email_sent ? `Emailed to ${managerSuccess.email}` : 'Email not sent (delivery off)'}
+                        </span>
+                      )}
+                      {managerSuccess.mobile && (
+                        <span className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border ${managerSuccess.sms_sent ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' : 'border-gray-700 bg-gray-800 text-gray-400'}`}>
+                          <Phone size={12} />{managerSuccess.sms_sent ? `Texted to ${managerSuccess.mobile}` : 'SMS not sent (delivery off)'}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-amber-400">Shown once — share privately. The manager must change this password on first login.</p>
+                  </div>
                 </div>
-                <div className="flex gap-3">
-                  <button onClick={() => { navigator.clipboard.writeText(managerSuccess.temp_password || '') }} className="btn-secondary flex-1 justify-center text-sm"><Copy size={13} />Copy</button>
-                  <button onClick={() => { setManagerModal(false); setManagerSuccess(null) }} className="btn-primary flex-1 justify-center text-sm">Done</button>
+                <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-800">
+                  <button onClick={() => navigator.clipboard.writeText(`Username: ${managerSuccess.username || ''}\nTemp password: ${managerSuccess.temp_password || ''}\nLogin: ${managerSuccess.login_url || ''}`)} className="btn-secondary justify-center text-sm"><Copy size={13} />Copy all</button>
+                  <button onClick={() => { setManagerModal(false); setManagerSuccess(null) }} className="btn-primary justify-center text-sm">Done</button>
                 </div>
               </>
             ) : (
-              <form onSubmit={handleCreateManager} className="space-y-3">
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1">Full Name *</label>
-                  <input required className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500"
-                    placeholder="Office Manager Name" value={managerForm.full_name}
-                    onChange={e => setManagerForm(f => ({ ...f, full_name: e.target.value }))} />
+              <>
+                <div className="flex-1 overflow-y-auto px-6 py-5">
+                  <form id="mgr-form" onSubmit={handleCreateManager} className="space-y-6">
+                    {/* Access level */}
+                    <section>
+                      <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Access level</div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {[
+                          { key: 'center',     icon: ShieldCheck, title: 'Health Center Supervisor', desc: 'Whole center · manages all managers & staff' },
+                          { key: 'department', icon: Building2,    title: 'Health Center Manager',    desc: 'Scoped to one or more departments' },
+                        ].map(opt => (
+                          <button type="button" key={opt.key} onClick={() => setScope(opt.key)}
+                            className={`flex items-start gap-3 p-4 rounded-xl border text-left transition-all ${mf.scope === opt.key ? 'border-indigo-500 bg-indigo-500/10' : 'border-gray-700 hover:border-gray-600'}`}>
+                            <opt.icon size={18} className={mf.scope === opt.key ? 'text-indigo-300 mt-0.5' : 'text-gray-500 mt-0.5'} />
+                            <div>
+                              <div className={`text-sm font-semibold ${mf.scope === opt.key ? 'text-white' : 'text-gray-300'}`}>{opt.title}</div>
+                              <div className="text-xs text-gray-500 mt-0.5">{opt.desc}</div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                      {mf.scope === 'department' && (
+                        <div className="mt-3">
+                          <label className="block text-xs text-gray-400 mb-1">Department *</label>
+                          {departments.length > 0 ? (
+                            <select value={mf.department_id} onChange={e => setManagerForm(f => ({ ...f, department_id: e.target.value, department: departments.find(d => String(d.id) === e.target.value)?.name || '' }))}
+                              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500">
+                              <option value="">— Select department —</option>
+                              {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                            </select>
+                          ) : (
+                            <input value={mf.department} onChange={e => setManagerForm(f => ({ ...f, department: e.target.value }))}
+                              placeholder="e.g. Pharmacy, Laboratory, Front Desk"
+                              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500" />
+                          )}
+                        </div>
+                      )}
+                    </section>
+
+                    {/* Identity */}
+                    <section>
+                      <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Manager details</div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs text-gray-400 mb-1">Full name *</label>
+                          <input required value={mf.full_name} onChange={e => setManagerForm(f => ({ ...f, full_name: e.target.value }))}
+                            placeholder="e.g. Priya Sharma"
+                            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500" />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-400 mb-1">Designation</label>
+                          <div className="relative">
+                            <Briefcase size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                            <input value={mf.designation} onChange={e => setManagerForm(f => ({ ...f, designation: e.target.value }))}
+                              placeholder="e.g. Operations Lead"
+                              className="w-full pl-9 pr-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500" />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-400 mb-1">Email</label>
+                          <div className="relative">
+                            <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                            <input type="email" value={mf.email} onChange={e => setManagerForm(f => ({ ...f, email: e.target.value }))}
+                              placeholder="manager@healthcenter.com"
+                              className="w-full pl-9 pr-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500" />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-400 mb-1">Mobile</label>
+                          <div className="relative">
+                            <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                            <input inputMode="numeric" value={mf.mobile} onChange={e => onMobileChange(e.target.value)}
+                              placeholder="10-digit mobile"
+                              className={`w-full pl-9 pr-3 py-2 bg-gray-800 border rounded-lg text-white text-sm focus:outline-none ${mobileValid ? 'border-gray-700 focus:border-indigo-500' : 'border-red-500/60'}`} />
+                          </div>
+                          {!mobileValid && <p className="text-red-400 text-xs mt-1">Enter exactly 10 digits</p>}
+                        </div>
+                      </div>
+                      {noChannel && <p className="text-amber-400 text-xs mt-2">No email or mobile — the temp password will only be shown on the next screen.</p>}
+                    </section>
+
+                    {/* Permission template */}
+                    <section>
+                      <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Start from a template</div>
+                      <div className="flex flex-wrap gap-2">
+                        {MANAGER_TEMPLATES.map(t => (
+                          <button type="button" key={t.key} onClick={() => applyTemplate(t.key)} title={t.desc}
+                            className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${mf.template === t.key ? 'border-indigo-500 bg-indigo-500/10 text-white' : 'border-gray-700 text-gray-400 hover:border-gray-600'}`}>
+                            {t.label}
+                          </button>
+                        ))}
+                      </div>
+                    </section>
+
+                    {/* Modules */}
+                    <section>
+                      <div className="flex items-center gap-2 mb-2"><Layers size={13} className="text-gray-500" /><span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Apps this manager can open</span></div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {MODULE_DEFS.map(m => (
+                          <button type="button" key={m.key} onClick={() => toggleMap('modules', m.key)}
+                            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border text-sm text-left transition-all ${mf.modules[m.key] ? 'border-indigo-500 bg-indigo-500/10 text-white' : 'border-gray-700 text-gray-400 hover:border-gray-600'}`}>
+                            <span className={`w-4 h-4 rounded flex items-center justify-center shrink-0 ${mf.modules[m.key] ? 'bg-indigo-500' : 'border border-gray-600'}`}>{mf.modules[m.key] && <Check size={11} className="text-white" />}</span>
+                            {m.label}
+                          </button>
+                        ))}
+                      </div>
+                    </section>
+
+                    {/* Duties */}
+                    <section>
+                      <div className="flex items-center gap-2 mb-2"><ShieldCheck size={13} className="text-gray-500" /><span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Duties this manager can perform</span></div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {visibleDuties.map(d => (
+                          <button type="button" key={d.key} onClick={() => toggleMap('duties', d.key)}
+                            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border text-sm text-left transition-all ${mf.duties[d.key] ? 'border-indigo-500 bg-indigo-500/10 text-white' : 'border-gray-700 text-gray-400 hover:border-gray-600'}`}>
+                            <span className={`w-4 h-4 rounded flex items-center justify-center shrink-0 ${mf.duties[d.key] ? 'bg-indigo-500' : 'border border-gray-600'}`}>{mf.duties[d.key] && <Check size={11} className="text-white" />}</span>
+                            {d.label}{d.supervisorOnly && <span className="ml-auto text-[10px] uppercase tracking-wide text-indigo-400/70">supervisor</span>}
+                          </button>
+                        ))}
+                      </div>
+                    </section>
+
+                    {/* Manageable roles */}
+                    <section>
+                      <div className="flex items-center gap-2 mb-2"><Users size={13} className="text-gray-500" /><span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Staff roles this manager can create</span></div>
+                      <div className="flex flex-wrap gap-2">
+                        {visibleRoles.map(r => (
+                          <button type="button" key={r.key} onClick={() => toggleRole(r.key)}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${mf.manageable_roles.includes(r.key) ? 'border-indigo-500 bg-indigo-500/10 text-white' : 'border-gray-700 text-gray-400 hover:border-gray-600'}`}>
+                            {mf.manageable_roles.includes(r.key) && <Check size={11} />}{r.label}
+                          </button>
+                        ))}
+                      </div>
+                    </section>
+
+                    {managerError && <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{managerError}</p>}
+                  </form>
                 </div>
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1">Email</label>
-                  <input type="email" className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500"
-                    placeholder="manager@healthcenter.com" value={managerForm.email}
-                    onChange={e => setManagerForm(f => ({ ...f, email: e.target.value }))} />
+                {/* Footer */}
+                <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-gray-800">
+                  <div className="text-xs text-gray-500">{Object.values(mf.modules).filter(Boolean).length} apps · {Object.values(mf.duties).filter(Boolean).length} duties · {mf.manageable_roles.length} roles</div>
+                  <div className="flex gap-3">
+                    <button type="button" onClick={() => setManagerModal(false)} className="btn-secondary justify-center text-sm">Cancel</button>
+                    <button type="submit" form="mgr-form" disabled={managerSaving || !canCreate} className="btn-primary justify-center text-sm disabled:opacity-50">
+                      {managerSaving ? 'Creating…' : 'Create Manager'}
+                    </button>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1">Mobile</label>
-                  <input className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500"
-                    placeholder="10-digit mobile" value={managerForm.mobile}
-                    onChange={e => setManagerForm(f => ({ ...f, mobile: e.target.value }))} />
-                </div>
-                {managerError && <p className="text-red-400 text-xs">{managerError}</p>}
-                <div className="flex gap-3 pt-1">
-                  <button type="button" onClick={() => setManagerModal(false)} className="btn-secondary flex-1 justify-center text-sm">Cancel</button>
-                  <button type="submit" disabled={managerSaving} className="btn-primary flex-1 justify-center text-sm">
-                    {managerSaving ? 'Creating…' : 'Create'}
-                  </button>
-                </div>
-              </form>
+              </>
             )}
           </div>
         </div>
