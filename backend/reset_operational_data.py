@@ -46,8 +46,8 @@ PRESERVE = {
     "medical_terms", "imaging_catalog",
     # mixed: reference rows kept (branch_id IS NULL), demo branch rows deleted below
     "lab_tests",
-    # platform reference
-    "specialties", "bh_state_groups", "plans", "platform_settings",
+    # platform reference (platform_admins preserved so the operator is never locked out)
+    "specialties", "bh_state_groups", "plans", "platform_settings", "platform_admins",
     # form templates / definitions (keep ALL — globalized into a clinic-agnostic library)
     "assessment_forms", "assessment_form_versions", "assessment_templates",
     "form_templates",
@@ -213,13 +213,21 @@ def main():
         # clear demo sentinel so the (now-gated) clinical demo seed stays off
         db.execute(text("DELETE FROM platform_settings WHERE key = :k"), {"k": DEMO_SENTINEL_KEY})
 
-        # recreate exactly one platform superadmin from env
-        db.add(PlatformAdmin(
-            full_name="Platform Admin",
-            email=admin_email,
-            hashed_password=hash_password(admin_pw),
-            is_active=True,
-        ))
+        # Ensure exactly one platform superadmin survives. platform_admins is preserved
+        # (above), so this is an idempotent UPSERT — it never deletes the operator's only
+        # way in, and only resets the password when one is explicitly provided via env.
+        admin = db.query(PlatformAdmin).filter(PlatformAdmin.email == admin_email).first()
+        if admin:
+            admin.is_active = True
+            if os.getenv("SUPERADMIN_PASSWORD"):
+                admin.hashed_password = hash_password(admin_pw)
+        else:
+            db.add(PlatformAdmin(
+                full_name="Platform Admin",
+                email=admin_email,
+                hashed_password=hash_password(admin_pw),
+                is_active=True,
+            ))
         db.commit()
         print(f"[reset] platform superadmin ready: {admin_email}")
 
