@@ -461,7 +461,8 @@ def enter_result(
     payload: LabResultUpdate,
     db: Session = Depends(get_db), current: Staff = Depends(get_current_staff),
 ):
-    allowed = ['lab_technician', 'clinic_admin']
+    # 'lab_tech' and 'lab_technician' are both valid lab roles (see security.LAB_ROLES).
+    allowed = ['lab_technician', 'lab_tech', 'clinic_admin']
     if current.role not in allowed:
         raise HTTPException(status_code=403, detail="Access denied")
     # Verify the parent order belongs to this clinic before touching its items.
@@ -1488,7 +1489,7 @@ def create_imaging_template(
     current: Staff = Depends(get_current_staff),
 ):
     from app.models.models import ImagingReportTemplate
-    allowed = ['clinic_admin', 'radiologist', 'imaging_technician']
+    allowed = ['clinic_admin', 'radiologist', 'imaging_technician', 'imaging_tech']
     if current.role not in allowed:
         raise HTTPException(403, "Access denied")
     t = ImagingReportTemplate(
@@ -1513,7 +1514,7 @@ def update_imaging_template(
     current: Staff = Depends(get_current_staff),
 ):
     from app.models.models import ImagingReportTemplate
-    allowed = ['clinic_admin', 'radiologist', 'imaging_technician']
+    allowed = ['clinic_admin', 'radiologist', 'imaging_technician', 'imaging_tech']
     if current.role not in allowed:
         raise HTTPException(403, "Access denied")
     t = db.query(ImagingReportTemplate).filter(
@@ -1562,7 +1563,7 @@ def acquire_imaging_order(
     current: Staff = Depends(get_current_staff),
 ):
     from app.models.models import ImagingOrder
-    allowed = ['clinic_admin', 'imaging_technician']
+    allowed = ['clinic_admin', 'imaging_technician', 'imaging_tech']
     if current.role not in allowed:
         raise HTTPException(403, "Only imaging technicians or admins can acquire studies")
     order = db.query(ImagingOrder).filter(

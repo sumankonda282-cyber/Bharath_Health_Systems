@@ -355,7 +355,7 @@ def create_staff(
         mobile          = mobile,
         hashed_password = hash_password(body.get("password") or _generate_temp_password()),
         role            = body.get("role", "receptionist"),
-        is_active       = body.get("role") not in ['pharmacist', 'lab_technician', 'imaging_tech'],
+        is_active       = body.get("role") not in ['pharmacist', 'lab_technician', 'lab_tech', 'imaging_tech', 'imaging_technician'],
         designation              = body.get("designation"),
         department               = body.get("department"),
         ward                     = body.get("ward"),
