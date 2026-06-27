@@ -115,7 +115,7 @@ DEFAULT_PLAN_CONFIG = {
     },
 }
 
-ROLES_NEEDING_VERIFICATION = ['pharmacist', 'lab_technician', 'imaging_tech', 'nurse']
+ROLES_NEEDING_VERIFICATION = ['pharmacist', 'lab_technician', 'lab_tech', 'imaging_tech', 'imaging_technician', 'nurse']
 
 SUSPENSION_REASONS = [
     "license_cancelled",
