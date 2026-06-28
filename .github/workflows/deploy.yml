@@ -15,8 +15,11 @@ name: Deploy all portals
 # The three Vercel project IDs are already filled in from your account.
 
 on:
-  push:
-    branches: [main]
+  # Manual only — your existing merge-based auto-deploy stays the primary path.
+  # Run from the Actions tab → "Deploy all portals" → Run workflow if a portal
+  # ever fails to reflect and you want a clean rebuild + deploy of all 9.
+  # (To make it deploy automatically on every merge, add `push: { branches: [main] }`
+  #  here and set the 3 secrets + 6 Cloudflare project names below.)
   workflow_dispatch:
 
 env:

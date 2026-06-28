@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from jose import JWTError, jwt
 from app.db.session import get_db
 from app.core.config import settings
@@ -31,7 +32,32 @@ def get_current_patient(
     user = db.query(PatientUser).filter(PatientUser.id == int(user_id)).first()
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
+    # Active BH profile from the token (the patient currently selected in the portal).
+    # Stamped onto the principal so every data read can isolate per-patient — even when
+    # several patients share one phone / login.
+    user.active_profile_id = None
+    user.active_bh_id = None
+    _bhp = payload.get("bh_profile_id")
+    if _bhp:
+        _prof = db.query(BHProfile).filter(
+            BHProfile.id == int(_bhp), BHProfile.patient_user_id == user.id
+        ).first()
+        if _prof:
+            user.active_profile_id = _prof.id
+            user.active_bh_id = _prof.bh_id
     return user
+
+
+def _active_patient_ids(db, current):
+    """Patient rows for the ACTIVE BH profile only — never the whole phone/family.
+    Falls back to all of the user's patients only when the token carries no profile
+    (legacy tokens; the portal always sends one after login/switch)."""
+    q = db.query(Patient.id).filter(Patient.portal_user_id == current.id)
+    pid = getattr(current, "active_profile_id", None)
+    bhid = getattr(current, "active_bh_id", None)
+    if pid or bhid:
+        q = q.filter(or_(Patient.bhid_profile_id == pid, Patient.bh_id == bhid))
+    return [x for (x,) in q.all()]
 
 
 def get_current_patient_with_profile(
@@ -64,7 +90,17 @@ def portal_me(
 ):
     from datetime import date
     current, bh_profile = auth
-    patients = db.query(Patient).filter(Patient.portal_user_id == current.id).all()
+    all_patients = db.query(Patient).filter(Patient.portal_user_id == current.id).all()
+    # Isolate to the ACTIVE BH profile's patient rows so the Health-ID card never
+    # mixes demographics/clinical data from another patient sharing this phone/login.
+    if bh_profile:
+        patients = [
+            p for p in all_patients
+            if p.bhid_profile_id == bh_profile.id
+            or (bh_profile.bh_id and p.bh_id == bh_profile.bh_id)
+        ]
+    else:
+        patients = all_patients
 
     full_name = current.full_name or ""
     bh_id = None
@@ -74,7 +110,8 @@ def portal_me(
     elif patients:
         bh_id = patients[0].bh_id
 
-    # Patients for whom this user is registered as guardian
+    # Patients for whom this user is registered as guardian (keyed to the phone
+    # owner, returned as a separate labelled list — never merged into the card above)
     guardian_patients = db.query(Patient).filter(
         Patient.guardian_mobile == current.mobile
     ).all()
@@ -84,7 +121,7 @@ def portal_me(
             return (date.today() - p.date_of_birth).days // 365
         return None
 
-    # Pull patient profile fields from the first linked Patient record
+    # Pull patient profile fields from the ACTIVE profile's linked Patient record
     primary = patients[0] if patients else None
 
     return {
@@ -127,8 +164,7 @@ def portal_me(
 @router.get("/appointments")
 def portal_appointments(current=Depends(get_current_patient), db: Session = Depends(get_db)):
     from app.models.models import Appointment, DoctorProfile, Clinic, OnlineBooking
-    patients = db.query(Patient).filter(Patient.portal_user_id == current.id).all()
-    patient_ids = [p.id for p in patients]
+    patient_ids = _active_patient_ids(db, current)
 
     result = []
     converted_booking_ids = set()
@@ -158,12 +194,19 @@ def portal_appointments(current=Depends(get_current_patient), db: Session = Depe
                 "doctor_profile_id": a.doctor_id,
             })
 
-    # Online bookings made via the public website or this portal, matched by
-    # account or mobile number — visible even before the health center confirms
-    bookings = db.query(OnlineBooking).filter(
-        (OnlineBooking.patient_user_id == current.id) |
-        (OnlineBooking.patient_mobile == current.mobile)
-    ).order_by(OnlineBooking.booking_date.desc()).limit(50).all()
+    # Online bookings for the ACTIVE patient only — matched by their BH-ID
+    # (bh_id_ref), so a shared phone never leaks another patient's bookings.
+    # Visible even before the health center confirms.
+    _abh = getattr(current, "active_bh_id", None)
+    _bq = db.query(OnlineBooking)
+    if _abh:
+        _bq = _bq.filter(OnlineBooking.bh_id_ref == _abh)
+    else:
+        _bq = _bq.filter(
+            (OnlineBooking.patient_user_id == current.id) |
+            (OnlineBooking.patient_mobile == current.mobile)
+        )
+    bookings = _bq.order_by(OnlineBooking.booking_date.desc()).limit(50).all()
     for b in bookings:
         if b.id in converted_booking_ids:
             continue  # already shown as a clinic-confirmed appointment
@@ -207,9 +250,7 @@ def portal_clinical_history(current=Depends(get_current_patient), db: Session = 
         Appointment, DoctorProfile, Clinic, SoapNote, Vitals,
         Prescription, PrescriptionItem, LabOrder,
     )
-    patient_ids = [
-        p.id for p in db.query(Patient).filter(Patient.portal_user_id == current.id).all()
-    ]
+    patient_ids = _active_patient_ids(db, current)
     if not patient_ids:
         return {"visits": []}
 
@@ -310,9 +351,7 @@ async def portal_join_telehealth(
     from app.models.models import Appointment
     from app.api.v1.endpoints.telehealth import issue_join
 
-    patient_ids = [
-        p.id for p in db.query(Patient).filter(Patient.portal_user_id == current.id).all()
-    ]
+    patient_ids = _active_patient_ids(db, current)
     if not patient_ids:
         raise HTTPException(404, "Appointment not found")
     appt = db.query(Appointment).filter(
@@ -391,7 +430,7 @@ def portal_cancel_booking(
     # Try online booking first
     booking = db.query(OnlineBooking).filter(
         OnlineBooking.id == booking_id,
-        (OnlineBooking.patient_user_id == current.id) | (OnlineBooking.patient_mobile == current.mobile)
+        ((OnlineBooking.bh_id_ref == current.active_bh_id) if getattr(current, "active_bh_id", None) else ((OnlineBooking.patient_user_id == current.id) | (OnlineBooking.patient_mobile == current.mobile)))
     ).first()
     if booking:
         if booking.status in ('pending', 'confirmed', 'in_progress'):
@@ -408,8 +447,7 @@ def portal_cancel_appointment(
     db: Session = Depends(get_db),
 ):
     from app.models.models import Appointment, Patient
-    patients = db.query(Patient).filter(Patient.portal_user_id == current.id).all()
-    patient_ids = [p.id for p in patients]
+    patient_ids = _active_patient_ids(db, current)
     appt = db.query(Appointment).filter(
         Appointment.id == appointment_id,
         Appointment.patient_id.in_(patient_ids)
@@ -432,7 +470,7 @@ def portal_reschedule_booking(
     from app.models.models import OnlineBooking
     booking = db.query(OnlineBooking).filter(
         OnlineBooking.id == booking_id,
-        (OnlineBooking.patient_user_id == current.id) | (OnlineBooking.patient_mobile == current.mobile)
+        ((OnlineBooking.bh_id_ref == current.active_bh_id) if getattr(current, "active_bh_id", None) else ((OnlineBooking.patient_user_id == current.id) | (OnlineBooking.patient_mobile == current.mobile)))
     ).first()
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")
@@ -449,8 +487,7 @@ def portal_reschedule_booking(
 @router.get("/prescriptions")
 def portal_prescriptions(current=Depends(get_current_patient), db: Session = Depends(get_db)):
     from app.models.models import Prescription, DoctorProfile, Clinic
-    patients = db.query(Patient).filter(Patient.portal_user_id == current.id).all()
-    patient_ids = [p.id for p in patients]
+    patient_ids = _active_patient_ids(db, current)
     if not patient_ids:
         return {"prescriptions": []}
     prescriptions = db.query(Prescription).filter(
@@ -476,8 +513,7 @@ def portal_prescriptions(current=Depends(get_current_patient), db: Session = Dep
 @router.get("/bills")
 def portal_bills(current=Depends(get_current_patient), db: Session = Depends(get_db)):
     from app.models.models import Invoice, Clinic, Appointment, DoctorProfile, Staff
-    patients = db.query(Patient).filter(Patient.portal_user_id == current.id).all()
-    patient_ids = [p.id for p in patients]
+    patient_ids = _active_patient_ids(db, current)
     if not patient_ids:
         return {"bills": []}
     invoices = db.query(Invoice).filter(
@@ -524,8 +560,7 @@ def portal_bills(current=Depends(get_current_patient), db: Session = Depends(get
 @router.get("/lab-results")
 def portal_lab_results(current=Depends(get_current_patient), db: Session = Depends(get_db)):
     from app.models.models import LabOrder, LabResult, Staff, Clinic
-    patients = db.query(Patient).filter(Patient.portal_user_id == current.id).all()
-    patient_ids = [p.id for p in patients]
+    patient_ids = _active_patient_ids(db, current)
     if not patient_ids:
         return {"lab_results": []}
     orders = db.query(LabOrder).filter(
@@ -565,8 +600,7 @@ def portal_imaging_results(current=Depends(get_current_patient), db: Session = D
         'PT': 'PET Scan', 'MG': 'Mammography', 'RF': 'Fluoroscopy',
         'XA': 'Angiography', 'OT': 'Other',
     }
-    patients = db.query(Patient).filter(Patient.portal_user_id == current.id).all()
-    patient_ids = [p.id for p in patients]
+    patient_ids = _active_patient_ids(db, current)
     if not patient_ids:
         return {"imaging_results": []}
     orders = db.query(ImagingOrder).filter(
@@ -617,9 +651,8 @@ def update_profile(
         current.preferred_language = body["preferred_language"]
     db.commit()
 
-    patient = db.query(Patient).filter(
-        Patient.portal_user_id == current.id
-    ).first()
+    _apids = _active_patient_ids(db, current)
+    patient = db.query(Patient).filter(Patient.id.in_(_apids)).first() if _apids else None
 
     if patient:
         if body.get("date_of_birth"):
@@ -716,10 +749,10 @@ def seed_demo_data(current: PatientUser = Depends(get_current_patient), db: Sess
     )
     from datetime import date, timedelta, datetime as _dt
 
-    patients = db.query(Patient).filter(Patient.portal_user_id == current.id).all()
-    if not patients:
+    _apids = _active_patient_ids(db, current)
+    patient = db.query(Patient).filter(Patient.id.in_(_apids)).first() if _apids else None
+    if not patient:
         raise HTTPException(status_code=404, detail="No linked patient profile found")
-    patient = patients[0]
 
     clinic = db.query(Clinic).first()
     if not clinic:

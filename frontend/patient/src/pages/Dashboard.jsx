@@ -8,20 +8,26 @@ import logoImg from '../assets/logo.png'
 
 function HistoryPinSection() {
   const [pin, setPin] = useState(null)
-  const [expiresAt, setExpiresAt] = useState(null)
   const [secondsLeft, setSecondsLeft] = useState(0)
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
   const [visible, setVisible] = useState(false)
   const timerRef = useRef(null)
 
+  // Backend sends naive UTC (datetime.utcnow). Mark it UTC so the countdown isn't
+  // skewed by the browser timezone (was showing ~5h instead of the real 60m).
+  const asUtc = (s) => new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(String(s)) ? s : s + 'Z')
+
   const startCountdown = (expiry) => {
     clearInterval(timerRef.current)
-    timerRef.current = setInterval(() => {
-      const secs = Math.max(0, Math.round((new Date(expiry) - Date.now()) / 1000))
+    const exp = asUtc(expiry)
+    const tick = () => {
+      const secs = Math.max(0, Math.round((exp - Date.now()) / 1000))
       setSecondsLeft(secs)
       if (secs === 0) { clearInterval(timerRef.current); setVisible(false) }
-    }, 1000)
+    }
+    tick()
+    timerRef.current = setInterval(tick, 1000)
   }
 
   const generate = async () => {
@@ -30,7 +36,6 @@ function HistoryPinSection() {
       const res = await api.post('/portal/pin/generate')
       const data = res?.data || res
       setPin(data.pin)
-      setExpiresAt(data.expires_at)
       setVisible(false)
       startCountdown(data.expires_at)
     } catch { /* silent */ } finally {
@@ -41,9 +46,8 @@ function HistoryPinSection() {
   useEffect(() => {
     api.get('/portal/pin').then(res => {
       const data = res?.data || res
-      if (data?.pin && data?.expires_at && new Date(data.expires_at) > new Date()) {
+      if (data?.pin && data?.expires_at && asUtc(data.expires_at) > new Date()) {
         setPin(data.pin)
-        setExpiresAt(data.expires_at)
         startCountdown(data.expires_at)
       }
     }).catch(() => {})
@@ -53,71 +57,43 @@ function HistoryPinSection() {
   const expired = secondsLeft === 0 && pin
   const mins = Math.floor(secondsLeft / 60)
   const secs = secondsLeft % 60
-  // warn when under 5 minutes
-  const timerColor = secondsLeft < 300 ? '#f87171' : '#86efac'
+  const timerColor = secondsLeft < 300 ? '#f87171' : '#86efac'  // warn under 5 min
 
+  // Compact single-row PIN strip — small footprint on the card.
   return (
-    <div className="mt-5 pt-4 border-t border-white/10">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <ShieldCheck size={14} style={{ color: '#fbbf24' }} />
-          <span className="text-xs font-semibold" style={{ color: '#93c5fd' }}>Clinical History Access PIN</span>
-        </div>
-        <button
-          onClick={generate}
-          disabled={loading}
-          className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-opacity disabled:opacity-50"
-          style={{ background: 'rgba(245,130,30,0.2)', color: '#fbbf24' }}
-        >
-          <RefreshCw size={11} className={loading ? 'animate-spin' : ''} />
-          {pin ? 'New PIN' : 'Generate PIN'}
-        </button>
-      </div>
+    <div className="mt-3 pt-3 border-t border-white/10">
+      <div className="flex items-center gap-2 flex-wrap">
+        <ShieldCheck size={13} style={{ color: '#fbbf24' }} />
+        <span className="text-xs font-semibold" style={{ color: '#93c5fd' }}>History PIN</span>
 
-      {pin && !expired ? (
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-3xl font-extrabold tracking-[0.25em] font-mono" style={{ color: '#F5821E' }}>
-              {visible ? pin : '●  ●  ●  ●  ●  ●'}
+        {pin && !expired ? (
+          <>
+            <span className="text-base font-bold tracking-[0.18em] font-mono" style={{ color: '#F5821E' }}>
+              {visible ? pin : '••••••'}
             </span>
-            <button
-              onClick={() => setVisible(v => !v)}
-              className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
-              title={visible ? 'Hide PIN' : 'Show PIN'}
-            >
-              {visible ? <EyeOff size={14} style={{ color: '#93c5fd' }} /> : <Eye size={14} style={{ color: '#93c5fd' }} />}
+            <button onClick={() => setVisible(v => !v)} className="p-1 rounded-lg hover:bg-white/10 transition-colors" title={visible ? 'Hide PIN' : 'Show PIN'}>
+              {visible ? <EyeOff size={13} style={{ color: '#93c5fd' }} /> : <Eye size={13} style={{ color: '#93c5fd' }} />}
             </button>
             {visible && (
-              <button
-                onClick={() => { navigator.clipboard.writeText(pin); setCopied(true); setTimeout(() => setCopied(false), 1500) }}
-                className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
-              >
-                {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} style={{ color: '#93c5fd' }} />}
+              <button onClick={() => { navigator.clipboard.writeText(pin); setCopied(true); setTimeout(() => setCopied(false), 1500) }} className="p-1 rounded-lg hover:bg-white/10 transition-colors">
+                {copied ? <Check size={13} className="text-green-400" /> : <Copy size={13} style={{ color: '#93c5fd' }} />}
               </button>
             )}
-          </div>
-          <div className="text-right">
-            <div className="text-xs font-mono font-semibold" style={{ color: timerColor }}>
-              {mins}:{String(secs).padStart(2, '0')}
-            </div>
-            <div className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>remaining</div>
-          </div>
-        </div>
-      ) : pin && expired ? (
-        <div>
-          <p className="text-xs mb-2" style={{ color: '#f87171' }}>PIN expired — generate a new one to share.</p>
-          <button onClick={generate} disabled={loading}
-            className="text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50"
-            style={{ background: 'rgba(245,130,30,0.25)', color: '#fbbf24' }}>
-            <RefreshCw size={11} className={`inline mr-1 ${loading ? 'animate-spin' : ''}`} />
-            Generate New PIN
-          </button>
-        </div>
-      ) : (
-        <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
-          Share this PIN + your BHID with a doctor at another health center to grant temporary access to your history.
-        </p>
-      )}
+            <span className="text-xs font-mono font-semibold" style={{ color: timerColor }}>{mins}:{String(secs).padStart(2, '0')} left</span>
+          </>
+        ) : (
+          <span className="text-[11px]" style={{ color: 'rgba(255,255,255,0.45)' }}>
+            {expired ? 'PIN expired.' : 'Generate a 60-min PIN to share with a doctor + your BHID.'}
+          </span>
+        )}
+
+        <button onClick={generate} disabled={loading}
+          className="ml-auto flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-opacity disabled:opacity-50"
+          style={{ background: 'rgba(245,130,30,0.2)', color: '#fbbf24' }}>
+          <RefreshCw size={11} className={loading ? 'animate-spin' : ''} />
+          {pin && !expired ? 'New PIN' : 'Generate PIN'}
+        </button>
+      </div>
     </div>
   )
 }
@@ -144,6 +120,28 @@ function calcAge(dob) {
   const m = today.getMonth() - birth.getMonth()
   if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--
   return age
+}
+
+// Plain label/value text field for the Health-ID card (no boxes, no chips).
+function InfoField({ label, value, tone }) {
+  const v = (value === null || value === undefined || value === '') ? null : value
+  const colors = { danger: '#fca5a5', warn: '#fbbf24' }
+  return (
+    <div>
+      <div className="text-[10px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: 'rgba(147,197,253,0.6)' }}>{label}</div>
+      <div className="text-sm font-semibold leading-snug break-words"
+        style={{ color: v ? (colors[tone] || '#ffffff') : 'rgba(255,255,255,0.35)' }}>
+        {v || 'Not provided'}
+      </div>
+    </div>
+  )
+}
+
+// Coerce allergies (free text) / chronic_conditions (array or text) to a clean comma string.
+const toText = (val) => {
+  if (Array.isArray(val)) return val.filter(Boolean).join(', ')
+  if (!val) return ''
+  return String(val).replace(/\n/g, ',').split(',').map(s => s.trim()).filter(Boolean).join(', ')
 }
 
 export default function Dashboard() {
@@ -225,87 +223,20 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Demographics row */}
-          {profile && (profile.date_of_birth || profile.gender || profile.blood_group || profile.phone || profile.address) && (
-            <>
-              <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {profile.date_of_birth && (
-                  <div className="rounded-xl px-3 py-2" style={{ background: 'rgba(255,255,255,0.06)' }}>
-                    <div className="text-[9px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: 'rgba(147,197,253,0.7)' }}>Age / DOB</div>
-                    <div className="text-xs font-bold text-white">
-                      {calcAge(profile.date_of_birth) !== null ? `${calcAge(profile.date_of_birth)} yrs` : '—'}
-                    </div>
-                    <div className="text-[10px]" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                      {new Date(profile.date_of_birth).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                    </div>
-                  </div>
-                )}
-                {profile.gender && (
-                  <div className="rounded-xl px-3 py-2" style={{ background: 'rgba(255,255,255,0.06)' }}>
-                    <div className="text-[9px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: 'rgba(147,197,253,0.7)' }}>Gender</div>
-                    <div className="text-xs font-bold text-white capitalize">{profile.gender}</div>
-                  </div>
-                )}
-                {profile.blood_group && (
-                  <div className="rounded-xl px-3 py-2" style={{ background: 'rgba(204,20,20,0.15)', border: '1px solid rgba(204,20,20,0.25)' }}>
-                    <div className="text-[9px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: 'rgba(252,165,165,0.8)' }}>Blood Group</div>
-                    <div className="text-sm font-extrabold" style={{ color: '#fca5a5' }}>{profile.blood_group}</div>
-                  </div>
-                )}
-                {profile.phone && (
-                  <div className="rounded-xl px-3 py-2" style={{ background: 'rgba(255,255,255,0.06)' }}>
-                    <div className="text-[9px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: 'rgba(147,197,253,0.7)' }}>Mobile</div>
-                    <div className="text-xs font-bold text-white">{profile.phone}</div>
-                  </div>
-                )}
-              </div>
-
-              {/* Address */}
-              {profile.address && (
-                <div className="mt-3 rounded-xl px-3 py-2" style={{ background: 'rgba(255,255,255,0.06)' }}>
-                  <div className="text-[9px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: 'rgba(147,197,253,0.7)' }}>Address</div>
-                  <div className="text-xs font-medium leading-snug text-white/90">
-                    {[profile.address, profile.city, profile.state, profile.pincode].filter(Boolean).join(', ')}
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-
-          {/* Allergies */}
-          {profile?.allergies && (
-            <div className="mt-3">
-              <div className="text-[9px] font-semibold uppercase tracking-wider mb-1" style={{ color: 'rgba(252,165,165,0.8)' }}>Allergies</div>
-              <div className="flex flex-wrap gap-1.5">
-                {String(profile.allergies).replace(/\n/g, ',').split(',').map(a => a.trim()).filter(Boolean).slice(0, 6).map((a, i) => (
-                  <span key={i} className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
-                    style={{ background: 'rgba(204,20,20,0.18)', color: '#fca5a5', border: '1px solid rgba(204,20,20,0.25)' }}>
-                    {a}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Chronic conditions */}
-          {profile?.chronic_conditions?.length > 0 && (
-            <div className="mt-3">
-              <div className="text-[9px] font-semibold uppercase tracking-wider mb-1" style={{ color: 'rgba(251,191,36,0.85)' }}>Chronic Conditions</div>
-              <div className="flex flex-wrap gap-1.5">
-                {profile.chronic_conditions.slice(0, 6).map((c, i) => (
-                  <span key={i} className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
-                    style={{ background: 'rgba(245,130,30,0.15)', color: '#fbbf24', border: '1px solid rgba(245,130,30,0.2)' }}>
-                    {c}
-                  </span>
-                ))}
-                {profile.chronic_conditions.length > 6 && (
-                  <span className="text-[10px] font-medium" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                    +{profile.chronic_conditions.length - 6} more
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
+          {/* Patient details — plain text, always shown */}
+          <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-3">
+            <InfoField label="Age / DOB" value={profile?.date_of_birth && calcAge(profile.date_of_birth) !== null
+              ? `${calcAge(profile.date_of_birth)} yrs · ${new Date(profile.date_of_birth).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`
+              : ''} />
+            <InfoField label="Gender" value={profile?.gender ? profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1) : ''} />
+            <InfoField label="Blood Group" value={profile?.blood_group} tone="danger" />
+            <InfoField label="Mobile" value={profile?.phone || profile?.mobile} />
+          </div>
+          <div className="mt-3 space-y-3">
+            <InfoField label="Address" value={[profile?.address, profile?.city, profile?.state, profile?.pincode].filter(Boolean).join(', ')} />
+            <InfoField label="Allergies" value={toText(profile?.allergies)} tone="danger" />
+            <InfoField label="Chronic Conditions" value={toText(profile?.chronic_conditions)} tone="warn" />
+          </div>
         </div>
 
         {/* PIN section */}
