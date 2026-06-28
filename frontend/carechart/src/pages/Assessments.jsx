@@ -49,67 +49,6 @@ function CatChip({ cat, small }) {
   )
 }
 
-// ── Fallback mock assessment library (used when API returns empty) ─────────────
-const MOCK_FORMS = [
-  { id: 'f1',  name: 'Vitals Assessment',            category: 'vitals',     subcategory: 'vital-signs',              status: 'published', is_template: true,  description: 'BP, HR, SpO₂, Temp, RR, Weight, Pain score', fields_count: 11, iview_enabled: true,  freq: '4-hourly' },
-  { id: 'f2',  name: 'Patient Details',              category: 'admission',  subcategory: 'patient-profile',          status: 'published', is_template: false, description: 'Demographics, contact, NOK, insurance details', fields_count: 18, iview_enabled: false, freq: null },
-  { id: 'f3',  name: 'Asthma Control Score (ACT)',   category: 'respiratory',subcategory: 'clinical-act',             status: 'published', is_template: false, description: 'Asthma Control Test — 5-item score (5–25)', fields_count: 5,  iview_enabled: false, freq: null },
-  { id: 'f4',  name: 'Glasgow Coma Scale (GCS)',     category: 'safety',     status: 'published', is_template: true,  description: 'Eye, Verbal, Motor scoring (3–15)', fields_count: 4,  iview_enabled: true,  freq: '4-hourly' },
-  { id: 'f5',  name: 'Morse Fall Risk Scale',        category: 'safety',     status: 'published', is_template: true,  description: '6-item fall risk — Low / Medium / High', fields_count: 7,  iview_enabled: false, freq: null },
-  { id: 'f6',  name: 'Comprehensive Pain Assessment',category: 'pain',       subcategory: 'pain-assessment',          status: 'published', is_template: true,  description: 'NRS 0–10, location, character, onset', fields_count: 9,  iview_enabled: false, freq: null },
-  { id: 'f7',  name: 'PHQ-9 Depression Screening',  category: 'mental',     status: 'published', is_template: true,  description: '9-item depression screening with scoring', fields_count: 10, iview_enabled: false, freq: null },
-  { id: 'f8',  name: 'GAD-7 Anxiety Screening',     category: 'mental',     status: 'published', is_template: true,  description: '7-item anxiety disorder screening', fields_count: 8,  iview_enabled: false, freq: null },
-  { id: 'f9',  name: 'Nursing Admission Assessment', category: 'nursing',    subcategory: 'systems-review-full',      status: 'published', is_template: true,  description: 'Full admission workup — history, systems, skin, orientation', fields_count: 24, iview_enabled: false, freq: null },
-  { id: 'f10', name: 'SOAP Note Structured',         category: 'general',    subcategory: 'systems-clinical-impression', status: 'published', is_template: true,  description: 'S-O-A-P clinical documentation', fields_count: 16, iview_enabled: false, freq: null },
-  { id: 'f11', name: 'Discharge Checklist',          category: 'discharge',  status: 'published', is_template: true,  description: 'Discharge summary, meds, instructions, follow-up', fields_count: 20, iview_enabled: false, freq: null, requires_cosign: true },
-  { id: 'f12', name: 'Pre-Operative Assessment',     category: 'surgery',    status: 'published', is_template: true,  description: 'ASA grade, anaesthesia plan, pre-op checklist', fields_count: 22, iview_enabled: false, freq: null, requires_cosign: true },
-  { id: 'f13', name: 'Wound & Pressure Injury',      category: 'general',    status: 'published', is_template: true,  description: 'Wound stage, measurements, exudate, dressing', fields_count: 14, iview_enabled: true,  freq: '24-hourly' },
-  { id: 'f14', name: 'Braden Scale',                 category: 'safety',     status: 'published', is_template: true,  description: 'Pressure injury risk — 6 subscales', fields_count: 7,  iview_enabled: false, freq: null },
-  { id: 'f15', name: 'Fluid Balance / I-O Chart',    category: 'nursing',    status: 'published', is_template: true,  description: 'Intake (oral/IV) and output (urine/drain)', fields_count: 10, iview_enabled: true,  freq: 'shift' },
-  { id: 'f16', name: 'APGAR Score',                  category: 'vitals',     status: 'published', is_template: true,  description: 'Neonatal assessment at 1 and 5 minutes', fields_count: 6,  iview_enabled: false, freq: null },
-]
-
-// ── Mock care form bundles ────────────────────────────────────────────────────
-const MOCK_CARE_FORMS = [
-  {
-    id: 'cf1', name: 'Post-Op Monitoring Bundle', color: '#7c3aed',
-    description: 'Standard post-operative patient monitoring across vitals, pain and wound.',
-    used_count: 6, published: true,
-    forms: [
-      { form_id: 'f1', name: 'Vitals Assessment',             freq: 'Every 1h',  condition: null },
-      { form_id: 'f6', name: 'Comprehensive Pain Assessment', freq: 'Every 4h',  condition: 'Always' },
-      { form_id: 'f13',name: 'Wound & Pressure Injury',       freq: 'Each shift',condition: 'IF Post-Op = Yes' },
-      { form_id: 'f4', name: 'Glasgow Coma Scale (GCS)',      freq: 'Every 4h',  condition: 'IF Anaesthesia = General' },
-    ],
-    alerts: ['IF Pain Score > 6 → Notify doctor', 'IF GCS < 13 → STAT alert'],
-  },
-  {
-    id: 'cf2', name: 'Admission Assessment Bundle', color: GREEN,
-    description: 'Complete new admission workup — demographics through risk scoring.',
-    used_count: 14, published: true,
-    forms: [
-      { form_id: 'f2', name: 'Patient Details',              freq: 'Once',       condition: null },
-      { form_id: 'f9', name: 'Nursing Admission Assessment', freq: 'Once',       condition: null },
-      { form_id: 'f4', name: 'Glasgow Coma Scale (GCS)',     freq: 'Once',       condition: 'IF Neuro complaint' },
-      { form_id: 'f5', name: 'Morse Fall Risk Scale',        freq: 'Once',       condition: null },
-      { form_id: 'f14',name: 'Braden Scale',                 freq: 'Once',       condition: null },
-      { form_id: 'f6', name: 'Comprehensive Pain Assessment',freq: 'Once',       condition: null },
-    ],
-    alerts: ['IF Morse > 45 → Fall prevention protocol', 'IF Braden < 12 → Pressure care'],
-  },
-  {
-    id: 'cf3', name: 'Respiratory Assessment Bundle', color: '#2563eb',
-    description: 'For asthma and COPD patients — control score, peak flow, O₂ monitoring.',
-    used_count: 3, published: false,
-    forms: [
-      { form_id: 'f3', name: 'Asthma Control Score (ACT)', freq: 'Daily',      condition: 'IF Diagnosis = Asthma' },
-      { form_id: 'f1', name: 'Vitals Assessment',           freq: 'Every 2h',  condition: null },
-      { form_id: 'f15',name: 'Fluid Balance / I-O Chart',   freq: 'Each shift',condition: null },
-    ],
-    alerts: ['IF ACT < 15 → Escalate treatment', 'IF SpO₂ < 92% → Immediate review'],
-  },
-]
-
 // ── OPERATOR labels ────────────────────────────────────────────────────────────
 const OPERATORS = ['equals', 'not equals', 'greater than', 'less than', 'contains', 'is filled', 'is empty']
 const ACTIONS   = ['Show next form', 'Skip next form', 'Trigger alert', 'Notify doctor', 'Mark STAT']
@@ -606,12 +545,12 @@ export default function Assessments() {
       ])
       const poolData = fPool.status  === 'fulfilled' ? (fPool.value?.forms || []) : []
       const cfData   = cForms.status === 'fulfilled' ? (Array.isArray(cForms.value) ? cForms.value : (cForms.value?.items || [])) : []
-      setForms(poolData.length ? poolData : MOCK_FORMS)
-      setCareForms(cfData.length ? cfData : MOCK_CARE_FORMS)
+      setForms(poolData.length ? poolData : [])
+      setCareForms(cfData.length ? cfData : [])
       setSubmissions([])
     } catch {
-      setForms(MOCK_FORMS)
-      setCareForms(MOCK_CARE_FORMS)
+      setForms([])
+      setCareForms([])
     } finally { setLoading(false) }
   }, [session?.ward?.id])
 
@@ -911,7 +850,7 @@ export default function Assessments() {
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto"
           style={{ background: 'rgba(0,0,0,0.45)' }}
           onClick={e => { if (e.target === e.currentTarget) setOpenForm(null) }}>
-          <div className="relative w-full max-w-3xl mx-4 my-8 bg-white rounded-2xl shadow-2xl flex flex-col">
+          <div className="relative w-full max-w-[1100px] w-[70vw] mx-4 my-8 bg-white rounded-2xl shadow-2xl flex flex-col">
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-3.5 border-b" style={{ borderColor: '#e9eaec' }}>
               <div className="flex items-center gap-2">

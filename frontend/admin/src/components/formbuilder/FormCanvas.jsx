@@ -19,7 +19,7 @@ import {
   Table, User, Minus, FileText, RefreshCw, PenLine, Camera, Paperclip,
   GripVertical, X, Eye, EyeOff, Clipboard, Plus, ChevronUp, ChevronRight,
   Search, Users, Pill, BookOpen, AlertTriangle, Scissors, ToggleLeft,
-  BarChart2, LayoutGrid, Sliders, Activity, Layers, Ban,
+  BarChart2, LayoutGrid, Sliders, Activity, Layers, Ban, MapPin,
 } from 'lucide-react'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -50,6 +50,7 @@ function getFieldTypeIcon(type, size = 16) {
     allergy_search:    <AlertTriangle {...props} />,
     procedure_search:  <Scissors {...props} />,
     lab_test_search:   <FlaskConical {...props} />,
+    body_site_search:  <MapPin {...props} />,
     snomed:            <Stethoscope {...props} />,
     loinc:             <FlaskConical {...props} />,
     table:             <Table {...props} />,

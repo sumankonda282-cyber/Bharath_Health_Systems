@@ -89,6 +89,7 @@ function makeField(type) {
     allergy_search:    { placeholder: 'Search allergy…', multi_select: true, include_severity: false, include_reaction: false },
     procedure_search:  { placeholder: 'Search procedure / CPT…', multi_select: true, procedure_standard: 'any' },
     lab_test_search:   { placeholder: 'Search lab test…', multi_select: true, include_result: false },
+    body_site_search:  { placeholder: 'Search body site…', multi_select: false, search_category: 'anatomy' },
     matrix: {
       matrix_rows: [{ label: 'Row 1', value: 'row_1' }],
       matrix_cols: [{ label: 'Col 1', value: 'col_1' }, { label: 'Col 2', value: 'col_2' }],

@@ -5,7 +5,7 @@ import {
   Table, User, Minus, FileText, RefreshCw, PenLine, Camera, Paperclip,
   Clipboard, Eye, Bell, X, ChevronUp, ChevronRight, Plus, Lock, EyeOff,
   Search, Users, Pill, BookOpen, AlertTriangle, Scissors,
-  ToggleLeft, BarChart2, LayoutGrid, Sliders, Activity, Layers, Ban, Columns,
+  ToggleLeft, BarChart2, LayoutGrid, Sliders, Activity, Layers, Ban, Columns, MapPin,
 } from 'lucide-react'
 
 // ─── Field type icon map ──────────────────────────────────────────────────────
@@ -36,6 +36,7 @@ function getFieldTypeIcon(type, size = 16) {
     allergy_search:    <AlertTriangle {...props} />,
     procedure_search:  <Scissors {...props} />,
     lab_test_search:   <FlaskConical {...props} />,
+    body_site_search:  <MapPin {...props} />,
     snomed:            <Stethoscope {...props} />,
     loinc:             <FlaskConical {...props} />,
     table:             <Table {...props} />,
@@ -1094,6 +1095,21 @@ function TypeSpecificProps({ field, sectionId, dispatch, allFields }) {
         </PropRow>
         <Toggle value={field.multi_select !== false} onChange={v => set('multi_select', v)} label="Allow multiple tests" />
         <Toggle value={field.include_result || false} onChange={v => set('include_result', v)} label="Include result entry sub-field" />
+      </>
+    )
+  }
+
+  // ── body_site_search ──────────────────────────────────────────────────────
+  if (type === 'body_site_search') {
+    return (
+      <>
+        <PropRow label="Placeholder Text">
+          <input className={inputCls} value={field.placeholder || 'Search body site…'} onChange={e => set('placeholder', e.target.value)} />
+        </PropRow>
+        <PropRow label="Search Category">
+          <input className={inputCls} value={field.search_category || 'anatomy'} onChange={e => set('search_category', e.target.value)} />
+        </PropRow>
+        <Toggle value={field.multi_select || false} onChange={v => set('multi_select', v)} label="Allow multiple sites" />
       </>
     )
   }
