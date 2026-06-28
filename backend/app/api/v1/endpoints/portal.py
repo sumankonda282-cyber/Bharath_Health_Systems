@@ -100,6 +100,16 @@ def portal_me(
         "gender": primary.gender if primary else None,
         "blood_group": primary.blood_group if primary else None,
         "address": primary.address if primary else None,
+        "city": primary.city if primary else None,
+        "state": primary.state if primary else None,
+        "pincode": primary.pincode if primary else None,
+        # Patient's contact number — the card/UI reads `phone`; fall back to the login mobile.
+        "phone": (primary.mobile if (primary and primary.mobile) else current.mobile),
+        "allergies": primary.allergies if primary else None,
+        "chronic_conditions": (
+            [s.strip() for s in str(primary.chronic_conditions or "").replace("\n", ",").split(",") if s.strip()]
+            if primary else []
+        ),
         "emergency_contact_name": primary.emergency_contact_name if primary else None,
         "emergency_contact_phone": primary.emergency_contact_phone if primary else None,
         "guardian_of": [
@@ -627,6 +637,8 @@ def update_profile(
             patient.emergency_contact_name = body["emergency_contact_name"]
         if body.get("allergies"):
             patient.allergies = body["allergies"]
+        if body.get("chronic_conditions") is not None:
+            patient.chronic_conditions = body["chronic_conditions"]
         if body.get("address"):
             patient.address = body["address"]
         if body.get("abha_id"):

@@ -131,6 +131,7 @@ safe_cols = [
     \"ALTER TABLE patients ADD COLUMN IF NOT EXISTS govt_scheme_name VARCHAR(150)\",
     \"ALTER TABLE patients ADD COLUMN IF NOT EXISTS govt_beneficiary_id VARCHAR(100)\",
     \"ALTER TABLE patients ADD COLUMN IF NOT EXISTS emergency_contact_relationship VARCHAR(50)\",
+    \"ALTER TABLE patients ADD COLUMN IF NOT EXISTS chronic_conditions TEXT\",
     \"ALTER TABLE appointments ADD COLUMN IF NOT EXISTS telehealth_room VARCHAR(100)\",
     \"ALTER TABLE appointments ADD COLUMN IF NOT EXISTS mode VARCHAR(50) DEFAULT 'offline'\",
     \"ALTER TABLE staff ADD COLUMN IF NOT EXISTS username VARCHAR(30)\",
