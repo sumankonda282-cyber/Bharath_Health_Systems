@@ -3548,7 +3548,7 @@ SYSTEMS = [
         ),
     },
     {
-        'title': 'Systems Review',
+        'title': 'Review of Systems (Comprehensive)',
         'desc': 'Complete review of systems for comprehensive clinical documentation.',
         'cat': 'systems', 'sub': 'systems-review-full', 'icon': '📝',
         'schema': S(
