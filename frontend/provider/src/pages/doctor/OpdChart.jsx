@@ -14,8 +14,6 @@ import DbAssessmentFormModal from '../inpatient/DbAssessmentFormModal'
 import { extractOrdersFromForm, mergeOrders } from './formOrders'
 
 const BLUE = '#0F2557'
-const BLUE_LIGHT = '#eff6ff'
-const BLUE_BORDER = '#bfdbfe'
 
 const NAV = [
   { key: 'chart',         label: 'Patient Chart',       Icon: ClipboardList },
@@ -44,49 +42,143 @@ const fmt12 = (t) => {
 }
 
 // ── Past Visits ───────────────────────────────────────────────────
+// Previous Visits — a collapsed bar that opens a table of every prior encounter
+// (OPD visits + inpatient admissions) for this patient. A row expands to the full
+// visit (SOAP/vitals/Rx/labs) just like the live chart; an admission expands to its
+// discharge summary. Other doctors' OPD notes stay PIN-gated.
 function PastVisits({ patientId }) {
-  const [visits, setVisits] = useState([])
-  const [loaded, setLoaded] = useState(false)
-  const [expanded, setExpanded] = useState(false)
-  const [expandedVisit, setExpandedVisit] = useState(null)
-  const [pinTarget, setPinTarget] = useState(null)
-  const [pin, setPin] = useState('')
-  const [pinError, setPinError] = useState('')
-  const [unlocked, setUnlocked] = useState(new Set())
-  const [verifying, setVerifying] = useState(false)
+  const [visits, setVisits]         = useState([])   // OPD encounters
+  const [admissions, setAdmissions] = useState([])   // inpatient stays
+  const [loaded, setLoaded]         = useState(false)
+  const [expanded, setExpanded]     = useState(false)
+  const [openKey, setOpenKey]       = useState(null)
+  const [pinTarget, setPinTarget]   = useState(null)
+  const [pin, setPin]               = useState('')
+  const [pinError, setPinError]     = useState('')
+  const [unlocked, setUnlocked]     = useState(new Set())
+  const [verifying, setVerifying]   = useState(false)
+  const [discharge, setDischarge]   = useState({})   // admissionId → summary | 'loading' | 'none'
 
   useEffect(() => {
     if (!patientId || loaded) return
-    doctorApi.getPatientVisits(patientId, 10)
-      .then(r => setVisits(Array.isArray(r) ? r : []))
-      .catch(() => {})
-      .finally(() => setLoaded(true))
+    Promise.allSettled([
+      doctorApi.getPatientVisits(patientId, 20),
+      api.get('/inpatient/admissions', { params: { patient_id: patientId, status: 'active,discharge_pending,discharged,transferred' } }),
+    ]).then(([vRes, aRes]) => {
+      setVisits(vRes.status === 'fulfilled' && Array.isArray(vRes.value) ? vRes.value : [])
+      setAdmissions(aRes.status === 'fulfilled' && Array.isArray(aRes.value) ? aRes.value : [])
+    }).finally(() => setLoaded(true))
   }, [patientId, loaded])
+
+  // Single-clinic provider context: every row shares this health center.
+  const clinicName = visits.find(v => v.clinic_name)?.clinic_name || ''
+  const rows = [
+    ...visits.map(v => ({
+      kind: 'opd', id: v.id, date: v.date || '',
+      patient_name: v.patient_name, doctor_name: v.doctor_name,
+      clinic_name: v.clinic_name || clinicName, reason: v.reason, is_mine: v.is_mine, raw: v,
+    })),
+    ...admissions.map(a => ({
+      kind: 'ipd', id: a.id,
+      date: a.admission_date || (a.admitted_at ? String(a.admitted_at).slice(0, 10) : ''),
+      patient_name: a.patient_name, doctor_name: a.doctor, clinic_name: clinicName,
+      reason: a.diagnosis || a.primary_diagnosis || 'Inpatient admission', is_mine: true, raw: a,
+    })),
+  ].sort((x, y) => String(y.date).localeCompare(String(x.date)))
+
+  const keyOf    = (r) => `${r.kind}:${r.id}`
+  const isLocked = (r) => r.kind === 'opd' && !r.is_mine && !unlocked.has(keyOf(r))
+
+  const loadDischarge = (admissionId) => {
+    setDischarge(d => ({ ...d, [admissionId]: 'loading' }))
+    api.get(`/inpatient/admissions/${admissionId}/discharge-summary`)
+      .then(r => setDischarge(d => ({ ...d, [admissionId]: (r && (r.id || r.admission_id)) ? r : 'none' })))
+      .catch(() => setDischarge(d => ({ ...d, [admissionId]: 'none' })))
+  }
+
+  const handleRowClick = (r) => {
+    const k = keyOf(r)
+    if (isLocked(r)) { setPinTarget(pinTarget === k ? null : k); setPinError(''); setPin(''); return }
+    const opening = openKey !== k
+    setOpenKey(opening ? k : null)
+    if (opening && r.kind === 'ipd' && discharge[r.id] === undefined) loadDischarge(r.id)
+  }
 
   const handleVerifyPin = async () => {
     if (!pin || pin.length < 4) { setPinError('Enter your 4–6 digit PIN'); return }
-    setVerifying(true)
-    setPinError('')
+    setVerifying(true); setPinError('')
     try {
       await api.post('/auth/staff/pin-verify', { pin })
       setUnlocked(prev => new Set([...prev, pinTarget]))
-      setExpandedVisit(pinTarget)
-      setPinTarget(null)
-      setPin('')
+      setOpenKey(pinTarget); setPinTarget(null); setPin('')
     } catch {
       setPinError('Incorrect PIN. Please try again.')
     } finally { setVerifying(false) }
   }
 
-  const handleVisitClick = (v) => {
-    if (pinTarget === v.id) { setPinTarget(null); return }
-    if (v.is_mine || unlocked.has(v.id)) {
-      setExpandedVisit(expandedVisit === v.id ? null : v.id)
-    } else {
-      setPinTarget(v.id)
-      setPinError('')
-      setPin('')
-    }
+  const renderOpd = (v) => (
+    <div className="p-3 bg-gray-50 text-xs text-gray-600 space-y-2">
+      {v.vitals && (
+        <div className="flex flex-wrap gap-x-4 gap-y-1">
+          {v.vitals.bp && <span><strong>BP:</strong> {v.vitals.bp}</span>}
+          {v.vitals.pulse && <span><strong>Pulse:</strong> {v.vitals.pulse}</span>}
+          {v.vitals.temperature && <span><strong>Temp:</strong> {v.vitals.temperature}°</span>}
+          {v.vitals.spo2 && <span><strong>SpO₂:</strong> {v.vitals.spo2}%</span>}
+          {v.vitals.weight_kg && <span><strong>Wt:</strong> {v.vitals.weight_kg} kg</span>}
+          {v.vitals.blood_sugar && <span><strong>Sugar:</strong> {v.vitals.blood_sugar}</span>}
+        </div>
+      )}
+      {v.soap?.subjective && <div><strong>S:</strong> {v.soap.subjective}</div>}
+      {v.soap?.objective  && <div><strong>O:</strong> {v.soap.objective}</div>}
+      {v.soap?.assessment && <div><strong>A:</strong> {v.soap.assessment}</div>}
+      {v.soap?.plan       && <div><strong>P:</strong> {v.soap.plan}</div>}
+      {v.prescriptions?.length > 0 && (
+        <div><strong>Rx:</strong> {v.prescriptions.flatMap(p => (p.items || []).map(i => i.medicine_name)).filter(Boolean).join(', ') || '—'}</div>
+      )}
+      {v.lab_orders?.length > 0 && (
+        <div><strong>Labs:</strong> {v.lab_orders.flatMap(l => (l.items || []).map(i => i.test_name)).filter(Boolean).join(', ') || '—'}</div>
+      )}
+      {!v.vitals && !v.soap && !v.prescriptions?.length && !v.lab_orders?.length && (
+        <div className="text-gray-400">No clinical details recorded</div>
+      )}
+    </div>
+  )
+
+  const renderIpd = (admissionId, raw) => {
+    const d = discharge[admissionId]
+    if (d === 'loading' || d === undefined) return <div className="p-3 text-xs text-gray-400">Loading discharge summary…</div>
+    if (d === 'none') return (
+      <div className="p-3 bg-gray-50 text-xs text-gray-600 space-y-1">
+        <div><strong>Admission:</strong> {raw.admission_number || '—'}{raw.department_name ? ` · ${raw.department_name}` : ''}{raw.ward_name ? ` · ${raw.ward_name}` : ''}</div>
+        <div><strong>Status:</strong> {(raw.status || '').replace('_', ' ')}</div>
+        {raw.diagnosis && <div><strong>Diagnosis:</strong> {raw.diagnosis}</div>}
+        <div className="text-gray-400 italic">No discharge summary recorded yet.</div>
+      </div>
+    )
+    let meds = []
+    try { meds = d.discharge_medications ? (typeof d.discharge_medications === 'string' ? JSON.parse(d.discharge_medications) : d.discharge_medications) : [] } catch { meds = [] }
+    return (
+      <div className="p-3 bg-gray-50 text-xs text-gray-600 space-y-1.5">
+        <div className="font-bold text-gray-700 uppercase tracking-wide text-[11px]">
+          Discharge Summary · {d.status === 'finalized' ? 'Finalized' : 'Draft'}
+        </div>
+        {d.final_diagnosis      && <div><strong>Final Diagnosis:</strong> {d.final_diagnosis}</div>}
+        {d.admission_diagnosis  && <div><strong>Admission Diagnosis:</strong> {d.admission_diagnosis}</div>}
+        {d.procedures_done      && <div><strong>Procedures:</strong> {d.procedures_done}</div>}
+        {d.hospital_course      && <div><strong>Hospital Course:</strong> {d.hospital_course}</div>}
+        {d.condition_at_discharge && <div><strong>Condition at Discharge:</strong> {d.condition_at_discharge}</div>}
+        {meds.length > 0 && (
+          <div><strong>Discharge Meds:</strong> {meds.map(m => [m.name, m.dose, m.frequency, m.duration].filter(Boolean).join(' ')).join('; ')}</div>
+        )}
+        {d.discharge_instructions && <div><strong>Instructions:</strong> {d.discharge_instructions}</div>}
+        {d.diet_advice          && <div><strong>Diet:</strong> {d.diet_advice}</div>}
+        {d.activity_restrictions && <div><strong>Activity:</strong> {d.activity_restrictions}</div>}
+        {(d.follow_up_date || d.follow_up_with) && (
+          <div><strong>Follow-up:</strong> {[d.follow_up_date, d.follow_up_with].filter(Boolean).join(' · ')}</div>
+        )}
+        {d.written_by_name && <div className="text-gray-400">By {d.written_by_name}</div>}
+      </div>
+    )
   }
 
   return (
@@ -97,89 +189,98 @@ function PastVisits({ patientId }) {
       >
         <span className="flex items-center gap-2">
           <Clock size={14} />
-          Past Visits
-          {visits.length > 0 && <span className="text-xs text-gray-400 font-normal">({visits.length})</span>}
+          Previous Visits
+          {rows.length > 0 && <span className="text-xs text-gray-400 font-normal">({rows.length})</span>}
         </span>
         {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
       </button>
 
       {expanded && (
-        <div className="divide-y divide-gray-50">
+        <div className="border border-gray-100 rounded-lg overflow-x-auto mb-2">
           {!loaded && <div className="p-3 text-center text-gray-400 text-xs">Loading…</div>}
-          {loaded && visits.length === 0 && (
+          {loaded && rows.length === 0 && (
             <div className="p-3 text-center text-gray-400 text-xs">No previous visits found</div>
           )}
-          {visits.map(v => (
-            <div key={v.id}>
-              <button
-                onClick={() => handleVisitClick(v)}
-                className="w-full flex items-center justify-between py-2.5 px-1 text-left hover:bg-gray-50 rounded-lg"
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  {!v.is_mine && !unlocked.has(v.id) && (
-                    <Lock size={12} className="text-gray-400 flex-shrink-0" />
-                  )}
-                  <div className="min-w-0">
-                    <div className="text-xs font-semibold text-gray-700 truncate">
-                      {v.date || '—'} · {v.doctor_name || 'Dr.'}
-                    </div>
-                    <div className="text-xs text-gray-400 truncate">{v.reason || 'No chief complaint'}</div>
-                  </div>
-                </div>
-                {(v.is_mine || unlocked.has(v.id))
-                  ? (expandedVisit === v.id ? <ChevronUp size={12} className="flex-shrink-0" /> : <ChevronDown size={12} className="flex-shrink-0" />)
-                  : <span className="text-xs text-blue-500 font-semibold flex-shrink-0">Unlock</span>}
-              </button>
-
-              {pinTarget === v.id && (
-                <div className="mb-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                  <p className="text-xs text-gray-600 mb-2 font-semibold">Enter your PIN to view this visit</p>
-                  <input
-                    type="password"
-                    inputMode="numeric"
-                    maxLength={6}
-                    value={pin}
-                    onChange={e => setPin(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') handleVerifyPin() }}
-                    placeholder="PIN"
-                    autoFocus
-                    className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-blue-400 mb-2 text-center tracking-widest"
-                  />
-                  {pinError && <p className="text-xs text-red-500 mb-2">{pinError}</p>}
-                  <div className="flex gap-2">
-                    <button onClick={() => setPinTarget(null)} className="flex-1 py-1 text-xs rounded border border-gray-200 text-gray-600">Cancel</button>
-                    <button onClick={handleVerifyPin} disabled={verifying}
-                      className="flex-1 py-1 text-xs rounded text-white font-semibold disabled:opacity-50"
-                      style={{ background: BLUE }}>
-                      {verifying ? '…' : 'Verify'}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {expandedVisit === v.id && (
-                <div className="pb-3 px-1 text-xs text-gray-600 space-y-2">
-                  {v.soap && (
-                    <>
-                      {v.soap.subjective && <div><strong>S:</strong> {v.soap.subjective}</div>}
-                      {v.soap.objective  && <div><strong>O:</strong> {v.soap.objective}</div>}
-                      {v.soap.assessment && <div><strong>A:</strong> {v.soap.assessment}</div>}
-                      {v.soap.plan       && <div><strong>P:</strong> {v.soap.plan}</div>}
-                    </>
-                  )}
-                  {v.prescriptions?.length > 0 && (
-                    <div><strong>Rx:</strong> {v.prescriptions.map(p => p.drug_name).join(', ')}</div>
-                  )}
-                  {v.lab_orders?.length > 0 && (
-                    <div><strong>Lab:</strong> {v.lab_orders.map(l => l.test_name).join(', ')}</div>
-                  )}
-                  {!v.soap && !v.prescriptions?.length && !v.lab_orders?.length && (
-                    <div className="text-gray-400">No clinical details recorded</div>
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
+          {loaded && rows.length > 0 && (
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-gray-50 text-gray-500 text-left">
+                  <th className="px-2.5 py-2 font-semibold">Patient</th>
+                  <th className="px-2.5 py-2 font-semibold">Doctor</th>
+                  <th className="px-2.5 py-2 font-semibold">Health Center</th>
+                  <th className="px-2.5 py-2 font-semibold">Reason</th>
+                  <th className="px-2.5 py-2 font-semibold whitespace-nowrap">Date</th>
+                  <th className="px-2.5 py-2 w-8" />
+                </tr>
+              </thead>
+              <tbody>
+                {rows.flatMap(r => {
+                  const k = keyOf(r)
+                  const locked = isLocked(r)
+                  const open = openKey === k
+                  const out = [
+                    <tr key={k} onClick={() => handleRowClick(r)}
+                      className="border-t border-gray-100 hover:bg-blue-50/40 cursor-pointer">
+                      <td className="px-2.5 py-2">
+                        <span className="flex items-center gap-1">
+                          {locked && <Lock size={11} className="text-gray-400 flex-shrink-0" />}
+                          {r.patient_name || '—'}
+                        </span>
+                      </td>
+                      <td className="px-2.5 py-2 text-gray-600">{r.doctor_name || '—'}</td>
+                      <td className="px-2.5 py-2 text-gray-600">{r.clinic_name || '—'}</td>
+                      <td className="px-2.5 py-2 text-gray-600">
+                        <span className="flex items-center gap-1.5">
+                          <span className="truncate max-w-[220px]">{r.reason || '—'}</span>
+                          {r.kind === 'ipd' && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 flex-shrink-0">IPD</span>}
+                        </span>
+                      </td>
+                      <td className="px-2.5 py-2 text-gray-500 whitespace-nowrap font-mono">{r.date || '—'}</td>
+                      <td className="px-2.5 py-2 text-right">
+                        {locked
+                          ? <span className="text-[11px] text-blue-500 font-semibold">Unlock</span>
+                          : open ? <ChevronUp size={13} className="inline" /> : <ChevronDown size={13} className="inline" />}
+                      </td>
+                    </tr>,
+                  ]
+                  if (pinTarget === k) {
+                    out.push(
+                      <tr key={k + '-pin'} className="border-t border-gray-100 bg-gray-50">
+                        <td colSpan={6} className="px-3 py-3">
+                          <p className="text-xs text-gray-600 mb-2 font-semibold">Enter your PIN to view this visit</p>
+                          <div className="flex items-center gap-2 max-w-sm">
+                            <input
+                              type="password" inputMode="numeric" maxLength={6} value={pin} autoFocus
+                              onChange={e => setPin(e.target.value)}
+                              onKeyDown={e => { if (e.key === 'Enter') handleVerifyPin() }}
+                              placeholder="PIN"
+                              className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-blue-400 text-center tracking-widest"
+                            />
+                            <button onClick={handleVerifyPin} disabled={verifying}
+                              className="px-3 py-1.5 text-xs rounded-lg text-white font-semibold disabled:opacity-50" style={{ background: BLUE }}>
+                              {verifying ? '…' : 'Verify'}
+                            </button>
+                            <button onClick={() => setPinTarget(null)} className="px-3 py-1.5 text-xs rounded-lg border border-gray-200 text-gray-600">Cancel</button>
+                          </div>
+                          {pinError && <p className="text-xs text-red-500 mt-1.5">{pinError}</p>}
+                        </td>
+                      </tr>
+                    )
+                  }
+                  if (open && !locked) {
+                    out.push(
+                      <tr key={k + '-detail'} className="border-t border-gray-100">
+                        <td colSpan={6} className="p-0">
+                          {r.kind === 'ipd' ? renderIpd(r.id, r.raw) : renderOpd(r.raw)}
+                        </td>
+                      </tr>
+                    )
+                  }
+                  return out
+                })}
+              </tbody>
+            </table>
+          )}
         </div>
       )}
     </div>
@@ -206,12 +307,11 @@ function FormRow({ form, pinned, onPin, onOpen }) {
 
 // Right panel: split into ★ Favourites (pinned, top) + searchable list (pinnable).
 // Real published DB forms; clicking opens the DB form renderer (charts to the patient).
-function AssessmentPanel({ patientId, patientName, onFormOrders }) {
+function AssessmentPanel({ onOpenForm }) {
   const [forms, setForms]   = useState([])
   const [favIds, setFavIds] = useState(new Set())
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
-  const [activeForm, setActiveForm] = useState(null)
 
   const loadFavs = useCallback(() => {
     api.get('/assessment-forms/favorites')
@@ -271,7 +371,7 @@ function AssessmentPanel({ patientId, patientName, onFormOrders }) {
               <Star size={11} className="fill-amber-400 text-amber-400" /> Favourites
             </div>
             {favForms.map(f => (
-              <FormRow key={'fav' + f.id} form={f} pinned onPin={togglePin} onOpen={() => setActiveForm(f)} />
+              <FormRow key={'fav' + f.id} form={f} pinned onPin={togglePin} onOpen={() => onOpenForm(f)} />
             ))}
             <div className="mx-3 my-1.5 border-t border-dashed border-gray-200" />
           </div>
@@ -282,7 +382,7 @@ function AssessmentPanel({ patientId, patientName, onFormOrders }) {
           <div key={cat}>
             <div className="px-3 pt-3 pb-1 text-xs font-bold text-gray-400 uppercase tracking-wide">{cat}</div>
             {groups[cat].map(f => (
-              <FormRow key={f.id} form={f} pinned={favIds.has(f.id)} onPin={togglePin} onOpen={() => setActiveForm(f)} />
+              <FormRow key={f.id} form={f} pinned={favIds.has(f.id)} onPin={togglePin} onOpen={() => onOpenForm(f)} />
             ))}
           </div>
         ))}
@@ -292,24 +392,16 @@ function AssessmentPanel({ patientId, patientName, onFormOrders }) {
         )}
       </div>
 
-      {activeForm && (
-        <DbAssessmentFormModal
-          form={activeForm}
-          patientId={patientId}
-          patientName={patientName}
-          onClose={() => setActiveForm(null)}
-          onSubmitted={({ schema, formData }) => onFormOrders?.(extractOrdersFromForm(schema, formData))}
-        />
-      )}
     </div>
   )
 }
 
 // ── Patient Chart (unified encounter document) ────────────────────
 function ChartDoc({ title, Icon, accent, count, onOpen, openLabel, children }) {
+  // Heading + text (document style) — no card/box around the section.
   return (
-    <div className="rounded-xl border border-gray-200 bg-white">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100">
+    <div>
+      <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide" style={{ color: accent || '#6b7280' }}>
           {Icon && <Icon size={13} />} {title}
           {count != null && <span className="text-gray-400 font-semibold">· {count}</span>}
@@ -320,7 +412,7 @@ function ChartDoc({ title, Icon, accent, count, onOpen, openLabel, children }) {
           </button>
         )}
       </div>
-      <div className="px-3 py-2 text-sm text-gray-700">{children}</div>
+      <div className="text-sm text-gray-700">{children}</div>
     </div>
   )
 }
@@ -352,34 +444,35 @@ function PatientChartSection({ encounter, patientId, soap, onSoapChange, prescri
 
   return (
     <div className="space-y-4">
-      {/* Demographics */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {stats.map(s => (
-          <div key={s.label} className="rounded-xl p-3" style={{ background: BLUE_LIGHT, border: `1px solid ${BLUE_BORDER}` }}>
-            <div className="text-xs text-gray-500 mb-0.5">{s.label}</div>
-            <div className="font-semibold text-gray-800 text-sm">{s.value}</div>
-          </div>
-        ))}
+      {/* Demographics — heading + text, no cards (document style) */}
+      <div>
+        <div className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Demographics</div>
+        <div className="text-sm text-gray-700 flex flex-wrap gap-x-8 gap-y-1">
+          {stats.map(s => (
+            <span key={s.label}>
+              <span className="text-gray-500">{s.label}:</span> <span className="font-semibold text-gray-800">{s.value}</span>
+            </span>
+          ))}
+        </div>
       </div>
 
       {vitalItems.length > 0 && (
         <div>
-          <div className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Vitals</div>
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+          <div className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Vitals</div>
+          <div className="text-sm text-gray-700 flex flex-wrap gap-x-8 gap-y-1">
             {vitalItems.map(i => (
-              <div key={i.label} className="rounded-xl p-2.5 bg-white border border-gray-100 text-center shadow-sm">
-                <div className="text-xs text-gray-400">{i.label}</div>
-                <div className="font-bold text-gray-800 text-sm">{i.value}</div>
-              </div>
+              <span key={i.label}>
+                <span className="text-gray-500">{i.label}:</span> <span className="font-semibold text-gray-800">{i.value}</span>
+              </span>
             ))}
           </div>
         </div>
       )}
 
       {reason && (
-        <div className="p-3 rounded-xl bg-amber-50 border border-amber-200">
-          <div className="text-xs font-bold text-amber-700 mb-1">Chief Complaint</div>
-          <div className="text-sm text-amber-900">{reason}</div>
+        <div>
+          <div className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Chief Complaint</div>
+          <div className="text-sm text-gray-800">{reason}</div>
         </div>
       )}
 
@@ -778,6 +871,9 @@ export default function OpdChart() {
   const [loading, setLoading]         = useState(true)
   const [section, setSection]         = useState('chart')
   const [panelOpen, setPanelOpen]     = useState(true)
+  // The assessment form picked from the right panel renders INLINE in the content
+  // area (form headings become the content headings) instead of a popup modal.
+  const [activeForm, setActiveForm]   = useState(null)
 
   const [soap, setSoap]               = useState({ subjective: '', objective: '', assessment: '', plan: '' })
   const [counselling, setCounselling] = useState('')
@@ -1073,10 +1169,22 @@ export default function OpdChart() {
           </nav>
         </div>
 
-        {/* Main content area */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="p-4">
-            <div className="bg-white rounded-2xl border border-gray-200 p-4 max-w-3xl">
+        {/* Main content area — edge-to-edge, flush against sub-nav / top bar / panel */}
+        <div className={`flex-1 min-w-0 ${activeForm ? 'overflow-hidden' : 'overflow-y-auto bg-white'}`}>
+          {activeForm ? (
+            <DbAssessmentFormModal
+              variant="inline"
+              form={activeForm}
+              patientId={patientId}
+              patientName={patientName}
+              onClose={() => setActiveForm(null)}
+              onSubmitted={({ schema, formData }) => {
+                setActiveForm(null)
+                handleFormOrders(extractOrdersFromForm(schema, formData))
+              }}
+            />
+          ) : (
+            <div className="p-4">
               {section === 'chart' && (
                 <PatientChartSection
                   encounter={encounter}
@@ -1124,7 +1232,7 @@ export default function OpdChart() {
                 />
               )}
             </div>
-          </div>
+          )}
         </div>
 
         {/* Toggle strip */}
@@ -1139,7 +1247,7 @@ export default function OpdChart() {
         {/* Right assessment panel */}
         {panelOpen && (
           <div className="w-[272px] flex-shrink-0 bg-white border-l border-gray-200 flex flex-col overflow-hidden">
-            <AssessmentPanel patientId={patientId} patientName={patientName} onFormOrders={handleFormOrders} />
+            <AssessmentPanel onOpenForm={setActiveForm} />
           </div>
         )}
       </div>

@@ -489,6 +489,7 @@ def list_admissions(
     status: Optional[str] = Query(None),
     department_id: Optional[int] = Query(None),
     ward_id: Optional[int] = Query(None),
+    patient_id: Optional[int] = Query(None),
     db: Session = Depends(get_db),
     current: Staff = Depends(get_current_staff),
 ):
@@ -503,6 +504,8 @@ def list_admissions(
         q = q.filter(Admission.department_id == department_id)
     if ward_id:
         q = q.filter(Admission.ward_id == ward_id)
+    if patient_id:
+        q = q.filter(Admission.patient_id == patient_id)
     admissions = q.order_by(Admission.id.desc()).all()
     result = []
     for a in admissions:

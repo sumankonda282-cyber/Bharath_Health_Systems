@@ -418,6 +418,9 @@ export default function Appointments() {
   const [searchParams] = useSearchParams()
   const [activeTab, setActiveTab] = useState('queue') // 'queue' | 'schedule'
   const [date, setDate] = useState(searchParams.get('date') || format(new Date(), 'yyyy-MM-dd'))
+  // 'upcoming' = today + all future appointments (so an approved appointment on its own
+  // date never vanishes); 'byDate' = the classic single-day view via the date picker.
+  const [viewMode, setViewMode] = useState(searchParams.get('date') ? 'byDate' : 'upcoming')
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || '')
   const [appointments, setAppointments] = useState([])
   const [onlineBookings, setOnlineBookings] = useState([])
@@ -437,8 +440,15 @@ export default function Appointments() {
 
   const loadAppts = () => {
     setLoading(true)
+    const today = format(new Date(), 'yyyy-MM-dd')
+    // all_branches=1 → clinic-wide view so confirmed appointments stamped with another/NULL
+    // branch stay visible to doctor-role users. Upcoming uses date_from so future-dated
+    // approved appointments are never hidden behind a single-day filter.
+    const apptParams = viewMode === 'upcoming'
+      ? { date_from: today, all_branches: 1, limit: 200 }
+      : { appointment_date: date, all_branches: 1, limit: 200 }
     Promise.allSettled([
-      appointmentsApi.list({ appointment_date: date, limit: 100 }),
+      appointmentsApi.list(apptParams),
       appointmentsApi.listOnlineBookings({ status: 'pending' }),
     ]).then(([apptResult, bookingResult]) => {
       if (apptResult.status === 'fulfilled') {
@@ -450,7 +460,7 @@ export default function Appointments() {
     }).finally(() => setLoading(false))
   }
 
-  useEffect(() => { loadAppts() }, [date])
+  useEffect(() => { loadAppts() }, [date, viewMode])
 
   useEffect(() => {
     cachedFetch('doctors_list', () => clinicApi.getDoctors(), r => setDoctors(Array.isArray(r) ? r : []), TTL.MEDIUM)
@@ -555,10 +565,20 @@ export default function Appointments() {
               <UserPlus size={15} />Walk-in
             </button>
             <div className="w-px h-6 bg-gray-200 mx-1 hidden sm:block" />
-            <div className="flex items-center gap-1.5">
-              <Calendar size={14} className="text-gray-400 flex-shrink-0" />
-              <input type="date" className="input w-40 py-1.5 text-sm" value={date} onChange={e => setDate(e.target.value)} />
+            <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden flex-shrink-0">
+              <button onClick={() => setViewMode('upcoming')}
+                className={`px-3 py-1.5 text-sm font-semibold transition-colors ${viewMode === 'upcoming' ? 'text-white' : 'text-gray-500 hover:bg-gray-50'}`}
+                style={viewMode === 'upcoming' ? { background: '#0F2557' } : {}}>Upcoming</button>
+              <button onClick={() => setViewMode('byDate')}
+                className={`px-3 py-1.5 text-sm font-semibold border-l border-gray-200 transition-colors ${viewMode === 'byDate' ? 'text-white' : 'text-gray-500 hover:bg-gray-50'}`}
+                style={viewMode === 'byDate' ? { background: '#0F2557' } : {}}>By date</button>
             </div>
+            {viewMode === 'byDate' && (
+              <div className="flex items-center gap-1.5">
+                <Calendar size={14} className="text-gray-400 flex-shrink-0" />
+                <input type="date" className="input w-40 py-1.5 text-sm" value={date} onChange={e => setDate(e.target.value)} />
+              </div>
+            )}
             <div className="flex gap-1 flex-wrap">
               <button onClick={() => setStatusFilter('')}
                 className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${!statusFilter ? 'text-white border-transparent' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}
@@ -571,7 +591,7 @@ export default function Appointments() {
               ))}
             </div>
             <div className="flex items-center gap-2 ml-auto text-xs text-gray-400">
-              {appointments.length} total
+              {(statusFilter ? appointments.filter(a => a.status === statusFilter).length : appointments.length)} {viewMode === 'upcoming' ? 'upcoming' : 'total'}
               {onlineBookings.length > 0 && (
                 <span className="inline-flex items-center gap-1 text-amber-600 font-semibold">
                   <Globe size={11} /> {onlineBookings.length} pending online
@@ -656,7 +676,8 @@ export default function Appointments() {
               if (visible.length === 0) return (
                 <div className="p-10 text-center text-gray-400">
                   <Calendar size={36} className="mx-auto mb-2 opacity-30" />
-                  <p>{statusFilter ? `No ${statusFilter.replace('_',' ')} appointments` : 'No appointments for this date'}</p>
+                  <p>{statusFilter ? `No ${statusFilter.replace('_',' ')} appointments`
+                      : viewMode === 'upcoming' ? 'No upcoming appointments' : 'No appointments for this date'}</p>
                 </div>
               )
               return (
@@ -687,7 +708,7 @@ export default function Appointments() {
                               {ageGender && <div className="text-xs text-gray-400">{ageGender}</div>}
                             </td>
                             <td className="td font-mono text-sm text-gray-700">
-                              <div>{date}</div>
+                              <div>{a.appointment_date || date}</div>
                               <div className="text-xs text-gray-400">{fmt12(a.appointment_time)}</div>
                             </td>
                             <td className="td text-sm text-gray-600">
