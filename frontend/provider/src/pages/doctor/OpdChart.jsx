@@ -11,6 +11,8 @@ import {
 } from 'lucide-react'
 import { PageLoader } from '../../components/ui/Spinner'
 import DbAssessmentFormModal from '../inpatient/DbAssessmentFormModal'
+import MedicationOrderForm from '@shared/forms/MedicationOrderForm'
+import { useAuth } from '../../contexts/AuthContext'
 import { extractOrdersFromForm, mergeOrders } from './formOrders'
 
 const BLUE = '#0F2557'
@@ -307,7 +309,7 @@ function FormRow({ form, pinned, onPin, onOpen }) {
 
 // Right panel: split into ★ Favourites (pinned, top) + searchable list (pinnable).
 // Real published DB forms; clicking opens the DB form renderer (charts to the patient).
-function AssessmentPanel({ onOpenForm }) {
+function AssessmentPanel({ onOpenForm, onCollapse }) {
   const [forms, setForms]   = useState([])
   const [favIds, setFavIds] = useState(new Set())
   const [search, setSearch] = useState('')
@@ -348,7 +350,14 @@ function AssessmentPanel({ onOpenForm }) {
   return (
     <div className="h-full flex flex-col overflow-hidden">
       <div className="px-3 py-2 border-b border-gray-100 flex-shrink-0">
-        <div className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Assessment Forms</div>
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-xs font-bold text-gray-500 uppercase tracking-wide">Assessment Forms</div>
+          {onCollapse && (
+            <button onClick={onCollapse} className="text-gray-400 hover:text-gray-600" title="Collapse panel">
+              <ChevronRight size={14} />
+            </button>
+          )}
+        </div>
         <div className="relative">
           <Search size={11} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
           <input
@@ -562,7 +571,7 @@ function CounsellingSection({ value, onChange, readonly, patientId }) {
 // ── Prescriptions Section ─────────────────────────────────────────
 const EMPTY_RX = { drug_name: '', dosage: '', frequency: '', duration: '', route: '', instructions: '' }
 
-function PrescriptionsSection({ items, onChange, readonly, patientId }) {
+function PrescriptionsSection({ items, onChange, readonly, patientId, onOrderMedication }) {
   const [search, setSearch] = useState('')
   const [results, setResults] = useState([])
   const [searching, setSearching] = useState(false)
@@ -618,6 +627,16 @@ function PrescriptionsSection({ items, onChange, readonly, patientId }) {
             >
               <Plus size={12} /> Add Blank
             </button>
+            {onOrderMedication && (
+              <button
+                onClick={onOrderMedication}
+                className="flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-semibold text-white hover:opacity-90 whitespace-nowrap"
+                style={{ background: BLUE }}
+                title="Order with drug-interaction & dose checks"
+              >
+                <Pill size={12} /> Order Medication
+              </button>
+            )}
           </div>
           {results.length > 0 && (
             <div className="absolute top-full left-0 right-0 z-20 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
@@ -863,6 +882,7 @@ function ImagingSection({ items, onChange, readonly, patientId }) {
 export default function OpdChart() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { user } = useAuth()
 
   const [encounter, setEncounter]     = useState(null)
   const [loading, setLoading]         = useState(true)
@@ -871,6 +891,8 @@ export default function OpdChart() {
   // The assessment form picked from the right panel renders INLINE in the content
   // area (form headings become the content headings) instead of a popup modal.
   const [activeForm, setActiveForm]   = useState(null)
+  // Universal medication-order form (shared with IPD + CareChart) — opened from Rx.
+  const [medFormOpen, setMedFormOpen] = useState(false)
 
   const [soap, setSoap]               = useState({ subjective: '', objective: '', assessment: '', plan: '' })
   const [counselling, setCounselling] = useState('')
@@ -1015,6 +1037,21 @@ export default function OpdChart() {
       setSection('chart')
       setOrderToast(`Added to chart: ${parts.join(' · ')}. “Save Draft” sends Rx / Lab / Imaging to the desks.`)
     }
+  }
+
+  // Universal med-order form submit → add a prescription line to this encounter's chart.
+  const handleAddMedicationOrder = (data) => {
+    const dosage   = [data.dose, data.unit].filter(Boolean).join(' ')
+    const duration = data.duration_days ? `${data.duration_days} day${Number(data.duration_days) > 1 ? 's' : ''}` : ''
+    setPrescriptions(prev => [...prev, {
+      drug_name:    data.drug_name || data.generic_name || '',
+      dosage,
+      frequency:    data.frequency || '',
+      duration,
+      route:        data.route || '',
+      instructions: data.instructions || '',
+    }])
+    // The shared form shows its own "added" confirmation; doctor closes it via onCancel.
   }
 
   if (loading) {
@@ -1208,6 +1245,7 @@ export default function OpdChart() {
                   onChange={setPrescriptions}
                   readonly={readonly}
                   patientId={patientId}
+                  onOrderMedication={readonly ? undefined : () => setMedFormOpen(true)}
                 />
               )}
               {section === 'lab' && (
@@ -1230,22 +1268,34 @@ export default function OpdChart() {
           )}
         </div>
 
-        {/* Toggle strip */}
-        <button
-          onClick={() => setPanelOpen(o => !o)}
-          className="w-7 flex-shrink-0 bg-gray-50 border-l border-gray-200 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-          title={panelOpen ? 'Collapse panel' : 'Expand panel'}
-        >
-          {panelOpen ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
-        </button>
-
-        {/* Right assessment panel */}
-        {panelOpen && (
+        {/* Right assessment panel — flush against the content (no gutter strip) */}
+        {panelOpen ? (
           <div className="w-[272px] flex-shrink-0 bg-white border-l border-gray-200 flex flex-col overflow-hidden">
-            <AssessmentPanel onOpenForm={setActiveForm} />
+            <AssessmentPanel onOpenForm={setActiveForm} onCollapse={() => setPanelOpen(false)} />
           </div>
+        ) : (
+          <button
+            onClick={() => setPanelOpen(true)}
+            className="w-6 flex-shrink-0 bg-gray-50 border-l border-gray-200 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+            title="Show assessment forms"
+          >
+            <ChevronLeft size={14} />
+          </button>
         )}
       </div>
+
+      {medFormOpen && (
+        <MedicationOrderForm
+          api={api}
+          currentUser={user}
+          admissionId={`opd-${id}`}
+          patientData={{ name: patientName, age: patient.age, weight_kg: encounter.vitals?.weight }}
+          patientAllergies={[]}
+          existingOrders={prescriptions.map(p => ({ drug_name: p.drug_name }))}
+          onSubmit={handleAddMedicationOrder}
+          onCancel={() => setMedFormOpen(false)}
+        />
+      )}
 
       {orderToast && (
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 max-w-md px-2">
