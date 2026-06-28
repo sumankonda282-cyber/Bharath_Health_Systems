@@ -225,87 +225,67 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Demographics row */}
-          {profile && (profile.date_of_birth || profile.gender || profile.blood_group || profile.phone || profile.address) && (
-            <>
-              <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {profile.date_of_birth && (
-                  <div className="rounded-xl px-3 py-2" style={{ background: 'rgba(255,255,255,0.06)' }}>
-                    <div className="text-[9px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: 'rgba(147,197,253,0.7)' }}>Age / DOB</div>
-                    <div className="text-xs font-bold text-white">
-                      {calcAge(profile.date_of_birth) !== null ? `${calcAge(profile.date_of_birth)} yrs` : '—'}
-                    </div>
-                    <div className="text-[10px]" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                      {new Date(profile.date_of_birth).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                    </div>
-                  </div>
-                )}
-                {profile.gender && (
-                  <div className="rounded-xl px-3 py-2" style={{ background: 'rgba(255,255,255,0.06)' }}>
-                    <div className="text-[9px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: 'rgba(147,197,253,0.7)' }}>Gender</div>
-                    <div className="text-xs font-bold text-white capitalize">{profile.gender}</div>
-                  </div>
-                )}
-                {profile.blood_group && (
-                  <div className="rounded-xl px-3 py-2" style={{ background: 'rgba(204,20,20,0.15)', border: '1px solid rgba(204,20,20,0.25)' }}>
-                    <div className="text-[9px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: 'rgba(252,165,165,0.8)' }}>Blood Group</div>
-                    <div className="text-sm font-extrabold" style={{ color: '#fca5a5' }}>{profile.blood_group}</div>
-                  </div>
-                )}
-                {profile.phone && (
-                  <div className="rounded-xl px-3 py-2" style={{ background: 'rgba(255,255,255,0.06)' }}>
-                    <div className="text-[9px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: 'rgba(147,197,253,0.7)' }}>Mobile</div>
-                    <div className="text-xs font-bold text-white">{profile.phone}</div>
-                  </div>
-                )}
+          {/* Demographics — always shown so the full health card is visible */}
+          <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="rounded-xl px-3 py-2" style={{ background: 'rgba(255,255,255,0.06)' }}>
+              <div className="text-[9px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: 'rgba(147,197,253,0.7)' }}>Age / DOB</div>
+              <div className="text-xs font-bold text-white">
+                {profile?.date_of_birth && calcAge(profile.date_of_birth) !== null ? `${calcAge(profile.date_of_birth)} yrs` : '—'}
               </div>
-
-              {/* Address */}
-              {profile.address && (
-                <div className="mt-3 rounded-xl px-3 py-2" style={{ background: 'rgba(255,255,255,0.06)' }}>
-                  <div className="text-[9px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: 'rgba(147,197,253,0.7)' }}>Address</div>
-                  <div className="text-xs font-medium leading-snug text-white/90">
-                    {[profile.address, profile.city, profile.state, profile.pincode].filter(Boolean).join(', ')}
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-
-          {/* Allergies */}
-          {profile?.allergies && (
-            <div className="mt-3">
-              <div className="text-[9px] font-semibold uppercase tracking-wider mb-1" style={{ color: 'rgba(252,165,165,0.8)' }}>Allergies</div>
-              <div className="flex flex-wrap gap-1.5">
-                {String(profile.allergies).replace(/\n/g, ',').split(',').map(a => a.trim()).filter(Boolean).slice(0, 6).map((a, i) => (
-                  <span key={i} className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
-                    style={{ background: 'rgba(204,20,20,0.18)', color: '#fca5a5', border: '1px solid rgba(204,20,20,0.25)' }}>
-                    {a}
-                  </span>
-                ))}
+              <div className="text-[10px]" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                {profile?.date_of_birth ? new Date(profile.date_of_birth).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Not provided'}
               </div>
             </div>
-          )}
-
-          {/* Chronic conditions */}
-          {profile?.chronic_conditions?.length > 0 && (
-            <div className="mt-3">
-              <div className="text-[9px] font-semibold uppercase tracking-wider mb-1" style={{ color: 'rgba(251,191,36,0.85)' }}>Chronic Conditions</div>
-              <div className="flex flex-wrap gap-1.5">
-                {profile.chronic_conditions.slice(0, 6).map((c, i) => (
-                  <span key={i} className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
-                    style={{ background: 'rgba(245,130,30,0.15)', color: '#fbbf24', border: '1px solid rgba(245,130,30,0.2)' }}>
-                    {c}
-                  </span>
-                ))}
-                {profile.chronic_conditions.length > 6 && (
-                  <span className="text-[10px] font-medium" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                    +{profile.chronic_conditions.length - 6} more
-                  </span>
-                )}
-              </div>
+            <div className="rounded-xl px-3 py-2" style={{ background: 'rgba(255,255,255,0.06)' }}>
+              <div className="text-[9px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: 'rgba(147,197,253,0.7)' }}>Gender</div>
+              <div className="text-xs font-bold text-white capitalize">{profile?.gender || '—'}</div>
             </div>
-          )}
+            <div className="rounded-xl px-3 py-2" style={{ background: 'rgba(204,20,20,0.15)', border: '1px solid rgba(204,20,20,0.25)' }}>
+              <div className="text-[9px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: 'rgba(252,165,165,0.8)' }}>Blood Group</div>
+              <div className="text-sm font-extrabold" style={{ color: '#fca5a5' }}>{profile?.blood_group || '—'}</div>
+            </div>
+            <div className="rounded-xl px-3 py-2" style={{ background: 'rgba(255,255,255,0.06)' }}>
+              <div className="text-[9px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: 'rgba(147,197,253,0.7)' }}>Mobile</div>
+              <div className="text-xs font-bold text-white">{profile?.phone || profile?.mobile || '—'}</div>
+            </div>
+          </div>
+
+          {/* Address — always shown */}
+          <div className="mt-3 rounded-xl px-3 py-2" style={{ background: 'rgba(255,255,255,0.06)' }}>
+            <div className="text-[9px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: 'rgba(147,197,253,0.7)' }}>Address</div>
+            <div className="text-xs font-medium leading-snug text-white/90">
+              {[profile?.address, profile?.city, profile?.state, profile?.pincode].filter(Boolean).join(', ') || 'Not provided'}
+            </div>
+          </div>
+
+          {/* Allergies — always shown */}
+          <div className="mt-3">
+            <div className="text-[9px] font-semibold uppercase tracking-wider mb-1" style={{ color: 'rgba(252,165,165,0.8)' }}>Allergies</div>
+            <div className="flex flex-wrap gap-1.5">
+              {(() => {
+                const items = String(profile?.allergies || '').replace(/\n/g, ',').split(',').map(a => a.trim()).filter(Boolean)
+                return items.length
+                  ? items.slice(0, 8).map((a, i) => (
+                      <span key={i} className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                        style={{ background: 'rgba(204,20,20,0.18)', color: '#fca5a5', border: '1px solid rgba(204,20,20,0.25)' }}>{a}</span>
+                    ))
+                  : <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.4)' }}>None recorded</span>
+              })()}
+            </div>
+          </div>
+
+          {/* Chronic conditions — always shown */}
+          <div className="mt-3">
+            <div className="text-[9px] font-semibold uppercase tracking-wider mb-1" style={{ color: 'rgba(251,191,36,0.85)' }}>Chronic Conditions</div>
+            <div className="flex flex-wrap gap-1.5">
+              {profile?.chronic_conditions?.length
+                ? profile.chronic_conditions.slice(0, 8).map((c, i) => (
+                    <span key={i} className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                      style={{ background: 'rgba(245,130,30,0.15)', color: '#fbbf24', border: '1px solid rgba(245,130,30,0.2)' }}>{c}</span>
+                  ))
+                : <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.4)' }}>None recorded</span>}
+            </div>
+          </div>
         </div>
 
         {/* PIN section */}
