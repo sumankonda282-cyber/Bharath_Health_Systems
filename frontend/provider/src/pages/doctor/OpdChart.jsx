@@ -417,7 +417,7 @@ function ChartDoc({ title, Icon, accent, count, onOpen, openLabel, children }) {
   )
 }
 
-function PatientChartSection({ encounter, patientId, soap, onSoapChange, prescriptions, labItems, imagingItems, counselling, readonly, onOpenSection }) {
+function PatientChartSection({ encounter, patientId, soap, prescriptions, labItems, imagingItems, counselling, onOpenSection }) {
   const p = encounter.patient || {}
   const v = encounter.vitals || {}
   const stats = [
@@ -434,19 +434,21 @@ function PatientChartSection({ encounter, patientId, soap, onSoapChange, prescri
     { label: 'Weight', value: v.weight? `${v.weight} kg` : null },
     { label: 'Height', value: v.height? `${v.height} cm` : null },
   ].filter(i => i.value)
-  const soapFields = [
-    { key: 'subjective', label: 'S — Subjective', placeholder: 'Chief complaint, history of present illness…' },
-    { key: 'objective',  label: 'O — Objective',  placeholder: 'Examination findings, investigations reviewed…' },
-    { key: 'assessment', label: 'A — Assessment', placeholder: 'Diagnosis / differential diagnosis…' },
-    { key: 'plan',       label: 'P — Plan',       placeholder: 'Management, follow-up, patient instructions…' },
-  ]
   const reason = encounter.appointment?.reason || encounter.reason
+  // Clinical note renders as read-only text (only what's present). Structured
+  // documentation is captured via the inline assessment forms — not fixed boxes.
+  const soapEntries = [
+    { key: 'subjective', label: 'Subjective' },
+    { key: 'objective',  label: 'Objective' },
+    { key: 'assessment', label: 'Assessment' },
+    { key: 'plan',       label: 'Plan' },
+  ].filter(e => soap && soap[e.key])
 
   return (
     <div className="space-y-4">
       {/* Demographics — heading + text, no cards (document style) */}
       <div>
-        <div className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Demographics</div>
+        <div className="text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: '#0F2557' }}>Demographics</div>
         <div className="text-sm text-gray-700 flex flex-wrap gap-x-8 gap-y-1">
           {stats.map(s => (
             <span key={s.label}>
@@ -458,7 +460,7 @@ function PatientChartSection({ encounter, patientId, soap, onSoapChange, prescri
 
       {vitalItems.length > 0 && (
         <div>
-          <div className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Vitals</div>
+          <div className="text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: '#0d9488' }}>Vitals</div>
           <div className="text-sm text-gray-700 flex flex-wrap gap-x-8 gap-y-1">
             {vitalItems.map(i => (
               <span key={i.label}>
@@ -471,33 +473,28 @@ function PatientChartSection({ encounter, patientId, soap, onSoapChange, prescri
 
       {reason && (
         <div>
-          <div className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Chief Complaint</div>
+          <div className="text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: '#b45309' }}>Chief Complaint</div>
           <div className="text-sm text-gray-800">{reason}</div>
         </div>
       )}
 
-      {/* Clinical note (SOAP) — written right in the chart */}
-      <div>
-        <div className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Clinical Note</div>
-        <div className="space-y-3">
-          {soapFields.map(f => (
-            <div key={f.key}>
-              <label className="block text-xs font-bold text-gray-500 mb-1">{f.label}</label>
-              <textarea
-                value={soap[f.key] || ''}
-                onChange={e => onSoapChange(f.key, e.target.value)}
-                placeholder={f.placeholder}
-                rows={3}
-                disabled={readonly}
-                className="w-full border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-blue-400 resize-none disabled:bg-gray-50 disabled:text-gray-500"
-              />
-            </div>
-          ))}
+      {/* Clinical note — read-only text with coloured headings; entered via forms */}
+      {soapEntries.length > 0 && (
+        <div>
+          <div className="text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: '#0F2557' }}>Clinical Note</div>
+          <div className="text-sm text-gray-700 space-y-1">
+            {soapEntries.map(e => (
+              <div key={e.key}>
+                <span className="font-semibold" style={{ color: '#0F2557' }}>{e.label}:</span>{' '}
+                <span className="whitespace-pre-wrap">{soap[e.key]}</span>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Everything documented this visit, in one chart */}
-      <div className="text-xs font-bold text-gray-500 uppercase tracking-wide pt-1">Documented This Visit</div>
+      <div className="text-xs font-bold uppercase tracking-wide pt-1" style={{ color: '#0F2557' }}>Documented This Visit</div>
       <ChartDoc title="Prescriptions" Icon={Pill} accent="#7c3aed" count={prescriptions.length} onOpen={() => onOpenSection('prescriptions')} openLabel="Edit Rx →">
         {prescriptions.length ? (
           <ul className="space-y-1">
@@ -1190,12 +1187,10 @@ export default function OpdChart() {
                   encounter={encounter}
                   patientId={patientId}
                   soap={soap}
-                  onSoapChange={(k, v) => setSoap(s => ({ ...s, [k]: v }))}
                   prescriptions={prescriptions}
                   labItems={labItems}
                   imagingItems={imagingItems}
                   counselling={counselling}
-                  readonly={readonly}
                   onOpenSection={setSection}
                 />
               )}
