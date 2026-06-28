@@ -679,3 +679,77 @@ def dose_suggest(
         "options": nearest,
         "message": msg,
     }
+
+
+# ─── Allergy cross-check (drug vs patient's recorded allergies) ──────────────────
+
+class AllergyCheckIn(BaseModel):
+    drug: str
+    allergies: List[str] = []
+
+
+# (allergy keywords, generic/class substrings that imply cross-reactivity, severity, basis)
+_CROSS_REACT = [
+    (["penicillin", "pencillin", "amoxicillin", "ampicillin", "augmentin", "amoxyclav", "amoxiclav", "betalactam", "beta-lactam"],
+     ["cillin", "penicillin", "amoxyclav", "piperacillin", "tazobactam"], "high", "Beta-lactam (penicillin) cross-reactivity"),
+    (["penicillin", "betalactam", "beta-lactam"],
+     ["cef", "ceph"], "moderate", "Possible penicillin–cephalosporin cross-reactivity"),
+    (["cephalosporin", "cephalexin", "cefixime", "ceftriaxone", "cefuroxime"],
+     ["cef", "ceph"], "high", "Cephalosporin allergy"),
+    (["sulfa", "sulpha", "sulphonamide", "sulfonamide", "cotrimoxazole", "bactrim", "septran"],
+     ["sulfa", "sulpha", "cotrimoxazole", "sulfamethoxazole", "sulfasalazine", "sulphadiazine"], "high", "Sulfonamide allergy"),
+    (["nsaid", "aspirin", "ibuprofen", "diclofenac", "brufen", "aceclofenac", "naproxen"],
+     ["ibuprofen", "diclofenac", "aspirin", "naproxen", "ketorolac", "aceclofenac", "indomethacin", "etoricoxib", "nsaid"], "moderate", "NSAID cross-sensitivity"),
+    (["codeine", "morphine", "opioid", "tramadol", "fentanyl"],
+     ["codeine", "morphine", "tramadol", "fentanyl", "oxycodone", "opioid"], "moderate", "Opioid cross-sensitivity"),
+    (["quinolone", "ciprofloxacin", "levofloxacin", "fluoroquinolone"],
+     ["floxacin", "quinolone"], "high", "Fluoroquinolone allergy"),
+    (["macrolide", "erythromycin", "azithromycin", "clarithromycin"],
+     ["thromycin", "macrolide"], "high", "Macrolide allergy"),
+]
+
+
+@router.post("/drugs/check-allergy")
+def check_allergy(
+    payload: AllergyCheckIn,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Cross-check a drug against a patient's recorded allergies — direct name
+    matches plus class cross-reactivity (penicillins, sulfonamides, NSAIDs, …).
+    Decision support; the clinician makes the call. NEW additive endpoint."""
+    import re
+    drug = (payload.drug or "").strip()
+    if not drug:
+        return {"drug": drug, "has_match": False, "matches": []}
+
+    # Enrich with the drug's generic + class for class-based matching.
+    d = db.query(Drug).filter(
+        (Drug.generic.ilike(drug)) | (Drug.primary_brand.ilike(drug))
+    ).first()
+    hay = " ".join([
+        drug.lower(),
+        (d.generic or "").lower() if d else "",
+        (d.drug_class or "").lower() if d else "",
+    ]).strip()
+
+    matches = []
+    for raw in (payload.allergies or []):
+        a = (raw or "").strip().lower()
+        if not a or a in {"nkda", "nka", "none", "nil", "n/a"}:
+            continue
+        # Direct match: allergy term appears in the drug name/generic, or vice versa.
+        toks = [t for t in re.split(r"[^a-z0-9]+", a) if len(t) > 3]
+        if (a in hay) or any(t in hay for t in toks) or any(w in a for w in hay.split() if len(w) > 4):
+            matches.append({"allergy": raw, "severity": "high", "basis": "Direct match to prescribed drug"})
+            continue
+        # Class cross-reactivity.
+        for keys, subs, sev, basis in _CROSS_REACT:
+            if any(k in a for k in keys) and any(s in hay for s in subs):
+                matches.append({"allergy": raw, "severity": sev, "basis": basis})
+                break
+
+    # Highest severity first.
+    order = {"high": 0, "moderate": 1, "low": 2}
+    matches.sort(key=lambda m: order.get(m["severity"], 9))
+    return {"drug": drug, "generic": (d.generic if d else None), "has_match": bool(matches), "matches": matches}
