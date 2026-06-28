@@ -5,7 +5,7 @@ import {
   Calculator, Stethoscope, FlaskConical, Table, User,
   Minus, FileText, RefreshCw, PenLine, Camera, Paperclip, Plus,
   Search, Users, Pill, BookOpen, AlertTriangle, Scissors,
-  ToggleLeft, BarChart2, LayoutGrid, Sliders, Activity, Layers, MapPin, Scan,
+  ToggleLeft, BarChart2, LayoutGrid, Sliders, Activity, Layers, MapPin, Scan, UserCog,
 } from 'lucide-react'
 
 // ─── Field Groups ────────────────────────────────────────────────────────────
@@ -40,6 +40,7 @@ const FIELD_GROUPS = [
       { type: 'calculated',    icon: Calculator,  label: 'Calculated' },
       { type: 'score_display', icon: BarChart2,   label: 'Score' },
       { type: 'vital_auto',    icon: Activity,    label: 'Auto Vital' },
+      { type: 'patient_auto',  icon: UserCog,     label: 'Patient Info' },
     ],
   },
   {

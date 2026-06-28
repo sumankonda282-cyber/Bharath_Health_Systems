@@ -40,6 +40,7 @@ function getFieldTypeIcon(type, size = 16) {
     calculated:        <Calculator {...props} />,
     score_display:     <BarChart2 {...props} />,
     vital_auto:        <Activity {...props} />,
+    patient_auto:      <User {...props} />,
     patient_search:    <Search {...props} />,
     staff_search:      <Users {...props} />,
     medication_search: <Pill {...props} />,

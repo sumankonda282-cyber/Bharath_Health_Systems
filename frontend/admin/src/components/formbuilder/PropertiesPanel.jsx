@@ -1329,6 +1329,23 @@ function TypeSpecificProps({ field, sectionId, dispatch, allFields }) {
     )
   }
 
+  if (type === 'patient_auto') {
+    return (
+      <PropRow label="Patient field">
+        <select className={inputCls} value={field.auto_source || 'age'} onChange={e => set('auto_source', e.target.value)}>
+          <option value="age">Age (years)</option>
+          <option value="age_months">Age (months)</option>
+          <option value="weight">Weight (kg)</option>
+          <option value="height">Height (cm)</option>
+          <option value="bmi">BMI</option>
+          <option value="sex">Sex</option>
+          <option value="blood_group">Blood group</option>
+          <option value="allergies">Allergies</option>
+        </select>
+      </PropRow>
+    )
+  }
+
   return null
 }
 

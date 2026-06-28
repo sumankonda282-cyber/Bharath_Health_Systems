@@ -140,6 +140,7 @@ function makeField(type) {
     calculated:        { formula: '', variables: [] },
     score_display:     { score_source: '', display_bands: true },
     vital_auto:        { vital_type: 'heart_rate', unit: 'bpm' },
+    patient_auto:      { auto_source: 'age', label: 'Age' },
     patient_search:    { placeholder: 'Search patient…', multi_select: false },
     staff_search:      { placeholder: 'Search staff / MD…', role_filter: 'any', multi_select: false },
     medication_search: { placeholder: 'Search medication / Rx…', multi_select: true },
