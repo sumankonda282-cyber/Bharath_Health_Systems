@@ -290,13 +290,64 @@ def run_scoring(
 # Alert Engine
 # ---------------------------------------------------------------------------
 
+def _to_num(x):
+    try:
+        return float(x)
+    except (TypeError, ValueError):
+        return None
+
+
+def _alert_op_match(op: str, value, rule: dict) -> bool:
+    """Evaluate one builder-authored operator rule against a field value.
+
+    Mirrors the operators offered by the admin Form Builder's AlertRulesEditor
+    (gt/gte/lt/lte/eq/neq/between/includes/excludes/contains/is_empty/is_not_empty)
+    so a rule a clinician authors in the builder actually fires on submission."""
+    if op == "is_empty":
+        return value in (None, "", [], {})
+    if op == "is_not_empty":
+        return value not in (None, "", [], {})
+    if op == "contains":
+        needle = str(rule.get("value", "")).strip()
+        return bool(needle) and value is not None and needle.lower() in str(value).lower()
+    if op == "eq":
+        return str(value) == str(rule.get("value", rule.get("threshold", "")))
+    if op == "neq":
+        return str(value) != str(rule.get("value", rule.get("threshold", "")))
+    if op in ("includes", "excludes"):
+        vals = value if isinstance(value, list) else [value]
+        target = rule.get("value")
+        present = (target in vals) or (str(target) in [str(v) for v in vals])
+        return present if op == "includes" else (not present)
+
+    # Numeric comparisons.
+    fv = _to_num(value)
+    if fv is None:
+        return False
+    if op == "between":
+        lo, hi = _to_num(rule.get("threshold_low")), _to_num(rule.get("threshold_high"))
+        return lo is not None and hi is not None and lo <= fv <= hi
+    threshold = _to_num(rule.get("threshold", rule.get("value")))
+    if threshold is None:
+        return False
+    if op == "gt":  return fv >  threshold
+    if op == "gte": return fv >= threshold
+    if op == "lt":  return fv <  threshold
+    if op == "lte": return fv <= threshold
+    return False
+
+
 def evaluate_alerts(
     schema: dict,
     data: dict,
     alert_rules: Optional[list],
 ) -> List[dict]:
     """
-    Evaluate field-level and composite alert rules.
+    Evaluate form-level alert rules.
+
+    Supports the legacy threshold/required/pattern shapes AND a ``composite``
+    cross-field rule (Discern-style CDS): ``{"type":"composite","match":"all"|"any",
+    "conditions":[{"field_id","operator","threshold"|"value"}], "message","severity"}``.
 
     Returns a list of fired alerts:
         [ {"field_id": ..., "message": ..., "severity": ..., "rule_type": ...}, ... ]
@@ -342,6 +393,51 @@ def evaluate_alerts(
                 if not re.fullmatch(pattern, str(value)):
                     fired.append({"field_id": field_id, "message": rule.get("message", f"{field_id} format invalid"), "severity": "warning", "rule_type": "pattern"})
 
+        elif rule_type == "composite":
+            conds = rule.get("conditions") or []
+            if conds:
+                results = [_alert_op_match(c.get("operator", "gt"), (data or {}).get(c.get("field_id")), c) for c in conds]
+                hit = all(results) if rule.get("match", "all") == "all" else any(results)
+                if hit:
+                    fired.append({
+                        "field_id":    rule.get("field_id") or conds[0].get("field_id"),
+                        "field_label": rule.get("label") or "Clinical rule",
+                        "message":     rule.get("message", "Clinical decision rule triggered"),
+                        "severity":    rule.get("severity", "warning"),
+                        "rule_type":   "composite",
+                    })
+
+    return fired
+
+
+def evaluate_field_alerts(schema: dict, data: dict) -> List[dict]:
+    """Evaluate the per-field alert rules authored in the admin Form Builder
+    (``field.alert_rules`` with the operator/threshold shape). These live in the
+    form SCHEMA, not in the form-level ``alert_rules`` column, so without this the
+    rules a clinician sets up in the builder would never fire on submission."""
+    fired: List[dict] = []
+    for section in (schema or {}).get("sections", []):
+        for f in section.get("fields", []):
+            fid   = f.get("id") or f.get("field_id")
+            rules = f.get("alert_rules") or []
+            if not fid or not rules:
+                continue
+            value = (data or {}).get(fid)
+            for rule in rules:
+                op = rule.get("operator")
+                if not op:
+                    continue
+                try:
+                    if _alert_op_match(op, value, rule):
+                        fired.append({
+                            "field_id":    fid,
+                            "field_label": f.get("label") or fid,
+                            "message":     rule.get("message") or f"{f.get('label', fid)} alert",
+                            "severity":    rule.get("severity", "warning"),
+                            "rule_type":   "field",
+                        })
+                except Exception:  # noqa: BLE001 — one malformed rule must not break submission
+                    continue
     return fired
 
 
@@ -730,7 +826,9 @@ def submit_form(
     is_draft       = bool(payload.get("is_draft", False))
     scoring_result = run_scoring(form_id, form.schema or {}, form_data, form.scoring_config)
     # Always evaluated so the client can preview what *would* fire; only persisted on sign.
-    alerts_fired   = evaluate_alerts(form.schema or {}, form_data, form.alert_rules)
+    # Form-level rules (incl. composite CDS) + per-field rules authored in the builder.
+    alerts_fired   = (evaluate_alerts(form.schema or {}, form_data, form.alert_rules)
+                      + evaluate_field_alerts(form.schema or {}, form_data))
     now            = datetime.utcnow()
 
     # ── Resolve the upsert target: an existing *draft* the client is continuing. ──
@@ -1078,7 +1176,8 @@ def amend_submission(
 
     now            = datetime.utcnow()
     scoring_result = run_scoring(form.id, form.schema or {}, form_data, form.scoring_config)
-    alerts_fired   = evaluate_alerts(form.schema or {}, form_data, form.alert_rules)
+    alerts_fired   = (evaluate_alerts(form.schema or {}, form_data, form.alert_rules)
+                      + evaluate_field_alerts(form.schema or {}, form_data))
 
     new = FormSubmission(
         form_id        = orig.form_id,

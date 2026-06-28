@@ -1524,6 +1524,45 @@ function FieldProperties({ field, sectionId, sectionLayout, dispatch, allFields 
             />
           </CollapsibleSection>
         )}
+
+        {/* Clinical code binding (LOINC / SNOMED / ICD-10) — coded, interoperable data */}
+        {!isLayoutOnly && (
+          <CollapsibleSection title="Clinical Code" icon={Hash}>
+            <PropRow label="System" hint="Standard this field's value maps to (for FHIR / ABDM export)">
+              <select
+                className={inputCls}
+                value={field.clinical_code?.system || ''}
+                onChange={e => set('clinical_code', { ...(field.clinical_code || {}), system: e.target.value })}
+              >
+                <option value="">— none —</option>
+                <option value="LOINC">LOINC</option>
+                <option value="SNOMED">SNOMED CT</option>
+                <option value="ICD-10">ICD-10</option>
+                <option value="CPT">CPT</option>
+                <option value="custom">Custom</option>
+              </select>
+            </PropRow>
+            <PropRow label="Code">
+              <input
+                className={inputCls + ' font-mono'}
+                value={field.clinical_code?.code || ''}
+                onChange={e => set('clinical_code', { ...(field.clinical_code || {}), code: e.target.value })}
+                placeholder="e.g. 8480-6"
+              />
+            </PropRow>
+            <PropRow label="Display">
+              <input
+                className={inputCls}
+                value={field.clinical_code?.display || ''}
+                onChange={e => set('clinical_code', { ...(field.clinical_code || {}), display: e.target.value })}
+                placeholder="e.g. Systolic blood pressure"
+              />
+            </PropRow>
+            <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+              Binds the value to a standard code so it exports cleanly to FHIR / ABDM and trends consistently.
+            </p>
+          </CollapsibleSection>
+        )}
       </div>
 
       {/* Delete pinned to bottom */}
