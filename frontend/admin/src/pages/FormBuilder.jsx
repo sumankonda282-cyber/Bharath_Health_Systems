@@ -6,6 +6,7 @@ import api from '../api/client'
 import FieldPalette from '../components/formbuilder/FieldPalette'
 import FormCanvas, { ROW_H, GAP } from '../components/formbuilder/FormCanvas'
 import PropertiesPanel from '../components/formbuilder/PropertiesPanel'
+import FormPreview from '../components/formbuilder/FormPreview'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -1036,8 +1037,14 @@ export default function FormBuilder() {
           </button>
         </header>
 
-        {/* ── Three-column body ── */}
+        {/* ── Body: editor (3-col) or live preview ── */}
         <div className="flex flex-1 overflow-hidden">
+          {previewMode ? (
+          <main className="flex-1 overflow-auto min-h-0 bg-white">
+            <FormPreview schema={form.schema} />
+          </main>
+          ) : (
+          <>
           {/* Left: Field Palette */}
           <aside className="hidden md:flex flex-col w-48 flex-shrink-0 border-r border-gray-800 overflow-y-auto bg-gray-900">
             <FieldPalette
@@ -1070,6 +1077,8 @@ export default function FormBuilder() {
               allFields={allFields}
             />
           </aside>
+          </>
+          )}
         </div>
 
         {/* Mobile FAB */}
