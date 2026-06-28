@@ -3,6 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { ChevronLeft, Save, Send, AlertTriangle, CheckCircle2, Clock, Loader2, X } from 'lucide-react'
 import api from '../../api/client'
 import { LangContext, isFieldVisible, getCompletionPct, FieldRenderer, ScoreCard, AlertCard } from './formEngine'
+import { sectionHasLayout, buildRowMap, sectionGridStyle, gridCellStyle } from '@shared/forms/gridLayout'
 
 // ─── Section/field layout maps (Tailwind-safe — literal class strings only) ────
 // Do NOT build these via `grid-cols-${n}` template strings; Tailwind purges those.
@@ -533,31 +534,36 @@ export default function FormFiller() {
                 </button>
               </div>
 
-              <div className={`grid gap-4 ${COLS[layout] || COLS[1]}`}>
-                {(section.fields || []).map(field => {
-                  const visible = isFieldVisible(field, values)
-                  if (!visible) return null
-                  return (
-                    <div
-                      key={field.id}
-                      id={`field-${field.id}`}
-                      className={spanFor(field, layout)}
-                      style={{
-                        borderLeft: field.color ? '3px solid ' + field.color : undefined,
-                        paddingLeft: field.color ? 8 : undefined,
-                      }}
-                    >
-                      <FieldRenderer
-                        field={field}
-                        value={values[field.id]}
-                        onChange={v => setFieldValue(field.id, v)}
-                        error={state.touched[field.id] ? errors[field.id] : undefined}
-                        allValues={values}
-                      />
-                    </div>
-                  )
-                })}
-              </div>
+              {(() => {
+                // CareForm free-grid placement (design = fill); legacy flow fallback.
+                const vis     = (section.fields || []).filter(f => isFieldVisible(f, values))
+                const useGrid = sectionHasLayout(section.fields)
+                const rowMap  = useGrid ? buildRowMap(vis) : null
+                return (
+                  <div className={useGrid ? '' : `grid gap-4 ${COLS[layout] || COLS[1]}`} style={useGrid ? sectionGridStyle : undefined}>
+                    {vis.map(field => (
+                      <div
+                        key={field.id}
+                        id={`field-${field.id}`}
+                        className={useGrid ? undefined : spanFor(field, layout)}
+                        style={{
+                          ...(useGrid ? gridCellStyle(field, rowMap) : {}),
+                          borderLeft: field.color ? '3px solid ' + field.color : undefined,
+                          paddingLeft: field.color ? 8 : undefined,
+                        }}
+                      >
+                        <FieldRenderer
+                          field={field}
+                          value={values[field.id]}
+                          onChange={v => setFieldValue(field.id, v)}
+                          error={state.touched[field.id] ? errors[field.id] : undefined}
+                          allValues={values}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )
+              })()}
             </div>
           )
         })}
