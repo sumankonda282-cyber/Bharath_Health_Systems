@@ -1,0 +1,86 @@
+name: Deploy all portals
+
+# Builds and deploys every portal on each merge to main, with a visible pass/fail
+# per portal — so a stale/failed deploy can never again go unnoticed.
+#
+# ── One-time setup (repo → Settings → Secrets and variables → Actions) ──────────
+#   VERCEL_TOKEN            – https://vercel.com/account/tokens
+#   CLOUDFLARE_API_TOKEN    – Cloudflare dashboard → My Profile → API Tokens →
+#                             "Create Token" → template "Edit Cloudflare Workers"
+#                             (or a custom token with Account · Cloudflare Pages · Edit)
+#   CLOUDFLARE_ACCOUNT_ID   – Cloudflare dashboard → any domain → right sidebar
+#
+# Then replace the six REPLACE_ME_* project names below with your real Cloudflare
+# Pages project names (Cloudflare dashboard → Workers & Pages → each project's name).
+# The three Vercel project IDs are already filled in from your account.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  VITE_API_URL: https://bharatcliniq-api.onrender.com
+
+jobs:
+  # ── Vercel: admin, public, patient ─────────────────────────────────────────
+  vercel:
+    name: Vercel — ${{ matrix.portal }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { portal: admin,   project_id: prj_ZNLf2Bo6NL3Yt4xE6WkSuQh4WxcU }
+          - { portal: public,  project_id: prj_dHd8UZa6UZrzgu9thLNP7s1fsiH1 }
+          - { portal: patient, project_id: prj_73Kw0bqlU9TXq00BqcMLLtfKnXFz }
+    env:
+      VERCEL_ORG_ID: team_3GW084s1Tv697PE1qfpRSlpc
+      VERCEL_PROJECT_ID: ${{ matrix.project_id }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install Vercel CLI
+        run: npm i -g vercel@latest
+      - name: Deploy ${{ matrix.portal }} to production
+        run: |
+          vercel pull  --yes --environment=production --token="$VERCEL_TOKEN"
+          vercel build --prod                          --token="$VERCEL_TOKEN"
+          vercel deploy --prebuilt --prod              --token="$VERCEL_TOKEN"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+  # ── Cloudflare Pages: provider, carechart, staff, pharmacy, lab, imaging ────
+  cloudflare:
+    name: Cloudflare — ${{ matrix.portal }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { portal: provider,  project: REPLACE_ME_provider }
+          - { portal: carechart, project: REPLACE_ME_carechart }
+          - { portal: staff,     project: REPLACE_ME_staff }
+          - { portal: pharmacy,  project: REPLACE_ME_pharmacy }
+          - { portal: lab,       project: REPLACE_ME_lab }
+          - { portal: imaging,   project: REPLACE_ME_imaging }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/${{ matrix.portal }}/package-lock.json
+      - name: Build ${{ matrix.portal }}
+        working-directory: frontend/${{ matrix.portal }}
+        run: |
+          npm ci
+          npm run build
+      - name: Deploy ${{ matrix.portal }} to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy frontend/${{ matrix.portal }}/dist --project-name=${{ matrix.project }} --branch=main
