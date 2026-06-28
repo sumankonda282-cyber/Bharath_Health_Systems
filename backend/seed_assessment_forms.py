@@ -72,6 +72,22 @@ def sc(l, f, mn=0, mx=10, ml='None', xl='Severe', **k):
 def nr(l, f, mn, mx, u='', **k):
     return fld('numeric_range', l, f, min=mn, max=mx, unit=u, **k)
 
+def reveal_eq(fid, val):
+    """kwargs for a field that shows only when another field == val (yes/no/dropdown reveal)."""
+    return {'conditions': [{'field_id': fid, 'operator': 'equals', 'value': val}]}
+
+def reveal_ne(fid, val):
+    """kwargs for a field that shows only when another field != val."""
+    return {'conditions': [{'field_id': fid, 'operator': 'not_equals', 'value': val}]}
+
+def reveal_set_ne(fid, val):
+    """kwargs for a field that shows only when another field is set AND != val
+    (e.g. a 'None'-inclusive dropdown that should reveal details only once a real
+    non-'None' option is chosen — matches the hardcoded `x && x !== 'None'` guards)."""
+    return {'conditions': [{'field_id': fid, 'operator': 'is_not_empty'},
+                           {'field_id': fid, 'operator': 'not_equals', 'value': val}],
+            'condition_logic': 'ALL'}
+
 def ros_system(label, key, *symptoms):
     """Review-of-systems block (faithful to the hardcoded SystemsReviewForm cards):
     a 3-way gate radio whose 'Has Symptoms' value reveals the symptom checklist and a
@@ -219,37 +235,60 @@ GENERAL = [
     },
     {
         'title': 'Social History',
-        'desc': 'Lifestyle, substance use, occupation, and living situation.',
-        'cat': 'history', 'sub': 'social-history', 'icon': '🏠',
+        'desc': 'Substance use, occupation, diet & lifestyle, and living conditions. '
+                'Tobacco / alcohol / drug answers reveal their detail fields.',
+        'cat': 'history', 'sub': 'social-history', 'icon': '🏠', 'ready': True,
         'schema': S(
-            sec('Lifestyle',
-                rb('Smoking Status', 'smoking',
-                   O('Never', 'Ex-smoker', 'Current smoker')),
-                num('Pack-years (if ever)', 'pack_years'),
-                rb('Alcohol Use', 'alcohol',
-                   O('Never', 'Occasional', 'Moderate', 'Heavy (>14 units/week)')),
-                num('Units/week', 'alcohol_units'),
-                rb('Physical Activity', 'activity',
-                   O('Sedentary', 'Moderate (<150 min/week)', 'Active (≥150 min/week)')),
-            ),
             sec('Substance Use',
-                yn('Recreational drug use', 'drug_use'),
-                cb('Substances (if yes)', 'substances',
-                   O('Cannabis', 'Opioids', 'Cocaine', 'Amphetamines', 'Benzodiazepines', 'Other')),
-                ta('Substance Use Notes', 'substance_notes'),
+                dd('Tobacco use', 'tobacco', O('None', 'Cigarette', 'Beedi', 'Cigarette + Beedi')),
+                dd('Smokeless tobacco', 'tobacco_smokeless',
+                   O('None', 'Gutka', 'Khaini', 'Zarda', 'Pan masala', 'Other'),
+                   **reveal_set_ne('tobacco', 'none')),
+                num('Cigarettes / day', 'cigs_per_day', min=0, max=100, **reveal_set_ne('tobacco', 'none')),
+                num('Smoking years', 'smoking_years', min=0, max=80, **reveal_set_ne('tobacco', 'none')),
+                fld('calculated', 'Pack-Years (auto)', 'pack_years',
+                    formula='(({cigs_per_day} / 20) * {smoking_years}).toFixed(1)',
+                    unit='pack-years', **reveal_set_ne('tobacco', 'none')),
+                dd('Alcohol', 'alcohol', O('None', 'Occasional', 'Regular')),
+                cb('Alcohol type', 'alcohol_types',
+                   O('Beer', 'Wine', 'Spirits / Whiskey', 'Desi liquor', 'Mixed'),
+                   **reveal_set_ne('alcohol', 'none')),
+                num('Alcohol units / week', 'alcohol_units_week', min=0, max=100,
+                    **reveal_set_ne('alcohol', 'none')),
+                yn('E-cigarette / vaping', 'e_cigarette'),
+                yn('Recreational drugs', 'narcotics'),
+                cb('Recreational drug type', 'narcotics_types',
+                   O('Cannabis', 'Opioids', 'Cocaine', 'Inhalants / Solvents', 'Other'),
+                   **reveal_eq('narcotics', 'yes')),
             ),
-            sec('Occupation & Environment',
-                txt('Occupation', 'occupation'),
-                rb('Occupational Exposures', 'occ_exposure',
-                   O('None', 'Dust/Asbestos', 'Chemicals', 'Noise', 'Radiation', 'Other')),
-                rb('Living Situation', 'living',
-                   O('Alone', 'With family', 'Shared accommodation', 'Care home', 'Homeless')),
-                rb('Social Support', 'social_support', O('Good', 'Moderate', 'Poor', 'None')),
+            sec('Occupation',
+                dd('Occupation', 'occupation',
+                   O('Farmer', 'Agricultural Labourer', 'Construction Worker', 'Factory Worker',
+                     'Office Worker', 'Healthcare Worker', 'Teacher', 'Driver', 'Trader / Shopkeeper',
+                     'Homemaker', 'Student', 'Retired', 'Unemployed', 'Other')),
+                txt('Specify occupation', 'occupation_other', **reveal_eq('occupation', 'other')),
+                cb('Occupational exposure', 'occupational_exposures',
+                   O('Dust / Grain', 'Chemical Fumes', 'Asbestos', 'Silica / Stone dust', 'Radiation',
+                     'Loud Noise', 'Biological / Infectious agents', 'Pesticides / Fertilizers')),
             ),
-            sec('Diet & Nutrition',
-                rb('Dietary Habit', 'diet', O('Vegetarian', 'Non-vegetarian', 'Vegan')),
-                yn('Special dietary restrictions', 'diet_restrict'),
-                ta('Diet Notes', 'diet_notes'),
+            sec('Diet & Lifestyle',
+                dd('Diet type', 'diet', O('Vegetarian', 'Non-Vegetarian', 'Eggetarian', 'Vegan', 'Jain')),
+                dd('Meals / day', 'meals_per_day', O('1', '2', '3', '4+')),
+                dd('Outside food', 'outside_food',
+                   O('Never', 'Occasionally (1-2x/week)', 'Frequently (3-5x/week)', 'Daily')),
+                dd('Physical activity', 'physical_activity',
+                   O('Sedentary', 'Light (walking/housework)', 'Moderate (30 min exercise/day)',
+                     'Active (regular intense exercise)')),
+                dd('Sleep quality', 'sleep_quality', O('Good', 'Fair', 'Poor')),
+            ),
+            sec('Living Conditions',
+                dd('Cooking fuel', 'cooking_fuel',
+                   O('LPG / PNG', 'Biomass (wood/dung/crop)', 'Electric / Induction', 'Kerosene')),
+                yn('Pets at home', 'pets'),
+                yn('Recent travel', 'travel_history'),
+            ),
+            sec('Additional Notes',
+                ta('Notes', 'notes', ph='Any relevant social context…'),
             ),
         ),
     },

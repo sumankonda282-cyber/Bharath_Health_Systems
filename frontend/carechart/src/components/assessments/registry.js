@@ -13,8 +13,7 @@ export const FORM_REGISTRY = {
   'allergies':        lazy(() => import('./AllergiesForm')),
   'medical-history':  lazy(() => import('./MedicalHistoryForm')),
   'family-history':   lazy(() => import('./FamilyHistoryForm')),
-  'social-history':   lazy(() => import('./SocialHistoryForm')),
-  // 'systems-review' migrated → editable DB form (seed_assessment_forms.py); served DB-first.
+  // 'social-history', 'systems-review' migrated → editable DB forms (seed_assessment_forms.py); served DB-first.
   'patient-profile':  lazy(() => import('./PatientProfileForm')),
   'chief-complaint':  lazy(() => import('./ChiefComplaintForm')),
 

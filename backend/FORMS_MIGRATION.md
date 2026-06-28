@@ -32,7 +32,7 @@ search types, conditions, repeatable sections, calculated). Bespoke non-editable
 | ⬜ | allergies | AllergiesForm | repeatable rows |
 | ⬜ | medical-history | MedicalHistoryForm | repeatable rows |
 | ⬜ | family-history | FamilyHistoryForm | repeatable rows |
-| ⬜ | social-history | SocialHistoryForm | |
+| ✅ | social-history | SocialHistoryForm | flat + reveals (tobacco/alcohol/drugs/occupation) + pack-years calc — run-verified |
 | ✅ | systems-review | SystemsReviewForm | 12 gate(3-way)+reveal checklists — FORM #1 (faithful: 12 sections, 36 fields, run-verified) |
 | ⬜ | patient-profile | PatientProfileForm | |
 | ⬜ | chief-complaint | ChiefComplaintForm | repeatable complaints + HPI + symptom search |
@@ -138,4 +138,4 @@ search types, conditions, repeatable sections, calculated). Bespoke non-editable
 ---
 **Reconciled:** removed seed `vital-signs` entry (duplicate — `seed_vitals.py` owns the canonical Vitals form).
 
-**Progress:** 1 / 98 complete.
+**Progress:** 2 / 98 complete.
