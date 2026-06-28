@@ -14,7 +14,7 @@ export const FORM_REGISTRY = {
   'medical-history':  lazy(() => import('./MedicalHistoryForm')),
   'family-history':   lazy(() => import('./FamilyHistoryForm')),
   'social-history':   lazy(() => import('./SocialHistoryForm')),
-  'systems-review':   lazy(() => import('./SystemsReviewForm')),
+  // 'systems-review' migrated → editable DB form (seed_assessment_forms.py); served DB-first.
   'patient-profile':  lazy(() => import('./PatientProfileForm')),
   'chief-complaint':  lazy(() => import('./ChiefComplaintForm')),
 

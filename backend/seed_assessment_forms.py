@@ -72,43 +72,24 @@ def sc(l, f, mn=0, mx=10, ml='None', xl='Severe', **k):
 def nr(l, f, mn, mx, u='', **k):
     return fld('numeric_range', l, f, min=mn, max=mx, unit=u, **k)
 
+def ros_system(label, key, *symptoms):
+    """Review-of-systems block (faithful to the hardcoded SystemsReviewForm cards):
+    a 3-way gate radio whose 'Has Symptoms' value reveals the symptom checklist and a
+    notes box. The reveal is a standard field condition so it stays editable in the
+    admin builder and renders identically in provider + carechart."""
+    reveal = [{'field_id': f'{key}_gate', 'operator': 'equals', 'value': 'has_symptoms'}]
+    return sec(label,
+        rb('Review Status', f'{key}_gate', O('Not Asked', 'No Symptoms', 'Has Symptoms')),
+        cb('Symptoms', f'{key}_symptoms', O(*symptoms), conditions=reveal),
+        ta('Additional Notes', f'{key}_notes', conditions=reveal),
+        cols=1,
+    )
+
 # ─── BATCH: general ───────────────────────────────────────────────────────────
 
+# NOTE: the canonical "Vital Signs" form is owned by seed_vitals.py (single source).
+# Do not re-add a vital-signs entry here — it would create a duplicate vitals form.
 GENERAL = [
-    {
-        'title': 'Vital Signs',
-        'desc': 'Complete vital signs including temperature, pulse, BP, SpO2, weight and pain score.',
-        'cat': 'vitals', 'sub': 'vital-signs', 'icon': '🩺',
-        'schema': S(
-            sec('Anthropometrics',
-                nr('Height', 'height', 50, 250, 'cm'),
-                nr('Weight', 'weight', 1, 300, 'kg'),
-                num('BMI', 'bmi'),
-                dt('Measured At', 'measured_at'),
-            ),
-            sec('Temperature',
-                nr('Temperature', 'temperature', 34.0, 42.0, '°C'),
-                dd('Site', 'temp_site', O('Oral', 'Axillary', 'Rectal', 'Tympanic')),
-            ),
-            sec('Cardiovascular',
-                nr('Systolic BP', 'bp_systolic', 60, 250, 'mmHg'),
-                nr('Diastolic BP', 'bp_diastolic', 40, 150, 'mmHg'),
-                nr('Pulse Rate', 'pulse_rate', 30, 250, 'bpm'),
-                dd('Pulse Character', 'pulse_char', O('Regular', 'Irregular', 'Weak', 'Bounding')),
-            ),
-            sec('Respiratory & SpO2',
-                nr('Respiratory Rate', 'resp_rate', 4, 60, '/min'),
-                nr('SpO2', 'spo2', 50, 100, '%'),
-                dd('O2 Delivery', 'o2_delivery',
-                   O('Room Air', 'Nasal Prongs', 'Face Mask', 'Non-rebreather', 'HFNO', 'Ventilator')),
-            ),
-            sec('Neurological & Pain',
-                nr('GCS Total', 'gcs_total', 3, 15),
-                sc('Pain Score', 'pain_score', 0, 10, 'No pain', 'Worst pain'),
-            ),
-            sec('Notes', ta('Clinical Notes', 'clinical_notes')),
-        ),
-    },
     {
         'title': 'Pain Assessment',
         'desc': 'Detailed pain assessment using PQRST framework.',
@@ -309,49 +290,55 @@ GENERAL = [
     },
     {
         'title': 'Systems Review',
-        'desc': 'Comprehensive review of systems — cardiovascular, respiratory, GI, neuro, MSK, GU, endocrine, skin.',
-        'cat': 'general', 'sub': 'systems-review', 'icon': '🔍',
+        'desc': 'Comprehensive review of systems. For each system mark Not Asked / No Symptoms / '
+                'Has Symptoms — "Has Symptoms" reveals that system\'s symptom checklist and notes.',
+        'cat': 'general', 'sub': 'systems-review', 'icon': '🔍', 'ready': True,
         'schema': S(
-            sec('General',
-                cb('General Symptoms', 'general_sx',
-                   O('Fever', 'Weight loss', 'Weight gain', 'Fatigue', 'Night sweats', 'Appetite loss')),
-            ),
-            sec('Cardiovascular',
-                cb('CVS Symptoms', 'cvs_sx',
-                   O('Chest pain', 'Palpitations', 'Breathlessness', 'Orthopnoea', 'PND',
-                     'Ankle swelling', 'Syncope', 'Claudication')),
-            ),
-            sec('Respiratory',
-                cb('Respiratory Symptoms', 'resp_sx',
-                   O('Cough', 'Haemoptysis', 'Wheeze', 'Breathlessness', 'Pleuritic pain', 'Sputum')),
-            ),
-            sec('Gastrointestinal',
-                cb('GI Symptoms', 'gi_sx',
-                   O('Nausea', 'Vomiting', 'Dysphagia', 'Heartburn', 'Abdominal pain',
-                     'Diarrhoea', 'Constipation', 'PR bleed', 'Malaena', 'Jaundice')),
-            ),
-            sec('Neurological',
-                cb('Neurological Symptoms', 'neuro_sx',
-                   O('Headache', 'Seizures', 'Weakness', 'Sensory loss', 'Visual changes',
-                     'Dizziness', 'Memory problems', 'Speech problems', 'Tremor')),
-            ),
-            sec('Musculoskeletal',
-                cb('MSK Symptoms', 'msk_sx',
-                   O('Joint pain', 'Joint swelling', 'Back pain', 'Muscle weakness', 'Morning stiffness')),
-            ),
-            sec('Genitourinary & Endocrine',
-                cb('GU Symptoms', 'gu_sx',
-                   O('Dysuria', 'Frequency', 'Haematuria', 'Polyuria', 'Polydipsia',
-                     'Incontinence', 'Menstrual irregularity', 'Discharge')),
-                cb('Endocrine Symptoms', 'endo_sx',
-                   O('Heat intolerance', 'Cold intolerance', 'Excessive sweating', 'Skin/hair changes')),
-            ),
-            sec('Skin & Psychiatric',
-                cb('Skin Symptoms', 'skin_sx',
-                   O('Rash', 'Pruritus', 'Jaundice', 'Pallor', 'Cyanosis', 'Ulcers')),
-                cb('Psychiatric Symptoms', 'psych_sx',
-                   O('Depression', 'Anxiety', 'Sleep disturbance', 'Mood swings', 'Suicidal ideation')),
-            ),
+            ros_system('General / Constitutional', 'general',
+                'Fever', 'Chills', 'Fatigue / Lethargy', 'Night Sweats', 'Weight Loss',
+                'Weight Gain', 'Poor Appetite', 'Malaise', 'Generalised Weakness'),
+            ros_system('Head, Eyes, Ears, Nose & Throat (HEENT)', 'heent',
+                'Headache', 'Visual Disturbance', 'Eye Pain / Redness', 'Hearing Loss', 'Tinnitus',
+                'Ear Pain / Discharge', 'Nasal Congestion', 'Epistaxis', 'Sore Throat', 'Hoarseness',
+                'Difficulty Swallowing', 'Neck Swelling', 'Dental Pain'),
+            ros_system('Cardiovascular', 'cardiovascular',
+                'Chest Pain', 'Palpitations', 'Dyspnoea on Exertion', 'Orthopnoea',
+                'Paroxysmal Nocturnal Dyspnoea', 'Pedal Oedema', 'Syncope / Pre-syncope',
+                'Intermittent Claudication', 'Cyanosis'),
+            ros_system('Respiratory', 'respiratory',
+                'Cough', 'Productive Cough', 'Haemoptysis', 'Wheeze', 'Shortness of Breath',
+                'Chest Tightness', 'Stridor', 'Pleuritic Chest Pain', 'Snoring / Apnoea'),
+            ros_system('Gastrointestinal', 'gastrointestinal',
+                'Nausea', 'Vomiting', 'Haematemesis', 'Abdominal Pain', 'Bloating / Distension',
+                'Diarrhoea', 'Constipation', 'Rectal Bleeding', 'Melaena', 'Jaundice', 'Dysphagia',
+                'Heartburn / GORD', 'Loss of Appetite', 'Flatulence'),
+            ros_system('Genitourinary', 'genitourinary',
+                'Dysuria', 'Urinary Frequency', 'Urgency', 'Haematuria', 'Nocturia',
+                'Urinary Incontinence', 'Flank Pain', 'Urethral / Vaginal Discharge', 'Genital Sores',
+                'Oliguria / Anuria', 'Hesitancy / Poor Stream'),
+            ros_system('Musculoskeletal', 'musculoskeletal',
+                'Joint Pain', 'Joint Swelling', 'Morning Stiffness', 'Muscle Pain / Myalgia',
+                'Back Pain', 'Neck Pain', 'Muscle Weakness', 'Deformity / Instability',
+                'Reduced Range of Motion', 'Bone Pain'),
+            ros_system('Neurological', 'neurological',
+                'Headache', 'Dizziness / Vertigo', 'Seizures / Fits', 'Limb Weakness',
+                'Sensory Loss / Paraesthesia', 'Memory Problems', 'Speech Difficulty', 'Tremor',
+                'Gait Disturbance', 'Loss of Consciousness', 'Diplopia', 'Tinnitus'),
+            ros_system('Skin / Dermatological', 'skin',
+                'Rash', 'Pruritus', 'Skin Lesions / Ulcers', 'Jaundice / Icterus', 'Pallor',
+                'Hair Loss', 'Nail Changes', 'Wound Not Healing', 'Pigmentation Changes'),
+            ros_system('Psychiatric / Mental Health', 'psychiatric',
+                'Depressed Mood', 'Anxiety / Worry', 'Irritability',
+                'Sleep Disturbance (Insomnia / Hypersomnia)', 'Appetite Changes', 'Cognitive Decline',
+                'Hallucinations', 'Suicidal Ideation', 'Panic Attacks', 'Social Withdrawal'),
+            ros_system('Endocrine / Metabolic', 'endocrine',
+                'Excessive Thirst', 'Polyuria', 'Heat Intolerance', 'Cold Intolerance',
+                'Excessive Sweating', 'Neck Swelling / Goitre', 'Hair / Skin / Nail Changes',
+                'Unexplained Weight Change', 'Easy Fatigue'),
+            ros_system('Haematological / Lymphatic', 'haematological',
+                'Easy Bruising', 'Prolonged Bleeding', 'Lymph Node Swelling',
+                'Pallor / Anaemia Symptoms', 'Petechiae / Purpura', 'Recurrent Infections',
+                'Night Sweats', 'Bone Pain / Tenderness'),
         ),
     },
     {
@@ -3612,6 +3599,12 @@ def seed_batch(batch_name, db):
 
     inserted = skipped = 0
     for f in forms:
+        # Only seed forms that have been faithfully converted from their hardcoded
+        # JSX counterpart and explicitly marked ready. Unconverted entries are left
+        # alone so the portals keep rendering the richer hardcoded form (no
+        # regression, no half-built drafts cluttering the admin builder).
+        if not f.get('ready'):
+            continue
         exists = db.query(AssessmentForm.id).filter(
             AssessmentForm.subcategory == f['sub']
         ).first()
