@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { PageLoader } from '../../components/ui/Spinner'
 import DbAssessmentFormModal from '../inpatient/DbAssessmentFormModal'
+import { extractOrdersFromForm, mergeOrders } from './formOrders'
 
 const BLUE = '#0F2557'
 const BLUE_LIGHT = '#eff6ff'
@@ -205,7 +206,7 @@ function FormRow({ form, pinned, onPin, onOpen }) {
 
 // Right panel: split into ★ Favourites (pinned, top) + searchable list (pinnable).
 // Real published DB forms; clicking opens the DB form renderer (charts to the patient).
-function AssessmentPanel({ patientId, patientName }) {
+function AssessmentPanel({ patientId, patientName, onFormOrders }) {
   const [forms, setForms]   = useState([])
   const [favIds, setFavIds] = useState(new Set())
   const [search, setSearch] = useState('')
@@ -297,6 +298,7 @@ function AssessmentPanel({ patientId, patientName }) {
           patientId={patientId}
           patientName={patientName}
           onClose={() => setActiveForm(null)}
+          onSubmitted={({ schema, formData }) => onFormOrders?.(extractOrdersFromForm(schema, formData))}
         />
       )}
     </div>
@@ -785,6 +787,7 @@ export default function OpdChart() {
 
   const [saving, setSaving]           = useState(false)
   const [actionLoading, setActionLoading] = useState('')
+  const [orderToast, setOrderToast]   = useState('')
 
   const load = useCallback(async () => {
     try {
@@ -831,6 +834,12 @@ export default function OpdChart() {
   }, [id])
 
   useEffect(() => { load() }, [load])
+
+  useEffect(() => {
+    if (!orderToast) return
+    const t = setTimeout(() => setOrderToast(''), 5000)
+    return () => clearTimeout(t)
+  }, [orderToast])
 
   // Backend reads prescription.items[].medicine_name and lab_order.tests[].test_name.
   const buildPayload = () => ({
@@ -886,6 +895,33 @@ export default function OpdChart() {
       navigate('/doctor-desk')
     } catch { alert('Failed to complete encounter') }
     finally { setActionLoading('') }
+  }
+
+  // A signed form drops its orderable fields into the chart as draft orders.
+  // They appear in the chart + their sections; "Save Draft" sends them to the desks.
+  const handleFormOrders = (orders) => {
+    if (!orders) return
+    const parts = []
+    if (orders.prescriptions?.length) {
+      const { merged, added } = mergeOrders(prescriptions, orders.prescriptions.map(p => ({ ...EMPTY_RX, drug_name: p.drug_name })), 'drug_name')
+      if (added) { setPrescriptions(merged); parts.push(`${added} Rx`) }
+    }
+    if (orders.labs?.length) {
+      const { merged, added } = mergeOrders(labItems, orders.labs.map(l => ({ test_name: l.test_name, test_type: '', notes: '' })), 'test_name')
+      if (added) { setLabItems(merged); parts.push(`${added} lab`) }
+    }
+    if (orders.imaging?.length) {
+      const { merged, added } = mergeOrders(imagingItems, orders.imaging.map(i => ({ procedure_name: i.procedure_name, modality: '', notes: '' })), 'procedure_name')
+      if (added) { setImagingItems(merged); parts.push(`${added} imaging`) }
+    }
+    if (orders.diagnoses?.length) {
+      setSoap(s => ({ ...s, assessment: [s.assessment, ...orders.diagnoses].filter(Boolean).join('\n') }))
+      parts.push(`${orders.diagnoses.length} Dx`)
+    }
+    if (parts.length) {
+      setSection('chart')
+      setOrderToast(`Added to chart: ${parts.join(' · ')}. “Save Draft” sends Rx / Lab / Imaging to the desks.`)
+    }
   }
 
   if (loading) {
@@ -1103,10 +1139,20 @@ export default function OpdChart() {
         {/* Right assessment panel */}
         {panelOpen && (
           <div className="w-[272px] flex-shrink-0 bg-white border-l border-gray-200 flex flex-col overflow-hidden">
-            <AssessmentPanel patientId={patientId} patientName={patientName} />
+            <AssessmentPanel patientId={patientId} patientName={patientName} onFormOrders={handleFormOrders} />
           </div>
         )}
       </div>
+
+      {orderToast && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 max-w-md px-2">
+          <div className="flex items-start gap-2 px-4 py-3 rounded-xl shadow-lg text-white text-sm" style={{ background: BLUE }}>
+            <CheckCircle size={16} className="mt-0.5 shrink-0 text-green-300" />
+            <span>{orderToast}</span>
+            <button onClick={() => setOrderToast('')} className="ml-1 text-white/70 hover:text-white shrink-0"><X size={14} /></button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

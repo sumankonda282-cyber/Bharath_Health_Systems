@@ -29,7 +29,7 @@ const spanFor = (field, layout) => WIDE.has(field.type) ? SPAN.full : (SPAN[Math
 // staff member server-side.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function DbAssessmentFormModal({ form, patientId, admissionId, patientName, onClose }) {
+export default function DbAssessmentFormModal({ form, patientId, admissionId, patientName, onClose, onSubmitted }) {
   const [schema,    setSchema]    = useState(null)   // { sections: [...] }
   const [meta,      setMeta]      = useState(null)   // { title, category, ... }
   const [values,    setValues]    = useState({})
@@ -232,6 +232,8 @@ export default function DbAssessmentFormModal({ form, patientId, admissionId, pa
       setScores(scoresArr)
       setAlerts(res?.alerts_fired || [])
       setSubmitted(true)
+      // Let a host (e.g. the OPD desk) turn orderable fields into chart orders.
+      try { onSubmitted?.({ form, schema, formData: values, result: res }) } catch { /* host hook must never break the submit */ }
     } catch (err) {
       setErrors({ _submit: err?.message || 'Submission failed' })
     } finally {
