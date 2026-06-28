@@ -12,7 +12,7 @@ from sqlalchemy import or_
 from app.db.session import get_db
 from app.core.security import get_current_platform_admin, hash_password
 from app.core import ids
-from app.models.models import Clinic, Branch, Staff, StaffDepartment, Patient, Appointment, PlatformAdmin, AuditLog, Invoice, Feedback, Department, Ward, Bed, PlatformSetting, SubscriptionPayment, PatientTag, LabOrder, Prescription, DoctorProfile, PatientUser, Plan, ClinicSubscription, SubscriptionInvoice
+from app.models.models import Clinic, Branch, Staff, StaffDepartment, Patient, Appointment, PlatformAdmin, AuditLog, Invoice, Feedback, Department, Ward, Bed, PlatformSetting, SubscriptionPayment, PatientTag, LabOrder, Prescription, DoctorProfile, PatientUser, Plan, ClinicSubscription, SubscriptionInvoice, BHProfile
 from app.services.entitlements import get_entitlements, ALL_MODULES, MODULE_CATALOG
 from app.services.subscription import upsert_subscription, activate_paid
 from app.services.email_service import send_welcome_email
@@ -245,7 +245,9 @@ def platform_dashboard(db: Session = Depends(get_db), current=Depends(get_curren
     revoked   = db.query(func.count(Clinic.id)).filter(Clinic.status == "revoked").scalar()
 
     total_doctors  = db.query(func.count(Staff.id)).filter(Staff.role == "doctor", Staff.is_active == True).scalar()
-    total_patients = db.query(func.count(Patient.id)).scalar()
+    # Platform-wide distinct patients = BH-ID identities + clinic patients without a BH-ID
+    total_patients = (db.query(func.count(BHProfile.id)).scalar() or 0) + \
+                     (db.query(func.count(Patient.id)).filter(Patient.bh_id.is_(None)).scalar() or 0)
 
     # Pending staff verifications
     pending_staff = db.query(func.count(Staff.id)).filter(
@@ -955,7 +957,9 @@ def get_reports(
     total_doctors  = db.query(func.count(Staff.id)).filter(
         Staff.role == "doctor", Staff.is_active == True
     ).scalar()
-    total_patients = db.query(func.count(Patient.id)).scalar()
+    # Platform-wide distinct patients = BH-ID identities + clinic patients without a BH-ID
+    total_patients = (db.query(func.count(BHProfile.id)).scalar() or 0) + \
+                     (db.query(func.count(Patient.id)).filter(Patient.bh_id.is_(None)).scalar() or 0)
     new_registrations = db.query(func.count(Clinic.id)).filter(
         Clinic.created_at >= start, Clinic.created_at <= end
     ).scalar()

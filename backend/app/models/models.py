@@ -284,6 +284,7 @@ class Patient(Base):
     clinic_patient_id       = Column(String(20), nullable=True, index=True)  # APL-00001
     uhid                    = Column(String(50), nullable=True)   # legacy only
     bh_id                   = Column(String(50), nullable=True)   # backend universal key
+    bhid_profile_id         = Column(Integer, ForeignKey("bh_profiles.id"), nullable=True)  # links Patient row to a specific person (BHProfile) for per-profile isolation
     full_name               = Column(String(200), nullable=False)
     date_of_birth           = Column(Date, nullable=True)
     gender                  = Column(String(10), nullable=True)
