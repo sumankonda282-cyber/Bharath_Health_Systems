@@ -295,6 +295,7 @@ class Patient(Base):
     pincode                 = Column(String(10), nullable=True)
     blood_group             = Column(String(5), nullable=True)
     allergies               = Column(Text, nullable=True)
+    chronic_conditions      = Column(Text, nullable=True)
     emergency_contact_name  = Column(String(200), nullable=True)
     emergency_contact_phone = Column(String(20), nullable=True)
     abha_id                 = Column(String(20), nullable=True)

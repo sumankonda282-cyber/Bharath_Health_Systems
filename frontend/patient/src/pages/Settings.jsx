@@ -10,7 +10,8 @@ export default function Settings() {
   const { user } = useAuth()
   const [form, setForm] = useState({
     email: '', date_of_birth: '', gender: '', blood_group: '',
-    address: '', emergency_contact_name: '', emergency_contact_phone: '',
+    address: '', allergies: '', chronic_conditions: '',
+    emergency_contact_name: '', emergency_contact_phone: '',
   })
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -25,6 +26,8 @@ export default function Settings() {
         gender: d?.gender || '',
         blood_group: d?.blood_group || '',
         address: d?.address || '',
+        allergies: d?.allergies || '',
+        chronic_conditions: Array.isArray(d?.chronic_conditions) ? d.chronic_conditions.join(', ') : (d?.chronic_conditions || ''),
         emergency_contact_name: d?.emergency_contact_name || '',
         emergency_contact_phone: d?.emergency_contact_phone || '',
       })
@@ -104,6 +107,16 @@ export default function Settings() {
           <label className="block text-xs font-medium text-gray-500 mb-1">Address</label>
           <textarea className="input w-full resize-none" rows={2} value={form.address}
             onChange={e => set('address', e.target.value)} placeholder="Your home address" />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">Allergies</label>
+          <textarea className="input w-full resize-none" rows={2} value={form.allergies}
+            onChange={e => set('allergies', e.target.value)} placeholder="e.g. Penicillin, Sulfa drugs (comma-separated)" />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">Chronic Conditions</label>
+          <textarea className="input w-full resize-none" rows={2} value={form.chronic_conditions}
+            onChange={e => set('chronic_conditions', e.target.value)} placeholder="e.g. Diabetes, Hypertension (comma-separated)" />
         </div>
       </div>
 
