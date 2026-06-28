@@ -13,6 +13,7 @@ export const SEARCH_TYPES = {
   procedure_search:  { url: '/terminology/search',       params: q => ({ q, category: 'procedure', limit: 10 }), label: r => r.display,            sub: r => r.code,                          ph: 'Search procedure…' },
   medication_search: { url: '/terminology/drugs/search', params: q => ({ q, limit: 10 }),                        label: r => r.generic || r.name,  sub: r => r.primary_brand || r.drug_class, ph: 'Search medication / drug…' },
   lab_test_search:   { url: '/lab/tests/search',         params: q => ({ q, type: 'lab' }),                      label: r => r.name,               sub: r => r.code,                          ph: 'Search lab test…' },
+  imaging_search:    { url: '/lab/tests/search',         params: q => ({ q, type: 'imaging' }),                  label: r => r.name,               sub: r => r.modality || r.body_part,       ph: 'Search imaging study…' },
   patient_search:    { url: '/patients/',                params: q => ({ search: q, limit: 10 }),                label: r => r.full_name,          sub: r => r.bh_id || r.clinic_patient_id,  ph: 'Search patient by name / BH-ID…' },
   // staff has no server-side q param → fetch the clinic directory once, filter locally.
   staff_search:      { url: '/chat/contacts',            params: () => ({}),                                     label: r => r.full_name || r.name, sub: r => r.role,                         ph: 'Search staff…', clientFilter: true },

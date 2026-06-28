@@ -209,26 +209,45 @@ def get_provider_form_iview(
     """Load an iView flowsheet: per-form config + the patient's charted observations."""
     fs = db.query(iViewFlowsheet).filter(iViewFlowsheet.form_id == form_id).first()
     form = db.query(AssessmentForm).filter(AssessmentForm.id == form_id).first()
+
+    # row_config must be an ARRAY of {field_id, label, unit, ref_range, group}. It may
+    # live on the flowsheet record or on the form's iview_config object — normalise to a
+    # list so the client never has to iterate a dict/None (which white-outs the page).
+    row_config = fs.row_config if (fs and isinstance(fs.row_config, list)) else None
+    if row_config is None and form and isinstance(form.iview_config, dict):
+        row_config = form.iview_config.get("row_config")
+    if not isinstance(row_config, list):
+        row_config = []
+
     config = {
-        "form_id": form_id,
-        "title": form.title if form else None,
-        "time_band": (fs.time_band if fs else None) or band,
-        "rows": (fs.row_config if fs else None) or (form.iview_config if form else None) or [],
+        "form_id":    form_id,
+        "title":      form.title if form else None,
+        "time_band":  (fs.time_band if fs else None) or band,
+        "row_config": row_config,
+        "rows":       row_config,   # backwards-compatible alias
     }
+
     q = db.query(iViewObservation).filter(
         iViewObservation.form_id == form_id,
         iViewObservation.clinic_id == current.clinic_id,
     )
     if patient_id:
         q = q.filter(iViewObservation.patient_id == patient_id)
-    obs = q.order_by(iViewObservation.recorded_at.desc().nullslast()).limit(500).all()
-    entries = [{
-        "field_id": o.field_id,
-        "label": o.label,
-        "value": o.value_text if o.value_text is not None else (float(o.value_numeric) if o.value_numeric is not None else None),
-        "unit": o.unit,
-        "recorded_at": o.recorded_at.isoformat() if o.recorded_at else None,
-    } for o in obs]
+    obs = q.order_by(iViewObservation.recorded_at.desc().nullslast()).limit(2000).all()
+
+    # Pivot the per-observation rows into the per-timestamp entries the flowsheet expects:
+    #   [{ "charted_at": iso, "data": { field_id: value, ... } }, ...]
+    # Observations from one submission share a recorded_at, so they regroup into one column.
+    buckets: dict = {}
+    for o in obs:
+        ts = o.recorded_at.isoformat() if o.recorded_at else None
+        if not ts:
+            continue
+        val = o.value_text if o.value_text is not None else (
+            float(o.value_numeric) if o.value_numeric is not None else None)
+        buckets.setdefault(ts, {})[o.field_id] = val
+    entries = [{"charted_at": ts, "data": data} for ts, data in sorted(buckets.items())]
+
     return {"flowsheet_config": config, "config": config, "entries": entries}
 
 

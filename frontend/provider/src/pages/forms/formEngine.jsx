@@ -856,10 +856,11 @@ export function FieldRenderer({ field, value, onChange, error, allValues }) {
   const type = field.type
   if (type === 'text') return <TextField field={field} value={value} onChange={onChange} error={error} />
   if (type === 'textarea') return <TextAreaField field={field} value={value} onChange={onChange} error={error} />
-  if (type === 'number') return <NumberField field={field} value={value} onChange={onChange} error={error} />
+  if (type === 'number' || type === 'numeric_range') return <NumberField field={field} value={value} onChange={onChange} error={error} />
   if (type === 'date') return <DateField field={field} value={value} onChange={onChange} error={error} />
   if (type === 'time') return <TimeField field={field} value={value} onChange={onChange} error={error} />
   if (type === 'datetime') return <DateTimeField field={field} value={value} onChange={onChange} error={error} />
+  if (type === 'yes_no') return <RadioField field={{ ...field, display_style: field.display_style || 'button_group', options: (field.options && field.options.length) ? field.options : [{ label: 'Yes', value: 'yes' }, { label: 'No', value: 'no' }] }} value={value} onChange={onChange} error={error} />
   if (type === 'single_choice' || type === 'radio') return <RadioField field={field} value={value} onChange={onChange} error={error} />
   if (type === 'multi_choice' || type === 'checkbox') return <CheckboxField field={field} value={value} onChange={onChange} error={error} />
   if (type === 'dropdown') return <DropdownField field={field} value={value} onChange={onChange} error={error} />

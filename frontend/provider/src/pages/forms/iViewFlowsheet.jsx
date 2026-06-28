@@ -107,6 +107,16 @@ function isToday(ts) {
   return d.toDateString() === today.toDateString()
 }
 
+// The flowsheet's row config must be an ARRAY of {field_id,label,unit,ref_range,group}.
+// Backends have returned it under `row_config` OR `rows`, and sometimes nested the whole
+// iview_config object — normalise all of those to a plain array so the page never crashes
+// on `for…of`/`.map` of a non-array (the classic iView whiteout).
+function normalizeRowConfig(cfg) {
+  let rc = cfg?.row_config ?? cfg?.rows
+  if (rc && !Array.isArray(rc) && Array.isArray(rc.row_config)) rc = rc.row_config
+  return Array.isArray(rc) ? rc : []
+}
+
 // ── Sparkline SVG ─────────────────────────────────────────────────────────────
 
 function Sparkline({ values, refRange, width = 120, height = 40 }) {
@@ -745,9 +755,10 @@ export default function IViewFlowsheet() {
           band: band || timeBand,
         },
       })
-      const cfg = res?.flowsheet_config || res?.config || res
-      const ents = res?.entries || []
-      setConfig(cfg)
+      const cfg = res?.flowsheet_config || res?.config || res || {}
+      const ents = Array.isArray(res?.entries) ? res.entries : []
+      // Always store row_config as an array so every consumer (.map/.find/for…of) is safe.
+      setConfig({ ...cfg, row_config: normalizeRowConfig(cfg) })
       setEntries(ents)
       setColumns(buildColumns(ents, band || timeBand))
       setLastRefresh(new Date())

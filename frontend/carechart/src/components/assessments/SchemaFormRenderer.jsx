@@ -24,6 +24,30 @@ function evalFormula(formula, data) {
   } catch { return '' }
 }
 
+// ── Conditional visibility (yes/no → reveal a dependent field) ───────────────
+// Mirrors provider formEngine.evaluateCondition/isFieldVisible so a form's show-if
+// logic behaves identically in CareChart and Provider.
+function evalCondition(c, data) {
+  const v = data[c.field_id]
+  switch (c.operator) {
+    case 'equals':       return String(v) === String(c.value)
+    case 'not_equals':   return String(v) !== String(c.value)
+    case 'contains':     return String(v || '').includes(String(c.value))
+    case 'greater_than': return Number(v) > Number(c.value)
+    case 'less_than':    return Number(v) < Number(c.value)
+    case 'is_empty':     return v === undefined || v === null || v === ''
+    case 'is_not_empty': return v !== undefined && v !== null && v !== ''
+    default: return true
+  }
+}
+function isFieldVisible(field, data) {
+  if (!field.conditions || field.conditions.length === 0) return true
+  const logic = field.condition_logic || 'ALL'
+  return logic === 'ALL'
+    ? field.conditions.every(c => evalCondition(c, data))
+    : field.conditions.some(c => evalCondition(c, data))
+}
+
 // ── Field label with optional help text ─────────────────────────────────────
 
 function FieldLabel({ label, required, help_text }) {
@@ -437,7 +461,7 @@ function SectionBlock({ section, formData, onFieldChange, theme }) {
 
       {!(section.collapsible && collapsed) && (
         <div className={`p-4 grid ${gridClass} gap-4`}>
-          {fields.map(field => (
+          {fields.filter(field => isFieldVisible(field, formData)).map(field => (
             <div
               key={field.id || field.field_id}
               className={getColSpan(field)}

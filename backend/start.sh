@@ -364,6 +364,7 @@ safe_cols = [
     \"ALTER TABLE soap_notes ADD COLUMN IF NOT EXISTS medications_prescribed TEXT\",
     \"ALTER TABLE soap_notes ADD COLUMN IF NOT EXISTS discharge_assessment TEXT\",
     \"ALTER TABLE soap_notes ADD COLUMN IF NOT EXISTS cautions_followup TEXT\",
+    \"ALTER TABLE soap_notes ADD COLUMN IF NOT EXISTS counselling TEXT\",
     \"ALTER TABLE soap_notes ADD COLUMN IF NOT EXISTS is_locked BOOLEAN DEFAULT FALSE\",
     \"ALTER TABLE soap_notes ADD COLUMN IF NOT EXISTS locked_at TIMESTAMP WITHOUT TIME ZONE\",
     \"ALTER TABLE soap_notes ADD COLUMN IF NOT EXISTS created_by INTEGER REFERENCES staff(id)\",
@@ -889,6 +890,8 @@ echo "[bg-migrations] Seeding demo/test accounts (idempotent)..."
 timeout 60 python seed.py || echo "[bg-migrations] Demo seed failed (non-fatal)"
 echo "[bg-migrations] Consolidating to a single canonical Vital Signs form..."
 timeout 120 python seed_vitals.py || echo "[bg-migrations] Vitals consolidation failed (non-fatal)"
+echo "[bg-migrations] Seeding faithful DB assessment forms (only forms marked ready; idempotent)..."
+timeout 180 python seed_assessment_forms.py --all || echo "[bg-migrations] Assessment forms seed failed (non-fatal)"
 echo "[bg-migrations] Done."
 ) &
 

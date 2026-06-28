@@ -11,7 +11,8 @@ from app.core import ids
 from app.models.models import (
     Staff, Patient, Appointment, DoctorProfile,
     Vitals, SoapNote, Prescription, PrescriptionItem,
-    LabOrder, LabOrderItem, Medicine, LabTest, FollowUpReminder
+    LabOrder, LabOrderItem, Medicine, LabTest, FollowUpReminder,
+    ImagingOrder,
 )
 
 router = APIRouter(prefix="/doctor", tags=["doctor-desk"])
@@ -29,6 +30,39 @@ def _age(patient):
     if patient.date_of_birth:
         return (dt.today() - patient.date_of_birth).days // 365
     return None
+
+
+def _persist_imaging_orders(db, appt, current, imaging_items):
+    """Create one ImagingOrder per requested study so OPD imaging (entered in the
+    desk or emitted by a signed form) actually reaches the imaging desk. Idempotent
+    per (appointment, study description) — safe to run on both save-draft and
+    complete without duplicating an already-placed study."""
+    if not imaging_items:
+        return
+    from app.api.v1.endpoints.imaging_orders import _next_imaging_order_id
+    for img in imaging_items:
+        name = (img.get("procedure_name") or img.get("name") or "").strip()
+        if not name:
+            continue
+        dup = db.query(ImagingOrder).filter(
+            ImagingOrder.appointment_id == appt.id,
+            ImagingOrder.study_description == name,
+        ).first()
+        if dup:
+            continue
+        db.add(ImagingOrder(
+            order_id          = _next_imaging_order_id(appt.clinic_id, db),
+            clinic_id         = appt.clinic_id,
+            branch_id         = current.branch_id,
+            patient_id        = appt.patient_id,
+            appointment_id    = appt.id,
+            ordered_by        = current.id,
+            modality          = (img.get("modality") or None),
+            study_description = name,
+            clinical_notes    = (img.get("notes") or None),
+            status            = "pending",
+            priority          = "routine",
+        ))
 
 
 @router.get("/queue")
@@ -185,6 +219,7 @@ def get_encounter(
             "objective":     sn.objective,
             "assessment":    sn.assessment,
             "plan":          sn.plan,
+            "counselling":   sn.counselling,
             "follow_up_days":sn.follow_up_days,
             "is_locked":     sn.is_locked,
         } if sn else None,
@@ -201,6 +236,17 @@ def get_encounter(
                 "status": lo.status,
                 "items":  [{"test_name": i.test_name, "result_value": i.result_value, "is_abnormal": i.is_abnormal} for i in lo.items]
             } for lo in appt.lab_orders
+        ],
+        "imaging_orders": [
+            {
+                "id":             io.id,
+                "order_id":       io.order_id,
+                "status":         io.status,
+                "procedure_name": io.study_description,
+                "modality":       io.modality,
+                "notes":          io.clinical_notes,
+            }
+            for io in db.query(ImagingOrder).filter(ImagingOrder.appointment_id == appt.id).all()
         ],
     }
 
@@ -222,7 +268,7 @@ def complete_encounter(
     # Accept both "soap" and "soap_note" keys
     soap_data = body.get("soap") or body.get("soap_note")
     if soap_data:
-        allowed = ["subjective", "objective", "assessment", "plan", "follow_up_days"]
+        allowed = ["subjective", "objective", "assessment", "plan", "follow_up_days", "counselling"]
         existing = db.query(SoapNote).filter(SoapNote.appointment_id == appointment_id).first()
         if existing:
             for k in allowed:
@@ -276,6 +322,8 @@ def complete_encounter(
                 test_name = (t.get("test_name") or "").strip()
                 if test_name:
                     db.add(LabOrderItem(order_id=lo.id, test_name=test_name))
+
+    _persist_imaging_orders(db, appt, current, body.get("imaging") or [])
 
     appt.status = "completed"
     db.commit()
@@ -578,7 +626,7 @@ def save_encounter_draft(
 
     soap_data = body.get("soap") or {}
     if soap_data:
-        allowed = ["subjective", "objective", "assessment", "plan", "follow_up_days"]
+        allowed = ["subjective", "objective", "assessment", "plan", "follow_up_days", "counselling"]
         note = db.query(SoapNote).filter(SoapNote.appointment_id == appointment_id).first()
         if note:
             for k in allowed:
@@ -631,6 +679,8 @@ def save_encounter_draft(
             test_name = (t.get("test_name") or "").strip()
             if test_name:
                 db.add(LabOrderItem(order_id=lo.id, test_name=test_name))
+
+    _persist_imaging_orders(db, appt, current, body.get("imaging") or [])
 
     db.commit()
     return {"message": "Draft saved", "status": appt.status}

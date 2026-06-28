@@ -2,8 +2,11 @@
 
 Guarantees EXACTLY ONE canonical 'Vital Signs' form circulates (the single vitals
 record used by reception, nursing and doctors, and embeddable in any care form).
-Every OTHER vitals form is RETIRED (status='retired' + removed from the form pool) —
-its data is preserved, it simply stops circulating. Safe to re-run.
+Every OTHER vitals form is DELETED — a form template is a *definition*, not patient
+data, and leaving duplicates around (even retired) clutters the picker and confuses
+clinicians. Before a duplicate is removed, any charted submissions / flowsheet
+observations on it are re-pointed at the canonical form, so no patient record is
+ever lost. Safe to re-run.
 """
 import os
 import sys
@@ -15,7 +18,9 @@ if not os.getenv("DATABASE_URL"):
 
 from datetime import datetime
 from app.db.session import SessionLocal
-from app.models.models import AssessmentForm, AssessmentFormVersion, FormPool
+from app.models.models import (
+    AssessmentForm, AssessmentFormVersion, FormPool, FormSubmission, iViewObservation,
+)
 
 CANON_TITLE = "Vital Signs"
 
@@ -69,22 +74,30 @@ def run():
             for i, p in enumerate(pools):
                 p.is_active = (i == 0)
 
-        # Retire every OTHER vitals form — keep the data, just stop it circulating.
+        # DELETE every OTHER vitals form. These are duplicate *definitions* — not
+        # patient data — and even retired they clutter the picker. Matches the known
+        # legacy titles OR any vitals/vital-signs form (but NOT, e.g., APGAR, which
+        # is category 'vitals' with a different subcategory).
         dups = db.query(AssessmentForm).filter(
             AssessmentForm.id != form.id,
             (AssessmentForm.title.in_(["Vitals Assessment", "Vital Signs Assessment", "Vital Signs"]))
             | ((AssessmentForm.category == "vitals") & (AssessmentForm.subcategory == "vital-signs"))
         ).all()
-        retired = 0
+        deleted, moved = 0, 0
         for d in dups:
-            d.status = "retired"
-            for p in db.query(FormPool).filter_by(form_id=d.id).all():
-                db.delete(p)
-            retired += 1
+            # Preserve any charted clinical data: re-point it at the canonical form
+            # before the duplicate (and its FK-cascaded definition/config rows) is removed.
+            moved += db.query(FormSubmission).filter_by(form_id=d.id).update(
+                {FormSubmission.form_id: form.id}, synchronize_session=False)
+            db.query(iViewObservation).filter_by(form_id=d.id).update(
+                {iViewObservation.form_id: form.id}, synchronize_session=False)
+            db.delete(d)
+            deleted += 1
 
         db.commit()
         print(f"[vitals] canonical '{CANON_TITLE}' ensured (id={form.id}); "
-              f"{retired} duplicate vitals form(s) retired + de-pooled.")
+              f"{deleted} duplicate vitals form(s) deleted "
+              f"({moved} charted submission(s) preserved on the canonical form).")
     except Exception as e:  # noqa: BLE001
         db.rollback()
         print(f"[vitals] consolidation failed (non-fatal): {e}")
