@@ -7,6 +7,20 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { Loader2, CheckCircle, AlertCircle, ChevronDown, ChevronUp, Lock, RefreshCw } from 'lucide-react'
 import api from '../../api/client'
+import BodySiteSearch from '../forms/BodySiteSearch'
+
+// ── Formula evaluator for calculated fields (e.g. BMI) ───────────────────────
+// Replaces {field_id} tokens with current numeric form values and evaluates.
+
+function evalFormula(formula, data) {
+  if (!formula) return ''
+  try {
+    let expr = formula
+    for (const m of (formula.match(/\{([^}]+)\}/g) || [])) { expr = expr.replace(m, Number(data[m.slice(1, -1)]) || 0) }
+    const r = Function(`return ${expr}`)()
+    return (r === Infinity || isNaN(r)) ? '' : r
+  } catch { return '' }
+}
 
 // ── Field label with optional help text ─────────────────────────────────────
 
@@ -59,7 +73,7 @@ function PillGroup({ options = [], value, onChange, multi = false }) {
 
 // ── Single field renderer ────────────────────────────────────────────────────
 
-function FieldRenderer({ field, value, onChange }) {
+function FieldRenderer({ field, value, onChange, formData = {} }) {
   const {
     type, label, field_id, required, help_text, placeholder, options,
     min, max, min_label, max_label, unit, yes_label, no_label,
@@ -127,7 +141,17 @@ function FieldRenderer({ field, value, onChange }) {
           <input
             type="number"
             value={value || ''}
-            onChange={e => onChange(e.target.value)}
+            onChange={e => {
+              let v = e.target.value
+              if (v === '') return onChange('')
+              let n = Number(v)
+              if (!isNaN(n)) {
+                if (min != null && n < min) n = min
+                if (max != null && n > max) n = max
+                v = String(n)
+              }
+              onChange(v)
+            }}
             min={min}
             max={max}
             step="any"
@@ -139,6 +163,41 @@ function FieldRenderer({ field, value, onChange }) {
         {min !== undefined && max !== undefined && (
           <p className="text-xs text-gray-400 mt-1">Normal range: {min}–{max}{unit ? ` ${unit}` : ''}</p>
         )}
+      </div>
+    )
+  }
+
+  if (type === 'body_site_search') {
+    return (
+      <div>
+        <FieldLabel label={label} required={required} help_text={help_text} />
+        <BodySiteSearch
+          value={value}
+          onChange={val => onChange(val)}
+          placeholder={placeholder}
+          category={field.search_category || 'anatomy'}
+        />
+      </div>
+    )
+  }
+
+  if (type === 'calculated') {
+    const computed = (() => {
+      const r = evalFormula(field.formula, formData)
+      return r === '' ? '' : (field.decimal_places != null ? Number(r).toFixed(field.decimal_places) : r)
+    })()
+    return (
+      <div>
+        <FieldLabel label={label} required={required} help_text={help_text} />
+        <div className="flex items-center gap-2">
+          <input
+            readOnly
+            value={computed}
+            placeholder={placeholder || '—'}
+            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 text-gray-700 focus:outline-none cursor-default"
+          />
+          {unit && <span className="text-sm text-gray-500 whitespace-nowrap">{unit}</span>}
+        </div>
       </div>
     )
   }
@@ -377,6 +436,7 @@ function SectionBlock({ section, formData, onFieldChange }) {
                 field={field}
                 value={formData[field.field_id]}
                 onChange={val => onFieldChange(field.field_id, val)}
+                formData={formData}
               />
             </div>
           ))}

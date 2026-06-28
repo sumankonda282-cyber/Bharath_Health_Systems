@@ -5,7 +5,7 @@ import {
   Calculator, Stethoscope, FlaskConical, Table, User,
   Minus, FileText, RefreshCw, PenLine, Camera, Paperclip, Plus,
   Search, Users, Pill, BookOpen, AlertTriangle, Scissors,
-  ToggleLeft, BarChart2, LayoutGrid, Sliders, Activity, Layers,
+  ToggleLeft, BarChart2, LayoutGrid, Sliders, Activity, Layers, MapPin,
 } from 'lucide-react'
 
 // ─── Field Groups ────────────────────────────────────────────────────────────
@@ -52,6 +52,7 @@ const FIELD_GROUPS = [
       { type: 'allergy_search',    icon: AlertTriangle, label: 'Allergy' },
       { type: 'procedure_search',  icon: Scissors,      label: 'Procedure' },
       { type: 'lab_test_search',   icon: FlaskConical,  label: 'Lab Test' },
+      { type: 'body_site_search',  icon: MapPin,        label: 'Body Site' },
     ],
   },
   {

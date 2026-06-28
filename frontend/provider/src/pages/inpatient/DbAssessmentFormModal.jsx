@@ -232,7 +232,7 @@ export default function DbAssessmentFormModal({ form, patientId, admissionId, pa
 
               {/* Fields */}
               <div className="flex-1 overflow-y-auto px-6 py-5">
-                <div className="max-w-3xl mx-auto">
+                <div className="max-w-5xl mx-auto">
                   {sections.map((section, si) => {
                     if (sections.length > 1 && si !== activeSection) return null
                     return (

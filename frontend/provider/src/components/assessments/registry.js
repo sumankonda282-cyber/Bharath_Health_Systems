@@ -8,7 +8,6 @@ import { lazy } from 'react'
 
 export const FORM_REGISTRY = {
   // ── General / Root ────────────────────────────────────────────────────────
-  'vital-signs':      lazy(() => import('./VitalSignsForm')),
   'pain-assessment':  lazy(() => import('./PainAssessmentForm')),
   'asthma-basic':     lazy(() => import('./AsthmaForm')),
   'allergies':        lazy(() => import('./AllergiesForm')),
