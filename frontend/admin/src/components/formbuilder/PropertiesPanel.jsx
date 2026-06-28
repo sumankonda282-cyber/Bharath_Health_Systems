@@ -909,8 +909,10 @@ function TypeSpecificProps({ field, sectionId, dispatch, allFields }) {
 
   // ── calculated ────────────────────────────────────────────────────────────
   if (type === 'calculated') {
+    // Insertable tokens: numeric inputs + auto patient/vital fields (age/weight/…)
+    // so a dose formula can read live context, e.g. ({weight} * 15).
     const numericFields = (allFields || []).filter(({ field: f }) =>
-      ['number', 'scale', 'numeric_range', 'calculated'].includes(f.type)
+      ['number', 'scale', 'numeric_range', 'calculated', 'patient_auto', 'vital_auto'].includes(f.type)
     )
     return (
       <>
