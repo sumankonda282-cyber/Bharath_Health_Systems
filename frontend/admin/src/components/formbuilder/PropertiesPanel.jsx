@@ -116,6 +116,23 @@ function BtnGroup({ options, value, onChange }) {
   )
 }
 
+const COLOR_PALETTE = ['#0F2557','#CC1414','#F5821E','#16A34A','#7C3AED','#0891B2','#D97706','#DB2777','#0D9488','#475569']
+function ColorField({ value, onChange, label }) {
+  return (
+    <PropRow label={label}>
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {COLOR_PALETTE.map(c => (
+          <button key={c} type="button" onClick={() => onChange(c)}
+            className={`w-5 h-5 rounded-full border ${value===c?'ring-2 ring-offset-1 ring-gray-400':''}`}
+            style={{ background: c, borderColor: '#e5e7eb' }} title={c} />
+        ))}
+        <input type="color" value={value || '#0F2557'} onChange={e => onChange(e.target.value)} className="w-6 h-6 rounded cursor-pointer border border-gray-200 p-0" />
+        {value && <button type="button" onClick={() => onChange('')} className="text-xs text-gray-400 hover:text-gray-600">clear</button>}
+      </div>
+    </PropRow>
+  )
+}
+
 function SectionHeader({ title }) {
   return (
     <div className="bg-gray-800/70 px-4 py-2 border-b border-gray-700 mb-3">
@@ -154,6 +171,7 @@ function ColSpanControl({ value, onChange, sectionLayout }) {
     { value: 1, label: '1 col' },
     ...(maxCols >= 2 ? [{ value: 2, label: '2 col' }] : []),
     ...(maxCols >= 3 ? [{ value: 3, label: '3 col' }] : []),
+    ...(maxCols >= 4 ? [{ value: 4, label: '4 col' }] : []),
   ]
 
   return (
@@ -1337,11 +1355,13 @@ function SectionProperties({ section, dispatch }) {
 
         <PropRow label="Column Layout">
           <BtnGroup
-            options={[{ value: 1, label: '1 Col' }, { value: 2, label: '2 Col' }, { value: 3, label: '3 Col' }]}
+            options={[{ value: 1, label: '1 Col' }, { value: 2, label: '2 Col' }, { value: 3, label: '3 Col' }, { value: 4, label: '4 Col' }]}
             value={section.layout || 1}
             onChange={v => set('layout', Number(v))}
           />
         </PropRow>
+
+        <ColorField label="Header colour" value={section.header_color || ''} onChange={c => set('header_color', c)} />
 
         <PropRow label="Applicability Mode">
           <div className="space-y-2">
@@ -1430,6 +1450,9 @@ function FieldProperties({ field, sectionId, sectionLayout, dispatch, allFields 
           sectionLayout={sectionLayout}
         />
 
+        {/* Field colour */}
+        <ColorField label="Field colour" value={field.color || ''} onChange={c => set('color', c)} />
+
         {/* Label + Field ID */}
         {!isLayoutOnly && (
           <>
@@ -1499,6 +1522,45 @@ function FieldProperties({ field, sectionId, sectionLayout, dispatch, allFields 
               field={field}
               onChange={rules => set('alert_rules', rules)}
             />
+          </CollapsibleSection>
+        )}
+
+        {/* Clinical code binding (LOINC / SNOMED / ICD-10) — coded, interoperable data */}
+        {!isLayoutOnly && (
+          <CollapsibleSection title="Clinical Code" icon={Hash}>
+            <PropRow label="System" hint="Standard this field's value maps to (for FHIR / ABDM export)">
+              <select
+                className={inputCls}
+                value={field.clinical_code?.system || ''}
+                onChange={e => set('clinical_code', { ...(field.clinical_code || {}), system: e.target.value })}
+              >
+                <option value="">— none —</option>
+                <option value="LOINC">LOINC</option>
+                <option value="SNOMED">SNOMED CT</option>
+                <option value="ICD-10">ICD-10</option>
+                <option value="CPT">CPT</option>
+                <option value="custom">Custom</option>
+              </select>
+            </PropRow>
+            <PropRow label="Code">
+              <input
+                className={inputCls + ' font-mono'}
+                value={field.clinical_code?.code || ''}
+                onChange={e => set('clinical_code', { ...(field.clinical_code || {}), code: e.target.value })}
+                placeholder="e.g. 8480-6"
+              />
+            </PropRow>
+            <PropRow label="Display">
+              <input
+                className={inputCls}
+                value={field.clinical_code?.display || ''}
+                onChange={e => set('clinical_code', { ...(field.clinical_code || {}), display: e.target.value })}
+                placeholder="e.g. Systolic blood pressure"
+              />
+            </PropRow>
+            <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+              Binds the value to a standard code so it exports cleanly to FHIR / ABDM and trends consistently.
+            </p>
           </CollapsibleSection>
         )}
       </div>

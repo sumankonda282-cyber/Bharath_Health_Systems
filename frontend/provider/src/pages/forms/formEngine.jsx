@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import {
   AlertTriangle, Plus, Minus, RotateCcw, Pen, Type, Camera, Upload, Mic,
 } from 'lucide-react'
-import BodySiteSearch from '../../components/forms/BodySiteSearch'
+import TermSearch, { SEARCH_TYPES } from '../../components/forms/TermSearch'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Assessment-form rendering engine.
@@ -873,7 +873,7 @@ export function FieldRenderer({ field, value, onChange, error, allValues }) {
   if (type === 'table') return <TableField field={field} value={value} onChange={onChange} error={error} />
   if (type === 'body_map') return <BodyMapField field={field} value={value} onChange={onChange} error={error} />
   if (type === 'repeating_section') return <RepeatingSection field={field} value={value} onChange={onChange} error={error} allValues={allValues} />
-  if (type === 'body_site_search') return <BodySiteSearch value={value} onChange={onChange} placeholder={field.placeholder} category={field.search_category || 'anatomy'} />
+  if (SEARCH_TYPES[type]) return <TermSearch type={type} value={value} onChange={onChange} placeholder={field.placeholder} />
   // rich_text, snomed, loinc — display only
   if (type === 'rich_text') return <div className="text-sm text-gray-700 prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: field.content || field.label || '' }} />
   return <div className="text-xs text-gray-400 italic">Field type "{type}" not supported</div>

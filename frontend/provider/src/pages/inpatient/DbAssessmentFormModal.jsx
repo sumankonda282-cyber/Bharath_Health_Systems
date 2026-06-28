@@ -1,13 +1,23 @@
-import { useState, useEffect } from 'react'
-import { X, Loader2, AlertTriangle, CheckCircle2, Send, FileText } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { X, Loader2, AlertTriangle, CheckCircle2, FileText, ChevronDown, ChevronRight, Save, RotateCcw, CheckCheck, Copy } from 'lucide-react'
 import api from '../../api/client'
 import {
   LangContext, FieldRenderer, ScoreCard, AlertCard,
   isFieldVisible, getCompletionPct,
 } from '../forms/formEngine'
+import useFormDraft, { draftMirrorKey, saveStatusLabel } from '@shared/hooks/useFormDraft'
+import { computeNormalFill } from '@shared/forms/normalFill'
 
 const NAVY  = '#0F2557'
 const GREEN = '#059669'
+
+// ─── Section/field layout maps (Tailwind-safe — literal class strings only) ────
+// Do NOT build these via `grid-cols-${n}` template strings; Tailwind purges those.
+const COLS = { 1: 'grid-cols-1', 2: 'grid-cols-2', 3: 'grid-cols-3', 4: 'grid-cols-4' }
+const SPAN = { 1: 'col-span-1', 2: 'col-span-2', 3: 'col-span-3', 4: 'col-span-4', full: 'col-span-full' }
+// Wide field types always span the full row regardless of their col_span.
+const WIDE = new Set(['textarea', 'table', 'body_map', 'signature', 'rich_text', 'divider', 'scale', 'checkbox', 'repeating_section', 'photo', 'file', 'matrix'])
+const spanFor = (field, layout) => WIDE.has(field.type) ? SPAN.full : (SPAN[Math.min(field.col_span || 1, layout || 1)] || SPAN[1])
 
 // ─────────────────────────────────────────────────────────────────────────────
 // In-chart assessment-form modal (admin-built / DB forms).
@@ -29,10 +39,17 @@ export default function DbAssessmentFormModal({ form, patientId, admissionId, pa
 
   const [loading,   setLoading]   = useState(true)
   const [loadError, setLoadError] = useState(null)
-  const [submitting, setSubmitting] = useState(false)
+  const [submitting, setSubmitting] = useState(false)   // signing / finalizing
+  const [savingDraft, setSavingDraft] = useState(false) // explicit "Save draft"
   const [submitted, setSubmitted] = useState(false)
   const [scores,    setScores]    = useState([])
   const [alerts,    setAlerts]    = useState([])
+
+  // Draft save-state: the server row id once a draft exists, and a live ref to
+  // values so the autosave closure always posts the latest edits.
+  const draftIdRef = useRef(null)
+  const valuesRef  = useRef(values)
+  valuesRef.current = values
 
   const title = meta?.title || form?.title || form?.name || 'Assessment Form'
 
@@ -51,6 +68,7 @@ export default function DbAssessmentFormModal({ form, patientId, admissionId, pa
           category:       f?.category,
           scoring_config: f?.scoring_config,
           alert_rules:    f?.alert_rules,
+          accent:         f?.schema?.theme?.accent || null,
         })
       })
       .catch(err => { if (alive) setLoadError(err?.message || 'Failed to load form') })
@@ -61,9 +79,87 @@ export default function DbAssessmentFormModal({ form, patientId, admissionId, pa
   const sections = schema?.sections || []
   const completionPct = getCompletionPct(sections, values)
 
+  // ── PowerForm save-states: localStorage mirror + debounced server autosave ──
+  const ready = !loading && !loadError && !submitted && sections.length > 0
+  const draft = useFormDraft({
+    mirrorKey: (form?.id && patientId) ? draftMirrorKey(form.id, patientId, admissionId || '') : null,
+    enabled:   ready && !!patientId,
+    saveFn:    async () => {
+      const res = await api.post(`/assessment-forms/${form.id}/submit`, {
+        submission_id: draftIdRef.current || undefined,
+        patient_id:    patientId,
+        admission_id:  admissionId ? Number(admissionId) : null,
+        form_data:     valuesRef.current,
+        is_draft:      true,
+        source:        'provider',
+      })
+      if (res?.submission_id) draftIdRef.current = res.submission_id
+    },
+  })
+
+  // Resume an in-progress draft for this patient (server-side; survives reload).
+  useEffect(() => {
+    if (!form?.id || !patientId) return
+    let alive = true
+    api.get(`/assessment-forms/${form.id}/draft`, {
+      params: { patient_id: patientId, admission_id: admissionId ? Number(admissionId) : undefined },
+    })
+      .then(r => {
+        if (!alive) return
+        const d = r?.draft
+        if (!d) return
+        draftIdRef.current = d.submission_id
+        if (d.form_data && Object.keys(d.form_data).length) {
+          setValues(v => (Object.keys(v).length ? v : d.form_data))
+        }
+      })
+      .catch(() => { /* no draft is the normal case */ })
+    return () => { alive = false }
+  }, [form?.id, patientId, admissionId])
+
   const setFieldValue = (fieldId, val) => {
-    setValues(v => ({ ...v, [fieldId]: val }))
+    const next = { ...valuesRef.current, [fieldId]: val }
+    setValues(next)
     setTouched(t => ({ ...t, [fieldId]: true }))
+    draft.markDirty(next)
+  }
+
+  const handleSaveDraft = async () => {
+    if (!patientId) { setErrors({ _submit: 'No patient is linked to this admission — cannot save.' }); return }
+    setErrors({})
+    setSavingDraft(true)
+    try { await draft.flush() } finally { setSavingDraft(false) }
+  }
+
+  const handleRestore = () => {
+    const recovered = draft.applyRecovery()
+    if (recovered && typeof recovered === 'object') setValues(v => ({ ...v, ...recovered }))
+  }
+
+  // ── Speed: mark-all-normal + carry-forward from the last visit ──
+  const handleMarkNormal = () => {
+    const patch = computeNormalFill(sections, valuesRef.current, { keyOf: f => f.id, isVisible: isFieldVisible })
+    if (!Object.keys(patch).length) return
+    const next = { ...valuesRef.current, ...patch }
+    setValues(next)
+    draft.markDirty(next)
+  }
+
+  const [lastSub, setLastSub] = useState(null)
+  useEffect(() => {
+    if (!form?.id || !patientId) return
+    let alive = true
+    api.get(`/assessment-forms/${form.id}/submissions`, { params: { patient_id: patientId, limit: 1, include_data: true } })
+      .then(r => { if (alive && r?.items?.length) setLastSub(r.items[0]) })
+      .catch(() => { /* no prior submission is normal */ })
+    return () => { alive = false }
+  }, [form?.id, patientId])
+
+  const handleCarryForward = () => {
+    if (!lastSub?.form_data) return
+    const merged = { ...lastSub.form_data, ...valuesRef.current }  // last fills blanks; entered values win
+    setValues(merged)
+    draft.markDirty(merged)
   }
 
   const validateAll = () => {
@@ -104,17 +200,24 @@ export default function DbAssessmentFormModal({ form, patientId, admissionId, pa
       return
     }
     setErrors({})
+    draft.cancelPending()   // no autosave may fire mid-sign (would create a stray draft)
     setSubmitting(true)
     try {
       // patient_id is required server-side; admission_id is a plain int column.
       // clinic_id / branch_id / submitted_by are taken from the auth token.
+      // is_draft:false promotes any in-progress draft to a signed record and
+      // fires alerts + iView; submission_id continues the same draft row.
       const payload = {
+        submission_id: draftIdRef.current || undefined,
         patient_id:   patientId,
         admission_id: admissionId ? Number(admissionId) : null,
         form_data:    values,
+        is_draft:     false,
         source:       'provider',
       }
       const res = await api.post(`/assessment-forms/${form.id}/submit`, payload)
+      draft.clearMirror()
+      draftIdRef.current = null
       const raw = res?.score_result
       const scoresArr = raw && Object.keys(raw).length > 0 ? [{
         name:  'Score',
@@ -232,33 +335,52 @@ export default function DbAssessmentFormModal({ form, patientId, admissionId, pa
 
               {/* Fields */}
               <div className="flex-1 overflow-y-auto px-6 py-5">
-                <div className="max-w-5xl mx-auto">
+                <div className="max-w-5xl mx-auto space-y-2">
+                  {/* Speed actions */}
+                  <div className="flex items-center justify-end gap-2 mb-1">
+                    {lastSub && (
+                      <button onClick={handleCarryForward}
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-gray-200 text-[11px] font-medium text-gray-600 hover:bg-gray-50"
+                        title={lastSub.submitted_at ? `From ${new Date(lastSub.submitted_at).toLocaleDateString()}` : 'Copy from last visit'}>
+                        <Copy size={12} /> Copy from last visit
+                      </button>
+                    )}
+                    <button onClick={handleMarkNormal}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-emerald-200 text-[11px] font-medium text-emerald-700 hover:bg-emerald-50">
+                      <CheckCheck size={12} /> Mark all normal
+                    </button>
+                  </div>
+                  {draft.recovery && (
+                    <div className="flex items-center justify-between gap-3 mb-3 px-4 py-2.5 rounded-xl border border-amber-200 bg-amber-50">
+                      <span className="text-xs text-amber-800 flex items-center gap-1.5 min-w-0">
+                        <RotateCcw size={13} className="shrink-0" />
+                        Unsaved changes from a previous session were found.
+                      </span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button onClick={handleRestore}
+                          className="px-3 py-1 rounded-lg bg-amber-500 text-white text-xs font-semibold hover:bg-amber-600">
+                          Restore
+                        </button>
+                        <button onClick={draft.dismissRecovery} className="text-amber-500 hover:text-amber-700" aria-label="Discard recovered changes">
+                          <X size={15} />
+                        </button>
+                      </div>
+                    </div>
+                  )}
                   {sections.map((section, si) => {
                     if (sections.length > 1 && si !== activeSection) return null
                     return (
-                      <div key={si}>
-                        {sections.length > 1 && (
-                          <h3 className="text-base font-bold mb-4" style={{ color: NAVY }}>
-                            {section.title || section.name || `Section ${si + 1}`}
-                          </h3>
-                        )}
-                        <div className="space-y-5">
-                          {(section.fields || []).map(field => {
-                            if (!isFieldVisible(field, values)) return null
-                            return (
-                              <div key={field.id} id={`dbform-field-${field.id}`}>
-                                <FieldRenderer
-                                  field={field}
-                                  value={values[field.id]}
-                                  onChange={v => setFieldValue(field.id, v)}
-                                  error={touched[field.id] ? errors[field.id] : undefined}
-                                  allValues={values}
-                                />
-                              </div>
-                            )
-                          })}
-                        </div>
-                      </div>
+                      <SectionBody
+                        key={section.id || si}
+                        section={section}
+                        index={si}
+                        tabbed={sections.length > 1}
+                        accent={meta?.accent}
+                        values={values}
+                        errors={errors}
+                        touched={touched}
+                        setFieldValue={setFieldValue}
+                      />
                     )
                   })}
                 </div>
@@ -271,8 +393,22 @@ export default function DbAssessmentFormModal({ form, patientId, admissionId, pa
                   <span className="text-xs text-red-600 flex items-center gap-1 min-w-0 truncate">
                     <AlertTriangle size={13} className="shrink-0" />{errors._submit}
                   </span>
-                ) : <span className="text-xs text-gray-400">Submitting charts to this admission</span>}
+                ) : (
+                  <span className={`text-xs flex items-center gap-1.5 min-w-0 truncate ${
+                    draft.status === 'error' ? 'text-red-500'
+                    : draft.status === 'saving' ? 'text-blue-500'
+                    : draft.status === 'saved' ? 'text-green-600' : 'text-gray-400'
+                  }`}>
+                    {draft.status === 'saving' && <Loader2 size={12} className="animate-spin shrink-0" />}
+                    {saveStatusLabel(draft.status, draft.savedAt) || 'Charting to this admission'}
+                  </span>
+                )}
                 <div className="flex items-center gap-2 flex-shrink-0">
+                  <button onClick={handleSaveDraft} disabled={savingDraft || submitting}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-60">
+                    {savingDraft ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+                    Save draft
+                  </button>
                   {sections.length > 1 && activeSection > 0 && (
                     <button onClick={() => setActiveSection(s => Math.max(0, s - 1))}
                       className="px-4 py-2 rounded-xl border border-gray-300 text-sm text-gray-700 hover:bg-gray-50">
@@ -286,11 +422,11 @@ export default function DbAssessmentFormModal({ form, patientId, admissionId, pa
                       Next →
                     </button>
                   ) : (
-                    <button onClick={handleSubmit} disabled={submitting}
+                    <button onClick={handleSubmit} disabled={submitting || savingDraft}
                       className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60"
                       style={{ background: GREEN }}>
-                      {submitting ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-                      {submitting ? 'Submitting…' : 'Submit Form'}
+                      {submitting ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+                      {submitting ? 'Signing…' : 'Sign & Submit'}
                     </button>
                   )}
                 </div>
@@ -299,6 +435,66 @@ export default function DbAssessmentFormModal({ form, patientId, admissionId, pa
           </LangContext.Provider>
         )}
       </div>
+    </div>
+  )
+}
+
+// ─── One stacked section: header tint + colour, collapsible, column grid ───────
+function SectionBody({ section, index, tabbed, accent, values, errors, touched, setFieldValue }) {
+  const layout = section.layout || 1
+  const headColor = section.header_color || accent || NAVY
+  const headTint = (section.header_color || accent) ? (section.header_color || accent) + '1f' : undefined
+  // Collapsible only applies to stacked (non-tabbed) sections.
+  const canCollapse = !tabbed && !!section.collapsible
+  const [collapsed, setCollapsed] = useState(!!section.collapsed)
+  const open = !canCollapse || !collapsed
+  const headTitle = section.title || section.name || `Section ${index + 1}`
+
+  return (
+    <div>
+      {/* Header — shown for tabbed sections (title context) and stacked sections */}
+      {(tabbed || canCollapse || section.header_color || accent) && (
+        <div
+          className={`flex items-center gap-2 mb-4 px-2 py-1.5 rounded-lg ${canCollapse ? 'cursor-pointer select-none' : ''}`}
+          style={{ background: headTint }}
+          onClick={canCollapse ? () => setCollapsed(c => !c) : undefined}
+          role={canCollapse ? 'button' : undefined}
+        >
+          {canCollapse && (
+            open ? <ChevronDown size={16} style={{ color: headColor }} /> : <ChevronRight size={16} style={{ color: headColor }} />
+          )}
+          <h3 className="text-base font-bold" style={{ color: headColor }}>
+            {headTitle}
+          </h3>
+        </div>
+      )}
+
+      {open && (
+        <div className={`grid gap-4 ${COLS[layout] || COLS[1]}`}>
+          {(section.fields || []).map(field => {
+            if (!isFieldVisible(field, values)) return null
+            return (
+              <div
+                key={field.id}
+                id={`dbform-field-${field.id}`}
+                className={spanFor(field, layout)}
+                style={{
+                  borderLeft: field.color ? '3px solid ' + field.color : undefined,
+                  paddingLeft: field.color ? 8 : undefined,
+                }}
+              >
+                <FieldRenderer
+                  field={field}
+                  value={values[field.id]}
+                  onChange={v => setFieldValue(field.id, v)}
+                  error={touched[field.id] ? errors[field.id] : undefined}
+                  allValues={values}
+                />
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

@@ -4,6 +4,14 @@ import { ChevronLeft, Save, Send, AlertTriangle, CheckCircle2, Clock, Loader2, X
 import api from '../../api/client'
 import { LangContext, isFieldVisible, getCompletionPct, FieldRenderer, ScoreCard, AlertCard } from './formEngine'
 
+// ─── Section/field layout maps (Tailwind-safe — literal class strings only) ────
+// Do NOT build these via `grid-cols-${n}` template strings; Tailwind purges those.
+const COLS = { 1: 'grid-cols-1', 2: 'grid-cols-2', 3: 'grid-cols-3', 4: 'grid-cols-4' }
+const SPAN = { 1: 'col-span-1', 2: 'col-span-2', 3: 'col-span-3', 4: 'col-span-4', full: 'col-span-full' }
+// Wide field types always span the full row regardless of their col_span.
+const WIDE = new Set(['textarea', 'table', 'body_map', 'signature', 'rich_text', 'divider', 'scale', 'checkbox', 'repeating_section', 'photo', 'file', 'matrix'])
+const spanFor = (field, layout) => WIDE.has(field.type) ? SPAN.full : (SPAN[Math.min(field.col_span || 1, layout || 1)] || SPAN[1])
+
 // ─── Main FormFiller ──────────────────────────────────────────────────────────
 
 export default function FormFiller() {
@@ -42,6 +50,29 @@ export default function FormFiller() {
   const autoSaveRef = useRef(null)
 
   const update = (patch) => setState(s => ({ ...s, ...patch }))
+
+  // ── Server draft (PowerForm save-states) ──────────────────────────────────
+  // The localStorage draft above is a crash-recovery mirror; this persists the
+  // same in-progress values to the backend (is_draft=true upsert) so a draft
+  // survives a reload or a different device, and `Submit` signs that same row.
+  const draftIdRef = useRef(null)
+  const stateRef   = useRef(state)
+  stateRef.current = state
+
+  const postServerDraft = useCallback(async (isDraft) => {
+    const a = stateRef.current.assignment
+    if (!a?.form_id || !a?.patient_id) return null
+    const res = await api.post(`/assessment-forms/${a.form_id}/submit`, {
+      submission_id: draftIdRef.current || undefined,
+      patient_id:    a.patient_id,
+      encounter_id:  a.admission_id,
+      form_data:     stateRef.current.values,
+      is_draft:      isDraft,
+      source:        'provider',
+    })
+    if (res?.submission_id) draftIdRef.current = res.submission_id
+    return res
+  }, [])
 
   // Load assignment + form schema
   useEffect(() => {
@@ -83,15 +114,31 @@ export default function FormFiller() {
             category:       form.category,
             scoring_config: form.scoring_config,
             alert_rules:    form.alert_rules,
+            accent:         schema?.theme?.accent || null,
           },
           schema: { sections },
         })
+
+        // Resume an in-progress SERVER draft (authoritative over the localStorage mirror).
+        if (patientIdFromUrl && form.id) {
+          try {
+            const dr = await api.get(`/assessment-forms/${form.id}/draft`, { params: { patient_id: patientIdFromUrl } })
+            const d = dr?.draft
+            if (d) {
+              draftIdRef.current = d.submission_id
+              if (d.form_data && Object.keys(d.form_data).length) {
+                update({ values: d.form_data })
+                setHasDraft(false)   // server draft wins — hide the local resume banner
+              }
+            }
+          } catch { /* no draft is the normal case */ }
+        }
 
         // Fetch prev submission for carry-forward (by form + patient)
         if (patientIdFromUrl && form.id) {
           try {
             const prevRes = await api.get(`/assessment-forms/${form.id}/submissions`, {
-              params: { patient_id: patientIdFromUrl, limit: 1 },
+              params: { patient_id: patientIdFromUrl, limit: 1, include_data: true },
             })
             const submissions = prevRes?.items || []
             if (submissions.length > 0) {
@@ -121,10 +168,12 @@ export default function FormFiller() {
   // Auto-save draft every 30s
   useEffect(() => {
     autoSaveRef.current = setInterval(() => {
+      if (stateRef.current.submitted) return   // form is signed — stop autosaving
       const current = state.values
       if (JSON.stringify(current) !== JSON.stringify(lastSaveRef.current)) {
         localStorage.setItem(draftKey, JSON.stringify(current))
         lastSaveRef.current = current
+        postServerDraft(true).catch(() => {})   // mirror the autosave to the backend
       }
     }, 30000)
     return () => clearInterval(autoSaveRef.current)
@@ -134,8 +183,9 @@ export default function FormFiller() {
     setState(s => ({ ...s, values: { ...s.values, [fieldId]: val }, touched: { ...s.touched, [fieldId]: true } }))
   }, [])
 
-  const saveDraft = () => {
+  const saveDraft = async () => {
     localStorage.setItem(draftKey, JSON.stringify(state.values))
+    try { await postServerDraft(true) } catch { /* keep the local mirror on failure */ }
     update({ draftSaved: true })
     setTimeout(() => update({ draftSaved: false }), 2000)
   }
@@ -189,17 +239,17 @@ export default function FormFiller() {
       document.getElementById(`field-${firstErrId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
       return
     }
+    const a = state.assignment
+    if (!a?.patient_id) {
+      update({ errors: { _submit: 'No patient is linked to this form — cannot submit.' } })
+      return
+    }
     update({ submitting: true })
     try {
-      const a = state.assignment
-      const payload = {
-        patient_id:   a.patient_id,
-        encounter_id: a.admission_id,
-        submitted_by: null,
-        form_data:    state.values,
-      }
-      const res = await api.post(`/assessment-forms/${a.form_id}/submit`, payload)
+      // is_draft:false signs the in-progress draft (same row) and fires alerts + iView.
+      const res = await postServerDraft(false)
       localStorage.removeItem(draftKey)
+      draftIdRef.current = null
       const raw = res?.score_result
       const scoresArr = raw && Object.keys(raw).length > 0 ? [{
         name:  'Score',
@@ -224,8 +274,9 @@ export default function FormFiller() {
   }
 
   const loadPrevValues = () => {
-    if (prevSubmission?.data) {
-      setState(s => ({ ...s, values: { ...prevSubmission.data } }))
+    const prevData = prevSubmission?.form_data || prevSubmission?.data
+    if (prevData) {
+      setState(s => ({ ...s, values: { ...prevData } }))
     }
     setShowPrevBanner(false)
   }
@@ -460,10 +511,17 @@ export default function FormFiller() {
         )}
         {sections.map((section, si) => {
           if (sections.length > 1 && si !== activeSection) return null
+          const layout = section.layout || 1
+          const accent = formMeta?.accent
+          const headColor = section.header_color || accent || '#0F2557'
+          const headTint = (section.header_color || accent) ? (section.header_color || accent) + '1f' : undefined
           return (
             <div key={si} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
-              <div className="flex items-center justify-between mb-5">
-                <h2 className="text-lg font-bold text-[#0F2557]">
+              <div
+                className="flex items-center justify-between mb-5 -mx-2 px-2 py-1.5 rounded-lg"
+                style={{ background: headTint }}
+              >
+                <h2 className="text-lg font-bold" style={{ color: headColor }}>
                   {section.title || section.name || `Section ${si + 1}`}
                 </h2>
                 <button
@@ -475,12 +533,20 @@ export default function FormFiller() {
                 </button>
               </div>
 
-              <div className="space-y-5">
+              <div className={`grid gap-4 ${COLS[layout] || COLS[1]}`}>
                 {(section.fields || []).map(field => {
                   const visible = isFieldVisible(field, values)
                   if (!visible) return null
                   return (
-                    <div key={field.id} id={`field-${field.id}`}>
+                    <div
+                      key={field.id}
+                      id={`field-${field.id}`}
+                      className={spanFor(field, layout)}
+                      style={{
+                        borderLeft: field.color ? '3px solid ' + field.color : undefined,
+                        paddingLeft: field.color ? 8 : undefined,
+                      }}
+                    >
                       <FieldRenderer
                         field={field}
                         value={values[field.id]}

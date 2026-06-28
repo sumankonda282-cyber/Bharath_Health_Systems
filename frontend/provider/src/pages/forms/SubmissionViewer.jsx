@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   ChevronLeft, Printer, AlertTriangle, CheckCircle2,
-  PenSquare, Loader2, User, Calendar, ShieldCheck
+  PenSquare, Loader2, User, Calendar, ShieldCheck,
+  Edit3, Ban, History, MessageSquarePlus, X, Send, Clock
 } from 'lucide-react'
 import api from '../../api/client'
+import { LangContext, FieldRenderer, isFieldVisible } from './formEngine'
 
 function ScoreCard({ score }) {
   const band = score.band || {}
@@ -65,25 +67,77 @@ export default function SubmissionViewer() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [submission, setSubmission] = useState(null)
+  const [formSchema, setFormSchema] = useState(null)
+  const [history, setHistory] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [ackLoading, setAckLoading] = useState({})
   const [cosignLoading, setCosignLoading] = useState(false)
   const [cosignDone, setCosignDone] = useState(false)
 
+  // Amendment UI state
+  const [showAmend, setShowAmend]       = useState(false)
+  const [showInError, setShowInError]   = useState(false)
+  const [commentText, setCommentText]   = useState('')
+  const [commentFlag, setCommentFlag]   = useState('')
+  const [commentBusy, setCommentBusy]   = useState(false)
+
+  const loadSubmission = useCallback(async () => {
+    const res = await api.get(`/submissions/${id}`)
+    setSubmission(res)
+    return res
+  }, [id])
+
+  const loadHistory = useCallback(async () => {
+    try { setHistory(await api.get(`/submissions/${id}/history`)) } catch { /* non-critical */ }
+  }, [id])
+
   useEffect(() => {
+    let alive = true
     async function load() {
       try {
         const res = await api.get(`/submissions/${id}`)
+        if (!alive) return
         setSubmission(res)
+        if (res?.form_id) {
+          try {
+            const f = await api.get(`/assessment-forms/${res.form_id}`)
+            if (alive) setFormSchema(f?.schema || null)
+          } catch { /* schema is best-effort */ }
+        }
+        try {
+          const h = await api.get(`/submissions/${id}/history`)
+          if (alive) setHistory(h)
+        } catch { /* non-critical */ }
       } catch (err) {
-        setError(err?.message || 'Failed to load submission')
+        if (alive) setError(err?.message || 'Failed to load submission')
       } finally {
-        setLoading(false)
+        if (alive) setLoading(false)
       }
     }
     load()
+    return () => { alive = false }
   }, [id])
+
+  const submitComment = async () => {
+    const text = commentText.trim()
+    if (!text) return
+    setCommentBusy(true)
+    try {
+      await api.post(`/submissions/${id}/comment`, { comment: text, flag: commentFlag || undefined })
+      setCommentText(''); setCommentFlag('')
+      await loadSubmission(); await loadHistory()
+    } catch (err) {
+      alert(err?.response?.data?.detail || 'Failed to add comment')
+    } finally {
+      setCommentBusy(false)
+    }
+  }
+
+  const handleInErrorDone = async () => {
+    setShowInError(false)
+    await loadSubmission(); await loadHistory()
+  }
 
   const acknowledgeAlert = async (alertId) => {
     setAckLoading(a => ({ ...a, [alertId]: true }))
@@ -223,10 +277,18 @@ export default function SubmissionViewer() {
     )
   }
 
-  const sections = submission.form?.sections || submission.sections || []
+  const sections = formSchema?.sections || submission.form?.sections || submission.sections || []
   const scores = submission.scores || []
   const alertsFired = submission.alerts_fired || []
   const cosign = submission.cosign_status
+  const comments = submission.comments || []
+
+  const recordStatus = submission.record_status || 'active'
+  const isDraft   = submission.status === 'draft'
+  const isActive  = recordStatus === 'active' && !isDraft
+  const isInError = recordStatus === 'in_error'
+  // The active (current) version in this chain, used to link from a superseded view.
+  const currentVersion = (history?.versions || []).find(v => v.record_status === 'active')
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -255,6 +317,24 @@ export default function SubmissionViewer() {
             </div>
           </div>
           <div className="flex items-center gap-2 print:hidden">
+            {isActive && (
+              <>
+                <button
+                  onClick={() => setShowAmend(true)}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-amber-300 text-sm text-amber-700 hover:bg-amber-50 transition"
+                >
+                  <Edit3 size={14} />
+                  Modify
+                </button>
+                <button
+                  onClick={() => setShowInError(true)}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-red-300 text-sm text-red-700 hover:bg-red-50 transition"
+                >
+                  <Ban size={14} />
+                  Mark in error
+                </button>
+              </>
+            )}
             <button
               onClick={() => window.print()}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition"
@@ -285,6 +365,53 @@ export default function SubmissionViewer() {
       </div>
 
       <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+        {/* Record-status banner (amendment lineage) */}
+        {isInError && (
+          <div className="rounded-xl border border-red-300 bg-red-50 p-4">
+            <div className="flex items-start gap-2">
+              <Ban size={18} className="text-red-600 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-bold text-red-800">Charted in error</p>
+                {submission.amend_reason && <p className="text-xs text-red-700 mt-0.5">Reason: {submission.amend_reason}</p>}
+                {submission.amended_at && (
+                  <p className="text-[11px] text-red-500 mt-0.5">
+                    Uncharted by staff #{submission.amended_by} on {new Date(submission.amended_at).toLocaleString()}
+                  </p>
+                )}
+                <p className="text-[11px] text-red-500 mt-0.5">This record is retained for audit but no longer counts clinically.</p>
+              </div>
+            </div>
+          </div>
+        )}
+        {recordStatus === 'superseded' && (
+          <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 flex items-center justify-between gap-3">
+            <div className="flex items-start gap-2 min-w-0">
+              <History size={18} className="text-amber-600 mt-0.5 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-amber-800">Superseded version</p>
+                <p className="text-xs text-amber-700 mt-0.5">This result was modified. You are viewing an earlier version.</p>
+              </div>
+            </div>
+            {currentVersion && (
+              <button
+                onClick={() => navigate(`/forms/submission/${currentVersion.id}`)}
+                className="shrink-0 px-3 py-1.5 rounded-lg bg-amber-500 text-white text-xs font-semibold hover:bg-amber-600"
+              >
+                View current version →
+              </button>
+            )}
+          </div>
+        )}
+        {isActive && submission.amends_id && (
+          <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 flex items-center gap-2">
+            <Edit3 size={15} className="text-blue-600 shrink-0" />
+            <p className="text-xs text-blue-700">
+              Amended record{submission.amended_at ? ` · modified ${new Date(submission.amended_at).toLocaleString()}` : ''}
+              {submission.amend_reason ? ` — ${submission.amend_reason}` : ''}
+            </p>
+          </div>
+        )}
+
         {/* Scores */}
         {scores.length > 0 && (
           <div>
@@ -395,6 +522,268 @@ export default function SubmissionViewer() {
             )}
           </div>
         )}
+
+        {/* Comments / flags */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 print:hidden">
+          <h2 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+            <MessageSquarePlus size={16} className="text-[#0F2557]" />
+            Comments &amp; Flags
+          </h2>
+          {comments.length > 0 ? (
+            <ul className="space-y-2 mb-4">
+              {comments.map(c => (
+                <li key={c.id} className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {c.flag && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-amber-100 text-amber-700">{c.flag}</span>
+                    )}
+                    <span className="text-sm text-gray-800">{c.comment}</span>
+                  </div>
+                  <p className="text-[11px] text-gray-400 mt-0.5">
+                    {c.author_name || `Staff #${c.author_id}`}
+                    {c.created_at ? ` · ${new Date(c.created_at).toLocaleString()}` : ''}
+                    {c.field_id ? ` · on ${c.field_id}` : ''}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-xs text-gray-400 mb-4">No comments yet.</p>
+          )}
+          <div className="flex flex-col sm:flex-row gap-2">
+            <select
+              value={commentFlag}
+              onChange={e => setCommentFlag(e.target.value)}
+              className="px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-700 bg-white sm:w-40"
+            >
+              <option value="">No flag</option>
+              <option value="abnormal">Abnormal</option>
+              <option value="critical">Critical</option>
+              <option value="follow-up">Follow-up</option>
+              <option value="note">Note</option>
+            </select>
+            <input
+              value={commentText}
+              onChange={e => setCommentText(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') submitComment() }}
+              placeholder="Add a comment…"
+              className="flex-1 px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#0F2557]/20"
+            />
+            <button
+              onClick={submitComment}
+              disabled={commentBusy || !commentText.trim()}
+              className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-[#0F2557] text-white text-sm font-medium hover:bg-[#0F2557]/90 transition disabled:opacity-50"
+            >
+              {commentBusy ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+              Add
+            </button>
+          </div>
+        </div>
+
+        {/* Version history (audit lineage) */}
+        {history?.versions?.length > 1 && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 print:hidden">
+            <h2 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+              <History size={16} className="text-[#0F2557]" />
+              Version History
+            </h2>
+            <ol className="relative border-l border-gray-200 ml-2">
+              {history.versions.map(v => {
+                const badge = {
+                  active:     'bg-green-100 text-green-700',
+                  superseded: 'bg-amber-100 text-amber-700',
+                  in_error:   'bg-red-100 text-red-700',
+                }[v.record_status] || 'bg-gray-100 text-gray-600'
+                const isThis = v.id === submission.id
+                return (
+                  <li key={v.id} className="ml-4 mb-4">
+                    <span className="absolute -left-1.5 w-3 h-3 rounded-full" style={{ background: v.record_status === 'in_error' ? '#dc2626' : v.record_status === 'superseded' ? '#d97706' : '#16a34a' }} />
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${badge}`}>
+                        {v.record_status === 'in_error' ? 'In error' : v.record_status}
+                      </span>
+                      <span className="text-xs text-gray-500 flex items-center gap-1">
+                        <Clock size={11} />
+                        {v.submitted_at ? new Date(v.submitted_at).toLocaleString() : '—'}
+                      </span>
+                      <span className="text-[11px] text-gray-400">by staff #{v.signed_by || v.submitted_by}</span>
+                      {isThis
+                        ? <span className="text-[10px] font-semibold text-[#0F2557]">• viewing</span>
+                        : <button onClick={() => navigate(`/forms/submission/${v.id}`)} className="text-[10px] font-semibold text-blue-600 hover:underline">view</button>}
+                    </div>
+                    {v.amend_reason && <p className="text-[11px] text-gray-500 mt-0.5">Reason: {v.amend_reason}</p>}
+                    {(v.comments || []).map(c => (
+                      <p key={c.id} className="text-[11px] text-gray-400 mt-0.5">💬 {c.flag ? `[${c.flag}] ` : ''}{c.comment}</p>
+                    ))}
+                  </li>
+                )
+              })}
+            </ol>
+          </div>
+        )}
+      </div>
+
+      {showAmend && (
+        <AmendModal
+          submissionId={submission.id}
+          sections={sections}
+          initialData={submission.data || {}}
+          formTitle={submission.form_title || submission.form?.title || 'Form'}
+          onClose={() => setShowAmend(false)}
+          onAmended={(newId) => { setShowAmend(false); navigate(`/forms/submission/${newId}`) }}
+        />
+      )}
+      {showInError && (
+        <InErrorModal
+          submissionId={submission.id}
+          onClose={() => setShowInError(false)}
+          onDone={handleInErrorDone}
+        />
+      )}
+    </div>
+  )
+}
+
+// ─── Modify (amend) modal — edits a copy and signs it as a new version ─────────
+function AmendModal({ submissionId, sections, initialData, formTitle, onClose, onAmended }) {
+  const [values, setValues] = useState({ ...initialData })
+  const [reason, setReason] = useState('')
+  const [busy, setBusy]     = useState(false)
+  const [err, setErr]       = useState(null)
+
+  const setField = (fid, val) => setValues(v => ({ ...v, [fid]: val }))
+
+  const submit = async () => {
+    if (!reason.trim()) { setErr('An amendment reason is required.'); return }
+    setBusy(true); setErr(null)
+    try {
+      const res = await api.post(`/submissions/${submissionId}/amend`, {
+        form_data: values,
+        reason:    reason.trim(),
+      })
+      onAmended(res?.submission_id)
+    } catch (e) {
+      setErr(e?.response?.data?.detail || e?.message || 'Amendment failed')
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(15,37,87,0.6)' }}>
+      <div className="flex flex-col bg-white rounded-2xl shadow-2xl overflow-hidden" style={{ width: '70vw', maxWidth: 900, height: '85vh' }}>
+        <div className="flex items-center justify-between px-6 py-3.5 border-b" style={{ background: '#0F2557' }}>
+          <div className="flex flex-col">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-amber-300">Modify result</span>
+            <span className="text-base font-extrabold text-white leading-tight">{formTitle}</span>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg text-blue-300 hover:text-white hover:bg-white/10">
+            <X size={18} />
+          </button>
+        </div>
+
+        <LangContext.Provider value={{ lang: 'en', translations: null }}>
+          <div className="flex-1 overflow-y-auto px-6 py-5">
+            <div className="max-w-4xl mx-auto space-y-6">
+              {sections.map((section, si) => (
+                <div key={section.id || si}>
+                  <h3 className="text-base font-bold text-[#0F2557] mb-4">{section.title || section.name || `Section ${si + 1}`}</h3>
+                  <div className="grid grid-cols-1 gap-4">
+                    {(section.fields || []).map(field => {
+                      if (!isFieldVisible(field, values)) return null
+                      return (
+                        <FieldRenderer
+                          key={field.id}
+                          field={field}
+                          value={values[field.id]}
+                          onChange={v => setField(field.id, v)}
+                          allValues={values}
+                        />
+                      )
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </LangContext.Provider>
+
+        <div className="border-t px-6 py-3.5 space-y-2" style={{ background: '#f9fafb' }}>
+          <div>
+            <label className="text-xs font-semibold text-gray-600">Reason for amendment <span className="text-red-500">*</span></label>
+            <input
+              value={reason}
+              onChange={e => setReason(e.target.value)}
+              placeholder="e.g. transcription error — corrected BP"
+              className="mt-1 w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#0F2557]/20"
+            />
+          </div>
+          {err && <p className="text-xs text-red-600 flex items-center gap-1"><AlertTriangle size={13} />{err}</p>}
+          <div className="flex items-center justify-end gap-2">
+            <button onClick={onClose} className="px-4 py-2 rounded-xl border border-gray-300 text-sm text-gray-700 hover:bg-gray-50">Cancel</button>
+            <button onClick={submit} disabled={busy}
+              className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60" style={{ background: '#059669' }}>
+              {busy ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+              {busy ? 'Saving…' : 'Sign amended version'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Chart-in-error (unchart) modal — reason required ─────────────────────────
+function InErrorModal({ submissionId, onClose, onDone }) {
+  const [reason, setReason] = useState('')
+  const [busy, setBusy]     = useState(false)
+  const [err, setErr]       = useState(null)
+
+  const submit = async () => {
+    if (!reason.trim()) { setErr('A reason is required.'); return }
+    setBusy(true); setErr(null)
+    try {
+      await api.post(`/submissions/${submissionId}/in-error`, { reason: reason.trim() })
+      onDone()
+    } catch (e) {
+      setErr(e?.response?.data?.detail || e?.message || 'Action failed')
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(15,37,87,0.6)' }}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-3.5 border-b bg-red-600">
+          <span className="text-base font-extrabold text-white flex items-center gap-2"><Ban size={18} /> Chart in error</span>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg text-red-100 hover:text-white hover:bg-white/10">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="p-6 space-y-3">
+          <p className="text-sm text-gray-600">
+            This marks the result as charted in error. It is kept for audit but will no longer
+            count clinically, trend on the flowsheet, or raise alerts. This cannot be undone.
+          </p>
+          <div>
+            <label className="text-xs font-semibold text-gray-600">Reason <span className="text-red-500">*</span></label>
+            <textarea
+              value={reason}
+              onChange={e => setReason(e.target.value)}
+              rows={3}
+              placeholder="e.g. recorded on the wrong patient"
+              className="mt-1 w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-red-200"
+            />
+          </div>
+          {err && <p className="text-xs text-red-600 flex items-center gap-1"><AlertTriangle size={13} />{err}</p>}
+          <div className="flex items-center justify-end gap-2 pt-1">
+            <button onClick={onClose} className="px-4 py-2 rounded-xl border border-gray-300 text-sm text-gray-700 hover:bg-gray-50">Cancel</button>
+            <button onClick={submit} disabled={busy}
+              className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-sm font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-60">
+              {busy ? <Loader2 size={14} className="animate-spin" /> : <Ban size={14} />}
+              {busy ? 'Marking…' : 'Confirm in error'}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   )

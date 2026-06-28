@@ -4,10 +4,12 @@
  * Accepts a formId, fetches the full form from the API, and renders all sections/fields.
  * Portal-agnostic. Do NOT delete during portal rebuilds.
  */
-import React, { useState, useEffect, useCallback } from 'react'
-import { Loader2, CheckCircle, AlertCircle, ChevronDown, ChevronUp, Lock, RefreshCw } from 'lucide-react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
+import { Loader2, CheckCircle, AlertCircle, ChevronDown, ChevronUp, Lock, RefreshCw, Save, RotateCcw, X, CheckCheck, Copy } from 'lucide-react'
 import api from '../../api/client'
-import BodySiteSearch from '../forms/BodySiteSearch'
+import TermSearch, { SEARCH_TYPES } from '../forms/TermSearch'
+import useFormDraft, { draftMirrorKey, saveStatusLabel } from '@shared/hooks/useFormDraft'
+import { computeNormalFill } from '@shared/forms/normalFill'
 
 // ── Formula evaluator for calculated fields (e.g. BMI) ───────────────────────
 // Replaces {field_id} tokens with current numeric form values and evaluates.
@@ -167,15 +169,15 @@ function FieldRenderer({ field, value, onChange, formData = {} }) {
     )
   }
 
-  if (type === 'body_site_search') {
+  if (SEARCH_TYPES[type]) {
     return (
       <div>
         <FieldLabel label={label} required={required} help_text={help_text} />
-        <BodySiteSearch
+        <TermSearch
+          type={type}
           value={value}
           onChange={val => onChange(val)}
           placeholder={placeholder}
-          category={field.search_category || 'anatomy'}
         />
       </div>
     )
@@ -358,26 +360,26 @@ function FieldRenderer({ field, value, onChange, formData = {} }) {
 
 // ── Section block ────────────────────────────────────────────────────────────
 
-function SectionBlock({ section, formData, onFieldChange }) {
-  const { id, title, layout = 2, applicability_mode, fields = [] } = section
+function SectionBlock({ section, formData, onFieldChange, theme }) {
+  const { id, title, applicability_mode, fields = [] } = section
   const isNaAllowed = applicability_mode === 'na_allowed'
   const [applicable, setApplicable] = useState('Applicable')
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsed, setCollapsed] = useState(!!section.collapsed)
 
-  const gridClass =
-    layout === 1 ? 'grid-cols-1' :
-    layout === 3 ? 'grid-cols-3' : 'grid-cols-2'
+  const COLS = { 1: 'grid-cols-1', 2: 'grid-cols-2', 3: 'grid-cols-3', 4: 'grid-cols-4' }
+  const SPAN = { 1: 'col-span-1', 2: 'col-span-2', 3: 'col-span-3', 4: 'col-span-4', full: 'col-span-full' }
+  const layout = section.layout || 1
+  const gridClass = COLS[layout] || COLS[1]
 
   const getColSpan = (field) => {
     const structuralTypes = ['heading', 'paragraph', 'stage_break', 'textarea', 'checkbox', 'scale']
-    if (structuralTypes.includes(field.type)) return 'col-span-full'
-    if (!layout || layout <= 1) return 'col-span-1'
-    const span = field.col_span || 1
-    if (layout === 2) return span >= 2 ? 'col-span-2' : 'col-span-1'
-    if (span >= 3) return 'col-span-3'
-    if (span === 2) return 'col-span-2'
-    return 'col-span-1'
+    if (structuralTypes.includes(field.type)) return SPAN.full
+    if (!layout || layout <= 1) return SPAN[1]
+    const span = Math.min(field.col_span || 1, layout)
+    return SPAN[span] || SPAN[1]
   }
+
+  const accent = section.header_color || theme?.accent
 
   if (applicable === 'N/A') {
     return (
@@ -397,8 +399,11 @@ function SectionBlock({ section, formData, onFieldChange }) {
 
   return (
     <div className="rounded-xl border border-gray-200 overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
-        <h3 className="font-semibold text-sm text-gray-700">{title}</h3>
+      <div
+        className={`flex items-center justify-between px-4 py-3 border-b border-gray-200 ${accent ? '' : 'bg-gray-50'}`}
+        style={accent ? { backgroundColor: accent + '1f' } : undefined}
+      >
+        <h3 className={`font-semibold text-sm ${accent ? '' : 'text-gray-700'}`} style={accent ? { color: accent } : undefined}>{title}</h3>
         <div className="flex items-center gap-2">
           {isNaAllowed && (
             <div className="flex gap-1">
@@ -418,20 +423,26 @@ function SectionBlock({ section, formData, onFieldChange }) {
               ))}
             </div>
           )}
-          <button
-            type="button"
-            onClick={() => setCollapsed(c => !c)}
-            className="text-gray-400 hover:text-gray-600 p-1"
-          >
-            {collapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
-          </button>
+          {section.collapsible && (
+            <button
+              type="button"
+              onClick={() => setCollapsed(c => !c)}
+              className="text-gray-400 hover:text-gray-600 p-1"
+            >
+              {collapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+            </button>
+          )}
         </div>
       </div>
 
-      {!collapsed && (
+      {!(section.collapsible && collapsed) && (
         <div className={`p-4 grid ${gridClass} gap-4`}>
           {fields.map(field => (
-            <div key={field.id || field.field_id} className={getColSpan(field)}>
+            <div
+              key={field.id || field.field_id}
+              className={getColSpan(field)}
+              style={{ borderLeft: field.color ? '3px solid ' + field.color : undefined, paddingLeft: field.color ? 8 : undefined }}
+            >
               <FieldRenderer
                 field={field}
                 value={formData[field.field_id]}
@@ -464,9 +475,16 @@ export default function SchemaFormRenderer({ formId, patientId, encounterId, onS
   const [loading, setLoading] = useState(true)
   const [loadErr, setLoadErr] = useState(null)
   const [formData, setFormData] = useState({})
-  const [saving, setSaving]   = useState(false)
+  const [saving, setSaving]   = useState(false)   // signing / finalizing
+  const [savingDraft, setSavingDraft] = useState(false)
   const [submitErr, setSubmitErr] = useState(null)
   const [done, setDone]       = useState(false)
+
+  const draftIdRef = useRef(null)
+  const dataRef    = useRef(formData)
+  dataRef.current  = formData
+  const pid = patientId || admission?.patient_id
+  const enc = encounterId || admission?.id
 
   useEffect(() => {
     if (!formId) return
@@ -480,21 +498,104 @@ export default function SchemaFormRenderer({ formId, patientId, encounterId, onS
       })
   }, [formId])
 
+  // ── PowerForm save-states: localStorage mirror + debounced server autosave ──
+  const draft = useFormDraft({
+    mirrorKey: (formId && pid) ? draftMirrorKey(formId, pid, enc || '') : null,
+    enabled:   !loading && !loadErr && !done && !!form && !!pid,
+    saveFn:    async () => {
+      const res = await api.post(`/assessment-forms/${formId}/submit`, {
+        submission_id: draftIdRef.current || undefined,
+        form_data:     dataRef.current,
+        patient_id:    pid,
+        encounter_id:  enc,
+        is_draft:      true,
+        source:        'carechart',
+      })
+      if (res?.submission_id) draftIdRef.current = res.submission_id
+    },
+  })
+
+  // Resume an in-progress draft for this patient (server-side; survives reload).
+  useEffect(() => {
+    if (!formId || !pid) return
+    let alive = true
+    api.get(`/assessment-forms/${formId}/draft`, { params: { patient_id: pid, encounter_id: enc || undefined } })
+      .then(r => {
+        if (!alive) return
+        const d = r?.draft
+        if (!d) return
+        draftIdRef.current = d.submission_id
+        if (d.form_data && Object.keys(d.form_data).length) {
+          setFormData(prev => (Object.keys(prev).length ? prev : d.form_data))
+        }
+      })
+      .catch(() => { /* no draft is the normal case */ })
+    return () => { alive = false }
+  }, [formId, pid, enc])
+
   const handleFieldChange = useCallback((fieldId, val) => {
-    setFormData(prev => ({ ...prev, [fieldId]: val }))
-  }, [])
+    const next = { ...dataRef.current, [fieldId]: val }
+    setFormData(next)
+    draft.markDirty(next)
+  }, [draft])
+
+  const handleSaveDraft = async () => {
+    if (!pid) { setSubmitErr('No patient is linked — cannot save draft.'); return }
+    setSubmitErr(null)
+    setSavingDraft(true)
+    try { await draft.flush() } finally { setSavingDraft(false) }
+  }
+
+  const handleRestore = () => {
+    const recovered = draft.applyRecovery()
+    if (recovered && typeof recovered === 'object') setFormData(prev => ({ ...prev, ...recovered }))
+  }
+
+  // ── Speed: mark-all-normal + carry-forward from the last visit ──
+  const handleMarkNormal = () => {
+    const secs = form?.schema?.sections || []
+    const patch = computeNormalFill(secs, dataRef.current, { keyOf: f => f.field_id || f.id })
+    if (!Object.keys(patch).length) return
+    const next = { ...dataRef.current, ...patch }
+    setFormData(next)
+    draft.markDirty(next)
+  }
+
+  const [lastSub, setLastSub] = useState(null)
+  useEffect(() => {
+    if (!formId || !pid) return
+    let alive = true
+    api.get(`/assessment-forms/${formId}/submissions`, { params: { patient_id: pid, limit: 1, include_data: true } })
+      .then(r => { if (alive && r?.items?.length) setLastSub(r.items[0]) })
+      .catch(() => { /* no prior submission is normal */ })
+    return () => { alive = false }
+  }, [formId, pid])
+
+  const handleCarryForward = () => {
+    if (!lastSub?.form_data) return
+    const merged = { ...lastSub.form_data, ...dataRef.current }  // last fills blanks; entered values win
+    setFormData(merged)
+    draft.markDirty(merged)
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    draft.cancelPending()   // no autosave may fire mid-sign (would create a stray draft)
     setSaving(true)
     setSubmitErr(null)
     try {
+      // is_draft:false promotes any in-progress draft to a signed record and
+      // fires alerts + iView; submission_id continues the same draft row.
       await api.post(`/assessment-forms/${formId}/submit`, {
-        form_data:    formData,
-        patient_id:   patientId || admission?.patient_id,
-        encounter_id: encounterId || admission?.id,
-        submitted_by: null,
+        submission_id: draftIdRef.current || undefined,
+        form_data:     formData,
+        patient_id:    pid,
+        encounter_id:  enc,
+        is_draft:      false,
+        source:        'carechart',
       })
+      draft.clearMirror()
+      draftIdRef.current = null
       setDone(true)
       setTimeout(() => onSaved?.(), 1800)
     } catch (err) {
@@ -547,12 +648,47 @@ export default function SchemaFormRenderer({ formId, patientId, encounterId, onS
         <p className="text-sm text-gray-400 text-center py-8">This form has no sections yet.</p>
       )}
 
+      {draft.recovery && sections.length > 0 && (
+        <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg border border-amber-200 bg-amber-50">
+          <span className="text-xs text-amber-800 flex items-center gap-1.5 min-w-0">
+            <RotateCcw size={13} className="shrink-0" />
+            Unsaved changes from a previous session were found.
+          </span>
+          <div className="flex items-center gap-2 shrink-0">
+            <button type="button" onClick={handleRestore}
+              className="px-3 py-1 rounded-lg bg-amber-500 text-white text-xs font-semibold hover:bg-amber-600">
+              Restore
+            </button>
+            <button type="button" onClick={draft.dismissRecovery} className="text-amber-500 hover:text-amber-700" aria-label="Discard recovered changes">
+              <X size={15} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {sections.length > 0 && (
+        <div className="flex items-center justify-end gap-2">
+          {lastSub && (
+            <button type="button" onClick={handleCarryForward}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-gray-200 text-[11px] font-medium text-gray-600 hover:bg-gray-50"
+              title={lastSub.submitted_at ? `From ${new Date(lastSub.submitted_at).toLocaleDateString()}` : 'Copy from last visit'}>
+              <Copy size={12} /> Copy from last visit
+            </button>
+          )}
+          <button type="button" onClick={handleMarkNormal}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-emerald-200 text-[11px] font-medium text-emerald-700 hover:bg-emerald-50">
+            <CheckCheck size={12} /> Mark all normal
+          </button>
+        </div>
+      )}
+
       {sections.map(section => (
         <SectionBlock
           key={section.id}
           section={section}
           formData={formData}
           onFieldChange={handleFieldChange}
+          theme={form?.schema?.theme}
         />
       ))}
 
@@ -564,24 +700,43 @@ export default function SchemaFormRenderer({ formId, patientId, encounterId, onS
       )}
 
       {sections.length > 0 && (
-        <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
-          {onClose && (
+        <div className="flex items-center justify-between gap-3 pt-2 border-t border-gray-100">
+          <span className={`text-xs flex items-center gap-1.5 min-w-0 truncate ${
+            draft.status === 'error' ? 'text-red-500'
+            : draft.status === 'saving' ? 'text-blue-500'
+            : draft.status === 'saved' ? 'text-green-600' : 'text-gray-400'
+          }`}>
+            {draft.status === 'saving' && <Loader2 size={12} className="animate-spin shrink-0" />}
+            {saveStatusLabel(draft.status, draft.savedAt)}
+          </span>
+          <div className="flex items-center gap-3">
+            {onClose && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+            )}
             <button
               type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+              onClick={handleSaveDraft}
+              disabled={savingDraft || saving}
+              className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-60 transition-colors"
             >
-              Cancel
+              {savingDraft ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+              Save draft
             </button>
-          )}
-          <button
-            type="submit"
-            disabled={saving}
-            className="flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
-          >
-            {saving && <Loader2 size={14} className="animate-spin" />}
-            {saving ? 'Submitting…' : 'Submit Form'}
-          </button>
+            <button
+              type="submit"
+              disabled={saving || savingDraft}
+              className="flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+            >
+              {saving ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
+              {saving ? 'Signing…' : 'Sign & Submit'}
+            </button>
+          </div>
         </div>
       )}
     </form>

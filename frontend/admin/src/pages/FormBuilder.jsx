@@ -27,6 +27,7 @@ function makeSection(index) {
     title: `Section ${index}`,
     description: '',
     layout: 1,
+    header_color: '',
     collapsible: false,
     collapsed: false,
     repeatable: false,
@@ -170,6 +171,20 @@ function reducer(state, action) {
             sections: form.schema.sections.map(s => s.id === sectionId ? { ...s, [key]: value } : s),
           },
         },
+      }
+    }
+
+    case 'MOVE_SECTION': {
+      const { sectionId, dir } = action.payload
+      const secs = [...form.schema.sections]
+      const i = secs.findIndex(s => s.id === sectionId)
+      const j = i + dir
+      if (i < 0 || j < 0 || j >= secs.length) return state
+      ;[secs[i], secs[j]] = [secs[j], secs[i]]
+      return {
+        ...state,
+        isDirty: true,
+        form: { ...form, schema: { ...form.schema, sections: secs } },
       }
     }
 
@@ -412,6 +427,8 @@ function StatusBadge({ status }) {
 const inputCls = 'w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#F5821E] transition-colors'
 const textareaCls = inputCls + ' resize-none'
 
+const FORM_ACCENT_PALETTE = ['#0F2557', '#CC1414', '#F5821E', '#16A34A', '#7C3AED', '#0891B2', '#D97706', '#DB2777', '#0D9488', '#475569']
+
 function Toggle({ value, onChange, label }) {
   return (
     <label className="flex items-center gap-2.5 cursor-pointer select-none">
@@ -498,6 +515,41 @@ function FormSettingsModal({ form, dispatch, onClose }) {
               <option value="published">Published</option>
               <option value="retired">Retired</option>
             </select>
+          </div>
+
+          {/* Form accent colour */}
+          <div>
+            <label className="block text-xs font-medium text-gray-400 mb-1">Form accent colour</label>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {FORM_ACCENT_PALETTE.map(c => {
+                const current = form.schema?.theme?.accent || ''
+                return (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => dispatch({ type: 'SET_FORM_PROP', payload: { key: 'schema', value: { ...form.schema, theme: { ...(form.schema.theme || {}), accent: c } } } })}
+                    className={`w-5 h-5 rounded-full border ${current === c ? 'ring-2 ring-offset-1 ring-gray-400' : ''}`}
+                    style={{ background: c, borderColor: '#e5e7eb' }}
+                    title={c}
+                  />
+                )
+              })}
+              <input
+                type="color"
+                value={form.schema?.theme?.accent || '#0F2557'}
+                onChange={e => dispatch({ type: 'SET_FORM_PROP', payload: { key: 'schema', value: { ...form.schema, theme: { ...(form.schema.theme || {}), accent: e.target.value } } } })}
+                className="w-6 h-6 rounded cursor-pointer border border-gray-700 p-0 bg-gray-800"
+              />
+              {form.schema?.theme?.accent && (
+                <button
+                  type="button"
+                  onClick={() => dispatch({ type: 'SET_FORM_PROP', payload: { key: 'schema', value: { ...form.schema, theme: { ...(form.schema.theme || {}), accent: '' } } } })}
+                  className="text-xs text-gray-500 hover:text-gray-300"
+                >
+                  clear
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="border-t border-gray-800 pt-4 space-y-3">
@@ -593,7 +645,7 @@ export default function FormBuilder() {
   const dispatchWithHistory = useCallback(
     (action) => {
       const schemaChangingActions = [
-        'ADD_SECTION', 'DELETE_SECTION', 'UPDATE_SECTION',
+        'ADD_SECTION', 'DELETE_SECTION', 'UPDATE_SECTION', 'MOVE_SECTION',
         'ADD_FIELD', 'DELETE_FIELD', 'MOVE_FIELD',
         'UPDATE_FIELD_PROP', 'SET_FIELD',
         'ADD_ALERT_RULE', 'REMOVE_ALERT_RULE',
