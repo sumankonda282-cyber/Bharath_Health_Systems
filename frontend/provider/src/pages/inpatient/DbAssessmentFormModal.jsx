@@ -7,6 +7,7 @@ import {
 } from '../forms/formEngine'
 import useFormDraft, { draftMirrorKey, saveStatusLabel } from '@shared/hooks/useFormDraft'
 import { computeNormalFill } from '@shared/forms/normalFill'
+import { sectionHasLayout, buildRowMap, sectionGridStyle, gridCellStyle } from '@shared/forms/gridLayout'
 
 const NAVY  = '#0F2557'
 const GREEN = '#059669'
@@ -471,16 +472,20 @@ function SectionBody({ section, index, tabbed, accent, values, errors, touched, 
         </div>
       )}
 
-      {open && (
-        <div className={`grid gap-4 ${COLS[layout] || COLS[1]}`}>
-          {(section.fields || []).map(field => {
-            if (!isFieldVisible(field, values)) return null
-            return (
+      {open && (() => {
+        // CareForm free-grid placement (design = fill); legacy flow fallback.
+        const visible = (section.fields || []).filter(f => isFieldVisible(f, values))
+        const useGrid = sectionHasLayout(section.fields)
+        const rowMap  = useGrid ? buildRowMap(visible) : null
+        return (
+          <div className={useGrid ? '' : `grid gap-4 ${COLS[layout] || COLS[1]}`} style={useGrid ? sectionGridStyle : undefined}>
+            {visible.map(field => (
               <div
                 key={field.id}
                 id={`dbform-field-${field.id}`}
-                className={spanFor(field, layout)}
+                className={useGrid ? undefined : spanFor(field, layout)}
                 style={{
+                  ...(useGrid ? gridCellStyle(field, rowMap) : {}),
                   borderLeft: field.color ? '3px solid ' + field.color : undefined,
                   paddingLeft: field.color ? 8 : undefined,
                 }}
@@ -493,10 +498,10 @@ function SectionBody({ section, index, tabbed, accent, values, errors, touched, 
                   allValues={values}
                 />
               </div>
-            )
-          })}
-        </div>
-      )}
+            ))}
+          </div>
+        )
+      })()}
     </div>
   )
 }

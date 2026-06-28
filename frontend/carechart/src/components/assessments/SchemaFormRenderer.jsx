@@ -10,6 +10,7 @@ import api from '../../api/client'
 import TermSearch, { SEARCH_TYPES } from '../forms/TermSearch'
 import useFormDraft, { draftMirrorKey, saveStatusLabel } from '@shared/hooks/useFormDraft'
 import { computeNormalFill } from '@shared/forms/normalFill'
+import { sectionHasLayout, buildRowMap, sectionGridStyle, gridCellStyle } from '@shared/forms/gridLayout'
 
 // ── Formula evaluator for calculated fields (e.g. BMI) ───────────────────────
 // Replaces {field_id} tokens with current numeric form values and evaluates.
@@ -459,24 +460,35 @@ function SectionBlock({ section, formData, onFieldChange, theme }) {
         </div>
       </div>
 
-      {!(section.collapsible && collapsed) && (
-        <div className={`p-4 grid ${gridClass} gap-4`}>
-          {fields.filter(field => isFieldVisible(field, formData)).map(field => (
-            <div
-              key={field.id || field.field_id}
-              className={getColSpan(field)}
-              style={{ borderLeft: field.color ? '3px solid ' + field.color : undefined, paddingLeft: field.color ? 8 : undefined }}
-            >
-              <FieldRenderer
-                field={field}
-                value={formData[field.field_id]}
-                onChange={val => onFieldChange(field.field_id, val)}
-                formData={formData}
-              />
-            </div>
-          ))}
-        </div>
-      )}
+      {!(section.collapsible && collapsed) && (() => {
+        // CareForm free-grid placement (design = fill). Falls back to the legacy
+        // column flow for forms that predate the grid (no field.layout).
+        const visible = fields.filter(field => isFieldVisible(field, formData))
+        const useGrid = sectionHasLayout(fields)
+        const rowMap  = useGrid ? buildRowMap(visible) : null
+        return (
+          <div className={useGrid ? 'p-4' : `p-4 grid ${gridClass} gap-4`} style={useGrid ? sectionGridStyle : undefined}>
+            {visible.map(field => (
+              <div
+                key={field.id || field.field_id}
+                className={useGrid ? undefined : getColSpan(field)}
+                style={{
+                  ...(useGrid ? gridCellStyle(field, rowMap) : {}),
+                  borderLeft: field.color ? '3px solid ' + field.color : undefined,
+                  paddingLeft: field.color ? 8 : undefined,
+                }}
+              >
+                <FieldRenderer
+                  field={field}
+                  value={formData[field.field_id]}
+                  onChange={val => onFieldChange(field.field_id, val)}
+                  formData={formData}
+                />
+              </div>
+            ))}
+          </div>
+        )
+      })()}
     </div>
   )
 }

@@ -515,3 +515,241 @@ def cds_check(
     order = {"contraindicated": 0, "serious": 1, "moderate": 2, "minor": 3}
     warnings.sort(key=lambda w: order.get(w["severity"], 9))
     return {"warnings": warnings, "checked_drugs": names, "checked_diagnoses": codes}
+
+
+# ─── Dose suggestion (weight/age-aware, nearest available formulations) ──────────
+
+def _fmt_num(x):
+    try:
+        xf = float(x)
+        return str(int(xf)) if xf.is_integer() else str(round(xf, 2))
+    except Exception:
+        return str(x)
+
+
+def _round_half(x):
+    return round(x * 2) / 2.0
+
+
+def _dose_label(form, strength, unit, qty, qunit, deliver):
+    sg, dl = _fmt_num(strength), _fmt_num(round(deliver, 1))
+    if qunit == "mL":
+        return f"{_fmt_num(qty)} mL {form} ({sg}{unit}/5mL) → {dl}{unit}"
+    q = "½" if qty == 0.5 else _fmt_num(qty)
+    return f"{q} {form} ({sg}{unit}) → {dl}{unit}"
+
+
+_LIQUID_FORMS = {"syr", "syrup", "susp", "suspension", "drops", "soln", "solution", "elixir", "liquid"}
+
+
+@router.get("/drugs/dose-suggest")
+def dose_suggest(
+    generic: str = Query(...),
+    weight_kg: Optional[float] = Query(None),
+    age_years: Optional[float] = Query(None),
+    age_months: Optional[int] = Query(None),
+    route: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Suggest a weight/age-appropriate dose and the nearest available formulations
+    (incl. half-tablet / syrup-mL). Reads DrugDoseRange (mg/kg for paediatric +
+    max single/daily caps) and the Drug formulation library. NEW endpoint — purely
+    additive, does not change existing /drugs routes. Clinician confirms the dose;
+    this is decision support, not an order."""
+    g = (generic or "").strip()
+    if not g:
+        return {"generic": g, "options": [], "message": "No drug specified."}
+
+    # Defensive: ignore anything that isn't a real number (robust to bad input).
+    weight_kg = weight_kg if isinstance(weight_kg, (int, float)) and not isinstance(weight_kg, bool) else None
+    age_years = age_years if isinstance(age_years, (int, float)) and not isinstance(age_years, bool) else None
+    age_months = age_months if isinstance(age_months, int) and not isinstance(age_months, bool) else None
+
+    yrs = age_years if age_years is not None else (age_months / 12.0 if age_months is not None else None)
+    population = "pediatric" if (yrs is not None and yrs < 12) else "adult"
+
+    rules = db.query(DrugDoseRange).filter(DrugDoseRange.generic.ilike(g)).all()
+
+    def pick_rule(pop, rt):
+        for r in rules:
+            if (r.population or "adult") == pop and (not rt or (r.route or "").lower() == rt.lower()):
+                return r
+        return None
+
+    rule = (pick_rule(population, route) or pick_rule(population, None)
+            or pick_rule("adult", route) or pick_rule("adult", None))
+
+    drug = db.query(Drug).filter(Drug.generic.ilike(g)).first()
+    forms = []
+    if drug and drug.formulations:
+        try:
+            forms = _json.loads(drug.formulations) or []
+        except Exception:
+            forms = []
+    if route:
+        forms = [f for f in forms if (f.get("route") or "").lower() == route.lower()] or forms
+
+    target_mg = max_single = max_daily = None
+    is_mgkg = bool(rule and (rule.unit or "").lower() == "mg/kg")
+    if rule:
+        ms = float(rule.max_single_mg) if rule.max_single_mg is not None else None
+        md = float(rule.max_daily_mg) if rule.max_daily_mg is not None else None
+        if is_mgkg and weight_kg:
+            target_mg = ms * weight_kg if ms else None
+            max_single = ms * weight_kg if ms else None
+            max_daily = md * weight_kg if md else None
+        else:
+            max_single, max_daily = ms, md
+
+    # Flag threshold: for paediatric mg/kg the single-dose rate IS the target, so
+    # allow a rounding tolerance (a 16 kg child's 250 mg tab ≈ 15.6 mg/kg is fine).
+    # For adults the absolute single-dose cap is hard.
+    cap_flag = (target_mg * 1.25) if (is_mgkg and target_mg) else max_single
+
+    options = []
+    for f in forms:
+        form = (f.get("form") or "").strip()
+        unit = f.get("unit") or "mg"
+        rt = f.get("route") or ""
+        fl = form.lower()
+        if unit != "mg":      # skip %-strength topicals etc. for systemic dosing
+            continue
+        for s in (f.get("doses") or []):
+            try:
+                strength = float(s)
+            except Exception:
+                continue
+            if not strength:
+                continue
+            if target_mg:
+                if fl in _LIQUID_FORMS:
+                    ml = _round_half((target_mg / strength) * 5)   # strength assumed mg per 5 mL
+                    if ml <= 0:
+                        continue
+                    deliver = (ml / 5.0) * strength
+                    qty, qunit = ml, "mL"
+                else:
+                    n = _round_half(target_mg / strength)
+                    if n < 0.5 or n > 6:
+                        continue
+                    deliver = n * strength
+                    qty, qunit = n, form
+                closeness = abs(deliver - target_mg)
+            else:
+                deliver, qty, qunit = strength, 1, form
+                closeness = abs(strength - (max_single or strength))
+            options.append({
+                "form": form, "route": rt, "strength": strength, "unit": unit,
+                "quantity": qty, "quantity_unit": qunit, "deliver_mg": round(deliver, 1),
+                "exceeds_max": bool(cap_flag and deliver > cap_flag + 0.01),
+                "label": _dose_label(form, strength, unit, qty, qunit, deliver),
+                "_close": closeness,
+            })
+
+    options.sort(key=lambda o: (o["exceeds_max"], o["_close"]))
+    nearest = options[:3]
+    for o in nearest:
+        o.pop("_close", None)
+
+    msg = None
+    if population == "pediatric" and is_mgkg and not weight_kg:
+        msg = "Enter the patient's weight for paediatric (mg/kg) dosing."
+    elif not rule:
+        msg = "No dose rule on file; showing available formulations only."
+    elif not nearest:
+        msg = "No matching formulation found for this route."
+
+    return {
+        "generic": g,
+        "population": population,
+        "route": route,
+        "weight_kg": weight_kg,
+        "age_years": yrs,
+        "target_mg": round(target_mg, 1) if target_mg else None,
+        "max_single_mg": round(max_single, 1) if max_single else None,
+        "max_daily_mg": round(max_daily, 1) if max_daily else None,
+        "rule": ({
+            "unit": rule.unit,
+            "note": rule.note,
+            "renal_adjustment": bool(rule.renal_adjustment),
+            "hepatic_adjustment": bool(rule.hepatic_adjustment),
+            "pregnancy_category": rule.pregnancy_category,
+        } if rule else None),
+        "options": nearest,
+        "message": msg,
+    }
+
+
+# ─── Allergy cross-check (drug vs patient's recorded allergies) ──────────────────
+
+class AllergyCheckIn(BaseModel):
+    drug: str
+    allergies: List[str] = []
+
+
+# (allergy keywords, generic/class substrings that imply cross-reactivity, severity, basis)
+_CROSS_REACT = [
+    (["penicillin", "pencillin", "amoxicillin", "ampicillin", "augmentin", "amoxyclav", "amoxiclav", "betalactam", "beta-lactam"],
+     ["cillin", "penicillin", "amoxyclav", "piperacillin", "tazobactam"], "high", "Beta-lactam (penicillin) cross-reactivity"),
+    (["penicillin", "betalactam", "beta-lactam"],
+     ["cef", "ceph"], "moderate", "Possible penicillin–cephalosporin cross-reactivity"),
+    (["cephalosporin", "cephalexin", "cefixime", "ceftriaxone", "cefuroxime"],
+     ["cef", "ceph"], "high", "Cephalosporin allergy"),
+    (["sulfa", "sulpha", "sulphonamide", "sulfonamide", "cotrimoxazole", "bactrim", "septran"],
+     ["sulfa", "sulpha", "cotrimoxazole", "sulfamethoxazole", "sulfasalazine", "sulphadiazine"], "high", "Sulfonamide allergy"),
+    (["nsaid", "aspirin", "ibuprofen", "diclofenac", "brufen", "aceclofenac", "naproxen"],
+     ["ibuprofen", "diclofenac", "aspirin", "naproxen", "ketorolac", "aceclofenac", "indomethacin", "etoricoxib", "nsaid"], "moderate", "NSAID cross-sensitivity"),
+    (["codeine", "morphine", "opioid", "tramadol", "fentanyl"],
+     ["codeine", "morphine", "tramadol", "fentanyl", "oxycodone", "opioid"], "moderate", "Opioid cross-sensitivity"),
+    (["quinolone", "ciprofloxacin", "levofloxacin", "fluoroquinolone"],
+     ["floxacin", "quinolone"], "high", "Fluoroquinolone allergy"),
+    (["macrolide", "erythromycin", "azithromycin", "clarithromycin"],
+     ["thromycin", "macrolide"], "high", "Macrolide allergy"),
+]
+
+
+@router.post("/drugs/check-allergy")
+def check_allergy(
+    payload: AllergyCheckIn,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Cross-check a drug against a patient's recorded allergies — direct name
+    matches plus class cross-reactivity (penicillins, sulfonamides, NSAIDs, …).
+    Decision support; the clinician makes the call. NEW additive endpoint."""
+    import re
+    drug = (payload.drug or "").strip()
+    if not drug:
+        return {"drug": drug, "has_match": False, "matches": []}
+
+    # Enrich with the drug's generic + class for class-based matching.
+    d = db.query(Drug).filter(
+        (Drug.generic.ilike(drug)) | (Drug.primary_brand.ilike(drug))
+    ).first()
+    hay = " ".join([
+        drug.lower(),
+        (d.generic or "").lower() if d else "",
+        (d.drug_class or "").lower() if d else "",
+    ]).strip()
+
+    matches = []
+    for raw in (payload.allergies or []):
+        a = (raw or "").strip().lower()
+        if not a or a in {"nkda", "nka", "none", "nil", "n/a"}:
+            continue
+        # Direct match: allergy term appears in the drug name/generic, or vice versa.
+        toks = [t for t in re.split(r"[^a-z0-9]+", a) if len(t) > 3]
+        if (a in hay) or any(t in hay for t in toks) or any(w in a for w in hay.split() if len(w) > 4):
+            matches.append({"allergy": raw, "severity": "high", "basis": "Direct match to prescribed drug"})
+            continue
+        # Class cross-reactivity.
+        for keys, subs, sev, basis in _CROSS_REACT:
+            if any(k in a for k in keys) and any(s in hay for s in subs):
+                matches.append({"allergy": raw, "severity": sev, "basis": basis})
+                break
+
+    # Highest severity first.
+    order = {"high": 0, "moderate": 1, "low": 2}
+    matches.sort(key=lambda m: order.get(m["severity"], 9))
+    return {"drug": drug, "generic": (d.generic if d else None), "has_match": bool(matches), "matches": matches}

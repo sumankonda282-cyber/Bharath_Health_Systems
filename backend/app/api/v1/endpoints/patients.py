@@ -2,7 +2,7 @@ from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from typing import Optional, List
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from app.db.session import get_db
 from app.core.security import get_current_staff, verify_password
@@ -10,7 +10,7 @@ from app.core.limiter import limiter
 from app.models.models import (
     Patient, Staff, PatientUser,
     Appointment, SoapNote, Prescription, PrescriptionItem,
-    LabOrder, DoctorProfile, Clinic,
+    LabOrder, DoctorProfile, Clinic, Vitals,
     BHStateGroup, BHIDSequence, PatientTag, AuditLog, BHProfile,
 )
 from app.api.v1.endpoints.encounters import _assign_clinic_patient_id
@@ -25,6 +25,101 @@ def _age(p):
     if p.date_of_birth:
         return (date.today() - p.date_of_birth).days // 365
     return None
+
+
+import re as _re
+
+_NO_ALLERGY = {"nkda", "nka", "none", "no known allergies", "no known drug allergies", "nil", "n/a", "na"}
+
+
+@router.get("/{patient_id}/clinical-context")
+def get_clinical_context(
+    patient_id: int,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Live patient snapshot for CareForm intelligence — age/weight/sex, allergies,
+    recent vitals and active medications. Read-only; powers patient_auto fields,
+    dose calculations, and allergy / interaction / CDS checks in any form. (NEW
+    endpoint — does not alter existing patient routes.)"""
+    p = db.query(Patient).filter(
+        Patient.id == patient_id, Patient.clinic_id == current.clinic_id
+    ).first()
+    if not p:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    # Age: years (general) + total months (paediatric dosing)
+    age_years = age_months = None
+    if p.date_of_birth:
+        t, dob = date.today(), p.date_of_birth
+        age_years = t.year - dob.year - ((t.month, t.day) < (dob.month, dob.day))
+        age_months = (t.year - dob.year) * 12 + (t.month - dob.month) - (1 if t.day < dob.day else 0)
+
+    # Latest vitals → weight/height/BMI + recent set
+    v = (db.query(Vitals)
+           .filter(Vitals.patient_id == patient_id)
+           .order_by(Vitals.recorded_at.desc())
+           .first())
+    weight = float(v.weight_kg) if v and v.weight_kg is not None else None
+    height = float(v.height_cm) if v and v.height_cm is not None else None
+    bmi = round(weight / ((height / 100) ** 2), 1) if weight and height else None
+    recent_vitals = None
+    if v:
+        recent_vitals = {
+            "bp_systolic": v.blood_pressure_systolic,
+            "bp_diastolic": v.blood_pressure_diastolic,
+            "pulse": v.pulse_rate,
+            "temperature": float(v.temperature) if v.temperature is not None else None,
+            "spo2": v.oxygen_saturation,
+            "blood_sugar": float(v.blood_sugar) if v.blood_sugar is not None else None,
+            "weight_kg": weight,
+            "height_cm": height,
+            "recorded_at": v.recorded_at.isoformat() if v.recorded_at else None,
+        }
+
+    # Allergies: parse the free-text field into a list (skip NKDA / None markers)
+    allergies = []
+    raw = (p.allergies or "").strip()
+    if raw and raw.lower() not in _NO_ALLERGY:
+        allergies = [a.strip() for a in _re.split(r"[,;\n/|]+", raw) if a.strip()]
+
+    # Active medications: recent prescription items (last 180 days), de-duplicated —
+    # the working med list for interaction checking.
+    cutoff = datetime.utcnow() - timedelta(days=180)
+    rxs = (db.query(Prescription)
+             .filter(Prescription.patient_id == patient_id,
+                     Prescription.clinic_id == current.clinic_id,
+                     Prescription.created_at >= cutoff)
+             .order_by(Prescription.created_at.desc())
+             .limit(25).all())
+    active_meds, seen = [], set()
+    for rx in rxs:
+        for it in db.query(PrescriptionItem).filter(PrescriptionItem.prescription_id == rx.id).all():
+            name = (it.medicine_name or "").strip()
+            key = name.lower()
+            if name and key not in seen:
+                seen.add(key)
+                active_meds.append({
+                    "name": name, "dosage": it.dosage, "frequency": it.frequency,
+                    "prescribed_at": rx.created_at.isoformat() if rx.created_at else None,
+                })
+
+    return {
+        "patient_id": p.id,
+        "name": p.full_name,
+        "bh_id": p.bh_id,
+        "sex": p.gender,
+        "dob": p.date_of_birth.isoformat() if p.date_of_birth else None,
+        "age": age_years,
+        "age_months": age_months,
+        "weight_kg": weight,
+        "height_cm": height,
+        "bmi": bmi,
+        "blood_group": p.blood_group,
+        "allergies": allergies,
+        "recent_vitals": recent_vitals,
+        "active_medications": active_meds,
+    }
 
 
 @router.post("/", response_model=PatientOut)

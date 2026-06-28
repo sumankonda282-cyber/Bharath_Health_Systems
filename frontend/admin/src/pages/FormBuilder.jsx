@@ -4,7 +4,7 @@ import { ArrowLeft, Save, Eye, EyeOff, Send, Plus, Settings, X, Clock, PenLine }
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import api from '../api/client'
 import FieldPalette from '../components/formbuilder/FieldPalette'
-import FormCanvas from '../components/formbuilder/FormCanvas'
+import FormCanvas, { ROW_H, GAP } from '../components/formbuilder/FormCanvas'
 import PropertiesPanel from '../components/formbuilder/PropertiesPanel'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -19,6 +19,63 @@ function labelToId(label) {
     .replace(/[^a-z0-9]+/g, '_')
     .slice(0, 40)
     .replace(/^_|_$/, '')
+}
+
+// ─── CareForm grid layout (12-col free canvas) ──────────────────────────────────
+// Every field carries layout {x,y,w,h} on a 12-column grid so the admin can place
+// and size controls freely. Existing forms (no layout) are flowed onto the grid
+// once on load; new fields drop into the next free row.
+export const GRID_COLS = 12
+
+const FULL_WIDTH_TYPES = new Set([
+  'textarea', 'checkbox', 'matrix', 'table', 'body_map', 'signature',
+  'rich_text', 'divider', 'stage_break', 'label', 'score_display', 'medication_search',
+])
+const TALL_TYPES = new Set(['textarea', 'table', 'body_map', 'matrix', 'rich_text', 'signature'])
+
+function defaultW(field, oldSectionLayout) {
+  if (FULL_WIDTH_TYPES.has(field.type)) return GRID_COLS
+  // Map a legacy col_span (on an N-col section) onto the 12-col grid.
+  if (field.col_span && oldSectionLayout > 1) {
+    return Math.max(1, Math.min(GRID_COLS, Math.round((field.col_span / oldSectionLayout) * GRID_COLS)))
+  }
+  return 6
+}
+function defaultH(field) { return TALL_TYPES.has(field.type) ? 2 : 1 }
+
+// Flow fields that lack a layout onto the grid, left→right, wrapping at 12 cols.
+function flowLayouts(fields, oldSectionLayout) {
+  let cx = 0, cy = 0, rowH = 1
+  return fields.map(f => {
+    if (f.layout && Number.isFinite(f.layout.w)) {
+      const ly = f.layout.y ?? 0, lh = f.layout.h ?? 1
+      cy = Math.max(cy, ly); rowH = Math.max(rowH, lh)
+      return f
+    }
+    const w = Math.min(defaultW(f, oldSectionLayout), GRID_COLS)
+    const h = defaultH(f)
+    if (cx + w > GRID_COLS) { cx = 0; cy += rowH; rowH = 1 }
+    const layout = { x: cx, y: cy, w, h }
+    cx += w; rowH = Math.max(rowH, h)
+    return { ...f, layout }
+  })
+}
+
+// Ensure every field in every section has a grid layout (idempotent).
+function withGridLayouts(schema) {
+  if (!schema || !Array.isArray(schema.sections)) return schema
+  return {
+    ...schema,
+    sections: schema.sections.map(s => ({
+      ...s,
+      fields: flowLayouts(s.fields || [], s.layout || 1),
+    })),
+  }
+}
+
+// Next free row for a new field dropped into a section.
+function nextRow(fields) {
+  return (fields || []).reduce((max, f) => Math.max(max, (f.layout?.y ?? 0) + (f.layout?.h ?? 1)), 0)
 }
 
 function makeSection(index) {
@@ -102,7 +159,11 @@ function makeField(type) {
     body_map:  { body_region: 'full_body', multi_select: true },
   }
 
-  return { ...base, ...(typeDefaults[type] || {}) }
+  return {
+    ...base,
+    ...(typeDefaults[type] || {}),
+    layout: { x: 0, y: 0, w: defaultW({ type, col_span: 1 }, 1), h: defaultH({ type }) },
+  }
 }
 
 // ─── Initial State ────────────────────────────────────────────────────────────
@@ -216,9 +277,34 @@ function reducer(state, action) {
             sections: form.schema.sections.map(s => {
               if (s.id !== sectionId) return s
               const fields = [...s.fields]
+              // Drop the new control into the next free grid row (full-width spans stay full).
+              field.layout = { ...field.layout, x: 0, y: nextRow(fields) }
               const insertAt = afterIndex != null ? afterIndex + 1 : fields.length
               fields.splice(insertAt, 0, field)
               return { ...s, fields }
+            }),
+          },
+        },
+      }
+    }
+
+    case 'SET_FIELD_LAYOUT': {
+      const { sectionId, fieldId, layout } = action.payload
+      return {
+        ...state,
+        isDirty: true,
+        form: {
+          ...form,
+          schema: {
+            ...form.schema,
+            sections: form.schema.sections.map(s => {
+              if (s.id !== sectionId) return s
+              return {
+                ...s,
+                fields: s.fields.map(f =>
+                  f.id === fieldId ? { ...f, layout: { ...(f.layout || {}), ...layout } } : f
+                ),
+              }
             }),
           },
         },
@@ -358,10 +444,19 @@ function reducer(state, action) {
       return { ...state, saving: action.payload }
 
     case 'SET_SCHEMA':
-      return { ...state, isDirty: true, form: { ...form, schema: action.payload } }
+      return { ...state, isDirty: true, form: { ...form, schema: withGridLayouts(action.payload) } }
 
     case 'LOAD_FORM':
-      return { ...state, isDirty: false, saving: false, form: { ...initialState.form, ...action.payload } }
+      return {
+        ...state,
+        isDirty: false,
+        saving: false,
+        form: {
+          ...initialState.form,
+          ...action.payload,
+          schema: withGridLayouts(action.payload.schema || { sections: [] }),
+        },
+      }
 
     default:
       return state
@@ -626,6 +721,9 @@ export default function FormBuilder() {
   const historyRef      = useRef({ past: [], future: [] })
   const copiedFieldRef  = useRef(null)
   const autoSaveTimerRef = useRef(null)
+  // Live DOM refs to each section's grid (for cell-size math on drag-move).
+  const gridRefs = useRef({})
+  const registerGrid = useCallback((id, node) => { if (node) gridRefs.current[id] = node }, [])
 
   const [previewMode,   setPreviewMode]   = useState(false)
   const [paletteOpen,   setPaletteOpen]   = useState(false)
@@ -646,7 +744,7 @@ export default function FormBuilder() {
     (action) => {
       const schemaChangingActions = [
         'ADD_SECTION', 'DELETE_SECTION', 'UPDATE_SECTION', 'MOVE_SECTION',
-        'ADD_FIELD', 'DELETE_FIELD', 'MOVE_FIELD',
+        'ADD_FIELD', 'DELETE_FIELD', 'MOVE_FIELD', 'SET_FIELD_LAYOUT',
         'UPDATE_FIELD_PROP', 'SET_FIELD',
         'ADD_ALERT_RULE', 'REMOVE_ALERT_RULE',
       ]
@@ -822,23 +920,32 @@ export default function FormBuilder() {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
   function handleDragEnd(event) {
-    const { active, over } = event
-    if (!over || active.id === over.id) return
+    const { active, over, delta } = event
 
+    // Palette → add a control to the section under the pointer (or the active one).
     if (active.data.current?.fromPalette) {
       const fieldType = active.data.current?.type
-      const toSectionId = over.data.current?.sectionId ?? activeSectionId
+      const toSectionId = over?.data?.current?.sectionId ?? activeSectionId
       if (fieldType && toSectionId) handleAddField(fieldType, toSectionId)
       return
     }
 
-    const fromSectionId = active.data.current?.sectionId
-    const toSectionId   = over.data.current?.sectionId
-    const fromIndex     = active.data.current?.index
-    const toIndex       = over.data.current?.index
-
-    if (fromSectionId && toSectionId && fromIndex != null && toIndex != null) {
-      dispatchWithHistory({ type: 'MOVE_FIELD', payload: { fromSectionId, toSectionId, fromIndex, toIndex } })
+    // Move a placed control on the free grid: snap the drag delta to grid cells.
+    if (active.data.current?.kind === 'move') {
+      const sectionId = active.data.current.sectionId
+      const sec  = form.schema.sections.find(s => s.id === sectionId)
+      const grid = gridRefs.current[sectionId]
+      if (!sec || !grid) return
+      const field = sec.fields.find(f => f.id === active.id)
+      if (!field) return
+      const stepX = (grid.clientWidth - (GRID_COLS - 1) * GAP) / GRID_COLS + GAP
+      const stepY = ROW_H + GAP
+      const x = field.layout?.x ?? 0, y = field.layout?.y ?? 0, w = field.layout?.w ?? 6
+      const nx = Math.min(Math.max(x + Math.round((delta?.x || 0) / stepX), 0), GRID_COLS - w)
+      const ny = Math.max(y + Math.round((delta?.y || 0) / stepY), 0)
+      if (nx !== x || ny !== y) {
+        dispatchWithHistory({ type: 'SET_FIELD_LAYOUT', payload: { sectionId, fieldId: field.id, layout: { x: nx, y: ny } } })
+      }
     }
   }
 
@@ -938,8 +1045,8 @@ export default function FormBuilder() {
             />
           </aside>
 
-          {/* Center: Canvas */}
-          <main className="flex-1 overflow-y-auto">
+          {/* Center: Canvas (scrollable free grid) */}
+          <main className="flex-1 overflow-auto min-h-0">
             <FormCanvas
               schema={form.schema}
               selectedId={selectedId}
@@ -947,6 +1054,7 @@ export default function FormBuilder() {
               dispatch={dispatchWithHistory}
               onSelect={handleSelect}
               previewMode={previewMode}
+              registerGrid={registerGrid}
             />
           </main>
 
