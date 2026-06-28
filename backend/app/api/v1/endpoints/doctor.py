@@ -185,6 +185,7 @@ def get_encounter(
             "objective":     sn.objective,
             "assessment":    sn.assessment,
             "plan":          sn.plan,
+            "counselling":   sn.counselling,
             "follow_up_days":sn.follow_up_days,
             "is_locked":     sn.is_locked,
         } if sn else None,
@@ -222,7 +223,7 @@ def complete_encounter(
     # Accept both "soap" and "soap_note" keys
     soap_data = body.get("soap") or body.get("soap_note")
     if soap_data:
-        allowed = ["subjective", "objective", "assessment", "plan", "follow_up_days"]
+        allowed = ["subjective", "objective", "assessment", "plan", "follow_up_days", "counselling"]
         existing = db.query(SoapNote).filter(SoapNote.appointment_id == appointment_id).first()
         if existing:
             for k in allowed:
@@ -578,7 +579,7 @@ def save_encounter_draft(
 
     soap_data = body.get("soap") or {}
     if soap_data:
-        allowed = ["subjective", "objective", "assessment", "plan", "follow_up_days"]
+        allowed = ["subjective", "objective", "assessment", "plan", "follow_up_days", "counselling"]
         note = db.query(SoapNote).filter(SoapNote.appointment_id == appointment_id).first()
         if note:
             for k in allowed:

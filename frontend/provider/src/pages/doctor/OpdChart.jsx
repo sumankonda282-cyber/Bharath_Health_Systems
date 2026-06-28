@@ -5,21 +5,23 @@ import api from '../../api/client'
 import {
   ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
   Save, FlaskConical, Eye, CheckCircle, Video,
-  FileText, Pill, Scan, Lock, Search, X, Plus,
-  Trash2, AlertCircle, Clock, Stethoscope, LayoutDashboard
+  Pill, Scan, Lock, Search, X, Plus,
+  Trash2, AlertCircle, Clock,
+  ClipboardList, MessageSquare, Star
 } from 'lucide-react'
 import { PageLoader } from '../../components/ui/Spinner'
+import DbAssessmentFormModal from '../inpatient/DbAssessmentFormModal'
 
 const BLUE = '#0F2557'
 const BLUE_LIGHT = '#eff6ff'
 const BLUE_BORDER = '#bfdbfe'
 
 const NAV = [
-  { key: 'dashboard',     label: 'Dashboard',     Icon: LayoutDashboard },
-  { key: 'soap',          label: 'SOAP Notes',    Icon: FileText },
-  { key: 'prescriptions', label: 'Prescriptions', Icon: Pill },
-  { key: 'lab',           label: 'Lab Orders',    Icon: FlaskConical },
-  { key: 'imaging',       label: 'Imaging',       Icon: Scan },
+  { key: 'chart',         label: 'Patient Chart',       Icon: ClipboardList },
+  { key: 'prescriptions', label: 'Prescriptions',       Icon: Pill },
+  { key: 'lab',           label: 'Lab Orders',          Icon: FlaskConical },
+  { key: 'imaging',       label: 'Imaging',             Icon: Scan },
+  { key: 'counselling',   label: 'Patient Counselling', Icon: MessageSquare },
 ]
 
 const STATUS_CFG = {
@@ -39,13 +41,6 @@ const fmt12 = (t) => {
   if (isNaN(h) || isNaN(m)) return t
   return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`
 }
-
-const FORM_POOL = [
-  { category: 'History', forms: ['Chief Complaint', 'History of Present Illness', 'Past Medical History', 'Family History', 'Social History', 'Review of Systems'] },
-  { category: 'Physical Exam', forms: ['General Examination', 'Cardiovascular', 'Respiratory', 'Abdominal Examination', 'Neurological', 'Musculoskeletal', 'Skin & Integument'] },
-  { category: 'Clinical Findings', forms: ['Vital Signs Assessment', 'Pain Assessment', 'Functional Assessment', 'Nutritional Assessment'] },
-  { category: 'Specialty', forms: ['Ophthalmology Screen', 'ENT Assessment', 'Dermatology Assessment', 'Psychiatry Screen (PHQ-9)', 'Diabetes Foot Check', 'Antenatal Visit'] },
-]
 
 // ── Past Visits ───────────────────────────────────────────────────
 function PastVisits({ patientId }) {
@@ -191,37 +186,63 @@ function PastVisits({ patientId }) {
 }
 
 // ── Assessment Panel ──────────────────────────────────────────────
-function AssessmentPanel({ patientId, appointmentId }) {
+function FormRow({ form, pinned, onPin, onOpen }) {
+  return (
+    <div className="group w-full flex items-center gap-1 px-3 py-1.5 hover:bg-blue-50 transition-colors">
+      <button onClick={onOpen} className="flex-1 text-left text-xs text-gray-700 group-hover:text-blue-700 truncate">
+        {form.title}
+      </button>
+      <button
+        onClick={e => onPin(form, e)}
+        title={pinned ? 'Unpin from favourites' : 'Pin to favourites'}
+        className={pinned ? 'text-amber-400 flex-shrink-0' : 'text-gray-300 hover:text-amber-400 flex-shrink-0'}
+      >
+        <Star size={12} className={pinned ? 'fill-amber-400' : ''} />
+      </button>
+    </div>
+  )
+}
+
+// Right panel: split into ★ Favourites (pinned, top) + searchable list (pinnable).
+// Real published DB forms; clicking opens the DB form renderer (charts to the patient).
+function AssessmentPanel({ patientId, patientName }) {
+  const [forms, setForms]   = useState([])
+  const [favIds, setFavIds] = useState(new Set())
   const [search, setSearch] = useState('')
+  const [loading, setLoading] = useState(true)
   const [activeForm, setActiveForm] = useState(null)
-  const [formText, setFormText] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
 
-  const filtered = search.trim()
-    ? FORM_POOL.map(cat => ({
-        ...cat,
-        forms: cat.forms.filter(f => f.toLowerCase().includes(search.toLowerCase())),
-      })).filter(cat => cat.forms.length > 0)
-    : FORM_POOL
+  const loadFavs = useCallback(() => {
+    api.get('/assessment-forms/favorites')
+      .then(r => setFavIds(new Set([...(r?.personal || []), ...(r?.organization || [])])))
+      .catch(() => { /* favourites are best-effort */ })
+  }, [])
 
-  const handleSave = async () => {
-    if (!formText.trim()) return
-    setSaving(true)
+  useEffect(() => {
+    let alive = true
+    api.get('/assessment-forms', { params: { status: 'published', limit: 300 } })
+      .then(r => { if (alive) setForms(r?.forms || []) })
+      .catch(() => { /* leave empty */ })
+      .finally(() => { if (alive) setLoading(false) })
+    loadFavs()
+    return () => { alive = false }
+  }, [loadFavs])
+
+  const togglePin = async (form, e) => {
+    e.stopPropagation()
+    const pinned = favIds.has(form.id)
+    setFavIds(prev => { const n = new Set(prev); pinned ? n.delete(form.id) : n.add(form.id); return n })  // optimistic
     try {
-      // Persist the form note as a clinical assessment (real, durable store).
-      await api.post('/assessments', {
-        type: activeForm || 'assessment_note',
-        encounterId: appointmentId,
-        data: { title: activeForm, note: formText },
-      })
-      setSaved(true)
-      setTimeout(() => { setSaved(false); setActiveForm(null); setFormText('') }, 800)
-    } catch (e) {
-      // Keep the entered note so it isn't lost; let the doctor retry.
-      alert(e?.response?.data?.detail || 'Could not save the note. Your text is kept — please retry.')
-    } finally { setSaving(false) }
+      if (pinned) await api.delete(`/assessment-forms/favorites/${form.id}`)
+      else        await api.post(`/assessment-forms/favorites/${form.id}`, { scope: 'personal' })
+    } catch { loadFavs() }  // revert from server on failure
   }
+
+  const favForms = forms.filter(f => favIds.has(f.id))
+  const q = search.trim().toLowerCase()
+  const searchForms = forms.filter(f => !q || (f.title || '').toLowerCase().includes(q) || (f.category || '').toLowerCase().includes(q))
+  const groups = {}
+  for (const f of searchForms) { const c = f.category || 'Other'; (groups[c] = groups[c] || []).push(f) }
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
@@ -240,68 +261,76 @@ function AssessmentPanel({ patientId, appointmentId }) {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {filtered.map(cat => (
-          <div key={cat.category}>
-            <div className="px-3 pt-3 pb-1 text-xs font-bold text-gray-400 uppercase tracking-wide">{cat.category}</div>
-            {cat.forms.map(f => (
-              <button
-                key={f}
-                onClick={() => { setActiveForm(f); setFormText('') }}
-                className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
-              >
-                {f}
-              </button>
+        {loading && <div className="px-3 py-4 text-xs text-gray-400">Loading forms…</div>}
+
+        {/* ★ Favourites — pinned, on top */}
+        {favForms.length > 0 && (
+          <div>
+            <div className="px-3 pt-3 pb-1 text-xs font-bold uppercase tracking-wide flex items-center gap-1 text-amber-500">
+              <Star size={11} className="fill-amber-400 text-amber-400" /> Favourites
+            </div>
+            {favForms.map(f => (
+              <FormRow key={'fav' + f.id} form={f} pinned onPin={togglePin} onOpen={() => setActiveForm(f)} />
+            ))}
+            <div className="mx-3 my-1.5 border-t border-dashed border-gray-200" />
+          </div>
+        )}
+
+        {/* Search results — pinnable, grouped by category */}
+        {Object.keys(groups).sort().map(cat => (
+          <div key={cat}>
+            <div className="px-3 pt-3 pb-1 text-xs font-bold text-gray-400 uppercase tracking-wide">{cat}</div>
+            {groups[cat].map(f => (
+              <FormRow key={f.id} form={f} pinned={favIds.has(f.id)} onPin={togglePin} onOpen={() => setActiveForm(f)} />
             ))}
           </div>
         ))}
+
+        {!loading && searchForms.length === 0 && (
+          <div className="px-3 py-4 text-xs text-gray-400">No published forms{q ? ' match your search' : ' yet'}.</div>
+        )}
       </div>
 
       {activeForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-5">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-bold text-gray-800">{activeForm}</h3>
-              <button onClick={() => setActiveForm(null)} className="text-gray-400 hover:text-gray-600">
-                <X size={16} />
-              </button>
-            </div>
-            <textarea
-              value={formText}
-              onChange={e => setFormText(e.target.value)}
-              placeholder={`Enter findings for ${activeForm}…`}
-              rows={8}
-              autoFocus
-              className="w-full border border-gray-200 rounded-lg p-3 text-sm focus:outline-none focus:border-blue-400 resize-none"
-            />
-            <div className="flex gap-2 mt-3">
-              <button onClick={() => setActiveForm(null)} className="flex-1 py-2 rounded-lg border border-gray-200 text-sm text-gray-600">
-                Cancel
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={saving || !formText.trim()}
-                className="flex-1 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-50"
-                style={{ background: saved ? '#16a34a' : BLUE }}
-              >
-                {saved ? 'Saved!' : saving ? 'Saving…' : 'Save Note'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <DbAssessmentFormModal
+          form={activeForm}
+          patientId={patientId}
+          patientName={patientName}
+          onClose={() => setActiveForm(null)}
+        />
       )}
     </div>
   )
 }
 
-// ── Dashboard Section ─────────────────────────────────────────────
-function DashboardSection({ encounter, patientId }) {
+// ── Patient Chart (unified encounter document) ────────────────────
+function ChartDoc({ title, Icon, accent, count, onOpen, openLabel, children }) {
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100">
+        <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide" style={{ color: accent || '#6b7280' }}>
+          {Icon && <Icon size={13} />} {title}
+          {count != null && <span className="text-gray-400 font-semibold">· {count}</span>}
+        </div>
+        {onOpen && (
+          <button onClick={onOpen} className="text-[11px] font-semibold text-blue-600 hover:underline flex-shrink-0">
+            {openLabel || 'Open'}
+          </button>
+        )}
+      </div>
+      <div className="px-3 py-2 text-sm text-gray-700">{children}</div>
+    </div>
+  )
+}
+
+function PatientChartSection({ encounter, patientId, soap, onSoapChange, prescriptions, labItems, imagingItems, counselling, readonly, onOpenSection }) {
   const p = encounter.patient || {}
   const v = encounter.vitals || {}
   const stats = [
-    { label: 'Age',        value: p.age != null ? `${p.age} yrs` : '—' },
-    { label: 'Gender',     value: p.gender ? p.gender.charAt(0).toUpperCase() + p.gender.slice(1) : '—' },
-    { label: 'Blood Group',value: p.blood_group || '—' },
-    { label: 'Phone',      value: p.phone || '—' },
+    { label: 'Age',         value: p.age != null ? `${p.age} yrs` : '—' },
+    { label: 'Gender',      value: p.gender ? p.gender.charAt(0).toUpperCase() + p.gender.slice(1) : '—' },
+    { label: 'Blood Group', value: p.blood_group || '—' },
+    { label: 'Phone',       value: p.phone || '—' },
   ]
   const vitalItems = [
     { label: 'BP',     value: v.bp },
@@ -311,10 +340,18 @@ function DashboardSection({ encounter, patientId }) {
     { label: 'Weight', value: v.weight? `${v.weight} kg` : null },
     { label: 'Height', value: v.height? `${v.height} cm` : null },
   ].filter(i => i.value)
+  const soapFields = [
+    { key: 'subjective', label: 'S — Subjective', placeholder: 'Chief complaint, history of present illness…' },
+    { key: 'objective',  label: 'O — Objective',  placeholder: 'Examination findings, investigations reviewed…' },
+    { key: 'assessment', label: 'A — Assessment', placeholder: 'Diagnosis / differential diagnosis…' },
+    { key: 'plan',       label: 'P — Plan',       placeholder: 'Management, follow-up, patient instructions…' },
+  ]
+  const reason = encounter.appointment?.reason || encounter.reason
 
   return (
-    <div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+    <div className="space-y-4">
+      {/* Demographics */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {stats.map(s => (
           <div key={s.label} className="rounded-xl p-3" style={{ background: BLUE_LIGHT, border: `1px solid ${BLUE_BORDER}` }}>
             <div className="text-xs text-gray-500 mb-0.5">{s.label}</div>
@@ -324,7 +361,7 @@ function DashboardSection({ encounter, patientId }) {
       </div>
 
       {vitalItems.length > 0 && (
-        <div className="mb-4">
+        <div>
           <div className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Vitals</div>
           <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
             {vitalItems.map(i => (
@@ -337,43 +374,94 @@ function DashboardSection({ encounter, patientId }) {
         </div>
       )}
 
-      {(encounter.appointment?.reason || encounter.reason) && (
-        <div className="mb-4 p-3 rounded-xl bg-amber-50 border border-amber-200">
+      {reason && (
+        <div className="p-3 rounded-xl bg-amber-50 border border-amber-200">
           <div className="text-xs font-bold text-amber-700 mb-1">Chief Complaint</div>
-          <div className="text-sm text-amber-900">{encounter.appointment?.reason || encounter.reason}</div>
+          <div className="text-sm text-amber-900">{reason}</div>
         </div>
       )}
+
+      {/* Clinical note (SOAP) — written right in the chart */}
+      <div>
+        <div className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Clinical Note</div>
+        <div className="space-y-3">
+          {soapFields.map(f => (
+            <div key={f.key}>
+              <label className="block text-xs font-bold text-gray-500 mb-1">{f.label}</label>
+              <textarea
+                value={soap[f.key] || ''}
+                onChange={e => onSoapChange(f.key, e.target.value)}
+                placeholder={f.placeholder}
+                rows={3}
+                disabled={readonly}
+                className="w-full border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-blue-400 resize-none disabled:bg-gray-50 disabled:text-gray-500"
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Everything documented this visit, in one chart */}
+      <div className="text-xs font-bold text-gray-500 uppercase tracking-wide pt-1">Documented This Visit</div>
+      <ChartDoc title="Prescriptions" Icon={Pill} accent="#7c3aed" count={prescriptions.length} onOpen={() => onOpenSection('prescriptions')} openLabel="Edit Rx →">
+        {prescriptions.length ? (
+          <ul className="space-y-1">
+            {prescriptions.map((r, i) => (
+              <li key={i}>💊 <b>{r.drug_name || r.medicine_name || '—'}</b> <span className="text-gray-500">{[r.dosage, r.frequency, r.duration].filter(Boolean).join(' · ')}</span></li>
+            ))}
+          </ul>
+        ) : <span className="text-gray-400">No prescriptions yet.</span>}
+      </ChartDoc>
+      <ChartDoc title="Lab Orders" Icon={FlaskConical} accent="#0891b2" count={labItems.length} onOpen={() => onOpenSection('lab')} openLabel="Order labs →">
+        {labItems.length ? (
+          <ul className="space-y-1">{labItems.map((t, i) => <li key={i}>🧪 {t.test_name || '—'}</li>)}</ul>
+        ) : <span className="text-gray-400">No lab orders yet.</span>}
+      </ChartDoc>
+      <ChartDoc title="Imaging" Icon={Scan} accent="#d97706" count={imagingItems.length} onOpen={() => onOpenSection('imaging')} openLabel="Order imaging →">
+        {imagingItems.length ? (
+          <ul className="space-y-1">{imagingItems.map((m, i) => <li key={i}>🩻 {m.procedure_name || '—'}{m.modality ? ` (${m.modality})` : ''}</li>)}</ul>
+        ) : <span className="text-gray-400">No imaging ordered yet.</span>}
+      </ChartDoc>
+      <ChartDoc title="Patient Counselling" Icon={MessageSquare} accent="#16a34a" onOpen={() => onOpenSection('counselling')} openLabel="Add counselling →">
+        {counselling && counselling.trim() ? <p className="whitespace-pre-wrap">{counselling}</p> : <span className="text-gray-400">No counselling recorded yet.</span>}
+      </ChartDoc>
 
       <PastVisits patientId={patientId} />
     </div>
   )
 }
 
-// ── SOAP Section ──────────────────────────────────────────────────
-function SoapSection({ soap, onChange, readonly, patientId }) {
-  const fields = [
-    { key: 'subjective', label: 'S — Subjective', placeholder: 'Chief complaint, history of present illness…' },
-    { key: 'objective',  label: 'O — Objective',  placeholder: 'Examination findings, investigations reviewed…' },
-    { key: 'assessment', label: 'A — Assessment', placeholder: 'Diagnosis / differential diagnosis…' },
-    { key: 'plan',       label: 'P — Plan',       placeholder: 'Management, follow-up, patient instructions…' },
-  ]
+// ── Patient Counselling Section ───────────────────────────────────
+const COUNSEL_CHIPS = [
+  'Diet & lifestyle advised', 'Medication adherence explained', 'Red-flag symptoms explained',
+  'Follow-up advised', 'Smoking / alcohol cessation advised', 'Warning signs explained',
+]
+function CounsellingSection({ value, onChange, readonly, patientId }) {
   return (
-    <div>
-      <div className="space-y-4 mb-2">
-        {fields.map(f => (
-          <div key={f.key}>
-            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">{f.label}</label>
-            <textarea
-              value={soap[f.key] || ''}
-              onChange={e => onChange(f.key, e.target.value)}
-              placeholder={f.placeholder}
-              rows={4}
-              disabled={readonly}
-              className="w-full border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-blue-400 resize-none disabled:bg-gray-50 disabled:text-gray-500"
-            />
-          </div>
-        ))}
-      </div>
+    <div className="space-y-3">
+      <div className="text-xs font-bold text-gray-500 uppercase tracking-wide">Patient Counselling</div>
+      {!readonly && (
+        <div className="flex flex-wrap gap-1.5">
+          {COUNSEL_CHIPS.map(c => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => onChange(((value || '').trim() ? value.trim() + '\n' : '') + '• ' + c)}
+              className="px-2.5 py-1 rounded-full border border-green-200 text-[11px] text-green-700 hover:bg-green-50"
+            >
+              + {c}
+            </button>
+          ))}
+        </div>
+      )}
+      <textarea
+        value={value || ''}
+        onChange={e => onChange(e.target.value)}
+        disabled={readonly}
+        rows={10}
+        placeholder="Counselling provided to the patient — diet, lifestyle, medication adherence, warning signs, follow-up…"
+        className="w-full border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-green-400 resize-y disabled:bg-gray-50 disabled:text-gray-500"
+      />
       <PastVisits patientId={patientId} />
     </div>
   )
@@ -686,10 +774,11 @@ export default function OpdChart() {
 
   const [encounter, setEncounter]     = useState(null)
   const [loading, setLoading]         = useState(true)
-  const [section, setSection]         = useState('dashboard')
+  const [section, setSection]         = useState('chart')
   const [panelOpen, setPanelOpen]     = useState(true)
 
   const [soap, setSoap]               = useState({ subjective: '', objective: '', assessment: '', plan: '' })
+  const [counselling, setCounselling] = useState('')
   const [prescriptions, setPrescriptions] = useState([])
   const [labItems, setLabItems]       = useState([])
   const [imagingItems, setImagingItems] = useState([])
@@ -709,6 +798,7 @@ export default function OpdChart() {
         assessment: note.assessment || '',
         plan:       note.plan       || '',
       })
+      setCounselling(note.counselling || '')
 
       setPrescriptions(
         (data.prescription?.items || data.prescriptions || []).map(p => ({
@@ -744,7 +834,7 @@ export default function OpdChart() {
 
   // Backend reads prescription.items[].medicine_name and lab_order.tests[].test_name.
   const buildPayload = () => ({
-    soap,
+    soap: { ...soap, counselling },
     prescription: {
       items: (prescriptions || []).map(p => ({
         medicine_name: p.drug_name || p.medicine_name || p.name || '',
@@ -951,13 +1041,24 @@ export default function OpdChart() {
         <div className="flex-1 overflow-y-auto">
           <div className="p-4">
             <div className="bg-white rounded-2xl border border-gray-200 p-4 max-w-3xl">
-              {section === 'dashboard' && (
-                <DashboardSection encounter={encounter} patientId={patientId} />
-              )}
-              {section === 'soap' && (
-                <SoapSection
+              {section === 'chart' && (
+                <PatientChartSection
+                  encounter={encounter}
+                  patientId={patientId}
                   soap={soap}
-                  onChange={(k, v) => setSoap(s => ({ ...s, [k]: v }))}
+                  onSoapChange={(k, v) => setSoap(s => ({ ...s, [k]: v }))}
+                  prescriptions={prescriptions}
+                  labItems={labItems}
+                  imagingItems={imagingItems}
+                  counselling={counselling}
+                  readonly={readonly}
+                  onOpenSection={setSection}
+                />
+              )}
+              {section === 'counselling' && (
+                <CounsellingSection
+                  value={counselling}
+                  onChange={setCounselling}
                   readonly={readonly}
                   patientId={patientId}
                 />
@@ -1002,7 +1103,7 @@ export default function OpdChart() {
         {/* Right assessment panel */}
         {panelOpen && (
           <div className="w-[272px] flex-shrink-0 bg-white border-l border-gray-200 flex flex-col overflow-hidden">
-            <AssessmentPanel patientId={patientId} appointmentId={parseInt(id, 10)} />
+            <AssessmentPanel patientId={patientId} patientName={patientName} />
           </div>
         )}
       </div>

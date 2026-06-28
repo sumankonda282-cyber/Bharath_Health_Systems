@@ -490,6 +490,7 @@ class SoapNote(Base):
     plan            = Column(Text, nullable=True)
     diagnosis_codes = Column(JSON, nullable=True)
     follow_up_days  = Column(Integer, nullable=True)
+    counselling     = Column(Text, nullable=True)   # OPD patient-counselling note
     created_at      = Column(DateTime, server_default=func.now())
     updated_at      = Column(DateTime, server_default=func.now(), onupdate=func.now())
 

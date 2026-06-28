@@ -364,6 +364,7 @@ safe_cols = [
     \"ALTER TABLE soap_notes ADD COLUMN IF NOT EXISTS medications_prescribed TEXT\",
     \"ALTER TABLE soap_notes ADD COLUMN IF NOT EXISTS discharge_assessment TEXT\",
     \"ALTER TABLE soap_notes ADD COLUMN IF NOT EXISTS cautions_followup TEXT\",
+    \"ALTER TABLE soap_notes ADD COLUMN IF NOT EXISTS counselling TEXT\",
     \"ALTER TABLE soap_notes ADD COLUMN IF NOT EXISTS is_locked BOOLEAN DEFAULT FALSE\",
     \"ALTER TABLE soap_notes ADD COLUMN IF NOT EXISTS locked_at TIMESTAMP WITHOUT TIME ZONE\",
     \"ALTER TABLE soap_notes ADD COLUMN IF NOT EXISTS created_by INTEGER REFERENCES staff(id)\",
