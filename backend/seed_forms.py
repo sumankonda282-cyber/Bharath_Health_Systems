@@ -20,9 +20,10 @@ Session = sessionmaker(bind=engine)
 
 TEMPLATES = [
     {
-        "title": "Vitals Assessment",
-        "description": "Comprehensive vital signs assessment including BP, HR, SpO2, temperature, respiratory rate, and pain score.",
+        "title": "Vital Signs",
+        "description": "Standard vital signs — the single vitals record used by reception, nursing and doctors, and embeddable in any care form.",
         "category": "vitals",
+        "subcategory": "vital-signs",
         "icon": "🫐",
         "is_iview_enabled": True,
         "iview_config": {
@@ -47,7 +48,20 @@ TEMPLATES = [
             {"field_id": "pain_score",   "operator": "greater_than", "value": 7,   "severity": "high",     "message": "Severe pain score reported"},
         ],
         "scoring_config": None,
-        "schema": {"sections": [{"id": "vital_signs", "title": "Vital Signs", "layout": {"columns": 2}, "fields": [{"id": "bp_systolic", "field_id": "bp_systolic", "type": "number", "label": "BP Systolic", "unit": "mmHg", "required": True, "ref_range": {"critical_low": 70, "normal_low": 90, "normal_high": 140, "critical_high": 180}}, {"id": "bp_diastolic", "field_id": "bp_diastolic", "type": "number", "label": "BP Diastolic", "unit": "mmHg", "required": True, "ref_range": {"critical_low": 40, "normal_low": 60, "normal_high": 90, "critical_high": 120}}, {"id": "heart_rate", "field_id": "heart_rate", "type": "number", "label": "Heart Rate", "unit": "/min", "required": True, "ref_range": {"critical_low": 40, "normal_low": 60, "normal_high": 100, "critical_high": 150}}, {"id": "respiratory_rate", "field_id": "respiratory_rate", "type": "number", "label": "Respiratory Rate", "unit": "/min", "required": True, "ref_range": {"critical_low": 8, "normal_low": 12, "normal_high": 20, "critical_high": 30}}, {"id": "spo2", "field_id": "spo2", "type": "number", "label": "SpO2", "unit": "%", "required": True, "ref_range": {"critical_low": 85, "normal_low": 95, "normal_high": 100}}, {"id": "temperature", "field_id": "temperature", "type": "number", "label": "Temperature", "unit": "°C", "decimal_places": 1, "required": True, "ref_range": {"critical_low": 35, "normal_low": 36.1, "normal_high": 37.2, "critical_high": 39.5}}, {"id": "weight", "field_id": "weight", "type": "number", "label": "Weight", "unit": "kg", "decimal_places": 1, "required": False}, {"id": "height", "field_id": "height", "type": "number", "label": "Height", "unit": "cm", "required": False}, {"id": "bmi", "field_id": "bmi", "type": "calculated", "label": "BMI", "unit": "kg/m²", "formula": "{weight} / (({height} / 100) * ({height} / 100))", "decimal_places": 1}, {"id": "pain_score", "field_id": "pain_score", "type": "scale", "label": "Pain Score", "min": 0, "max": 10, "left_label": "No Pain", "right_label": "Worst Pain", "scale_style": "nrs", "required": True}, {"id": "pain_location", "field_id": "pain_location", "type": "text", "label": "Pain Location", "required": False, "conditions": [{"field_id": "pain_score", "operator": "greater_than", "value": 0}]}, {"id": "notes", "field_id": "notes", "type": "textarea", "label": "Notes", "required": False}]}]},
+        "schema": {"sections": [{"id": "vital_signs", "title": "Vital Signs", "layout": {"columns": 2}, "fields": [
+            {"id": "bp_systolic", "field_id": "bp_systolic", "type": "number", "label": "BP Systolic", "unit": "mmHg", "required": True, "min": 0, "max": 300, "reference_range": {"critical_low": 70, "normal_low": 90, "normal_high": 140, "critical_high": 180}, "ref_range": {"critical_low": 70, "normal_low": 90, "normal_high": 140, "critical_high": 180}},
+            {"id": "bp_diastolic", "field_id": "bp_diastolic", "type": "number", "label": "BP Diastolic", "unit": "mmHg", "required": True, "min": 0, "max": 200, "reference_range": {"critical_low": 40, "normal_low": 60, "normal_high": 90, "critical_high": 120}, "ref_range": {"critical_low": 40, "normal_low": 60, "normal_high": 90, "critical_high": 120}},
+            {"id": "heart_rate", "field_id": "heart_rate", "type": "number", "label": "Heart Rate", "unit": "/min", "required": True, "min": 0, "max": 300, "reference_range": {"critical_low": 40, "normal_low": 60, "normal_high": 100, "critical_high": 150}, "ref_range": {"critical_low": 40, "normal_low": 60, "normal_high": 100, "critical_high": 150}},
+            {"id": "respiratory_rate", "field_id": "respiratory_rate", "type": "number", "label": "Respiratory Rate", "unit": "/min", "required": True, "min": 0, "max": 80, "reference_range": {"critical_low": 8, "normal_low": 12, "normal_high": 20, "critical_high": 30}, "ref_range": {"critical_low": 8, "normal_low": 12, "normal_high": 20, "critical_high": 30}},
+            {"id": "spo2", "field_id": "spo2", "type": "number", "label": "SpO₂", "unit": "%", "required": True, "min": 0, "max": 100, "reference_range": {"critical_low": 85, "normal_low": 95, "normal_high": 100}, "ref_range": {"critical_low": 85, "normal_low": 95, "normal_high": 100}},
+            {"id": "temperature", "field_id": "temperature", "type": "number", "label": "Temperature", "unit": "°C", "decimal_places": 1, "step": 0.1, "required": True, "min": 25, "max": 45, "reference_range": {"critical_low": 35, "normal_low": 36.1, "normal_high": 37.2, "critical_high": 39.5}, "ref_range": {"critical_low": 35, "normal_low": 36.1, "normal_high": 37.2, "critical_high": 39.5}},
+            {"id": "weight", "field_id": "weight", "type": "number", "label": "Weight", "unit": "kg", "decimal_places": 1, "step": 0.1, "required": False, "min": 0, "max": 500},
+            {"id": "height", "field_id": "height", "type": "number", "label": "Height", "unit": "cm", "required": False, "min": 0, "max": 300},
+            {"id": "bmi", "field_id": "bmi", "type": "calculated", "label": "BMI", "unit": "kg/m²", "formula": "{weight} / (({height} / 100) * ({height} / 100))", "decimal_places": 1},
+            {"id": "pain_score", "field_id": "pain_score", "type": "scale", "label": "Pain Score", "min": 0, "max": 10, "left_label": "No Pain", "right_label": "Worst Pain", "scale_style": "nrs", "required": True},
+            {"id": "pain_location", "field_id": "pain_location", "type": "body_site_search", "search_category": "anatomy", "label": "Pain Location", "placeholder": "Search body site…", "required": False, "conditions": [{"field_id": "pain_score", "operator": "greater_than", "value": 0}]},
+            {"id": "notes", "field_id": "notes", "type": "textarea", "label": "Notes", "required": False}
+        ]}]},
     },
     {
         "title": "PHQ-9 Depression Screening",
@@ -140,7 +154,6 @@ TEMPLATES = [
         "alert_rules": [], "scoring_config": None,
         "schema": {"sections": [{"id": "wound_details", "title": "Wound Details", "fields": [{"id": "wound_type", "field_id": "wound_type", "type": "radio", "label": "Wound Type", "required": False, "options": [{"label": "Pressure injury", "value": "Pressure injury"}, {"label": "Surgical", "value": "surgical"}, {"label": "Other", "value": "other"}]}]}]},
     },
-    {"title": "Vital Signs Assessment", "description": "Comprehensive vital signs with BP, HR, SpO₂, RR, Temp, weight & BMI.", "category": "vitals", "subcategory": "vital-signs", "icon": "🫐", "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None},
     {"title": "Pain Assessment (Clinical)", "description": "NRS 0–10, site, character, onset, radiation.", "category": "pain", "subcategory": "pain-assessment", "icon": "🩹", "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None},
     {"title": "Asthma Control Assessment", "description": "Spirometry, peak flow, ACT auto-score.", "category": "respiratory", "subcategory": "asthma-basic", "icon": "🫑", "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None},
     {"title": "Allergies & Adverse Reactions", "description": "Drug, food, environmental & latex allergies.", "category": "history", "subcategory": "allergies", "icon": "⚠️", "schema": {}, "alert_rules": [], "scoring_config": None, "iview_config": None},

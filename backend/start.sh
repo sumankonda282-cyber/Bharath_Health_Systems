@@ -854,6 +854,8 @@ except Exception as e:
 
 echo "[bg-migrations] Seeding demo/test accounts (idempotent)..."
 timeout 60 python seed.py || echo "[bg-migrations] Demo seed failed (non-fatal)"
+echo "[bg-migrations] Consolidating to a single canonical Vital Signs form..."
+timeout 120 python seed_vitals.py || echo "[bg-migrations] Vitals consolidation failed (non-fatal)"
 echo "[bg-migrations] Done."
 ) &
 
