@@ -21,20 +21,11 @@ import {
   Activity,
   Syringe,
   HeartPulse,
-  RefreshCw,
   ChevronDown,
 } from 'lucide-react'
 import api from '../api/client'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-
-const TABS = [
-  { key: 'all',       label: 'All Forms' },
-  { key: 'published', label: 'Published' },
-  { key: 'drafts',    label: 'Drafts' },
-  { key: 'templates', label: 'Templates' },
-  { key: 'retired',   label: 'Retired' },
-]
 
 const CATEGORIES = [
   { value: 'all',          label: 'All Categories' },
@@ -166,7 +157,6 @@ export default function FormPool() {
   const [loading,       setLoading]       = useState(true)
   const [error,         setError]         = useState(null)
   const [search,        setSearch]        = useState('')
-  const [activeTab,     setActiveTab]     = useState('all')
   const [category,      setCategory]      = useState('all')
   const [actionLoading, setActionLoading] = useState({})
   const [deleteTarget,  setDeleteTarget]  = useState(null)
@@ -186,18 +176,13 @@ export default function FormPool() {
 
   useEffect(() => { fetchForms() }, [fetchForms])
 
-  // ── Derived list ──────────────────────────────────────────────────────────
+  // ── Derived list — pool shows only editable (draft) forms ─────────────────
   const filtered = forms.filter(f => {
+    if (f.status !== 'draft') return false
     const q = search.toLowerCase()
     if (q && !f.title?.toLowerCase().includes(q) &&
              !f.description?.toLowerCase().includes(q) &&
              !f.category?.toLowerCase().includes(q)) return false
-    if (activeTab !== 'all') {
-      if (activeTab === 'published' && f.status !== 'published') return false
-      if (activeTab === 'drafts'    && f.status !== 'draft')     return false
-      if (activeTab === 'templates' && !f.is_template)           return false
-      if (activeTab === 'retired'   && f.status !== 'retired')   return false
-    }
     if (category !== 'all' && f.category !== category) return false
     return true
   })
@@ -257,23 +242,13 @@ export default function FormPool() {
   return (
     <div className="space-y-4">
 
-      {/* Toolbar — tabs + search + category + refresh + new */}
+      {/* Toolbar — search + category + new */}
       <div className="flex flex-wrap items-center gap-2">
 
-        {/* Tabs */}
-        <div className="flex items-center gap-0.5 bg-gray-900 border border-gray-800 rounded-xl p-1">
-          {TABS.map(t => (
-            <button
-              key={t.key}
-              onClick={() => setActiveTab(t.key)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap
-                ${activeTab === t.key
-                  ? 'bg-[#F5821E] text-white shadow-sm'
-                  : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'}`}
-            >
-              {t.label}
-            </button>
-          ))}
+        {/* Label */}
+        <div className="flex items-center gap-1.5 bg-gray-900 border border-gray-800 rounded-xl px-3 py-1.5">
+          <Pencil className="w-3.5 h-3.5 text-[#F5821E]" />
+          <span className="text-xs font-medium text-gray-200">Editable Forms</span>
         </div>
 
         {/* Search */}
@@ -329,7 +304,8 @@ export default function FormPool() {
       {!loading && !error && filtered.length === 0 && (
         <div className="card-p text-center py-16">
           <ClipboardList className="w-10 h-10 mx-auto mb-3 text-gray-700" />
-          <p className="text-sm text-gray-500">No forms found</p>
+          <p className="text-sm text-gray-500">No editable forms found</p>
+          <p className="text-xs text-gray-600 mt-1">Only draft forms appear here. Create a new form to get started.</p>
         </div>
       )}
 
