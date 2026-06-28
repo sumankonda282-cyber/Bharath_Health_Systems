@@ -299,140 +299,80 @@ export default function Analytics() {
   // ── render ──────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
-      {/* ── Page Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Analytics &amp; Revenue</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Billing performance, revenue breakdown, and ledger</p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={load}
-            disabled={loading}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm border border-gray-200 bg-white rounded-lg text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-colors disabled:opacity-50"
-          >
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-            Refresh
-          </button>
+      {/* ── One-line toolbar: date · filters · search · export ── */}
+      <div className="card p-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Month / Date Range toggle */}
+          <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm flex-shrink-0">
+            <button
+              onClick={() => setFilterMode('month')}
+              className={`px-3 py-1.5 font-medium transition-colors ${filterMode === 'month' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+            >
+              Month
+            </button>
+            <button
+              onClick={() => setFilterMode('range')}
+              className={`px-3 py-1.5 font-medium transition-colors ${filterMode === 'range' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+            >
+              Date Range
+            </button>
+          </div>
+
+          {filterMode === 'month' ? (
+            <div className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 hover:border-blue-400 transition-colors flex-shrink-0">
+              <Calendar size={14} className="text-gray-400" />
+              <input type="month" value={month} onChange={e => setMonth(e.target.value)} className="outline-none bg-transparent" />
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 hover:border-blue-400 transition-colors flex-shrink-0">
+                <Calendar size={14} className="text-gray-400" />
+                <span className="text-gray-400 text-xs">From</span>
+                <input type="date" value={fromDate} max={toDate} onChange={e => setFromDate(e.target.value)} className="outline-none bg-transparent" />
+              </div>
+              <div className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 hover:border-blue-400 transition-colors flex-shrink-0">
+                <Calendar size={14} className="text-gray-400" />
+                <span className="text-gray-400 text-xs">To</span>
+                <input type="date" value={toDate} min={fromDate} onChange={e => setToDate(e.target.value)} className="outline-none bg-transparent" />
+              </div>
+            </>
+          )}
+
+          <SelectDropdown label="All Doctors" value={doctorFilter} onChange={setDoctorFilter} options={doctorOptions} icon={Users} />
+          <SelectDropdown label="All Branches" value={branchFilter} onChange={setBranchFilter} options={branchOptions} icon={Filter} />
+
+          <div className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 hover:border-blue-400 transition-colors flex-1 min-w-[180px] max-w-xs">
+            <Search size={14} className="text-gray-400 flex-shrink-0" />
+            <input
+              type="text"
+              placeholder="Search patient or invoice…"
+              value={searchQ}
+              onChange={e => setSearchQ(e.target.value)}
+              className="outline-none bg-transparent w-full text-sm"
+            />
+            {searchQ && (
+              <button onClick={() => setSearchQ('')} className="text-gray-400 hover:text-gray-600 text-xs ml-1">✕</button>
+            )}
+          </div>
+
+          {activeFilters > 0 && (
+            <button
+              onClick={() => { setDoctorFilter(''); setBranchFilter(''); setSearchQ('') }}
+              className="text-xs text-blue-600 hover:text-blue-800 transition-colors flex-shrink-0"
+            >
+              Clear
+            </button>
+          )}
+
+          {/* Export — same line, pushed right */}
           <button
             onClick={() => exportCSV(filteredBilling, filterMode === 'month' ? month : `${fromDate}_${toDate}`)}
             disabled={filteredBilling.length === 0}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="ml-auto flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Download size={14} />
             Export CSV
           </button>
-        </div>
-      </div>
-
-      {/* ── Filter Bar ── */}
-      <div className="card p-4">
-        <div className="flex flex-col gap-4">
-          {/* Date controls row */}
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm">
-              <button
-                onClick={() => setFilterMode('month')}
-                className={`px-3 py-1.5 font-medium transition-colors ${filterMode === 'month' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
-              >
-                Month
-              </button>
-              <button
-                onClick={() => setFilterMode('range')}
-                className={`px-3 py-1.5 font-medium transition-colors ${filterMode === 'range' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
-              >
-                Date Range
-              </button>
-            </div>
-
-            {filterMode === 'month' ? (
-              <div className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 hover:border-blue-400 transition-colors">
-                <Calendar size={14} className="text-gray-400" />
-                <input
-                  type="month"
-                  value={month}
-                  onChange={e => setMonth(e.target.value)}
-                  className="outline-none bg-transparent"
-                />
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 flex-wrap">
-                <div className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 hover:border-blue-400 transition-colors">
-                  <Calendar size={14} className="text-gray-400" />
-                  <span className="text-gray-400 text-xs">From</span>
-                  <input
-                    type="date"
-                    value={fromDate}
-                    max={toDate}
-                    onChange={e => setFromDate(e.target.value)}
-                    className="outline-none bg-transparent"
-                  />
-                </div>
-                <span className="text-gray-400">—</span>
-                <div className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 hover:border-blue-400 transition-colors">
-                  <Calendar size={14} className="text-gray-400" />
-                  <span className="text-gray-400 text-xs">To</span>
-                  <input
-                    type="date"
-                    value={toDate}
-                    min={fromDate}
-                    onChange={e => setToDate(e.target.value)}
-                    className="outline-none bg-transparent"
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Filter dropdowns + search row */}
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-1.5 text-sm text-gray-500">
-              <Filter size={14} />
-              <span>Filters</span>
-              {activeFilters > 0 && (
-                <span className="bg-blue-100 text-blue-700 text-xs font-semibold px-1.5 py-0.5 rounded-full">{activeFilters}</span>
-              )}
-            </div>
-
-            <SelectDropdown
-              label="All Doctors"
-              value={doctorFilter}
-              onChange={setDoctorFilter}
-              options={doctorOptions}
-              icon={Users}
-            />
-
-            <SelectDropdown
-              label="All Branches"
-              value={branchFilter}
-              onChange={setBranchFilter}
-              options={branchOptions}
-              icon={Filter}
-            />
-
-            <div className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 hover:border-blue-400 transition-colors flex-1 min-w-[200px] max-w-xs">
-              <Search size={14} className="text-gray-400 flex-shrink-0" />
-              <input
-                type="text"
-                placeholder="Search patient or invoice…"
-                value={searchQ}
-                onChange={e => setSearchQ(e.target.value)}
-                className="outline-none bg-transparent w-full text-sm"
-              />
-              {searchQ && (
-                <button onClick={() => setSearchQ('')} className="text-gray-400 hover:text-gray-600 text-xs ml-1">✕</button>
-              )}
-            </div>
-
-            {activeFilters > 0 && (
-              <button
-                onClick={() => { setDoctorFilter(''); setBranchFilter(''); setSearchQ('') }}
-                className="text-xs text-blue-600 hover:text-blue-800 transition-colors"
-              >
-                Clear filters
-              </button>
-            )}
-          </div>
         </div>
       </div>
 
