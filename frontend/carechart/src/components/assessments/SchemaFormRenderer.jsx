@@ -11,6 +11,9 @@ import TermSearch, { SEARCH_TYPES } from '../forms/TermSearch'
 import useFormDraft, { draftMirrorKey, saveStatusLabel } from '@shared/hooks/useFormDraft'
 import { computeNormalFill } from '@shared/forms/normalFill'
 import { sectionHasLayout, buildRowMap, sectionGridStyle, gridCellStyle } from '@shared/forms/gridLayout'
+import MedicationOrderField from '../forms/MedicationOrderField'
+import PatientAutoField from '../forms/PatientAutoField'
+import { PatientDataContext } from '../forms/patientContext'
 
 // ── Formula evaluator for calculated fields (e.g. BMI) ───────────────────────
 // Replaces {field_id} tokens with current numeric form values and evaluates.
@@ -192,6 +195,14 @@ function FieldRenderer({ field, value, onChange, formData = {} }) {
         )}
       </div>
     )
+  }
+
+  if (type === 'medication_order') {
+    return <MedicationOrderField field={field} value={value} onChange={onChange} />
+  }
+
+  if (type === 'patient_auto') {
+    return <PatientAutoField field={field} value={value} onChange={onChange} />
   }
 
   if (SEARCH_TYPES[type]) {
@@ -679,6 +690,7 @@ export default function SchemaFormRenderer({ formId, patientId, encounterId, onS
   const sections = form?.schema?.sections || []
 
   return (
+    <PatientDataContext.Provider value={{ patientId: pid }}>
     <form onSubmit={handleSubmit} className="space-y-4">
       {sections.length === 0 && (
         <p className="text-sm text-gray-400 text-center py-8">This form has no sections yet.</p>
@@ -776,5 +788,6 @@ export default function SchemaFormRenderer({ formId, patientId, encounterId, onS
         </div>
       )}
     </form>
+    </PatientDataContext.Provider>
   )
 }
