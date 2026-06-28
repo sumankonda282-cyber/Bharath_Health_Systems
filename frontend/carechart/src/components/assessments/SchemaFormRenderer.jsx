@@ -358,26 +358,26 @@ function FieldRenderer({ field, value, onChange, formData = {} }) {
 
 // ── Section block ────────────────────────────────────────────────────────────
 
-function SectionBlock({ section, formData, onFieldChange }) {
-  const { id, title, layout = 2, applicability_mode, fields = [] } = section
+function SectionBlock({ section, formData, onFieldChange, theme }) {
+  const { id, title, applicability_mode, fields = [] } = section
   const isNaAllowed = applicability_mode === 'na_allowed'
   const [applicable, setApplicable] = useState('Applicable')
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsed, setCollapsed] = useState(!!section.collapsed)
 
-  const gridClass =
-    layout === 1 ? 'grid-cols-1' :
-    layout === 3 ? 'grid-cols-3' : 'grid-cols-2'
+  const COLS = { 1: 'grid-cols-1', 2: 'grid-cols-2', 3: 'grid-cols-3', 4: 'grid-cols-4' }
+  const SPAN = { 1: 'col-span-1', 2: 'col-span-2', 3: 'col-span-3', 4: 'col-span-4', full: 'col-span-full' }
+  const layout = section.layout || 1
+  const gridClass = COLS[layout] || COLS[1]
 
   const getColSpan = (field) => {
     const structuralTypes = ['heading', 'paragraph', 'stage_break', 'textarea', 'checkbox', 'scale']
-    if (structuralTypes.includes(field.type)) return 'col-span-full'
-    if (!layout || layout <= 1) return 'col-span-1'
-    const span = field.col_span || 1
-    if (layout === 2) return span >= 2 ? 'col-span-2' : 'col-span-1'
-    if (span >= 3) return 'col-span-3'
-    if (span === 2) return 'col-span-2'
-    return 'col-span-1'
+    if (structuralTypes.includes(field.type)) return SPAN.full
+    if (!layout || layout <= 1) return SPAN[1]
+    const span = Math.min(field.col_span || 1, layout)
+    return SPAN[span] || SPAN[1]
   }
+
+  const accent = section.header_color || theme?.accent
 
   if (applicable === 'N/A') {
     return (
@@ -397,8 +397,11 @@ function SectionBlock({ section, formData, onFieldChange }) {
 
   return (
     <div className="rounded-xl border border-gray-200 overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
-        <h3 className="font-semibold text-sm text-gray-700">{title}</h3>
+      <div
+        className={`flex items-center justify-between px-4 py-3 border-b border-gray-200 ${accent ? '' : 'bg-gray-50'}`}
+        style={accent ? { backgroundColor: accent + '1f' } : undefined}
+      >
+        <h3 className={`font-semibold text-sm ${accent ? '' : 'text-gray-700'}`} style={accent ? { color: accent } : undefined}>{title}</h3>
         <div className="flex items-center gap-2">
           {isNaAllowed && (
             <div className="flex gap-1">
@@ -418,20 +421,26 @@ function SectionBlock({ section, formData, onFieldChange }) {
               ))}
             </div>
           )}
-          <button
-            type="button"
-            onClick={() => setCollapsed(c => !c)}
-            className="text-gray-400 hover:text-gray-600 p-1"
-          >
-            {collapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
-          </button>
+          {section.collapsible && (
+            <button
+              type="button"
+              onClick={() => setCollapsed(c => !c)}
+              className="text-gray-400 hover:text-gray-600 p-1"
+            >
+              {collapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+            </button>
+          )}
         </div>
       </div>
 
-      {!collapsed && (
+      {!(section.collapsible && collapsed) && (
         <div className={`p-4 grid ${gridClass} gap-4`}>
           {fields.map(field => (
-            <div key={field.id || field.field_id} className={getColSpan(field)}>
+            <div
+              key={field.id || field.field_id}
+              className={getColSpan(field)}
+              style={{ borderLeft: field.color ? '3px solid ' + field.color : undefined, paddingLeft: field.color ? 8 : undefined }}
+            >
               <FieldRenderer
                 field={field}
                 value={formData[field.field_id]}
@@ -553,6 +562,7 @@ export default function SchemaFormRenderer({ formId, patientId, encounterId, onS
           section={section}
           formData={formData}
           onFieldChange={handleFieldChange}
+          theme={form?.schema?.theme}
         />
       ))}
 

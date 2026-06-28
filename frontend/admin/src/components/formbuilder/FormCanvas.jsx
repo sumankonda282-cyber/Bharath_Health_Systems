@@ -70,10 +70,9 @@ function getFieldTypeIcon(type, size = 16) {
 function getColSpanClass(field, sectionLayout) {
   if (!sectionLayout || sectionLayout <= 1) return ''
   const span = field.col_span || 1
-  if (sectionLayout === 2) return span >= 2 ? 'col-span-2' : 'col-span-1'
-  if (span >= 3) return 'col-span-3'
-  if (span === 2) return 'col-span-2'
-  return 'col-span-1'
+  const clamped = Math.min(Math.max(span, 1), sectionLayout)
+  const map = { 1: 'col-span-1', 2: 'col-span-2', 3: 'col-span-3', 4: 'col-span-4' }
+  return map[clamped] || 'col-span-1'
 }
 
 const QUICK_ADD_TYPES = [
@@ -234,7 +233,7 @@ function SectionBlock({ section, selectedId, selectedType, dispatch, onSelect })
   const isSelected  = selectedId === section.id && selectedType === 'section'
   const isNaAllowed = section.applicability_mode === 'na_allowed'
 
-  const gridClass = { 1: 'grid-cols-1', 2: 'grid-cols-2', 3: 'grid-cols-3' }[section.layout] || 'grid-cols-1'
+  const gridClass = { 1: 'grid-cols-1', 2: 'grid-cols-2', 3: 'grid-cols-3', 4: 'grid-cols-4' }[section.layout] || 'grid-cols-1'
 
   function handleAddField(type) {
     dispatch({ type: 'ADD_FIELD', payload: { sectionId: section.id, fieldType: type } })
@@ -251,12 +250,34 @@ function SectionBlock({ section, selectedId, selectedType, dispatch, onSelect })
       {/* Header */}
       <div
         className="flex items-center gap-2 px-4 py-3 border-b border-gray-700/60 cursor-pointer select-none"
+        style={{ background: section.header_color ? section.header_color + '1f' : undefined }}
         onClick={() => onSelect(section.id, 'section')}
       >
-        <GripVertical size={16} className="text-gray-600 flex-shrink-0 cursor-grab" />
+        <GripVertical size={16} className="text-gray-600 flex-shrink-0" />
+
+        {/* Section reorder */}
+        <div className="flex flex-col flex-shrink-0" onClick={e => e.stopPropagation()}>
+          <button
+            type="button"
+            title="Move section up"
+            onClick={() => dispatch({ type: 'MOVE_SECTION', payload: { sectionId: section.id, dir: -1 } })}
+            className="text-gray-600 hover:text-gray-300 leading-none transition-colors"
+          >
+            <ChevronUp size={12} />
+          </button>
+          <button
+            type="button"
+            title="Move section down"
+            onClick={() => dispatch({ type: 'MOVE_SECTION', payload: { sectionId: section.id, dir: 1 } })}
+            className="text-gray-600 hover:text-gray-300 leading-none transition-colors"
+          >
+            <ChevronDown size={12} />
+          </button>
+        </div>
 
         <input
           className="flex-1 bg-transparent text-white font-semibold text-sm focus:outline-none min-w-0"
+          style={{ color: section.header_color || undefined }}
           value={section.title}
           onClick={e => e.stopPropagation()}
           onChange={e =>
@@ -275,7 +296,7 @@ function SectionBlock({ section, selectedId, selectedType, dispatch, onSelect })
 
         {/* Layout buttons */}
         <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
-          {[1, 2, 3].map(col => (
+          {[1, 2, 3, 4].map(col => (
             <button
               key={col}
               title={`${col} column${col > 1 ? 's' : ''}`}

@@ -4,6 +4,14 @@ import { ChevronLeft, Save, Send, AlertTriangle, CheckCircle2, Clock, Loader2, X
 import api from '../../api/client'
 import { LangContext, isFieldVisible, getCompletionPct, FieldRenderer, ScoreCard, AlertCard } from './formEngine'
 
+// ─── Section/field layout maps (Tailwind-safe — literal class strings only) ────
+// Do NOT build these via `grid-cols-${n}` template strings; Tailwind purges those.
+const COLS = { 1: 'grid-cols-1', 2: 'grid-cols-2', 3: 'grid-cols-3', 4: 'grid-cols-4' }
+const SPAN = { 1: 'col-span-1', 2: 'col-span-2', 3: 'col-span-3', 4: 'col-span-4', full: 'col-span-full' }
+// Wide field types always span the full row regardless of their col_span.
+const WIDE = new Set(['textarea', 'table', 'body_map', 'signature', 'rich_text', 'divider', 'scale', 'checkbox', 'repeating_section', 'photo', 'file', 'matrix'])
+const spanFor = (field, layout) => WIDE.has(field.type) ? SPAN.full : (SPAN[Math.min(field.col_span || 1, layout || 1)] || SPAN[1])
+
 // ─── Main FormFiller ──────────────────────────────────────────────────────────
 
 export default function FormFiller() {
@@ -83,6 +91,7 @@ export default function FormFiller() {
             category:       form.category,
             scoring_config: form.scoring_config,
             alert_rules:    form.alert_rules,
+            accent:         schema?.theme?.accent || null,
           },
           schema: { sections },
         })
@@ -460,10 +469,17 @@ export default function FormFiller() {
         )}
         {sections.map((section, si) => {
           if (sections.length > 1 && si !== activeSection) return null
+          const layout = section.layout || 1
+          const accent = formMeta?.accent
+          const headColor = section.header_color || accent || '#0F2557'
+          const headTint = (section.header_color || accent) ? (section.header_color || accent) + '1f' : undefined
           return (
             <div key={si} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
-              <div className="flex items-center justify-between mb-5">
-                <h2 className="text-lg font-bold text-[#0F2557]">
+              <div
+                className="flex items-center justify-between mb-5 -mx-2 px-2 py-1.5 rounded-lg"
+                style={{ background: headTint }}
+              >
+                <h2 className="text-lg font-bold" style={{ color: headColor }}>
                   {section.title || section.name || `Section ${si + 1}`}
                 </h2>
                 <button
@@ -475,12 +491,20 @@ export default function FormFiller() {
                 </button>
               </div>
 
-              <div className="space-y-5">
+              <div className={`grid gap-4 ${COLS[layout] || COLS[1]}`}>
                 {(section.fields || []).map(field => {
                   const visible = isFieldVisible(field, values)
                   if (!visible) return null
                   return (
-                    <div key={field.id} id={`field-${field.id}`}>
+                    <div
+                      key={field.id}
+                      id={`field-${field.id}`}
+                      className={spanFor(field, layout)}
+                      style={{
+                        borderLeft: field.color ? '3px solid ' + field.color : undefined,
+                        paddingLeft: field.color ? 8 : undefined,
+                      }}
+                    >
                       <FieldRenderer
                         field={field}
                         value={values[field.id]}
