@@ -6,6 +6,7 @@ import api from '../api/client'
 import FieldPalette from '../components/formbuilder/FieldPalette'
 import FormCanvas, { ROW_H, GAP } from '../components/formbuilder/FormCanvas'
 import PropertiesPanel from '../components/formbuilder/PropertiesPanel'
+import FormPreview from '../components/formbuilder/FormPreview'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -140,9 +141,11 @@ function makeField(type) {
     calculated:        { formula: '', variables: [] },
     score_display:     { score_source: '', display_bands: true },
     vital_auto:        { vital_type: 'heart_rate', unit: 'bpm' },
+    patient_auto:      { auto_source: 'age', label: 'Age' },
     patient_search:    { placeholder: 'Search patient…', multi_select: false },
     staff_search:      { placeholder: 'Search staff / MD…', role_filter: 'any', multi_select: false },
     medication_search: { placeholder: 'Search medication / Rx…', multi_select: true },
+    medication_order:  { placeholder: 'Search medication to order…' },
     diagnosis_search:  { placeholder: 'Search diagnosis / ICD-10…', multi_select: true },
     allergy_search:    { placeholder: 'Search allergy…', multi_select: true, include_severity: false, include_reaction: false },
     procedure_search:  { placeholder: 'Search procedure / CPT…', multi_select: true, procedure_standard: 'any' },
@@ -1034,8 +1037,14 @@ export default function FormBuilder() {
           </button>
         </header>
 
-        {/* ── Three-column body ── */}
+        {/* ── Body: editor (3-col) or live preview ── */}
         <div className="flex flex-1 overflow-hidden">
+          {previewMode ? (
+          <main className="flex-1 overflow-auto min-h-0 bg-white">
+            <FormPreview schema={form.schema} />
+          </main>
+          ) : (
+          <>
           {/* Left: Field Palette */}
           <aside className="hidden md:flex flex-col w-48 flex-shrink-0 border-r border-gray-800 overflow-y-auto bg-gray-900">
             <FieldPalette
@@ -1068,6 +1077,8 @@ export default function FormBuilder() {
               allFields={allFields}
             />
           </aside>
+          </>
+          )}
         </div>
 
         {/* Mobile FAB */}

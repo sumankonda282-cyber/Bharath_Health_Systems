@@ -3,7 +3,7 @@ import { X, Loader2, AlertTriangle, CheckCircle2, FileText, ChevronDown, Chevron
 import api from '../../api/client'
 import {
   LangContext, FieldRenderer, ScoreCard, AlertCard,
-  isFieldVisible, getCompletionPct,
+  isFieldVisible, getCompletionPct, PatientDataContext,
 } from '../forms/formEngine'
 import useFormDraft, { draftMirrorKey, saveStatusLabel } from '@shared/hooks/useFormDraft'
 import { computeNormalFill } from '@shared/forms/normalFill'
@@ -243,6 +243,7 @@ export default function DbAssessmentFormModal({ form, patientId, admissionId, pa
   }
 
   return (
+    <PatientDataContext.Provider value={{ patientId }}>
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(15,37,87,0.6)' }}>
       <div className="flex flex-col bg-white rounded-2xl shadow-2xl overflow-hidden" style={{ width: '70vw', height: '80vh', maxWidth: 1100 }}>
 
@@ -439,6 +440,7 @@ export default function DbAssessmentFormModal({ form, patientId, admissionId, pa
         )}
       </div>
     </div>
+    </PatientDataContext.Provider>
   )
 }
 

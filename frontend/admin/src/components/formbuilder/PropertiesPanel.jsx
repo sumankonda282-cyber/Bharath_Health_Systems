@@ -909,8 +909,10 @@ function TypeSpecificProps({ field, sectionId, dispatch, allFields }) {
 
   // ── calculated ────────────────────────────────────────────────────────────
   if (type === 'calculated') {
+    // Insertable tokens: numeric inputs + auto patient/vital fields (age/weight/…)
+    // so a dose formula can read live context, e.g. ({weight} * 15).
     const numericFields = (allFields || []).filter(({ field: f }) =>
-      ['number', 'scale', 'numeric_range', 'calculated'].includes(f.type)
+      ['number', 'scale', 'numeric_range', 'calculated', 'patient_auto', 'vital_auto'].includes(f.type)
     )
     return (
       <>
@@ -1326,6 +1328,23 @@ function TypeSpecificProps({ field, sectionId, dispatch, allFields }) {
           <input className={inputCls} value={field.add_label || 'Add Another'} onChange={e => set('add_label', e.target.value)} />
         </PropRow>
       </>
+    )
+  }
+
+  if (type === 'patient_auto') {
+    return (
+      <PropRow label="Patient field">
+        <select className={inputCls} value={field.auto_source || 'age'} onChange={e => set('auto_source', e.target.value)}>
+          <option value="age">Age (years)</option>
+          <option value="age_months">Age (months)</option>
+          <option value="weight">Weight (kg)</option>
+          <option value="height">Height (cm)</option>
+          <option value="bmi">BMI</option>
+          <option value="sex">Sex</option>
+          <option value="blood_group">Blood group</option>
+          <option value="allergies">Allergies</option>
+        </select>
+      </PropRow>
     )
   }
 

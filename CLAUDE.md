@@ -48,9 +48,21 @@ frontends ("portals").
 - **Backend:** Render. Production API host (env `VITE_API_URL`): `https://bharatcliniq-api.onrender.com`.
   The legacy hardcoded fallback baked into several frontends is `https://BharathHealthSystems-api.onrender.com`.
   Both are live; prefer the env-driven `bharatcliniq-api.onrender.com`.
-- **Frontends:** Vercel and/or Cloudflare Pages, one deployment per portal. Custom
-  subdomains under `*.bharathhealthsystems.com`; Vercel preview URLs and `*.bhs-staff.pages.dev`
-  are allowed by the CORS regex in `main.py`.
+- **Frontends:** one deployment per portal, split across two hosts (NOT all on one):
+  - **Vercel — exactly 3 portals** (team `sumankonda282-cybers-projects`):
+    - `admin` → project `bharath-health-systems` → `admin.bharathhealthsystems.com`
+    - `public` → project `bharathhealthsystems-public` → `bharathhealthsystems.com` / `www.`
+    - `patient` → project `bharath-health-systems-denk` → `my.bharathhealthsystems.com`
+    - All 3 auto-deploy from this repo on every branch push (preview) + `main` merge (production).
+      On the **Hobby (free) plan** this means 3 builds per commit — a heavy branch burns the
+      daily build quota fast and Vercel returns *"Deployment rate limited — retry in 24 hours"*,
+      which silently blocks the next `main`→production deploy. Mitigate: Settings → Git → deploy
+      production branch only, and/or an Ignored-Build-Step per project so a portal only rebuilds
+      when its own `frontend/<portal>/` files change.
+  - **Cloudflare Pages — the other 6 portals** (`provider`, `carechart`, `staff`, `pharmacy`,
+    `lab`, `imaging`); `*.bhs-staff.pages.dev` preview URLs + `*.bharathhealthsystems.com` subdomains.
+  - Custom subdomains under `*.bharathhealthsystems.com`; Vercel preview URLs and
+    `*.bhs-staff.pages.dev` are allowed by the CORS regex in `main.py`.
 
 ### Git Workflow
 - **Always develop on branch `claude/vigilant-wozniak-H1kwo`.**
@@ -370,10 +382,17 @@ Before making **any** change, answer every box:
 - This is the **only** migration mechanism. No Alembic. Every schema change you make must
   be reflected as an idempotent statement in `start.sh`.
 
-### Frontends (Vercel / Cloudflare Pages)
+### Frontends (Vercel ×3 + Cloudflare Pages ×6)
 - One deployment per portal, served as a Vite SPA (`/(.*)` → `/index.html` rewrite).
+- **Vercel hosts only `admin`, `public`, `patient`** (3 projects, see Section 1). The other six
+  (`provider`, `carechart`, `staff`, `pharmacy`, `lab`, `imaging`) are on **Cloudflare Pages**.
 - `VITE_API_URL` controls the API base; CORS in `main.py` allowlists production subdomains,
   Vercel preview URLs, and `*.bhs-staff.pages.dev`.
+- **Vercel Hobby build rate limit:** all 3 Vercel projects share the account's daily build
+  budget. A merge to `main` can fail to reach production with *"Deployment rate limited — retry
+  in 24 hours"* even though the code is correct. The instant unblock is to **Promote** an already-
+  built READY preview to Production (re-aliases without a new build, so the limit doesn't apply);
+  the durable fix is production-branch-only deploys + per-portal Ignored Build Steps.
 
 ---
 

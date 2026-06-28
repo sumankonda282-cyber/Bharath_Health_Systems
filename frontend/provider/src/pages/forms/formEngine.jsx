@@ -3,6 +3,9 @@ import {
   AlertTriangle, Plus, Minus, RotateCcw, Pen, Type, Camera, Upload, Mic,
 } from 'lucide-react'
 import TermSearch, { SEARCH_TYPES } from '../../components/forms/TermSearch'
+import MedicationOrderField from '../../components/forms/MedicationOrderField'
+import PatientAutoField from '../../components/forms/PatientAutoField'
+export { PatientDataContext } from '../../components/forms/patientContext'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Assessment-form rendering engine.
@@ -874,6 +877,8 @@ export function FieldRenderer({ field, value, onChange, error, allValues }) {
   if (type === 'table') return <TableField field={field} value={value} onChange={onChange} error={error} />
   if (type === 'body_map') return <BodyMapField field={field} value={value} onChange={onChange} error={error} />
   if (type === 'repeating_section') return <RepeatingSection field={field} value={value} onChange={onChange} error={error} allValues={allValues} />
+  if (type === 'medication_order') return <MedicationOrderField field={field} value={value} onChange={onChange} />
+  if (type === 'patient_auto') return <PatientAutoField field={field} value={value} onChange={onChange} />
   if (SEARCH_TYPES[type]) return <TermSearch type={type} value={value} onChange={onChange} placeholder={field.placeholder} />
   // rich_text, snomed, loinc — display only
   if (type === 'rich_text') return <div className="text-sm text-gray-700 prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: field.content || field.label || '' }} />

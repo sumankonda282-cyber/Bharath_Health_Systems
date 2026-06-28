@@ -57,6 +57,26 @@ function FieldValueDisplay({ field, value }) {
       </div>
     )
   }
+  // Medication order (the medication_order smart field) → clean Rx summary.
+  if (typeof value === 'object' && (value.drug || value.generic) && (field?.type === 'medication_order' || value.dose_label || value.frequency)) {
+    const tail = [
+      value.dose_label || (value.strength ? `${value.quantity ?? ''} ${value.form || ''} (${value.strength} mg)`.trim() : null),
+      value.frequency,
+      value.duration_days ? `${value.duration_days} days` : null,
+      value.route,
+    ].filter(Boolean)
+    return (
+      <div className="text-sm text-gray-700">
+        <span className="font-medium">{value.drug || value.generic}</span>
+        {tail.length > 0 && <span> — {tail.join(', ')}</span>}
+        {value.instructions && <p className="text-xs text-gray-500 mt-0.5">{value.instructions}</p>}
+      </div>
+    )
+  }
+  // Search-field selections store { display, code, … }.
+  if (typeof value === 'object' && (value.display || value.label || value.name)) {
+    return <span className="text-sm text-gray-700">{value.display || value.label || value.name}</span>
+  }
   if (typeof value === 'object') {
     return <span className="text-sm text-gray-700">{JSON.stringify(value)}</span>
   }
@@ -168,13 +188,30 @@ export default function SubmissionViewer() {
       const scores = d.scores || []
       const alerts = d.alerts || []
 
+      const fmtPrint = (v) => {
+        if (v === undefined || v === null || v === '') return '—'
+        if (Array.isArray(v)) return v.join(', ')
+        if (typeof v === 'object') {
+          if (v.drug || v.generic) {
+            const tail = [
+              v.dose_label || (v.strength ? `${v.quantity ?? ''} ${v.form || ''} (${v.strength} mg)`.trim() : ''),
+              v.frequency, v.duration_days ? `${v.duration_days} days` : '', v.route,
+            ].filter(Boolean)
+            return `${v.drug || v.generic}${tail.length ? ' — ' + tail.join(', ') : ''}${v.instructions ? ' | ' + v.instructions : ''}`
+          }
+          if (v.display || v.label || v.name) return v.display || v.label || v.name
+          return JSON.stringify(v)
+        }
+        return String(v)
+      }
+
       const sectionsHtml = sections.map(section => `
         <h3 style="font-size:14px;font-weight:bold;color:#0F2557;margin:16px 0 6px;">${section.title || ''}</h3>
         <table style="width:100%;border-collapse:collapse;margin-bottom:8px;">
           ${(section.fields || []).map(f => `
             <tr>
               <td style="padding:6px 8px;border:1px solid #e5e7eb;width:35%;font-size:12px;font-weight:600;color:#374151;background:#f9fafb;">${f.label}</td>
-              <td style="padding:6px 8px;border:1px solid #e5e7eb;font-size:12px;color:#111827;">${f.value !== undefined && f.value !== null ? String(f.value) : '—'}</td>
+              <td style="padding:6px 8px;border:1px solid #e5e7eb;font-size:12px;color:#111827;">${fmtPrint(f.value)}</td>
             </tr>
           `).join('')}
         </table>
