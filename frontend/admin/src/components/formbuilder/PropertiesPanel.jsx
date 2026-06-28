@@ -163,22 +163,24 @@ function CollapsibleSection({ title, icon: Icon, defaultOpen = false, children }
 
 // ─── Column Span Control ──────────────────────────────────────────────────────
 
-function ColSpanControl({ value, onChange, sectionLayout }) {
-  const maxCols = sectionLayout || 1
-  if (maxCols === 1) return null  // single-col section: span control is irrelevant
-
-  const opts = [
-    { value: 1, label: '1 col' },
-    ...(maxCols >= 2 ? [{ value: 2, label: '2 col' }] : []),
-    ...(maxCols >= 3 ? [{ value: 3, label: '3 col' }] : []),
-    ...(maxCols >= 4 ? [{ value: 4, label: '4 col' }] : []),
-  ]
-
+// Grid size on the free 12-column CareForm canvas. Drag-resize on the canvas
+// updates the same {x,y,w,h}; these inputs let the admin set it precisely.
+function GridSizeControl({ layout, onChange }) {
+  const l = layout || { x: 0, y: 0, w: 6, h: 1 }
+  const upd = (k, raw) => {
+    let v = Math.max(1, Number(raw) || 1)
+    if (k === 'w') v = Math.min(v, 12 - (l.x || 0))
+    onChange({ x: l.x ?? 0, y: l.y ?? 0, w: l.w ?? 6, h: l.h ?? 1, [k]: v })
+  }
+  const inp = 'w-14 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-[#F5821E]'
   return (
-    <PropRow label="Column Width">
+    <PropRow label="Grid size">
       <div className="flex items-center gap-2">
         <Columns size={13} className="text-gray-500 flex-shrink-0" />
-        <BtnGroup options={opts} value={value || 1} onChange={onChange} />
+        <input type="number" min={1} max={12} value={l.w ?? 6} onChange={e => upd('w', e.target.value)} className={inp} title="Width (1–12 columns)" />
+        <span className="text-gray-500 text-xs">×</span>
+        <input type="number" min={1} value={l.h ?? 1} onChange={e => upd('h', e.target.value)} className={inp} title="Height (rows)" />
+        <span className="text-[10px] text-gray-500">W×H · 12-col grid</span>
       </div>
     </PropRow>
   )
@@ -1353,14 +1355,6 @@ function SectionProperties({ section, dispatch }) {
           <textarea className={textareaCls} rows={2} value={section.description || ''} onChange={e => set('description', e.target.value)} placeholder="Optional description shown above the section…" />
         </PropRow>
 
-        <PropRow label="Column Layout">
-          <BtnGroup
-            options={[{ value: 1, label: '1 Col' }, { value: 2, label: '2 Col' }, { value: 3, label: '3 Col' }, { value: 4, label: '4 Col' }]}
-            value={section.layout || 1}
-            onChange={v => set('layout', Number(v))}
-          />
-        </PropRow>
-
         <ColorField label="Header colour" value={section.header_color || ''} onChange={c => set('header_color', c)} />
 
         <PropRow label="Applicability Mode">
@@ -1443,11 +1437,10 @@ function FieldProperties({ field, sectionId, sectionLayout, dispatch, allFields 
           </span>
         </div>
 
-        {/* Column span (only shown when section has multiple columns) */}
-        <ColSpanControl
-          value={field.col_span || 1}
-          onChange={v => set('col_span', v)}
-          sectionLayout={sectionLayout}
+        {/* Grid size on the free CareForm canvas */}
+        <GridSizeControl
+          layout={field.layout}
+          onChange={lay => set('layout', lay)}
         />
 
         {/* Field colour */}
