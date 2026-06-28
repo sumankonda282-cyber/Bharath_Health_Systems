@@ -2200,6 +2200,28 @@ class FormSubmission(Base):
     updated_at     = Column(DateTime, server_default=func.now(), onupdate=func.now())  # last autosave/edit
     source         = Column(String(30), default="provider")  # provider|patient|kiosk
     created_at     = Column(DateTime, server_default=func.now())
+    # ── Amendment lineage (PowerForm modify / unchart) ──
+    record_status  = Column(String(20), default="active", index=True)  # active|superseded|in_error
+    amends_id      = Column(Integer, nullable=True)    # the submission this one replaces (modify)
+    root_id        = Column(Integer, nullable=True, index=True)  # first version in the chain (groups all versions)
+    amend_reason   = Column(Text, nullable=True)       # why modified / charted-in-error
+    amended_by     = Column(Integer, nullable=True)    # staff who modified / uncharted
+    amended_at     = Column(DateTime, nullable=True)
+
+
+class FormSubmissionComment(Base):
+    """Per-result annotation on a signed submission (PowerForm comment / flag).
+    Comments are additive and never mutate the underlying result."""
+    __tablename__ = "form_submission_comments"
+    id            = Column(Integer, primary_key=True, index=True)
+    submission_id = Column(Integer, ForeignKey("form_submissions.id", ondelete="CASCADE"), nullable=False, index=True)
+    clinic_id     = Column(Integer, ForeignKey("clinics.id"), nullable=True, index=True)
+    field_id      = Column(String(100), nullable=True)   # optional: comment scoped to one field
+    author_id     = Column(Integer, nullable=True)
+    author_name   = Column(String(150), nullable=True)
+    comment       = Column(Text, nullable=True)
+    flag          = Column(String(40), nullable=True)    # optional: abnormal|critical|follow-up|…
+    created_at    = Column(DateTime, server_default=func.now())
 
 
 class FormAlert(Base):

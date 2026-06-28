@@ -25,6 +25,7 @@ from app.models.models import (
     FormCoSign,
     FormPool,
     FormSubmission,
+    FormSubmissionComment,
     iViewFlowsheet,
     iViewObservation,
     StaffFormFavorite,
@@ -779,6 +780,8 @@ def submit_form(
         )
         db.add(sub)
     db.flush()   # ensure sub.id
+    if sub.root_id is None:
+        sub.root_id = sub.id   # an original submission roots its own version chain
 
     if is_draft:
         # Save-in-progress: persist values only; never fire alerts / iView while unsigned.
@@ -889,33 +892,53 @@ def list_submissions(
     patient_id:  Optional[str]  = Query(None),
     encounter_id:Optional[str]  = Query(None),
     include_drafts: bool        = Query(False),
+    include_history: bool       = Query(False),
     limit:       int            = Query(50, ge=1, le=500),
     offset:      int            = Query(0, ge=0),
 ):
     """Finalized (signed) submissions for a form. Unsigned drafts are excluded by
-    default so autosaved work-in-progress never pollutes the clinical history;
-    pass ``include_drafts=true`` to see them too."""
+    default so autosaved work-in-progress never pollutes the clinical history
+    (``include_drafts=true`` to see them). Superseded (amended) and in-error
+    (uncharted) versions are also hidden by default — only the latest *active*
+    record per chain is returned; pass ``include_history=true`` for the full audit."""
     q = db.query(FormSubmission).filter(FormSubmission.form_id == form_id)
     if patient_id:   q = q.filter(FormSubmission.patient_id   == patient_id)
     if encounter_id: q = q.filter(FormSubmission.encounter_id == encounter_id)
     if not include_drafts:
         q = q.filter(FormSubmission.is_draft.is_(False))
+    if not include_history:
+        q = q.filter(FormSubmission.record_status == "active")
     total = q.count()
     rows  = q.order_by(FormSubmission.submitted_at.desc()).offset(offset).limit(limit).all()
     return {
         "total":  total,
         "items": [
             {
-                "id":           r.id,
-                "patient_id":   r.patient_id,
-                "encounter_id": r.encounter_id,
-                "submitted_by": r.submitted_by,
-                "score_result": r.scores,
-                "status":       "draft" if r.is_draft else "submitted",
-                "submitted_at": r.submitted_at.isoformat() if r.submitted_at else None,
+                "id":            r.id,
+                "patient_id":    r.patient_id,
+                "encounter_id":  r.encounter_id,
+                "submitted_by":  r.submitted_by,
+                "score_result":  r.scores,
+                "status":        "draft" if r.is_draft else "submitted",
+                "record_status": r.record_status or "active",
+                "amends_id":     r.amends_id,
+                "root_id":       r.root_id or r.id,
+                "submitted_at":  r.submitted_at.isoformat() if r.submitted_at else None,
             }
             for r in rows
         ],
+    }
+
+
+def _comment_out(c: "FormSubmissionComment") -> dict:
+    return {
+        "id":          c.id,
+        "field_id":    c.field_id,
+        "author_id":   c.author_id,
+        "author_name": c.author_name,
+        "comment":     c.comment,
+        "flag":        c.flag,
+        "created_at":  c.created_at.isoformat() if c.created_at else None,
     }
 
 
@@ -929,16 +952,33 @@ def get_submission(submission_id: int, db: Session = Depends(get_db)):
         .filter(FormAlert.submission_id == submission_id)
         .all()
     )
+    comments = (
+        db.query(FormSubmissionComment)
+        .filter(FormSubmissionComment.submission_id == submission_id)
+        .order_by(FormSubmissionComment.created_at.asc())
+        .all()
+    )
     return {
-        "id":           sub.id,
-        "form_id":      sub.form_id,
-        "patient_id":   sub.patient_id,
-        "encounter_id": sub.encounter_id,
-        "submitted_by": sub.submitted_by,
-        "form_data":    sub.data,
-        "score_result": sub.scores,
-        "status":       "draft" if sub.is_draft else "submitted",
-        "submitted_at": sub.submitted_at.isoformat() if sub.submitted_at else None,
+        "id":            sub.id,
+        "form_id":       sub.form_id,
+        "patient_id":    sub.patient_id,
+        "encounter_id":  sub.encounter_id,
+        "submitted_by":  sub.submitted_by,
+        "form_data":     sub.data,
+        "score_result":  sub.scores,
+        "status":        "draft" if sub.is_draft else "submitted",
+        "record_status": sub.record_status or "active",
+        "amends_id":     sub.amends_id,
+        "root_id":       sub.root_id or sub.id,
+        "amend_reason":  sub.amend_reason,
+        "amended_by":    sub.amended_by,
+        "amended_at":    sub.amended_at.isoformat() if sub.amended_at else None,
+        "signed_at":     sub.signed_at.isoformat() if sub.signed_at else None,
+        "signed_by":     sub.signed_by,
+        "cosigned_by":   sub.cosigned_by,
+        "cosigned_at":   sub.cosigned_at.isoformat() if sub.cosigned_at else None,
+        "submitted_at":  sub.submitted_at.isoformat() if sub.submitted_at else None,
+        "comments":      [_comment_out(c) for c in comments],
         "alerts": [
             {
                 "id":           a.id,
@@ -958,19 +998,264 @@ def cosign_submission(
     submission_id: int,
     payload:       Dict[str, Any] = Body(...),
     db:            Session        = Depends(get_db),
+    current = Depends(get_current_staff),
 ):
+    """Co-sign a submission. Stamps the submission's own cosigned_by/cosigned_at
+    columns (the FormCoSign table models a request/approve workflow with different
+    columns, so we never construct it here)."""
     sub = db.query(FormSubmission).filter(FormSubmission.id == submission_id).first()
     if not sub:
         raise HTTPException(status_code=404, detail="Submission not found")
-    cosign = FormCoSign(
-        submission_id  = submission_id,
-        cosigned_by    = payload.get("cosigned_by"),
-        cosigned_at    = datetime.utcnow(),
-        cosign_comment = payload.get("comment"),
-    )
-    db.add(cosign)
+    cosigner = payload.get("cosigned_by") or (current.id if current else None)
+    sub.cosigned_by = cosigner
+    sub.cosigned_at = datetime.utcnow()
+    # An optional co-sign note is kept as a submission comment (additive, audited).
+    note = payload.get("comment")
+    if note:
+        db.add(FormSubmissionComment(
+            submission_id = submission_id,
+            clinic_id     = sub.clinic_id,
+            author_id     = cosigner,
+            author_name   = getattr(current, "full_name", None) if current else None,
+            comment       = note,
+            flag          = "cosign",
+        ))
     db.commit()
-    return {"submission_id": submission_id, "cosigned_by": cosign.cosigned_by}
+    return {"submission_id": submission_id, "cosigned_by": sub.cosigned_by,
+            "cosigned_at": sub.cosigned_at.isoformat() if sub.cosigned_at else None}
+
+
+# ---------------------------------------------------------------------------
+# Amendments — modify / unchart (in-error) / comment / version history
+# (PowerForm parity: a signed record is immutable; changes create lineage)
+# ---------------------------------------------------------------------------
+
+def _retire_clinical_side_effects(db: Session, submission_id: int) -> None:
+    """Remove the flowsheet observations + fired alerts of a submission that is
+    no longer the active truth (superseded by an amendment, or charted in error),
+    so an erroneous/old value never trends on iView or shows as a live alert."""
+    db.query(iViewObservation).filter(
+        iViewObservation.submission_id == submission_id
+    ).delete(synchronize_session=False)
+    db.query(FormAlert).filter(
+        FormAlert.submission_id == submission_id
+    ).delete(synchronize_session=False)
+
+
+@router.post("/submissions/{submission_id}/amend", status_code=201)
+def amend_submission(
+    submission_id: int,
+    payload:  Dict[str, Any] = Body(...),
+    db:       Session        = Depends(get_db),
+    current = Depends(get_current_staff),
+):
+    """Modify a signed result. The original is immutable, so this creates a NEW
+    signed version (record_status='active'), marks the original 'superseded', and
+    links them via amends_id / shared root_id. Alerts + iView are re-evaluated for
+    the new version; the superseded version's observations/alerts are retired."""
+    if not current:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    orig = db.query(FormSubmission).filter(FormSubmission.id == submission_id).first()
+    if not orig:
+        raise HTTPException(status_code=404, detail="Submission not found")
+    if orig.clinic_id != current.clinic_id:
+        raise HTTPException(status_code=403, detail="Cross-clinic amendment denied")
+    if orig.is_draft:
+        raise HTTPException(status_code=400, detail="Drafts are edited directly, not amended")
+    if orig.record_status == "in_error":
+        raise HTTPException(status_code=400, detail="A charted-in-error record cannot be amended")
+    if orig.record_status == "superseded":
+        raise HTTPException(status_code=400, detail="This version was already amended; amend the latest version")
+
+    form = db.query(AssessmentForm).filter(AssessmentForm.id == orig.form_id).first()
+    if not form:
+        raise HTTPException(status_code=404, detail="Form not found")
+
+    form_data = payload.get("form_data", orig.data or {})
+    reason    = (payload.get("reason") or "").strip()
+    if not reason:
+        raise HTTPException(status_code=400, detail="An amendment reason is required")
+
+    now            = datetime.utcnow()
+    scoring_result = run_scoring(form.id, form.schema or {}, form_data, form.scoring_config)
+    alerts_fired   = evaluate_alerts(form.schema or {}, form_data, form.alert_rules)
+
+    new = FormSubmission(
+        form_id        = orig.form_id,
+        form_version   = orig.form_version,
+        clinic_id      = orig.clinic_id,
+        branch_id      = orig.branch_id,
+        patient_id     = orig.patient_id,
+        appointment_id = orig.appointment_id,
+        admission_id   = orig.admission_id,
+        encounter_id   = orig.encounter_id,
+        submitted_by   = current.id,
+        data           = form_data,
+        scores         = scoring_result or None,
+        alerts_fired   = alerts_fired or [],
+        is_draft       = False,
+        source         = orig.source or "provider",
+        submitted_at   = now,
+        charted_at     = now,
+        signed_at      = now,
+        signed_by      = current.id,
+        updated_at     = now,
+        record_status  = "active",
+        amends_id      = orig.id,
+        root_id        = orig.root_id or orig.id,
+        amend_reason   = reason,
+        amended_by     = current.id,
+        amended_at     = now,
+    )
+    db.add(new)
+    db.flush()
+
+    # The original is retired from the active view but kept for audit.
+    orig.record_status = "superseded"
+    orig.amended_by    = current.id
+    orig.amended_at    = now
+    if not orig.amend_reason:
+        orig.amend_reason = reason
+    _retire_clinical_side_effects(db, orig.id)
+
+    # Re-fire alerts + iView for the new active version.
+    for a in alerts_fired:
+        fid = a.get("field_id")
+        db.add(FormAlert(
+            submission_id = new.id,
+            clinic_id     = new.clinic_id,
+            patient_id    = new.patient_id,
+            field_id      = fid,
+            field_label   = a.get("field_label") or fid,
+            value         = (str(form_data.get(fid)) if fid in (form_data or {}) else None),
+            severity      = a.get("severity", "warning"),
+            message       = a.get("message", ""),
+        ))
+    if form.is_iview_enabled:
+        save_iview_row(db, new, form)
+
+    db.commit()
+    db.refresh(new)
+    return {
+        "submission_id":   new.id,
+        "amends_id":       orig.id,
+        "root_id":         new.root_id,
+        "record_status":   "active",
+        "score_result":    scoring_result,
+        "alerts_fired":    alerts_fired,
+        "signed_at":       new.signed_at.isoformat() if new.signed_at else None,
+    }
+
+
+@router.post("/submissions/{submission_id}/in-error")
+def mark_submission_in_error(
+    submission_id: int,
+    payload:  Dict[str, Any] = Body(...),
+    db:       Session        = Depends(get_db),
+    current = Depends(get_current_staff),
+):
+    """Unchart a signed result (chart-in-error). The row is kept for audit but
+    marked 'in_error' with a reason, and its flowsheet observations + alerts are
+    retired so it no longer trends or alerts. Never deletes clinical data."""
+    if not current:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    sub = db.query(FormSubmission).filter(FormSubmission.id == submission_id).first()
+    if not sub:
+        raise HTTPException(status_code=404, detail="Submission not found")
+    if sub.clinic_id != current.clinic_id:
+        raise HTTPException(status_code=403, detail="Cross-clinic action denied")
+    if sub.is_draft:
+        raise HTTPException(status_code=400, detail="Delete the draft instead of uncharting it")
+    reason = (payload.get("reason") or "").strip()
+    if not reason:
+        raise HTTPException(status_code=400, detail="A reason is required to chart in error")
+
+    sub.record_status = "in_error"
+    sub.amend_reason  = reason
+    sub.amended_by    = current.id
+    sub.amended_at    = datetime.utcnow()
+    _retire_clinical_side_effects(db, sub.id)
+    db.commit()
+    return {"submission_id": sub.id, "record_status": "in_error",
+            "amended_at": sub.amended_at.isoformat() if sub.amended_at else None}
+
+
+@router.post("/submissions/{submission_id}/comment", status_code=201)
+def add_submission_comment(
+    submission_id: int,
+    payload:  Dict[str, Any] = Body(...),
+    db:       Session        = Depends(get_db),
+    current = Depends(get_current_staff),
+):
+    """Annotate a submission with a comment / flag (additive — never mutates the
+    underlying result). Optionally scoped to a single field via field_id."""
+    if not current:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    sub = db.query(FormSubmission).filter(FormSubmission.id == submission_id).first()
+    if not sub:
+        raise HTTPException(status_code=404, detail="Submission not found")
+    if sub.clinic_id != current.clinic_id:
+        raise HTTPException(status_code=403, detail="Cross-clinic action denied")
+    text = (payload.get("comment") or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Comment text is required")
+    c = FormSubmissionComment(
+        submission_id = sub.id,
+        clinic_id     = sub.clinic_id,
+        field_id      = payload.get("field_id"),
+        author_id     = current.id,
+        author_name   = getattr(current, "full_name", None),
+        comment       = text,
+        flag          = payload.get("flag"),
+    )
+    db.add(c)
+    db.commit()
+    db.refresh(c)
+    return _comment_out(c)
+
+
+@router.get("/submissions/{submission_id}/history")
+def submission_history(submission_id: int, db: Session = Depends(get_db)):
+    """Full version lineage for a submission (every version in its chain, oldest
+    first), each with its amendment metadata and comments — the audit trail."""
+    sub = db.query(FormSubmission).filter(FormSubmission.id == submission_id).first()
+    if not sub:
+        raise HTTPException(status_code=404, detail="Submission not found")
+    root = sub.root_id or sub.id
+    versions = (
+        db.query(FormSubmission)
+        .filter((FormSubmission.root_id == root) | (FormSubmission.id == root))
+        .order_by(FormSubmission.created_at.asc(), FormSubmission.id.asc())
+        .all()
+    )
+    sub_ids = [v.id for v in versions]
+    comments = (
+        db.query(FormSubmissionComment)
+        .filter(FormSubmissionComment.submission_id.in_(sub_ids))
+        .order_by(FormSubmissionComment.created_at.asc())
+        .all()
+    ) if sub_ids else []
+    by_sub: Dict[int, list] = {}
+    for c in comments:
+        by_sub.setdefault(c.submission_id, []).append(_comment_out(c))
+    return {
+        "root_id": root,
+        "versions": [
+            {
+                "id":            v.id,
+                "record_status": v.record_status or "active",
+                "amends_id":     v.amends_id,
+                "submitted_by":  v.submitted_by,
+                "signed_by":     v.signed_by,
+                "amend_reason":  v.amend_reason,
+                "amended_by":    v.amended_by,
+                "amended_at":    v.amended_at.isoformat() if v.amended_at else None,
+                "submitted_at":  v.submitted_at.isoformat() if v.submitted_at else None,
+                "comments":      by_sub.get(v.id, []),
+            }
+            for v in versions
+        ],
+    }
 
 
 # ---------------------------------------------------------------------------
