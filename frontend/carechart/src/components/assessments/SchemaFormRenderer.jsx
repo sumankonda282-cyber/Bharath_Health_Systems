@@ -7,7 +7,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { Loader2, CheckCircle, AlertCircle, ChevronDown, ChevronUp, Lock, RefreshCw, Save, RotateCcw, X, CheckCheck, Copy } from 'lucide-react'
 import api from '../../api/client'
-import BodySiteSearch from '../forms/BodySiteSearch'
+import TermSearch, { SEARCH_TYPES } from '../forms/TermSearch'
 import useFormDraft, { draftMirrorKey, saveStatusLabel } from '@shared/hooks/useFormDraft'
 import { computeNormalFill } from '@shared/forms/normalFill'
 
@@ -169,15 +169,15 @@ function FieldRenderer({ field, value, onChange, formData = {} }) {
     )
   }
 
-  if (type === 'body_site_search') {
+  if (SEARCH_TYPES[type]) {
     return (
       <div>
         <FieldLabel label={label} required={required} help_text={help_text} />
-        <BodySiteSearch
+        <TermSearch
+          type={type}
           value={value}
           onChange={val => onChange(val)}
           placeholder={placeholder}
-          category={field.search_category || 'anatomy'}
         />
       </div>
     )
