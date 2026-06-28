@@ -697,8 +697,22 @@ def submit_form(
     current = Depends(get_current_staff),
 ):
     """
-    Provider-facing: submit a filled form for a patient.
-    Runs scoring + alerts, persists a FormSubmission, optionally writes iView rows.
+    Provider-facing: save or sign a filled form for a patient.
+
+    Save-states (PowerForm parity):
+      • ``is_draft=True``  → save-in-progress. Upserts a single draft row (one per
+        form+patient+author), bumps ``updated_at``. Alerts and iView flowsheet rows
+        are **previewed in the response but NOT persisted** — an unsigned draft must
+        never fire clinical alerts or trend on the flowsheet.
+      • ``is_draft=False`` → SIGN / finalize. Promotes the draft (or creates a fresh
+        signed row), stamps ``submitted_at`` / ``charted_at`` / ``signed_at`` /
+        ``signed_by``, then idempotently (re)writes FormAlert + iView rows.
+
+    To resume/replace an existing draft, the client passes ``submission_id`` (or
+    ``draft_id``). A row that is already signed is immutable here — it is never
+    mutated (Phase 3 amendments handle changes to signed records); the request
+    falls through to a new row instead.
+
     clinic_id / submitted_by / branch_id come from the authenticated staff
     (tenant isolation) — never trusted from the request body.
     """
@@ -711,37 +725,93 @@ def submit_form(
         raise HTTPException(status_code=400, detail="Form is not published")
 
     form_data      = payload.get("form_data", {})
-    scoring_result = run_scoring(form_id, form.schema or {}, form_data, form.scoring_config)
-    alerts_fired   = evaluate_alerts(form.schema or {}, form_data, form.alert_rules)
     patient_id     = payload.get("patient_id")
     is_draft       = bool(payload.get("is_draft", False))
+    scoring_result = run_scoring(form_id, form.schema or {}, form_data, form.scoring_config)
+    # Always evaluated so the client can preview what *would* fire; only persisted on sign.
+    alerts_fired   = evaluate_alerts(form.schema or {}, form_data, form.alert_rules)
+    now            = datetime.utcnow()
 
-    sub = FormSubmission(
-        form_id        = form_id,
-        clinic_id      = current.clinic_id,
-        branch_id      = current.branch_id,
-        patient_id     = patient_id,
-        encounter_id   = payload.get("encounter_id"),
-        appointment_id = payload.get("appointment_id"),
-        admission_id   = payload.get("admission_id"),
-        submitted_by   = current.id,
-        data           = form_data,
-        scores         = scoring_result or None,
-        alerts_fired   = alerts_fired or [],
-        is_draft       = is_draft,
-        source         = payload.get("source", "provider"),
-        submitted_at   = datetime.utcnow(),
-    )
-    db.add(sub)
-    db.flush()   # get sub.id before commit
+    # ── Resolve the upsert target: an existing *draft* the client is continuing. ──
+    target_id = payload.get("submission_id") or payload.get("draft_id")
+    sub = None
+    if target_id:
+        sub = (
+            db.query(FormSubmission)
+            .filter(
+                FormSubmission.id        == target_id,
+                FormSubmission.form_id   == form_id,
+                FormSubmission.clinic_id == current.clinic_id,
+            )
+            .first()
+        )
+        # A signed record is immutable through this endpoint — start a new row instead.
+        if sub is not None and not sub.is_draft:
+            sub = None
 
-    # Persist alert records (clinic_id + patient_id are NOT NULL on form_alerts)
+    if sub is not None:
+        # Update the in-progress draft in place.
+        sub.data           = form_data
+        sub.scores         = scoring_result or None
+        sub.patient_id     = patient_id or sub.patient_id
+        sub.encounter_id   = payload.get("encounter_id",   sub.encounter_id)
+        sub.appointment_id = payload.get("appointment_id", sub.appointment_id)
+        sub.admission_id   = payload.get("admission_id",   sub.admission_id)
+        sub.updated_at     = now
+    else:
+        if not patient_id:
+            raise HTTPException(status_code=400, detail="patient_id is required")
+        sub = FormSubmission(
+            form_id        = form_id,
+            clinic_id      = current.clinic_id,
+            branch_id      = current.branch_id,
+            patient_id     = patient_id,
+            encounter_id   = payload.get("encounter_id"),
+            appointment_id = payload.get("appointment_id"),
+            admission_id   = payload.get("admission_id"),
+            submitted_by   = current.id,
+            data           = form_data,
+            scores         = scoring_result or None,
+            source         = payload.get("source", "provider"),
+            is_draft       = True,
+            created_at     = now,
+            updated_at     = now,
+        )
+        db.add(sub)
+    db.flush()   # ensure sub.id
+
+    if is_draft:
+        # Save-in-progress: persist values only; never fire alerts / iView while unsigned.
+        sub.is_draft     = True
+        sub.alerts_fired = []
+        db.commit()
+        db.refresh(sub)
+        return {
+            "submission_id":   sub.id,
+            "status":          "draft",
+            "score_result":    scoring_result,
+            "alerts_fired":    [],
+            "alerts_preview":  alerts_fired,   # what would fire on sign (not persisted)
+            "updated_at":      sub.updated_at.isoformat() if sub.updated_at else None,
+        }
+
+    # ── SIGN / finalize ──────────────────────────────────────────────────────
+    sub.is_draft     = False
+    sub.alerts_fired = alerts_fired or []
+    sub.submitted_at = sub.submitted_at or now
+    sub.charted_at   = sub.charted_at or now
+    sub.signed_at    = now
+    sub.signed_by    = current.id
+    sub.updated_at   = now
+
+    # Idempotent rewrite (a promoted draft has none; a re-sign would otherwise duplicate).
+    db.query(FormAlert).filter(FormAlert.submission_id == sub.id).delete(synchronize_session=False)
     for a in alerts_fired:
         fid = a.get("field_id")
         db.add(FormAlert(
             submission_id = sub.id,
             clinic_id     = current.clinic_id,
-            patient_id    = patient_id,
+            patient_id    = sub.patient_id,
             field_id      = fid,
             field_label   = a.get("field_label") or fid,
             value         = (str(form_data.get(fid)) if fid in (form_data or {}) else None),
@@ -749,8 +819,10 @@ def submit_form(
             message       = a.get("message", ""),
         ))
 
-    # iView flowsheet observations
     if form.is_iview_enabled:
+        db.query(iViewObservation).filter(
+            iViewObservation.submission_id == sub.id
+        ).delete(synchronize_session=False)
         save_iview_row(db, sub, form)
 
     db.commit()
@@ -758,10 +830,55 @@ def submit_form(
 
     return {
         "submission_id":  sub.id,
-        "status":         "draft" if sub.is_draft else "submitted",
+        "status":         "submitted",
         "score_result":   scoring_result,
         "alerts_fired":   alerts_fired,
         "submitted_at":   sub.submitted_at.isoformat() if sub.submitted_at else None,
+        "signed_at":      sub.signed_at.isoformat()    if sub.signed_at    else None,
+    }
+
+
+@router.get("/assessment-forms/{form_id}/draft")
+def get_active_draft(
+    form_id:      int,
+    db:           Session        = Depends(get_db),
+    current = Depends(get_current_staff),
+    patient_id:   Optional[int]  = Query(None),
+    encounter_id: Optional[str]  = Query(None),
+    admission_id: Optional[int]  = Query(None),
+):
+    """
+    Return the current author's most-recent *unsigned* draft for this form and
+    patient (used to resume an interrupted charting session). ``{"draft": null}``
+    when none exists. Tenant- and author-scoped — a draft belongs only to the
+    staff member who started it.
+    """
+    if not current:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    q = db.query(FormSubmission).filter(
+        FormSubmission.form_id      == form_id,
+        FormSubmission.clinic_id    == current.clinic_id,
+        FormSubmission.submitted_by == current.id,
+        FormSubmission.is_draft.is_(True),
+    )
+    if patient_id   is not None: q = q.filter(FormSubmission.patient_id   == patient_id)
+    if encounter_id is not None: q = q.filter(FormSubmission.encounter_id == encounter_id)
+    if admission_id is not None: q = q.filter(FormSubmission.admission_id == admission_id)
+    row = q.order_by(FormSubmission.updated_at.desc(), FormSubmission.id.desc()).first()
+    if not row:
+        return {"draft": None}
+    return {
+        "draft": {
+            "submission_id": row.id,
+            "form_id":       row.form_id,
+            "patient_id":    row.patient_id,
+            "encounter_id":  row.encounter_id,
+            "appointment_id":row.appointment_id,
+            "admission_id":  row.admission_id,
+            "form_data":     row.data or {},
+            "score_result":  row.scores,
+            "updated_at":    row.updated_at.isoformat() if row.updated_at else None,
+        }
     }
 
 
@@ -771,12 +888,18 @@ def list_submissions(
     db:          Session        = Depends(get_db),
     patient_id:  Optional[str]  = Query(None),
     encounter_id:Optional[str]  = Query(None),
+    include_drafts: bool        = Query(False),
     limit:       int            = Query(50, ge=1, le=500),
     offset:      int            = Query(0, ge=0),
 ):
+    """Finalized (signed) submissions for a form. Unsigned drafts are excluded by
+    default so autosaved work-in-progress never pollutes the clinical history;
+    pass ``include_drafts=true`` to see them too."""
     q = db.query(FormSubmission).filter(FormSubmission.form_id == form_id)
     if patient_id:   q = q.filter(FormSubmission.patient_id   == patient_id)
     if encounter_id: q = q.filter(FormSubmission.encounter_id == encounter_id)
+    if not include_drafts:
+        q = q.filter(FormSubmission.is_draft.is_(False))
     total = q.count()
     rows  = q.order_by(FormSubmission.submitted_at.desc()).offset(offset).limit(limit).all()
     return {

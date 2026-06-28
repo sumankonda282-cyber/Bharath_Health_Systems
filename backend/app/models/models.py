@@ -2195,6 +2195,9 @@ class FormSubmission(Base):
     is_draft       = Column(Boolean, default=False)
     submitted_at   = Column(DateTime, nullable=True)
     charted_at     = Column(DateTime, nullable=True)
+    signed_at      = Column(DateTime, nullable=True)   # set when a draft is signed/finalized
+    signed_by      = Column(Integer, nullable=True)    # staff who signed
+    updated_at     = Column(DateTime, server_default=func.now(), onupdate=func.now())  # last autosave/edit
     source         = Column(String(30), default="provider")  # provider|patient|kiosk
     created_at     = Column(DateTime, server_default=func.now())
 

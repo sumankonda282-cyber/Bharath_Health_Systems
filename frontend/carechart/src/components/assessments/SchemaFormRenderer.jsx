@@ -4,10 +4,11 @@
  * Accepts a formId, fetches the full form from the API, and renders all sections/fields.
  * Portal-agnostic. Do NOT delete during portal rebuilds.
  */
-import React, { useState, useEffect, useCallback } from 'react'
-import { Loader2, CheckCircle, AlertCircle, ChevronDown, ChevronUp, Lock, RefreshCw } from 'lucide-react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
+import { Loader2, CheckCircle, AlertCircle, ChevronDown, ChevronUp, Lock, RefreshCw, Save, RotateCcw, X } from 'lucide-react'
 import api from '../../api/client'
 import BodySiteSearch from '../forms/BodySiteSearch'
+import useFormDraft, { draftMirrorKey, saveStatusLabel } from '@shared/hooks/useFormDraft'
 
 // ── Formula evaluator for calculated fields (e.g. BMI) ───────────────────────
 // Replaces {field_id} tokens with current numeric form values and evaluates.
@@ -473,9 +474,16 @@ export default function SchemaFormRenderer({ formId, patientId, encounterId, onS
   const [loading, setLoading] = useState(true)
   const [loadErr, setLoadErr] = useState(null)
   const [formData, setFormData] = useState({})
-  const [saving, setSaving]   = useState(false)
+  const [saving, setSaving]   = useState(false)   // signing / finalizing
+  const [savingDraft, setSavingDraft] = useState(false)
   const [submitErr, setSubmitErr] = useState(null)
   const [done, setDone]       = useState(false)
+
+  const draftIdRef = useRef(null)
+  const dataRef    = useRef(formData)
+  dataRef.current  = formData
+  const pid = patientId || admission?.patient_id
+  const enc = encounterId || admission?.id
 
   useEffect(() => {
     if (!formId) return
@@ -489,21 +497,77 @@ export default function SchemaFormRenderer({ formId, patientId, encounterId, onS
       })
   }, [formId])
 
+  // ── PowerForm save-states: localStorage mirror + debounced server autosave ──
+  const draft = useFormDraft({
+    mirrorKey: (formId && pid) ? draftMirrorKey(formId, pid, enc || '') : null,
+    enabled:   !loading && !loadErr && !done && !!form && !!pid,
+    saveFn:    async () => {
+      const res = await api.post(`/assessment-forms/${formId}/submit`, {
+        submission_id: draftIdRef.current || undefined,
+        form_data:     dataRef.current,
+        patient_id:    pid,
+        encounter_id:  enc,
+        is_draft:      true,
+        source:        'carechart',
+      })
+      if (res?.submission_id) draftIdRef.current = res.submission_id
+    },
+  })
+
+  // Resume an in-progress draft for this patient (server-side; survives reload).
+  useEffect(() => {
+    if (!formId || !pid) return
+    let alive = true
+    api.get(`/assessment-forms/${formId}/draft`, { params: { patient_id: pid, encounter_id: enc || undefined } })
+      .then(r => {
+        if (!alive) return
+        const d = r?.draft
+        if (!d) return
+        draftIdRef.current = d.submission_id
+        if (d.form_data && Object.keys(d.form_data).length) {
+          setFormData(prev => (Object.keys(prev).length ? prev : d.form_data))
+        }
+      })
+      .catch(() => { /* no draft is the normal case */ })
+    return () => { alive = false }
+  }, [formId, pid, enc])
+
   const handleFieldChange = useCallback((fieldId, val) => {
-    setFormData(prev => ({ ...prev, [fieldId]: val }))
-  }, [])
+    const next = { ...dataRef.current, [fieldId]: val }
+    setFormData(next)
+    draft.markDirty(next)
+  }, [draft])
+
+  const handleSaveDraft = async () => {
+    if (!pid) { setSubmitErr('No patient is linked — cannot save draft.'); return }
+    setSubmitErr(null)
+    setSavingDraft(true)
+    try { await draft.flush() } finally { setSavingDraft(false) }
+  }
+
+  const handleRestore = () => {
+    const recovered = draft.applyRecovery()
+    if (recovered && typeof recovered === 'object') setFormData(prev => ({ ...prev, ...recovered }))
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    draft.cancelPending()   // no autosave may fire mid-sign (would create a stray draft)
     setSaving(true)
     setSubmitErr(null)
     try {
+      // is_draft:false promotes any in-progress draft to a signed record and
+      // fires alerts + iView; submission_id continues the same draft row.
       await api.post(`/assessment-forms/${formId}/submit`, {
-        form_data:    formData,
-        patient_id:   patientId || admission?.patient_id,
-        encounter_id: encounterId || admission?.id,
-        submitted_by: null,
+        submission_id: draftIdRef.current || undefined,
+        form_data:     formData,
+        patient_id:    pid,
+        encounter_id:  enc,
+        is_draft:      false,
+        source:        'carechart',
       })
+      draft.clearMirror()
+      draftIdRef.current = null
       setDone(true)
       setTimeout(() => onSaved?.(), 1800)
     } catch (err) {
@@ -556,6 +620,24 @@ export default function SchemaFormRenderer({ formId, patientId, encounterId, onS
         <p className="text-sm text-gray-400 text-center py-8">This form has no sections yet.</p>
       )}
 
+      {draft.recovery && sections.length > 0 && (
+        <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg border border-amber-200 bg-amber-50">
+          <span className="text-xs text-amber-800 flex items-center gap-1.5 min-w-0">
+            <RotateCcw size={13} className="shrink-0" />
+            Unsaved changes from a previous session were found.
+          </span>
+          <div className="flex items-center gap-2 shrink-0">
+            <button type="button" onClick={handleRestore}
+              className="px-3 py-1 rounded-lg bg-amber-500 text-white text-xs font-semibold hover:bg-amber-600">
+              Restore
+            </button>
+            <button type="button" onClick={draft.dismissRecovery} className="text-amber-500 hover:text-amber-700" aria-label="Discard recovered changes">
+              <X size={15} />
+            </button>
+          </div>
+        </div>
+      )}
+
       {sections.map(section => (
         <SectionBlock
           key={section.id}
@@ -574,24 +656,43 @@ export default function SchemaFormRenderer({ formId, patientId, encounterId, onS
       )}
 
       {sections.length > 0 && (
-        <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
-          {onClose && (
+        <div className="flex items-center justify-between gap-3 pt-2 border-t border-gray-100">
+          <span className={`text-xs flex items-center gap-1.5 min-w-0 truncate ${
+            draft.status === 'error' ? 'text-red-500'
+            : draft.status === 'saving' ? 'text-blue-500'
+            : draft.status === 'saved' ? 'text-green-600' : 'text-gray-400'
+          }`}>
+            {draft.status === 'saving' && <Loader2 size={12} className="animate-spin shrink-0" />}
+            {saveStatusLabel(draft.status, draft.savedAt)}
+          </span>
+          <div className="flex items-center gap-3">
+            {onClose && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+            )}
             <button
               type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+              onClick={handleSaveDraft}
+              disabled={savingDraft || saving}
+              className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-60 transition-colors"
             >
-              Cancel
+              {savingDraft ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+              Save draft
             </button>
-          )}
-          <button
-            type="submit"
-            disabled={saving}
-            className="flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
-          >
-            {saving && <Loader2 size={14} className="animate-spin" />}
-            {saving ? 'Submitting…' : 'Submit Form'}
-          </button>
+            <button
+              type="submit"
+              disabled={saving || savingDraft}
+              className="flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+            >
+              {saving ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
+              {saving ? 'Signing…' : 'Sign & Submit'}
+            </button>
+          </div>
         </div>
       )}
     </form>

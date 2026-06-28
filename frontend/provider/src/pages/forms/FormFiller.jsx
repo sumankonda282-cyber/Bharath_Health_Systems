@@ -51,6 +51,29 @@ export default function FormFiller() {
 
   const update = (patch) => setState(s => ({ ...s, ...patch }))
 
+  // ── Server draft (PowerForm save-states) ──────────────────────────────────
+  // The localStorage draft above is a crash-recovery mirror; this persists the
+  // same in-progress values to the backend (is_draft=true upsert) so a draft
+  // survives a reload or a different device, and `Submit` signs that same row.
+  const draftIdRef = useRef(null)
+  const stateRef   = useRef(state)
+  stateRef.current = state
+
+  const postServerDraft = useCallback(async (isDraft) => {
+    const a = stateRef.current.assignment
+    if (!a?.form_id || !a?.patient_id) return null
+    const res = await api.post(`/assessment-forms/${a.form_id}/submit`, {
+      submission_id: draftIdRef.current || undefined,
+      patient_id:    a.patient_id,
+      encounter_id:  a.admission_id,
+      form_data:     stateRef.current.values,
+      is_draft:      isDraft,
+      source:        'provider',
+    })
+    if (res?.submission_id) draftIdRef.current = res.submission_id
+    return res
+  }, [])
+
   // Load assignment + form schema
   useEffect(() => {
     async function load() {
@@ -96,6 +119,21 @@ export default function FormFiller() {
           schema: { sections },
         })
 
+        // Resume an in-progress SERVER draft (authoritative over the localStorage mirror).
+        if (patientIdFromUrl && form.id) {
+          try {
+            const dr = await api.get(`/assessment-forms/${form.id}/draft`, { params: { patient_id: patientIdFromUrl } })
+            const d = dr?.draft
+            if (d) {
+              draftIdRef.current = d.submission_id
+              if (d.form_data && Object.keys(d.form_data).length) {
+                update({ values: d.form_data })
+                setHasDraft(false)   // server draft wins — hide the local resume banner
+              }
+            }
+          } catch { /* no draft is the normal case */ }
+        }
+
         // Fetch prev submission for carry-forward (by form + patient)
         if (patientIdFromUrl && form.id) {
           try {
@@ -130,10 +168,12 @@ export default function FormFiller() {
   // Auto-save draft every 30s
   useEffect(() => {
     autoSaveRef.current = setInterval(() => {
+      if (stateRef.current.submitted) return   // form is signed — stop autosaving
       const current = state.values
       if (JSON.stringify(current) !== JSON.stringify(lastSaveRef.current)) {
         localStorage.setItem(draftKey, JSON.stringify(current))
         lastSaveRef.current = current
+        postServerDraft(true).catch(() => {})   // mirror the autosave to the backend
       }
     }, 30000)
     return () => clearInterval(autoSaveRef.current)
@@ -143,8 +183,9 @@ export default function FormFiller() {
     setState(s => ({ ...s, values: { ...s.values, [fieldId]: val }, touched: { ...s.touched, [fieldId]: true } }))
   }, [])
 
-  const saveDraft = () => {
+  const saveDraft = async () => {
     localStorage.setItem(draftKey, JSON.stringify(state.values))
+    try { await postServerDraft(true) } catch { /* keep the local mirror on failure */ }
     update({ draftSaved: true })
     setTimeout(() => update({ draftSaved: false }), 2000)
   }
@@ -198,17 +239,17 @@ export default function FormFiller() {
       document.getElementById(`field-${firstErrId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
       return
     }
+    const a = state.assignment
+    if (!a?.patient_id) {
+      update({ errors: { _submit: 'No patient is linked to this form — cannot submit.' } })
+      return
+    }
     update({ submitting: true })
     try {
-      const a = state.assignment
-      const payload = {
-        patient_id:   a.patient_id,
-        encounter_id: a.admission_id,
-        submitted_by: null,
-        form_data:    state.values,
-      }
-      const res = await api.post(`/assessment-forms/${a.form_id}/submit`, payload)
+      // is_draft:false signs the in-progress draft (same row) and fires alerts + iView.
+      const res = await postServerDraft(false)
       localStorage.removeItem(draftKey)
+      draftIdRef.current = null
       const raw = res?.score_result
       const scoresArr = raw && Object.keys(raw).length > 0 ? [{
         name:  'Score',
