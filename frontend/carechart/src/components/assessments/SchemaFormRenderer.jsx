@@ -5,10 +5,11 @@
  * Portal-agnostic. Do NOT delete during portal rebuilds.
  */
 import React, { useState, useEffect, useCallback, useRef } from 'react'
-import { Loader2, CheckCircle, AlertCircle, ChevronDown, ChevronUp, Lock, RefreshCw, Save, RotateCcw, X } from 'lucide-react'
+import { Loader2, CheckCircle, AlertCircle, ChevronDown, ChevronUp, Lock, RefreshCw, Save, RotateCcw, X, CheckCheck, Copy } from 'lucide-react'
 import api from '../../api/client'
 import BodySiteSearch from '../forms/BodySiteSearch'
 import useFormDraft, { draftMirrorKey, saveStatusLabel } from '@shared/hooks/useFormDraft'
+import { computeNormalFill } from '@shared/forms/normalFill'
 
 // ── Formula evaluator for calculated fields (e.g. BMI) ───────────────────────
 // Replaces {field_id} tokens with current numeric form values and evaluates.
@@ -550,6 +551,33 @@ export default function SchemaFormRenderer({ formId, patientId, encounterId, onS
     if (recovered && typeof recovered === 'object') setFormData(prev => ({ ...prev, ...recovered }))
   }
 
+  // ── Speed: mark-all-normal + carry-forward from the last visit ──
+  const handleMarkNormal = () => {
+    const secs = form?.schema?.sections || []
+    const patch = computeNormalFill(secs, dataRef.current, { keyOf: f => f.field_id || f.id })
+    if (!Object.keys(patch).length) return
+    const next = { ...dataRef.current, ...patch }
+    setFormData(next)
+    draft.markDirty(next)
+  }
+
+  const [lastSub, setLastSub] = useState(null)
+  useEffect(() => {
+    if (!formId || !pid) return
+    let alive = true
+    api.get(`/assessment-forms/${formId}/submissions`, { params: { patient_id: pid, limit: 1, include_data: true } })
+      .then(r => { if (alive && r?.items?.length) setLastSub(r.items[0]) })
+      .catch(() => { /* no prior submission is normal */ })
+    return () => { alive = false }
+  }, [formId, pid])
+
+  const handleCarryForward = () => {
+    if (!lastSub?.form_data) return
+    const merged = { ...lastSub.form_data, ...dataRef.current }  // last fills blanks; entered values win
+    setFormData(merged)
+    draft.markDirty(merged)
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     draft.cancelPending()   // no autosave may fire mid-sign (would create a stray draft)
@@ -635,6 +663,22 @@ export default function SchemaFormRenderer({ formId, patientId, encounterId, onS
               <X size={15} />
             </button>
           </div>
+        </div>
+      )}
+
+      {sections.length > 0 && (
+        <div className="flex items-center justify-end gap-2">
+          {lastSub && (
+            <button type="button" onClick={handleCarryForward}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-gray-200 text-[11px] font-medium text-gray-600 hover:bg-gray-50"
+              title={lastSub.submitted_at ? `From ${new Date(lastSub.submitted_at).toLocaleDateString()}` : 'Copy from last visit'}>
+              <Copy size={12} /> Copy from last visit
+            </button>
+          )}
+          <button type="button" onClick={handleMarkNormal}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-emerald-200 text-[11px] font-medium text-emerald-700 hover:bg-emerald-50">
+            <CheckCheck size={12} /> Mark all normal
+          </button>
         </div>
       )}
 

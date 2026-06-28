@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
-import { X, Loader2, AlertTriangle, CheckCircle2, FileText, ChevronDown, ChevronRight, Save, RotateCcw } from 'lucide-react'
+import { X, Loader2, AlertTriangle, CheckCircle2, FileText, ChevronDown, ChevronRight, Save, RotateCcw, CheckCheck, Copy } from 'lucide-react'
 import api from '../../api/client'
 import {
   LangContext, FieldRenderer, ScoreCard, AlertCard,
   isFieldVisible, getCompletionPct,
 } from '../forms/formEngine'
 import useFormDraft, { draftMirrorKey, saveStatusLabel } from '@shared/hooks/useFormDraft'
+import { computeNormalFill } from '@shared/forms/normalFill'
 
 const NAVY  = '#0F2557'
 const GREEN = '#059669'
@@ -133,6 +134,32 @@ export default function DbAssessmentFormModal({ form, patientId, admissionId, pa
   const handleRestore = () => {
     const recovered = draft.applyRecovery()
     if (recovered && typeof recovered === 'object') setValues(v => ({ ...v, ...recovered }))
+  }
+
+  // ── Speed: mark-all-normal + carry-forward from the last visit ──
+  const handleMarkNormal = () => {
+    const patch = computeNormalFill(sections, valuesRef.current, { keyOf: f => f.id, isVisible: isFieldVisible })
+    if (!Object.keys(patch).length) return
+    const next = { ...valuesRef.current, ...patch }
+    setValues(next)
+    draft.markDirty(next)
+  }
+
+  const [lastSub, setLastSub] = useState(null)
+  useEffect(() => {
+    if (!form?.id || !patientId) return
+    let alive = true
+    api.get(`/assessment-forms/${form.id}/submissions`, { params: { patient_id: patientId, limit: 1, include_data: true } })
+      .then(r => { if (alive && r?.items?.length) setLastSub(r.items[0]) })
+      .catch(() => { /* no prior submission is normal */ })
+    return () => { alive = false }
+  }, [form?.id, patientId])
+
+  const handleCarryForward = () => {
+    if (!lastSub?.form_data) return
+    const merged = { ...lastSub.form_data, ...valuesRef.current }  // last fills blanks; entered values win
+    setValues(merged)
+    draft.markDirty(merged)
   }
 
   const validateAll = () => {
@@ -309,6 +336,20 @@ export default function DbAssessmentFormModal({ form, patientId, admissionId, pa
               {/* Fields */}
               <div className="flex-1 overflow-y-auto px-6 py-5">
                 <div className="max-w-5xl mx-auto space-y-2">
+                  {/* Speed actions */}
+                  <div className="flex items-center justify-end gap-2 mb-1">
+                    {lastSub && (
+                      <button onClick={handleCarryForward}
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-gray-200 text-[11px] font-medium text-gray-600 hover:bg-gray-50"
+                        title={lastSub.submitted_at ? `From ${new Date(lastSub.submitted_at).toLocaleDateString()}` : 'Copy from last visit'}>
+                        <Copy size={12} /> Copy from last visit
+                      </button>
+                    )}
+                    <button onClick={handleMarkNormal}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-emerald-200 text-[11px] font-medium text-emerald-700 hover:bg-emerald-50">
+                      <CheckCheck size={12} /> Mark all normal
+                    </button>
+                  </div>
                   {draft.recovery && (
                     <div className="flex items-center justify-between gap-3 mb-3 px-4 py-2.5 rounded-xl border border-amber-200 bg-amber-50">
                       <span className="text-xs text-amber-800 flex items-center gap-1.5 min-w-0">

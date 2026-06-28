@@ -893,6 +893,7 @@ def list_submissions(
     encounter_id:Optional[str]  = Query(None),
     include_drafts: bool        = Query(False),
     include_history: bool       = Query(False),
+    include_data: bool          = Query(False),
     limit:       int            = Query(50, ge=1, le=500),
     offset:      int            = Query(0, ge=0),
 ):
@@ -910,24 +911,23 @@ def list_submissions(
         q = q.filter(FormSubmission.record_status == "active")
     total = q.count()
     rows  = q.order_by(FormSubmission.submitted_at.desc()).offset(offset).limit(limit).all()
-    return {
-        "total":  total,
-        "items": [
-            {
-                "id":            r.id,
-                "patient_id":    r.patient_id,
-                "encounter_id":  r.encounter_id,
-                "submitted_by":  r.submitted_by,
-                "score_result":  r.scores,
-                "status":        "draft" if r.is_draft else "submitted",
-                "record_status": r.record_status or "active",
-                "amends_id":     r.amends_id,
-                "root_id":       r.root_id or r.id,
-                "submitted_at":  r.submitted_at.isoformat() if r.submitted_at else None,
-            }
-            for r in rows
-        ],
-    }
+    def _item(r):
+        d = {
+            "id":            r.id,
+            "patient_id":    r.patient_id,
+            "encounter_id":  r.encounter_id,
+            "submitted_by":  r.submitted_by,
+            "score_result":  r.scores,
+            "status":        "draft" if r.is_draft else "submitted",
+            "record_status": r.record_status or "active",
+            "amends_id":     r.amends_id,
+            "root_id":       r.root_id or r.id,
+            "submitted_at":  r.submitted_at.isoformat() if r.submitted_at else None,
+        }
+        if include_data:
+            d["form_data"] = r.data or {}
+        return d
+    return {"total": total, "items": [_item(r) for r in rows]}
 
 
 def _comment_out(c: "FormSubmissionComment") -> dict:

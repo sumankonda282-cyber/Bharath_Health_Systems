@@ -138,7 +138,7 @@ export default function FormFiller() {
         if (patientIdFromUrl && form.id) {
           try {
             const prevRes = await api.get(`/assessment-forms/${form.id}/submissions`, {
-              params: { patient_id: patientIdFromUrl, limit: 1 },
+              params: { patient_id: patientIdFromUrl, limit: 1, include_data: true },
             })
             const submissions = prevRes?.items || []
             if (submissions.length > 0) {
@@ -274,8 +274,9 @@ export default function FormFiller() {
   }
 
   const loadPrevValues = () => {
-    if (prevSubmission?.data) {
-      setState(s => ({ ...s, values: { ...prevSubmission.data } }))
+    const prevData = prevSubmission?.form_data || prevSubmission?.data
+    if (prevData) {
+      setState(s => ({ ...s, values: { ...prevData } }))
     }
     setShowPrevBanner(false)
   }
