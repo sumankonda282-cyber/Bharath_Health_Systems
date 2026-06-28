@@ -48,6 +48,7 @@ const FIELD_GROUPS = [
       { type: 'patient_search',    icon: Search,        label: 'Patient' },
       { type: 'staff_search',      icon: Users,         label: 'Staff / MD' },
       { type: 'medication_search', icon: Pill,          label: 'Medication' },
+      { type: 'medication_order',  icon: Pill,          label: 'Rx Order ⚡' },
       { type: 'diagnosis_search',  icon: BookOpen,      label: 'Diagnosis' },
       { type: 'allergy_search',    icon: AlertTriangle, label: 'Allergy' },
       { type: 'procedure_search',  icon: Scissors,      label: 'Procedure' },

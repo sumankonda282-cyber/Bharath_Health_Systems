@@ -43,6 +43,7 @@ function getFieldTypeIcon(type, size = 16) {
     patient_search:    <Search {...props} />,
     staff_search:      <Users {...props} />,
     medication_search: <Pill {...props} />,
+    medication_order:  <Pill {...props} />,
     diagnosis_search:  <BookOpen {...props} />,
     allergy_search:    <AlertTriangle {...props} />,
     procedure_search:  <Scissors {...props} />,
@@ -96,6 +97,7 @@ function hasLogic(field) {
     field.type === 'score_display' ||
     field.type === 'vital_auto' ||
     field.type === 'medication_search' ||
+    field.type === 'medication_order' ||
     (field.alert_rules && field.alert_rules.length > 0)
   )
 }

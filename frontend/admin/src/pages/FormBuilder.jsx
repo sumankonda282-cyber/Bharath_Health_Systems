@@ -143,6 +143,7 @@ function makeField(type) {
     patient_search:    { placeholder: 'Search patient…', multi_select: false },
     staff_search:      { placeholder: 'Search staff / MD…', role_filter: 'any', multi_select: false },
     medication_search: { placeholder: 'Search medication / Rx…', multi_select: true },
+    medication_order:  { placeholder: 'Search medication to order…' },
     diagnosis_search:  { placeholder: 'Search diagnosis / ICD-10…', multi_select: true },
     allergy_search:    { placeholder: 'Search allergy…', multi_select: true, include_severity: false, include_reaction: false },
     procedure_search:  { placeholder: 'Search procedure / CPT…', multi_select: true, procedure_standard: 'any' },

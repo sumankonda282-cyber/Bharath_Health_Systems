@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { ChevronLeft, Save, Send, AlertTriangle, CheckCircle2, Clock, Loader2, X } from 'lucide-react'
 import api from '../../api/client'
-import { LangContext, isFieldVisible, getCompletionPct, FieldRenderer, ScoreCard, AlertCard } from './formEngine'
+import { LangContext, isFieldVisible, getCompletionPct, FieldRenderer, ScoreCard, AlertCard, PatientDataContext } from './formEngine'
 import { sectionHasLayout, buildRowMap, sectionGridStyle, gridCellStyle } from '@shared/forms/gridLayout'
 
 // ─── Section/field layout maps (Tailwind-safe — literal class strings only) ────
@@ -366,6 +366,7 @@ export default function FormFiller() {
 
   return (
     <LangContext.Provider value={{ lang, translations: formMeta?.translations || null }}>
+    <PatientDataContext.Provider value={{ patientId: assignment?.patient_id || patientIdFromUrl }}>
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Top Bar */}
       <div className="bg-white border-b border-gray-100 sticky top-0 z-20 shadow-sm">
@@ -598,6 +599,7 @@ export default function FormFiller() {
         )}
       </div>
     </div>
+    </PatientDataContext.Provider>
     </LangContext.Provider>
   )
 }
