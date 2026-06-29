@@ -856,12 +856,15 @@ def platform_forgot_password(request: Request, payload: ForgotPasswordRequest, d
 
     sent = send_password_reset_email(to=admin.email, name=admin.full_name, reset_url=reset_url)
     if not sent:
-        # If email not configured, return token directly (dev mode only)
+        import logging as _logging
+        _logging.getLogger(__name__).error(
+            f"[platform-reset] Failed to send password reset email to {admin.email}. "
+            "Check RESEND_API_KEY in Render env vars."
+        )
         if settings.DEBUG:
-            return {"detail": "Email not configured. Dev token:", "token": token}
-        raise HTTPException(status_code=503, detail="Email service not configured. Contact support.")
+            return {"detail": "Email not configured — dev token below.", "token": token}
 
-    return {"detail": "If that email exists, a reset link has been sent."}
+    return {"detail": "If that email is registered, a reset link has been sent. Check your inbox (and spam folder)."}
 
 
 @router.post("/platform/reset-password")
