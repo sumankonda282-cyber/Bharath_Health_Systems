@@ -391,8 +391,17 @@ function AssessmentPanel({ onOpenForm, api }) {
   const orgForms      = favOrg.map(byId).filter(Boolean)        // pinned (clinic-wide) — top
   const personalForms = favPersonal.map(byId).filter(Boolean)  // my favourites — below search
   const q = poolSearch.trim().toLowerCase()
-  // "pool of all" = DB forms + the static rich clinical forms.
-  const pool = [...dbForms.map(f => ({ ...f, __db: true })), ...FORM_POOL]
+  // "pool of all" = DB forms + any static fallback forms NOT yet in the DB.
+  // De-dupe: once a form exists in the DB it supersedes the static one — matched by
+  // subcategory key (the keyed clinical forms) or by title (the keyless bedside entries),
+  // so the standardized, builder-editable DB version is what opens (never a duplicate).
+  const dbSubs   = new Set(dbForms.map(f => f.subcategory).filter(Boolean))
+  const dbTitles = new Set(dbForms.map(f => (f.title || '').trim().toLowerCase()).filter(Boolean))
+  const staticForms = FORM_POOL.filter(f =>
+    !(f.key && dbSubs.has(f.key)) &&
+    !dbTitles.has((f.name || '').trim().toLowerCase())
+  )
+  const pool = [...dbForms.map(f => ({ ...f, __db: true })), ...staticForms]
   const results = q ? pool.filter(f => ftitle(f).toLowerCase().includes(q)) : pool
 
   return (

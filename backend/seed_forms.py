@@ -134,6 +134,10 @@ def seed():
     try:
         seeded = 0
         for tpl in TEMPLATES:
+            # The canonical "Vital Signs" form is owned by seed_vitals.py (single source) —
+            # never seed a second copy here.
+            if tpl['title'] == 'Vital Signs':
+                continue
             existing = db.query(AssessmentForm).filter_by(title=tpl['title'], is_template=True).first()
             if existing:
                 print(f"  [skip] {tpl['title']}")

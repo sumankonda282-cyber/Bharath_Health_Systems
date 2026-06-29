@@ -3634,22 +3634,36 @@ def seed_batch(batch_name, db):
     forms = BATCHES.get(batch_name)
     if not forms:
         print(f"[seed] Unknown batch '{batch_name}' — available: {', '.join(BATCHES)}")
-        return 0, 0
+        return 0, 0, 0
 
-    inserted = skipped = 0
+    inserted = upgraded = skipped = 0
     for f in forms:
-        # Only seed forms that have been faithfully converted from their hardcoded
-        # JSX counterpart and explicitly marked ready. Unconverted entries are left
-        # alone so the portals keep rendering the richer hardcoded form (no
-        # regression, no half-built drafts cluttering the admin builder).
-        if not f.get('ready'):
-            continue
-        exists = db.query(AssessmentForm.id).filter(
+        # The standardized DB library is now the single source for every assessment form.
+        # If a form for this subcategory already exists we UPGRADE it in place ONLY when
+        # it is empty (an old placeholder/stub) — preserving the row id so any submissions
+        # or favourites linked to it stay intact. A form that already has fields is left
+        # untouched (never clobber a clinic's own customisation).
+        existing = db.query(AssessmentForm).filter(
             AssessmentForm.subcategory == f['sub']
         ).first()
-        if exists:
-            print(f"  [skip] {f['sub']}")
-            skipped += 1
+        if existing:
+            cur_fields = sum(len((s or {}).get('fields') or [])
+                             for s in (existing.schema or {}).get('sections') or [])
+            if cur_fields == 0:
+                existing.title       = f['title']
+                existing.description = f.get('desc', '')
+                existing.category    = f['cat']
+                existing.icon        = f.get('icon', '📋')
+                existing.schema      = f['schema']
+                existing.status      = 'published'
+                existing.updated_at  = datetime.utcnow()
+                if not existing.published_at:
+                    existing.published_at = datetime.utcnow()
+                print(f"  [upgrade] {f['sub']} — {f['title']}")
+                upgraded += 1
+            else:
+                print(f"  [skip] {f['sub']} (already has fields)")
+                skipped += 1
             continue
         row = AssessmentForm(
             title            = f['title'],
@@ -3671,7 +3685,7 @@ def seed_batch(batch_name, db):
         inserted += 1
 
     db.commit()
-    return inserted, skipped
+    return inserted, upgraded, skipped
 
 
 def main():
@@ -3683,16 +3697,16 @@ def main():
     db = DB()
     try:
         if args.all:
-            total_ins = total_skip = 0
+            total_ins = total_upg = total_skip = 0
             for name in BATCHES:
                 print(f"\n── {name} ──")
-                ins, skip = seed_batch(name, db)
-                total_ins += ins; total_skip += skip
-            print(f"\n✓ Done — inserted {total_ins}, skipped {total_skip}")
+                ins, upg, skip = seed_batch(name, db)
+                total_ins += ins; total_upg += upg; total_skip += skip
+            print(f"\n✓ Done — inserted {total_ins}, upgraded {total_upg}, skipped {total_skip}")
         elif args.batch:
             print(f"\n── {args.batch} ──")
-            ins, skip = seed_batch(args.batch, db)
-            print(f"\n✓ Done — inserted {ins}, skipped {skip}")
+            ins, upg, skip = seed_batch(args.batch, db)
+            print(f"\n✓ Done — inserted {ins}, upgraded {upg}, skipped {skip}")
         else:
             print("Usage: python seed_assessment_forms.py --all  OR  --batch <name>")
             print(f"Batches: {', '.join(BATCHES)}")
