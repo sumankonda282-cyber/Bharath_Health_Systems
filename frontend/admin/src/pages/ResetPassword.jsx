@@ -22,10 +22,15 @@ export default function ResetPassword() {
     e.preventDefault()
     setLoading(true); setError(''); setMessage('')
     try {
-      await api.post('/auth/platform/forgot-password', { email })
+      // Use a 90s timeout — the Render backend may need up to ~50s to wake from sleep
+      await api.post('/auth/platform/forgot-password', { email }, { timeout: 90000 })
       setMessage('Reset link sent — check your inbox (and spam folder).')
     } catch (ex) {
-      setError(ex.message || 'Something went wrong.')
+      if (ex.message === 'Network Error' || ex.code === 'ECONNABORTED') {
+        setError('The server is taking too long to respond. Please wait 30 seconds and try again.')
+      } else {
+        setError(ex.message || 'Something went wrong.')
+      }
     } finally {
       setLoading(false)
     }
@@ -149,7 +154,7 @@ export default function ResetPassword() {
               <button type="submit" disabled={loading}
                 className="w-full py-3 rounded-xl font-semibold text-sm text-white flex items-center justify-center gap-2"
                 style={{ background: '#0F2557' }}>
-                {loading ? <><Loader2 size={16} className="animate-spin" />Sending…</> : 'Send Reset Link'}
+                {loading ? <><Loader2 size={16} className="animate-spin" />Sending… (may take up to 60s)</> : 'Send Reset Link'}
               </button>
             </form>
           )}
