@@ -12,7 +12,7 @@ from app.models.models import (
     Staff, Patient, Appointment, DoctorProfile,
     Vitals, SoapNote, Prescription, PrescriptionItem,
     LabOrder, LabOrderItem, Medicine, LabTest, FollowUpReminder,
-    ImagingOrder,
+    ImagingOrder, Clinic,
 )
 
 router = APIRouter(prefix="/doctor", tags=["doctor-desk"])
@@ -750,6 +750,9 @@ def get_patient_visits(
         Appointment.status.in_(["completed", "investigations_pending", "review_pending"]),
     ).order_by(desc(Appointment.appointment_date)).limit(limit).all()
 
+    clinic = db.query(Clinic).filter(Clinic.id == current.clinic_id).first()
+    clinic_name = clinic.name if clinic else None
+
     result = []
     for v in visits:
         doc_name = None
@@ -762,17 +765,36 @@ def get_patient_visits(
         is_mine = (v.doctor_id == my_profile_id) if my_profile_id else False
         sn = v.soap_note
 
+        vit = db.query(Vitals).filter(Vitals.appointment_id == v.id).first()
+        vitals = None
+        if vit:
+            vitals = {
+                "bp": f"{vit.blood_pressure_systolic}/{vit.blood_pressure_diastolic}"
+                      if vit.blood_pressure_systolic and vit.blood_pressure_diastolic else None,
+                "pulse": vit.pulse_rate,
+                "temperature": float(vit.temperature) if vit.temperature else None,
+                "weight_kg": float(vit.weight_kg) if vit.weight_kg else None,
+                "height_cm": float(vit.height_cm) if vit.height_cm else None,
+                "spo2": vit.oxygen_saturation,
+                "blood_sugar": float(vit.blood_sugar) if vit.blood_sugar else None,
+            }
+            if not any(vitals.values()):
+                vitals = None
+
         entry = {
-            "id":         v.id,
-            "date":       str(v.appointment_date),
-            "time":       v.appointment_time,
-            "status":     v.status,
-            "reason":     v.reason,
-            "visit_type": v.visit_type,
-            "mode":       v.mode,
-            "doctor_id":  v.doctor_id,
-            "doctor_name":doc_name,
-            "is_mine":    is_mine,
+            "id":          v.id,
+            "date":        str(v.appointment_date),
+            "time":        v.appointment_time,
+            "status":      v.status,
+            "reason":      v.reason,
+            "visit_type":  v.visit_type,
+            "mode":        v.mode,
+            "doctor_id":   v.doctor_id,
+            "doctor_name": doc_name,
+            "patient_name": patient.full_name,
+            "clinic_name": clinic_name,
+            "vitals":      vitals,
+            "is_mine":     is_mine,
             "soap": {
                 "subjective": sn.subjective,
                 "objective":  sn.objective,

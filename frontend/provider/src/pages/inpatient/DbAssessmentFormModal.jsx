@@ -30,7 +30,7 @@ const spanFor = (field, layout) => WIDE.has(field.type) ? SPAN.full : (SPAN[Math
 // staff member server-side.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function DbAssessmentFormModal({ form, patientId, admissionId, patientName, onClose, onSubmitted }) {
+export default function DbAssessmentFormModal({ form, patientId, admissionId, patientName, onClose, onSubmitted, variant = 'modal' }) {
   const [schema,    setSchema]    = useState(null)   // { sections: [...] }
   const [meta,      setMeta]      = useState(null)   // { title, category, ... }
   const [values,    setValues]    = useState({})
@@ -242,10 +242,15 @@ export default function DbAssessmentFormModal({ form, patientId, admissionId, pa
     }
   }
 
-  return (
-    <PatientDataContext.Provider value={{ patientId }}>
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(15,37,87,0.6)' }}>
-      <div className="flex flex-col bg-white rounded-2xl shadow-2xl overflow-hidden" style={{ width: '70vw', height: '80vh', maxWidth: 1100 }}>
+  const isInline = variant === 'inline'
+
+  const body = (
+    <div
+      className={isInline
+        ? 'flex flex-col bg-white h-full overflow-hidden'
+        : 'flex flex-col bg-white rounded-2xl shadow-2xl overflow-hidden'}
+      style={isInline ? undefined : { width: '70vw', height: '80vh', maxWidth: 1100 }}
+    >
 
         {/* Header */}
         <div className="flex-shrink-0 flex items-center justify-between px-6 py-3.5 border-b shadow-sm"
@@ -438,8 +443,16 @@ export default function DbAssessmentFormModal({ form, patientId, admissionId, pa
             </div>
           </LangContext.Provider>
         )}
-      </div>
     </div>
+  )
+
+  return (
+    <PatientDataContext.Provider value={{ patientId }}>
+      {isInline ? body : (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(15,37,87,0.6)' }}>
+          {body}
+        </div>
+      )}
     </PatientDataContext.Provider>
   )
 }

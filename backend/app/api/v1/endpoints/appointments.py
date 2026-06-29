@@ -91,6 +91,7 @@ def create_appointment(
 @router.get("/", response_model=List[AppointmentOut])
 def list_appointments(
     branch_id: Optional[int] = None,
+    all_branches: Optional[bool] = False,
     doctor_id: Optional[int] = None,
     mine: Optional[bool] = None,
     patient_id: Optional[int] = None,
@@ -113,8 +114,10 @@ def list_appointments(
     ).filter(Appointment.clinic_id == current.clinic_id)
     if branch_id:
         q = q.filter(Appointment.branch_id == branch_id)
-    elif current.branch_id and current.role not in ('receptionist', 'clinic_admin'):
-        # Only filter by staff's branch if they actually have one assigned
+    elif not all_branches and current.branch_id and current.role not in ('receptionist', 'clinic_admin'):
+        # Only filter by staff's branch if they actually have one assigned.
+        # all_branches=1 (clinic-wide views like the provider Queue) bypasses this so
+        # confirmed appointments stamped with another/NULL branch stay visible.
         q = q.filter(Appointment.branch_id == current.branch_id)
     # else: no branch filter — show all clinic appointments (single-branch or no-branch clinics)
     if doctor_id:

@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
-import { X, Save, Plus, Trash2 } from 'lucide-react'
+import { X, Save, Plus, Trash2, User, CreditCard } from 'lucide-react'
 import { doctorApi } from '../../api'
+import api from '../../api/client'
 import { useAuth } from '../../contexts/AuthContext'
+import SubscriptionBilling from '@shared/components/SubscriptionBilling'
 
 // ── Tag input helper ─────────────────────────────────────────────
 function TagInput({ label, tags, onChange }) {
@@ -92,8 +94,9 @@ function Toast({ message, type, onDone }) {
 }
 
 // ── Main Drawer ──────────────────────────────────────────────────
-export default function ProfileDrawer({ open, onClose }) {
+export default function ProfileDrawer({ open, onClose, initialTab = 'profile' }) {
   const { user } = useAuth()
+  const [tab, setTab] = useState('profile')
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState(null)
@@ -133,6 +136,7 @@ export default function ProfileDrawer({ open, onClose }) {
   }, [open])
 
   useEffect(() => { load() }, [load])
+  useEffect(() => { if (open) setTab(initialTab) }, [open, initialTab])
 
   const set = (key, val) => setForm(f => ({ ...f, [key]: val }))
 
@@ -165,7 +169,7 @@ export default function ProfileDrawer({ open, onClose }) {
 
       {/* Drawer */}
       <div
-        className={`fixed top-0 right-0 h-full w-80 z-50 flex flex-col shadow-2xl transition-transform duration-300 ${open ? 'translate-x-0' : 'translate-x-full'}`}
+        className={`fixed top-0 right-0 h-full z-50 flex flex-col shadow-2xl transition-transform duration-300 w-full ${tab === 'billing' ? 'lg:w-[72vw]' : 'max-w-md'} ${open ? 'translate-x-0' : 'translate-x-full'}`}
         style={{ background: '#0F2557' }}
       >
         {/* Header */}
@@ -193,6 +197,22 @@ export default function ProfileDrawer({ open, onClose }) {
           </div>
         </div>
 
+        {/* Tabs */}
+        <div className="flex border-b border-white/10 flex-shrink-0">
+          {[{ id: 'profile', label: 'My Profile', Icon: User }, { id: 'billing', label: 'Plan & Subscription', Icon: CreditCard }].map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-semibold transition-colors ${tab === t.id ? 'text-white border-b-2 border-orange-400' : 'text-blue-300 hover:text-white'}`}>
+              <t.Icon size={14} /> {t.label}
+            </button>
+          ))}
+        </div>
+
+        {tab === 'billing' ? (
+          <div className="flex-1 overflow-y-auto bg-gray-50">
+            <SubscriptionBilling api={api} />
+          </div>
+        ) : (
+          <>
         {/* Form */}
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
           {loading ? (
@@ -285,6 +305,8 @@ export default function ProfileDrawer({ open, onClose }) {
             {saving ? 'Saving…' : 'Save Profile'}
           </button>
         </div>
+          </>
+        )}
       </div>
 
       {toast && (
