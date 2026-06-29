@@ -194,6 +194,8 @@ class Staff(Base):
     qualification            = Column(String(200), nullable=True)
     registration_number      = Column(String(100), nullable=True)
     license_expiry_date      = Column(Date, nullable=True)
+    license_registered_date  = Column(Date, nullable=True)   # manual entry — first registration with licensing authority
+    license_renewal_date     = Column(Date, nullable=True)   # manual entry — last renewal date (for near-expiry tracking)
     address                  = Column(Text, nullable=True)
     modules                  = Column(JSON, nullable=True)
     secondary_roles          = Column(JSON, nullable=True)
@@ -212,6 +214,26 @@ class Staff(Base):
     clinic         = relationship("Clinic", back_populates="staff")
     branch         = relationship("Branch", back_populates="staff")
     doctor_profile = relationship("DoctorProfile", back_populates="staff", uselist=False)
+
+
+class StaffLicenseHistory(Base):
+    """Append-only audit trail for a clinical-staff member's license/credential lifecycle.
+    Populated by the admin License Registry: registration, verification, manual date edits,
+    renewals, expiry and de/re-activation. No licensing-authority sync — every change is a row."""
+    __tablename__ = "staff_license_history"
+    id                      = Column(Integer, primary_key=True, index=True)
+    staff_id                = Column(Integer, ForeignKey("staff.id"), nullable=False, index=True)
+    clinic_id               = Column(Integer, ForeignKey("clinics.id"), nullable=True)
+    event_type              = Column(String(30), nullable=False)  # registered|verified|renewed|expired|deactivated|reactivated|edited
+    license_number          = Column(String(100), nullable=True)
+    license_registered_date = Column(Date, nullable=True)
+    license_renewal_date    = Column(Date, nullable=True)
+    license_expiry_date     = Column(Date, nullable=True)
+    document_url            = Column(String(500), nullable=True)
+    note                    = Column(Text, nullable=True)
+    changed_by              = Column(Integer, nullable=True)       # platform admin id (no FK — actor may be System)
+    changed_by_name         = Column(String(200), nullable=True)
+    created_at              = Column(DateTime, server_default=func.now())
 
 
 class DoctorProfile(Base):
