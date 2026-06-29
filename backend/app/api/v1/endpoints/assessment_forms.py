@@ -3,10 +3,10 @@ BHarath Health — Smart Assessment Forms (PowerForms) API
 Provides admin/platform form management and provider-facing submission endpoints.
 """
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query, status
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -19,6 +19,7 @@ except ImportError:
 
 from app.models.models import (
     AssessmentForm,
+    AssessmentFormAudit,
     AssessmentFormVersion,
     FormAlert,
     FormAssignment,
@@ -32,6 +33,72 @@ from app.models.models import (
 )
 
 router = APIRouter(tags=["Assessment Forms"])
+
+TRASH_RETENTION_DAYS = 30
+
+
+def _form_actor(request: Request, db: Session):
+    """Best-effort: identify whoever made a change from the bearer token, for the audit
+    trail. Returns (actor_id, actor_name, actor_type). Never raises — the form CRUD
+    endpoints are not auth-gated, so a missing/invalid token just yields 'Unknown'."""
+    try:
+        from app.core.security import decode_token
+        from app.models.models import Staff, PlatformAdmin
+        auth = request.headers.get("authorization") or ""
+        if not auth.lower().startswith("bearer "):
+            return (None, "Unknown", None)
+        payload = decode_token(auth.split(" ", 1)[1]) or {}
+        sub = payload.get("sub")
+        try:
+            sid = int(sub)
+        except (TypeError, ValueError):
+            return (None, "Unknown", None)
+        ttype = (payload.get("type") or payload.get("scope") or "").lower()
+        if "platform" in ttype or "admin" in ttype:
+            pa = db.query(PlatformAdmin).filter(PlatformAdmin.id == sid).first()
+            if pa:
+                return (pa.id, pa.full_name, "platform_admin")
+        st = db.query(Staff).filter(Staff.id == sid).first()
+        if st:
+            return (st.id, st.full_name, "staff")
+        pa = db.query(PlatformAdmin).filter(PlatformAdmin.id == sid).first()
+        if pa:
+            return (pa.id, pa.full_name, "platform_admin")
+        return (sid, "Unknown", None)
+    except Exception:
+        return (None, "Unknown", None)
+
+
+def _form_audit(db: Session, form, action: str, actor, detail: str = None):
+    """Append an audit row. Caller commits."""
+    aid, aname, atype = actor if actor else (None, "Unknown", None)
+    db.add(AssessmentFormAudit(
+        form_id=form.id, form_title=getattr(form, "title", None),
+        action=action, actor_id=aid, actor_name=aname, actor_type=atype, detail=detail,
+    ))
+
+
+def _purge_expired_trash(db: Session):
+    """Hard-delete forms that have sat in Trash beyond the retention window AND carry no
+    clinical data (submissions / iview observations). Safe to call opportunistically."""
+    cutoff = datetime.utcnow() - timedelta(days=TRASH_RETENTION_DAYS)
+    expired = db.query(AssessmentForm).filter(
+        AssessmentForm.deleted_at.isnot(None),
+        AssessmentForm.deleted_at < cutoff,
+    ).all()
+    purged = 0
+    for f in expired:
+        has_data = (db.query(FormSubmission.id).filter(FormSubmission.form_id == f.id).first()
+                    or db.query(iViewObservation.id).filter(iViewObservation.form_id == f.id).first())
+        if has_data:
+            continue  # never destroy clinical data — keep in Trash
+        for model in (AssessmentFormVersion, FormPool, FormAssignment, StaffFormFavorite, iViewFlowsheet):
+            db.query(model).filter(model.form_id == f.id).delete(synchronize_session=False)
+        db.delete(f)
+        purged += 1
+    if purged:
+        db.commit()
+    return purged
 
 
 # ---------------------------------------------------------------------------
@@ -508,7 +575,7 @@ def list_forms(
     limit:        int           = Query(50,  ge=1, le=1000),
     offset:       int           = Query(0,   ge=0),
 ):
-    query = db.query(AssessmentForm)
+    query = db.query(AssessmentForm).filter(AssessmentForm.deleted_at.is_(None))
     if status:      query = query.filter(AssessmentForm.status      == status)
     if category:    query = query.filter(AssessmentForm.category    == category)
     if subcategory: query = query.filter(AssessmentForm.subcategory == subcategory)
@@ -578,9 +645,35 @@ def create_form(
     return {"id": form.id, "title": form.title, "status": form.status}
 
 
+@router.get("/assessment-forms/trash")
+def list_trash(db: Session = Depends(get_db)):
+    """Forms currently in Trash (soft-deleted, recoverable). Opportunistically purges any
+    that have passed the 30-day window and carry no clinical data. Defined before the
+    /{form_id} route so the literal path wins."""
+    _purge_expired_trash(db)
+    rows = db.query(AssessmentForm).filter(
+        AssessmentForm.deleted_at.isnot(None)
+    ).order_by(AssessmentForm.deleted_at.desc()).all()
+    today = datetime.utcnow()
+    out = []
+    for f in rows:
+        days_left = TRASH_RETENTION_DAYS - (today - f.deleted_at).days if f.deleted_at else None
+        has_data = bool(db.query(FormSubmission.id).filter(FormSubmission.form_id == f.id).first())
+        out.append({
+            "id": f.id, "title": f.title, "category": f.category, "subcategory": f.subcategory,
+            "deleted_at": f.deleted_at.isoformat() if f.deleted_at else None,
+            "deleted_by_name": f.deleted_by_name,
+            "days_left": max(0, days_left) if days_left is not None else None,
+            "has_submissions": has_data,
+        })
+    return {"trash": out, "retention_days": TRASH_RETENTION_DAYS}
+
+
 @router.get("/assessment-forms/{form_id}")
 def get_form(form_id: int, db: Session = Depends(get_db)):
-    form = db.query(AssessmentForm).filter(AssessmentForm.id == form_id).first()
+    form = db.query(AssessmentForm).filter(
+        AssessmentForm.id == form_id, AssessmentForm.deleted_at.is_(None)
+    ).first()
     if not form:
         raise HTTPException(status_code=404, detail="Form not found")
     return {
@@ -606,6 +699,7 @@ def get_form(form_id: int, db: Session = Depends(get_db)):
 @router.patch("/assessment-forms/{form_id}")
 def update_form(
     form_id: int,
+    request: Request,
     payload: Dict[str, Any] = Body(...),
     db:      Session        = Depends(get_db),
 ):
@@ -619,38 +713,80 @@ def update_form(
         "is_iview_enabled", "iview_config", "icon",
         "requires_cosign", "time_limit_minutes",
     ]
+    changed = []
     for field in updatable:
         if field in payload:
             setattr(form, field, payload[field])
+            changed.append(field)
 
     # Bump version on schema changes
     if "schema" in payload:
         form.version = (form.version or 1) + 1
 
     form.updated_at = datetime.utcnow()
+    _form_audit(db, form, "edited", _form_actor(request, db), ", ".join(changed) if changed else None)
     db.commit()
     db.refresh(form)
     return {"id": form.id, "title": form.title, "status": form.status, "version_number": form.version}
 
 
 @router.delete("/assessment-forms/{form_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_form(form_id: int, db: Session = Depends(get_db)):
-    """
-    Permanently delete an assessment form and its associated versions.
-    Returns 204 No Content on success, 404 if not found.
-    """
+def delete_form(form_id: int, request: Request, db: Session = Depends(get_db)):
+    """Soft-delete → Trash. The form and all its data are kept (recoverable for 30 days),
+    just hidden from the pool/search. Audited. Use ?permanent=1 only for an empty form with
+    no submissions."""
+    permanent = request.query_params.get("permanent") in ("1", "true", "yes")
     form = db.query(AssessmentForm).filter(AssessmentForm.id == form_id).first()
     if not form:
         raise HTTPException(status_code=404, detail="Form not found")
+    actor = _form_actor(request, db)
 
-    # Delete child versions first to avoid FK constraint violations
-    db.query(AssessmentFormVersion).filter(
-        AssessmentFormVersion.form_id == form_id
-    ).delete(synchronize_session=False)
+    if permanent:
+        has_data = (db.query(FormSubmission.id).filter(FormSubmission.form_id == form_id).first()
+                    or db.query(iViewObservation.id).filter(iViewObservation.form_id == form_id).first())
+        if has_data:
+            raise HTTPException(status_code=409, detail="Form has clinical submissions — cannot permanently delete. It can only be moved to Trash.")
+        _form_audit(db, form, "deleted", actor, "permanent")
+        for model in (AssessmentFormVersion, FormPool, FormAssignment, StaffFormFavorite, iViewFlowsheet):
+            db.query(model).filter(model.form_id == form_id).delete(synchronize_session=False)
+        db.delete(form)
+        db.commit()
+        return
 
-    db.delete(form)
-    db.commit()
+    if not form.deleted_at:
+        form.deleted_at      = datetime.utcnow()
+        form.deleted_by      = actor[0]
+        form.deleted_by_name = actor[1]
+        _form_audit(db, form, "deleted", actor)
+        db.commit()
     return
+
+
+@router.post("/assessment-forms/{form_id}/restore")
+def restore_form(form_id: int, request: Request, db: Session = Depends(get_db)):
+    """Restore a form from Trash."""
+    form = db.query(AssessmentForm).filter(AssessmentForm.id == form_id).first()
+    if not form:
+        raise HTTPException(status_code=404, detail="Form not found")
+    actor = _form_actor(request, db)
+    form.deleted_at = None
+    form.deleted_by = None
+    form.deleted_by_name = None
+    _form_audit(db, form, "restored", actor)
+    db.commit()
+    return {"id": form.id, "title": form.title, "status": form.status}
+
+
+@router.get("/assessment-forms/{form_id}/audit")
+def form_audit_trail(form_id: int, db: Session = Depends(get_db)):
+    """Who created / edited / deleted / restored this form, and when."""
+    rows = db.query(AssessmentFormAudit).filter(
+        AssessmentFormAudit.form_id == form_id
+    ).order_by(AssessmentFormAudit.created_at.desc(), AssessmentFormAudit.id.desc()).all()
+    return {"audit": [{
+        "action": r.action, "actor_name": r.actor_name, "actor_type": r.actor_type,
+        "detail": r.detail, "created_at": r.created_at.isoformat() if r.created_at else None,
+    } for r in rows]}
 
 
 @router.post("/assessment-forms/{form_id}/duplicate", status_code=status.HTTP_201_CREATED)
