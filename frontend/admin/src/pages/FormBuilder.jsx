@@ -548,6 +548,12 @@ function Toggle({ value, onChange, label }) {
 function FormSettingsModal({ form, dispatch, onClose }) {
   const set = (key, value) => dispatch({ type: 'SET_FORM_PROP', payload: { key, value } })
 
+  const [clinics, setClinics] = useState([])
+  useEffect(() => {
+    api.get('/platform/clinics').then(d => setClinics(Array.isArray(d) ? d : (d?.clinics || []))).catch(() => setClinics([]))
+  }, [])
+  const scoped = form.clinic_id != null
+
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-end">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
@@ -615,6 +621,37 @@ function FormSettingsModal({ form, dispatch, onClose }) {
               <option value="published">Published</option>
               <option value="retired">Retired</option>
             </select>
+          </div>
+
+          {/* Availability / scope: global vs a single health center */}
+          <div>
+            <label className="block text-xs font-medium text-gray-400 mb-1">Availability</label>
+            <select
+              className={inputCls}
+              value={scoped ? 'clinic' : 'global'}
+              onChange={e => {
+                if (e.target.value === 'global') set('clinic_id', null)
+                else set('clinic_id', clinics[0]?.id ?? null)
+              }}
+            >
+              <option value="global">Global — every health center</option>
+              <option value="clinic">Specific health center only</option>
+            </select>
+            {scoped && (
+              <select
+                className={inputCls + ' mt-2'}
+                value={form.clinic_id || ''}
+                onChange={e => set('clinic_id', e.target.value ? Number(e.target.value) : null)}
+              >
+                <option value="">Select a health center…</option>
+                {clinics.map(c => (
+                  <option key={c.id} value={c.id}>{c.name || c.clinic_name || `Clinic #${c.id}`}</option>
+                ))}
+              </select>
+            )}
+            <p className="mt-1 text-xs text-gray-600">
+              Global forms appear in every health center. Scoped forms appear only in the selected center’s portals.
+            </p>
           </div>
 
           {/* Form accent colour */}
@@ -855,6 +892,7 @@ export default function FormBuilder() {
         is_template:         form.is_template,
         requires_cosign:     form.requires_cosign,
         time_limit_minutes:  form.time_limit_minutes,
+        clinic_id:           form.clinic_id ?? null,
         scoring_config:      form.scoring_config,
         alert_rules:         form.alert_rules,
         schema:              form.schema,

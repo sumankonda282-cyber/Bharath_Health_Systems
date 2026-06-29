@@ -571,6 +571,7 @@ def list_forms(
     category:     Optional[str] = Query(None),
     subcategory:  Optional[str] = Query(None),
     q:            Optional[str] = Query(None),
+    clinic_id:    Optional[int] = Query(None),    # scope: return global forms + this clinic's forms
     include_empty: bool         = Query(False),  # empty (0-field) forms are hidden from search by default
     limit:        int           = Query(50,  ge=1, le=1000),
     offset:       int           = Query(0,   ge=0),
@@ -579,6 +580,12 @@ def list_forms(
     if status:      query = query.filter(AssessmentForm.status      == status)
     if category:    query = query.filter(AssessmentForm.category    == category)
     if subcategory: query = query.filter(AssessmentForm.subcategory == subcategory)
+    # Scope: a portal passes its clinic_id to see global forms (clinic_id NULL) plus its
+    # own health-center forms only. Admin omits it → sees every form. Purely additive.
+    if clinic_id is not None:
+        query = query.filter(
+            (AssessmentForm.clinic_id.is_(None)) | (AssessmentForm.clinic_id == clinic_id)
+        )
     if q:
         like = f"%{q}%"
         query = query.filter(
@@ -608,6 +615,7 @@ def list_forms(
                 "icon":            f.icon,
                 "version_number":  f.version,
                 "is_iview_enabled":f.is_iview_enabled,
+                "clinic_id":       f.clinic_id,   # null = global; set = health-center-scoped
                 "question_count":  _form_field_count(f),
                 "created_at":      f.created_at.isoformat() if f.created_at else None,
                 "updated_at":      f.updated_at.isoformat() if f.updated_at else None,
@@ -635,6 +643,7 @@ def create_form(
         is_iview_enabled= payload.get("is_iview_enabled", False),
         iview_config    = payload.get("iview_config"),
         icon            = payload.get("icon", "📋"),
+        clinic_id       = payload.get("clinic_id"),   # null = global; set = health-center-scoped
         version         = 1,
         created_at      = datetime.utcnow(),
         updated_at      = datetime.utcnow(),
@@ -642,7 +651,7 @@ def create_form(
     db.add(form)
     db.commit()
     db.refresh(form)
-    return {"id": form.id, "title": form.title, "status": form.status}
+    return {"id": form.id, "title": form.title, "status": form.status, "clinic_id": form.clinic_id}
 
 
 @router.get("/assessment-forms/trash")
@@ -690,6 +699,7 @@ def get_form(form_id: int, db: Session = Depends(get_db)):
         "is_iview_enabled": form.is_iview_enabled,
         "iview_config":     form.iview_config,
         "icon":             form.icon,
+        "clinic_id":        form.clinic_id,   # null = global; set = health-center-scoped
         "version_number":   form.version,
         "created_at":       form.created_at.isoformat() if form.created_at else None,
         "updated_at":       form.updated_at.isoformat() if form.updated_at else None,
@@ -711,7 +721,7 @@ def update_form(
         "title", "description", "category", "subcategory", "status",
         "schema", "scoring_config", "alert_rules", "is_template",
         "is_iview_enabled", "iview_config", "icon",
-        "requires_cosign", "time_limit_minutes",
+        "requires_cosign", "time_limit_minutes", "clinic_id",
     ]
     changed = []
     for field in updatable:
