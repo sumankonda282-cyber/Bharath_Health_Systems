@@ -844,7 +844,7 @@ export default function Assessments() {
       {builder && (
         <CareFormBuilder
           careForm={builder}
-          allForms={forms}
+          allForms={forms.map(f => ({ ...f, name: f.title || f.name, fields_count: f.question_count ?? f.fields_count ?? 0 }))}
           onSave={handleSaveCareForms}
           onClose={() => setBuilder(null)}
         />
