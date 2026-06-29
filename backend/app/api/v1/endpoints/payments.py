@@ -25,13 +25,13 @@ from app.services.dunning import notify_receipt
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 
-_BILLING_ROLES = ("clinic_admin", "clinic_manager", "doctor")
+_BILLING_ROLES = ("clinic_admin", "clinic_manager", "doctor", "receptionist")
 
 
 def _require_billing_actor(current=Depends(get_current_staff)):
     role = (getattr(current, "role", "") or "").lower()
     if role not in _BILLING_ROLES:
-        raise HTTPException(403, "Only a clinic admin, manager, or doctor can manage billing.")
+        raise HTTPException(403, "Only clinic staff can manage the health-center subscription.")
     return current
 
 

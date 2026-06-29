@@ -3,7 +3,9 @@ import {
   Loader2, CheckCircle2, AlertTriangle, CreditCard, Building2,
   Landmark, Sparkles, Clock, ShieldCheck, X,
 } from 'lucide-react'
-import api from '../api/client'
+// Universal self-service plan & subscription panel — used by the staff portal
+// (manager/receptionist) and the provider portal. The portal injects its own
+// `api` client as a prop so this one component stays in sync everywhere.
 
 const NAVY = '#0F2557'
 const MODULE_LABELS = {
@@ -37,7 +39,7 @@ function planPrice(plan, cycle, seats) {
   return Number(base || 0) + Number(per || 0) * Number(seats || 0)
 }
 
-export default function SubscriptionBilling() {
+export default function SubscriptionBilling({ api }) {
   const [me, setMe] = useState(null)
   const [plans, setPlans] = useState([])
   const [config, setConfig] = useState(null)
@@ -266,12 +268,12 @@ export default function SubscriptionBilling() {
 
       <p className="text-[11px] text-gray-400 flex items-center gap-1.5 pt-1"><ShieldCheck size={12} /> Payments are processed securely. Your clinical data is never affected by billing changes.</p>
 
-      {bank && <BankTransferModal bank={bank} onClose={() => setBank(null)} onDone={() => { setBank(null); setToast('Bank reference submitted — access activates after confirmation.'); load() }} />}
+      {bank && <BankTransferModal api={api} bank={bank} onClose={() => setBank(null)} onDone={() => { setBank(null); setToast('Bank reference submitted — access activates after confirmation.'); load() }} />}
     </div>
   )
 }
 
-function BankTransferModal({ bank, onClose, onDone }) {
+function BankTransferModal({ api, bank, onClose, onDone }) {
   const [reference, setReference] = useState('')
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)

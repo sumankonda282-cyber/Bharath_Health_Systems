@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { X, User, Briefcase, Lock, Loader2, CheckCircle2, CreditCard } from 'lucide-react'
 import api from '../api/client'
-import SubscriptionBilling from './SubscriptionBilling'
+import SubscriptionBilling from '@shared/components/SubscriptionBilling'
 
 function getInitials(name) {
   if (!name) return '?'
@@ -91,7 +91,7 @@ export default function StaffProfilePanel({ open, onClose }) {
 
   if (!open) return null
 
-  const canBill = ['clinic_admin', 'clinic_manager', 'doctor'].includes(profile?.role)
+  const canBill = ['clinic_admin', 'clinic_manager', 'doctor', 'receptionist'].includes(profile?.role)
 
   return (
     <>
@@ -137,7 +137,7 @@ export default function StaffProfilePanel({ open, onClose }) {
               className={`flex-1 flex items-center justify-center gap-1.5 py-3 text-sm font-medium transition-colors ${
                 tab === 'billing' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'
               }`}>
-              <CreditCard size={14} /> Plan &amp; Billing
+              <CreditCard size={14} /> Plan &amp; Subscription
             </button>
           )}
         </div>
@@ -295,7 +295,7 @@ export default function StaffProfilePanel({ open, onClose }) {
             )}
 
             {/* ── Plan & Billing ───────────────── */}
-            {tab === 'billing' && canBill && <SubscriptionBilling />}
+            {tab === 'billing' && canBill && <SubscriptionBilling api={api} />}
           </div>
         )}
 
