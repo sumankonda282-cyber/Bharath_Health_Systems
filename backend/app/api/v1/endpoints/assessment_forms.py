@@ -490,15 +490,23 @@ def save_iview_row(db: Session, submission, form) -> None:
 # ── Admin / Platform routes ──
 # ---------------------------------------------------------------------------
 
+def _form_field_count(form) -> int:
+    """Total fields across all sections — the real question count (schema is
+    sectioned: schema.sections[].fields, NOT a top-level schema.fields)."""
+    sections = (form.schema or {}).get("sections") or []
+    return sum(len((s or {}).get("fields") or []) for s in sections)
+
+
 @router.get("/assessment-forms/")
 def list_forms(
-    db:          Session = Depends(get_db),
-    status:      Optional[str] = Query(None),
-    category:    Optional[str] = Query(None),
-    subcategory: Optional[str] = Query(None),
-    q:           Optional[str] = Query(None),
-    limit:       int           = Query(50,  ge=1, le=1000),
-    offset:      int           = Query(0,   ge=0),
+    db:           Session = Depends(get_db),
+    status:       Optional[str] = Query(None),
+    category:     Optional[str] = Query(None),
+    subcategory:  Optional[str] = Query(None),
+    q:            Optional[str] = Query(None),
+    include_empty: bool         = Query(False),  # empty (0-field) forms are hidden from search by default
+    limit:        int           = Query(50,  ge=1, le=1000),
+    offset:       int           = Query(0,   ge=0),
 ):
     query = db.query(AssessmentForm)
     if status:      query = query.filter(AssessmentForm.status      == status)
@@ -510,8 +518,13 @@ def list_forms(
             AssessmentForm.title.ilike(like) |
             AssessmentForm.description.ilike(like)
         )
-    total = query.count()
-    forms = query.order_by(AssessmentForm.created_at.desc()).offset(offset).limit(limit).all()
+    rows = query.order_by(AssessmentForm.created_at.desc()).all()
+    # Empty forms (no fields) are unusable for documentation — keep them out of search
+    # unless explicitly requested (e.g. an admin auditing the library).
+    if not include_empty:
+        rows = [f for f in rows if _form_field_count(f) > 0]
+    total = len(rows)
+    forms = rows[offset:offset + limit]
     return {
         "total": total,
         "offset": offset,
@@ -528,7 +541,7 @@ def list_forms(
                 "icon":            f.icon,
                 "version_number":  f.version,
                 "is_iview_enabled":f.is_iview_enabled,
-                "question_count":  len((f.schema or {}).get("fields", [])),
+                "question_count":  _form_field_count(f),
                 "created_at":      f.created_at.isoformat() if f.created_at else None,
                 "updated_at":      f.updated_at.isoformat() if f.updated_at else None,
             }

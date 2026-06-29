@@ -175,7 +175,9 @@ export default function FormPool() {
   const fetchForms = useCallback(async () => {
     setLoading(true); setError(null)
     try {
-      const data = await api.get('/assessment-forms', { params: { limit: 1000 } })
+      // Admin library management — show ALL forms incl. empty ones so they can be
+      // reviewed / rebuilt / deleted here (the portal documentation pickers hide empties).
+      const data = await api.get('/assessment-forms', { params: { limit: 1000, include_empty: true } })
       setForms(Array.isArray(data) ? data : (data.forms ?? data.items ?? []))
     } catch (e) {
       setError(e.message || 'Failed to load forms')
