@@ -202,7 +202,7 @@ export default function SubscriptionBilling({ api }) {
       </div>
 
       {/* Plans */}
-      <div className="grid gap-3">
+      <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
         {plans.length === 0 && <p className="text-sm text-gray-400">No plans are available yet.</p>}
         {plans.map(plan => {
           const isCurrent = plan.key === currentKey && !lapsed
