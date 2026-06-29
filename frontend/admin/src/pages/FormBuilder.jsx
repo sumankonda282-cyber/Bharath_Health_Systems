@@ -115,6 +115,8 @@ function makeField(type) {
   }
 
   const typeDefaults = {
+    text:     { enable_dictation: true },
+    textarea: { enable_dictation: true },
     radio: {
       options: [
         { label: 'Option 1', value: 'option_1', score_weight: 0 },

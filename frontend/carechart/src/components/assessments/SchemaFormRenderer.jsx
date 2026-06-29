@@ -5,7 +5,7 @@
  * Portal-agnostic. Do NOT delete during portal rebuilds.
  */
 import React, { useState, useEffect, useCallback, useRef } from 'react'
-import { Loader2, CheckCircle, AlertCircle, ChevronDown, ChevronUp, Lock, RefreshCw, Save, RotateCcw, X, CheckCheck, Copy } from 'lucide-react'
+import { Loader2, CheckCircle, AlertCircle, ChevronDown, ChevronUp, Lock, RefreshCw, Save, RotateCcw, X, CheckCheck, Copy, Mic } from 'lucide-react'
 import api from '../../api/client'
 import TermSearch, { SEARCH_TYPES } from '../forms/TermSearch'
 import useFormDraft, { draftMirrorKey, saveStatusLabel } from '@shared/hooks/useFormDraft'
@@ -44,6 +44,45 @@ function evalCondition(c, data) {
     default: return true
   }
 }
+// ─── Voice dictation (mic) ────────────────────────────────────────────────────
+function useVoiceDictation(onResult) {
+  const [listening, setListening] = useState(false)
+  const recRef = useRef(null)
+  const start = useCallback(() => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!SR) { onResult(null, 'Voice input not supported in this browser'); return }
+    const rec = new SR()
+    rec.lang = 'en-IN'
+    rec.interimResults = false
+    rec.maxAlternatives = 1
+    rec.onresult = e => { onResult(e.results[0][0].transcript, null); setListening(false) }
+    rec.onerror = () => { onResult(null, 'Voice error'); setListening(false) }
+    rec.onend = () => setListening(false)
+    recRef.current = rec
+    rec.start()
+    setListening(true)
+  }, [onResult])
+  return { listening, start }
+}
+
+function MicButton({ onAppend }) {
+  const [toast, setToast] = useState(null)
+  const { listening, start } = useVoiceDictation((text, err) => {
+    if (err) { setToast(err); setTimeout(() => setToast(null), 2000); return }
+    onAppend(text)
+  })
+  return (
+    <div className="relative inline-flex">
+      <button type="button" onClick={start}
+        className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-colors ${listening ? 'text-red-500 bg-red-50' : 'text-gray-400 hover:text-blue-600 hover:bg-gray-100'}`}
+        title="Voice input">
+        <Mic size={14} className={listening ? 'animate-pulse' : ''} />
+      </button>
+      {toast && <div className="absolute right-0 top-full mt-1 text-xs bg-gray-800 text-white px-2 py-1 rounded z-10 whitespace-nowrap">{toast}</div>}
+    </div>
+  )
+}
+
 function isFieldVisible(field, data) {
   if (!field.conditions || field.conditions.length === 0) return true
   const logic = field.condition_logic || 'ALL'
@@ -134,31 +173,39 @@ function FieldRenderer({ field, value, onChange, formData = {} }) {
   // ── Input types ──
 
   if (type === 'text') {
+    const dictation = field.enable_dictation !== false
     return (
       <div>
         <FieldLabel label={label} required={required} help_text={help_text} />
-        <input
-          type="text"
-          value={value || ''}
-          onChange={e => onChange(e.target.value)}
-          placeholder={placeholder}
-          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        />
+        <div className="relative">
+          <input
+            type="text"
+            value={value || ''}
+            onChange={e => onChange(e.target.value)}
+            placeholder={placeholder}
+            className={`w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${dictation ? 'pr-10' : ''}`}
+          />
+          {dictation && <MicButton onAppend={val => onChange(((value || '') + ' ' + val).trim())} />}
+        </div>
       </div>
     )
   }
 
   if (type === 'textarea') {
+    const dictation = field.enable_dictation !== false
     return (
       <div>
         <FieldLabel label={label} required={required} help_text={help_text} />
-        <textarea
-          value={value || ''}
-          onChange={e => onChange(e.target.value)}
-          placeholder={placeholder}
-          rows={3}
-          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y"
-        />
+        <div className="relative">
+          <textarea
+            value={value || ''}
+            onChange={e => onChange(e.target.value)}
+            placeholder={placeholder}
+            rows={3}
+            className={`w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y ${dictation ? 'pr-10' : ''}`}
+          />
+          {dictation && <MicButton onAppend={val => onChange(((value || '') + ' ' + val).trim())} />}
+        </div>
       </div>
     )
   }

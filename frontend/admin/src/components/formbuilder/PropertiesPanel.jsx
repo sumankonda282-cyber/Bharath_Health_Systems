@@ -665,6 +665,9 @@ function TypeSpecificProps({ field, sectionId, dispatch, allFields }) {
             placeholder="/regex pattern/"
           />
         </PropRow>
+        <PropRow label="Voice dictation" hint="Shows a mic icon in the field so clinicians can dictate the value.">
+          <Toggle label="Enable mic dictation" value={field.enable_dictation !== false} onChange={v => set('enable_dictation', v)} />
+        </PropRow>
       </>
     )
   }
@@ -681,6 +684,9 @@ function TypeSpecificProps({ field, sectionId, dispatch, allFields }) {
         </PropRow>
         <PropRow label="Rows">
           <BtnGroup options={[3, 4, 6, 8, 12].map(n => ({ value: n, label: `${n}` }))} value={field.rows || 3} onChange={v => set('rows', v)} />
+        </PropRow>
+        <PropRow label="Voice dictation" hint="Shows a mic icon in the field so clinicians can dictate the value.">
+          <Toggle label="Enable mic dictation" value={field.enable_dictation !== false} onChange={v => set('enable_dictation', v)} />
         </PropRow>
       </>
     )

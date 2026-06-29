@@ -176,6 +176,7 @@ const INPUT_CLS = 'w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm 
 const INPUT_ERROR_CLS = 'border-red-400 focus:ring-red-200 focus:border-red-500'
 
 function TextField({ field, value, onChange, error }) {
+  const dictation = field.enable_dictation !== false
   return (
     <div>
       <FieldLabel field={field} />
@@ -185,13 +186,15 @@ function TextField({ field, value, onChange, error }) {
           value={value || ''}
           onChange={e => onChange(e.target.value)}
           placeholder={field.placeholder}
-          className={`${INPUT_CLS} pr-10 ${error ? INPUT_ERROR_CLS : ''}`}
+          className={`${INPUT_CLS} ${dictation ? 'pr-10' : ''} ${error ? INPUT_ERROR_CLS : ''}`}
         />
-        <MicButton
-          fieldId={field.field_id}
-          value={value}
-          onAppend={val => onChange((value || '') + ' ' + val)}
-        />
+        {dictation && (
+          <MicButton
+            fieldId={field.field_id}
+            value={value}
+            onAppend={val => onChange((value || '') + ' ' + val)}
+          />
+        )}
       </div>
       <FieldError error={error} />
     </div>
@@ -200,6 +203,7 @@ function TextField({ field, value, onChange, error }) {
 
 function TextAreaField({ field, value, onChange, error }) {
   const max = field.max_length
+  const dictation = field.enable_dictation !== false
   return (
     <div>
       <FieldLabel field={field} />
@@ -210,13 +214,15 @@ function TextAreaField({ field, value, onChange, error }) {
           rows={field.rows || 3}
           maxLength={max || undefined}
           placeholder={field.placeholder}
-          className={`${INPUT_CLS} resize-y pr-10 ${error ? INPUT_ERROR_CLS : ''}`}
+          className={`${INPUT_CLS} resize-y ${dictation ? 'pr-10' : ''} ${error ? INPUT_ERROR_CLS : ''}`}
         />
-        <MicButton
-          fieldId={field.field_id}
-          value={value}
-          onAppend={val => onChange((value || '') + ' ' + val)}
-        />
+        {dictation && (
+          <MicButton
+            fieldId={field.field_id}
+            value={value}
+            onAppend={val => onChange((value || '') + ' ' + val)}
+          />
+        )}
       </div>
       {max && (
         <p className="text-right text-xs text-gray-400 mt-0.5">{(value || '').length}/{max}</p>
