@@ -685,6 +685,11 @@ safe_cols = [
     #    above, but ensure it exists on DBs created from an older schema. ──
     \"ALTER TABLE assessment_forms ADD COLUMN IF NOT EXISTS clinic_id INTEGER\",
     \"CREATE INDEX IF NOT EXISTS idx_assessment_forms_clinic ON assessment_forms(clinic_id)\",
+
+    # ── Care forms (clinician-composed care plans) — durable storage (they were kept
+    #    in-memory, so every redeploy wiped them). One bundle of forms per health center. ──
+    \"CREATE TABLE IF NOT EXISTS care_forms (id VARCHAR(40) PRIMARY KEY, clinic_id INTEGER REFERENCES clinics(id), name VARCHAR(200), description TEXT, color VARCHAR(20), forms JSONB DEFAULT '[]'::jsonb, conditions JSONB DEFAULT '[]'::jsonb, published BOOLEAN DEFAULT FALSE, created_by INTEGER, created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE INDEX IF NOT EXISTS idx_care_forms_clinic ON care_forms(clinic_id)\",
 ]
 ok = 0
 failed = 0

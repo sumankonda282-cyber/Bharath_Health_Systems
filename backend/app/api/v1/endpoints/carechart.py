@@ -11,67 +11,107 @@ from datetime import datetime
 import secrets
 from app.models.models import (
     Staff, FormAssignment, AssessmentForm, Patient, Appointment,
-    FormSubmission, iViewFlowsheet, iViewObservation, FormAlert,
+    FormSubmission, iViewFlowsheet, iViewObservation, FormAlert, CareForm,
 )
 
 router = APIRouter(tags=["carechart"])
 
 
-# ── Care Forms (nursing care plans stored against the clinic) ─────────────────
+# ── Care Forms (clinician-composed care plans, durable, per health center) ────
+# Composed by providers/nurses (combine existing forms into a care plan); field-level
+# editing stays admin-only. DB-backed so they survive redeploys. Tenant-isolated by
+# clinic_id taken from the JWT — never the client.
 
-_care_forms_store: dict = {}  # In-memory fallback; replace with DB table when schema allows
+def _care_form_dict(cf: CareForm) -> dict:
+    return {
+        "id":          cf.id,
+        "clinic_id":   cf.clinic_id,
+        "name":        cf.name,
+        "description": cf.description,
+        "color":       cf.color,
+        "forms":       cf.forms or [],
+        "conditions":  cf.conditions or [],
+        "alerts":      cf.conditions or [],   # builder reads `.alerts`; mirror conditions
+        "published":   bool(cf.published),
+        "updated_at":  cf.updated_at.isoformat() if cf.updated_at else None,
+    }
+
+
+def _apply_care_form_body(cf: CareForm, body: dict):
+    if "name" in body:        cf.name        = body.get("name")
+    if "description" in body:  cf.description = body.get("description")
+    if "color" in body:       cf.color       = body.get("color")
+    if "forms" in body:       cf.forms       = body.get("forms") or []
+    # accept either key the client may send for the condition/alert rules
+    if "conditions" in body:  cf.conditions  = body.get("conditions") or []
+    elif "alerts" in body:    cf.conditions  = body.get("alerts") or []
 
 
 @router.get("/carechart/care-forms")
 def list_care_forms(db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
-    forms = _care_forms_store.get(current.clinic_id, [])
-    return forms
+    rows = (db.query(CareForm)
+              .filter(CareForm.clinic_id == current.clinic_id)
+              .order_by(CareForm.created_at.desc())
+              .all())
+    return [_care_form_dict(cf) for cf in rows]
 
 
 @router.post("/carechart/care-forms")
 def create_care_form(body: dict, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
     import uuid
-    form_id = str(uuid.uuid4())
-    form = {**body, "id": form_id, "clinic_id": current.clinic_id, "published": False}
-    _care_forms_store.setdefault(current.clinic_id, []).append(form)
-    return form
+    cf = CareForm(
+        id=str(uuid.uuid4()),
+        clinic_id=current.clinic_id,
+        created_by=current.id,
+        published=False,
+    )
+    _apply_care_form_body(cf, body)
+    db.add(cf)
+    db.commit()
+    db.refresh(cf)
+    return _care_form_dict(cf)
 
 
 @router.put("/carechart/care-forms/{form_id}")
 def update_care_form(form_id: str, body: dict, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
-    forms = _care_forms_store.get(current.clinic_id, [])
-    for i, f in enumerate(forms):
-        if str(f.get("id")) == form_id:
-            forms[i] = {**f, **body, "id": form_id}
-            return forms[i]
-    raise HTTPException(status_code=404, detail="Care form not found")
+    cf = db.query(CareForm).filter(CareForm.id == form_id, CareForm.clinic_id == current.clinic_id).first()
+    if not cf:
+        raise HTTPException(status_code=404, detail="Care form not found")
+    _apply_care_form_body(cf, body)
+    db.commit()
+    db.refresh(cf)
+    return _care_form_dict(cf)
 
 
 @router.delete("/carechart/care-forms/{form_id}")
 def delete_care_form(form_id: str, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
-    forms = _care_forms_store.get(current.clinic_id, [])
-    _care_forms_store[current.clinic_id] = [f for f in forms if str(f.get("id")) != form_id]
+    cf = db.query(CareForm).filter(CareForm.id == form_id, CareForm.clinic_id == current.clinic_id).first()
+    if cf:
+        db.delete(cf)
+        db.commit()
     return {"ok": True}
 
 
 @router.post("/carechart/care-forms/{form_id}/publish")
 def publish_care_form(form_id: str, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
-    forms = _care_forms_store.get(current.clinic_id, [])
-    for i, f in enumerate(forms):
-        if str(f.get("id")) == form_id:
-            forms[i]["published"] = True
-            return forms[i]
-    raise HTTPException(status_code=404, detail="Care form not found")
+    cf = db.query(CareForm).filter(CareForm.id == form_id, CareForm.clinic_id == current.clinic_id).first()
+    if not cf:
+        raise HTTPException(status_code=404, detail="Care form not found")
+    cf.published = True
+    db.commit()
+    db.refresh(cf)
+    return _care_form_dict(cf)
 
 
 @router.post("/carechart/care-forms/{form_id}/unpublish")
 def unpublish_care_form(form_id: str, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
-    forms = _care_forms_store.get(current.clinic_id, [])
-    for i, f in enumerate(forms):
-        if str(f.get("id")) == form_id:
-            forms[i]["published"] = False
-            return forms[i]
-    raise HTTPException(status_code=404, detail="Care form not found")
+    cf = db.query(CareForm).filter(CareForm.id == form_id, CareForm.clinic_id == current.clinic_id).first()
+    if not cf:
+        raise HTTPException(status_code=404, detail="Care form not found")
+    cf.published = False
+    db.commit()
+    db.refresh(cf)
+    return _care_form_dict(cf)
 
 
 # ── Provider Forms proxy (read-only for nurses) ───────────────────────────────

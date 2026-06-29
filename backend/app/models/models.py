@@ -2347,6 +2347,25 @@ class StaffFormFavorite(Base):
     created_at = Column(DateTime, server_default=func.now())
 
 
+class CareForm(Base):
+    """A clinician-composed 'care form' (care plan) — a named bundle of existing
+    assessment forms/sections, internal to one health center (clinic_id). Composed by
+    providers/nurses; field-level editing stays admin-only (forms are referenced, not
+    edited). Durable (DB-backed) so it survives redeploys."""
+    __tablename__ = "care_forms"
+    id          = Column(String(40), primary_key=True)   # client/uuid string id
+    clinic_id   = Column(Integer, ForeignKey("clinics.id"), index=True)
+    name        = Column(String(200))
+    description = Column(Text, nullable=True)
+    color       = Column(String(20), nullable=True)
+    forms       = Column(JSON, default=list)   # [{form_id, name, freq, condition, _cat}]
+    conditions  = Column(JSON, default=list)   # alert / condition rules
+    published   = Column(Boolean, default=False)
+    created_by  = Column(Integer, nullable=True)
+    created_at  = Column(DateTime, server_default=func.now())
+    updated_at  = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
 # ─── Medical Terminology Library (dynamic — replaces all hardcoded disease/symptom lists) ───
 
 class MedicalTerm(Base):
