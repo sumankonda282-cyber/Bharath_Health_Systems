@@ -1199,6 +1199,58 @@ def _comment_out(c: "FormSubmissionComment") -> dict:
     }
 
 
+@router.get("/submissions")
+def list_patient_submissions(
+    db:             Session       = Depends(get_db),
+    patient_id:     Optional[str] = Query(None),
+    date_from:      Optional[str] = Query(None),
+    date_to:        Optional[str] = Query(None),
+    limit:          int           = Query(100, ge=1, le=500),
+    offset:         int           = Query(0, ge=0),
+):
+    """All signed (non-draft, active) submissions for a patient across all forms.
+    Joins AssessmentForm to include form_title. Optionally filter by date range
+    (submitted_at). New additive endpoint — existing consumers unaffected."""
+    q = (
+        db.query(FormSubmission, AssessmentForm.title.label("form_title"))
+        .outerjoin(AssessmentForm, AssessmentForm.id == FormSubmission.form_id)
+        .filter(
+            FormSubmission.is_draft.is_(False),
+            FormSubmission.record_status == "active",
+        )
+    )
+    if patient_id:
+        q = q.filter(FormSubmission.patient_id == patient_id)
+    if date_from:
+        try:
+            q = q.filter(FormSubmission.submitted_at >= datetime.fromisoformat(date_from))
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            q = q.filter(FormSubmission.submitted_at <= datetime.fromisoformat(date_to))
+        except ValueError:
+            pass
+    total = q.count()
+    rows = q.order_by(FormSubmission.submitted_at.desc()).offset(offset).limit(limit).all()
+    return {
+        "total": total,
+        "items": [
+            {
+                "id":           sub.id,
+                "form_id":      sub.form_id,
+                "form_title":   form_title or "Assessment Form",
+                "patient_id":   sub.patient_id,
+                "encounter_id": sub.encounter_id,
+                "admission_id": sub.admission_id,
+                "submitted_by": sub.submitted_by,
+                "submitted_at": sub.submitted_at.isoformat() if sub.submitted_at else None,
+            }
+            for sub, form_title in rows
+        ],
+    }
+
+
 @router.get("/submissions/{submission_id}")
 def get_submission(submission_id: int, db: Session = Depends(get_db)):
     sub = db.query(FormSubmission).filter(FormSubmission.id == submission_id).first()
