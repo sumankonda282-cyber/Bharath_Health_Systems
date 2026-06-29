@@ -833,7 +833,7 @@ class ResetPasswordRequest(BaseModel):
 
 
 @router.post("/platform/forgot-password")
-@limiter.limit("3/minute")
+@limiter.limit("10/minute")
 def platform_forgot_password(request: Request, payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
     """Send a password reset link to the platform admin's email."""
     admin = db.query(PlatformAdmin).filter(
