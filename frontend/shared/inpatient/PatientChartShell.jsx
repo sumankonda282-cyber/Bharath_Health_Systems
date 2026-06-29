@@ -259,14 +259,21 @@ function AssessmentPanel({ onOpenForm, api }) {
   useEffect(() => {
     if (!api) return
     let alive = true
-    Promise.all([
-      api.get('/assessment-forms/', { params: { status: 'published', limit: 1000 } }).catch(() => null),
-      api.get('/assessment-forms/favorites').catch(() => null),
-    ]).then(([pool, favs]) => {
+    ;(async () => {
+      // Scope to this health center: global forms + our own clinic's forms only.
+      // If clinic can't be resolved, fall back to unscoped (returns all) — no regression.
+      let clinicId = null
+      try { const me = await api.get('/auth/staff/me'); clinicId = me?.clinic_id ?? null } catch { /* unscoped */ }
+      const params = { status: 'published', limit: 1000 }
+      if (clinicId != null) params.clinic_id = clinicId
+      const [pool, favs] = await Promise.all([
+        api.get('/assessment-forms/', { params }).catch(() => null),
+        api.get('/assessment-forms/favorites').catch(() => null),
+      ])
       if (!alive) return
       if (pool) setDbForms(pool.forms || [])
       if (favs) { setFavPersonal(favs.personal || []); setFavOrg(favs.organization || []) }
-    })
+    })()
     return () => { alive = false }
   }, [api])
 

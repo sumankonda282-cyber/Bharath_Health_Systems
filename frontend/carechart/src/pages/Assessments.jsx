@@ -539,8 +539,13 @@ export default function Assessments() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
+      // Scope to this health center: global forms + our own clinic's forms only.
+      let clinicId = null
+      try { const me = await api.get('/auth/staff/me'); clinicId = me?.clinic_id ?? null } catch { /* unscoped */ }
+      const formParams = { status: 'published', limit: 1000 }
+      if (clinicId != null) formParams.clinic_id = clinicId
       const [fPool, cForms] = await Promise.allSettled([
-        api.get('/assessment-forms/', { params: { status: 'published', limit: 1000 } }),
+        api.get('/assessment-forms/', { params: formParams }),
         api.get('/carechart/care-forms'),
       ])
       const poolData = fPool.status  === 'fulfilled' ? (fPool.value?.forms || []) : []
@@ -839,7 +844,7 @@ export default function Assessments() {
       {builder && (
         <CareFormBuilder
           careForm={builder}
-          allForms={forms}
+          allForms={forms.map(f => ({ ...f, name: f.title || f.name, fields_count: f.question_count ?? f.fields_count ?? 0 }))}
           onSave={handleSaveCareForms}
           onClose={() => setBuilder(null)}
         />

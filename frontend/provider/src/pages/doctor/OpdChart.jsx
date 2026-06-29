@@ -323,10 +323,18 @@ function AssessmentPanel({ onOpenForm, onCollapse }) {
 
   useEffect(() => {
     let alive = true
-    api.get('/assessment-forms', { params: { status: 'published', limit: 300 } })
-      .then(r => { if (alive) setForms(r?.forms || []) })
-      .catch(() => { /* leave empty */ })
-      .finally(() => { if (alive) setLoading(false) })
+    ;(async () => {
+      // Scope to this health center: global forms + our own clinic's forms only.
+      let clinicId = null
+      try { const me = await api.get('/auth/staff/me'); clinicId = me?.clinic_id ?? null } catch { /* unscoped */ }
+      const params = { status: 'published', limit: 300 }
+      if (clinicId != null) params.clinic_id = clinicId
+      try {
+        const r = await api.get('/assessment-forms', { params })
+        if (alive) setForms(r?.forms || [])
+      } catch { /* leave empty */ }
+      finally { if (alive) setLoading(false) }
+    })()
     loadFavs()
     return () => { alive = false }
   }, [loadFavs])

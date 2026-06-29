@@ -32,6 +32,7 @@ const IViewFlowsheet = lazy(() => import('./pages/forms/iViewFlowsheet'))
 const FormTaskList   = lazy(() => import('./pages/forms/FormTaskList'))
 const FormFiller     = lazy(() => import('./pages/forms/FormFiller'))
 const SubmissionViewer = lazy(() => import('./pages/forms/SubmissionViewer'))
+const CareForms      = lazy(() => import('./pages/forms/CareForms'))
 const TelehealthDesk = lazy(() => import('./pages/telehealth/TelehealthDesk'))
 const TelehealthCall = lazy(() => import('./pages/telehealth/TelehealthCall'))
 const OpdChart       = lazy(() => import('./pages/doctor/OpdChart'))
@@ -81,6 +82,7 @@ function AppRoutes() {
         <Route path="/forms/iview"           element={<Suspense fallback={<PageLoader />}><IViewSelector /></Suspense>} />
         <Route path="/forms/iview/:formId"   element={<Suspense fallback={<PageLoader />}><IViewFlowsheet /></Suspense>} />
         <Route path="/forms"                 element={<Suspense fallback={<PageLoader />}><FormTaskList /></Suspense>} />
+        <Route path="/forms/care"            element={<Suspense fallback={<PageLoader />}><CareForms /></Suspense>} />
         <Route path="/forms/fill/:assignmentId" element={<Suspense fallback={<PageLoader />}><FormFiller /></Suspense>} />
         <Route path="/forms/submission/:id"  element={<Suspense fallback={<PageLoader />}><SubmissionViewer /></Suspense>} />
         <Route path="/telehealth"   element={<Suspense fallback={<PageLoader />}><TelehealthDesk /></Suspense>} />
