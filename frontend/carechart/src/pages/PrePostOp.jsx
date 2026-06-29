@@ -3,7 +3,7 @@ import {
   ChevronDown, ChevronUp, Lock, Loader2, X, Plus, Check,
   AlertTriangle, AlertCircle, CheckCircle2, Clock, Activity,
   Scissors, Heart, Wind, Droplets, TrendingUp, FileText,
-  ClipboardList, User, ArrowRight, Printer
+  ClipboardList, User, ArrowRight, Printer, Save
 } from 'lucide-react'
 import api from '../api/client'
 
@@ -13,6 +13,7 @@ const AMBER = '#a16207'
 // ─── helpers ──────────────────────────────────────────────────────────────────
 const fmtDt = d => d ? new Date(d).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true }) : '—'
 const fmtDate = d => d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
+const nowIso = () => new Date().toISOString()
 
 function dur(start, end) {
   const m = Math.round((new Date(end) - new Date(start)) / 60000)
@@ -108,6 +109,19 @@ function Row({ label, value, flag }) {
   )
 }
 
+// ─── Field helpers for drawers ─────────────────────────────────────────────────
+function Field({ label, children }) {
+  return (
+    <div className="mb-3">
+      <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">{label}</label>
+      {children}
+    </div>
+  )
+}
+
+const inputCls = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-green-400'
+const selectCls = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-green-400 bg-white'
+
 // ─── mock data ────────────────────────────────────────────────────────────────
 function buildMock() {
   return {
@@ -182,7 +196,7 @@ function buildMock() {
         { drug: 'Metoprolol',   dose: '25 mg', route: 'PO', scheduled: '09:00', given: '09:05', by: 'SP', status: 'given' },
         { drug: 'Cefazolin',    dose: '2g',    route: 'IV', scheduled: '09:30', given: null,    by: null,  status: 'pending' },
       ],
-      ot_transfer: { done: true, time_left: '2026-06-15T09:47:00', escorted_by: 'Nurse Suresh Pillai', handover_to: 'OT Nurse Meena', mode: 'Trolley', iv_running: true, o2_required: false, family_informed: true, remarks: 'Patient calm and cooperative' },
+      ot_transfer: null,
     },
     intraop: {
       procedure_performed: 'Laparoscopic Appendectomy',
@@ -199,47 +213,29 @@ function buildMock() {
     },
     postop: {
       return_ward: '2026-06-15T12:30:00', recovery_duration_min: 83, consciousness: 'Alert', pod: 1,
-      aldrete: { recorded_at: '2026-06-15T11:50:00', activity: 2, respiration: 2, circulation: 2, consciousness: 2, spo2: 2, by: 'Recovery Nurse Divya', nausea: false },
-      vitals: [
-        { time: '2026-06-15T12:35:00', bp: '118/76', pulse: 88, temp: 37.2, spo2: 98, rr: 16, avpu: 'A', pain_rest: 6, pain_move: 8, by: 'RK' },
-        { time: '2026-06-15T13:05:00', bp: '120/78', pulse: 84, temp: 37.3, spo2: 98, rr: 16, avpu: 'A', pain_rest: 5, pain_move: 7, by: 'RK' },
-        { time: '2026-06-15T14:00:00', bp: '122/80', pulse: 80, temp: 37.4, spo2: 99, rr: 15, avpu: 'A', pain_rest: 4, pain_move: 6, by: 'SP' },
-        { time: '2026-06-15T18:00:00', bp: '124/82', pulse: 78, temp: 37.5, spo2: 98, rr: 15, avpu: 'A', pain_rest: 3, pain_move: 4, by: 'SP' },
-        { time: '2026-06-15T22:00:00', bp: '122/80', pulse: 76, temp: 37.3, spo2: 99, rr: 14, avpu: 'A', pain_rest: 2, pain_move: 3, by: 'NK' },
-        { time: '2026-06-16T06:00:00', bp: '120/78', pulse: 74, temp: 37.2, spo2: 99, rr: 14, avpu: 'A', pain_rest: 2, pain_move: 2, by: 'NK' },
-      ],
-      pain_log: [
-        { time: '2026-06-15T12:40:00', site: 'Abdomen RIF', character: 'Sharp', rest: 6, move: 8, intervention: 'Morphine 2mg IV', response: 4, by: 'RK' },
-        { time: '2026-06-15T14:00:00', site: 'Abdomen RIF', character: 'Dull aching', rest: 4, move: 6, intervention: 'Paracetamol 1g IV', response: 3, by: 'SP' },
-        { time: '2026-06-15T22:00:00', site: 'Abdomen RIF', character: 'Mild aching', rest: 2, move: 3, intervention: 'Repositioned', response: 2, by: 'NK' },
-      ],
+      aldrete: null,
+      vitals: [],
+      pain_log: [],
       wounds: [
-        { id: 1, label: 'Wound 1 — Umbilical', site: 'Umbilicus', closure: 'Sutures', appearance: 'Dry', edges: 'Well-approximated', surrounding: 'Normal', dressing: 'Gauze + Tegaderm', last_changed: '2026-06-16T06:30:00', changed_by: 'NK', culture_sent: false, history: [{ time: '2026-06-15T13:00:00', appearance: 'Slightly moist', edges: 'Well-approximated', by: 'RK' }, { time: '2026-06-16T06:30:00', appearance: 'Dry', edges: 'Well-approximated', by: 'NK' }] },
-        { id: 2, label: 'Wound 2 — RIF port', site: 'Right Iliac Fossa', closure: 'Staples', appearance: 'Seeping', edges: 'Well-approximated', surrounding: 'Mild erythema', dressing: 'Absorbent pad', last_changed: '2026-06-16T06:35:00', changed_by: 'NK', culture_sent: false, history: [{ time: '2026-06-15T13:00:00', appearance: 'Seeping', edges: 'Well-approximated', by: 'RK' }] },
+        { id: 1, label: 'Wound 1 — Umbilical', site: 'Umbilicus', closure: 'Sutures', appearance: 'Dry', edges: 'Well-approximated', surrounding: 'Normal', dressing: 'Gauze + Tegaderm', last_changed: '2026-06-16T06:30:00', changed_by: 'NK', culture_sent: false, history: [] },
+        { id: 2, label: 'Wound 2 — RIF port', site: 'Right Iliac Fossa', closure: 'Staples', appearance: 'Seeping', edges: 'Well-approximated', surrounding: 'Mild erythema', dressing: 'Absorbent pad', last_changed: '2026-06-16T06:35:00', changed_by: 'NK', culture_sent: false, history: [] },
       ],
       drains: [
-        { id: 1, name: 'JP Drain 1', type: 'Jackson-Pratt', site: 'Right Iliac Fossa', suction: false, patency: 'Patent', color: 'Serosanguineous', shift_output: 45, total_output: 180, last_emptied: '2026-06-16T06:00:00', emptied_by: 'NK', removed: false, log: [{ time: '2026-06-15T12:30:00', amount: 10, color: 'Sanguineous', by: 'RK' }, { time: '2026-06-15T18:00:00', amount: 80, color: 'Serosanguineous', by: 'SP' }, { time: '2026-06-15T22:00:00', amount: 45, color: 'Serosanguineous', by: 'NK' }, { time: '2026-06-16T06:00:00', amount: 45, color: 'Serous', by: 'NK' }] },
+        { id: 1, name: 'JP Drain 1', type: 'Jackson-Pratt', site: 'Right Iliac Fossa', suction: false, patency: 'Patent', color: 'Serosanguineous', shift_output: 45, total_output: 180, last_emptied: '2026-06-16T06:00:00', emptied_by: 'NK', removed: false, log: [] },
       ],
       respiratory: {
         o2: { type: 'Nasal Prongs', flow: 2, target_spo2: '≥95%', status: 'Weaning' },
-        spirometry: [{ time: '2026-06-15T14:00:00', target: 1000, achieved: 600, by: 'SP' }, { time: '2026-06-15T18:00:00', target: 1000, achieved: 800, by: 'SP' }, { time: '2026-06-16T06:00:00', target: 1000, achieved: 950, by: 'NK' }],
-        breath_sounds: [{ time: '2026-06-15T13:00:00', right: 'Vesicular', left: 'Vesicular', by: 'RK' }, { time: '2026-06-16T06:00:00', right: 'Vesicular', left: 'Reduced bases', by: 'NK' }],
-        deep_breathing: [{ shift: 'Afternoon 15 Jun', done: true, time: '2026-06-15T15:00:00', by: 'SP' }, { shift: 'Night 15 Jun', done: true, time: '2026-06-15T22:00:00', by: 'NK' }, { shift: 'Morning 16 Jun', done: true, time: '2026-06-16T07:00:00', by: 'NK' }],
+        spirometry: [],
+        breath_sounds: [],
+        deep_breathing: [],
       },
-      fluid_balance: {
-        in: [{ type: 'NS 0.9% IV', volume: 1000, time: '2026-06-15T12:30:00' }, { type: 'RL IV', volume: 500, time: '2026-06-15T16:00:00' }, { type: 'Oral intake', volume: 300, time: '2026-06-15T19:00:00' }],
-        out: [{ type: 'Urine (catheter)', volume: 1100, time: '2026-06-15T12:30:00' }, { type: 'JP Drain', volume: 180, time: '2026-06-15T12:30:00' }],
-      },
-      mobility: [
-        { time: '2026-06-15T16:00:00', level: 'Sitting up', assisted_by: 'Nurse SP', tolerance: 'Good', pain: false, distance: null, by: 'SP' },
-        { time: '2026-06-15T20:00:00', level: 'Dangling', assisted_by: 'Nurse SP', tolerance: 'Good', pain: true, distance: null, by: 'SP' },
-        { time: '2026-06-16T07:30:00', level: 'Walking in room', assisted_by: 'Nurse NK', tolerance: 'Good', pain: false, distance: 10, by: 'NK' },
-      ],
+      fluid_balance: { in: [], out: [] },
+      mobility: [],
       dvt: { stockings_am: true, stockings_pm: true, scd: false, lmwh: 'Enoxaparin 40mg SC — Last: 15 Jun 22:00' },
       milestones: {
-        'Return of bowel sounds':       { done: true,  time: '2026-06-15T18:00:00', by: 'SP',         notes: 'Heard all 4 quadrants' },
-        'First flatus':                 { done: true,  time: '2026-06-15T20:30:00', by: 'SP',         notes: '' },
-        'First oral intake':            { done: true,  time: '2026-06-15T19:00:00', by: 'SP',         notes: 'Sips of water tolerated' },
+        'Return of bowel sounds':       { done: false, time: null, by: null, notes: '' },
+        'First flatus':                 { done: false, time: null, by: null, notes: '' },
+        'First oral intake':            { done: false, time: null, by: null, notes: '' },
         'Diet upgraded to soft':        { done: false, time: null, by: null, notes: '' },
         'Diet upgraded to normal':      { done: false, time: null, by: null, notes: '' },
         'Urinary catheter removed':     { done: false, time: null, by: null, notes: '' },
@@ -247,12 +243,12 @@ function buildMock() {
         'All drains removed':           { done: false, time: null, by: null, notes: '' },
         'IV to oral medications':       { done: false, time: null, by: null, notes: '' },
         'First independent ambulation': { done: false, time: null, by: null, notes: '' },
-        'Wound reviewed by surgeon':    { done: true,  time: '2026-06-15T16:00:00', by: 'Dr. Sharma', notes: 'Satisfactory' },
+        'Wound reviewed by surgeon':    { done: false, time: null, by: null, notes: '' },
         'Patient education completed':  { done: false, time: null, by: null, notes: '' },
         'Family education completed':   { done: false, time: null, by: null, notes: '' },
         'Discharge criteria met':       { done: false, time: null, by: null, notes: '' },
       },
-      surgeon_instructions: 'Sips of water when fully awake. Clear liquids in 4h if tolerating. Remove JP drain when output <30 mL/day × 2 days. Mobilise early — day 1 post-op. DVT prophylaxis Enoxaparin 40mg SC OD × 5 days. Wound review OPD at 1 week. Staples removal at 10 days.',
+      surgeon_instructions: '',
       surgeon_instructions_reviewed: false,
       discharge_criteria: {
         'Vitals stable ≥24h': false, 'Afebrile ≥24h': false, 'Pain controlled on oral analgesics': false,
@@ -464,7 +460,7 @@ function Investigations({ items }) {
 function PreMeds({ premeds }) {
   return (
     <Card>
-      <SH title="Pre-op Medications" action="Add Pre-med" onAction={() => {}} />
+      <SH title="Pre-op Medications" />
       <table className="w-full">
         <thead>
           <tr style={{ background: '#f9fafb' }}>
@@ -537,59 +533,46 @@ function IntraopView({ intraop }) {
       <div className="grid grid-cols-2 gap-4 mb-4">
         <Card>
           <SH title="Procedure Details" />
-          <Row label="Procedure Performed" value={io.procedure_performed} />
-          <Row label="OT Start" value={fmtDt(io.start)} />
-          <Row label="OT End" value={fmtDt(io.end)} />
-          <Row label="Duration" value={io.start && io.end ? dur(io.start, io.end) : '—'} />
-          <Row label="Patient Position" value={io.position} />
-          <Row label="Estimated Blood Loss" value={io.blood_loss_ml ? `${io.blood_loss_ml} mL` : '—'} />
-          <Row label="Intra-op Complications" value={io.complications} />
-          <Row label="Count Correct" value={io.count_correct ? '✓ Correct' : '✗ Discrepancy noted'} />
-          {io.surgeon_summary && (
-            <>
-              <p className="text-[10px] font-bold text-gray-400 mt-3 mb-1">Surgeon Summary</p>
-              <p className="text-xs text-gray-700 leading-relaxed">{io.surgeon_summary}</p>
-            </>
-          )}
+          <div className="space-y-1.5">
+            <Row label="Procedure Performed" value={io.procedure_performed} />
+            <Row label="Start Time" value={fmtDt(io.start)} />
+            <Row label="End Time" value={fmtDt(io.end)} />
+            <Row label="Duration" value={io.start && io.end ? dur(io.start, io.end) : '—'} />
+            <Row label="Position" value={io.position} />
+            <Row label="Blood Loss" value={io.blood_loss_ml != null ? `${io.blood_loss_ml} mL` : '—'} />
+            <Row label="Complications" value={io.complications} />
+          </div>
         </Card>
         <Card>
-          <SH title="Anaesthesia Record" />
-          <Row label="Type" value={io.anaesthesia_type} />
-          <Row label="Agents" value={io.agents} />
-          <Row label="Intubated" value={io.intubated ? 'Yes' : 'No'} />
-          <Row label="Reversal" value={io.reversal} />
-          <Row label="Total Urine Output" value={io.urine_output_ml ? `${io.urine_output_ml} mL` : '—'} />
-          <p className="text-[10px] font-bold text-gray-400 mt-3 mb-2">Fluids Administered</p>
+          <SH title="Anaesthesia" />
+          <div className="space-y-1.5">
+            <Row label="Type" value={io.anaesthesia_type} />
+            <Row label="Agents" value={io.agents} />
+            <Row label="Intubated" value={io.intubated ? 'Yes' : 'No'} />
+            <Row label="Reversal" value={io.reversal} />
+            <Row label="Urine Output" value={io.urine_output_ml != null ? `${io.urine_output_ml} mL` : '—'} />
+            <Row label="Count Correct" value={io.count_correct ? 'Yes' : 'No'} />
+          </div>
+        </Card>
+      </div>
+      <Card>
+        <SH title="Intra-op Fluids" />
+        <div className="space-y-1.5">
           {(io.fluids || []).map((f, i) => (
-            <div key={i} className="flex justify-between text-xs py-1 border-b last:border-0" style={{ borderColor: '#f3f4f6' }}>
+            <div key={i} className="flex justify-between text-xs py-1.5 border-b last:border-0" style={{ borderColor: '#f3f4f6' }}>
               <span className="text-gray-700">{f.type}</span>
               <span className="font-semibold text-gray-800">{f.volume_ml} mL</span>
             </div>
           ))}
-          <div className="flex justify-between text-xs py-1 font-bold mt-1" style={{ color: NAVY }}>
-            <span>Total IN</span><span>{totalIn} mL</span>
+          <div className="flex justify-between text-xs font-bold py-1.5 mt-1" style={{ color: NAVY }}>
+            <span>Total</span><span>{totalIn} mL</span>
           </div>
-          {(io.blood_products || []).length > 0 && (
-            <>
-              <p className="text-[10px] font-bold text-gray-400 mt-3 mb-1">Blood Products</p>
-              {io.blood_products.map((b, i) => <div key={i} className="text-xs text-gray-700">{b.product} × {b.units}</div>)}
-            </>
-          )}
-        </Card>
-      </div>
-      <Card>
-        <SH title="Drains Placed in OT" />
-        {!(io.drains?.length) ? <p className="text-xs text-gray-400">No drains placed</p> : (
-          <table className="w-full">
-            <thead><tr style={{ background: '#f9fafb' }}>{['Drain', 'Type', 'Site', 'Insertion Time', 'Initial Output', 'Secured'].map(h => <th key={h} className="px-3 py-2 text-left text-[9px] font-bold uppercase tracking-wider text-gray-400 border-b" style={{ borderColor: '#e9eaec' }}>{h}</th>)}</tr></thead>
-            <tbody>{io.drains.map((d, i) => <tr key={i} className="border-b last:border-0" style={{ borderColor: '#f3f4f6' }}><td className="px-3 py-2 text-xs font-semibold text-gray-800">{d.name}</td><td className="px-3 py-2 text-xs text-gray-600">{d.type}</td><td className="px-3 py-2 text-xs text-gray-600">{d.site}</td><td className="px-3 py-2 text-xs text-gray-500">{fmtDt(d.insertion_time)}</td><td className="px-3 py-2 text-xs text-gray-700">{d.initial_output_ml} mL</td><td className="px-3 py-2 text-xs text-green-700">{d.secured ? '✓' : '—'}</td></tr>)}</tbody>
-          </table>
-        )}
+        </div>
       </Card>
-      {(io.implants?.length > 0) && (
+      {io.surgeon_summary && (
         <Card>
-          <SH title="Implants / Prosthetics" />
-          <table className="w-full"><thead><tr style={{ background: '#f9fafb' }}>{['Type', 'Size', 'Serial / Lot Number'].map(h => <th key={h} className="px-3 py-2 text-left text-[9px] font-bold uppercase text-gray-400 border-b" style={{ borderColor: '#e9eaec' }}>{h}</th>)}</tr></thead><tbody>{io.implants.map((imp, i) => <tr key={i} className="border-b last:border-0" style={{ borderColor: '#f3f4f6' }}><td className="px-3 py-2 text-xs text-gray-800">{imp.type}</td><td className="px-3 py-2 text-xs text-gray-600">{imp.size}</td><td className="px-3 py-2 text-xs text-gray-500">{imp.lot}</td></tr>)}</tbody></table>
+          <SH title="Surgeon's Summary" />
+          <p className="text-sm text-gray-700 whitespace-pre-line">{io.surgeon_summary}</p>
         </Card>
       )}
     </div>
@@ -598,101 +581,96 @@ function IntraopView({ intraop }) {
 
 // ─── POSTOP sections ──────────────────────────────────────────────────────────
 function AldreteCard({ aldrete, onRecord }) {
-  const criteria = ['activity', 'respiration', 'circulation', 'consciousness', 'spo2']
-  const total = criteria.reduce((s, k) => s + (aldrete?.[k] || 0), 0)
-  const labels = { activity: 'Activity', respiration: 'Respiration', circulation: 'Circulation', consciousness: 'Consciousness', spo2: 'O₂ Saturation' }
+  if (!aldrete) {
+    return (
+      <Card>
+        <SH title="Recovery Room — Aldrete Score" />
+        <div className="flex flex-col items-center py-6 gap-2 text-gray-400">
+          <Activity size={24} className="opacity-30" />
+          <p className="text-xs">Aldrete score not yet recorded</p>
+          <button onClick={onRecord} className="text-xs font-semibold px-4 py-2 rounded-lg text-white mt-1" style={{ background: GREEN }}>Record Aldrete Score</button>
+        </div>
+      </Card>
+    )
+  }
+  const total = aldrete.activity + aldrete.respiration + aldrete.circulation + aldrete.consciousness + aldrete.spo2
+  const readyColor = total >= 9 ? '#15803d' : total >= 7 ? AMBER : RED
   return (
     <Card>
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Aldrete Score — Recovery Room</span>
-        <button onClick={onRecord} className="text-[10px] font-semibold px-2.5 py-1 rounded-lg border" style={{ color: GREEN, borderColor: '#a7f3d0', background: '#f0fdf4' }}>Record Score</button>
+      <div className="flex items-center justify-between mb-4">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Aldrete Score</span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold" style={{ color: readyColor }}>Score: {total}/10 {total >= 9 ? '— Discharge Ready' : '— Not yet ready'}</span>
+        </div>
       </div>
-      {aldrete ? (
-        <>
-          <div className="grid grid-cols-5 gap-2 mb-4">
-            {criteria.map(k => (
-              <div key={k} className="rounded-lg border p-2 text-center" style={{ borderColor: '#e9eaec', background: '#f9fafb' }}>
-                <div className="text-[8px] font-bold uppercase tracking-wider text-gray-400 mb-1">{labels[k]}</div>
-                <div className="text-xl font-extrabold" style={{ color: aldrete[k] >= 2 ? '#15803d' : aldrete[k] >= 1 ? AMBER : RED }}>{aldrete[k]}</div>
-                <div className="text-[8px] text-gray-400">/ 2</div>
-              </div>
-            ))}
+      <div className="grid grid-cols-5 gap-2 mb-4">
+        {[['Activity', aldrete.activity], ['Respiration', aldrete.respiration], ['Circulation', aldrete.circulation], ['Consciousness', aldrete.consciousness], ['SpO₂', aldrete.spo2]].map(([l, v]) => (
+          <div key={l} className="rounded-lg border p-2 text-center" style={{ borderColor: '#e9eaec', background: '#f9fafb' }}>
+            <div className="text-[9px] font-bold uppercase tracking-wider text-gray-400">{l}</div>
+            <div className="text-xl font-extrabold text-gray-800 mt-0.5">{v}</div>
           </div>
-          <div className={`rounded-lg border p-3 text-center ${total >= 9 ? 'border-green-400 bg-green-50' : 'border-amber-300 bg-amber-50'}`}>
-            <span className="text-sm font-extrabold" style={{ color: total >= 9 ? '#15803d' : AMBER }}>Total: {total}/10</span>
-            <span className="text-xs ml-2" style={{ color: total >= 9 ? '#15803d' : AMBER }}>{total >= 9 ? '✦ Discharge criteria met' : 'Below discharge threshold (9)'}</span>
-          </div>
-          <div className="mt-2 text-[10px] text-gray-400">Assessed by {aldrete.by} · {fmtDt(aldrete.recorded_at)} · Nausea: {aldrete.nausea ? 'Yes' : 'No'}</div>
-        </>
-      ) : <p className="text-xs text-gray-400 text-center py-4">No Aldrete score recorded yet</p>}
+        ))}
+      </div>
+      <div className="text-xs text-gray-500">Recorded {fmtDt(aldrete.recorded_at)} by {aldrete.by} {aldrete.nausea && <span className="ml-2 text-amber-600 font-semibold">· Nausea present</span>}</div>
     </Card>
   )
 }
 
 function VitalsMonitor({ vitals, onRecord }) {
-  const alertCell = (val, type) => {
-    if (type === 'spo2' && Number(val) < 94) return { background: '#fee2e2', color: RED }
-    if (type === 'temp' && Number(val) > 38.5) return { background: '#fef9c3', color: AMBER }
-    if ((type === 'pain_rest' || type === 'pain_move') && Number(val) > 6) return { background: '#fee2e2', color: RED }
-    return {}
-  }
   return (
     <Card>
-      <SH title="Post-op Vitals Monitoring" action="Record Vitals" onAction={onRecord} />
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[700px]">
-          <thead><tr style={{ background: '#f9fafb' }}>{['Time','BP','Pulse','Temp','SpO₂','RR','AVPU','Pain (R)','Pain (M)','By'].map(h => <th key={h} className="px-2.5 py-2 text-left text-[9px] font-bold uppercase text-gray-400 border-b whitespace-nowrap" style={{ borderColor: '#e9eaec' }}>{h}</th>)}</tr></thead>
-          <tbody>
-            {vitals.map((v, i) => (
-              <tr key={i} className="border-b last:border-0 hover:bg-gray-50" style={{ borderColor: '#f3f4f6' }}>
-                <td className="px-2.5 py-1.5 text-[10px] text-gray-400 whitespace-nowrap">{fmtDt(v.time)}</td>
-                <td className="px-2.5 py-1.5 text-xs font-medium text-gray-800">{v.bp}</td>
-                <td className="px-2.5 py-1.5 text-xs text-gray-700">{v.pulse}</td>
-                <td className="px-2.5 py-1.5 text-xs rounded" style={alertCell(v.temp, 'temp')}>{v.temp}°C</td>
-                <td className="px-2.5 py-1.5 text-xs rounded" style={alertCell(v.spo2, 'spo2')}>{v.spo2}%</td>
-                <td className="px-2.5 py-1.5 text-xs text-gray-700">{v.rr}</td>
-                <td className="px-2.5 py-1.5 text-xs text-gray-700">{v.avpu}</td>
-                <td className="px-2.5 py-1.5 text-xs rounded text-center" style={alertCell(v.pain_rest, 'pain_rest')}>{v.pain_rest}</td>
-                <td className="px-2.5 py-1.5 text-xs rounded text-center" style={alertCell(v.pain_move, 'pain_move')}>{v.pain_move}</td>
-                <td className="px-2.5 py-1.5 text-xs text-gray-500">{v.by}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <SH title="Post-op Vitals" action="Record Vitals" onAction={onRecord} />
+      {vitals.length === 0 ? (
+        <p className="text-xs text-gray-400 italic py-2">No vitals recorded yet.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead><tr style={{ background: '#f9fafb' }}>{['Time','BP','Pulse','Temp','SpO₂','RR','AVPU','Pain (R/M)','By'].map(h => <th key={h} className="px-3 py-2 text-[9px] font-bold uppercase tracking-wider text-gray-400 border-b whitespace-nowrap" style={{ borderColor: '#e9eaec' }}>{h}</th>)}</tr></thead>
+            <tbody>
+              {vitals.map((v, i) => (
+                <tr key={i} className="border-b last:border-0 hover:bg-gray-50" style={{ borderColor: '#f3f4f6' }}>
+                  <td className="px-3 py-2 text-[10px] text-gray-400 whitespace-nowrap">{fmtDt(v.time)}</td>
+                  <td className="px-3 py-2 text-xs font-semibold text-gray-800">{v.bp}</td>
+                  <td className="px-3 py-2 text-xs text-gray-700">{v.pulse}</td>
+                  <td className="px-3 py-2 text-xs text-gray-700">{v.temp}°C</td>
+                  <td className="px-3 py-2 text-xs text-gray-700">{v.spo2}%</td>
+                  <td className="px-3 py-2 text-xs text-gray-700">{v.rr}</td>
+                  <td className="px-3 py-2 text-xs font-bold" style={{ color: v.avpu === 'A' ? '#15803d' : RED }}>{v.avpu}</td>
+                  <td className="px-3 py-2 text-xs text-gray-700">{v.pain_rest}/{v.pain_move}</td>
+                  <td className="px-3 py-2 text-xs text-gray-500">{v.by}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </Card>
   )
 }
 
 function PainManagement({ log, onAdd }) {
-  const scoreColor = s => s >= 7 ? RED : s >= 4 ? AMBER : '#15803d'
   return (
     <Card>
-      <SH title="Pain Management" action="Log Assessment" onAction={onAdd} />
-      <div className="mb-4 rounded-lg border p-3 flex gap-4" style={{ borderColor: '#e9eaec', background: '#f9fafb' }}>
-        {['Paracetamol/NSAIDs', 'Weak Opioid + Non-opioid', 'Strong Opioid'].map((step, i) => (
-          <div key={i} className={`flex-1 rounded-lg border p-2 text-center text-[10px] font-bold ${i === 0 ? 'border-green-400 bg-green-50 text-green-700' : 'border-gray-200 text-gray-400'}`}>
-            Step {i + 1}<br /><span className="font-normal">{step}</span>
-          </div>
-        ))}
-      </div>
-      <table className="w-full">
-        <thead><tr style={{ background: '#f9fafb' }}>{['Time','Site','Character','Rest','Move','Intervention','Response','By'].map(h => <th key={h} className="px-2.5 py-2 text-left text-[9px] font-bold uppercase text-gray-400 border-b whitespace-nowrap" style={{ borderColor: '#e9eaec' }}>{h}</th>)}</tr></thead>
-        <tbody>
-          {log.map((p, i) => (
-            <tr key={i} className="border-b last:border-0 hover:bg-gray-50" style={{ borderColor: '#f3f4f6' }}>
-              <td className="px-2.5 py-1.5 text-[10px] text-gray-400 whitespace-nowrap">{fmtDt(p.time)}</td>
-              <td className="px-2.5 py-1.5 text-xs text-gray-700">{p.site}</td>
-              <td className="px-2.5 py-1.5 text-xs text-gray-600">{p.character}</td>
-              <td className="px-2.5 py-1.5 text-sm font-bold text-center" style={{ color: scoreColor(p.rest) }}>{p.rest}</td>
-              <td className="px-2.5 py-1.5 text-sm font-bold text-center" style={{ color: scoreColor(p.move) }}>{p.move}</td>
-              <td className="px-2.5 py-1.5 text-xs text-gray-700">{p.intervention}</td>
-              <td className="px-2.5 py-1.5 text-sm font-bold text-center" style={{ color: scoreColor(p.response) }}>{p.response}</td>
-              <td className="px-2.5 py-1.5 text-xs text-gray-500">{p.by}</td>
-            </tr>
+      <SH title="Pain Management" action="Log Pain" onAction={onAdd} />
+      {log.length === 0 ? (
+        <p className="text-xs text-gray-400 italic py-2">No pain assessments recorded yet.</p>
+      ) : (
+        <div className="space-y-3">
+          {log.map((e, i) => (
+            <div key={i} className="border rounded-xl p-3" style={{ borderColor: '#e9eaec' }}>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] text-gray-400">{fmtDt(e.time)} · {e.by}</span>
+                <div className="flex gap-2">
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: '#fee2e2', color: RED }}>Rest: {e.rest}/10</span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: '#fff7ed', color: '#c2410c' }}>Move: {e.move}/10</span>
+                </div>
+              </div>
+              <p className="text-xs text-gray-700"><span className="font-semibold">{e.site}</span> — {e.character}</p>
+              {e.intervention && <p className="text-xs text-gray-500 mt-1">Intervention: {e.intervention} → Response: {e.response}/10</p>}
+            </div>
           ))}
-        </tbody>
-      </table>
+        </div>
+      )}
     </Card>
   )
 }
@@ -800,7 +778,7 @@ function RespiratoryCard({ resp }) {
   return (
     <>
       <Card>
-        <SH title="O₂ Therapy" action="Log Change" onAction={() => {}} />
+        <SH title="O₂ Therapy" />
         <div className="grid grid-cols-4 gap-3">
           {[['Type', r.o2?.type], ['Flow Rate', `${r.o2?.flow} L/min`], ['Target SpO₂', r.o2?.target_spo2], ['Status', r.o2?.status]].map(([l, v]) => (
             <div key={l} className="rounded-lg border p-2.5 text-center" style={{ borderColor: '#e9eaec', background: '#f9fafb' }}>
@@ -811,35 +789,47 @@ function RespiratoryCard({ resp }) {
         </div>
       </Card>
       <Card>
-        <SH title="Incentive Spirometry" action="Log" onAction={() => {}} />
-        <table className="w-full">
-          <thead><tr style={{ background: '#f9fafb' }}>{['Time','Target (mL)','Achieved (mL)','%','By'].map(h => <th key={h} className="px-3 py-2 text-left text-[9px] font-bold uppercase text-gray-400 border-b" style={{ borderColor: '#e9eaec' }}>{h}</th>)}</tr></thead>
-          <tbody>{(r.spirometry || []).map((s, i) => {
-            const pct = Math.round((s.achieved / s.target) * 100)
-            return <tr key={i} className="border-b last:border-0 hover:bg-gray-50" style={{ borderColor: '#f3f4f6' }}><td className="px-3 py-1.5 text-[10px] text-gray-400 whitespace-nowrap">{fmtDt(s.time)}</td><td className="px-3 py-1.5 text-xs text-gray-700">{s.target}</td><td className="px-3 py-1.5 text-xs font-semibold text-gray-800">{s.achieved}</td><td className="px-3 py-1.5 text-xs font-bold" style={{ color: pct >= 80 ? '#15803d' : pct >= 50 ? AMBER : RED }}>{pct}%</td><td className="px-3 py-1.5 text-xs text-gray-500">{s.by}</td></tr>
-          })}</tbody>
-        </table>
+        <SH title="Incentive Spirometry" />
+        {(r.spirometry || []).length === 0 ? (
+          <p className="text-xs text-gray-400 italic py-2">No spirometry records yet.</p>
+        ) : (
+          <table className="w-full">
+            <thead><tr style={{ background: '#f9fafb' }}>{['Time','Target (mL)','Achieved (mL)','%','By'].map(h => <th key={h} className="px-3 py-2 text-left text-[9px] font-bold text-gray-400 border-b" style={{ borderColor: '#e9eaec' }}>{h}</th>)}</tr></thead>
+            <tbody>{(r.spirometry || []).map((s, i) => {
+              const pct = Math.round((s.achieved / s.target) * 100)
+              return <tr key={i} className="border-b last:border-0 hover:bg-gray-50" style={{ borderColor: '#f3f4f6' }}><td className="px-3 py-1.5 text-[10px] text-gray-400 whitespace-nowrap">{fmtDt(s.time)}</td><td className="px-3 py-1.5 text-xs text-gray-700">{s.target}</td><td className="px-3 py-1.5 text-xs font-semibold text-gray-800">{s.achieved}</td><td className="px-3 py-1.5 text-xs font-bold" style={{ color: pct >= 80 ? '#15803d' : pct >= 50 ? AMBER : RED }}>{pct}%</td><td className="px-3 py-1.5 text-xs text-gray-500">{s.by}</td></tr>
+            })}</tbody>
+          </table>
+        )}
       </Card>
       <Card>
-        <SH title="Breath Sounds Assessment" action="Assess" onAction={() => {}} />
-        {(r.breath_sounds || []).map((b, i) => (
-          <div key={i} className="flex items-center gap-4 py-2 border-b last:border-0 text-xs" style={{ borderColor: '#f3f4f6' }}>
-            <span className="text-[10px] text-gray-400 w-32 flex-shrink-0">{fmtDt(b.time)}</span>
-            <span className="w-20 flex-shrink-0"><b>R:</b> {b.right}</span>
-            <span className="w-28 flex-shrink-0"><b>L:</b> {b.left}</span>
-            <span className="text-gray-400">{b.by}</span>
-          </div>
-        ))}
+        <SH title="Breath Sounds Assessment" />
+        {(r.breath_sounds || []).length === 0 ? (
+          <p className="text-xs text-gray-400 italic py-2">No breath sound assessments yet.</p>
+        ) : (
+          (r.breath_sounds || []).map((b, i) => (
+            <div key={i} className="flex items-center gap-4 py-2 border-b last:border-0 text-xs" style={{ borderColor: '#f3f4f6' }}>
+              <span className="text-[10px] text-gray-400 w-32 flex-shrink-0">{fmtDt(b.time)}</span>
+              <span className="w-20 flex-shrink-0"><b>R:</b> {b.right}</span>
+              <span className="w-28 flex-shrink-0"><b>L:</b> {b.left}</span>
+              <span className="text-gray-400">{b.by}</span>
+            </div>
+          ))
+        )}
       </Card>
       <Card>
-        <SH title="Deep Breathing Exercises" action="Log" onAction={() => {}} />
-        {(r.deep_breathing || []).map((db, i) => (
-          <div key={i} className="flex items-center gap-3 py-1.5 border-b last:border-0 text-xs" style={{ borderColor: '#f3f4f6' }}>
-            <Check size={12} className="text-green-600 flex-shrink-0" />
-            <span className="text-gray-700 flex-1">{db.shift}</span>
-            <span className="text-gray-400">{fmtDt(db.time)} · {db.by}</span>
-          </div>
-        ))}
+        <SH title="Deep Breathing Exercises" />
+        {(r.deep_breathing || []).length === 0 ? (
+          <p className="text-xs text-gray-400 italic py-2">No deep breathing records yet.</p>
+        ) : (
+          (r.deep_breathing || []).map((db, i) => (
+            <div key={i} className="flex items-center gap-3 py-1.5 border-b last:border-0 text-xs" style={{ borderColor: '#f3f4f6' }}>
+              <Check size={12} className="text-green-600 flex-shrink-0" />
+              <span className="text-gray-700 flex-1">{db.shift}</span>
+              <span className="text-gray-400">{fmtDt(db.time)} · {db.by}</span>
+            </div>
+          ))
+        )}
       </Card>
     </>
   )
@@ -851,10 +841,11 @@ function FluidBalance({ fb }) {
   const net = totalIn - totalOut
   return (
     <Card>
-      <SH title="Post-op Fluid Balance" action="Log Entry" onAction={() => {}} />
+      <SH title="Post-op Fluid Balance" />
       <div className="grid grid-cols-2 gap-4 mb-4">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: '#0369a1' }}>IN</p>
+          {(fb?.in || []).length === 0 && <p className="text-xs text-gray-400 italic">No intake recorded.</p>}
           {(fb?.in || []).map((e, i) => (
             <div key={i} className="flex justify-between text-xs py-1.5 border-b last:border-0" style={{ borderColor: '#f3f4f6' }}>
               <span className="text-gray-700">{e.type}</span>
@@ -867,6 +858,7 @@ function FluidBalance({ fb }) {
         </div>
         <div>
           <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: RED }}>OUT</p>
+          {(fb?.out || []).length === 0 && <p className="text-xs text-gray-400 italic">No output recorded.</p>}
           {(fb?.out || []).map((e, i) => (
             <div key={i} className="flex justify-between text-xs py-1.5 border-b last:border-0" style={{ borderColor: '#f3f4f6' }}>
               <span className="text-gray-700">{e.type}</span>
@@ -891,30 +883,33 @@ function MobilityCard({ mobility, dvt, onLog }) {
     <>
       <Card>
         <SH title="Ambulation Log" action="Log Ambulation" onAction={onLog} />
-        {mobility.map((m, i) => (
-          <div key={i} className="flex items-start gap-3 py-2.5 border-b last:border-0" style={{ borderColor: '#f3f4f6' }}>
-            <span className="text-[10px] font-bold px-2 py-1 rounded-lg flex-shrink-0 mt-0.5" style={{ background: levelColor[m.level] || '#f3f4f6', color: '#374151' }}>{m.level}</span>
-            <div className="flex-1 text-xs">
-              <p className="text-gray-700">Assisted by: {m.assisted_by} · Tolerance: <b className={m.tolerance === 'Good' ? 'text-green-700' : 'text-red-600'}>{m.tolerance}</b></p>
-              {m.distance && <p className="text-gray-500">Distance: {m.distance} m</p>}
-              {m.pain && <p className="text-amber-700">⚠ Pain during activity</p>}
+        {mobility.length === 0 ? (
+          <p className="text-xs text-gray-400 italic py-2">No ambulation records yet.</p>
+        ) : (
+          mobility.map((m, i) => (
+            <div key={i} className="flex items-start gap-3 py-2.5 border-b last:border-0" style={{ borderColor: '#f3f4f6' }}>
+              <span className="text-[10px] font-bold px-2 py-1 rounded-lg flex-shrink-0 mt-0.5" style={{ background: levelColor[m.level] || '#f3f4f6', color: '#374151' }}>{m.level}</span>
+              <div className="flex-1 text-xs">
+                <p className="text-gray-700">Assisted by: {m.assisted_by} · Tolerance: <b className={m.tolerance === 'Good' ? 'text-green-700' : 'text-red-600'}>{m.tolerance}</b></p>
+                {m.distance && <p className="text-gray-500">Distance: {m.distance} m</p>}
+                {m.pain && <p className="text-amber-600 font-semibold">Pain on mobilisation</p>}
+              </div>
+              <span className="text-[10px] text-gray-400 flex-shrink-0">{fmtDt(m.time)} · {m.by}</span>
             </div>
-            <span className="text-[10px] text-gray-400 flex-shrink-0">{fmtDt(m.time)} · {m.by}</span>
+          ))
+        )}
+      </Card>
+      {dvt && (
+        <Card>
+          <SH title="DVT Prophylaxis" />
+          <div className="grid grid-cols-2 gap-x-6 gap-y-1.5">
+            <Row label="Compression Stockings AM" value={dvt.stockings_am ? '✓ Applied' : '—'} />
+            <Row label="Compression Stockings PM" value={dvt.stockings_pm ? '✓ Applied' : '—'} />
+            <Row label="Sequential Compression" value={dvt.scd ? '✓ Applied' : 'Not used'} />
+            <Row label="LMWH" value={dvt.lmwh} />
           </div>
-        ))}
-      </Card>
-      <Card>
-        <SH title="DVT Prophylaxis" />
-        <div className="grid grid-cols-2 gap-3">
-          {[['Stockings AM', dvt?.stockings_am], ['Stockings PM', dvt?.stockings_pm], ['SCD Device', dvt?.scd]].map(([l, v]) => (
-            <div key={l} className="flex items-center gap-2 text-xs">
-              <span className={`w-5 h-5 rounded flex items-center justify-center ${v ? 'bg-green-100' : 'bg-gray-100'}`}>{v ? <Check size={11} className="text-green-700" /> : <X size={10} className="text-gray-400" />}</span>
-              <span className="text-gray-700">{l}</span>
-            </div>
-          ))}
-        </div>
-        {dvt?.lmwh && <p className="text-xs text-gray-600 mt-3 border-t pt-2" style={{ borderColor: '#f3f4f6' }}>💉 {dvt.lmwh}</p>}
-      </Card>
+        </Card>
+      )}
     </>
   )
 }
@@ -924,26 +919,22 @@ function MilestonesCard({ milestones, onMark }) {
   const done = entries.filter(([, v]) => v.done).length
   return (
     <Card>
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Post-op Milestones</span>
-        <span className="text-xs font-bold" style={{ color: done === entries.length ? '#15803d' : NAVY }}>{done}/{entries.length}</span>
+      <div className="flex items-center justify-between mb-4">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Recovery Milestones</span>
+        <span className="text-xs font-bold text-gray-500">{done}/{entries.length} reached</span>
       </div>
-      <PctBar value={done} max={entries.length} color={done === entries.length ? '#15803d' : NAVY} />
-      <div className="mt-4 space-y-1">
+      <div className="space-y-2">
         {entries.map(([key, val]) => (
-          <div key={key} className="flex items-start gap-2.5 py-2 border-b last:border-0" style={{ borderColor: '#f3f4f6', opacity: val.done ? 1 : 0.7 }}>
-            <div className={`w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center mt-0.5 border ${val.done ? 'border-green-400 bg-green-50' : 'border-gray-300 bg-white'}`}>
-              {val.done ? <Check size={11} className="text-green-600" /> : <Clock size={9} className="text-gray-300" />}
+          <div key={key} className="flex items-center gap-3 py-1">
+            <button onClick={() => !val.done && onMark(key)}
+              className={`w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center border-2 ${val.done ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-white hover:border-green-300'}`}>
+              {val.done && <Check size={10} className="text-green-600" />}
+            </button>
+            <div className="flex-1 text-xs">
+              <span className={val.done ? 'text-gray-700 font-medium' : 'text-gray-500'}>{key}</span>
+              {val.done && <span className="ml-2 text-[10px] text-gray-400">{fmtDt(val.time)} · {val.by}</span>}
+              {val.notes && <span className="ml-2 text-[10px] text-gray-500 italic">{val.notes}</span>}
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium text-gray-800">{key}</p>
-              {val.done && (
-                <p className="text-[10px] text-gray-400">{fmtDt(val.time)} · {val.by}{val.notes && ` · ${val.notes}`}</p>
-              )}
-            </div>
-            {!val.done && (
-              <button onClick={() => onMark(key)} className="text-[10px] font-semibold px-2 py-0.5 rounded-lg flex-shrink-0" style={{ color: GREEN, background: '#f0fdf4', border: `1px solid #a7f3d0` }}>Mark Done</button>
-            )}
           </div>
         ))}
       </div>
@@ -953,49 +944,44 @@ function MilestonesCard({ milestones, onMark }) {
 
 function DischargeCriteriaCard({ instructions, instructionsReviewed, criteria, onReview, onTick }) {
   const entries = Object.entries(criteria)
-  const done = entries.filter(([, v]) => v).length
-  const allDone = done === entries.length
+  const metCount = entries.filter(([, v]) => v).length
   return (
     <>
-      <Card>
-        <SH title="Surgeon Post-op Instructions" />
-        <div className="rounded-lg border p-3 mb-3 text-xs text-gray-700 leading-relaxed" style={{ borderColor: '#fde047', background: '#fefce8' }}>
-          {instructions}
-        </div>
-        {instructionsReviewed
-          ? <p className="text-[10px] font-bold text-green-700">✦ Reviewed by nurse</p>
-          : <button onClick={onReview} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border" style={{ color: GREEN, borderColor: '#a7f3d0', background: '#f0fdf4' }}>
-              <Lock size={11} /> Mark Reviewed
-            </button>}
-      </Card>
+      {instructions && (
+        <Card>
+          <div className="flex items-start justify-between mb-3">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Surgeon's Instructions</span>
+            {!instructionsReviewed
+              ? <button onClick={onReview} className="text-[10px] font-semibold px-2.5 py-1 rounded-lg border" style={{ color: GREEN, borderColor: '#a7f3d0', background: '#f0fdf4' }}>Mark Reviewed</button>
+              : <span className="text-[10px] font-bold text-green-700">✦ Reviewed</span>}
+          </div>
+          <p className="text-xs text-gray-700 whitespace-pre-line">{instructions}</p>
+        </Card>
+      )}
       <Card>
         <div className="flex items-center justify-between mb-3">
           <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Discharge Criteria</span>
-          <span className="text-xs font-bold" style={{ color: allDone ? '#15803d' : AMBER }}>{done}/{entries.length}</span>
+          <span className="text-xs font-bold" style={{ color: metCount === entries.length ? '#15803d' : AMBER }}>{metCount}/{entries.length} met</span>
         </div>
-        <PctBar value={done} max={entries.length} color={allDone ? '#15803d' : '#ca8a04'} />
-        <div className="mt-4 space-y-1">
-          {entries.map(([key, val]) => (
-            <button key={key} onClick={() => !val && onTick(key)} className="w-full flex items-center gap-2.5 py-2 border-b last:border-0 text-left hover:bg-gray-50 transition-colors" style={{ borderColor: '#f3f4f6' }}>
-              <span className={`w-5 h-5 rounded flex-shrink-0 flex items-center justify-center border ${val ? 'border-green-400 bg-green-50' : 'border-gray-300 bg-white'}`}>{val && <Check size={11} className="text-green-600" />}</span>
-              <span className="text-xs text-gray-700">{key}</span>
+        <div className="space-y-1.5">
+          {entries.map(([key, met]) => (
+            <button key={key} onClick={() => !met && onTick(key)} className="w-full flex items-center gap-2.5 text-left py-1 px-1.5 rounded-lg hover:bg-gray-50">
+              <span className={`w-4 h-4 rounded flex-shrink-0 flex items-center justify-center border ${met ? 'border-green-500 bg-green-50' : 'border-gray-300 bg-white'}`}>
+                {met && <Check size={9} className="text-green-600" />}
+              </span>
+              <span className="text-xs" style={{ color: met ? '#15803d' : '#374151' }}>{key}</span>
             </button>
           ))}
         </div>
-        {allDone && (
-          <div className="mt-4 rounded-xl p-3 text-center font-bold text-sm border border-green-400 bg-green-50 text-green-700">
-            ✦ Patient meets all discharge criteria — notify attending physician
-          </div>
-        )}
       </Card>
     </>
   )
 }
 
-// ─── Mini nav ─────────────────────────────────────────────────────────────────
+// ─── Sidebar nav ──────────────────────────────────────────────────────────────
 function MiniNav({ items, active, onSelect }) {
   return (
-    <div className="w-40 flex-shrink-0 border-r overflow-y-auto" style={{ borderColor: '#e9eaec', background: '#f9fafb' }}>
+    <div className="flex-shrink-0 w-36 border-r overflow-y-auto" style={{ borderColor: '#e9eaec' }}>
       {items.map(item => {
         const Icon = item.icon
         const isActive = active === item.key
@@ -1012,7 +998,287 @@ function MiniNav({ items, active, onSelect }) {
   )
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
+// ─── Action Drawers ────────────────────────────────────────────────────────────
+
+function OTTransferDrawer({ onSave, onClose }) {
+  const now = new Date().toISOString().slice(0, 16)
+  const [form, setForm] = useState({ time_left: now, escorted_by: '', handover_to: '', mode: 'Trolley', iv_running: false, o2_required: false, family_informed: false, remarks: '' })
+  const f = k => ({ value: form[k], onChange: e => setForm(p => ({ ...p, [k]: e.target.value })) })
+  const valid = form.escorted_by.trim() && form.handover_to.trim()
+  return (
+    <Drawer title="Log OT Transfer" onClose={onClose}>
+      <div className="flex-1 overflow-y-auto p-4">
+        <Field label="Time Left Ward">
+          <input type="datetime-local" {...f('time_left')} className={inputCls} />
+        </Field>
+        <Field label="Escorted By">
+          <input type="text" {...f('escorted_by')} placeholder="Nurse name" className={inputCls} />
+        </Field>
+        <Field label="Handover To">
+          <input type="text" {...f('handover_to')} placeholder="OT nurse/team name" className={inputCls} />
+        </Field>
+        <Field label="Transfer Mode">
+          <select {...f('mode')} className={selectCls}>
+            {['Trolley','Wheelchair','Walking','Stretcher'].map(m => <option key={m}>{m}</option>)}
+          </select>
+        </Field>
+        <div className="grid grid-cols-3 gap-2 mb-3">
+          {[['iv_running','IV Running'],['o2_required','O₂ Required'],['family_informed','Family Informed']].map(([k, label]) => (
+            <label key={k} className="flex flex-col items-center gap-1 border rounded-xl p-2.5 cursor-pointer" style={{ borderColor: form[k] ? GREEN : '#e9eaec', background: form[k] ? '#f0fdf4' : '#f9fafb' }}>
+              <input type="checkbox" checked={form[k]} onChange={e => setForm(p => ({ ...p, [k]: e.target.checked }))} className="sr-only" />
+              <span className={`w-5 h-5 rounded flex items-center justify-center border-2 ${form[k] ? 'border-green-500 bg-green-50' : 'border-gray-300'}`}>
+                {form[k] && <Check size={11} className="text-green-600" />}
+              </span>
+              <span className="text-[10px] font-semibold text-gray-600 text-center">{label}</span>
+            </label>
+          ))}
+        </div>
+        <Field label="Remarks">
+          <textarea {...f('remarks')} rows={3} placeholder="Any notes…" className={inputCls} />
+        </Field>
+      </div>
+      <div className="p-4 border-t flex gap-2">
+        <button onClick={onClose} className="flex-1 py-2 rounded-lg border text-sm text-gray-600">Cancel</button>
+        <button onClick={() => valid && onSave({ ...form, done: true, time_left: new Date(form.time_left).toISOString() })} disabled={!valid}
+          className="flex-1 py-2 rounded-lg text-sm font-semibold text-white flex items-center justify-center gap-1"
+          style={{ background: valid ? GREEN : '#d1d5db' }}>
+          <Save size={13} /> Save Transfer
+        </button>
+      </div>
+    </Drawer>
+  )
+}
+
+function AldreteDrawer({ onSave, onClose }) {
+  const [form, setForm] = useState({ activity: 2, respiration: 2, circulation: 2, consciousness: 2, spo2: 2, nausea: false, by: '' })
+  const total = form.activity + form.respiration + form.circulation + form.consciousness + form.spo2
+  const CRITERIA = {
+    activity:      { label: 'Activity',      desc: { 0: 'No movement', 1: 'Moves 2 extremities', 2: 'Moves all extremities' } },
+    respiration:   { label: 'Respiration',   desc: { 0: 'Apnoea', 1: 'Limited breathing/dyspnoea', 2: 'Breathes deeply & coughs' } },
+    circulation:   { label: 'Circulation',   desc: { 0: '±50% of pre-op BP', 1: '±20-50%', 2: '±20% of pre-op BP' } },
+    consciousness: { label: 'Consciousness', desc: { 0: 'No response', 1: 'Arousable on calling', 2: 'Fully awake' } },
+    spo2:          { label: 'SpO₂',          desc: { 0: '<90% with O₂', 1: 'Needs O₂ to maintain ≥90%', 2: '≥92% on room air' } },
+  }
+  const readyColor = total >= 9 ? '#15803d' : total >= 7 ? AMBER : RED
+  return (
+    <Drawer title="Record Aldrete Score" onClose={onClose}>
+      <div className="flex-1 overflow-y-auto p-4">
+        <div className="rounded-xl border p-3 mb-4 text-center" style={{ borderColor: readyColor, background: `${readyColor}10` }}>
+          <div className="text-2xl font-extrabold" style={{ color: readyColor }}>{total}/10</div>
+          <div className="text-xs font-semibold mt-0.5" style={{ color: readyColor }}>{total >= 9 ? 'Ready for discharge from recovery' : 'Not yet ready'}</div>
+        </div>
+        {Object.entries(CRITERIA).map(([key, { label, desc }]) => (
+          <div key={key} className="mb-3">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">{label}</div>
+            <div className="flex gap-2">
+              {[0, 1, 2].map(v => (
+                <button key={v} onClick={() => setForm(p => ({ ...p, [key]: v }))}
+                  className="flex-1 rounded-lg border p-2 text-left transition-colors"
+                  style={{ borderColor: form[key] === v ? GREEN : '#e9eaec', background: form[key] === v ? '#f0fdf4' : '#f9fafb' }}>
+                  <div className="text-sm font-extrabold mb-0.5" style={{ color: form[key] === v ? GREEN : '#374151' }}>{v}</div>
+                  <div className="text-[9px] text-gray-400 leading-tight">{desc[v]}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+        <label className="flex items-center gap-2 mt-2 mb-3 cursor-pointer">
+          <input type="checkbox" checked={form.nausea} onChange={e => setForm(p => ({ ...p, nausea: e.target.checked }))} />
+          <span className="text-sm text-gray-700">Nausea / Vomiting present</span>
+        </label>
+        <Field label="Recorded By">
+          <input type="text" value={form.by} onChange={e => setForm(p => ({ ...p, by: e.target.value }))} placeholder="Nurse name" className={inputCls} />
+        </Field>
+      </div>
+      <div className="p-4 border-t flex gap-2">
+        <button onClick={onClose} className="flex-1 py-2 rounded-lg border text-sm text-gray-600">Cancel</button>
+        <button onClick={() => onSave({ ...form, recorded_at: nowIso(), total })}
+          className="flex-1 py-2 rounded-lg text-sm font-semibold text-white flex items-center justify-center gap-1"
+          style={{ background: GREEN }}>
+          <Save size={13} /> Save Score
+        </button>
+      </div>
+    </Drawer>
+  )
+}
+
+function VitalsDrawer({ onSave, onClose }) {
+  const [form, setForm] = useState({ bp: '', pulse: '', temp: '', spo2: '', rr: '', avpu: 'A', pain_rest: 0, pain_move: 0, by: '' })
+  const f = k => ({ value: form[k], onChange: e => setForm(p => ({ ...p, [k]: e.target.value })) })
+  const valid = form.bp && form.pulse && form.by
+  return (
+    <Drawer title="Record Post-op Vitals" onClose={onClose}>
+      <div className="flex-1 overflow-y-auto p-4">
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="BP (mmHg)"><input type="text" {...f('bp')} placeholder="120/80" className={inputCls} /></Field>
+          <Field label="Pulse (bpm)"><input type="number" {...f('pulse')} placeholder="80" className={inputCls} /></Field>
+          <Field label="Temp (°C)"><input type="number" step="0.1" {...f('temp')} placeholder="37.0" className={inputCls} /></Field>
+          <Field label="SpO₂ (%)"><input type="number" {...f('spo2')} placeholder="98" className={inputCls} /></Field>
+          <Field label="RR (/min)"><input type="number" {...f('rr')} placeholder="16" className={inputCls} /></Field>
+          <Field label="AVPU">
+            <select {...f('avpu')} className={selectCls}>
+              {['A — Alert','V — Voice','P — Pain','U — Unresponsive'].map(o => <option key={o} value={o[0]}>{o}</option>)}
+            </select>
+          </Field>
+        </div>
+        <Field label={`Pain at Rest: ${form.pain_rest}/10`}>
+          <input type="range" min="0" max="10" value={form.pain_rest} onChange={e => setForm(p => ({ ...p, pain_rest: +e.target.value }))} className="w-full" />
+        </Field>
+        <Field label={`Pain on Movement: ${form.pain_move}/10`}>
+          <input type="range" min="0" max="10" value={form.pain_move} onChange={e => setForm(p => ({ ...p, pain_move: +e.target.value }))} className="w-full" />
+        </Field>
+        <Field label="Recorded By"><input type="text" {...f('by')} placeholder="Nurse name" className={inputCls} /></Field>
+      </div>
+      <div className="p-4 border-t flex gap-2">
+        <button onClick={onClose} className="flex-1 py-2 rounded-lg border text-sm text-gray-600">Cancel</button>
+        <button onClick={() => valid && onSave({ ...form, pulse: +form.pulse, temp: +form.temp, spo2: +form.spo2, rr: +form.rr, time: nowIso() })} disabled={!valid}
+          className="flex-1 py-2 rounded-lg text-sm font-semibold text-white flex items-center justify-center gap-1"
+          style={{ background: valid ? GREEN : '#d1d5db' }}>
+          <Save size={13} /> Save Vitals
+        </button>
+      </div>
+    </Drawer>
+  )
+}
+
+function PainDrawer({ onSave, onClose }) {
+  const [form, setForm] = useState({ site: '', character: 'Sharp', rest: 0, move: 0, intervention: '', response: 0, by: '' })
+  const f = k => ({ value: form[k], onChange: e => setForm(p => ({ ...p, [k]: e.target.value })) })
+  const valid = form.site.trim() && form.by.trim()
+  return (
+    <Drawer title="Log Pain Assessment" onClose={onClose}>
+      <div className="flex-1 overflow-y-auto p-4">
+        <Field label="Pain Site"><input type="text" {...f('site')} placeholder="e.g. Abdomen RIF" className={inputCls} /></Field>
+        <Field label="Character">
+          <select {...f('character')} className={selectCls}>
+            {['Sharp','Dull aching','Burning','Cramping','Stabbing','Throbbing','Pressure','Colicky'].map(c => <option key={c}>{c}</option>)}
+          </select>
+        </Field>
+        <Field label={`Pain at Rest: ${form.rest}/10`}>
+          <input type="range" min="0" max="10" value={form.rest} onChange={e => setForm(p => ({ ...p, rest: +e.target.value }))} className="w-full" />
+        </Field>
+        <Field label={`Pain on Movement: ${form.move}/10`}>
+          <input type="range" min="0" max="10" value={form.move} onChange={e => setForm(p => ({ ...p, move: +e.target.value }))} className="w-full" />
+        </Field>
+        <Field label="Intervention Given"><input type="text" {...f('intervention')} placeholder="e.g. Morphine 2mg IV" className={inputCls} /></Field>
+        <Field label={`Pain Response (after intervention): ${form.response}/10`}>
+          <input type="range" min="0" max="10" value={form.response} onChange={e => setForm(p => ({ ...p, response: +e.target.value }))} className="w-full" />
+        </Field>
+        <Field label="Assessed By"><input type="text" {...f('by')} placeholder="Nurse name" className={inputCls} /></Field>
+      </div>
+      <div className="p-4 border-t flex gap-2">
+        <button onClick={onClose} className="flex-1 py-2 rounded-lg border text-sm text-gray-600">Cancel</button>
+        <button onClick={() => valid && onSave({ ...form, time: nowIso() })} disabled={!valid}
+          className="flex-1 py-2 rounded-lg text-sm font-semibold text-white flex items-center justify-center gap-1"
+          style={{ background: valid ? GREEN : '#d1d5db' }}>
+          <Save size={13} /> Save Assessment
+        </button>
+      </div>
+    </Drawer>
+  )
+}
+
+function WoundDrawer({ wound, onSave, onClose }) {
+  const [form, setForm] = useState({ appearance: wound?.appearance || 'Dry', edges: wound?.edges || 'Well-approximated', surrounding: wound?.surrounding || 'Normal', changed_by: '' })
+  const f = k => ({ value: form[k], onChange: e => setForm(p => ({ ...p, [k]: e.target.value })) })
+  const valid = form.changed_by.trim()
+  return (
+    <Drawer title={`Assess: ${wound?.label}`} onClose={onClose}>
+      <div className="flex-1 overflow-y-auto p-4">
+        <Field label="Appearance">
+          <select {...f('appearance')} className={selectCls}>
+            {['Dry','Slightly moist','Seeping','Soaked','Saturated'].map(a => <option key={a}>{a}</option>)}
+          </select>
+        </Field>
+        <Field label="Wound Edges">
+          <select {...f('edges')} className={selectCls}>
+            {['Well-approximated','Slightly open','Gaping','Dehiscence','Evisceration'].map(e => <option key={e}>{e}</option>)}
+          </select>
+        </Field>
+        <Field label="Surrounding Tissue">
+          <select {...f('surrounding')} className={selectCls}>
+            {['Normal','Mild erythema','Erythema','Oedema','Induration','Maceration','Necrosis'].map(s => <option key={s}>{s}</option>)}
+          </select>
+        </Field>
+        <Field label="Assessed By"><input type="text" {...f('changed_by')} placeholder="Nurse name" className={inputCls} /></Field>
+      </div>
+      <div className="p-4 border-t flex gap-2">
+        <button onClick={onClose} className="flex-1 py-2 rounded-lg border text-sm text-gray-600">Cancel</button>
+        <button onClick={() => valid && onSave(wound, { ...form, time: nowIso() })} disabled={!valid}
+          className="flex-1 py-2 rounded-lg text-sm font-semibold text-white flex items-center justify-center gap-1"
+          style={{ background: valid ? GREEN : '#d1d5db' }}>
+          <Save size={13} /> Save Assessment
+        </button>
+      </div>
+    </Drawer>
+  )
+}
+
+function DrainOutputDrawer({ drain, onSave, onClose }) {
+  const [form, setForm] = useState({ amount: '', color: drain?.color || 'Serosanguineous', by: '' })
+  const f = k => ({ value: form[k], onChange: e => setForm(p => ({ ...p, [k]: e.target.value })) })
+  const valid = form.amount && form.by.trim()
+  return (
+    <Drawer title={`Log Output: ${drain?.name}`} onClose={onClose}>
+      <div className="flex-1 overflow-y-auto p-4">
+        <Field label="Amount (mL)"><input type="number" {...f('amount')} placeholder="0" className={inputCls} min="0" /></Field>
+        <Field label="Color / Character">
+          <select {...f('color')} className={selectCls}>
+            {['Sanguineous','Serosanguineous','Serous','Bile','Chyle','Purulent','Clear'].map(c => <option key={c}>{c}</option>)}
+          </select>
+        </Field>
+        <Field label="Logged By"><input type="text" {...f('by')} placeholder="Nurse name" className={inputCls} /></Field>
+      </div>
+      <div className="p-4 border-t flex gap-2">
+        <button onClick={onClose} className="flex-1 py-2 rounded-lg border text-sm text-gray-600">Cancel</button>
+        <button onClick={() => valid && onSave(drain, { amount: +form.amount, color: form.color, by: form.by, time: nowIso() })} disabled={!valid}
+          className="flex-1 py-2 rounded-lg text-sm font-semibold text-white flex items-center justify-center gap-1"
+          style={{ background: valid ? GREEN : '#d1d5db' }}>
+          <Save size={13} /> Log Output
+        </button>
+      </div>
+    </Drawer>
+  )
+}
+
+function AmbulationDrawer({ onSave, onClose }) {
+  const [form, setForm] = useState({ level: 'Sitting up', assisted_by: '', tolerance: 'Good', pain: false, distance: '', by: '' })
+  const f = k => ({ value: form[k], onChange: e => setForm(p => ({ ...p, [k]: e.target.value })) })
+  const valid = form.assisted_by.trim() && form.by.trim()
+  return (
+    <Drawer title="Log Ambulation" onClose={onClose}>
+      <div className="flex-1 overflow-y-auto p-4">
+        <Field label="Mobility Level">
+          <select {...f('level')} className={selectCls}>
+            {['Bed rest','Sitting up','Dangling','Standing','Walking in room','Walking corridor'].map(l => <option key={l}>{l}</option>)}
+          </select>
+        </Field>
+        <Field label="Assisted By"><input type="text" {...f('assisted_by')} placeholder="Nurse / physio name" className={inputCls} /></Field>
+        <Field label="Tolerance">
+          <select {...f('tolerance')} className={selectCls}>
+            {['Good','Fair','Poor'].map(t => <option key={t}>{t}</option>)}
+          </select>
+        </Field>
+        <Field label="Distance (m, if applicable)"><input type="number" {...f('distance')} placeholder="e.g. 10" className={inputCls} min="0" /></Field>
+        <label className="flex items-center gap-2 mb-3 cursor-pointer">
+          <input type="checkbox" checked={form.pain} onChange={e => setForm(p => ({ ...p, pain: e.target.checked }))} />
+          <span className="text-sm text-gray-700">Pain on mobilisation</span>
+        </label>
+        <Field label="Logged By"><input type="text" {...f('by')} placeholder="Nurse name" className={inputCls} /></Field>
+      </div>
+      <div className="p-4 border-t flex gap-2">
+        <button onClick={onClose} className="flex-1 py-2 rounded-lg border text-sm text-gray-600">Cancel</button>
+        <button onClick={() => valid && onSave({ ...form, distance: form.distance ? +form.distance : null, time: nowIso() })} disabled={!valid}
+          className="flex-1 py-2 rounded-lg text-sm font-semibold text-white flex items-center justify-center gap-1"
+          style={{ background: valid ? GREEN : '#d1d5db' }}>
+          <Save size={13} /> Log Ambulation
+        </button>
+      </div>
+    </Drawer>
+  )
+}
+
+// ─── Nav config ───────────────────────────────────────────────────────────────
 const PREOP_NAV = [
   { key: 'schedule',    icon: ClipboardList, label: 'Schedule' },
   { key: 'assessment',  icon: Activity,      label: 'Assessment' },
@@ -1036,6 +1302,7 @@ const POSTOP_NAV = [
   { key: 'discharge', icon: FileText,      label: 'Discharge Criteria' },
 ]
 
+// ─── Main component ───────────────────────────────────────────────────────────
 export default function PrePostOp({ admission }) {
   const [data,    setData]    = useState(null)
   const [loading, setLoading] = useState(true)
@@ -1043,44 +1310,130 @@ export default function PrePostOp({ admission }) {
   const [preNav,  setPreNav]  = useState('schedule')
   const [postNav, setPostNav] = useState('aldrete')
   const [pin,     setPin]     = useState(null)
+  const [drawer,  setDrawer]  = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
       const res = await api.get(`/inpatient/admissions/${admission?.id}/periop`)
-      if (res.data?.procedure) setData(res.data)
+      if (res?.procedure) setData(res)
       else throw new Error('empty')
     } catch { setData(buildMock()) } finally { setLoading(false) }
   }, [admission?.id])
 
   useEffect(() => { if (admission?.id) load() }, [load])
 
+  const saveData = useCallback(async (next) => {
+    try { await api.post(`/inpatient/admissions/${admission?.id}/periop`, next) } catch { /* non-blocking */ }
+  }, [admission?.id])
+
+  const updateData = useCallback((updater) => {
+    setData(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater
+      saveData(next)
+      return next
+    })
+  }, [saveData])
+
   const askPin = (title, onConfirm) => setPin({ title, onConfirm })
 
   const tickChecklist = key => askPin(`Confirm: ${key}`, () => {
-    setData(prev => ({
+    updateData(prev => ({
       ...prev,
-      preop: { ...prev.preop, checklist: { ...prev.preop.checklist, [key]: { done: true, time: new Date().toISOString(), by: 'Me' } } }
+      preop: { ...prev.preop, checklist: { ...prev.preop.checklist, [key]: { done: true, time: nowIso(), by: 'Me' } } }
     }))
   })
 
   const tickDischarge = key => askPin(`Confirm: ${key}`, () => {
-    setData(prev => ({
+    updateData(prev => ({
       ...prev,
       postop: { ...prev.postop, discharge_criteria: { ...prev.postop.discharge_criteria, [key]: true } }
     }))
   })
 
   const markMilestone = key => askPin(`Mark: ${key}`, () => {
-    setData(prev => ({
+    updateData(prev => ({
       ...prev,
-      postop: { ...prev.postop, milestones: { ...prev.postop.milestones, [key]: { done: true, time: new Date().toISOString(), by: 'Me', notes: '' } } }
+      postop: { ...prev.postop, milestones: { ...prev.postop.milestones, [key]: { done: true, time: nowIso(), by: 'Me', notes: '' } } }
     }))
   })
 
   const reviewInstructions = () => askPin('Mark surgeon instructions reviewed', () => {
-    setData(prev => ({ ...prev, postop: { ...prev.postop, surgeon_instructions_reviewed: true } }))
+    updateData(prev => ({ ...prev, postop: { ...prev.postop, surgeon_instructions_reviewed: true } }))
   })
+
+  // Drawer handlers — all open after PIN confirm
+  const openOTTransfer = () => askPin('Log OT Transfer', () => setDrawer({ type: 'ot_transfer' }))
+
+  const saveOTTransfer = (transfer) => {
+    updateData(prev => ({ ...prev, preop: { ...prev.preop, ot_transfer: transfer } }))
+    setDrawer(null)
+  }
+
+  const openAldrete = () => askPin('Record Aldrete Score', () => setDrawer({ type: 'aldrete' }))
+
+  const saveAldrete = (aldrete) => {
+    updateData(prev => ({ ...prev, postop: { ...prev.postop, aldrete } }))
+    setDrawer(null)
+  }
+
+  const openVitals = () => askPin('Record Post-op Vitals', () => setDrawer({ type: 'vitals' }))
+
+  const saveVitals = (entry) => {
+    updateData(prev => ({ ...prev, postop: { ...prev.postop, vitals: [...(prev.postop.vitals || []), entry] } }))
+    setDrawer(null)
+  }
+
+  const openPain = () => askPin('Log Pain Assessment', () => setDrawer({ type: 'pain' }))
+
+  const savePain = (entry) => {
+    updateData(prev => ({ ...prev, postop: { ...prev.postop, pain_log: [...(prev.postop.pain_log || []), entry] } }))
+    setDrawer(null)
+  }
+
+  const openWoundAssess = (wound) => askPin(`Assess ${wound.label}`, () => setDrawer({ type: 'wound', wound }))
+
+  const saveWoundAssess = (wound, assessment) => {
+    updateData(prev => ({
+      ...prev,
+      postop: {
+        ...prev.postop,
+        wounds: prev.postop.wounds.map(w => w.id === wound.id
+          ? { ...w, appearance: assessment.appearance, edges: assessment.edges, surrounding: assessment.surrounding, last_changed: assessment.time, changed_by: assessment.changed_by, history: [...(w.history || []), { time: assessment.time, appearance: assessment.appearance, edges: assessment.edges, by: assessment.changed_by }] }
+          : w)
+      }
+    }))
+    setDrawer(null)
+  }
+
+  const openDrainLog = (drain) => askPin(`Log Output: ${drain.name}`, () => setDrawer({ type: 'drain_output', drain }))
+
+  const saveDrainOutput = (drain, entry) => {
+    updateData(prev => ({
+      ...prev,
+      postop: {
+        ...prev.postop,
+        drains: prev.postop.drains.map(d => d.id === drain.id
+          ? { ...d, color: entry.color, shift_output: d.shift_output + entry.amount, total_output: d.total_output + entry.amount, last_emptied: entry.time, emptied_by: entry.by, log: [...(d.log || []), entry] }
+          : d)
+      }
+    }))
+    setDrawer(null)
+  }
+
+  const removeDrain = (drain) => askPin(`Remove drain: ${drain.name}`, () => {
+    updateData(prev => ({
+      ...prev,
+      postop: { ...prev.postop, drains: prev.postop.drains.map(d => d.id === drain.id ? { ...d, removed: true } : d) }
+    }))
+  })
+
+  const openAmbulation = () => askPin('Log Ambulation', () => setDrawer({ type: 'ambulation' }))
+
+  const saveAmbulation = (entry) => {
+    updateData(prev => ({ ...prev, postop: { ...prev.postop, mobility: [...(prev.postop.mobility || []), entry] } }))
+    setDrawer(null)
+  }
 
   if (loading) return <div className="flex items-center justify-center h-64"><Loader2 size={22} className="animate-spin" style={{ color: GREEN }} /></div>
 
@@ -1139,11 +1492,11 @@ export default function PrePostOp({ admission }) {
             <div className="flex-1 overflow-y-auto p-5">
               {preNav === 'schedule'       && <PreopSchedule p={pr} proc={proc} />}
               {preNav === 'assessment'     && <PreopAssessment p={pr} />}
-              {preNav === 'fasting'        && <FastingPrep p={pr} onPin={label => askPin(label, () => setData(prev => ({ ...prev, preop: { ...prev.preop, fasting_confirmed: true } })))} />}
+              {preNav === 'fasting'        && <FastingPrep p={pr} onPin={label => askPin(label, () => updateData(prev => ({ ...prev, preop: { ...prev.preop, fasting_confirmed: true } })))} />}
               {preNav === 'checklist'      && <Checklist checklist={pr.checklist || {}} onTick={tickChecklist} />}
               {preNav === 'investigations' && <Investigations items={pr.investigations || []} />}
               {preNav === 'premeds'        && <PreMeds premeds={pr.premeds || []} />}
-              {preNav === 'transfer'       && <OTTransfer transfer={pr.ot_transfer} onLog={() => askPin('Log OT Transfer', () => {})} />}
+              {preNav === 'transfer'       && <OTTransfer transfer={pr.ot_transfer} onLog={openOTTransfer} />}
             </div>
           </>
         )}
@@ -1160,20 +1513,29 @@ export default function PrePostOp({ admission }) {
           <>
             <MiniNav items={POSTOP_NAV} active={postNav} onSelect={setPostNav} />
             <div className="flex-1 overflow-y-auto p-5">
-              {postNav === 'aldrete'   && <AldreteCard aldrete={po.aldrete} onRecord={() => askPin('Record Aldrete Score', () => {})} />}
-              {postNav === 'vitals'    && <VitalsMonitor vitals={po.vitals || []} onRecord={() => askPin('Record Post-op Vitals', () => {})} />}
-              {postNav === 'pain'      && <PainManagement log={po.pain_log || []} onAdd={() => askPin('Log Pain Assessment', () => {})} />}
-              {postNav === 'wound'     && <WoundCare wounds={po.wounds || []} onAssess={w => askPin(`Assess ${w.label}`, () => {})} />}
-              {postNav === 'drains'    && <DrainManagement drains={po.drains || []} onLog={d => askPin(`Log Output: ${d.name}`, () => {})} onRemove={d => askPin(`Remove: ${d.name}`, () => setData(prev => ({ ...prev, postop: { ...prev.postop, drains: prev.postop.drains.map(dr => dr.id === d.id ? { ...dr, removed: true } : dr) } })))} />}
+              {postNav === 'aldrete'   && <AldreteCard aldrete={po.aldrete} onRecord={openAldrete} />}
+              {postNav === 'vitals'    && <VitalsMonitor vitals={po.vitals || []} onRecord={openVitals} />}
+              {postNav === 'pain'      && <PainManagement log={po.pain_log || []} onAdd={openPain} />}
+              {postNav === 'wound'     && <WoundCare wounds={po.wounds || []} onAssess={openWoundAssess} />}
+              {postNav === 'drains'    && <DrainManagement drains={po.drains || []} onLog={openDrainLog} onRemove={removeDrain} />}
               {postNav === 'resp'      && <RespiratoryCard resp={po.respiratory} />}
               {postNav === 'fluid'     && <FluidBalance fb={po.fluid_balance} />}
-              {postNav === 'mobility'  && <MobilityCard mobility={po.mobility || []} dvt={po.dvt} onLog={() => askPin('Log Ambulation', () => {})} />}
+              {postNav === 'mobility'  && <MobilityCard mobility={po.mobility || []} dvt={po.dvt} onLog={openAmbulation} />}
               {postNav === 'milestones'&& <MilestonesCard milestones={po.milestones || {}} onMark={markMilestone} />}
               {postNav === 'discharge' && <DischargeCriteriaCard instructions={po.surgeon_instructions} instructionsReviewed={po.surgeon_instructions_reviewed} criteria={po.discharge_criteria || {}} onReview={reviewInstructions} onTick={tickDischarge} />}
             </div>
           </>
         )}
       </div>
+
+      {/* Drawers */}
+      {drawer?.type === 'ot_transfer'  && <OTTransferDrawer  onSave={saveOTTransfer}  onClose={() => setDrawer(null)} />}
+      {drawer?.type === 'aldrete'      && <AldreteDrawer      onSave={saveAldrete}     onClose={() => setDrawer(null)} />}
+      {drawer?.type === 'vitals'       && <VitalsDrawer       onSave={saveVitals}      onClose={() => setDrawer(null)} />}
+      {drawer?.type === 'pain'         && <PainDrawer         onSave={savePain}        onClose={() => setDrawer(null)} />}
+      {drawer?.type === 'wound'        && <WoundDrawer        wound={drawer.wound}     onSave={saveWoundAssess}  onClose={() => setDrawer(null)} />}
+      {drawer?.type === 'drain_output' && <DrainOutputDrawer  drain={drawer.drain}     onSave={saveDrainOutput}  onClose={() => setDrawer(null)} />}
+      {drawer?.type === 'ambulation'   && <AmbulationDrawer   onSave={saveAmbulation}  onClose={() => setDrawer(null)} />}
 
       {pin && <PinModal title={pin.title} onConfirm={() => { pin.onConfirm(); setPin(null) }} onCancel={() => setPin(null)} />}
     </div>
