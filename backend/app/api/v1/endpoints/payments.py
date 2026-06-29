@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.core.config import settings
-from app.core.security import get_current_staff
+from app.core.security import get_current_staff, staff_has_billing_access
 from app.models.models import Clinic, Plan, Staff, SubscriptionInvoice, WebhookEvent, ClinicSubscription
 from app.services import razorpay_service
 from app.services.subscription import compute_price, activate_paid
@@ -25,13 +25,11 @@ from app.services.dunning import notify_receipt
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 
-_BILLING_ROLES = ("clinic_admin", "clinic_manager", "doctor", "receptionist")
-
-
 def _require_billing_actor(current=Depends(get_current_staff)):
-    role = (getattr(current, "role", "") or "").lower()
-    if role not in _BILLING_ROLES:
-        raise HTTPException(403, "Only clinic staff can manage the health-center subscription.")
+    # Access-based: the owner always, plus anyone granted the "plan_subscription" duty.
+    # See app.core.security.staff_has_billing_access.
+    if not staff_has_billing_access(current):
+        raise HTTPException(403, "You don't have access to manage the health-center subscription.")
     return current
 
 

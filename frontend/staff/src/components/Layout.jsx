@@ -5,7 +5,7 @@ import EmergencyAlertBanner from './EmergencyAlertBanner'
 import { useState, useEffect, useRef } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
-  CreditCard, LayoutDashboard, LogOut, Users,
+  CreditCard, LayoutDashboard, LogOut, Users, User,
   Menu, X, Settings, BedDouble, LayoutGrid, Banknote, Wrench, HelpCircle,
   CalendarRange, UserCircle2, Plane, LayoutTemplate, Send, Monitor, RefreshCw,
   UserCheck, ShieldAlert, Lock, CalendarClock, PanelLeft, ShieldCheck,
@@ -58,7 +58,7 @@ function formatRole(role) {
   return role.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
 
-function ProfileDropdown({ user, onSettings, onLogout, onClose }) {
+function ProfileDropdown({ user, onSettings, onPlan, onLogout, onClose }) {
   const ref = useRef(null)
   useEffect(() => {
     const h = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose() }
@@ -83,8 +83,14 @@ function ProfileDropdown({ user, onSettings, onLogout, onClose }) {
       <div className="py-1">
         <button onClick={() => { onSettings(); onClose() }}
           className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-          <Settings size={15} className="text-gray-400" /> Settings &amp; Profile
+          <User size={15} className="text-gray-400" /> My Profile
         </button>
+        {user?.can_manage_billing && (
+          <button onClick={() => { onPlan(); onClose() }}
+            className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+            <CreditCard size={15} className="text-gray-400" /> Plan &amp; Subscription
+          </button>
+        )}
         <div className="border-t border-gray-100 my-1" />
         <button onClick={() => { onLogout(); onClose() }}
           className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-rose-600 hover:bg-rose-50 transition-colors">
@@ -138,6 +144,7 @@ export default function Layout() {
   const [maintBadge, setMaintBadge] = useState(0)
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [profilePanelOpen, setProfilePanelOpen] = useState(false)
+  const [profileTab, setProfileTab] = useState('personal')
 
   const perms = usePerms()
   const isManager = ['clinic_manager', 'clinic_admin'].includes(user?.role)
@@ -309,7 +316,8 @@ export default function Layout() {
             {dropdownOpen && (
               <ProfileDropdown
                 user={user}
-                onSettings={() => setProfilePanelOpen(true)}
+                onSettings={() => { setProfileTab('personal'); setProfilePanelOpen(true) }}
+                onPlan={() => { setProfileTab('billing'); setProfilePanelOpen(true) }}
                 onLogout={logout}
                 onClose={() => setDropdownOpen(false)}
               />
@@ -328,7 +336,7 @@ export default function Layout() {
 
       <ChatWidget />
       <HelpWidget open={helpOpen} onClose={() => setHelpOpen(false)} />
-      <StaffProfilePanel open={profilePanelOpen} onClose={() => setProfilePanelOpen(false)} />
+      <StaffProfilePanel open={profilePanelOpen} initialTab={profileTab} onClose={() => setProfilePanelOpen(false)} onLogout={logout} />
     </div>
   )
 }

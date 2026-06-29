@@ -52,6 +52,7 @@ class Clinic(Base):
     pincode                 = Column(String(10))
     google_maps_url         = Column(Text, nullable=True)
     logo_url                = Column(String(500), nullable=True)
+    logo_data               = Column(Text, nullable=True)   # durable base64 data-URI (survives deploys, replaces ephemeral /uploads)
     brand_name              = Column(String(200), nullable=True)  # display name shown in portals
     brand_color             = Column(String(20), nullable=True)   # hex color e.g. #0F2557
     bridge_api_key          = Column(String(64), nullable=True)   # per-health-center device-bridge key (HL7/ASTM/DICOM ingest)
@@ -174,6 +175,7 @@ class Staff(Base):
     license_number       = Column(String(100), nullable=True)
     license_document_url = Column(String(500), nullable=True)
     avatar_url           = Column(String(500))
+    avatar_data          = Column(Text, nullable=True)   # durable base64 data-URI profile photo (single current image)
     pin_hash             = Column(String(255), nullable=True)
     pin_set_at           = Column(DateTime, nullable=True)
     pin_reset_required   = Column(Boolean, default=False)

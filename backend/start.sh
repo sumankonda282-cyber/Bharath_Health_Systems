@@ -668,6 +668,10 @@ safe_cols = [
     \"ALTER TABLE staff ADD COLUMN IF NOT EXISTS license_renewal_date DATE\",
     \"CREATE TABLE IF NOT EXISTS staff_license_history (id SERIAL PRIMARY KEY, staff_id INTEGER NOT NULL REFERENCES staff(id), clinic_id INTEGER REFERENCES clinics(id), event_type VARCHAR(30) NOT NULL, license_number VARCHAR(100), license_registered_date DATE, license_renewal_date DATE, license_expiry_date DATE, document_url VARCHAR(500), note TEXT, changed_by INTEGER, changed_by_name VARCHAR(200), created_at TIMESTAMP DEFAULT NOW())\",
     \"CREATE INDEX IF NOT EXISTS idx_staff_license_history_staff ON staff_license_history(staff_id, created_at DESC)\",
+
+    # ── Durable profile/brand images (base64 data-URI in DB — survives Render redeploys) ──
+    \"ALTER TABLE staff ADD COLUMN IF NOT EXISTS avatar_data TEXT\",
+    \"ALTER TABLE clinics ADD COLUMN IF NOT EXISTS logo_data TEXT\",
 ]
 ok = 0
 failed = 0

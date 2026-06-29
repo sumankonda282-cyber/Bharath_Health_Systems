@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
-import { Menu, PanelLeft, RefreshCw, HelpCircle, ChevronDown, LogOut } from 'lucide-react'
+import { Menu, PanelLeft, RefreshCw, HelpCircle, ChevronDown, LogOut, User, CreditCard } from 'lucide-react'
 import NotificationBell from './NotificationBell'
 import HelpWidget from './HelpWidget'
+import ProfilePanel from './ProfilePanel'
 
 /**
  * Shared portal top bar — uniform across all staff/service portals.
@@ -28,6 +29,8 @@ export default function PortalTopBar({
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
+  const [profileTab, setProfileTab] = useState('personal')
   const ref = useRef(null)
 
   useEffect(() => {
@@ -98,6 +101,16 @@ export default function PortalTopBar({
               <div className="text-xs text-gray-400 capitalize">{role}</div>
             </div>
             <div className="p-1">
+              <button onClick={() => { setMenuOpen(false); setProfileTab('personal'); setProfileOpen(true) }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                <User size={15} className="text-gray-400" /> My Profile
+              </button>
+              {user?.can_manage_billing && (
+                <button onClick={() => { setMenuOpen(false); setProfileTab('billing'); setProfileOpen(true) }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                  <CreditCard size={15} className="text-gray-400" /> Plan &amp; Subscription
+                </button>
+              )}
               <button onClick={() => { setMenuOpen(false); onLogout?.() }}
                 className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-red-600 hover:bg-red-50 font-medium transition-colors">
                 <LogOut size={15} /> Sign out
@@ -106,6 +119,9 @@ export default function PortalTopBar({
           </div>
         )}
       </div>
+
+      <ProfilePanel open={profileOpen} initialTab={profileTab} api={api}
+        onClose={() => setProfileOpen(false)} onLogout={onLogout} />
     </header>
   )
 }

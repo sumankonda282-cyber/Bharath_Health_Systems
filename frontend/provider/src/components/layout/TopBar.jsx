@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
-import { Menu, PanelLeft, HelpCircle, User, LogOut, Settings, ChevronDown, RefreshCw, Clock, CreditCard } from 'lucide-react'
+import { Menu, PanelLeft, HelpCircle, User, LogOut, ChevronDown, RefreshCw, Clock, CreditCard } from 'lucide-react'
 import ProfileDrawer from './ProfileDrawer'
 import NotificationBell from '../ui/NotificationBell'
 import HelpWidget from './HelpWidget'
@@ -145,12 +145,6 @@ export default function TopBar({ onMenuClick, onToggleSidebar, onRefresh }) {
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                 >
                   <CreditCard size={15} className="text-gray-400" /> Plan & Subscription
-                </button>
-                <button
-                  onClick={() => { setDropOpen(false); navigate('/admin') }}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                >
-                  <Settings size={15} className="text-gray-400" /> Settings
                 </button>
                 <div className="border-t border-gray-100 mt-1 pt-1">
                   <button
