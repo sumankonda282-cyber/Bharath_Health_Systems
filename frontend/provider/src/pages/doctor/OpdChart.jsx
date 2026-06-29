@@ -434,7 +434,7 @@ function ChartDoc({ title, Icon, accent, count, onOpen, openLabel, children }) {
   )
 }
 
-function PatientChartSection({ encounter, patientId, soap, prescriptions, labItems, imagingItems, counselling, onOpenSection }) {
+function PatientChartSection({ encounter, patientId, soap, prescriptions, labItems, imagingItems, counselling, onOpenSection, formSubmissions }) {
   const p = encounter.patient || {}
   const v = encounter.vitals || {}
   const stats = [
@@ -533,6 +533,25 @@ function PatientChartSection({ encounter, patientId, soap, prescriptions, labIte
       </ChartDoc>
       <ChartDoc title="Patient Counselling" Icon={MessageSquare} accent="#16a34a" onOpen={() => onOpenSection('counselling')} openLabel="Add counselling →">
         {counselling && counselling.trim() ? <p className="whitespace-pre-wrap">{counselling}</p> : <span className="text-gray-400">No counselling recorded yet.</span>}
+      </ChartDoc>
+      <ChartDoc title="Assessment Forms" Icon={ClipboardList} accent="#7c3aed" count={formSubmissions?.length ?? null}>
+        {formSubmissions == null ? (
+          <span className="text-gray-400">Loading…</span>
+        ) : formSubmissions.length === 0 ? (
+          <span className="text-gray-400">No forms submitted this visit.</span>
+        ) : (
+          <ul className="space-y-1">
+            {formSubmissions.map(s => (
+              <li key={s.id} className="flex items-center justify-between">
+                <span>📋 <b>{s.form_title}</b></span>
+                <a href={`/forms/submission/${s.id}`} target="_blank" rel="noreferrer"
+                  className="text-[11px] font-semibold text-blue-600 hover:underline ml-2 flex-shrink-0">
+                  View →
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
       </ChartDoc>
 
       <PastVisits patientId={patientId} />
@@ -911,6 +930,7 @@ export default function OpdChart() {
   const [saving, setSaving]           = useState(false)
   const [actionLoading, setActionLoading] = useState('')
   const [orderToast, setOrderToast]   = useState('')
+  const [formSubmissions, setFormSubmissions] = useState(null)
 
   const load = useCallback(async () => {
     try {
@@ -957,6 +977,18 @@ export default function OpdChart() {
   }, [id])
 
   useEffect(() => { load() }, [load])
+
+  // Fetch submitted assessment forms for this patient (today) so they appear in the chart
+  useEffect(() => {
+    if (!encounter) return
+    const pid = (encounter.patient?.id || encounter.appointment?.patient_id || encounter.patient_id)
+    if (!pid) return
+    const today = new Date()
+    const dateFrom = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}T00:00:00`
+    api.get('/submissions', { params: { patient_id: pid, date_from: dateFrom, limit: 50 } })
+      .then(res => setFormSubmissions(res?.items || []))
+      .catch(() => setFormSubmissions([]))
+  }, [encounter])
 
   useEffect(() => {
     if (!orderToast) return
@@ -1223,6 +1255,15 @@ export default function OpdChart() {
               onSubmitted={({ schema, formData }) => {
                 setActiveForm(null)
                 handleFormOrders(extractOrdersFromForm(schema, formData))
+                // Refresh submissions list so the chart shows the newly submitted form
+                const pid = patientId
+                if (pid) {
+                  const today = new Date()
+                  const dateFrom = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}T00:00:00`
+                  api.get('/submissions', { params: { patient_id: pid, date_from: dateFrom, limit: 50 } })
+                    .then(res => setFormSubmissions(res?.items || []))
+                    .catch(() => {})
+                }
               }}
             />
           ) : (
@@ -1237,6 +1278,7 @@ export default function OpdChart() {
                   imagingItems={imagingItems}
                   counselling={counselling}
                   onOpenSection={setSection}
+                  formSubmissions={formSubmissions}
                 />
               )}
               {section === 'counselling' && (
