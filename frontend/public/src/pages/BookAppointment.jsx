@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useSearchParams, useNavigate } from 'react-router-dom'
+import { useSEO } from '../hooks/useSEO'
 import {
   Calendar, Clock, User, ChevronRight, CheckCircle,
   Phone, ArrowLeft, Search, Building2, IndianRupee,
@@ -815,6 +816,13 @@ function Step5({ booking }) {
 }
 
 export default function BookAppointment() {
+  useSEO({
+    title: 'Book Doctor Appointment Online | BharatCliniq',
+    description: 'Book your doctor appointment in minutes. Choose your specialist, pick a time slot, and get instant confirmation. Hassle-free OPD booking across India.',
+    keywords: 'book doctor appointment online India, OPD appointment booking, online doctor consultation, instant appointment confirmation',
+    canonical: 'https://bharathhealthsystems.com/book',
+  })
+
   const [searchParams] = useSearchParams()
   const [step, setStep] = useState(0)
   const [bookingData, setBookingData] = useState({})

@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+Allow: /clinics
+Allow: /clinics/
+Allow: /doctor/
+Allow: /book
+Allow: /register
+
+Disallow: /previsit/
+Disallow: /booking/
+
+Sitemap: https://bharathhealthsystems.com/sitemap.xml

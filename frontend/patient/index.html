@@ -3,14 +3,33 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>BHarath Health · My Health Portal</title>
+
+    <!-- Patient portal is authenticated — no indexing -->
+    <meta name="robots" content="noindex, nofollow" />
+
+    <title>BharatCliniq · My Health Portal</title>
+    <meta name="description" content="Manage your health on BharatCliniq. View appointments, prescriptions, lab results, bills, and your complete medical history — all in one place." />
+    <meta name="theme-color" content="#0F2557" />
+
+    <!-- Open Graph (for sharing the login page) -->
+    <meta property="og:type"        content="website" />
+    <meta property="og:site_name"   content="BharatCliniq" />
+    <meta property="og:title"       content="BharatCliniq · My Health Portal" />
+    <meta property="og:description" content="Access your health records, book appointments, view prescriptions and lab results on BharatCliniq." />
+    <meta property="og:image"       content="https://bharathhealthsystems.com/og-image.png" />
+    <meta property="og:url"         content="https://my.bharathhealthsystems.com" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card"        content="summary" />
+    <meta name="twitter:site"        content="@BharatCliniq" />
+    <meta name="twitter:title"       content="BharatCliniq · My Health Portal" />
+    <meta name="twitter:description" content="Access your health records, appointments, and prescriptions on BharatCliniq." />
 
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
-
-    </head>
+  </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>

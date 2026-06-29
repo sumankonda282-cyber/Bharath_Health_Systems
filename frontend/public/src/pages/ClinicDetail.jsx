@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { useSEO } from '../hooks/useSEO'
 import {
   MapPin, Phone, Mail, Stethoscope, Clock,
   User, ArrowLeft, Building2, ChevronRight,
@@ -235,6 +236,38 @@ export default function ClinicDetail() {
   const [clinic, setClinic] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+
+  useSEO({
+    title: clinic
+      ? `${clinic.name} — Book Appointment Online | BharatCliniq`
+      : 'Clinic Details | BharatCliniq',
+    description: clinic
+      ? `Book an appointment at ${clinic.name}${clinic.city ? ` in ${clinic.city}` : ''}. ${clinic.specialty ? `Specialising in ${clinic.specialty}. ` : ''}Verified clinic with instant online booking and confirmed slots.`
+      : 'View clinic details and book appointments online on BharatCliniq.',
+    keywords: clinic
+      ? `${clinic.name}, ${clinic.city || ''}, book appointment, ${clinic.specialty || 'doctor'}, online OPD booking`
+      : 'clinic, book appointment, BharatCliniq',
+    canonical: `https://bharathhealthsystems.com/clinics/${slug}`,
+    ogType: 'business.business',
+    jsonLd: clinic ? {
+      '@context': 'https://schema.org',
+      '@type': 'MedicalClinic',
+      name: clinic.name,
+      description: `${clinic.specialty || 'Healthcare'} services at ${clinic.name}${clinic.city ? `, ${clinic.city}` : ''}`,
+      url: `https://bharathhealthsystems.com/clinics/${slug}`,
+      telephone: clinic.phone,
+      email: clinic.email,
+      address: {
+        '@type': 'PostalAddress',
+        streetAddress: clinic.address,
+        addressLocality: clinic.city,
+        addressRegion: clinic.state,
+        postalCode: clinic.pincode,
+        addressCountry: 'IN',
+      },
+      medicalSpecialty: clinic.specialty,
+    } : null,
+  })
 
   useEffect(() => {
     publicApi.getClinicBySlug(slug)

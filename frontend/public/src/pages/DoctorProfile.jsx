@@ -5,6 +5,7 @@ import { publicApi } from '../api/client'
 import Navbar from '../components/Navbar'
 import { PATIENT_URL } from '../constants/urls'
 import BookingFlow from '../components/BookingFlow'
+import { useSEO } from '../hooks/useSEO'
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
@@ -14,6 +15,34 @@ export default function DoctorProfilePage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [booking, setBooking] = useState(false)
+
+  const doctorName = doctor ? (/^dr\.?\s/i.test(doctor.name) ? doctor.name : `Dr. ${doctor.name}`) : null
+  useSEO({
+    title: doctorName
+      ? `${doctorName} — ${doctor.specialty || 'Doctor'} | Book Appointment | BharatCliniq`
+      : 'Doctor Profile | BharatCliniq',
+    description: doctorName
+      ? `Book an appointment with ${doctorName}, ${doctor.specialty || 'Doctor'}${doctor.qualification ? ` (${doctor.qualification})` : ''}${doctor.experience_years ? ` with ${doctor.experience_years} years of experience` : ''}. Online booking available on BharatCliniq.`
+      : 'View doctor profile and book appointments online.',
+    keywords: doctorName
+      ? `${doctorName}, ${doctor.specialty || 'doctor'}, book doctor appointment, online consultation India`
+      : 'doctor, book appointment, BharatCliniq',
+    canonical: `https://bharathhealthsystems.com/doctor/${id}`,
+    jsonLd: doctor ? {
+      '@context': 'https://schema.org',
+      '@type': 'Physician',
+      name: doctorName,
+      medicalSpecialty: doctor.specialty,
+      description: doctor.bio,
+      url: `https://bharathhealthsystems.com/doctor/${id}`,
+      ...(doctor.mci_verified && {
+        hasCredential: {
+          '@type': 'EducationalOccupationalCredential',
+          credentialCategory: 'MCI Registered Physician',
+        },
+      }),
+    } : null,
+  })
 
   useEffect(() => {
     publicApi.getDoctor(id)

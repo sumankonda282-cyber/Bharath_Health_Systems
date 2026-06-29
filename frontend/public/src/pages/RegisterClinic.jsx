@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
+import { useSEO } from '../hooks/useSEO'
 import {
   Building2, ChevronRight, Check, CheckCircle, ArrowLeft,
   Mail, Phone, Upload, X, MapPin, Search, Plus
@@ -621,6 +622,24 @@ function SuccessScreen({ email }) {
 }
 
 export default function RegisterClinic() {
+  useSEO({
+    title: 'Register Your Clinic Free | BharatCliniq — Digital Clinic Management India',
+    description: 'Join BharatCliniq for free. Get a complete digital clinic management system — online booking, patient records, billing, pharmacy, lab, and more. Trusted by clinics across India.',
+    keywords: 'register clinic India, free clinic management software, hospital management system India, digital healthcare platform, clinic software India, HMS India, clinic SaaS India',
+    canonical: 'https://bharathhealthsystems.com/register',
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@type': 'SoftwareApplication',
+      name: 'BharatCliniq Clinic Management',
+      applicationCategory: 'HealthApplication',
+      description: 'Complete digital clinic management for Indian healthcare providers — booking, billing, pharmacy, lab, and patient records.',
+      url: 'https://bharathhealthsystems.com/register',
+      operatingSystem: 'Web Browser',
+      offers: { '@type': 'Offer', price: '0', priceCurrency: 'INR', description: 'Free plan available' },
+      publisher: { '@type': 'Organization', name: 'Bharath Health Systems' },
+    },
+  })
+
   const [step, setStep]             = useState(0)
   const [submitted, setSubmitted]   = useState(false)
   const [submitting, setSubmitting] = useState(false)

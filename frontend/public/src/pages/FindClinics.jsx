@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { useSEO } from '../hooks/useSEO'
 import {
   Search, MapPin, Users, ChevronRight, Building2,
   Stethoscope, ArrowLeft, X, Star, Clock, Wifi, WifiOff, Calendar
@@ -340,6 +341,13 @@ function CitySearch({ value, onChange, cities }) {
 }
 
 export default function FindClinics() {
+  useSEO({
+    title: 'Find Clinics & Doctors Near You | BharatCliniq',
+    description: 'Search verified clinics, hospitals, and specialty doctors across India. Filter by specialty, city, and availability. Book OPD appointments online with instant confirmation.',
+    keywords: 'find clinics near me India, book hospital appointment, specialty doctors India, multispecialty hospital, OPD booking online, doctors near me',
+    canonical: 'https://bharathhealthsystems.com/clinics',
+  })
+
   const [searchParams, setSearchParams] = useSearchParams()
   const [allResults, setAllResults] = useState([])
   const [cities, setCities] = useState([])

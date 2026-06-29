@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import api from '../api/client'
+import { useSEO } from '../hooks/useSEO'
 import {
   Search, Calendar, FileText, Pill, FlaskConical,
   ReceiptText, BarChart3, ChevronRight, Star,
@@ -223,6 +224,13 @@ function FeedbackForm() {
 }
 
 export default function HomePage() {
+  useSEO({
+    title: "BharatCliniq | Book Doctor Appointments Online — India's Digital Health Platform",
+    description: "Find verified doctors and clinics near you. Book appointments instantly, manage prescriptions, lab results and billing — all online. India's trusted clinic management platform.",
+    keywords: "book doctor appointment online India, find clinic near me, online OPD booking, digital health platform India, clinic management software India, BharatCliniq",
+    canonical: 'https://bharathhealthsystems.com',
+  })
+
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [city, setCity] = useState('')
