@@ -672,6 +672,14 @@ safe_cols = [
     # ── Durable profile/brand images (base64 data-URI in DB — survives Render redeploys) ──
     \"ALTER TABLE staff ADD COLUMN IF NOT EXISTS avatar_data TEXT\",
     \"ALTER TABLE clinics ADD COLUMN IF NOT EXISTS logo_data TEXT\",
+
+    # ── Assessment-form soft-delete (30-day Trash) + audit trail ──
+    \"ALTER TABLE assessment_forms ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP\",
+    \"ALTER TABLE assessment_forms ADD COLUMN IF NOT EXISTS deleted_by INTEGER\",
+    \"ALTER TABLE assessment_forms ADD COLUMN IF NOT EXISTS deleted_by_name VARCHAR(200)\",
+    \"CREATE INDEX IF NOT EXISTS idx_assessment_forms_deleted_at ON assessment_forms(deleted_at)\",
+    \"CREATE TABLE IF NOT EXISTS assessment_form_audit (id SERIAL PRIMARY KEY, form_id INTEGER NOT NULL, form_title VARCHAR(200), action VARCHAR(20) NOT NULL, actor_id INTEGER, actor_name VARCHAR(200), actor_type VARCHAR(20), detail TEXT, created_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE INDEX IF NOT EXISTS idx_assessment_form_audit_form ON assessment_form_audit(form_id, created_at DESC)\",
 ]
 ok = 0
 failed = 0
@@ -903,8 +911,10 @@ echo "[bg-migrations] Seeding demo/test accounts (idempotent)..."
 timeout 60 python seed.py || echo "[bg-migrations] Demo seed failed (non-fatal)"
 echo "[bg-migrations] Consolidating to a single canonical Vital Signs form..."
 timeout 120 python seed_vitals.py || echo "[bg-migrations] Vitals consolidation failed (non-fatal)"
-echo "[bg-migrations] Seeding faithful DB assessment forms (only forms marked ready; idempotent)..."
+echo "[bg-migrations] Seeding the standardized DB assessment-form library (idempotent; empty stubs upgraded in place)..."
 timeout 180 python seed_assessment_forms.py --all || echo "[bg-migrations] Assessment forms seed failed (non-fatal)"
+echo "[bg-migrations] Seeding validated scored tools (PHQ-9, GAD-7, GCS, Morse, APGAR, Pain, Wound)..."
+timeout 60 python seed_forms.py || echo "[bg-migrations] Validated tools seed failed (non-fatal)"
 echo "[bg-migrations] Done."
 ) &
 

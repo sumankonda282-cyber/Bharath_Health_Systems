@@ -2156,8 +2156,26 @@ class AssessmentForm(Base):
     parent_form_id     = Column(Integer, nullable=True)
     published_at       = Column(DateTime, nullable=True)
     retired_at         = Column(DateTime, nullable=True)
+    deleted_at         = Column(DateTime, nullable=True, index=True)  # soft-delete → Trash (30-day window)
+    deleted_by         = Column(Integer, nullable=True)
+    deleted_by_name    = Column(String(200), nullable=True)
     created_at         = Column(DateTime, server_default=func.now())
     updated_at         = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class AssessmentFormAudit(Base):
+    """Append-only audit trail for assessment-form lifecycle: created / edited / published /
+    retired / deleted / restored. Drives the admin 'who deleted/edited what, when' view."""
+    __tablename__ = "assessment_form_audit"
+    id          = Column(Integer, primary_key=True, index=True)
+    form_id     = Column(Integer, index=True, nullable=False)
+    form_title  = Column(String(200), nullable=True)
+    action      = Column(String(20), nullable=False)   # created|edited|published|retired|deleted|restored|duplicated
+    actor_id    = Column(Integer, nullable=True)
+    actor_name  = Column(String(200), nullable=True)
+    actor_type  = Column(String(20), nullable=True)    # staff|platform_admin|unknown
+    detail      = Column(Text, nullable=True)
+    created_at  = Column(DateTime, server_default=func.now(), index=True)
 
 
 class AssessmentFormVersion(Base):

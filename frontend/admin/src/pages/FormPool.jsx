@@ -34,6 +34,7 @@ const TABS = [
   { key: 'drafts',    label: 'Drafts' },
   { key: 'templates', label: 'Templates' },
   { key: 'retired',   label: 'Retired' },
+  { key: 'trash',     label: 'Trash' },
 ]
 
 const CATEGORIES = [
@@ -175,7 +176,9 @@ export default function FormPool() {
   const fetchForms = useCallback(async () => {
     setLoading(true); setError(null)
     try {
-      const data = await api.get('/assessment-forms', { params: { limit: 1000 } })
+      // Admin library management — show ALL forms incl. empty ones so they can be
+      // reviewed / rebuilt / deleted here (the portal documentation pickers hide empties).
+      const data = await api.get('/assessment-forms', { params: { limit: 1000, include_empty: true } })
       setForms(Array.isArray(data) ? data : (data.forms ?? data.items ?? []))
     } catch (e) {
       setError(e.message || 'Failed to load forms')
@@ -185,6 +188,29 @@ export default function FormPool() {
   }, [])
 
   useEffect(() => { fetchForms() }, [fetchForms])
+
+  // ── Trash (soft-deleted forms, recoverable 30 days) ─────────────────────────
+  const [trashItems, setTrashItems]     = useState([])
+  const [trashLoading, setTrashLoading] = useState(false)
+  const fetchTrash = useCallback(async () => {
+    setTrashLoading(true)
+    try {
+      const data = await api.get('/assessment-forms/trash')
+      setTrashItems(data?.trash ?? [])
+    } catch { setTrashItems([]) }
+    finally { setTrashLoading(false) }
+  }, [])
+  useEffect(() => { if (activeTab === 'trash') fetchTrash() }, [activeTab, fetchTrash])
+
+  const handleRestore = async (item) => {
+    setActionLoading(p => ({ ...p, [item.id]: true }))
+    try {
+      await api.post(`/assessment-forms/${item.id}/restore`)
+      toast('Form restored', 'success')
+      fetchTrash(); fetchForms()
+    } catch (e) { toast(e.message ?? 'Restore failed', 'error') }
+    finally { setActionLoading(p => ({ ...p, [item.id]: false })) }
+  }
 
   // ── Derived list ──────────────────────────────────────────────────────────
   const filtered = forms.filter(f => {
@@ -244,7 +270,7 @@ export default function FormPool() {
     setActionLoading(p => ({ ...p, [form.id]: true }))
     try {
       await api.delete(`/assessment-forms/${form.id}`)
-      toast('Form deleted', 'success')
+      toast('Moved to Trash', 'success')
       fetchForms()
     } catch (e) {
       toast(e.message ?? 'Delete failed', 'error')
@@ -316,6 +342,10 @@ export default function FormPool() {
       </div>
 
       {/* Body */}
+      {activeTab === 'trash' ? (
+        <TrashView items={trashItems} loading={trashLoading} actionLoading={actionLoading} onRestore={handleRestore} />
+      ) : (
+      <>
       {loading && (
         <div className="flex justify-center py-20">
           <Loader2 className="w-7 h-7 animate-spin text-[#F5821E]" />
@@ -351,16 +381,59 @@ export default function FormPool() {
           ))}
         </div>
       )}
+      </>
+      )}
 
       {deleteTarget && (
         <ConfirmModal
-          message={`Delete "${deleteTarget.title}"? All submissions and assignments for this form will also be deleted. This cannot be undone.`}
+          message={`Move "${deleteTarget.title}" to Trash? It stays recoverable for 30 days (submissions are preserved), and you can restore it from the Trash tab.`}
           onConfirm={handleDeleteConfirm}
           onCancel={handleDeleteCancel}
         />
       )}
 
       <ToastContainer toasts={toasts} onRemove={removeToast} />
+    </div>
+  )
+}
+
+// ─── Trash view (soft-deleted forms) ───────────────────────────────────────────
+
+function TrashView({ items, loading, actionLoading, onRestore }) {
+  if (loading) return (
+    <div className="flex justify-center py-20"><Loader2 className="w-7 h-7 animate-spin text-[#F5821E]" /></div>
+  )
+  if (!items.length) return (
+    <div className="card-p text-center py-16">
+      <Trash2 className="w-10 h-10 mx-auto mb-3 text-gray-700" />
+      <p className="text-sm text-gray-500">Trash is empty</p>
+    </div>
+  )
+  return (
+    <div className="space-y-2">
+      <p className="text-xs text-gray-500">
+        Deleted forms are kept for 30 days, then auto-removed (forms with submissions are never auto-purged). Restore any time.
+      </p>
+      {items.map(it => (
+        <div key={it.id} className="bg-gray-900 border border-gray-800 rounded-xl p-3 flex items-center gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-semibold text-gray-100 truncate">{it.title}</div>
+            <div className="text-[11px] text-gray-500">
+              {it.category || '—'}
+              {it.deleted_by_name ? ` · deleted by ${it.deleted_by_name}` : ''}
+              {it.deleted_at ? ` · ${new Date(it.deleted_at).toLocaleDateString('en-IN')}` : ''}
+              {it.has_submissions ? ' · has submissions' : ''}
+            </div>
+          </div>
+          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium border ${it.days_left <= 7 ? 'bg-red-950/40 text-red-400 border-red-800/50' : 'bg-gray-800 text-gray-400 border-gray-700'}`}>
+            {it.days_left}d left
+          </span>
+          <button onClick={() => onRestore(it)} disabled={!!actionLoading[it.id]}
+            className="btn-secondary text-xs inline-flex items-center gap-1 disabled:opacity-50">
+            <RefreshCw size={12} /> Restore
+          </button>
+        </div>
+      ))}
     </div>
   )
 }

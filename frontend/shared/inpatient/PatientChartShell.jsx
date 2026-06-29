@@ -9,8 +9,12 @@ const GREEN = '#059669'
 const NAVY = '#0F2557'
 
 // ── Assessment form pool ─────────────────────────────────────────────────────
+// Bedside / nursing quick-entry labels that are NOT yet structured DB forms.
+// Every real assessment form (history, specialty, clinical scales — the ~98 forms)
+// now lives in the database and is fetched live from /assessment-forms, editable in
+// the admin form builder. These remaining bedside labels are simple capture stubs
+// pending migration to structured forms; they are de-duped against DB titles below.
 const FORM_POOL = [
-  // Bedside / nursing (simple placeholder)
   { name: 'Vital Signs' },
   { name: 'MAR Quick Entry' },
   { name: 'Pain Score' },
@@ -31,112 +35,6 @@ const FORM_POOL = [
   { name: 'Post-Op Monitoring' },
   { name: 'Fluid Resuscitation' },
   { name: 'Restraint Assessment' },
-  // Patient history (JSX forms)
-  { name: 'Patient Profile',   key: 'patient-profile' },
-  { name: 'Chief Complaint',   key: 'chief-complaint' },
-  { name: 'Medical History',   key: 'medical-history' },
-  { name: 'Family History',    key: 'family-history' },
-  { name: 'Social History',    key: 'social-history' },
-  { name: 'Allergies',         key: 'allergies' },
-  { name: 'Systems Review',    key: 'systems-review' },
-  // General
-  { name: 'Pain Assessment',   key: 'pain-assessment' },
-  { name: 'Asthma Control',    key: 'asthma-basic' },
-  // Clinical examination
-  { name: 'Clinical Exam',        key: 'systems-clinical-exam' },
-  { name: 'Clinical Impression',  key: 'systems-clinical-impression' },
-  // Cardiology
-  { name: 'Chest Pain',           key: 'cardiology-chest-pain' },
-  { name: 'Hypertension',         key: 'cardiology-hypertension' },
-  { name: 'Heart Failure',        key: 'cardiology-heart-failure' },
-  { name: 'ACS Assessment',       key: 'cardiology-acs' },
-  { name: 'Atrial Fibrillation',  key: 'cardiology-af' },
-  { name: 'Dyslipidemia',         key: 'cardiology-dyslipidemia' },
-  { name: 'Cardiomyopathy',       key: 'cardiology-cardiomyopathy' },
-  { name: 'Valvular Heart Disease',key: 'cardiology-valvular' },
-  { name: 'Rheumatic Heart Disease',key:'cardiology-rhd' },
-  { name: 'Pericardial Disease',  key: 'cardiology-pericardial' },
-  // ENT
-  { name: 'Ear Assessment',       key: 'ent-ear' },
-  { name: 'Nose & Sinus',         key: 'ent-nose-sinus' },
-  { name: 'Throat & Larynx',      key: 'ent-throat-larynx' },
-  { name: 'Head & Neck',          key: 'ent-head-neck' },
-  { name: 'Audiology & Hearing',  key: 'ent-audiology' },
-  { name: 'Facial Nerve',         key: 'ent-facial-nerve' },
-  { name: 'Paediatric ENT',       key: 'ent-paediatric' },
-  { name: 'Tracheostomy',         key: 'ent-tracheostomy' },
-  // Gastroenterology
-  { name: 'Acute Abdomen',           key: 'gastro-acute-abdomen' },
-  { name: 'Acute Pancreatitis',      key: 'gastro-acute-pancreatitis' },
-  { name: 'Anorectal Disorders',     key: 'gastro-anorectal' },
-  { name: 'Biliary & Gallstone',     key: 'gastro-biliary' },
-  { name: 'Chronic Pancreatitis',    key: 'gastro-chronic-pancreatitis' },
-  { name: 'Dysphagia & Esophageal', key: 'gastro-dysphagia' },
-  { name: 'Functional GI',          key: 'gastro-functional' },
-  { name: 'GI Bleed',               key: 'gastro-gi-bleed' },
-  { name: 'GI Cancer',              key: 'gastro-gi-cancer' },
-  { name: 'Gastroparesis',          key: 'gastro-gastroparesis' },
-  { name: 'IBD',                    key: 'gastro-ibd' },
-  { name: 'Liver Disease',          key: 'gastro-liver' },
-  { name: 'Peptic Ulcer / GERD',    key: 'gastro-peptic-ulcer' },
-  // OBG
-  { name: 'ANC Follow-up',          key: 'obg-anc-followup' },
-  { name: 'Antenatal Booking',      key: 'obg-antenatal' },
-  { name: 'Cervical Screening',     key: 'obg-cervical' },
-  { name: 'Female Infertility',     key: 'obg-infertility' },
-  { name: 'GDM Assessment',         key: 'obg-gdm' },
-  { name: 'High Risk Pregnancy',    key: 'obg-high-risk' },
-  { name: 'Labour Assessment',      key: 'obg-labour' },
-  { name: 'Menopause',              key: 'obg-menopause' },
-  { name: 'Menstrual Disorder',     key: 'obg-menstrual' },
-  { name: 'PCOS',                   key: 'obg-pcos' },
-  { name: 'PID Assessment',         key: 'obg-pid' },
-  { name: 'Postpartum',             key: 'obg-postpartum' },
-  { name: 'Preeclampsia',           key: 'obg-preeclampsia' },
-  // Orthopedics
-  { name: 'Compartment Syndrome',   key: 'ortho-compartment-syndrome' },
-  { name: 'Fracture / Trauma',      key: 'ortho-fracture' },
-  { name: 'Musculoskeletal Pain',   key: 'ortho-msk-pain' },
-  { name: 'Elbow Assessment',       key: 'ortho-elbow' },
-  { name: 'Foot & Ankle',           key: 'ortho-foot-ankle' },
-  { name: 'Hand & Wrist',           key: 'ortho-hand-wrist' },
-  { name: 'Hip Assessment',         key: 'ortho-hip' },
-  { name: 'Knee Assessment',        key: 'ortho-knee' },
-  { name: 'Septic Arthritis / Osteomyelitis', key: 'ortho-septic-arthritis' },
-  { name: 'Shoulder Assessment',    key: 'ortho-shoulder' },
-  { name: 'Orthopedic Tumor',       key: 'ortho-tumor' },
-  { name: 'Orthotic & Prosthetic',  key: 'ortho-prosthetic' },
-  { name: 'Osteoporosis',           key: 'ortho-osteoporosis' },
-  { name: 'Pediatric Orthopedic',   key: 'ortho-pediatric' },
-  { name: 'Peripheral Nerve',       key: 'ortho-peripheral-nerve' },
-  { name: 'Post-Op Rehab',          key: 'ortho-postop-rehab' },
-  { name: 'Spine Assessment',       key: 'ortho-spine' },
-  // Pediatrics
-  { name: 'Adolescent Health',       key: 'peds-adolescent' },
-  { name: 'NICU Assessment',         key: 'peds-nicu' },
-  { name: 'Neonatal Assessment',     key: 'peds-neonatal' },
-  { name: 'Peds Cardiology',         key: 'peds-cardiology' },
-  { name: 'Developmental Disorders', key: 'peds-developmental' },
-  { name: 'Pediatric Emergency',     key: 'peds-emergency' },
-  { name: 'Peds Endocrinology',      key: 'peds-endocrinology' },
-  { name: 'Peds Fever & Infections', key: 'peds-fever' },
-  { name: 'Peds Gastro & Nutrition', key: 'peds-gastro' },
-  { name: 'Growth & Development',    key: 'peds-growth' },
-  { name: 'Haematology & Oncology',  key: 'peds-haematology' },
-  { name: 'Peds Nephrology',         key: 'peds-nephrology' },
-  { name: 'Peds Neurology',          key: 'peds-neurology' },
-  { name: 'Peds Respiratory',        key: 'peds-respiratory' },
-  { name: 'Peds Rheumatology',       key: 'peds-rheumatology' },
-  { name: 'Vaccination Chart',       key: 'peds-vaccination' },
-  // Specialty / Clinical scales
-  { name: 'Aerosol Therapy',         key: 'specialty-aerosol' },
-  { name: 'Asthma (Specialty)',      key: 'specialty-asthma' },
-  { name: 'Diabetes Assessment',     key: 'specialty-diabetes' },
-  { name: 'ACT Score',               key: 'clinical-act' },
-  { name: 'ADHD Scale',              key: 'clinical-adhd' },
-  { name: 'ALSFRS-R',               key: 'clinical-alsfrs' },
-  { name: 'ASRS Screen',            key: 'clinical-asrs' },
-  { name: 'Migraine Assessment',    key: 'clinical-migraine' },
 ]
 
 // ── Stat card ────────────────────────────────────────────────────────────────
@@ -391,8 +289,17 @@ function AssessmentPanel({ onOpenForm, api }) {
   const orgForms      = favOrg.map(byId).filter(Boolean)        // pinned (clinic-wide) — top
   const personalForms = favPersonal.map(byId).filter(Boolean)  // my favourites — below search
   const q = poolSearch.trim().toLowerCase()
-  // "pool of all" = DB forms + the static rich clinical forms.
-  const pool = [...dbForms.map(f => ({ ...f, __db: true })), ...FORM_POOL]
+  // "pool of all" = DB forms + any static fallback forms NOT yet in the DB.
+  // De-dupe: once a form exists in the DB it supersedes the static one — matched by
+  // subcategory key (the keyed clinical forms) or by title (the keyless bedside entries),
+  // so the standardized, builder-editable DB version is what opens (never a duplicate).
+  const dbSubs   = new Set(dbForms.map(f => f.subcategory).filter(Boolean))
+  const dbTitles = new Set(dbForms.map(f => (f.title || '').trim().toLowerCase()).filter(Boolean))
+  const staticForms = FORM_POOL.filter(f =>
+    !(f.key && dbSubs.has(f.key)) &&
+    !dbTitles.has((f.name || '').trim().toLowerCase())
+  )
+  const pool = [...dbForms.map(f => ({ ...f, __db: true })), ...staticForms]
   const results = q ? pool.filter(f => ftitle(f).toLowerCase().includes(q)) : pool
 
   return (

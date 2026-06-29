@@ -1,13 +1,13 @@
 /**
  * @shared-pool
- * FormRenderer — renders the correct assessment form for a given form_key.
- * Priority: 1) published DB schema (editable via admin form builder)
- *           2) hardcoded JSX component from registry.js
+ * FormRenderer — renders a clinical assessment form for a given subcategory key.
+ * Forms are DB-driven only: looks up the published schema by subcategory and renders
+ * it via SchemaFormRenderer (editable in the admin form builder). There is no hardcoded
+ * JSX fallback — every form lives in the database.
  * Portal-agnostic. Do NOT delete during portal rebuilds.
  */
-import React, { Suspense, Component, useState, useEffect } from 'react'
+import React, { Component, useState, useEffect } from 'react'
 import { Loader2, AlertTriangle, RefreshCw } from 'lucide-react'
-import { FORM_REGISTRY } from './registry'
 import api from '../../api/client'
 import SchemaFormRenderer from './SchemaFormRenderer'
 
@@ -47,8 +47,7 @@ const Spinner = () => (
 )
 
 /**
- * Renders a clinical assessment form by its registry key.
- * Checks the DB first for a published schema-based form; falls back to JSX.
+ * Renders a clinical assessment form by its subcategory key (DB schema only).
  *
  * @param {string}   formKey      - Subcategory key (e.g. 'ent-ear')
  * @param {number}   patientId    - Patient ID passed to the form
@@ -95,32 +94,14 @@ export default function FormRenderer({ formKey, patientId, encounterId, onSaved,
     )
   }
 
-  // Not in DB — fall back to JSX registry
-  const Component = FORM_REGISTRY[formKey]
-
-  if (!Component) {
-    return (
-      <div className="flex items-center gap-2 p-4 rounded-xl border border-amber-200 bg-amber-50 text-amber-700">
-        <AlertTriangle size={14} className="flex-shrink-0" />
-        <span className="text-xs">
-          No form registered for key <code className="font-mono bg-amber-100 px-1 rounded">{formKey}</code>.
-          Add it to <code className="font-mono bg-amber-100 px-1 rounded">registry.js</code> or seed it in the admin form builder.
-        </span>
-      </div>
-    )
-  }
-
+  // No published DB form for this key
   return (
-    <ErrorBoundary>
-      <Suspense fallback={<Spinner />}>
-        <Component
-          patientId={patientId}
-          encounterId={encounterId}
-          onSaved={onSaved}
-          admission={admission}
-          onClose={onClose || onSaved}
-        />
-      </Suspense>
-    </ErrorBoundary>
+    <div className="flex items-center gap-2 p-4 rounded-xl border border-amber-200 bg-amber-50 text-amber-700">
+      <AlertTriangle size={14} className="flex-shrink-0" />
+      <span className="text-xs">
+        No published form for <code className="font-mono bg-amber-100 px-1 rounded">{formKey}</code>.
+        Add it in the admin form builder.
+      </span>
+    </div>
   )
 }

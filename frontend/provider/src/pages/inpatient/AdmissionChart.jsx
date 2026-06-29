@@ -13,7 +13,6 @@ import {
 import { PageLoader } from '../../components/ui/Spinner'
 import PatientChartShell from '@shared/inpatient/PatientChartShell'
 import DbAssessmentFormModal from './DbAssessmentFormModal'
-import RichAssessmentFormModal from './RichAssessmentFormModal'
 // CareChart inpatient sections copied in for full chart parity (CareChart is left
 // untouched). Provider gains Provider View / MAR / Orders / Documentation /
 // Diet / Pre-Post-Op / Patient Movement / Nursing Notes.
@@ -28,6 +27,38 @@ import CcPatientMovement from './cc/PatientMovement'
 import CcNursingNotes from './cc/NursingNotes'
 
 const NAVY  = '#0F2557'
+
+// ── Bedside-tool placeholder notice ───────────────────────────────────────────
+// Shown when a non-structured bedside item (no DB schema yet) is opened. All real
+// assessment forms are DB-driven (admin form builder); these legacy bedside labels
+// are not yet structured forms.
+function BedsideToolNotice({ name, onClose }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(15,37,87,0.6)' }}>
+      <div className="bg-white rounded-2xl shadow-2xl overflow-hidden w-full max-w-md">
+        <div className="flex items-center justify-between px-6 py-3.5 border-b" style={{ background: NAVY, borderColor: '#1e3a6e' }}>
+          <span className="text-lg font-extrabold text-white leading-tight truncate">{name || 'Bedside Tool'}</span>
+          <button onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-blue-300 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0">
+            <XIcon size={18} />
+          </button>
+        </div>
+        <div className="px-6 py-8 flex flex-col items-center gap-3 text-center">
+          <AlertCircle size={28} className="text-amber-500" />
+          <p className="text-sm font-semibold text-gray-700">Not a structured form yet</p>
+          <p className="text-xs text-gray-500 leading-relaxed">
+            This bedside item isn’t available as a structured assessment form. Structured forms are
+            managed in the admin form builder — ask your administrator to add it to the form pool.
+          </p>
+          <button onClick={onClose}
+            className="mt-2 px-4 py-2 rounded-lg text-xs font-bold text-white" style={{ background: NAVY }}>
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 // ── Smart Phrases ─────────────────────────────────────────────────────────────
 const SMART_PHRASES = [
@@ -638,11 +669,8 @@ export default function AdmissionChart() {
                 patientName={pat?.full_name || pat?.name || adm.patient_name}
                 onClose={() => setOpenForm(null)}
               />
-            : <RichAssessmentFormModal
-                form={openForm}
-                patientId={pat?.id || adm.patient_id}
-                admissionId={admissionId}
-                patientName={pat?.full_name || pat?.name || adm.patient_name}
+            : <BedsideToolNotice
+                name={openForm.name || openForm.title}
                 onClose={() => setOpenForm(null)}
               />
         )}
