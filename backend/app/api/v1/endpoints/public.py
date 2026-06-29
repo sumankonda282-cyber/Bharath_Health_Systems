@@ -107,7 +107,7 @@ def search_clinics(
             "specialty":            c.specialty,
             "capacity_description": getattr(c, 'capacity_description', None),
             "description":          c.description,
-            "logo_url":             c.logo_url,
+            "logo_url":             c.logo_data or c.logo_url,
             "city":                 c.city,
             "state":                c.state,
             "phone":                c.phone,
@@ -170,7 +170,7 @@ def get_clinic_public(slug: str, db: Session = Depends(get_db)):
         "slug": clinic.slug,
         "specialty": clinic.specialty,
         "description": clinic.description,
-        "logo_url": clinic.logo_url,
+        "logo_url": clinic.logo_data or clinic.logo_url,
         "city": clinic.city,
         "state": clinic.state,
         "address": clinic.address,
@@ -914,7 +914,7 @@ def get_telehealth_doctors(
             "clinic_slug":       c.slug,
             "city":              c.city,
             "state":             c.state,
-            "logo_url":          c.logo_url,
+            "logo_url":          c.logo_data or c.logo_url,
         }
         for dp, s, c in rows
     ]
@@ -1110,5 +1110,5 @@ def get_clinic_branding(clinic_id: int, db: Session = Depends(get_db)):
         'name':        clinic.name,
         'brand_name':  clinic.brand_name or clinic.name,
         'brand_color': clinic.brand_color or '#0F2557',
-        'logo_url':    clinic.logo_url,
+        'logo_url':    clinic.logo_data or clinic.logo_url,
     }

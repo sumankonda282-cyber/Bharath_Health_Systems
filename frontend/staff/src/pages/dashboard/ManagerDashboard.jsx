@@ -134,17 +134,27 @@ export default function ManagerDashboard() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [waking, setWaking] = useState(false)
   const [drill, setDrill] = useState(null)
 
   const customActive = !!(range.from && range.to)
 
-  const load = useCallback(() => {
+  // Auto-retry transient "no response" failures — the API is on Render's free tier and may
+  // be cold-starting on the first request after idle (axios reports those as "Network Error").
+  const load = useCallback((attempt = 0) => {
     setLoading(true); setError('')
     const params = customActive ? { date_from: range.from, date_to: range.to } : { period }
     api.get('/clinic/analytics/overview', { params })
-      .then(d => setData(d))
-      .catch(e => setError(e?.response?.data?.detail || e.message || 'Failed to load analytics'))
-      .finally(() => setLoading(false))
+      .then(d => { setData(d); setWaking(false); setLoading(false) })
+      .catch(e => {
+        if (!e?.response && attempt < 3) {      // no HTTP response → likely a cold start
+          setWaking(true)
+          setTimeout(() => load(attempt + 1), 1500 * (attempt + 1))
+          return
+        }
+        setWaking(false); setLoading(false)
+        setError(e?.response?.data?.detail || e.message || 'Failed to load analytics')
+      })
   }, [period, range, customActive])
 
   useEffect(() => { load() }, [load])
@@ -183,13 +193,16 @@ export default function ManagerDashboard() {
         {data && <span className="text-xs text-gray-400 ml-auto">{data.date_from} → {data.date_to}</span>}
       </div>
 
-      {error ? (
+      {loading && !data ? (
+        <div className="py-20 flex flex-col items-center justify-center gap-3">
+          <RefreshCw size={24} className="animate-spin text-gray-300" />
+          {waking && <p className="text-sm text-gray-400">Waking up the server… this can take a few seconds.</p>}
+        </div>
+      ) : error ? (
         <div className="card p-6 flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm" style={{ color: '#CC1414' }}><AlertCircle size={16} />{error}</div>
-          <button onClick={load} className="btn-secondary text-xs py-1 px-3 flex items-center gap-1"><RefreshCw size={12} />Retry</button>
+          <button onClick={() => load()} className="btn-secondary text-xs py-1 px-3 flex items-center gap-1"><RefreshCw size={12} />Retry</button>
         </div>
-      ) : loading && !data ? (
-        <div className="py-20 flex justify-center"><RefreshCw size={24} className="animate-spin text-gray-300" /></div>
       ) : (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">

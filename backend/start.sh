@@ -660,6 +660,18 @@ safe_cols = [
     \"ALTER TABLE maintenance_requests ADD COLUMN IF NOT EXISTS submitter_name VARCHAR(200)\",
     \"ALTER TABLE visitor_passes ADD COLUMN IF NOT EXISTS pin_verified BOOLEAN DEFAULT FALSE\",
     \"CREATE TABLE IF NOT EXISTS bed_status_logs (id SERIAL PRIMARY KEY, clinic_id INTEGER NOT NULL REFERENCES clinics(id), bed_id INTEGER NOT NULL REFERENCES beds(id), ward_id INTEGER REFERENCES wards(id), old_status VARCHAR(20), new_status VARCHAR(20) NOT NULL, reason VARCHAR(300), changed_by INTEGER REFERENCES staff(id), changed_by_name VARCHAR(200), created_at TIMESTAMP DEFAULT NOW())\",
+
+    # ── License & credential registry (admin License Registry page) ──
+    # Manual tracking of clinical-staff licenses (no licensing-authority sync); dates are
+    # editable by platform admin and every change is appended to staff_license_history for audit.
+    \"ALTER TABLE staff ADD COLUMN IF NOT EXISTS license_registered_date DATE\",
+    \"ALTER TABLE staff ADD COLUMN IF NOT EXISTS license_renewal_date DATE\",
+    \"CREATE TABLE IF NOT EXISTS staff_license_history (id SERIAL PRIMARY KEY, staff_id INTEGER NOT NULL REFERENCES staff(id), clinic_id INTEGER REFERENCES clinics(id), event_type VARCHAR(30) NOT NULL, license_number VARCHAR(100), license_registered_date DATE, license_renewal_date DATE, license_expiry_date DATE, document_url VARCHAR(500), note TEXT, changed_by INTEGER, changed_by_name VARCHAR(200), created_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE INDEX IF NOT EXISTS idx_staff_license_history_staff ON staff_license_history(staff_id, created_at DESC)\",
+
+    # ── Durable profile/brand images (base64 data-URI in DB — survives Render redeploys) ──
+    \"ALTER TABLE staff ADD COLUMN IF NOT EXISTS avatar_data TEXT\",
+    \"ALTER TABLE clinics ADD COLUMN IF NOT EXISTS logo_data TEXT\",
 ]
 ok = 0
 failed = 0

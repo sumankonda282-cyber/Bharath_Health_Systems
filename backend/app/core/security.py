@@ -179,6 +179,25 @@ def staff_can_manage_role(staff, role: str) -> bool:
     return True if perms is None else (role in (perms.get('manageable_roles') or []))
 
 
+def staff_has_billing_access(staff) -> bool:
+    """Whether this staff member may VIEW and PAY the health-center subscription.
+
+    Access-based (NOT a blanket role check), so it differs from ``staff_has_duty``:
+      • clinic_admin (owner)               → always.
+      • designed role (has permissions map)→ only if the ``plan_subscription`` duty is granted.
+      • legacy / unrestricted staff        → the historical billing roles, so existing
+        managers/doctors/receptionists keep access and service-desk techs stay excluded
+        until explicitly granted the duty.
+    """
+    role = (getattr(staff, 'role', '') or '').lower()
+    if role == 'clinic_admin':
+        return True
+    perms = getattr(staff, 'permissions', None)
+    if isinstance(perms, dict) and perms:
+        return bool((perms.get('duties') or {}).get('plan_subscription'))
+    return role in ('clinic_manager', 'doctor', 'receptionist')
+
+
 def staff_department_limit(staff):
     """Department a manager is confined to, or None when unrestricted / center-scoped."""
     if _effective_permissions(staff) is None:

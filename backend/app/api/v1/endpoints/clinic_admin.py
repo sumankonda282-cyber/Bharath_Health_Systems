@@ -205,7 +205,7 @@ def get_clinic_profile(db: Session = Depends(get_db), current=Depends(get_curren
         "state":             clinic.state,
         "pincode":           clinic.pincode,
         "description":       clinic.description,
-        "logo_url":          clinic.logo_url,
+        "logo_url":          clinic.logo_data or clinic.logo_url,
         "brand_name":        clinic.brand_name,
         "brand_color":       clinic.brand_color,
         "is_active":         clinic.is_active,
@@ -235,18 +235,20 @@ def upload_logo(
     db: Session = Depends(get_db),
     current=Depends(require_clinic_admin),
 ):
-    os.makedirs(f"{settings.UPLOAD_DIR}/logos", exist_ok=True)
-    ext = file.filename.split(".")[-1].lower()
+    # Store the logo durably as a resized base64 data-URI in the DB. The old
+    # /uploads/<file> disk path was wiped on every Render redeploy, silently losing logos.
+    from app.core.images import process_image_bytes
+    ext = (file.filename or "").split(".")[-1].lower()
     if ext not in ["jpg", "jpeg", "png", "webp"]:
         raise HTTPException(400, "Only JPG/PNG/WEBP allowed")
-    filename = f"clinic_{current.clinic_id}.{ext}"
-    path = f"{settings.UPLOAD_DIR}/logos/{filename}"
-    with open(path, "wb") as f:
-        shutil.copyfileobj(file.file, f)
+    try:
+        data_uri = process_image_bytes(file.file.read(), max_px=256)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
     clinic = db.query(Clinic).filter(Clinic.id == current.clinic_id).first()
-    clinic.logo_url = f"/uploads/logos/{filename}"
+    clinic.logo_data = data_uri
     db.commit()
-    return {"logo_url": clinic.logo_url}
+    return {"logo_url": data_uri}
 
 
 # ── Device Bridge (HL7 / ASTM / DICOM ingest key) ─────────────────────────────

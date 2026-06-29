@@ -12,7 +12,7 @@ from sqlalchemy import or_
 from app.db.session import get_db
 from app.core.security import get_current_platform_admin, hash_password
 from app.core import ids
-from app.models.models import Clinic, Branch, Staff, StaffDepartment, Patient, Appointment, PlatformAdmin, AuditLog, Invoice, Feedback, Department, Ward, Bed, PlatformSetting, SubscriptionPayment, PatientTag, LabOrder, Prescription, DoctorProfile, PatientUser, Plan, ClinicSubscription, SubscriptionInvoice, BHProfile
+from app.models.models import Clinic, Branch, Staff, StaffDepartment, Patient, Appointment, PlatformAdmin, AuditLog, Invoice, Feedback, Department, Ward, Bed, PlatformSetting, SubscriptionPayment, PatientTag, LabOrder, Prescription, DoctorProfile, PatientUser, Plan, ClinicSubscription, SubscriptionInvoice, BHProfile, StaffLicenseHistory
 from app.services.entitlements import get_entitlements, ALL_MODULES, MODULE_CATALOG
 from app.services.subscription import upsert_subscription, activate_paid
 from app.services.email_service import send_welcome_email
@@ -21,7 +21,10 @@ from app.services.sms_service import send_sms
 import re
 import secrets
 import string as _string
+import io
+import csv
 from decimal import Decimal
+from fastapi.responses import Response
 
 router = APIRouter(prefix="/platform", tags=["platform-admin"])
 
@@ -119,6 +122,24 @@ DEFAULT_PLAN_CONFIG = {
 }
 
 ROLES_NEEDING_VERIFICATION = ['pharmacist', 'lab_technician', 'lab_tech', 'imaging_tech', 'imaging_technician', 'nurse']
+
+# Every licensed clinical role that should auto-populate the License Registry — doctors plus
+# the verification roles plus pathologist/radiologist. Receptionists/managers are non-clinical
+# and are intentionally excluded.
+LICENSED_CLINICAL_ROLES = [
+    'doctor', 'nurse', 'pharmacist', 'lab_technician', 'lab_tech',
+    'imaging_tech', 'imaging_technician', 'pathologist', 'radiologist',
+]
+
+LICENSE_ROLE_LABELS = {
+    'doctor': 'Doctor', 'nurse': 'Nurse', 'pharmacist': 'Pharmacist',
+    'lab_technician': 'Lab Technician', 'lab_tech': 'Lab Technician',
+    'imaging_tech': 'Imaging Tech', 'imaging_technician': 'Imaging Tech',
+    'pathologist': 'Pathologist', 'radiologist': 'Radiologist',
+}
+
+# Status the license tracker reports near-expiry within this many days.
+LICENSE_EXPIRY_SOON_DAYS = 60
 
 SUSPENSION_REASONS = [
     "license_cancelled",
@@ -759,6 +780,15 @@ def verify_staff(staff_id: int, db: Session = Depends(get_db), current=Depends(g
     _log(db, "verified_staff", "staff", staff_id, staff.full_name, current)
     db.commit()
 
+    # Record in the license audit trail — guarded so a missing table (e.g. during the
+    # post-deploy background-migration window) can never block staff verification.
+    try:
+        _license_event(db, staff, "verified", current, note="License verified and access granted")
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        print(f"[license-history] skipped verified event for staff {staff_id}: {str(e)[:120]}")
+
     # Log credentials to console (email/SMS to be wired in Phase 2)
     # Temp password returned in response only — not logged
 
@@ -796,6 +826,454 @@ def reset_staff_password(
         "temp_password": temp_password,
         "note":          "Share this immediately. It expires in 48 hours and is invalidated after first use.",
     }
+
+
+# ── License Registry ──────────────────────────────────────────────────────────
+# A single source of truth for every licensed clinical staff member across all health
+# centers. Dates are entered/edited manually here (no licensing-authority sync); every
+# change is appended to staff_license_history for audit.
+
+def _license_event(db, staff, event_type, admin, note=None):
+    """Append an immutable row to the staff license audit trail. Caller commits."""
+    db.add(StaffLicenseHistory(
+        staff_id=staff.id,
+        clinic_id=staff.clinic_id,
+        event_type=event_type,
+        license_number=staff.license_number,
+        license_registered_date=staff.license_registered_date,
+        license_renewal_date=staff.license_renewal_date,
+        license_expiry_date=staff.license_expiry_date,
+        document_url=staff.license_document_url,
+        note=note,
+        changed_by=admin.id if admin else None,
+        changed_by_name=admin.full_name if admin else "System",
+    ))
+
+
+def _parse_date(s):
+    """Lenient ISO date parse — returns a date or None."""
+    if not s:
+        return None
+    try:
+        return date.fromisoformat(str(s)[:10])
+    except (ValueError, TypeError):
+        return None
+
+
+def _combined_emp_code(staff, clinic):
+    """Full HC + employee identifier, e.g. 'HC00001-DR0001'. employee_id already stores the
+    combined form for newer staff; older rows may hold only the suffix or be empty."""
+    emp = (staff.employee_id or "").strip()
+    hc = (clinic.hc_id if clinic else None) or ""
+    if emp:
+        if "-" in emp or not hc:
+            return emp                      # already combined (or no hc to prefix with)
+        return f"{hc}-{emp}"
+    if hc:
+        return f"{hc}-#{staff.id}"          # no employee_id yet — fall back to DB id
+    return f"#{staff.id}"
+
+
+def _license_status(staff, today):
+    """One of: verified | pending | expired | not_working."""
+    removed = staff.scheduled_removal_date and staff.scheduled_removal_date <= today
+    if removed or (not staff.is_active and staff.username):
+        return "not_working"               # was verified before, now deactivated/removed
+    if not staff.is_active:
+        return "pending"                   # registered, awaiting first verification
+    if staff.license_expiry_date and staff.license_expiry_date < today:
+        return "expired"                   # active but license lapsed
+    return "verified"
+
+
+def _registry_row(staff, clinic, today):
+    exp = staff.license_expiry_date
+    days_to_expiry = (exp - today).days if exp else None
+    reg = staff.license_registered_date
+    role_l = (staff.role or "").lower()
+    return {
+        "id":                   staff.id,
+        "employee_code":        _combined_emp_code(staff, clinic),
+        "full_name":            staff.full_name,
+        "role":                 staff.role,
+        "role_label":           LICENSE_ROLE_LABELS.get(role_l, (staff.role or "").replace("_", " ").title()),
+        "clinic_id":            staff.clinic_id,
+        "clinic_name":          clinic.name if clinic else "—",
+        "hc_id":                clinic.hc_id if clinic else None,
+        "state":                clinic.state if clinic else None,
+        "city":                 clinic.city if clinic else None,
+        "license_number":       staff.license_number,
+        "registered_date":      str(reg) if reg else None,
+        "renewal_date":         str(staff.license_renewal_date) if staff.license_renewal_date else None,
+        "expiry_date":          str(exp) if exp else None,
+        "license_document_url": staff.license_document_url,
+        "status":               _license_status(staff, today),
+        "days_to_expiry":       days_to_expiry,
+        "expiring_soon":        bool(staff.is_active and days_to_expiry is not None and 0 <= days_to_expiry <= LICENSE_EXPIRY_SOON_DAYS),
+        "email":                staff.email,
+        "mobile":               staff.mobile,
+        "created_at":           str(staff.created_at) if staff.created_at else None,
+    }
+
+
+def _registry_rows(db, *, clinic_id=None, state=None, city=None, status=None,
+                   date_from=None, date_to=None, search=None):
+    """Build the filtered registry rows (everything EXCEPT the role filter) plus a summary.
+    The role filter is applied by the caller so stat cards always show every role's total."""
+    q = db.query(Staff).filter(func.lower(Staff.role).in_(LICENSED_CLINICAL_ROLES))
+    if clinic_id:
+        q = q.filter(Staff.clinic_id == clinic_id)
+    staff_list = q.order_by(Staff.created_at.desc()).all()
+
+    clinic_ids = {s.clinic_id for s in staff_list if s.clinic_id}
+    clinics = {c.id: c for c in db.query(Clinic).filter(Clinic.id.in_(clinic_ids)).all()} if clinic_ids else {}
+
+    today = date.today()
+    df, dt = _parse_date(date_from), _parse_date(date_to)
+    q_search = (search or "").strip().lower()
+
+    rows = []
+    for s in staff_list:
+        clinic = clinics.get(s.clinic_id)
+        row = _registry_row(s, clinic, today)
+        if state and (row["state"] or "").lower() != state.lower():
+            continue
+        if city and (row["city"] or "").lower() != city.lower():
+            continue
+        if status and status != "all" and row["status"] != status:
+            continue
+        reg = s.license_registered_date or (s.created_at.date() if s.created_at else None)
+        if df and (not reg or reg < df):
+            continue
+        if dt and (not reg or reg > dt):
+            continue
+        if q_search:
+            hay = " ".join(str(x or "") for x in (
+                row["full_name"], row["employee_code"], row["license_number"],
+                row["email"], row["mobile"], row["clinic_name"])).lower()
+            if q_search not in hay:
+                continue
+        rows.append(row)
+
+    summary = {
+        "total": len(rows),
+        "by_role": {r: 0 for r in ("doctor", "nurse", "pharmacist", "lab_tech", "imaging_tech")},
+        "by_status": {"verified": 0, "pending": 0, "expired": 0, "not_working": 0},
+        "expiring_soon": 0,
+    }
+    role_bucket = {
+        "doctor": "doctor", "nurse": "nurse", "pharmacist": "pharmacist",
+        "lab_technician": "lab_tech", "lab_tech": "lab_tech",
+        "imaging_tech": "imaging_tech", "imaging_technician": "imaging_tech",
+        "pathologist": "doctor", "radiologist": "doctor",
+    }
+    for r in rows:
+        bucket = role_bucket.get((r["role"] or "").lower())
+        if bucket:
+            summary["by_role"][bucket] += 1
+        if r["status"] in summary["by_status"]:
+            summary["by_status"][r["status"]] += 1
+        if r["expiring_soon"]:
+            summary["expiring_soon"] += 1
+
+    return rows, summary, str(today)
+
+
+def _role_match(role):
+    """Expand a single role filter into the equivalent set (merges tech synonyms)."""
+    rl = (role or "").lower()
+    if rl in ("lab_tech", "lab_technician"):
+        return {"lab_tech", "lab_technician"}
+    if rl in ("imaging_tech", "imaging_technician"):
+        return {"imaging_tech", "imaging_technician"}
+    if rl == "doctor":
+        return {"doctor", "pathologist", "radiologist"}
+    return {rl}
+
+
+@router.get("/staff/registry")
+def staff_license_registry(
+    role: Optional[str] = Query(None),
+    clinic_id: Optional[int] = Query(None),
+    state: Optional[str] = Query(None),
+    city: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    """Every licensed clinical staff member across all health centers, with manually-tracked
+    license dates and a computed status (verified/pending/expired/not_working). Stat cards read
+    `summary.by_role`; the role param narrows the returned table without changing the totals."""
+    rows, summary, as_of = _registry_rows(
+        db, clinic_id=clinic_id, state=state, city=city, status=status,
+        date_from=date_from, date_to=date_to, search=search,
+    )
+    if role and role != "all":
+        wanted = _role_match(role)
+        rows = [r for r in rows if (r["role"] or "").lower() in wanted]
+
+    # filter option lists for the toolbar (states/cities of clinics that have licensed staff)
+    clinics = db.query(Clinic.id, Clinic.name, Clinic.hc_id, Clinic.state, Clinic.city).all()
+    centers = [{"id": c.id, "name": c.name, "hc_id": c.hc_id} for c in clinics]
+    states = sorted({c.state for c in clinics if c.state})
+    cities = sorted({c.city for c in clinics if c.city})
+
+    return {
+        "staff": rows,
+        "summary": summary,
+        "as_of": as_of,
+        "filters": {"centers": centers, "states": states, "cities": cities},
+    }
+
+
+@router.put("/staff/{staff_id}/license")
+def update_staff_license(
+    staff_id: int,
+    body: dict = {},
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    """Manually edit a staff member's license number / registered / renewal / expiry dates.
+    Every change is recorded in staff_license_history. Additive — never touches clinical data."""
+    staff = db.query(Staff).filter(Staff.id == staff_id).first()
+    if not staff:
+        raise HTTPException(404, "Staff not found")
+
+    prev_renewal = staff.license_renewal_date
+    changes = []
+
+    if "license_number" in body:
+        new_val = (body.get("license_number") or "").strip() or None
+        if new_val != staff.license_number:
+            changes.append("license number")
+            staff.license_number = new_val
+    for field, key in (
+        ("license_registered_date", "registered_date"),
+        ("license_renewal_date",    "renewal_date"),
+        ("license_expiry_date",     "expiry_date"),
+    ):
+        if key in body:
+            new_date = _parse_date(body.get(key))
+            if new_date != getattr(staff, field):
+                changes.append(key.replace("_", " "))
+                setattr(staff, field, new_date)
+    if "license_document_url" in body:
+        new_url = (body.get("license_document_url") or "").strip() or None
+        if new_url != staff.license_document_url:
+            changes.append("document")
+            staff.license_document_url = new_url
+
+    if not changes:
+        return {"message": "No changes", "staff_id": staff_id}
+
+    # A change to the renewal date is the audit-meaningful "renewed" event; otherwise "edited".
+    renewed = staff.license_renewal_date and staff.license_renewal_date != prev_renewal
+    event = "renewed" if renewed else "edited"
+    note = (body.get("note") or "").strip() or ("Renewed: " if renewed else "Edited: ") + ", ".join(changes)
+
+    _log(db, "edited_license", "staff", staff_id, staff.full_name, current, comment=", ".join(changes))
+    _license_event(db, staff, event, current, note=note)
+    db.commit()
+    db.refresh(staff)
+
+    clinic = db.query(Clinic).filter(Clinic.id == staff.clinic_id).first()
+    return {"message": f"License updated for {staff.full_name}", "row": _registry_row(staff, clinic, date.today())}
+
+
+@router.get("/staff/{staff_id}/license-history")
+def staff_license_history(
+    staff_id: int,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    """Per-employee audit trail: registration, verification, renewals, expiry and edits.
+    A synthetic 'registered' event is appended from the staff record so the timeline is
+    complete even for staff created before this registry existed."""
+    staff = db.query(Staff).filter(Staff.id == staff_id).first()
+    if not staff:
+        raise HTTPException(404, "Staff not found")
+    clinic = db.query(Clinic).filter(Clinic.id == staff.clinic_id).first()
+
+    events = db.query(StaffLicenseHistory).filter(
+        StaffLicenseHistory.staff_id == staff_id
+    ).order_by(StaffLicenseHistory.created_at.desc(), StaffLicenseHistory.id.desc()).all()
+
+    out = [{
+        "id":              e.id,
+        "event_type":      e.event_type,
+        "license_number":  e.license_number,
+        "registered_date": str(e.license_registered_date) if e.license_registered_date else None,
+        "renewal_date":    str(e.license_renewal_date) if e.license_renewal_date else None,
+        "expiry_date":     str(e.license_expiry_date) if e.license_expiry_date else None,
+        "document_url":    e.document_url,
+        "note":            e.note,
+        "changed_by_name": e.changed_by_name,
+        "created_at":      str(e.created_at) if e.created_at else None,
+    } for e in events]
+
+    # Always anchor the timeline with the original registration.
+    if not any(e["event_type"] == "registered" for e in out):
+        reg = staff.license_registered_date or (staff.created_at.date() if staff.created_at else None)
+        out.append({
+            "id": 0,
+            "event_type": "registered",
+            "license_number": staff.license_number,
+            "registered_date": str(reg) if reg else None,
+            "renewal_date": None,
+            "expiry_date": str(staff.license_expiry_date) if staff.license_expiry_date else None,
+            "document_url": staff.license_document_url,
+            "note": "Registered on the platform",
+            "changed_by_name": "System",
+            "created_at": str(staff.created_at) if staff.created_at else None,
+        })
+
+    return {
+        "staff": {
+            "id": staff.id,
+            "employee_code": _combined_emp_code(staff, clinic),
+            "full_name": staff.full_name,
+            "role_label": LICENSE_ROLE_LABELS.get((staff.role or "").lower(), (staff.role or "").replace("_", " ").title()),
+            "clinic_name": clinic.name if clinic else "—",
+        },
+        "history": out,
+    }
+
+
+_EXPORT_COLUMNS = [
+    ("employee_code", "Employee ID"), ("full_name", "Name"), ("role_label", "Role"),
+    ("clinic_name", "Health Center"), ("state", "State"), ("city", "City"),
+    ("license_number", "License No"), ("registered_date", "Registered"),
+    ("renewal_date", "Renewed"), ("expiry_date", "Expiry"), ("status", "Status"),
+    ("email", "Email"), ("mobile", "Mobile"),
+]
+
+
+@router.get("/staff/registry/export")
+def export_staff_registry(
+    format: str = Query("csv"),
+    role: Optional[str] = Query(None),
+    clinic_id: Optional[int] = Query(None),
+    state: Optional[str] = Query(None),
+    city: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    current=Depends(get_current_platform_admin),
+):
+    """Export the (filtered) registry as CSV, Excel (.xlsx) or PDF. Pass clinic_id to download
+    a single health center's roster; omit it for the whole platform."""
+    rows, _summary, as_of = _registry_rows(
+        db, clinic_id=clinic_id, state=state, city=city, status=status,
+        date_from=date_from, date_to=date_to, search=search,
+    )
+    if role and role != "all":
+        wanted = _role_match(role)
+        rows = [r for r in rows if (r["role"] or "").lower() in wanted]
+
+    scope = "registry"
+    if clinic_id:
+        c = db.query(Clinic).filter(Clinic.id == clinic_id).first()
+        if c and c.hc_id:
+            scope = c.hc_id
+    fname = f"license-{scope}-{as_of}"
+    fmt = (format or "csv").lower()
+
+    if fmt == "pdf":
+        return _export_pdf(rows, fname, as_of)
+    if fmt in ("excel", "xlsx", "xls"):
+        out = _export_xlsx(rows, fname)
+        if out is not None:
+            return out
+        # openpyxl unavailable → fall back to CSV so the download still succeeds
+        fmt = "csv"
+
+    # CSV (default + fallback)
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow([label for _k, label in _EXPORT_COLUMNS])
+    for r in rows:
+        w.writerow([r.get(k) if r.get(k) is not None else "" for k, _label in _EXPORT_COLUMNS])
+    return Response(
+        content=buf.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{fname}.csv"'},
+    )
+
+
+def _export_xlsx(rows, fname):
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill
+    except ImportError:
+        return None
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "License Registry"
+    header_fill = PatternFill("solid", fgColor="0F2557")
+    bold_white = Font(bold=True, color="FFFFFF")
+    ws.append([label for _k, label in _EXPORT_COLUMNS])
+    for cell in ws[1]:
+        cell.font = bold_white
+        cell.fill = header_fill
+    for r in rows:
+        ws.append([r.get(k) if r.get(k) is not None else "" for k, _label in _EXPORT_COLUMNS])
+    for i, (_k, label) in enumerate(_EXPORT_COLUMNS, start=1):
+        ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = max(12, len(label) + 4)
+    bio = io.BytesIO()
+    wb.save(bio)
+    return Response(
+        content=bio.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{fname}.xlsx"'},
+    )
+
+
+def _export_pdf(rows, fname, as_of):
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib.units import mm
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet
+
+    bio = io.BytesIO()
+    doc = SimpleDocTemplate(bio, pagesize=landscape(A4),
+                            leftMargin=10 * mm, rightMargin=10 * mm,
+                            topMargin=12 * mm, bottomMargin=12 * mm)
+    styles = getSampleStyleSheet()
+    elems = [
+        Paragraph("Clinical Staff — License Registry", styles["Title"]),
+        Paragraph(f"{len(rows)} staff · generated {as_of}", styles["Normal"]),
+        Spacer(1, 6 * mm),
+    ]
+    # Compact column subset for PDF width
+    pdf_cols = [c for c in _EXPORT_COLUMNS if c[0] not in ("email", "mobile", "city")]
+    data = [[label for _k, label in pdf_cols]]
+    for r in rows:
+        data.append([str(r.get(k) if r.get(k) is not None else "") for k, _label in pdf_cols])
+    tbl = Table(data, repeatRows=1)
+    tbl.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0F2557")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTSIZE", (0, 0), (-1, -1), 7),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#d0d5dd")),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f3f5f9")]),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING", (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+    ]))
+    elems.append(tbl)
+    doc.build(elems)
+    return Response(
+        content=bio.getvalue(),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{fname}.pdf"'},
+    )
 
 
 @router.post("/platform-admin/reset-password")

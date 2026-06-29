@@ -29,6 +29,7 @@ const DUTY_DEFS = [
   { key: 'approve_leave',    label: 'Approve leave requests' },
   { key: 'view_revenue',     label: 'View revenue & financials' },
   { key: 'waive_bills',      label: 'Approve fee waivers' },
+  { key: 'plan_subscription', label: 'Plan & Subscription (view & pay)' },
 ]
 const ROLE_DEFS = [
   { key: 'doctor',         label: 'Doctor' },

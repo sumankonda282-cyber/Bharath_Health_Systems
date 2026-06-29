@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, BedDouble,
   Activity, Pill, FileText, ClipboardList, LogOut as LogOutIcon, ArrowRightFromLine,
   Stethoscope, ShoppingBag, FileEdit, GitBranch,
-  Bell, RefreshCw, HelpCircle, ChevronDown, Menu, X,
+  Bell, RefreshCw, HelpCircle, ChevronDown, Menu, X, User, CreditCard,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useWardSession } from '../contexts/WardSessionContext'
@@ -13,6 +13,7 @@ import CriticalResultsBanner from './CriticalResultsBanner'
 import ChatWidget from './ChatWidget'
 import BrandLogo from './BrandLogo'
 import HelpWidget from './HelpWidget'
+import ProfilePanel from '@shared/components/ProfilePanel'
 import api from '../api/client'
 import { GREEN } from '../constants/colors'
 
@@ -70,6 +71,8 @@ export default function Layout({ children }) {
   const location                  = useLocation()
 
   const [profileOpen, setProfileOpen]       = useState(false)
+  const [profilePanelOpen, setProfilePanelOpen] = useState(false)
+  const [profileTab, setProfileTab]         = useState('personal')
   const [notifOpen, setNotifOpen]           = useState(false)
   const [supportOpen, setSupportOpen]       = useState(false)
   const [notifications, setNotifications]   = useState([])
@@ -268,8 +271,18 @@ export default function Layout({ children }) {
                   <p className="text-sm font-semibold text-gray-800">{user?.full_name || user?.name}</p>
                   <p className="text-xs text-gray-400 capitalize">{user?.role}</p>
                 </div>
+                <button onClick={() => { setProfileOpen(false); setProfileTab('personal'); setProfilePanelOpen(true) }}
+                  className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2">
+                  <User size={14} className="text-gray-400" /> My Profile
+                </button>
+                {user?.can_manage_billing && (
+                  <button onClick={() => { setProfileOpen(false); setProfileTab('billing'); setProfilePanelOpen(true) }}
+                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2">
+                    <CreditCard size={14} className="text-gray-400" /> Plan &amp; Subscription
+                  </button>
+                )}
                 <button onClick={handleSignOut}
-                  className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2">
+                  className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2 border-t border-gray-100">
                   <LogOutIcon size={14} /> Sign Out
                 </button>
               </div>
@@ -285,7 +298,8 @@ export default function Layout({ children }) {
 
       <HelpWidget open={supportOpen} onClose={() => setSupportOpen(false)} />
       <ChatWidget />
-      <HelpWidget open={supportOpen} onClose={() => setSupportOpen(false)} />
+      <ProfilePanel open={profilePanelOpen} initialTab={profileTab} api={api}
+        onClose={() => setProfilePanelOpen(false)} onLogout={handleSignOut} />
     </div>
   )
 }

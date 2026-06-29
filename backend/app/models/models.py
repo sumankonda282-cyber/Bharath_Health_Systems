@@ -52,6 +52,7 @@ class Clinic(Base):
     pincode                 = Column(String(10))
     google_maps_url         = Column(Text, nullable=True)
     logo_url                = Column(String(500), nullable=True)
+    logo_data               = Column(Text, nullable=True)   # durable base64 data-URI (survives deploys, replaces ephemeral /uploads)
     brand_name              = Column(String(200), nullable=True)  # display name shown in portals
     brand_color             = Column(String(20), nullable=True)   # hex color e.g. #0F2557
     bridge_api_key          = Column(String(64), nullable=True)   # per-health-center device-bridge key (HL7/ASTM/DICOM ingest)
@@ -174,6 +175,7 @@ class Staff(Base):
     license_number       = Column(String(100), nullable=True)
     license_document_url = Column(String(500), nullable=True)
     avatar_url           = Column(String(500))
+    avatar_data          = Column(Text, nullable=True)   # durable base64 data-URI profile photo (single current image)
     pin_hash             = Column(String(255), nullable=True)
     pin_set_at           = Column(DateTime, nullable=True)
     pin_reset_required   = Column(Boolean, default=False)
@@ -194,6 +196,8 @@ class Staff(Base):
     qualification            = Column(String(200), nullable=True)
     registration_number      = Column(String(100), nullable=True)
     license_expiry_date      = Column(Date, nullable=True)
+    license_registered_date  = Column(Date, nullable=True)   # manual entry — first registration with licensing authority
+    license_renewal_date     = Column(Date, nullable=True)   # manual entry — last renewal date (for near-expiry tracking)
     address                  = Column(Text, nullable=True)
     modules                  = Column(JSON, nullable=True)
     secondary_roles          = Column(JSON, nullable=True)
@@ -212,6 +216,26 @@ class Staff(Base):
     clinic         = relationship("Clinic", back_populates="staff")
     branch         = relationship("Branch", back_populates="staff")
     doctor_profile = relationship("DoctorProfile", back_populates="staff", uselist=False)
+
+
+class StaffLicenseHistory(Base):
+    """Append-only audit trail for a clinical-staff member's license/credential lifecycle.
+    Populated by the admin License Registry: registration, verification, manual date edits,
+    renewals, expiry and de/re-activation. No licensing-authority sync — every change is a row."""
+    __tablename__ = "staff_license_history"
+    id                      = Column(Integer, primary_key=True, index=True)
+    staff_id                = Column(Integer, ForeignKey("staff.id"), nullable=False, index=True)
+    clinic_id               = Column(Integer, ForeignKey("clinics.id"), nullable=True)
+    event_type              = Column(String(30), nullable=False)  # registered|verified|renewed|expired|deactivated|reactivated|edited
+    license_number          = Column(String(100), nullable=True)
+    license_registered_date = Column(Date, nullable=True)
+    license_renewal_date    = Column(Date, nullable=True)
+    license_expiry_date     = Column(Date, nullable=True)
+    document_url            = Column(String(500), nullable=True)
+    note                    = Column(Text, nullable=True)
+    changed_by              = Column(Integer, nullable=True)       # platform admin id (no FK — actor may be System)
+    changed_by_name         = Column(String(200), nullable=True)
+    created_at              = Column(DateTime, server_default=func.now())
 
 
 class DoctorProfile(Base):

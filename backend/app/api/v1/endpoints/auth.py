@@ -13,7 +13,7 @@ from app.core.security import (
     verify_password, hash_password,
     create_access_token, create_refresh_token, decode_token,
     get_current_staff, get_current_patient_user,
-    get_current_platform_admin
+    get_current_platform_admin, staff_has_billing_access
 )
 from app.core.limiter import limiter
 from app.services.email_service import send_password_reset_email
@@ -226,9 +226,10 @@ def staff_me(current=Depends(get_current_staff), db: Session = Depends(get_db)):
         "address":                 current.address,
         "emergency_contact_name":  current.emergency_contact_name,
         "emergency_contact_mobile": current.emergency_contact_mobile,
-        "avatar_url":              current.avatar_url,
+        "avatar_url":              current.avatar_data or current.avatar_url,
         "permissions":             current.permissions,
         "manager_scope":           current.manager_scope,
+        "can_manage_billing":      staff_has_billing_access(current),
     }
 
 
@@ -243,6 +244,30 @@ def update_staff_me(body: dict, current=Depends(get_current_staff), db: Session 
             setattr(current, field, body[field] or None)
     db.commit()
     return {"message": "Profile updated"}
+
+
+@router.post("/staff/me/avatar")
+def upload_staff_avatar(body: dict, current=Depends(get_current_staff), db: Session = Depends(get_db)):
+    """Set (or replace) the staff member's profile photo. The browser sends a cropped
+    image as a base64 data-URI; we resize it small and store the single current copy in
+    the DB (durable across deploys). Uploading again overwrites the previous photo."""
+    from app.core.images import process_image_data_uri
+    image = body.get("image") or body.get("avatar") or ""
+    try:
+        data_uri = process_image_data_uri(image, max_px=256)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    current.avatar_data = data_uri
+    db.commit()
+    return {"avatar_url": data_uri}
+
+
+@router.delete("/staff/me/avatar")
+def delete_staff_avatar(current=Depends(get_current_staff), db: Session = Depends(get_db)):
+    """Remove the current profile photo."""
+    current.avatar_data = None
+    db.commit()
+    return {"avatar_url": None}
 
 
 class PatientRegisterRequest(BaseModel):

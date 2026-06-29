@@ -25,6 +25,12 @@ export const adminApi = {
   verifyStaff:     (id) => api.put(`/platform/staff/${id}/verify`),
   rejectStaff:     (id, body) => api.put(`/platform/staff/${id}/reject`, body),
 
+  // License Registry
+  getStaffRegistry:       (params) => api.get('/platform/staff/registry', { params }),
+  updateStaffLicense:     (id, body) => api.put(`/platform/staff/${id}/license`, body),
+  getStaffLicenseHistory: (id) => api.get(`/platform/staff/${id}/license-history`),
+  exportStaffRegistry:    (params) => api.get('/platform/staff/registry/export', { params, responseType: 'blob' }),
+
   // Audit log
   getAuditLog: (params) => api.get('/platform/audit-log', { params }),
 
