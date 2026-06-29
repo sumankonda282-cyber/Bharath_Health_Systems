@@ -94,7 +94,7 @@ function Toast({ message, type, onDone }) {
 }
 
 // ── Main Drawer ──────────────────────────────────────────────────
-export default function ProfileDrawer({ open, onClose }) {
+export default function ProfileDrawer({ open, onClose, initialTab = 'profile' }) {
   const { user } = useAuth()
   const [tab, setTab] = useState('profile')
   const [loading, setLoading] = useState(false)
@@ -136,6 +136,7 @@ export default function ProfileDrawer({ open, onClose }) {
   }, [open])
 
   useEffect(() => { load() }, [load])
+  useEffect(() => { if (open) setTab(initialTab) }, [open, initialTab])
 
   const set = (key, val) => setForm(f => ({ ...f, [key]: val }))
 

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
-import { Menu, PanelLeft, HelpCircle, User, LogOut, Settings, Globe, ChevronDown, RefreshCw, Clock } from 'lucide-react'
+import { Menu, PanelLeft, HelpCircle, User, LogOut, Settings, Globe, ChevronDown, RefreshCw, Clock, CreditCard } from 'lucide-react'
 import ProfileDrawer from './ProfileDrawer'
 import NotificationBell from '../ui/NotificationBell'
 import HelpWidget from './HelpWidget'
@@ -45,6 +45,7 @@ export default function TopBar({ onMenuClick, onToggleSidebar, onRefresh }) {
   const navigate = useNavigate()
   const [dropOpen, setDropOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
+  const [profileTab, setProfileTab] = useState('profile')
   const [helpOpen, setHelpOpen] = useState(false)
   const dropRef = useRef(null)
 
@@ -128,22 +129,28 @@ export default function TopBar({ onMenuClick, onToggleSidebar, onRefresh }) {
                   <div className="text-xs text-gray-400 capitalize">{user?.role?.replace(/_/g, ' ')}</div>
                 </div>
                 <button
-                  onClick={() => { setDropOpen(false); setProfileOpen(true) }}
+                  onClick={() => { setDropOpen(false); setProfileTab('profile'); setProfileOpen(true) }}
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                 >
                   <User size={15} className="text-gray-400" /> My Profile
                 </button>
                 <button
-                  onClick={() => { setDropOpen(false); setProfileOpen(true) }}
+                  onClick={() => { setDropOpen(false); setProfileTab('profile'); setProfileOpen(true) }}
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                 >
                   <Clock size={15} className="text-gray-400" /> My Shift
                 </button>
                 <button
-                  onClick={() => { setDropOpen(false); setProfileOpen(true) }}
+                  onClick={() => { setDropOpen(false); setProfileTab('profile'); setProfileOpen(true) }}
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                 >
                   <Globe size={15} className="text-gray-400" /> Languages Known
+                </button>
+                <button
+                  onClick={() => { setDropOpen(false); setProfileTab('billing'); setProfileOpen(true) }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <CreditCard size={15} className="text-gray-400" /> Plan & Subscription
                 </button>
                 <button
                   onClick={() => { setDropOpen(false); navigate('/admin') }}
@@ -165,7 +172,7 @@ export default function TopBar({ onMenuClick, onToggleSidebar, onRefresh }) {
         </div>
       </header>
 
-      <ProfileDrawer open={profileOpen} onClose={() => setProfileOpen(false)} />
+      <ProfileDrawer open={profileOpen} initialTab={profileTab} onClose={() => setProfileOpen(false)} />
     </>
   )
 }
