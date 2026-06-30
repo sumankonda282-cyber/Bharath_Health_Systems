@@ -7,8 +7,8 @@ import {
   Save, FlaskConical, Eye, CheckCircle, Video,
   Pill, Scan, Lock, Search, X, Plus, Trash2,
   AlertCircle, Clock, ClipboardList, MessageSquare, Star,
-  Activity, FileText, AlertTriangle, ExternalLink,
-  Maximize2, User, Phone
+  FileText, AlertTriangle, ExternalLink,
+  Maximize2, User
 } from 'lucide-react'
 import { PageLoader } from '../../components/ui/Spinner'
 import DbAssessmentFormModal from '../inpatient/DbAssessmentFormModal'
@@ -401,7 +401,7 @@ function PatientChartDocument({ encounter, soap, prescriptions, labItems, imagin
                 {v.spo2   && <span><span className="text-gray-400 text-xs">SpO₂: </span><span className="font-medium">{v.spo2}%</span></span>}
                 {v.weight && <span><span className="text-gray-400 text-xs">Wt: </span><span className="font-medium">{v.weight} kg</span></span>}
                 {v.height && <span><span className="text-gray-400 text-xs">Ht: </span><span className="font-medium">{v.height} cm</span></span>}
-                {v.blood_sugar && <span><span className="text-gray-400 text-xs">Sugar: </span><span className="font-medium">{v.blood_sugar}</span></span>}
+                {v.sugar && <span><span className="text-gray-400 text-xs">Sugar: </span><span className="font-medium">{v.sugar}</span></span>}
               </div>
             </div>
           )}
@@ -1209,11 +1209,15 @@ export default function OpdChart() {
   const [orderToast, setOrderToast]       = useState('')
   const [formSubmissions, setFormSubmissions] = useState(null)
   const [labOrders, setLabOrders]         = useState([])
+  // Stable patient ID — set once on first load, stays constant across Save Draft re-loads
+  const [encPatientId, setEncPatientId]   = useState(null)
 
   const load = useCallback(async () => {
     try {
       const data = await doctorApi.getEncounter(id)
       setEncounter(data)
+      const stablePid = data.patient?.id || data.appointment?.patient_id || data.patient_id || null
+      setEncPatientId(prev => prev ?? stablePid)   // only set once; never reset on re-loads
 
       const note = data.soap_note || {}
       setSoap({
@@ -1256,30 +1260,26 @@ export default function OpdChart() {
 
   useEffect(() => { load() }, [load])
 
-  // Fetch form submissions for this patient today
+  // Fetch form submissions for this patient today — runs once when patient ID is known
   useEffect(() => {
-    if (!encounter) return
-    const pid = encounter.patient?.id || encounter.appointment?.patient_id || encounter.patient_id
-    if (!pid) return
+    if (!encPatientId) return
     const today = new Date()
     const dateFrom = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}T00:00:00`
-    api.get('/submissions', { params: { patient_id: pid, date_from: dateFrom, limit: 50 } })
+    api.get('/submissions', { params: { patient_id: encPatientId, date_from: dateFrom, limit: 50 } })
       .then(res => setFormSubmissions(res?.items || []))
       .catch(() => setFormSubmissions([]))
-  }, [encounter])
+  }, [encPatientId])
 
-  // Fetch lab orders with results for this patient
+  // Fetch lab orders with results — runs once when patient ID is known
   useEffect(() => {
-    if (!encounter) return
-    const pid = encounter.patient?.id || encounter.appointment?.patient_id || encounter.patient_id
-    if (!pid) return
-    api.get('/lab-orders', { params: { patient_id: pid, limit: 50 } })
+    if (!encPatientId) return
+    api.get('/lab-orders', { params: { patient_id: encPatientId, limit: 50 } })
       .then(res => {
         const orders = Array.isArray(res) ? res : (res?.orders || res?.items || [])
         setLabOrders(orders)
       })
       .catch(() => setLabOrders([]))
-  }, [encounter])
+  }, [encPatientId])
 
   useEffect(() => {
     if (!orderToast) return
@@ -1552,7 +1552,7 @@ export default function OpdChart() {
             {v.spo2      && <span className="text-xs"><span className="text-blue-500/70 font-medium">SpO₂ </span><span className="font-bold text-gray-800">{v.spo2}%</span></span>}
             {v.weight    && <span className="text-xs"><span className="text-blue-500/70 font-medium">Wt </span><span className="font-bold text-gray-800">{v.weight} kg</span></span>}
             {v.height    && <span className="text-xs"><span className="text-blue-500/70 font-medium">Ht </span><span className="font-bold text-gray-800">{v.height} cm</span></span>}
-            {v.blood_sugar && <span className="text-xs"><span className="text-blue-500/70 font-medium">Sugar </span><span className="font-bold text-gray-800">{v.blood_sugar}</span></span>}
+            {v.sugar && <span className="text-xs"><span className="text-blue-500/70 font-medium">Sugar </span><span className="font-bold text-gray-800">{v.sugar}</span></span>}
           </div>
         )}
       </div>
