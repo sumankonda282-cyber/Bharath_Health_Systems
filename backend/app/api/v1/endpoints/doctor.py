@@ -207,6 +207,7 @@ def get_encounter(
             "height_cm":                str(appt.vitals.height_cm) if appt.vitals.height_cm else None,
             "oxygen_saturation":        appt.vitals.oxygen_saturation,
             "blood_sugar":              str(appt.vitals.blood_sugar) if appt.vitals.blood_sugar else None,
+            "respiration_rate":         appt.vitals.respiration_rate,
         } if appt.vitals else None,
         "soap_note": {
             "reason_for_visit":        sn.reason_for_visit,
