@@ -496,8 +496,19 @@ function PatientChartDocument({ encounter, patientId, soap, prescriptions, labIt
     )
   }
 
-  const categorized = { S: [], O: [], A: [], P: [] }
+  // Deduplicate: keep only the most recent submission per form_id in the chart view
+  const latestByForm = new Map()
   formSubmissions.forEach(s => {
+    if (s.status === 'draft') return
+    const existing = latestByForm.get(s.form_id)
+    if (!existing || (s.submitted_at || '') > (existing.submitted_at || '')) {
+      latestByForm.set(s.form_id, s)
+    }
+  })
+  const dedupedSubmissions = Array.from(latestByForm.values())
+
+  const categorized = { S: [], O: [], A: [], P: [] }
+  dedupedSubmissions.forEach(s => {
     const cat = categorizeSoap(s)
     if (categorized[cat]) categorized[cat].push(s)
     else categorized.A.push(s)
