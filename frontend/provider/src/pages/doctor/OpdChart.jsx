@@ -8,7 +8,7 @@ import {
   Pill, Scan, Lock, Search, X, Plus, Trash2,
   AlertCircle, Clock, ClipboardList, MessageSquare, Star,
   FileText, AlertTriangle, ExternalLink,
-  Maximize2, User
+  Maximize2, User, Printer, Pencil
 } from 'lucide-react'
 import { PageLoader } from '../../components/ui/Spinner'
 import DbAssessmentFormModal from '../inpatient/DbAssessmentFormModal'
@@ -69,7 +69,7 @@ const categorizeSoap = (s) => {
 }
 
 // ── Form Content Renderer ─────────────────────────────────────────
-function FormContentRenderer({ submission }) {
+function FormContentRenderer({ submission, fieldLabelMap }) {
   if (!submission) return null
 
   const raw = submission.form_data || submission.data || submission.answers || null
@@ -94,8 +94,11 @@ function FormContentRenderer({ submission }) {
     return String(v)
   }
 
+  // Use label from schema if available, fall back to formatKey on field ID
+  const resolveLabel = (k) => (fieldLabelMap && fieldLabelMap[k]) ? fieldLabelMap[k] : formatKey(k)
+
   const entries = Object.entries(raw)
-    .map(([k, v]) => ({ key: k, label: formatKey(k), value: parseValue(v) }))
+    .map(([k, v]) => ({ key: k, label: resolveLabel(k), value: parseValue(v) }))
     .filter(e => e.value && e.value !== 'No')
 
   if (!entries.length) return (
@@ -108,44 +111,24 @@ function FormContentRenderer({ submission }) {
     </p>
   )
 
-  const short  = entries.filter(e => e.value.length < 25)
-  const medium = entries.filter(e => e.value.length >= 25 && e.value.length < 65)
-  const wide   = entries.filter(e => e.value.length >= 65 && e.value.length < 180)
-  const full   = entries.filter(e => e.value.length >= 180)
+  // Bucket by value length. Short single-word values get 3-col; longer values get 2-col or full width.
+  // Never truncate — let values wrap naturally inside their cell.
+  const inline  = entries.filter(e => e.value.length < 40 && !e.value.includes('\n'))
+  const para    = entries.filter(e => e.value.length >= 40 || e.value.includes('\n'))
 
   return (
-    <div className="space-y-1.5 text-sm text-gray-800">
-      {short.length > 0 && (
-        <div className="grid grid-cols-4 gap-x-6 gap-y-1">
-          {short.map(e => (
-            <span key={e.key} className="min-w-0 truncate">
-              <span className="text-gray-400 text-xs">{e.label}: </span>
-              <span className="font-medium">{e.value}</span>
-            </span>
+    <div className="space-y-2 text-sm text-gray-800">
+      {inline.length > 0 && (
+        <div className="grid gap-x-6 gap-y-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))' }}>
+          {inline.map(e => (
+            <div key={e.key} className="min-w-0">
+              <span className="text-gray-400 text-xs block leading-tight">{e.label}</span>
+              <span className="font-medium break-words">{e.value}</span>
+            </div>
           ))}
         </div>
       )}
-      {medium.length > 0 && (
-        <div className="grid grid-cols-3 gap-x-6 gap-y-1">
-          {medium.map(e => (
-            <span key={e.key} className="min-w-0">
-              <span className="text-gray-400 text-xs">{e.label}: </span>
-              <span className="font-medium">{e.value}</span>
-            </span>
-          ))}
-        </div>
-      )}
-      {wide.length > 0 && (
-        <div className="grid grid-cols-2 gap-x-8 gap-y-1">
-          {wide.map(e => (
-            <span key={e.key} className="min-w-0">
-              <span className="text-gray-400 text-xs">{e.label}: </span>
-              <span className="font-medium">{e.value}</span>
-            </span>
-          ))}
-        </div>
-      )}
-      {full.map(e => (
+      {para.map(e => (
         <div key={e.key}>
           <span className="text-gray-400 text-xs">{e.label}: </span>
           <span className="font-medium whitespace-pre-wrap">{e.value}</span>
@@ -443,20 +426,24 @@ function SoapLabel({ letter, label, color, bg }) {
 
 function FormBlock({ submission, index }) {
   const isDraft = submission.status === 'draft' || submission.is_draft
-  // null = not fetched yet, false = fetch done but no data, object = has data
-  const [fullData, setFullData] = useState(
-    submission.form_data || submission.data || submission.answers || null
-  )
-  const [fetching, setFetching] = useState(false)
+  const [fullData, setFullData]         = useState(submission.form_data || submission.data || null)
+  const [fieldLabelMap, setFieldLabelMap] = useState(null)
+  const [fetching, setFetching]         = useState(false)
 
   useEffect(() => {
     if (fullData !== null) return
     setFetching(true)
     api.get(`/submissions/${submission.id}`)
       .then(r => {
-        const d = r?.form_data || r?.data || r?.answers || null
-        // store false if empty/missing so we don't retry and show fallback link
+        const d = r?.form_data || r?.data || null
         setFullData(d && Object.keys(d).length > 0 ? d : false)
+        // Build field ID → label map from schema sections so renderer shows real labels
+        const schema = r?.form_schema
+        if (schema?.sections) {
+          const map = {}
+          schema.sections.forEach(sec => (sec.fields || []).forEach(f => { if (f.id && f.label) map[f.id] = f.label }))
+          setFieldLabelMap(map)
+        }
       })
       .catch(() => setFullData(false))
       .finally(() => setFetching(false))
@@ -465,9 +452,9 @@ function FormBlock({ submission, index }) {
   const enriched = { ...submission, form_data: fullData || null }
 
   return (
-    <div className={index > 0 ? 'mt-3 pt-3' : ''}>
-      <div className="flex items-center gap-2 mb-1.5">
-        <span className="text-xs font-bold text-gray-600">{submission.form_title}</span>
+    <div className={index > 0 ? 'mt-3 pt-3 border-t border-gray-100' : ''}>
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-xs font-bold text-gray-700">{submission.form_title}</span>
         {isDraft && (
           <span className="text-[10px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full uppercase tracking-wide">
             Draft
@@ -477,7 +464,7 @@ function FormBlock({ submission, index }) {
           <span className="w-3 h-3 border border-gray-300 border-t-blue-400 rounded-full animate-spin inline-block" />
         )}
       </div>
-      <FormContentRenderer submission={enriched} />
+      <FormContentRenderer submission={enriched} fieldLabelMap={fieldLabelMap} />
     </div>
   )
 }
@@ -509,8 +496,19 @@ function PatientChartDocument({ encounter, patientId, soap, prescriptions, labIt
     )
   }
 
-  const categorized = { S: [], O: [], A: [], P: [] }
+  // Deduplicate: keep only the most recent submission per form_id in the chart view
+  const latestByForm = new Map()
   formSubmissions.forEach(s => {
+    if (s.status === 'draft') return
+    const existing = latestByForm.get(s.form_id)
+    if (!existing || (s.submitted_at || '') > (existing.submitted_at || '')) {
+      latestByForm.set(s.form_id, s)
+    }
+  })
+  const dedupedSubmissions = Array.from(latestByForm.values())
+
+  const categorized = { S: [], O: [], A: [], P: [] }
+  dedupedSubmissions.forEach(s => {
     const cat = categorizeSoap(s)
     if (categorized[cat]) categorized[cat].push(s)
     else categorized.A.push(s)
@@ -567,7 +565,7 @@ function PatientChartDocument({ encounter, patientId, soap, prescriptions, labIt
           {Object.values(v).some(Boolean) && (
             <div className="mb-3">
               <div className="text-xs font-bold text-gray-600 mb-1.5">Vitals</div>
-              <div className="grid grid-cols-4 gap-x-6 gap-y-1 text-sm">
+              <div className="grid gap-x-6 gap-y-1 text-sm" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))' }}>
                 {v.bp     && <span><span className="text-gray-400 text-xs">BP: </span><span className="font-medium">{v.bp}</span></span>}
                 {v.pulse  && <span><span className="text-gray-400 text-xs">HR: </span><span className="font-medium">{v.pulse} bpm</span></span>}
                 {v.temp   && <span><span className="text-gray-400 text-xs">Temp: </span><span className="font-medium">{v.temp}°C</span></span>}
@@ -946,41 +944,43 @@ function FormRow({ form, pinned, onPin, onOpen }) {
   )
 }
 
-function SubmittedFormsPanel({ submissions }) {
-  const [open, setOpen] = useState(null)
-
+// Shows one pen icon per unique submitted form — click reopens it to edit/resubmit
+function SubmittedFormsPanel({ submissions, onOpenForm }) {
   if (!submissions || submissions.length === 0) return null
 
+  // Deduplicate — latest per form_id, track count
+  const latestMap = new Map()
+  const countMap  = new Map()
+  submissions.forEach(s => {
+    countMap.set(s.form_id, (countMap.get(s.form_id) || 0) + 1)
+    const ex = latestMap.get(s.form_id)
+    if (!ex || (s.submitted_at || '') >= (ex.submitted_at || '')) latestMap.set(s.form_id, s)
+  })
+  const unique = Array.from(latestMap.values())
+
   return (
-    <div className="border-b border-gray-100 flex-shrink-0">
-      <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-gray-400">
-        Submitted This Visit
+    <div className="border-b border-gray-100 px-3 py-2 flex-shrink-0">
+      <div className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">
+        This Visit
       </div>
-      <div className="space-y-0.5 pb-2">
-        {submissions.map(s => (
-          <div key={s.id}>
-            <button
-              onClick={() => setOpen(open === s.id ? null : s.id)}
-              className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-gray-50 transition-colors text-left">
-              <div className="min-w-0">
-                <div className="text-xs font-medium text-gray-800 truncate">{s.form_title || 'Assessment Form'}</div>
-                {s.submitted_at && (
-                  <div className="text-[10px] text-gray-400">{fmtDate(s.submitted_at)}</div>
-                )}
-              </div>
-              <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
-                <span className="text-[9px] font-bold bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded-full uppercase tracking-wide">
-                  {s.status || 'submitted'}
-                </span>
-                {open === s.id ? <ChevronUp size={11} className="text-gray-400" /> : <ChevronDown size={11} className="text-gray-400" />}
-              </div>
-            </button>
-            {open === s.id && (
-              <div className="px-3 pb-2">
-                <FormBlock submission={s} index={0} />
-              </div>
+      <div className="flex flex-wrap gap-1.5">
+        {unique.map(s => (
+          <button
+            key={s.form_id}
+            onClick={() => onOpenForm && onOpenForm({ id: s.form_id, title: s.form_title, schema: s.form_schema })}
+            title={`Edit: ${s.form_title || 'Assessment Form'}`}
+            className="flex items-center gap-1 px-2 py-1 rounded-lg border border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50 transition-colors group">
+            <span className="text-[10px] font-medium text-gray-700 group-hover:text-blue-700 max-w-[100px] truncate">
+              {s.form_title || 'Form'}
+            </span>
+            {s.status === 'draft'
+              ? <span className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" title="Draft" />
+              : <Pencil size={9} className="text-gray-400 group-hover:text-blue-500 flex-shrink-0" />
+            }
+            {(countMap.get(s.form_id) || 1) > 1 && (
+              <span className="text-[9px] text-gray-400">×{countMap.get(s.form_id)}</span>
             )}
-          </div>
+          </button>
         ))}
       </div>
     </div>
@@ -1030,7 +1030,7 @@ function AssessmentPanel({ onOpenForm, onCollapse, clinicId, formSubmissions }) 
   return (
     <div className="h-full flex flex-col overflow-hidden">
       {/* Submitted forms index — all forms filed for this encounter */}
-      <SubmittedFormsPanel submissions={formSubmissions} />
+      <SubmittedFormsPanel submissions={formSubmissions} onOpenForm={onOpenForm} />
 
       <div className="px-3 py-2.5 border-b border-gray-100 flex-shrink-0">
         <div className="flex items-center justify-between mb-2">
@@ -1397,6 +1397,207 @@ function ImagingSection({ items, onChange, readonly, patientId }) {
   )
 }
 
+// ── Print CSS (injected once, controls @media print) ─────────────
+const PRINT_STYLE = `
+@media print {
+  body > * { display: none !important; }
+  #opd-print-root { display: block !important; }
+  @page { margin: 18mm 14mm; size: A4; }
+}
+#opd-print-root { display: none; }
+`
+
+// ── Printable Chart ───────────────────────────────────────────────
+function PrintableChart({ encounter, patient, soap, prescriptions, formSubmissions,
+    labOrders, imagingOrders, allPatientLabOrders, allPatientImagingOrders,
+    counselling, clinicName }) {
+  const appt    = encounter?.appointment || encounter || {}
+  const vRaw    = encounter?.vitals || {}
+  const v = {
+    bp:     vRaw.bp || (vRaw.blood_pressure_systolic && vRaw.blood_pressure_diastolic ? `${vRaw.blood_pressure_systolic}/${vRaw.blood_pressure_diastolic}` : null),
+    pulse:  vRaw.pulse  || (vRaw.pulse_rate  ? String(vRaw.pulse_rate)  : null),
+    temp:   vRaw.temp   || (vRaw.temperature ? String(vRaw.temperature) : null),
+    spo2:   vRaw.spo2   || (vRaw.oxygen_saturation ? String(vRaw.oxygen_saturation) : null),
+    weight: vRaw.weight || (vRaw.weight_kg   ? String(vRaw.weight_kg)   : null),
+    height: vRaw.height || (vRaw.height_cm   ? String(vRaw.height_cm)   : null),
+    sugar:  vRaw.sugar  || (vRaw.blood_sugar ? String(vRaw.blood_sugar) : null),
+    rr:     vRaw.rr     || (vRaw.respiration_rate ? String(vRaw.respiration_rate) : null),
+  }
+  const reason  = appt.reason || encounter?.reason
+  const name    = patient?.full_name || patient?.name || appt.patient_name || '—'
+  const ageSex  = [patient?.age != null ? `${patient.age} yrs` : null, patient?.gender ? patient.gender.charAt(0).toUpperCase() + patient.gender.slice(1) : null].filter(Boolean).join(' · ')
+  const mrn     = patient?.clinic_patient_id || patient?.uhid || patient?.bh_id || ''
+  const date    = appt.appointment_date || appt.date || appt.scheduled_date
+  const subs    = (formSubmissions || []).filter(s => s.status !== 'draft')
+  const categorized = { S: [], O: [], A: [], P: [] }
+  subs.forEach(s => { const c = categorizeSoap(s); categorized[c] ? categorized[c].push(s) : categorized.A.push(s) })
+  const allLab     = [...(labOrders || []), ...(allPatientLabOrders || []).filter(o => !(labOrders||[]).find(x => x.id === o.id) && o.has_result)]
+  const allImaging = [...(imagingOrders || []), ...(allPatientImagingOrders || []).filter(o => !(imagingOrders||[]).find(x => x.id === o.id) && o.has_result)]
+
+  const secStyle  = { marginBottom: 16 }
+  const labelStyle = { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: '#6b7280', marginBottom: 4 }
+  const valStyle  = { fontSize: 12, color: '#111827' }
+  const hdgStyle  = { fontSize: 11, fontWeight: 700, color: '#fff', background: '#0F2557', padding: '3px 8px', borderRadius: 4, display: 'inline-block', marginBottom: 6 }
+
+  const renderFormData = (s) => {
+    const raw = s.form_data || s.data || null
+    if (!raw || typeof raw !== 'object') return null
+    const entries = Object.entries(raw).map(([k, v]) => {
+      const val = Array.isArray(v) ? v.join(', ') : v === true ? 'Yes' : (v === null || v === '' || v === false) ? null : String(v)
+      return val ? { label: formatKey(k), value: val } : null
+    }).filter(Boolean)
+    if (!entries.length) return null
+    return (
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 24px', marginTop: 4 }}>
+        {entries.map(e => (
+          <span key={e.label} style={{ fontSize: 11 }}>
+            <span style={{ color: '#9ca3af' }}>{e.label}: </span>
+            <span style={{ fontWeight: 600, color: '#111827' }}>{e.value}</span>
+          </span>
+        ))}
+      </div>
+    )
+  }
+
+  return (
+    <div id="opd-print-root" style={{ fontFamily: 'Arial, sans-serif', color: '#111', padding: 0 }}>
+      {/* Header */}
+      <div style={{ borderBottom: '2px solid #0F2557', paddingBottom: 10, marginBottom: 14 }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: '#0F2557' }}>{clinicName || 'Bharath Health Systems'}</div>
+        <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>OPD Patient Chart</div>
+      </div>
+
+      {/* Patient info strip */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 32px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 6, padding: '8px 12px', marginBottom: 14, fontSize: 11 }}>
+        <span><b>Patient:</b> {name}</span>
+        {ageSex && <span><b>Age/Sex:</b> {ageSex}</span>}
+        {mrn    && <span><b>MRN:</b> {mrn}</span>}
+        {date   && <span><b>Date:</b> {fmtDate(date)}</span>}
+        {appt.token_number && <span><b>Token:</b> {appt.token_number}</span>}
+      </div>
+
+      {/* Chief Complaint */}
+      {reason && (
+        <div style={{ marginBottom: 14 }}>
+          <div style={labelStyle}>Chief Complaint</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>{reason}</div>
+        </div>
+      )}
+
+      {/* S */}
+      {(soap.subjective || categorized.S.length > 0) && (
+        <div style={secStyle}>
+          <div style={hdgStyle}>S — Subjective</div>
+          {soap.subjective && <p style={{ ...valStyle, whiteSpace: 'pre-wrap', margin: '4px 0 8px' }}>{soap.subjective}</p>}
+          {categorized.S.map(s => (
+            <div key={s.id} style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#374151', marginBottom: 2 }}>{s.form_title}</div>
+              {renderFormData(s)}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* O */}
+      {(soap.objective || Object.values(v).some(Boolean) || categorized.O.length > 0) && (
+        <div style={secStyle}>
+          <div style={hdgStyle}>O — Objective</div>
+          {Object.values(v).some(Boolean) && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 20px', margin: '4px 0 8px', fontSize: 11 }}>
+              {v.bp     && <span><b>BP:</b> {v.bp}</span>}
+              {v.pulse  && <span><b>HR:</b> {v.pulse} bpm</span>}
+              {v.temp   && <span><b>Temp:</b> {v.temp}°C</span>}
+              {v.spo2   && <span><b>SpO₂:</b> {v.spo2}%</span>}
+              {v.weight && <span><b>Wt:</b> {v.weight} kg</span>}
+              {v.height && <span><b>Ht:</b> {v.height} cm</span>}
+              {v.sugar  && <span><b>Sugar:</b> {v.sugar}</span>}
+              {v.rr     && <span><b>RR:</b> {v.rr}/min</span>}
+            </div>
+          )}
+          {soap.objective && <p style={{ ...valStyle, whiteSpace: 'pre-wrap', margin: '4px 0 8px' }}>{soap.objective}</p>}
+          {categorized.O.map(s => (
+            <div key={s.id} style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#374151', marginBottom: 2 }}>{s.form_title}</div>
+              {renderFormData(s)}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Investigations */}
+      {(allLab.length > 0 || allImaging.length > 0) && (
+        <div style={secStyle}>
+          <div style={hdgStyle}>I — Investigations</div>
+          {allLab.length > 0 && (
+            <div style={{ marginBottom: 6 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#6b7280', marginBottom: 3 }}>LAB ORDERS</div>
+              {allLab.map(o => {
+                const tests = o.test_names?.length ? o.test_names : (o.items || []).map(i => i.test_name).filter(Boolean)
+                return <div key={o.id} style={{ fontSize: 11, marginBottom: 2 }}>{tests.join(', ') || o.order_id} <span style={{ color: '#6b7280' }}>— {o.result_status || o.status}</span></div>
+              })}
+            </div>
+          )}
+          {allImaging.length > 0 && (
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#6b7280', marginBottom: 3 }}>IMAGING ORDERS</div>
+              {allImaging.map(o => (
+                <div key={o.id} style={{ fontSize: 11, marginBottom: 2 }}>{o.modality} — {o.body_part || o.study_type} <span style={{ color: '#6b7280' }}>— {o.status}</span></div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* A */}
+      {(soap.assessment || categorized.A.length > 0) && (
+        <div style={secStyle}>
+          <div style={hdgStyle}>A — Assessment</div>
+          {soap.assessment && <p style={{ ...valStyle, whiteSpace: 'pre-wrap', margin: '4px 0 8px' }}>{soap.assessment}</p>}
+          {categorized.A.map(s => (
+            <div key={s.id} style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#374151', marginBottom: 2 }}>{s.form_title}</div>
+              {renderFormData(s)}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* P */}
+      {(soap.plan || prescriptions.length > 0 || counselling || categorized.P.length > 0) && (
+        <div style={secStyle}>
+          <div style={hdgStyle}>P — Plan</div>
+          {prescriptions.length > 0 && (
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#6b7280', marginBottom: 3 }}>MEDICATIONS</div>
+              {prescriptions.map((rx, i) => (
+                <div key={i} style={{ fontSize: 11, marginBottom: 2 }}>
+                  <b>{rx.drug_name || rx.medicine_name}</b>
+                  {(rx.dosage || rx.frequency || rx.duration) && <span style={{ color: '#6b7280' }}> — {[rx.dosage, rx.frequency, rx.duration].filter(Boolean).join(' · ')}</span>}
+                  {rx.route && <span style={{ color: '#9ca3af' }}> ({rx.route})</span>}
+                </div>
+              ))}
+            </div>
+          )}
+          {soap.plan && <p style={{ ...valStyle, whiteSpace: 'pre-wrap', margin: '4px 0 8px' }}>{soap.plan}</p>}
+          {counselling && <p style={{ ...valStyle, whiteSpace: 'pre-wrap', margin: '4px 0 8px' }}><b>Counselling: </b>{counselling}</p>}
+          {categorized.P.map(s => (
+            <div key={s.id} style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#374151', marginBottom: 2 }}>{s.form_title}</div>
+              {renderFormData(s)}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Footer */}
+      <div style={{ borderTop: '1px solid #e5e7eb', marginTop: 20, paddingTop: 8, fontSize: 10, color: '#9ca3af', display: 'flex', justifyContent: 'space-between' }}>
+        <span>Bharath Health Systems — Confidential Patient Record</span>
+        <span>Printed: {new Date().toLocaleString('en-IN')}</span>
+      </div>
+    </div>
+  )
+}
+
 // ── Main Component ────────────────────────────────────────────────
 export default function OpdChart() {
   const { id } = useParams()
@@ -1480,7 +1681,7 @@ export default function OpdChart() {
   // a stable primitive that never changes during this session.
   useEffect(() => {
     if (!id) return
-    api.get('/submissions', { params: { encounter_id: id, limit: 100 } })
+    api.get('/submissions', { params: { encounter_id: id, limit: 100, include_drafts: true } })
       .then(res => setFormSubmissions(res?.items || []))
       .catch(() => setFormSubmissions([]))
   }, [id])
@@ -1615,9 +1816,9 @@ export default function OpdChart() {
 
   const refreshSubmissions = () => {
     // Always scope to this encounter — `id` is the encounter ID from the URL, never changes
-    api.get('/submissions', { params: { encounter_id: id, limit: 100 } })
+    api.get('/submissions', { params: { encounter_id: id, limit: 100, include_drafts: true } })
       .then(res => setFormSubmissions(res?.items || []))
-      .catch(() => setFormSubmissions(prev => prev ?? []))   // keep existing data on failure; never silently blank
+      .catch(() => setFormSubmissions(prev => prev ?? []))
   }
 
   if (loading) {
@@ -1729,6 +1930,11 @@ export default function OpdChart() {
 
           {/* Action buttons */}
           <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
+            <button onClick={() => window.print()}
+              className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+              title="Print Chart">
+              <Printer size={15} />
+            </button>
             {!readonly && (
               <button onClick={handleSaveDraft} disabled={saving}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors">
@@ -1837,7 +2043,7 @@ export default function OpdChart() {
               }}
             />
           ) : (
-            <div className="p-5 max-w-3xl">
+            <div className="p-5 w-full max-w-4xl">
               {section === 'chart' && (
                 <PatientChartDocument
                   encounter={encounter}
@@ -1918,6 +2124,22 @@ export default function OpdChart() {
           onCancel={() => setMedFormOpen(false)}
         />
       )}
+
+      {/* Print CSS + hidden printable chart */}
+      <style>{PRINT_STYLE}</style>
+      <PrintableChart
+        encounter={encounter}
+        patient={patient}
+        soap={soap}
+        prescriptions={prescriptions}
+        formSubmissions={formSubmissions ?? []}
+        labOrders={labOrders}
+        imagingOrders={imagingOrders}
+        allPatientLabOrders={allPatientLabOrders}
+        allPatientImagingOrders={allPatientImagingOrders}
+        counselling={counselling}
+        clinicName={user?.clinic_name}
+      />
 
       {/* Order toast notification */}
       {orderToast && (

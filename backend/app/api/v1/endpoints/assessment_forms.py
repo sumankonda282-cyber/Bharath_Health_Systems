@@ -1207,29 +1207,37 @@ def _comment_out(c: "FormSubmissionComment") -> dict:
 
 @router.get("/submissions")
 def list_patient_submissions(
-    db:             Session       = Depends(get_db),
-    current                       = Depends(get_current_staff),
-    patient_id:     Optional[str] = Query(None),
-    encounter_id:   Optional[str] = Query(None),
-    date_from:      Optional[str] = Query(None),
-    date_to:        Optional[str] = Query(None),
-    limit:          int           = Query(100, ge=1, le=500),
-    offset:         int           = Query(0, ge=0),
+    db:              Session       = Depends(get_db),
+    current                        = Depends(get_current_staff),
+    patient_id:      Optional[str] = Query(None),
+    encounter_id:    Optional[str] = Query(None),
+    date_from:       Optional[str] = Query(None),
+    date_to:         Optional[str] = Query(None),
+    include_drafts:  bool          = Query(False),
+    limit:           int           = Query(100, ge=1, le=500),
+    offset:          int           = Query(0, ge=0),
 ):
-    """Signed (non-draft, active) submissions for a patient, scoped to the caller's
-    clinic. Supports encounter_id filter to retrieve only a specific visit's forms.
-    Auth required — no unauthenticated access to patient submissions."""
+    """Signed (and optionally draft) submissions scoped to the caller's clinic.
+    Pass include_drafts=true to also return the caller's in-progress drafts for
+    the given encounter — used to show draft indicators in the chart panel."""
     if not current:
         raise HTTPException(status_code=401, detail="Authentication required")
     q = (
         db.query(FormSubmission, AssessmentForm.title.label("form_title"), AssessmentForm.category.label("form_category"))
         .outerjoin(AssessmentForm, AssessmentForm.id == FormSubmission.form_id)
         .filter(
-            FormSubmission.is_draft.is_(False),
             FormSubmission.record_status == "active",
-            FormSubmission.clinic_id == current.clinic_id,   # tenant isolation
+            FormSubmission.clinic_id == current.clinic_id,
         )
     )
+    if include_drafts:
+        # Return both signed submissions AND this staff member's own drafts
+        q = q.filter(
+            (FormSubmission.is_draft.is_(False)) |
+            ((FormSubmission.is_draft.is_(True)) & (FormSubmission.submitted_by == current.id))
+        )
+    else:
+        q = q.filter(FormSubmission.is_draft.is_(False))
     if patient_id:
         q = q.filter(FormSubmission.patient_id == patient_id)
     if encounter_id:
@@ -1258,7 +1266,9 @@ def list_patient_submissions(
                 "encounter_id":  sub.encounter_id,
                 "admission_id":  sub.admission_id,
                 "submitted_by":  sub.submitted_by,
+                "status":        "draft" if sub.is_draft else "submitted",
                 "submitted_at":  sub.submitted_at.isoformat() if sub.submitted_at else None,
+                "updated_at":    sub.updated_at.isoformat() if sub.updated_at else None,
             }
             for sub, form_title, form_category in rows
         ],
@@ -1281,9 +1291,13 @@ def get_submission(submission_id: int, db: Session = Depends(get_db)):
         .order_by(FormSubmissionComment.created_at.asc())
         .all()
     )
+    form = db.query(AssessmentForm).filter(AssessmentForm.id == sub.form_id).first() if sub.form_id else None
     return {
         "id":            sub.id,
         "form_id":       sub.form_id,
+        "form_title":    form.title if form else None,
+        "form_category": form.category if form else None,
+        "form_schema":   form.schema if form else None,
         "patient_id":    sub.patient_id,
         "encounter_id":  sub.encounter_id,
         "submitted_by":  sub.submitted_by,

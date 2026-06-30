@@ -293,6 +293,36 @@ function reducer(state, action) {
       }
     }
 
+    case 'ADD_FIELD_PRESET': {
+      // Insert a pre-populated field from the Master Field Registry.
+      // The registry entry already has field_id, label, type, unit, reference_range, etc.
+      const { sectionId, preset } = action.payload
+      const field = {
+        ...makeField(preset.type),
+        ...preset,
+        id: genId('fld'), // always fresh internal id
+      }
+      return {
+        ...state,
+        isDirty: true,
+        selectedId: field.id,
+        selectedType: 'field',
+        form: {
+          ...form,
+          schema: {
+            ...form.schema,
+            sections: form.schema.sections.map(s => {
+              if (s.id !== sectionId) return s
+              const fields = [...s.fields]
+              field.layout = { x: 0, y: nextRow(fields), w: Math.min((preset.col_span || 1) * 3, GRID_COLS), h: 1 }
+              fields.push(field)
+              return { ...s, fields }
+            }),
+          },
+        },
+      }
+    }
+
     case 'SET_FIELD_LAYOUT': {
       const { sectionId, fieldId, layout } = action.payload
       return {
@@ -952,6 +982,18 @@ export default function FormBuilder() {
     dispatchWithHistory({ type: 'ADD_FIELD', payload: { sectionId: targetSection, fieldType: type } })
   }
 
+  function handleAddPreset(preset, sectionId) {
+    let targetSection = sectionId
+    if (!targetSection) {
+      if (form.schema.sections.length === 0) {
+        dispatchWithHistory({ type: 'ADD_SECTION' })
+        return
+      }
+      targetSection = form.schema.sections[form.schema.sections.length - 1].id
+    }
+    dispatchWithHistory({ type: 'ADD_FIELD_PRESET', payload: { sectionId: targetSection, preset } })
+  }
+
   function handleAddSection() {
     dispatchWithHistory({ type: 'ADD_SECTION' })
   }
@@ -1092,6 +1134,7 @@ export default function FormBuilder() {
             <FieldPalette
               onAddField={handleAddField}
               onAddSection={handleAddSection}
+              onAddPreset={handleAddPreset}
               activeSectionId={activeSectionId}
             />
           </aside>
@@ -1140,6 +1183,7 @@ export default function FormBuilder() {
               <FieldPalette
                 onAddField={(type, sid) => { handleAddField(type, sid); setPaletteOpen(false) }}
                 onAddSection={() => { handleAddSection(); setPaletteOpen(false) }}
+                onAddPreset={(preset, sid) => { handleAddPreset(preset, sid); setPaletteOpen(false) }}
                 activeSectionId={activeSectionId}
               />
             </div>
