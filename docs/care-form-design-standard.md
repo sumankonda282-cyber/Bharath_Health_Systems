@@ -285,5 +285,56 @@ These fields are populated automatically on every form open:
 
 ---
 
-*End of document — Version 2.0. All form and section builds must conform to this standard.
+## 11. Session & Admission State Rules
+
+### Edit icon visibility
+1. The pencil (edit) icon on a submitted form chip is shown **only while the session is active** — OPD encounter open, or IPD admission ongoing.
+2. Once an OPD session is marked complete, or a patient is discharged from IPD, the pencil icon is removed from all chips for that encounter/admission. All submitted forms become permanently read-only from that point.
+3. There is no edit icon on the chart view for closed sessions — the form title chip is shown without any action icon.
+
+| State | Chip appearance | Edit allowed |
+|---|---|---|
+| OPD session active | `[Form Title ✏]` | Yes |
+| OPD session completed | `[Form Title]` | No |
+| IPD admission active | `[Form Title ✏]` | Yes |
+| IPD discharged | `[Form Title]` | No |
+| Draft (any active session) | `[Form Title ●]` amber dot | Opens to resume |
+
+### Pre-fill suggestion scope
+4. Pre-fill suggestions from clinical measurements (vitals, assessments, examination findings) are scoped **strictly to the current session** — the same OPD encounter or the same IPD admission.
+5. Once a session is completed or a patient is discharged, those clinical values are never suggested in any future session. A new encounter starts fresh with no measurement suggestions.
+6. **Permanent patient data** is exempt from this rule — the following always auto-fill regardless of session state:
+   - Patient name, date of birth, gender, patient ID
+   - Blood group
+   - Known allergies
+   - Chronic conditions / comorbidities
+   - Encounter ID, encounter date, clinic, doctor name
+7. Calculated fields (BMI, MAP) are never pre-filled from any previous session — they always recalculate live from current inputs.
+
+---
+
+## 12. Form Chip & Pencil Rules
+
+1. **One form = one chip = one pencil.** No matter how many sections or fields are inside a form, it is one submitted unit represented by a single chip in the This Visit strip.
+2. A comprehensive care form with 8 sections inside (Chief Complaint, Examination, Vitals, Investigations, Impression, Plan, etc.) still produces one chip. Clicking the pencil opens the entire form — the doctor navigates to the section needing correction.
+3. **Two things documented together = one form.** If two sets of fields are always documented in the same encounter visit, they belong in one comprehensive form, not two separate forms. Two forms = two chips = unnecessary cognitive load.
+4. The chip label is the form title. It truncates at ~20 characters with an ellipsis if longer.
+5. Draft chips show an amber dot instead of a pencil. Clicking them reopens the form with all partially filled data restored exactly as left.
+6. Submitted chips in an active session show a pencil icon. Clicking opens the form pre-populated with the last submission — all fields editable, submitting creates a new version.
+7. Submitted chips in a closed session show no icon — clicking opens a read-only view of the submitted data. No editing.
+
+### Visual summary:
+```
+ACTIVE SESSION:
+  [Vitals ✏]  [Pre-op Assessment ✏]  [Pain ●]
+                                           ↑ draft, not yet submitted
+
+CLOSED SESSION / DISCHARGED:
+  [Vitals]  [Pre-op Assessment]  [Pain]
+  ↑ no icons — read-only, permanent record
+```
+
+---
+
+*End of document — Version 3.0. All form and section builds must conform to this standard.
 Update this document when a rule changes. Never build first and document later.*
