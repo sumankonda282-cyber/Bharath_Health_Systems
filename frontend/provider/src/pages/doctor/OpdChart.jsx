@@ -360,6 +360,22 @@ function SoapLabel({ letter, label, color, bg }) {
 
 function FormBlock({ submission, index }) {
   const isDraft = submission.status === 'draft' || submission.is_draft
+  const [fullData, setFullData] = useState(
+    submission.form_data || submission.data || submission.answers || null
+  )
+
+  useEffect(() => {
+    if (fullData) return
+    api.get(`/submissions/${submission.id}`)
+      .then(r => {
+        const d = r.data?.form_data || r.data?.data || r.data?.answers || null
+        if (d) setFullData(d)
+      })
+      .catch(() => {})
+  }, [submission.id])
+
+  const enriched = { ...submission, form_data: fullData }
+
   return (
     <div className={index > 0 ? 'mt-3 pt-3' : ''}>
       <div className="flex items-center gap-2 mb-1.5">
@@ -369,8 +385,11 @@ function FormBlock({ submission, index }) {
             Draft
           </span>
         )}
+        {!fullData && (
+          <span className="w-3 h-3 border border-gray-300 border-t-blue-400 rounded-full animate-spin inline-block" />
+        )}
       </div>
-      <FormContentRenderer submission={submission} />
+      <FormContentRenderer submission={enriched} />
     </div>
   )
 }
@@ -399,7 +418,7 @@ function PatientChartDocument({ encounter, patientId, soap, prescriptions, labIt
 
   const hasS   = !!(soap.subjective || reason || categorized.S.length)
   const hasO   = !!(soap.objective || Object.values(v).some(Boolean) || categorized.O.length)
-  const hasInv = labItems.length > 0 || imagingItems.length > 0
+  const hasInv = labItems.length > 0 || imagingItems.length > 0 || labOrders.length > 0 || imagingOrders.length > 0
   const hasA   = !!(soap.assessment || categorized.A.length)
   const hasP   = !!(soap.plan || prescriptions.length || counselling || categorized.P.length)
   const hasAny = hasS || hasO || hasInv || hasA || hasP
