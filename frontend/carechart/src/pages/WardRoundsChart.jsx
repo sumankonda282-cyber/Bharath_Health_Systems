@@ -3,10 +3,9 @@ import {
   Stethoscope, FileText, FlaskConical, ImageIcon, Pill,
   ClipboardList, ArrowRightLeft, ChevronDown, ChevronUp,
   CheckCircle, Clock, AlertTriangle, PlusCircle, X,
-  Settings, Activity,
+  Activity,
 } from 'lucide-react'
 import api from '../api/client'
-import { usePin } from '../contexts/PinContext'
 
 // ── Formatting helpers ──────────────────────────────────────────────────────
 
@@ -58,18 +57,9 @@ const FILTER_TYPES = [
 
 // ── Entry renderers ───────────────────────────────────────────────────────────
 
-function SOAPSection({ label, text }) {
-  if (!text) return null
-  return (
-    <div className="mb-1">
-      <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400 mr-1">{label}</span>
-      <span className="text-[12px] text-gray-700 whitespace-pre-wrap">{text}</span>
-    </div>
-  )
-}
-
 function WardRoundEntry({ entry }) {
   const [open, setOpen] = useState(true)
+  const noteText = [entry.subjective, entry.objective, entry.assessment, entry.plan].filter(Boolean).join('\n\n')
   return (
     <div className="border border-blue-100 rounded-lg bg-blue-50/40 overflow-hidden">
       <button
@@ -79,19 +69,16 @@ function WardRoundEntry({ entry }) {
         <div className="flex items-center gap-2">
           <Stethoscope size={13} className="text-blue-600 shrink-0" />
           <span className="text-[12px] font-semibold text-blue-900">{entry.doctor_name}</span>
-          <span className="text-[11px] text-gray-500">— {fmtTime(entry.timestamp)}</span>
+          <span className="text-[11px] text-gray-500">Ward Round · {fmtTime(entry.timestamp)}</span>
         </div>
         {open ? <ChevronUp size={13} className="text-gray-400" /> : <ChevronDown size={13} className="text-gray-400" />}
       </button>
       {open && (
-        <div className="px-3 pb-3 pt-1 border-t border-blue-100">
-          <SOAPSection label="S" text={entry.subjective} />
-          <SOAPSection label="O" text={entry.objective} />
-          <SOAPSection label="A" text={entry.assessment} />
-          <SOAPSection label="P" text={entry.plan} />
-          {!entry.subjective && !entry.objective && !entry.assessment && !entry.plan && (
-            <span className="text-[11px] text-gray-400 italic">No notes recorded</span>
-          )}
+        <div className="px-3 pb-3 pt-2 border-t border-blue-100">
+          {noteText
+            ? <p className="text-[12px] text-gray-700 leading-relaxed whitespace-pre-wrap">{noteText}</p>
+            : <span className="text-[11px] text-gray-400 italic">No notes recorded</span>
+          }
         </div>
       )}
     </div>
@@ -121,6 +108,7 @@ function NursingNoteEntry({ entry }) {
 
 function ProgressNoteEntry({ entry }) {
   const [open, setOpen] = useState(true)
+  const noteText = [entry.subjective, entry.objective, entry.assessment, entry.plan].filter(Boolean).join('\n\n')
   return (
     <div className="border border-purple-100 rounded-lg bg-purple-50/30 overflow-hidden">
       <button
@@ -133,16 +121,16 @@ function ProgressNoteEntry({ entry }) {
           <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 font-medium uppercase">
             {entry.note_type || 'Progress'}
           </span>
-          <span className="text-[11px] text-gray-500">— {fmtTime(entry.timestamp)}</span>
+          <span className="text-[11px] text-gray-500">· {fmtTime(entry.timestamp)}</span>
         </div>
         {open ? <ChevronUp size={13} className="text-gray-400" /> : <ChevronDown size={13} className="text-gray-400" />}
       </button>
       {open && (
-        <div className="px-3 pb-3 pt-1 border-t border-purple-100">
-          <SOAPSection label="S" text={entry.subjective} />
-          <SOAPSection label="O" text={entry.objective} />
-          <SOAPSection label="A" text={entry.assessment} />
-          <SOAPSection label="P" text={entry.plan} />
+        <div className="px-3 pb-3 pt-2 border-t border-purple-100">
+          {noteText
+            ? <p className="text-[12px] text-gray-700 leading-relaxed whitespace-pre-wrap">{noteText}</p>
+            : <span className="text-[11px] text-gray-400 italic">No content</span>
+          }
         </div>
       )}
     </div>
@@ -410,20 +398,20 @@ function TransferEntry({ entry }) {
 // ── New Ward Round note modal ─────────────────────────────────────────────────
 
 function NewRoundModal({ admission, onClose, onSaved }) {
-  const [form, setForm] = useState({ round_date: new Date().toISOString(), subjective: '', objective: '', assessment: '', plan: '' })
+  const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
 
   async function submit(e) {
     e.preventDefault()
-    if (!form.assessment && !form.plan && !form.subjective && !form.objective) {
-      setError('Enter at least one SOAP field.')
-      return
-    }
+    if (!note.trim()) { setError('Note cannot be empty.'); return }
     setSaving(true)
     setError(null)
     try {
-      await api.post(`/inpatient/admissions/${admission.id}/rounds`, form)
+      await api.post(`/inpatient/admissions/${admission.id}/rounds`, {
+        round_date: new Date().toISOString(),
+        assessment: note.trim(),
+      })
       onSaved()
       onClose()
     } catch {
@@ -433,34 +421,25 @@ function NewRoundModal({ admission, onClose, onSaved }) {
     }
   }
 
-  const field = (label, key, placeholder) => (
-    <div>
-      <label className="block text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-1">{label}</label>
-      <textarea
-        rows={3}
-        className="w-full text-[12px] border border-gray-200 rounded-lg px-2.5 py-1.5 resize-none focus:outline-none focus:border-blue-400"
-        placeholder={placeholder}
-        value={form[key]}
-        onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-      />
-    </div>
-  )
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg flex flex-col">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <span className="text-[14px] font-bold text-gray-900 flex items-center gap-2">
             <Stethoscope size={16} className="text-blue-600" /> New Ward Round Note
           </span>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
         </div>
-        <form onSubmit={submit} className="p-5 space-y-3 overflow-y-auto flex-1">
-          {field('Subjective (S)', 'subjective', 'Patient complaints, history updates…')}
-          {field('Objective (O)', 'objective', 'Examination findings, vitals…')}
-          {field('Assessment (A)', 'assessment', 'Diagnosis, clinical impression…')}
-          {field('Plan (P)', 'plan', 'Management plan, medications, investigations…')}
-          {error && <div className="text-[11px] text-red-600">{error}</div>}
+        <form onSubmit={submit} className="p-5">
+          <textarea
+            rows={7}
+            autoFocus
+            className="w-full text-[13px] border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:border-blue-400"
+            placeholder="Enter ward round note…"
+            value={note}
+            onChange={e => setNote(e.target.value)}
+          />
+          {error && <div className="text-[11px] text-red-600 mt-1">{error}</div>}
         </form>
         <div className="flex gap-2 px-5 py-3 border-t border-gray-100">
           <button onClick={onClose} className="flex-1 text-[12px] py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">Cancel</button>
