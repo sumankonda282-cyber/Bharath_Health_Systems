@@ -944,6 +944,8 @@ with engine.begin() as conn:
 PYEOF
 echo "[bg-migrations] Seeding OPD test form for chart rendering verification..."
 timeout 30 python seed_opd_test_form.py || echo "[bg-migrations] OPD test form seed failed (non-fatal)"
+echo "[bg-migrations] Seeding Vitals — Standard care section..."
+timeout 30 python seed_vitals_section.py || echo "[bg-migrations] Vitals section seed failed (non-fatal)"
 echo "[bg-migrations] Done."
 ) &
 
