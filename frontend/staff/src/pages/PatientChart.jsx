@@ -154,7 +154,7 @@ function FormRenderer({ template, initial = {}, onSave, onCancel, saving }) {
 
   return (
     <div className="space-y-4">
-      {(template.schema || []).map((field, i) => renderField(field, i))}
+      {(template.schema?.sections || []).flatMap(s => s.fields || []).map((field, i) => renderField(field, i))}
       <div className="flex gap-2 pt-2 border-t border-gray-100">
         <button type="button" onClick={onCancel} className="btn-secondary flex-1 justify-center text-sm">Cancel</button>
         <button type="button" onClick={() => onSave(data)} disabled={saving} className="btn-primary flex-1 justify-center text-sm">
@@ -226,8 +226,8 @@ export default function PatientChart() {
   // ── Load filled forms ──────────────────────────────────────────────────────
   const loadFilledForms = useCallback(() => {
     if (isDemo || !appointmentId || appointmentId > 9000) return
-    api.get('/forms/responses', { params: { appointment_id: appointmentId } })
-      .then(r => setFilledForms(Array.isArray(r) ? r : []))
+    api.get('/submissions', { params: { encounter_id: String(appointmentId), limit: 100 } })
+      .then(r => setFilledForms(Array.isArray(r?.items) ? r.items : []))
       .catch(() => {})
   }, [appointmentId, isDemo])
 
@@ -239,8 +239,8 @@ export default function PatientChart() {
     setFormLoading(true)
     searchTimer.current = setTimeout(async () => {
       try {
-        const r = await api.get('/forms/templates', { params: { search: formSearch || undefined, limit: 20 } })
-        setFormResults(Array.isArray(r) ? r : [])
+        const r = await api.get('/assessment-forms', { params: { status: 'published', search: formSearch || undefined, limit: 20 } })
+        setFormResults(Array.isArray(r?.forms) ? r.forms : [])
       } catch { setFormResults([]) }
       finally { setFormLoading(false) }
     }, formSearch ? 300 : 0)
@@ -284,14 +284,15 @@ export default function PatientChart() {
     }
     setFormSaving(true)
     try {
-      await api.post('/forms/responses', {
-        template_id: template.id,
+      await api.post(`/assessment-forms/${template.id}/submit`, {
+        form_data: data,
         appointment_id: parseInt(appointmentId),
+        encounter_id: String(appointmentId),
         patient_id: appt?.patient_id,
-        data,
+        is_draft: false,
       })
       setActiveFormId(null)
-      showToast(`${template.name} saved`)
+      showToast(`${template.title} saved`)
       loadFilledForms()
     } catch (ex) { showToast(ex.message || 'Save failed', 'error') }
     finally { setFormSaving(false) }
@@ -311,7 +312,7 @@ export default function PatientChart() {
   const age = appt ? (appt.age || formatAge(appt.date_of_birth)) : null
   const pinnedTemplates = formResults.filter(t => pinnedIds.includes(t.id))
   const activeTemplate = formResults.find(t => t.id === activeFormId)
-  const filledTemplateIds = new Set(filledForms.map(f => f.template_id))
+  const filledTemplateIds = new Set(filledForms.map(f => f.form_id))
 
   if (!appt && !passedAppt) return (
     <div className="flex flex-col items-center justify-center h-64 text-gray-400">
@@ -530,7 +531,7 @@ export default function PatientChart() {
                         activeFormId === t.id ? 'text-white border-transparent' : 'bg-white text-gray-700 border-gray-200 hover:border-blue-300'
                       }`}
                       style={activeFormId === t.id ? { background: '#0F2557' } : {}}>
-                      {t.name}
+                      {t.title}
                       {filledTemplateIds.has(t.id) && <Check size={10} className={activeFormId === t.id ? 'text-green-300' : 'text-green-500'} />}
                     </button>
                   ))}
@@ -543,14 +544,14 @@ export default function PatientChart() {
               <div className="mb-4 border border-blue-100 rounded-2xl p-4 bg-blue-50/30">
                 <div className="flex items-center justify-between mb-3">
                   <div>
-                    <h3 className="font-bold text-sm" style={{ color: '#0F2557' }}>{activeTemplate.name}</h3>
-                    <p className="text-xs text-gray-400">{activeTemplate.category} · ~{activeTemplate.estimated_minutes} min</p>
+                    <h3 className="font-bold text-sm" style={{ color: '#0F2557' }}>{activeTemplate.title}</h3>
+                    <p className="text-xs text-gray-400">{activeTemplate.category}</p>
                   </div>
                   <button onClick={() => setActiveFormId(null)} className="p-1.5 rounded-lg hover:bg-blue-100 text-gray-400"><X size={15} /></button>
                 </div>
                 <FormRenderer
                   template={activeTemplate}
-                  initial={filledForms.find(f => f.template_id === activeFormId)?.data || {}}
+                  initial={filledForms.find(f => f.form_id === activeFormId)?.form_data || {}}
                   onSave={(data) => saveFormResponse(activeTemplate, data)}
                   onCancel={() => setActiveFormId(null)}
                   saving={formSaving}
@@ -572,7 +573,7 @@ export default function PatientChart() {
                   const isFilled = filledTemplateIds.has(t.id)
                   const isPinned = pinnedIds.includes(t.id)
                   const isActive = activeFormId === t.id
-                  const filledRecord = filledForms.find(f => f.template_id === t.id)
+                  const filledRecord = filledForms.find(f => f.form_id === t.id)
 
                   return (
                     <div key={t.id} className={`rounded-xl border transition-all ${isActive ? 'border-blue-200 bg-blue-50/30' : 'border-gray-100 bg-white hover:border-gray-200'}`}>
@@ -583,14 +584,13 @@ export default function PatientChart() {
                         {/* Info */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm font-semibold text-gray-800">{t.name}</span>
+                            <span className="text-sm font-semibold text-gray-800">{t.title}</span>
                             {t.category && <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{t.category}</span>}
                             {isFilled && <span className="flex items-center gap-1 text-xs text-green-600 font-medium"><Check size={11} />Filled</span>}
                           </div>
-                          <div className="text-xs text-gray-400 mt-0.5 flex items-center gap-2">
-                            <Clock size={10} />~{t.estimated_minutes} min
-                            {t.description && <span className="truncate max-w-[200px]">{t.description}</span>}
-                          </div>
+                          {t.description && (
+                            <div className="text-xs text-gray-400 mt-0.5 truncate max-w-[280px]">{t.description}</div>
+                          )}
                         </div>
 
                         {/* Actions */}
@@ -625,11 +625,11 @@ export default function PatientChart() {
                           </button>
                           {expandedFilledId === t.id && (
                             <div className="px-4 pb-3 space-y-2">
-                              {(t.schema || []).filter(f => f.id && filledRecord.data?.[f.id] !== undefined).map(f => (
+                              {(t.schema?.sections || []).flatMap(s => s.fields || []).filter(f => f.id && filledRecord.form_data?.[f.id] !== undefined).map(f => (
                                 <div key={f.id} className="flex items-start gap-2">
                                   <span className="text-xs text-gray-400 w-32 flex-shrink-0">{f.label}:</span>
                                   <span className="text-xs text-gray-700 font-medium">
-                                    {Array.isArray(filledRecord.data[f.id]) ? filledRecord.data[f.id].join(', ') : String(filledRecord.data[f.id])}
+                                    {Array.isArray(filledRecord.form_data[f.id]) ? filledRecord.form_data[f.id].join(', ') : String(filledRecord.form_data[f.id])}
                                   </span>
                                 </div>
                               ))}
@@ -652,7 +652,7 @@ export default function PatientChart() {
                 <div className="flex flex-wrap gap-2">
                   {filledForms.map(f => (
                     <span key={f.id} className="flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 border border-green-100 px-2.5 py-1 rounded-full">
-                      <Check size={10} />{f.template_name}
+                      <Check size={10} />{f.form_title || 'Assessment Form'}
                     </span>
                   ))}
                 </div>
