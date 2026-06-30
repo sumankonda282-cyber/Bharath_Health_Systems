@@ -81,6 +81,9 @@ function ConditionRow({ condition, onUpdate, onRemove, forms }) {
         <option value="">Select form…</option>
         {forms.map(f => <option key={f.form_id} value={f.form_id}>{f.name}</option>)}
       </select>
+      <input value={c.field || ''} onChange={e => update('field', e.target.value)}
+        placeholder="field ID…" className={inputCls} style={{ borderColor: '#e5e7eb', maxWidth: 100 }}
+        title="Field ID within the selected form (e.g. score, bmi)" />
       <select value={c.operator} onChange={e => update('operator', e.target.value)}
         className={inputCls} style={{ borderColor: '#e5e7eb', minWidth: 100 }}>
         {OPERATORS.map(o => <option key={o}>{o}</option>)}
@@ -103,10 +106,12 @@ function CareFormBuilder({ api, careForm, allForms, onSaved, onClose }) {
   const [desc, setDesc]           = useState(careForm.description || '')
   const [color, setColor]         = useState(careForm.color || GREEN)
   const [forms, setForms]         = useState(careForm.forms || [])
-  const [conditions, setConditions] = useState(
-    Array.isArray(careForm.conditions) ? careForm.conditions
-      : (careForm.alerts?.map(a => ({ raw: a })) || [])
-  )
+  const [conditions, setConditions] = useState(() => {
+    // Backend always returns structured objects in `conditions` (and mirrors to `alerts`).
+    // Never wrap in {raw:} — that corrupts round-trip editing.
+    const src = careForm.conditions || careForm.alerts || []
+    return Array.isArray(src) ? src : []
+  })
   const [search, setSearch]       = useState('')
   const [saving, setSaving]       = useState(false)
   const dragItem = useRef(null)
@@ -440,17 +445,27 @@ export default function CareFormsManager({ api }) {
       return exists ? prev.map(c => c.id === saved.id ? saved : c) : [saved, ...prev]
     })
   }
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     setCareForms(prev => prev.filter(c => c.id !== id))
-    api.delete(`/carechart/care-forms/${id}`).catch(() => load())
+    try {
+      await api.delete(`/carechart/care-forms/${id}`)
+    } catch {
+      await load()   // restore on failure
+      alert('Failed to delete care form. Please try again.')
+    }
   }
   const handleClone = (cf) => {
     setBuilder({ ...cf, id: '__new__', name: `${cf.name} (copy)`, published: false })
   }
-  const handleTogglePublish = (cf) => {
+  const handleTogglePublish = async (cf) => {
     const updated = { ...cf, published: !cf.published }
     setCareForms(prev => prev.map(c => c.id === cf.id ? updated : c))
-    api.post(`/carechart/care-forms/${cf.id}/${cf.published ? 'unpublish' : 'publish'}`).catch(() => load())
+    try {
+      await api.post(`/carechart/care-forms/${cf.id}/${cf.published ? 'unpublish' : 'publish'}`)
+    } catch {
+      await load()   // restore on failure
+      alert(`Failed to ${cf.published ? 'unpublish' : 'publish'} care form. Please try again.`)
+    }
   }
 
   return (

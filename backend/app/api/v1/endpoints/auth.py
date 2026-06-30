@@ -863,6 +863,7 @@ def platform_forgot_password(request: Request, payload: ForgotPasswordRequest, d
         )
         if settings.DEBUG:
             return {"detail": "Email not configured — dev token below.", "token": token}
+        raise HTTPException(status_code=503, detail="Email service unavailable. Contact support.")
 
     return {"detail": "If that email is registered, a reset link has been sent. Check your inbox (and spam folder)."}
 

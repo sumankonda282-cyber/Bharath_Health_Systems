@@ -630,8 +630,10 @@ function FormSettingsModal({ form, dispatch, onClose }) {
               className={inputCls}
               value={scoped ? 'clinic' : 'global'}
               onChange={e => {
-                if (e.target.value === 'global') set('clinic_id', null)
-                else set('clinic_id', clinics[0]?.id ?? null)
+                if (e.target.value === 'global') { set('clinic_id', null); return }
+                // Only switch to scoped if clinics have loaded; otherwise warn instead of silently saving as global
+                if (!clinics.length) { alert('Health center list is still loading. Please wait and try again.'); return }
+                set('clinic_id', clinics[0]?.id ?? null)
               }}
             >
               <option value="global">Global — every health center</option>
