@@ -5,9 +5,10 @@ import api from '../../api/client'
 import {
   ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
   Save, FlaskConical, Eye, CheckCircle, Video,
-  Pill, Scan, Lock, Search, X, Plus,
-  Trash2, AlertCircle, Clock,
-  ClipboardList, MessageSquare, Star
+  Pill, Scan, Lock, Search, X, Plus, Trash2,
+  AlertCircle, Clock, ClipboardList, MessageSquare, Star,
+  Activity, FileText, AlertTriangle, ExternalLink,
+  Maximize2, User, Phone
 } from 'lucide-react'
 import { PageLoader } from '../../components/ui/Spinner'
 import DbAssessmentFormModal from '../inpatient/DbAssessmentFormModal'
@@ -43,14 +44,465 @@ const fmt12 = (t) => {
   return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`
 }
 
-// ── Past Visits ───────────────────────────────────────────────────
-// Previous Visits — a collapsed bar that opens a table of every prior encounter
-// (OPD visits + inpatient admissions) for this patient. A row expands to the full
-// visit (SOAP/vitals/Rx/labs) just like the live chart; an admission expands to its
-// discharge summary. Other doctors' OPD notes stay PIN-gated.
+const fmtDate = (d) => {
+  if (!d) return '—'
+  try { return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) }
+  catch { return String(d) }
+}
+
+const formatKey = (key) => {
+  if (!key) return ''
+  return String(key)
+    .replace(/_/g, ' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/\b\w/g, c => c.toUpperCase())
+}
+
+const categorizeSoap = (s) => {
+  const combined = ((s.form_category || s.category || '') + ' ' + (s.form_title || '')).toLowerCase()
+  if (/subjective|history|complaint|symptom|review.?of.?system|hpi|chief/.test(combined)) return 'S'
+  if (/objective|examination|exam|physical|finding|vital|anthropo|sign/.test(combined)) return 'O'
+  if (/plan|treatment|management|follow.?up|referral|procedure|counsel/.test(combined)) return 'P'
+  if (/assessment|diagnosis|impression|differential|icd/.test(combined)) return 'A'
+  return 'A'
+}
+
+// ── Form Content Renderer ─────────────────────────────────────────
+function FormContentRenderer({ submission }) {
+  if (!submission) return null
+
+  const raw = submission.form_data || submission.data || submission.answers || null
+
+  if (!raw || typeof raw !== 'object') {
+    return (
+      <p className="text-sm text-gray-500 italic">
+        Form submitted —{' '}
+        <a href={`/forms/submission/${submission.id}`} target="_blank" rel="noreferrer"
+          className="text-blue-500 hover:underline inline-flex items-center gap-0.5">
+          View <ExternalLink size={10} />
+        </a>
+      </p>
+    )
+  }
+
+  const parseValue = (v) => {
+    if (Array.isArray(v)) return v.filter(x => x !== null && x !== false && x !== '').join(', ')
+    if (v === true) return 'Yes'
+    if (v === false || v === null || v === undefined || v === '') return null
+    if (typeof v === 'object') return Object.values(v).filter(Boolean).join(', ')
+    return String(v)
+  }
+
+  const entries = Object.entries(raw)
+    .map(([k, v]) => ({ key: k, label: formatKey(k), value: parseValue(v) }))
+    .filter(e => e.value && e.value !== 'No')
+
+  if (!entries.length) return null
+
+  const short  = entries.filter(e => e.value.length < 25)
+  const medium = entries.filter(e => e.value.length >= 25 && e.value.length < 65)
+  const wide   = entries.filter(e => e.value.length >= 65 && e.value.length < 180)
+  const full   = entries.filter(e => e.value.length >= 180)
+
+  return (
+    <div className="space-y-1.5 text-sm text-gray-800">
+      {short.length > 0 && (
+        <div className="grid grid-cols-4 gap-x-6 gap-y-1">
+          {short.map(e => (
+            <span key={e.key} className="min-w-0 truncate">
+              <span className="text-gray-400 text-xs">{e.label}: </span>
+              <span className="font-medium">{e.value}</span>
+            </span>
+          ))}
+        </div>
+      )}
+      {medium.length > 0 && (
+        <div className="grid grid-cols-3 gap-x-6 gap-y-1">
+          {medium.map(e => (
+            <span key={e.key} className="min-w-0">
+              <span className="text-gray-400 text-xs">{e.label}: </span>
+              <span className="font-medium">{e.value}</span>
+            </span>
+          ))}
+        </div>
+      )}
+      {wide.length > 0 && (
+        <div className="grid grid-cols-2 gap-x-8 gap-y-1">
+          {wide.map(e => (
+            <span key={e.key} className="min-w-0">
+              <span className="text-gray-400 text-xs">{e.label}: </span>
+              <span className="font-medium">{e.value}</span>
+            </span>
+          ))}
+        </div>
+      )}
+      {full.map(e => (
+        <div key={e.key}>
+          <span className="text-gray-400 text-xs">{e.label}: </span>
+          <span className="font-medium whitespace-pre-wrap">{e.value}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ── Lab Results Modal ─────────────────────────────────────────────
+function LabResultsModal({ order, onClose }) {
+  const items = order?.items || order?.results || []
+
+  useEffect(() => {
+    const esc = (e) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', esc)
+    return () => document.removeEventListener('keydown', esc)
+  }, [onClose])
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+        style={{ width: '70vw', maxHeight: '80vh' }}
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
+          <div>
+            <div className="font-bold text-gray-900 text-base">{order?.test_name || order?.name || 'Lab Results'}</div>
+            <div className="text-xs text-gray-400 mt-0.5 flex items-center gap-3">
+              {order?.ordered_at && <span>Ordered {fmtDate(order.ordered_at)}</span>}
+              {order?.resulted_at && <span>Resulted {fmtDate(order.resulted_at)}</span>}
+              {order?.status && <span className="capitalize">{String(order.status).replace(/_/g, ' ')}</span>}
+            </div>
+          </div>
+          <button onClick={onClose}
+            className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors">
+            <X size={14} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto">
+          {items.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+              <FlaskConical size={40} className="opacity-20 mb-3" />
+              <p className="text-sm">No results available yet</p>
+            </div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-gray-50 border-b border-gray-100">
+                <tr>
+                  <th className="px-5 py-3 text-left font-semibold text-gray-500 text-xs uppercase tracking-wide">Test</th>
+                  <th className="px-5 py-3 text-left font-semibold text-gray-500 text-xs uppercase tracking-wide">Value</th>
+                  <th className="px-5 py-3 text-left font-semibold text-gray-500 text-xs uppercase tracking-wide">Unit</th>
+                  <th className="px-5 py-3 text-left font-semibold text-gray-500 text-xs uppercase tracking-wide">Reference Range</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((item, i) => (
+                  <tr key={i} className="border-t border-gray-50 hover:bg-gray-50/60 transition-colors">
+                    <td className="px-5 py-2.5 font-medium text-gray-800">
+                      {item.test_name || item.name || '—'}
+                    </td>
+                    <td className={`px-5 py-2.5 font-bold ${item.is_abnormal ? 'text-red-600' : 'text-gray-800'}`}>
+                      {item.result_value || item.value || '—'}
+                      {item.is_abnormal && <AlertTriangle size={11} className="inline ml-1.5 text-red-500" />}
+                    </td>
+                    <td className="px-5 py-2.5 text-gray-500">{item.result_unit || item.unit || '—'}</td>
+                    <td className="px-5 py-2.5 text-gray-400 font-mono text-xs">{item.reference_range || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Lab Investigations Renderer ───────────────────────────────────
+function LabInvestigationsRenderer({ labItems, labOrders }) {
+  const [openModal, setOpenModal] = useState(null)
+
+  const findOrder = (testName) =>
+    labOrders.find(o =>
+      o.test_name === testName ||
+      o.name === testName ||
+      (o.items || []).some(i => i.test_name === testName || i.name === testName)
+    )
+
+  return (
+    <div className="space-y-2">
+      {labItems.map((lab, i) => {
+        const order = findOrder(lab.test_name)
+        const isReported = order?.status === 'completed' || order?.status === 'reported' ||
+          order?.items?.some(it => it.result_value)
+        const abnormals = (order?.items || []).filter(it => it.is_abnormal && it.result_value)
+
+        return (
+          <div key={i}>
+            <div className="flex items-center gap-2.5 text-sm">
+              <FlaskConical size={13} className={`flex-shrink-0 ${isReported ? 'text-teal-500' : 'text-gray-400'}`} />
+              <span className="font-medium text-gray-800">{lab.test_name}</span>
+              {lab.test_type && <span className="text-xs text-gray-400 capitalize">{lab.test_type}</span>}
+
+              {!isReported && (
+                <span className="text-[10px] font-bold bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded-full uppercase tracking-wide">
+                  Pending
+                </span>
+              )}
+
+              {isReported && order && (
+                <button onClick={() => setOpenModal(order)}
+                  className="flex items-center gap-1 text-[11px] text-blue-500 hover:text-blue-700 font-medium ml-1">
+                  <Maximize2 size={11} /> All Results
+                </button>
+              )}
+            </div>
+
+            {abnormals.length > 0 && (
+              <div className="ml-5 mt-1.5 pl-3 border-l-2 border-red-100">
+                <table className="text-xs">
+                  <tbody>
+                    {abnormals.map((it, j) => (
+                      <tr key={j}>
+                        <td className="pr-4 text-gray-600 font-medium py-0.5">{it.test_name || it.name}</td>
+                        <td className="pr-3 text-red-600 font-bold">
+                          {it.result_value}
+                          <AlertTriangle size={10} className="inline ml-1" />
+                        </td>
+                        <td className="pr-3 text-red-400">{it.result_unit || ''}</td>
+                        <td className="text-gray-400 font-mono">ref: {it.reference_range || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )
+      })}
+
+      {openModal && <LabResultsModal order={openModal} onClose={() => setOpenModal(null)} />}
+    </div>
+  )
+}
+
+// ── Imaging Investigations Renderer ───────────────────────────────
+function ImagingInvestigationsRenderer({ imagingItems }) {
+  return (
+    <div className="space-y-1.5">
+      {imagingItems.map((img, i) => (
+        <div key={i} className="flex items-center gap-2.5 text-sm">
+          <Scan size={13} className="text-gray-400 flex-shrink-0" />
+          <span className="font-medium text-gray-800">{img.procedure_name}</span>
+          {img.modality && <span className="text-xs text-gray-400">({img.modality})</span>}
+          <span className="text-[10px] font-bold bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded-full uppercase tracking-wide">
+            Pending
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ── SOAP Section Label ────────────────────────────────────────────
+function SoapLabel({ letter, label, color, bg }) {
+  return (
+    <div className="flex items-center gap-2 mb-3">
+      <span className="text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded"
+        style={{ color, background: bg }}>{letter}</span>
+      <span className="text-[11px] font-bold uppercase tracking-widest text-gray-400">{label}</span>
+    </div>
+  )
+}
+
+function FormBlock({ submission, index }) {
+  const isDraft = submission.status === 'draft' || submission.is_draft
+  return (
+    <div className={index > 0 ? 'mt-3 pt-3' : ''}>
+      <div className="flex items-center gap-2 mb-1.5">
+        <span className="text-xs font-bold text-gray-600">{submission.form_title}</span>
+        {isDraft && (
+          <span className="text-[10px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full uppercase tracking-wide">
+            Draft
+          </span>
+        )}
+      </div>
+      <FormContentRenderer submission={submission} />
+    </div>
+  )
+}
+
+// ── Patient Chart Document ─────────────────────────────────────────
+function PatientChartDocument({ encounter, soap, prescriptions, labItems, imagingItems, counselling, formSubmissions, labOrders, patientId }) {
+  const appt = encounter.appointment || encounter
+  const v = encounter.vitals || {}
+  const reason = appt.reason || encounter.reason
+
+  const categorized = { S: [], O: [], A: [], P: [] }
+  ;(formSubmissions || []).forEach(s => {
+    const cat = categorizeSoap(s)
+    if (categorized[cat]) categorized[cat].push(s)
+    else categorized.A.push(s)
+  })
+
+  const hasS   = !!(soap.subjective || reason || categorized.S.length)
+  const hasO   = !!(soap.objective || Object.values(v).some(Boolean) || categorized.O.length)
+  const hasInv = labItems.length > 0 || imagingItems.length > 0
+  const hasA   = !!(soap.assessment || categorized.A.length)
+  const hasP   = !!(soap.plan || prescriptions.length || counselling || categorized.P.length)
+  const hasAny = hasS || hasO || hasInv || hasA || hasP
+
+  if (!hasAny) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-gray-400">
+        <FileText size={44} className="opacity-20 mb-3" />
+        <p className="text-sm font-medium">No clinical documentation yet</p>
+        <p className="text-xs mt-1 opacity-70">
+          Use assessment forms from the right panel to document this encounter
+        </p>
+      </div>
+    )
+  }
+
+  const divider = <hr className="my-5 border-gray-200" />
+
+  return (
+    <div>
+      {/* Chief Complaint — always first if present */}
+      {reason && (
+        <div className="mb-5">
+          <div className="text-[11px] font-bold uppercase tracking-widest text-amber-600 mb-1.5">Chief Complaint</div>
+          <div className="text-base font-semibold text-gray-900">{reason}</div>
+        </div>
+      )}
+
+      {/* ─── S: SUBJECTIVE ─── */}
+      {hasS && (
+        <div>
+          <SoapLabel letter="S" label="Subjective" color="#2563eb" bg="#eff6ff" />
+          {soap.subjective && (
+            <p className="text-sm text-gray-800 whitespace-pre-wrap mb-3">{soap.subjective}</p>
+          )}
+          {categorized.S.map((s, i) => <FormBlock key={s.id || i} submission={s} index={i} />)}
+          {(hasO || hasInv || hasA || hasP) && divider}
+        </div>
+      )}
+
+      {/* ─── O: OBJECTIVE ─── */}
+      {hasO && (
+        <div>
+          <SoapLabel letter="O" label="Objective" color="#0d9488" bg="#f0fdfa" />
+
+          {Object.values(v).some(Boolean) && (
+            <div className="mb-3">
+              <div className="text-xs font-bold text-gray-600 mb-1.5">Vitals</div>
+              <div className="grid grid-cols-4 gap-x-6 gap-y-1 text-sm">
+                {v.bp     && <span><span className="text-gray-400 text-xs">BP: </span><span className="font-medium">{v.bp}</span></span>}
+                {v.pulse  && <span><span className="text-gray-400 text-xs">HR: </span><span className="font-medium">{v.pulse} bpm</span></span>}
+                {v.temp   && <span><span className="text-gray-400 text-xs">Temp: </span><span className="font-medium">{v.temp}°C</span></span>}
+                {v.spo2   && <span><span className="text-gray-400 text-xs">SpO₂: </span><span className="font-medium">{v.spo2}%</span></span>}
+                {v.weight && <span><span className="text-gray-400 text-xs">Wt: </span><span className="font-medium">{v.weight} kg</span></span>}
+                {v.height && <span><span className="text-gray-400 text-xs">Ht: </span><span className="font-medium">{v.height} cm</span></span>}
+                {v.blood_sugar && <span><span className="text-gray-400 text-xs">Sugar: </span><span className="font-medium">{v.blood_sugar}</span></span>}
+              </div>
+            </div>
+          )}
+
+          {soap.objective && (
+            <p className="text-sm text-gray-800 whitespace-pre-wrap mb-3">{soap.objective}</p>
+          )}
+          {categorized.O.map((s, i) => <FormBlock key={s.id || i} submission={s} index={i} />)}
+          {(hasInv || hasA || hasP) && divider}
+        </div>
+      )}
+
+      {/* ─── INVESTIGATIONS ─── */}
+      {hasInv && (
+        <div>
+          <SoapLabel letter="I" label="Investigations" color="#7c3aed" bg="#f5f3ff" />
+
+          {labItems.length > 0 && (
+            <div className="mb-4">
+              <div className="text-xs font-bold text-gray-600 mb-2">Lab Orders</div>
+              <LabInvestigationsRenderer labItems={labItems} labOrders={labOrders} />
+            </div>
+          )}
+
+          {imagingItems.length > 0 && (
+            <div>
+              <div className="text-xs font-bold text-gray-600 mb-2">Imaging Orders</div>
+              <ImagingInvestigationsRenderer imagingItems={imagingItems} />
+            </div>
+          )}
+
+          {(hasA || hasP) && divider}
+        </div>
+      )}
+
+      {/* ─── A: ASSESSMENT ─── */}
+      {hasA && (
+        <div>
+          <SoapLabel letter="A" label="Assessment" color="#d97706" bg="#fffbeb" />
+          {soap.assessment && (
+            <p className="text-sm text-gray-800 whitespace-pre-wrap mb-3">{soap.assessment}</p>
+          )}
+          {categorized.A.map((s, i) => <FormBlock key={s.id || i} submission={s} index={i} />)}
+          {hasP && divider}
+        </div>
+      )}
+
+      {/* ─── P: PLAN ─── */}
+      {hasP && (
+        <div>
+          <SoapLabel letter="P" label="Plan" color="#16a34a" bg="#f0fdf4" />
+
+          {soap.plan && (
+            <p className="text-sm text-gray-800 whitespace-pre-wrap mb-3">{soap.plan}</p>
+          )}
+
+          {prescriptions.length > 0 && (
+            <div className="mb-4">
+              <div className="text-xs font-bold text-gray-600 mb-2">Medications</div>
+              <div className="space-y-1.5">
+                {prescriptions.map((rx, i) => (
+                  <div key={i} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm">
+                    <span className="font-semibold text-gray-900">
+                      {rx.drug_name || rx.medicine_name}
+                    </span>
+                    {(rx.dosage || rx.frequency || rx.duration) && (
+                      <span className="text-gray-500 text-xs">
+                        {[rx.dosage, rx.frequency, rx.duration].filter(Boolean).join(' · ')}
+                      </span>
+                    )}
+                    {rx.route && <span className="text-gray-400 text-xs">({rx.route})</span>}
+                    {rx.instructions && (
+                      <span className="text-gray-400 text-xs">— {rx.instructions}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {counselling && counselling.trim() && (
+            <div className="mb-4">
+              <div className="text-xs font-bold text-gray-600 mb-1.5">Patient Counselling</div>
+              <p className="text-sm text-gray-700 whitespace-pre-wrap">{counselling}</p>
+            </div>
+          )}
+
+          {categorized.P.map((s, i) => <FormBlock key={s.id || i} submission={s} index={i} />)}
+        </div>
+      )}
+
+      {/* Previous History */}
+      <PastVisits patientId={patientId} />
+    </div>
+  )
+}
+
+// ── Past Visits / Previous History ────────────────────────────────
 function PastVisits({ patientId }) {
-  const [visits, setVisits]         = useState([])   // OPD encounters
-  const [admissions, setAdmissions] = useState([])   // inpatient stays
+  const [visits, setVisits]         = useState([])
+  const [admissions, setAdmissions] = useState([])
   const [loaded, setLoaded]         = useState(false)
   const [expanded, setExpanded]     = useState(false)
   const [openKey, setOpenKey]       = useState(null)
@@ -59,32 +511,35 @@ function PastVisits({ patientId }) {
   const [pinError, setPinError]     = useState('')
   const [unlocked, setUnlocked]     = useState(new Set())
   const [verifying, setVerifying]   = useState(false)
-  const [discharge, setDischarge]   = useState({})   // admissionId → summary | 'loading' | 'none'
+  const [discharge, setDischarge]   = useState({})
 
   useEffect(() => {
     if (!patientId || loaded) return
     Promise.allSettled([
       doctorApi.getPatientVisits(patientId, 20),
-      api.get('/inpatient/admissions', { params: { patient_id: patientId, status: 'active,discharge_pending,discharged,transferred' } }),
+      api.get('/inpatient/admissions', {
+        params: { patient_id: patientId, status: 'active,discharge_pending,discharged,transferred' }
+      }),
     ]).then(([vRes, aRes]) => {
       setVisits(vRes.status === 'fulfilled' && Array.isArray(vRes.value) ? vRes.value : [])
       setAdmissions(aRes.status === 'fulfilled' && Array.isArray(aRes.value) ? aRes.value : [])
     }).finally(() => setLoaded(true))
   }, [patientId, loaded])
 
-  // Single-clinic provider context: every row shares this health center.
   const clinicName = visits.find(v => v.clinic_name)?.clinic_name || ''
   const rows = [
     ...visits.map(v => ({
       kind: 'opd', id: v.id, date: v.date || '',
       patient_name: v.patient_name, doctor_name: v.doctor_name,
-      clinic_name: v.clinic_name || clinicName, reason: v.reason, is_mine: v.is_mine, raw: v,
+      clinic_name: v.clinic_name || clinicName, reason: v.reason,
+      is_mine: v.is_mine, raw: v,
     })),
     ...admissions.map(a => ({
       kind: 'ipd', id: a.id,
       date: a.admission_date || (a.admitted_at ? String(a.admitted_at).slice(0, 10) : ''),
       patient_name: a.patient_name, doctor_name: a.doctor, clinic_name: clinicName,
-      reason: a.diagnosis || a.primary_diagnosis || 'Inpatient admission', is_mine: true, raw: a,
+      reason: a.diagnosis || a.primary_diagnosis || 'Inpatient admission',
+      is_mine: true, raw: a,
     })),
   ].sort((x, y) => String(y.date).localeCompare(String(x.date)))
 
@@ -122,10 +577,10 @@ function PastVisits({ patientId }) {
     <div className="p-3 bg-gray-50 text-xs text-gray-600 space-y-2">
       {v.vitals && (
         <div className="flex flex-wrap gap-x-4 gap-y-1">
-          {v.vitals.bp && <span><strong>BP:</strong> {v.vitals.bp}</span>}
-          {v.vitals.pulse && <span><strong>Pulse:</strong> {v.vitals.pulse}</span>}
+          {v.vitals.bp        && <span><strong>BP:</strong> {v.vitals.bp}</span>}
+          {v.vitals.pulse     && <span><strong>Pulse:</strong> {v.vitals.pulse}</span>}
           {v.vitals.temperature && <span><strong>Temp:</strong> {v.vitals.temperature}°</span>}
-          {v.vitals.spo2 && <span><strong>SpO₂:</strong> {v.vitals.spo2}%</span>}
+          {v.vitals.spo2      && <span><strong>SpO₂:</strong> {v.vitals.spo2}%</span>}
           {v.vitals.weight_kg && <span><strong>Wt:</strong> {v.vitals.weight_kg} kg</span>}
           {v.vitals.blood_sugar && <span><strong>Sugar:</strong> {v.vitals.blood_sugar}</span>}
         </div>
@@ -141,14 +596,15 @@ function PastVisits({ patientId }) {
         <div><strong>Labs:</strong> {v.lab_orders.flatMap(l => (l.items || []).map(i => i.test_name)).filter(Boolean).join(', ') || '—'}</div>
       )}
       {!v.vitals && !v.soap && !v.prescriptions?.length && !v.lab_orders?.length && (
-        <div className="text-gray-400">No clinical details recorded</div>
+        <div className="text-gray-400 italic">No clinical details recorded</div>
       )}
     </div>
   )
 
   const renderIpd = (admissionId, raw) => {
     const d = discharge[admissionId]
-    if (d === 'loading' || d === undefined) return <div className="p-3 text-xs text-gray-400">Loading discharge summary…</div>
+    if (d === 'loading' || d === undefined)
+      return <div className="p-3 text-xs text-gray-400">Loading discharge summary…</div>
     if (d === 'none') return (
       <div className="p-3 bg-gray-50 text-xs text-gray-600 space-y-1">
         <div><strong>Admission:</strong> {raw.admission_number || '—'}{raw.department_name ? ` · ${raw.department_name}` : ''}{raw.ward_name ? ` · ${raw.ward_name}` : ''}</div>
@@ -173,8 +629,8 @@ function PastVisits({ patientId }) {
           <div><strong>Discharge Meds:</strong> {meds.map(m => [m.name, m.dose, m.frequency, m.duration].filter(Boolean).join(' ')).join('; ')}</div>
         )}
         {d.discharge_instructions && <div><strong>Instructions:</strong> {d.discharge_instructions}</div>}
-        {d.diet_advice          && <div><strong>Diet:</strong> {d.diet_advice}</div>}
-        {d.activity_restrictions && <div><strong>Activity:</strong> {d.activity_restrictions}</div>}
+        {d.diet_advice            && <div><strong>Diet:</strong> {d.diet_advice}</div>}
+        {d.activity_restrictions  && <div><strong>Activity:</strong> {d.activity_restrictions}</div>}
         {(d.follow_up_date || d.follow_up_with) && (
           <div><strong>Follow-up:</strong> {[d.follow_up_date, d.follow_up_with].filter(Boolean).join(' · ')}</div>
         )}
@@ -184,35 +640,35 @@ function PastVisits({ patientId }) {
   }
 
   return (
-    <div className="border-t border-gray-100 mt-6">
+    <div className="mt-8 pt-6 border-t border-gray-200">
       <button
-        onClick={() => setExpanded(e => !e)}
-        className="w-full flex items-center justify-between px-1 py-3 hover:bg-gray-50 transition-colors text-sm font-semibold text-gray-600 rounded-lg"
+        onClick={() => { setExpanded(e => !e); if (!loaded && !expanded) { /* trigger load on first expand */ } }}
+        className="w-full flex items-center justify-between py-2 hover:bg-gray-50/80 transition-colors rounded-lg text-sm font-bold text-gray-500"
       >
         <span className="flex items-center gap-2">
           <Clock size={14} />
-          Previous Visits
+          Previous History
           {rows.length > 0 && <span className="text-xs text-gray-400 font-normal">({rows.length})</span>}
         </span>
         {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
       </button>
 
       {expanded && (
-        <div className="border border-gray-100 rounded-lg overflow-x-auto mb-2">
-          {!loaded && <div className="p-3 text-center text-gray-400 text-xs">Loading…</div>}
+        <div className="border border-gray-100 rounded-xl overflow-x-auto mt-2">
+          {!loaded && <div className="p-4 text-center text-gray-400 text-xs">Loading…</div>}
           {loaded && rows.length === 0 && (
-            <div className="p-3 text-center text-gray-400 text-xs">No previous visits found</div>
+            <div className="p-4 text-center text-gray-400 text-xs">No previous visits found</div>
           )}
           {loaded && rows.length > 0 && (
             <table className="w-full text-xs">
               <thead>
                 <tr className="bg-gray-50 text-gray-500 text-left">
-                  <th className="px-2.5 py-2 font-semibold">Patient</th>
-                  <th className="px-2.5 py-2 font-semibold">Doctor</th>
-                  <th className="px-2.5 py-2 font-semibold">Health Center</th>
-                  <th className="px-2.5 py-2 font-semibold">Reason</th>
-                  <th className="px-2.5 py-2 font-semibold whitespace-nowrap">Date</th>
-                  <th className="px-2.5 py-2 w-8" />
+                  <th className="px-3 py-2.5 font-semibold">Patient</th>
+                  <th className="px-3 py-2.5 font-semibold">Doctor</th>
+                  <th className="px-3 py-2.5 font-semibold">Health Centre</th>
+                  <th className="px-3 py-2.5 font-semibold">Reason</th>
+                  <th className="px-3 py-2.5 font-semibold whitespace-nowrap">Date</th>
+                  <th className="px-3 py-2.5 w-8" />
                 </tr>
               </thead>
               <tbody>
@@ -222,34 +678,40 @@ function PastVisits({ patientId }) {
                   const open = openKey === k
                   const out = [
                     <tr key={k} onClick={() => handleRowClick(r)}
-                      className="border-t border-gray-100 hover:bg-blue-50/40 cursor-pointer">
-                      <td className="px-2.5 py-2">
+                      className="border-t border-gray-100 hover:bg-blue-50/40 cursor-pointer transition-colors">
+                      <td className="px-3 py-2">
                         <span className="flex items-center gap-1">
                           {locked && <Lock size={11} className="text-gray-400 flex-shrink-0" />}
                           {r.patient_name || '—'}
                         </span>
                       </td>
-                      <td className="px-2.5 py-2 text-gray-600">{r.doctor_name || '—'}</td>
-                      <td className="px-2.5 py-2 text-gray-600">{r.clinic_name || '—'}</td>
-                      <td className="px-2.5 py-2 text-gray-600">
+                      <td className="px-3 py-2 text-gray-600">{r.doctor_name || '—'}</td>
+                      <td className="px-3 py-2 text-gray-600">{r.clinic_name || '—'}</td>
+                      <td className="px-3 py-2 text-gray-600">
                         <span className="flex items-center gap-1.5">
-                          <span className="truncate max-w-[220px]">{r.reason || '—'}</span>
-                          {r.kind === 'ipd' && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 flex-shrink-0">IPD</span>}
+                          <span className="truncate max-w-[200px]">{r.reason || '—'}</span>
+                          {r.kind === 'ipd' && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 flex-shrink-0">IPD</span>
+                          )}
                         </span>
                       </td>
-                      <td className="px-2.5 py-2 text-gray-500 whitespace-nowrap font-mono">{r.date || '—'}</td>
-                      <td className="px-2.5 py-2 text-right">
+                      <td className="px-3 py-2 text-gray-500 whitespace-nowrap font-mono">{r.date || '—'}</td>
+                      <td className="px-3 py-2 text-right">
                         {locked
                           ? <span className="text-[11px] text-blue-500 font-semibold">Unlock</span>
-                          : open ? <ChevronUp size={13} className="inline" /> : <ChevronDown size={13} className="inline" />}
+                          : open
+                            ? <ChevronUp size={13} className="inline text-gray-400" />
+                            : <ChevronDown size={13} className="inline text-gray-400" />}
                       </td>
                     </tr>,
                   ]
                   if (pinTarget === k) {
                     out.push(
-                      <tr key={k + '-pin'} className="border-t border-gray-100 bg-gray-50">
-                        <td colSpan={6} className="px-3 py-3">
-                          <p className="text-xs text-gray-600 mb-2 font-semibold">Enter your PIN to view this visit</p>
+                      <tr key={k + '-pin'} className="border-t border-gray-100 bg-amber-50/50">
+                        <td colSpan={6} className="px-4 py-3">
+                          <p className="text-xs font-semibold text-gray-700 mb-2">
+                            Enter your staff PIN to access this visit
+                          </p>
                           <div className="flex items-center gap-2 max-w-sm">
                             <input
                               type="password" inputMode="numeric" maxLength={6} value={pin} autoFocus
@@ -259,10 +721,14 @@ function PastVisits({ patientId }) {
                               className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-blue-400 text-center tracking-widest"
                             />
                             <button onClick={handleVerifyPin} disabled={verifying}
-                              className="px-3 py-1.5 text-xs rounded-lg text-white font-semibold disabled:opacity-50" style={{ background: BLUE }}>
+                              className="px-3 py-1.5 text-xs rounded-lg text-white font-semibold disabled:opacity-50 transition-opacity"
+                              style={{ background: BLUE }}>
                               {verifying ? '…' : 'Verify'}
                             </button>
-                            <button onClick={() => setPinTarget(null)} className="px-3 py-1.5 text-xs rounded-lg border border-gray-200 text-gray-600">Cancel</button>
+                            <button onClick={() => setPinTarget(null)}
+                              className="px-3 py-1.5 text-xs rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">
+                              Cancel
+                            </button>
                           </div>
                           {pinError && <p className="text-xs text-red-500 mt-1.5">{pinError}</p>}
                         </td>
@@ -293,38 +759,34 @@ function PastVisits({ patientId }) {
 function FormRow({ form, pinned, onPin, onOpen }) {
   return (
     <div className="group w-full flex items-center gap-1 px-3 py-1.5 hover:bg-blue-50 transition-colors">
-      <button onClick={onOpen} className="flex-1 text-left text-xs text-gray-700 group-hover:text-blue-700 truncate">
+      <button onClick={onOpen}
+        className="flex-1 text-left text-xs text-gray-700 group-hover:text-blue-700 truncate">
         {form.title}
       </button>
-      <button
-        onClick={e => onPin(form, e)}
+      <button onClick={e => onPin(form, e)}
         title={pinned ? 'Unpin from favourites' : 'Pin to favourites'}
-        className={pinned ? 'text-amber-400 flex-shrink-0' : 'text-gray-300 hover:text-amber-400 flex-shrink-0'}
-      >
+        className={pinned ? 'text-amber-400 flex-shrink-0' : 'text-gray-300 hover:text-amber-400 flex-shrink-0'}>
         <Star size={12} className={pinned ? 'fill-amber-400' : ''} />
       </button>
     </div>
   )
 }
 
-// Right panel: split into ★ Favourites (pinned, top) + searchable list (pinnable).
-// Real published DB forms; clicking opens the DB form renderer (charts to the patient).
 function AssessmentPanel({ onOpenForm, onCollapse }) {
-  const [forms, setForms]   = useState([])
-  const [favIds, setFavIds] = useState(new Set())
-  const [search, setSearch] = useState('')
+  const [forms, setForms]     = useState([])
+  const [favIds, setFavIds]   = useState(new Set())
+  const [search, setSearch]   = useState('')
   const [loading, setLoading] = useState(true)
 
   const loadFavs = useCallback(() => {
     api.get('/assessment-forms/favorites')
       .then(r => setFavIds(new Set([...(r?.personal || []), ...(r?.organization || [])])))
-      .catch(() => { /* favourites are best-effort */ })
+      .catch(() => {})
   }, [])
 
   useEffect(() => {
     let alive = true
     ;(async () => {
-      // Scope to this health center: global forms + our own clinic's forms only.
       let clinicId = null
       try { const me = await api.get('/auth/staff/me'); clinicId = me?.clinic_id ?? null } catch { /* unscoped */ }
       const params = { status: 'published', limit: 300 }
@@ -342,11 +804,11 @@ function AssessmentPanel({ onOpenForm, onCollapse }) {
   const togglePin = async (form, e) => {
     e.stopPropagation()
     const pinned = favIds.has(form.id)
-    setFavIds(prev => { const n = new Set(prev); pinned ? n.delete(form.id) : n.add(form.id); return n })  // optimistic
+    setFavIds(prev => { const n = new Set(prev); pinned ? n.delete(form.id) : n.add(form.id); return n })
     try {
       if (pinned) await api.delete(`/assessment-forms/favorites/${form.id}`)
       else        await api.post(`/assessment-forms/favorites/${form.id}`, { scope: 'personal' })
-    } catch { loadFavs() }  // revert from server on failure
+    } catch { loadFavs() }
   }
 
   const favForms = forms.filter(f => favIds.has(f.id))
@@ -357,31 +819,26 @@ function AssessmentPanel({ onOpenForm, onCollapse }) {
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      <div className="px-3 py-2 border-b border-gray-100 flex-shrink-0">
+      <div className="px-3 py-2.5 border-b border-gray-100 flex-shrink-0">
         <div className="flex items-center justify-between mb-2">
           <div className="text-xs font-bold text-gray-500 uppercase tracking-wide">Assessment Forms</div>
           {onCollapse && (
-            <button onClick={onCollapse} className="text-gray-400 hover:text-gray-600" title="Collapse panel">
+            <button onClick={onCollapse} className="text-gray-400 hover:text-gray-600 transition-colors" title="Collapse panel">
               <ChevronRight size={14} />
             </button>
           )}
         </div>
         <div className="relative">
           <Search size={11} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-          <input
-            type="text"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
+          <input type="text" value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Search forms…"
-            className="w-full pl-6 pr-2 py-1 text-xs border border-gray-200 rounded-md focus:outline-none focus:border-blue-400"
-          />
+            className="w-full pl-6 pr-2 py-1 text-xs border border-gray-200 rounded-md focus:outline-none focus:border-blue-400" />
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto">
         {loading && <div className="px-3 py-4 text-xs text-gray-400">Loading forms…</div>}
 
-        {/* ★ Favourites — pinned, on top */}
         {favForms.length > 0 && (
           <div>
             <div className="px-3 pt-3 pb-1 text-xs font-bold uppercase tracking-wide flex items-center gap-1 text-amber-500">
@@ -394,7 +851,6 @@ function AssessmentPanel({ onOpenForm, onCollapse }) {
           </div>
         )}
 
-        {/* Search results — pinnable, grouped by category */}
         {Object.keys(groups).sort().map(cat => (
           <div key={cat}>
             <div className="px-3 pt-3 pb-1 text-xs font-bold text-gray-400 uppercase tracking-wide">{cat}</div>
@@ -405,156 +861,11 @@ function AssessmentPanel({ onOpenForm, onCollapse }) {
         ))}
 
         {!loading && searchForms.length === 0 && (
-          <div className="px-3 py-4 text-xs text-gray-400">No published forms{q ? ' match your search' : ' yet'}.</div>
-        )}
-      </div>
-
-    </div>
-  )
-}
-
-// ── Patient Chart (unified encounter document) ────────────────────
-function ChartDoc({ title, Icon, accent, count, onOpen, openLabel, children }) {
-  // Heading + text (document style) — no card/box around the section.
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-1">
-        <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide" style={{ color: accent || '#6b7280' }}>
-          {Icon && <Icon size={13} />} {title}
-          {count != null && <span className="text-gray-400 font-semibold">· {count}</span>}
-        </div>
-        {onOpen && (
-          <button onClick={onOpen} className="text-[11px] font-semibold text-blue-600 hover:underline flex-shrink-0">
-            {openLabel || 'Open'}
-          </button>
-        )}
-      </div>
-      <div className="text-sm text-gray-700">{children}</div>
-    </div>
-  )
-}
-
-function PatientChartSection({ encounter, patientId, soap, prescriptions, labItems, imagingItems, counselling, onOpenSection, formSubmissions }) {
-  const p = encounter.patient || {}
-  const v = encounter.vitals || {}
-  const stats = [
-    { label: 'Age',         value: p.age != null ? `${p.age} yrs` : '—' },
-    { label: 'Gender',      value: p.gender ? p.gender.charAt(0).toUpperCase() + p.gender.slice(1) : '—' },
-    { label: 'Blood Group', value: p.blood_group || '—' },
-    { label: 'Phone',       value: p.phone || '—' },
-  ]
-  const vitalItems = [
-    { label: 'BP',     value: v.bp },
-    { label: 'Temp',   value: v.temp  ? `${v.temp}°`     : null },
-    { label: 'SpO₂',  value: v.spo2  ? `${v.spo2}%`     : null },
-    { label: 'Pulse',  value: v.pulse ? `${v.pulse} bpm` : null },
-    { label: 'Weight', value: v.weight? `${v.weight} kg` : null },
-    { label: 'Height', value: v.height? `${v.height} cm` : null },
-  ].filter(i => i.value)
-  const reason = encounter.appointment?.reason || encounter.reason
-  // Clinical note renders as read-only text (only what's present). Structured
-  // documentation is captured via the inline assessment forms — not fixed boxes.
-  const soapEntries = [
-    { key: 'subjective', label: 'Subjective' },
-    { key: 'objective',  label: 'Objective' },
-    { key: 'assessment', label: 'Assessment' },
-    { key: 'plan',       label: 'Plan' },
-  ].filter(e => soap && soap[e.key])
-
-  return (
-    <div className="space-y-4">
-      {/* Demographics — heading + text, no cards (document style) */}
-      <div>
-        <div className="text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: '#0F2557' }}>Demographics</div>
-        <div className="text-sm text-gray-700 flex flex-wrap gap-x-8 gap-y-1">
-          {stats.map(s => (
-            <span key={s.label}>
-              <span className="text-gray-500">{s.label}:</span> <span className="font-semibold text-gray-800">{s.value}</span>
-            </span>
-          ))}
-        </div>
-      </div>
-
-      {vitalItems.length > 0 && (
-        <div>
-          <div className="text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: '#0d9488' }}>Vitals</div>
-          <div className="text-sm text-gray-700 flex flex-wrap gap-x-8 gap-y-1">
-            {vitalItems.map(i => (
-              <span key={i.label}>
-                <span className="text-gray-500">{i.label}:</span> <span className="font-semibold text-gray-800">{i.value}</span>
-              </span>
-            ))}
+          <div className="px-3 py-4 text-xs text-gray-400">
+            No published forms{q ? ' match your search' : ' yet'}.
           </div>
-        </div>
-      )}
-
-      {reason && (
-        <div>
-          <div className="text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: '#b45309' }}>Chief Complaint</div>
-          <div className="text-sm text-gray-800">{reason}</div>
-        </div>
-      )}
-
-      {/* Clinical note — read-only text with coloured headings; entered via forms */}
-      {soapEntries.length > 0 && (
-        <div>
-          <div className="text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: '#0F2557' }}>Clinical Note</div>
-          <div className="text-sm text-gray-700 space-y-1">
-            {soapEntries.map(e => (
-              <div key={e.key}>
-                <span className="font-semibold" style={{ color: '#0F2557' }}>{e.label}:</span>{' '}
-                <span className="whitespace-pre-wrap">{soap[e.key]}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Everything documented this visit, in one chart */}
-      <div className="text-xs font-bold uppercase tracking-wide pt-1" style={{ color: '#0F2557' }}>Documented This Visit</div>
-      <ChartDoc title="Prescriptions" Icon={Pill} accent="#7c3aed" count={prescriptions.length} onOpen={() => onOpenSection('prescriptions')} openLabel="Edit Rx →">
-        {prescriptions.length ? (
-          <ul className="space-y-1">
-            {prescriptions.map((r, i) => (
-              <li key={i}>💊 <b>{r.drug_name || r.medicine_name || '—'}</b> <span className="text-gray-500">{[r.dosage, r.frequency, r.duration].filter(Boolean).join(' · ')}</span></li>
-            ))}
-          </ul>
-        ) : <span className="text-gray-400">No prescriptions yet.</span>}
-      </ChartDoc>
-      <ChartDoc title="Lab Orders" Icon={FlaskConical} accent="#0891b2" count={labItems.length} onOpen={() => onOpenSection('lab')} openLabel="Order labs →">
-        {labItems.length ? (
-          <ul className="space-y-1">{labItems.map((t, i) => <li key={i}>🧪 {t.test_name || '—'}</li>)}</ul>
-        ) : <span className="text-gray-400">No lab orders yet.</span>}
-      </ChartDoc>
-      <ChartDoc title="Imaging" Icon={Scan} accent="#d97706" count={imagingItems.length} onOpen={() => onOpenSection('imaging')} openLabel="Order imaging →">
-        {imagingItems.length ? (
-          <ul className="space-y-1">{imagingItems.map((m, i) => <li key={i}>🩻 {m.procedure_name || '—'}{m.modality ? ` (${m.modality})` : ''}</li>)}</ul>
-        ) : <span className="text-gray-400">No imaging ordered yet.</span>}
-      </ChartDoc>
-      <ChartDoc title="Patient Counselling" Icon={MessageSquare} accent="#16a34a" onOpen={() => onOpenSection('counselling')} openLabel="Add counselling →">
-        {counselling && counselling.trim() ? <p className="whitespace-pre-wrap">{counselling}</p> : <span className="text-gray-400">No counselling recorded yet.</span>}
-      </ChartDoc>
-      <ChartDoc title="Assessment Forms" Icon={ClipboardList} accent="#7c3aed" count={formSubmissions?.length ?? null}>
-        {formSubmissions == null ? (
-          <span className="text-gray-400">Loading…</span>
-        ) : formSubmissions.length === 0 ? (
-          <span className="text-gray-400">No forms submitted this visit.</span>
-        ) : (
-          <ul className="space-y-1">
-            {formSubmissions.map(s => (
-              <li key={s.id} className="flex items-center justify-between">
-                <span>📋 <b>{s.form_title}</b></span>
-                <a href={`/forms/submission/${s.id}`} target="_blank" rel="noreferrer"
-                  className="text-[11px] font-semibold text-blue-600 hover:underline ml-2 flex-shrink-0">
-                  View →
-                </a>
-              </li>
-            ))}
-          </ul>
         )}
-      </ChartDoc>
-
-      <PastVisits patientId={patientId} />
+      </div>
     </div>
   )
 }
@@ -564,6 +875,7 @@ const COUNSEL_CHIPS = [
   'Diet & lifestyle advised', 'Medication adherence explained', 'Red-flag symptoms explained',
   'Follow-up advised', 'Smoking / alcohol cessation advised', 'Warning signs explained',
 ]
+
 function CounsellingSection({ value, onChange, readonly, patientId }) {
   return (
     <div className="space-y-3">
@@ -571,22 +883,16 @@ function CounsellingSection({ value, onChange, readonly, patientId }) {
       {!readonly && (
         <div className="flex flex-wrap gap-1.5">
           {COUNSEL_CHIPS.map(c => (
-            <button
-              key={c}
-              type="button"
+            <button key={c} type="button"
               onClick={() => onChange(((value || '').trim() ? value.trim() + '\n' : '') + '• ' + c)}
-              className="px-2.5 py-1 rounded-full border border-green-200 text-[11px] text-green-700 hover:bg-green-50"
-            >
+              className="px-2.5 py-1 rounded-full border border-green-200 text-[11px] text-green-700 hover:bg-green-50 transition-colors">
               + {c}
             </button>
           ))}
         </div>
       )}
       <textarea
-        value={value || ''}
-        onChange={e => onChange(e.target.value)}
-        disabled={readonly}
-        rows={10}
+        value={value || ''} onChange={e => onChange(e.target.value)} disabled={readonly} rows={10}
         placeholder="Counselling provided to the patient — diet, lifestyle, medication adherence, warning signs, follow-up…"
         className="w-full border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-green-400 resize-y disabled:bg-gray-50 disabled:text-gray-500"
       />
@@ -599,8 +905,8 @@ function CounsellingSection({ value, onChange, readonly, patientId }) {
 const EMPTY_RX = { drug_name: '', dosage: '', frequency: '', duration: '', route: '', instructions: '' }
 
 function PrescriptionsSection({ items, onChange, readonly, patientId, onOrderMedication }) {
-  const [search, setSearch] = useState('')
-  const [results, setResults] = useState([])
+  const [search, setSearch]     = useState('')
+  const [results, setResults]   = useState([])
   const [searching, setSearching] = useState(false)
   const debounceRef = useRef(null)
 
@@ -620,8 +926,7 @@ function PrescriptionsSection({ items, onChange, readonly, patientId, onOrderMed
 
   const addFromSearch = (drug) => {
     onChange([...items, { ...EMPTY_RX, drug_name: drug.name || drug.brand_name || drug.drug_name || '' }])
-    setSearch('')
-    setResults([])
+    setSearch(''); setResults([])
   }
 
   const updateItem = (i, field, val) => {
@@ -639,28 +944,19 @@ function PrescriptionsSection({ items, onChange, readonly, patientId, onOrderMed
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
               <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-              <input
-                type="text"
-                value={search}
-                onChange={e => handleSearch(e.target.value)}
+              <input type="text" value={search} onChange={e => handleSearch(e.target.value)}
                 placeholder="Search medicine to add…"
-                className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-blue-400"
-              />
+                className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-blue-400" />
               {searching && <span className="absolute right-3 top-1/2 -translate-y-1/2 w-3 h-3 border border-blue-400/30 border-t-blue-500 rounded-full animate-spin" />}
             </div>
-            <button
-              onClick={() => onChange([...items, { ...EMPTY_RX }])}
-              className="flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-semibold border border-gray-200 text-gray-600 hover:bg-gray-50 whitespace-nowrap"
-            >
+            <button onClick={() => onChange([...items, { ...EMPTY_RX }])}
+              className="flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-semibold border border-gray-200 text-gray-600 hover:bg-gray-50 whitespace-nowrap transition-colors">
               <Plus size={12} /> Add Blank
             </button>
             {onOrderMedication && (
-              <button
-                onClick={onOrderMedication}
-                className="flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-semibold text-white hover:opacity-90 whitespace-nowrap"
-                style={{ background: BLUE }}
-                title="Order with drug-interaction & dose checks"
-              >
+              <button onClick={onOrderMedication}
+                className="flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-semibold text-white hover:opacity-90 whitespace-nowrap transition-opacity"
+                style={{ background: BLUE }} title="Order with drug-interaction & dose checks">
                 <Pill size={12} /> Order Medication
               </button>
             )}
@@ -669,7 +965,7 @@ function PrescriptionsSection({ items, onChange, readonly, patientId, onOrderMed
             <div className="absolute top-full left-0 right-0 z-20 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
               {results.map((r, i) => (
                 <button key={i} onClick={() => addFromSearch(r)}
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 flex items-center justify-between gap-2">
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 flex items-center justify-between gap-2 transition-colors">
                   <span className="font-semibold text-gray-800 truncate">{r.name || r.brand_name || r.drug_name}</span>
                   {r.generic_name && <span className="text-xs text-gray-400 truncate">{r.generic_name}</span>}
                 </button>
@@ -680,7 +976,7 @@ function PrescriptionsSection({ items, onChange, readonly, patientId, onOrderMed
       )}
 
       {items.length === 0 && (
-        <div className="text-center text-gray-400 text-sm py-8">No medications added</div>
+        <div className="text-center text-gray-400 text-sm py-12">No medications added</div>
       )}
 
       <div className="space-y-3 mb-2">
@@ -688,13 +984,9 @@ function PrescriptionsSection({ items, onChange, readonly, patientId, onOrderMed
           <div key={i} className="border border-gray-200 rounded-xl p-3">
             <div className="grid grid-cols-2 gap-2 mb-2">
               <div className="col-span-2">
-                <input
-                  value={rx.drug_name}
-                  onChange={e => updateItem(i, 'drug_name', e.target.value)}
-                  disabled={readonly}
-                  placeholder="Medicine name"
-                  className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400 font-semibold disabled:bg-gray-50"
-                />
+                <input value={rx.drug_name} onChange={e => updateItem(i, 'drug_name', e.target.value)}
+                  disabled={readonly} placeholder="Medicine name"
+                  className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400 font-semibold disabled:bg-gray-50" />
               </div>
               <input value={rx.dosage}    onChange={e => updateItem(i, 'dosage',    e.target.value)} disabled={readonly} placeholder="Dosage (e.g. 500 mg)"  className="px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400 disabled:bg-gray-50" />
               <input value={rx.frequency} onChange={e => updateItem(i, 'frequency', e.target.value)} disabled={readonly} placeholder="Frequency (e.g. TDS)"   className="px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400 disabled:bg-gray-50" />
@@ -705,7 +997,7 @@ function PrescriptionsSection({ items, onChange, readonly, patientId, onOrderMed
               placeholder="Special instructions (e.g. after food)"
               className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400 disabled:bg-gray-50 mb-2" />
             {!readonly && (
-              <button onClick={() => removeItem(i)} className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1">
+              <button onClick={() => removeItem(i)} className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1 transition-colors">
                 <Trash2 size={11} /> Remove
               </button>
             )}
@@ -719,8 +1011,8 @@ function PrescriptionsSection({ items, onChange, readonly, patientId, onOrderMed
 
 // ── Lab Section ───────────────────────────────────────────────────
 function LabSection({ items, onChange, readonly, patientId }) {
-  const [search, setSearch] = useState('')
-  const [results, setResults] = useState([])
+  const [search, setSearch]     = useState('')
+  const [results, setResults]   = useState([])
   const [searching, setSearching] = useState(false)
   const debounceRef = useRef(null)
 
@@ -742,8 +1034,7 @@ function LabSection({ items, onChange, readonly, patientId }) {
     const testName = test.test_name || test.name || test
     if (items.some(i => i.test_name === testName)) return
     onChange([...items, { test_name: testName, test_type: test.test_type || 'pathology', notes: '' }])
-    setSearch('')
-    setResults([])
+    setSearch(''); setResults([])
   }
 
   const removeItem = (i) => onChange(items.filter((_, idx) => idx !== i))
@@ -760,20 +1051,16 @@ function LabSection({ items, onChange, readonly, patientId }) {
         <div className="mb-4 relative">
           <div className="relative">
             <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-            <input
-              type="text"
-              value={search}
-              onChange={e => handleSearch(e.target.value)}
+            <input type="text" value={search} onChange={e => handleSearch(e.target.value)}
               placeholder="Search lab test to add…"
-              className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-blue-400"
-            />
+              className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-blue-400" />
             {searching && <span className="absolute right-3 top-1/2 -translate-y-1/2 w-3 h-3 border border-blue-400/30 border-t-blue-500 rounded-full animate-spin" />}
           </div>
           {results.length > 0 && (
             <div className="absolute top-full left-0 right-0 z-20 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
               {results.map((r, i) => (
                 <button key={i} onClick={() => addItem(r)}
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 flex items-center justify-between gap-2">
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 flex items-center justify-between gap-2 transition-colors">
                   <span className="font-semibold text-gray-800 truncate">{r.test_name || r.name}</span>
                   {r.test_type && <span className="text-xs text-gray-400 capitalize">{r.test_type}</span>}
                 </button>
@@ -784,7 +1071,7 @@ function LabSection({ items, onChange, readonly, patientId }) {
       )}
 
       {items.length === 0 && (
-        <div className="text-center text-gray-400 text-sm py-8">No lab tests ordered</div>
+        <div className="text-center text-gray-400 text-sm py-12">No lab tests ordered</div>
       )}
 
       <div className="space-y-2 mb-2">
@@ -797,16 +1084,13 @@ function LabSection({ items, onChange, readonly, patientId }) {
               <div className="font-semibold text-gray-800 text-sm">{t.test_name}</div>
               {t.test_type && <div className="text-xs text-gray-400 capitalize">{t.test_type}</div>}
               {!readonly && (
-                <input
-                  value={t.notes || ''}
-                  onChange={e => updateNote(i, e.target.value)}
+                <input value={t.notes || ''} onChange={e => updateNote(i, e.target.value)}
                   placeholder="Clinical notes (optional)"
-                  className="mt-1.5 w-full px-2 py-1 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400"
-                />
+                  className="mt-1.5 w-full px-2 py-1 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400" />
               )}
             </div>
             {!readonly && (
-              <button onClick={() => removeItem(i)} className="text-gray-300 hover:text-red-400 flex-shrink-0 mt-1">
+              <button onClick={() => removeItem(i)} className="text-gray-300 hover:text-red-400 flex-shrink-0 mt-1 transition-colors">
                 <X size={14} />
               </button>
             )}
@@ -820,8 +1104,8 @@ function LabSection({ items, onChange, readonly, patientId }) {
 
 // ── Imaging Section ───────────────────────────────────────────────
 function ImagingSection({ items, onChange, readonly, patientId }) {
-  const [search, setSearch] = useState('')
-  const [results, setResults] = useState([])
+  const [search, setSearch]     = useState('')
+  const [results, setResults]   = useState([])
   const [searching, setSearching] = useState(false)
   const debounceRef = useRef(null)
 
@@ -843,8 +1127,7 @@ function ImagingSection({ items, onChange, readonly, patientId }) {
     const name = img.name || img.procedure_name || (typeof img === 'string' ? img : '')
     if (!name || items.some(i => i.procedure_name === name)) return
     onChange([...items, { procedure_name: name, modality: img.modality || '', notes: '' }])
-    setSearch('')
-    setResults([])
+    setSearch(''); setResults([])
   }
 
   const removeItem = (i) => onChange(items.filter((_, idx) => idx !== i))
@@ -855,20 +1138,16 @@ function ImagingSection({ items, onChange, readonly, patientId }) {
         <div className="mb-4 relative">
           <div className="relative">
             <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-            <input
-              type="text"
-              value={search}
-              onChange={e => handleSearch(e.target.value)}
+            <input type="text" value={search} onChange={e => handleSearch(e.target.value)}
               placeholder="Search imaging study to order…"
-              className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-blue-400"
-            />
+              className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-blue-400" />
             {searching && <span className="absolute right-3 top-1/2 -translate-y-1/2 w-3 h-3 border border-blue-400/30 border-t-blue-500 rounded-full animate-spin" />}
           </div>
           {results.length > 0 && (
             <div className="absolute top-full left-0 right-0 z-20 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
               {results.map((r, i) => (
                 <button key={i} onClick={() => addItem(r)}
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 flex items-center justify-between gap-2">
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 flex items-center justify-between gap-2 transition-colors">
                   <span className="font-semibold text-gray-800 truncate">{r.name || r.procedure_name}</span>
                   {r.modality && <span className="text-xs text-gray-400">{r.modality}</span>}
                 </button>
@@ -879,7 +1158,7 @@ function ImagingSection({ items, onChange, readonly, patientId }) {
       )}
 
       {items.length === 0 && (
-        <div className="text-center text-gray-400 text-sm py-8">No imaging studies ordered</div>
+        <div className="text-center text-gray-400 text-sm py-12">No imaging studies ordered</div>
       )}
 
       <div className="space-y-2 mb-2">
@@ -893,7 +1172,7 @@ function ImagingSection({ items, onChange, readonly, patientId }) {
               {img.modality && <div className="text-xs text-gray-400">{img.modality}</div>}
             </div>
             {!readonly && (
-              <button onClick={() => removeItem(i)} className="text-gray-300 hover:text-red-400 flex-shrink-0 mt-1">
+              <button onClick={() => removeItem(i)} className="text-gray-300 hover:text-red-400 flex-shrink-0 mt-1 transition-colors">
                 <X size={14} />
               </button>
             )}
@@ -911,26 +1190,25 @@ export default function OpdChart() {
   const navigate = useNavigate()
   const { user } = useAuth()
 
-  const [encounter, setEncounter]     = useState(null)
-  const [loading, setLoading]         = useState(true)
-  const [section, setSection]         = useState('chart')
-  const [panelOpen, setPanelOpen]     = useState(true)
-  // The assessment form picked from the right panel renders INLINE in the content
-  // area (form headings become the content headings) instead of a popup modal.
-  const [activeForm, setActiveForm]   = useState(null)
-  // Universal medication-order form (shared with IPD + CareChart) — opened from Rx.
-  const [medFormOpen, setMedFormOpen] = useState(false)
+  const [encounter, setEncounter]         = useState(null)
+  const [loading, setLoading]             = useState(true)
+  const [section, setSection]             = useState('chart')
+  const [panelOpen, setPanelOpen]         = useState(true)
+  const [activeForm, setActiveForm]       = useState(null)
+  const [medFormOpen, setMedFormOpen]     = useState(false)
+  const [demoOpen, setDemoOpen]           = useState(false)
 
-  const [soap, setSoap]               = useState({ subjective: '', objective: '', assessment: '', plan: '' })
-  const [counselling, setCounselling] = useState('')
+  const [soap, setSoap]                   = useState({ subjective: '', objective: '', assessment: '', plan: '' })
+  const [counselling, setCounselling]     = useState('')
   const [prescriptions, setPrescriptions] = useState([])
-  const [labItems, setLabItems]       = useState([])
-  const [imagingItems, setImagingItems] = useState([])
+  const [labItems, setLabItems]           = useState([])
+  const [imagingItems, setImagingItems]   = useState([])
 
-  const [saving, setSaving]           = useState(false)
+  const [saving, setSaving]               = useState(false)
   const [actionLoading, setActionLoading] = useState('')
-  const [orderToast, setOrderToast]   = useState('')
+  const [orderToast, setOrderToast]       = useState('')
   const [formSubmissions, setFormSubmissions] = useState(null)
+  const [labOrders, setLabOrders]         = useState([])
 
   const load = useCallback(async () => {
     try {
@@ -978,16 +1256,29 @@ export default function OpdChart() {
 
   useEffect(() => { load() }, [load])
 
-  // Fetch submitted assessment forms for this patient (today) so they appear in the chart
+  // Fetch form submissions for this patient today
   useEffect(() => {
     if (!encounter) return
-    const pid = (encounter.patient?.id || encounter.appointment?.patient_id || encounter.patient_id)
+    const pid = encounter.patient?.id || encounter.appointment?.patient_id || encounter.patient_id
     if (!pid) return
     const today = new Date()
     const dateFrom = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}T00:00:00`
     api.get('/submissions', { params: { patient_id: pid, date_from: dateFrom, limit: 50 } })
       .then(res => setFormSubmissions(res?.items || []))
       .catch(() => setFormSubmissions([]))
+  }, [encounter])
+
+  // Fetch lab orders with results for this patient
+  useEffect(() => {
+    if (!encounter) return
+    const pid = encounter.patient?.id || encounter.appointment?.patient_id || encounter.patient_id
+    if (!pid) return
+    api.get('/lab-orders', { params: { patient_id: pid, limit: 50 } })
+      .then(res => {
+        const orders = Array.isArray(res) ? res : (res?.orders || res?.items || [])
+        setLabOrders(orders)
+      })
+      .catch(() => setLabOrders([]))
   }, [encounter])
 
   useEffect(() => {
@@ -1009,7 +1300,7 @@ export default function OpdChart() {
       })),
     },
     lab_order: { tests: labItems },
-    imaging: imagingItems,
+    imaging:   imagingItems,
   })
 
   const handleSaveDraft = async () => {
@@ -1052,8 +1343,6 @@ export default function OpdChart() {
     finally { setActionLoading('') }
   }
 
-  // A signed form drops its orderable fields into the chart as draft orders.
-  // They appear in the chart + their sections; "Save Draft" sends them to the desks.
   const handleFormOrders = (orders) => {
     if (!orders) return
     const parts = []
@@ -1075,11 +1364,10 @@ export default function OpdChart() {
     }
     if (parts.length) {
       setSection('chart')
-      setOrderToast(`Added to chart: ${parts.join(' · ')}. “Save Draft” sends Rx / Lab / Imaging to the desks.`)
+      setOrderToast(`Added to chart: ${parts.join(' · ')}. "Save Draft" sends Rx / Lab / Imaging to the desks.`)
     }
   }
 
-  // Universal med-order form submit → add a prescription line to this encounter's chart.
   const handleAddMedicationOrder = (data) => {
     const dosage   = [data.dose, data.unit].filter(Boolean).join(' ')
     const duration = data.duration_days ? `${data.duration_days} day${Number(data.duration_days) > 1 ? 's' : ''}` : ''
@@ -1091,7 +1379,15 @@ export default function OpdChart() {
       route:        data.route || '',
       instructions: data.instructions || '',
     }])
-    // The shared form shows its own "added" confirmation; doctor closes it via onCancel.
+  }
+
+  const refreshSubmissions = (pid) => {
+    if (!pid) return
+    const today = new Date()
+    const dateFrom = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}T00:00:00`
+    api.get('/submissions', { params: { patient_id: pid, date_from: dateFrom, limit: 50 } })
+      .then(res => setFormSubmissions(res?.items || []))
+      .catch(() => {})
   }
 
   if (loading) {
@@ -1127,96 +1423,138 @@ export default function OpdChart() {
   const patientName = patient.full_name || patient.name || appt.patient_name || '—'
   const ageSex = [
     patient.age != null ? `${patient.age} yrs` : null,
-    patient.gender || null,
+    patient.gender ? patient.gender.charAt(0).toUpperCase() + patient.gender.slice(1) : null,
   ].filter(Boolean).join(' · ')
+  const mrn = patient.patient_id || patient.mrn || patient.bh_id || ''
+
+  const v = encounter.vitals || {}
+  const hasVitals = Object.values(v).some(Boolean)
+
+  // Demographics fields for the collapsible row
+  const demoFields = [
+    patient.blood_group    && { label: 'Blood', value: patient.blood_group },
+    patient.date_of_birth  && { label: 'DOB', value: fmtDate(patient.date_of_birth) },
+    patient.phone          && { label: 'Phone', value: patient.phone },
+    patient.address        && { label: 'Address', value: patient.address },
+    patient.insurance_type && { label: 'Insurance', value: patient.insurance_type },
+    patient.payment_mode   && { label: 'Payment', value: patient.payment_mode },
+  ].filter(Boolean)
 
   return (
     <div className="flex flex-col bg-gray-50" style={{ height: 'calc(100vh - 64px)' }}>
 
-      {/* ── Sticky Header ── */}
-      <div
-        className="flex-shrink-0 bg-white border-b border-gray-200 px-4 py-2.5 flex items-center gap-3 flex-wrap"
-        style={{ minHeight: '56px' }}
-      >
-        <button
-          onClick={() => navigate('/doctor-desk')}
-          className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 flex-shrink-0"
-        >
-          <ChevronLeft size={16} /> Desk
-        </button>
+      {/* ── Elastic Sticky Header ── */}
+      <div className="flex-shrink-0 bg-white border-b border-gray-200 shadow-sm">
 
-        <div className="w-px h-4 bg-gray-200 flex-shrink-0" />
+        {/* Row 1: Navigation + Patient Identity + Actions */}
+        <div className="px-4 py-2.5 flex items-center gap-3 flex-wrap min-h-[52px]">
+          <button onClick={() => navigate('/doctor-desk')}
+            className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 flex-shrink-0 transition-colors">
+            <ChevronLeft size={16} /> Desk
+          </button>
 
-        <div className="flex items-center gap-2 flex-1 min-w-0 flex-wrap">
-          <div className="min-w-0">
-            <div className="font-bold text-gray-900 text-sm leading-tight truncate">{patientName}</div>
-            {ageSex && <div className="text-xs text-gray-400">{ageSex}</div>}
+          <div className="w-px h-4 bg-gray-200 flex-shrink-0" />
+
+          {/* Patient identity block */}
+          <div className="flex items-center gap-2.5 flex-1 min-w-0 flex-wrap">
+            <div className="min-w-0">
+              <span className="font-bold text-gray-900 text-sm">{patientName}</span>
+              {ageSex && <span className="text-xs text-gray-500 ml-2">{ageSex}</span>}
+            </div>
+            {mrn && (
+              <span className="text-[11px] font-mono text-gray-400 bg-gray-100 px-2 py-0.5 rounded-md flex-shrink-0">
+                {mrn}
+              </span>
+            )}
+            <span className={(STATUS_CFG[status] || {}).badge || 'badge-gray'} style={{ flexShrink: 0 }}>
+              {(STATUS_CFG[status] || {}).label || status.replace(/_/g, ' ')}
+            </span>
+            {appt.appointment_time && (
+              <span className="text-xs text-gray-400 flex-shrink-0">{fmt12(appt.appointment_time)}</span>
+            )}
+            {appt.mode === 'telehealth' && (
+              <Video size={13} className="text-green-500 flex-shrink-0" title="Telehealth" />
+            )}
+
+            {/* Demographics toggle */}
+            {demoFields.length > 0 && (
+              <button onClick={() => setDemoOpen(o => !o)}
+                className="flex items-center gap-0.5 text-[11px] text-blue-500 hover:text-blue-700 transition-colors flex-shrink-0">
+                <User size={11} />
+                {demoOpen ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+              </button>
+            )}
           </div>
-          <span className={(STATUS_CFG[status] || {}).badge || 'badge-gray'}>
-            {(STATUS_CFG[status] || {}).label || status.replace(/_/g, ' ')}
-          </span>
-          {appt.appointment_time && (
-            <span className="text-xs text-gray-400 flex-shrink-0">{fmt12(appt.appointment_time)}</span>
-          )}
-          {appt.mode === 'telehealth' && (
-            <Video size={13} className="text-green-500 flex-shrink-0" title="Telehealth" />
-          )}
+
+          {/* Action buttons */}
+          <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
+            {!readonly && (
+              <button onClick={handleSaveDraft} disabled={saving}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors">
+                {saving
+                  ? <span className="w-3 h-3 border border-gray-400/30 border-t-gray-600 rounded-full animate-spin" />
+                  : <Save size={12} />}
+                Save Draft
+              </button>
+            )}
+
+            {canSendInvestigations && (
+              <button onClick={handleSendInvestigations} disabled={actionLoading === 'investigations'}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 disabled:opacity-50 transition-colors">
+                {actionLoading === 'investigations'
+                  ? <span className="w-3 h-3 border border-indigo-400/30 border-t-indigo-600 rounded-full animate-spin" />
+                  : <FlaskConical size={12} />}
+                Send for Investigations
+              </button>
+            )}
+
+            {canMarkReviewReady && (
+              <button onClick={handleMarkReviewReady} disabled={actionLoading === 'review'}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 disabled:opacity-50 transition-colors">
+                {actionLoading === 'review'
+                  ? <span className="w-3 h-3 border border-amber-400/30 border-t-amber-600 rounded-full animate-spin" />
+                  : <Eye size={12} />}
+                Mark Review Ready
+              </button>
+            )}
+
+            {canComplete && (
+              <button onClick={handleComplete} disabled={actionLoading === 'complete'}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-50 hover:opacity-90 transition-opacity"
+                style={{ background: BLUE }}>
+                {actionLoading === 'complete'
+                  ? <span className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin" />
+                  : <CheckCircle size={12} />}
+                Conclude &amp; Complete
+              </button>
+            )}
+          </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
-          {!readonly && (
-            <button
-              onClick={handleSaveDraft}
-              disabled={saving}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-            >
-              {saving
-                ? <span className="w-3 h-3 border border-gray-400/30 border-t-gray-600 rounded-full animate-spin" />
-                : <Save size={12} />}
-              Save Draft
-            </button>
-          )}
+        {/* Row 2: Demographics (collapsible) */}
+        {demoOpen && demoFields.length > 0 && (
+          <div className="px-4 py-2 bg-gray-50/80 border-t border-gray-100 flex flex-wrap gap-x-8 gap-y-1">
+            {demoFields.map((f, i) => (
+              <span key={i} className="text-xs">
+                <span className="text-gray-400">{f.label}: </span>
+                <span className="font-medium text-gray-700">{f.value}</span>
+              </span>
+            ))}
+          </div>
+        )}
 
-          {canSendInvestigations && (
-            <button
-              onClick={handleSendInvestigations}
-              disabled={actionLoading === 'investigations'}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 disabled:opacity-50"
-            >
-              {actionLoading === 'investigations'
-                ? <span className="w-3 h-3 border border-indigo-400/30 border-t-indigo-600 rounded-full animate-spin" />
-                : <FlaskConical size={12} />}
-              Send for Investigations
-            </button>
-          )}
-
-          {canMarkReviewReady && (
-            <button
-              onClick={handleMarkReviewReady}
-              disabled={actionLoading === 'review'}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 disabled:opacity-50"
-            >
-              {actionLoading === 'review'
-                ? <span className="w-3 h-3 border border-amber-400/30 border-t-amber-600 rounded-full animate-spin" />
-                : <Eye size={12} />}
-              Mark Review Ready
-            </button>
-          )}
-
-          {canComplete && (
-            <button
-              onClick={handleComplete}
-              disabled={actionLoading === 'complete'}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-50"
-              style={{ background: BLUE }}
-            >
-              {actionLoading === 'complete'
-                ? <span className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin" />
-                : <CheckCircle size={12} />}
-              Conclude &amp; Complete
-            </button>
-          )}
-        </div>
+        {/* Row 3: Vitals strip (appears only when vitals filled) */}
+        {hasVitals && (
+          <div className="px-4 py-2 bg-blue-50/40 border-t border-blue-100/60 flex flex-wrap gap-x-8 gap-y-1">
+            {v.bp        && <span className="text-xs"><span className="text-blue-500/70 font-medium">BP </span><span className="font-bold text-gray-800">{v.bp}</span></span>}
+            {v.pulse     && <span className="text-xs"><span className="text-blue-500/70 font-medium">HR </span><span className="font-bold text-gray-800">{v.pulse} bpm</span></span>}
+            {v.temp      && <span className="text-xs"><span className="text-blue-500/70 font-medium">Temp </span><span className="font-bold text-gray-800">{v.temp}°C</span></span>}
+            {v.spo2      && <span className="text-xs"><span className="text-blue-500/70 font-medium">SpO₂ </span><span className="font-bold text-gray-800">{v.spo2}%</span></span>}
+            {v.weight    && <span className="text-xs"><span className="text-blue-500/70 font-medium">Wt </span><span className="font-bold text-gray-800">{v.weight} kg</span></span>}
+            {v.height    && <span className="text-xs"><span className="text-blue-500/70 font-medium">Ht </span><span className="font-bold text-gray-800">{v.height} cm</span></span>}
+            {v.blood_sugar && <span className="text-xs"><span className="text-blue-500/70 font-medium">Sugar </span><span className="font-bold text-gray-800">{v.blood_sugar}</span></span>}
+          </div>
+        )}
       </div>
 
       {/* ── Three-column body ── */}
@@ -1226,16 +1564,13 @@ export default function OpdChart() {
         <div className="w-[172px] flex-shrink-0 bg-white border-r border-gray-200 overflow-y-auto">
           <nav className="py-2">
             {NAV.map(({ key, label, Icon }) => (
-              <button
-                key={key}
-                onClick={() => setSection(key)}
+              <button key={key} onClick={() => setSection(key)}
                 className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm font-semibold transition-colors text-left"
                 style={section === key
                   ? { background: BLUE, color: '#fff' }
                   : { color: '#4b5563' }}
                 onMouseEnter={e => { if (section !== key) e.currentTarget.style.background = '#f9fafb' }}
-                onMouseLeave={e => { if (section !== key) e.currentTarget.style.background = '' }}
-              >
+                onMouseLeave={e => { if (section !== key) e.currentTarget.style.background = '' }}>
                 <Icon size={15} className="flex-shrink-0" />
                 <span className="leading-tight">{label}</span>
               </button>
@@ -1243,7 +1578,7 @@ export default function OpdChart() {
           </nav>
         </div>
 
-        {/* Main content area — edge-to-edge, flush against sub-nav / top bar / panel */}
+        {/* Main content area */}
         <div className={`flex-1 min-w-0 ${activeForm ? 'overflow-hidden' : 'overflow-y-auto bg-white'}`}>
           {activeForm ? (
             <DbAssessmentFormModal
@@ -1255,21 +1590,13 @@ export default function OpdChart() {
               onSubmitted={({ schema, formData }) => {
                 setActiveForm(null)
                 handleFormOrders(extractOrdersFromForm(schema, formData))
-                // Refresh submissions list so the chart shows the newly submitted form
-                const pid = patientId
-                if (pid) {
-                  const today = new Date()
-                  const dateFrom = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}T00:00:00`
-                  api.get('/submissions', { params: { patient_id: pid, date_from: dateFrom, limit: 50 } })
-                    .then(res => setFormSubmissions(res?.items || []))
-                    .catch(() => {})
-                }
+                refreshSubmissions(patientId)
               }}
             />
           ) : (
-            <div className="p-4">
+            <div className="p-5 max-w-3xl">
               {section === 'chart' && (
-                <PatientChartSection
+                <PatientChartDocument
                   encounter={encounter}
                   patientId={patientId}
                   soap={soap}
@@ -1277,8 +1604,8 @@ export default function OpdChart() {
                   labItems={labItems}
                   imagingItems={imagingItems}
                   counselling={counselling}
-                  onOpenSection={setSection}
                   formSubmissions={formSubmissions}
+                  labOrders={labOrders}
                 />
               )}
               {section === 'counselling' && (
@@ -1318,22 +1645,21 @@ export default function OpdChart() {
           )}
         </div>
 
-        {/* Right assessment panel — flush against the content (no gutter strip) */}
+        {/* Right assessment panel */}
         {panelOpen ? (
           <div className="w-[272px] flex-shrink-0 bg-white border-l border-gray-200 flex flex-col overflow-hidden">
             <AssessmentPanel onOpenForm={setActiveForm} onCollapse={() => setPanelOpen(false)} />
           </div>
         ) : (
-          <button
-            onClick={() => setPanelOpen(true)}
+          <button onClick={() => setPanelOpen(true)}
             className="w-6 flex-shrink-0 bg-gray-50 border-l border-gray-200 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-            title="Show assessment forms"
-          >
+            title="Show assessment forms">
             <ChevronLeft size={14} />
           </button>
         )}
       </div>
 
+      {/* Medication order form modal */}
       {medFormOpen && (
         <MedicationOrderForm
           api={api}
@@ -1347,12 +1673,15 @@ export default function OpdChart() {
         />
       )}
 
+      {/* Order toast notification */}
       {orderToast && (
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 max-w-md px-2">
           <div className="flex items-start gap-2 px-4 py-3 rounded-xl shadow-lg text-white text-sm" style={{ background: BLUE }}>
             <CheckCircle size={16} className="mt-0.5 shrink-0 text-green-300" />
             <span>{orderToast}</span>
-            <button onClick={() => setOrderToast('')} className="ml-1 text-white/70 hover:text-white shrink-0"><X size={14} /></button>
+            <button onClick={() => setOrderToast('')} className="ml-1 text-white/70 hover:text-white shrink-0">
+              <X size={14} />
+            </button>
           </div>
         </div>
       )}
