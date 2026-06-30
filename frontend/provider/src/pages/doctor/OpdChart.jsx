@@ -1393,15 +1393,19 @@ export default function OpdChart() {
       })
       setCounselling(note.counselling || '')
 
+      // API returns prescriptions as [{id, status, items:[{medicine_name,...}]}]
+      // Flatten all items across all prescription objects
       setPrescriptions(
-        (data.prescription?.items || data.prescriptions || []).map(p => ({
-          drug_name:    p.drug_name    || p.name || '',
-          dosage:       p.dosage       || '',
-          frequency:    p.frequency    || '',
-          duration:     p.duration     || '',
-          route:        p.route        || '',
-          instructions: p.instructions || '',
-        }))
+        (data.prescriptions || []).flatMap(pr =>
+          (pr.items || []).map(p => ({
+            drug_name:    p.medicine_name || p.drug_name || p.name || '',
+            dosage:       p.dosage        || '',
+            frequency:    p.frequency     || '',
+            duration:     p.duration      || '',
+            route:        p.route         || '',
+            instructions: p.instructions  || '',
+          }))
+        )
       )
 
       setLabItems(

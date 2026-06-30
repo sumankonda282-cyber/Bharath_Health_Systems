@@ -1222,7 +1222,7 @@ def list_patient_submissions(
     if not current:
         raise HTTPException(status_code=401, detail="Authentication required")
     q = (
-        db.query(FormSubmission, AssessmentForm.title.label("form_title"))
+        db.query(FormSubmission, AssessmentForm.title.label("form_title"), AssessmentForm.category.label("form_category"))
         .outerjoin(AssessmentForm, AssessmentForm.id == FormSubmission.form_id)
         .filter(
             FormSubmission.is_draft.is_(False),
@@ -1250,16 +1250,17 @@ def list_patient_submissions(
         "total": total,
         "items": [
             {
-                "id":           sub.id,
-                "form_id":      sub.form_id,
-                "form_title":   form_title or "Assessment Form",
-                "patient_id":   sub.patient_id,
-                "encounter_id": sub.encounter_id,
-                "admission_id": sub.admission_id,
-                "submitted_by": sub.submitted_by,
-                "submitted_at": sub.submitted_at.isoformat() if sub.submitted_at else None,
+                "id":            sub.id,
+                "form_id":       sub.form_id,
+                "form_title":    form_title or "Assessment Form",
+                "form_category": form_category or "",
+                "patient_id":    sub.patient_id,
+                "encounter_id":  sub.encounter_id,
+                "admission_id":  sub.admission_id,
+                "submitted_by":  sub.submitted_by,
+                "submitted_at":  sub.submitted_at.isoformat() if sub.submitted_at else None,
             }
-            for sub, form_title in rows
+            for sub, form_title, form_category in rows
         ],
     }
 
