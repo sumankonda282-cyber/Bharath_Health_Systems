@@ -88,13 +88,19 @@ def create_lab_order(
 
 @router.get('')
 def list_lab_orders(
-    status:  Optional[str] = Query(None),
-    db:      Session = Depends(get_db),
-    current = Depends(require_lab_access),
+    status:         Optional[str] = Query(None),
+    appointment_id: Optional[int] = Query(None),
+    patient_id:     Optional[int] = Query(None),
+    db:             Session = Depends(get_db),
+    current = Depends(require_any_staff),
 ):
     q = db.query(LabOrder).filter_by(clinic_id=current.clinic_id)
     if status:
         q = q.filter_by(status=status)
+    if appointment_id:
+        q = q.filter_by(appointment_id=appointment_id)
+    if patient_id:
+        q = q.filter_by(patient_id=patient_id)
     orders = q.order_by(LabOrder.created_at.desc()).limit(200).all()
     patients = {
         p.id: p for p in db.query(Patient)
@@ -280,20 +286,21 @@ def collection_sheet(
 
 def _order_out(order: LabOrder, patient) -> dict:
     return {
-        'id':            order.id,
-        'order_id':      order.order_id,
-        'patient_id':    order.patient_id,
-        'patient_name':  patient.full_name if patient else '',
-        'patient_age':   getattr(patient, 'age', None),
+        'id':             order.id,
+        'order_id':       order.order_id,
+        'appointment_id': order.appointment_id,
+        'patient_id':     order.patient_id,
+        'patient_name':   patient.full_name if patient else '',
+        'patient_age':    getattr(patient, 'age', None),
         'patient_gender': getattr(patient, 'gender', None),
-        'test_names':    order.test_names or [],
-        'priority':      order.priority,
-        'specimen_type': order.specimen_type,
-        'status':        order.status,
+        'test_names':     order.test_names or [],
+        'priority':       order.priority,
+        'specimen_type':  order.specimen_type,
+        'status':         order.status,
         'clinical_notes': order.clinical_notes,
-        'created_at':    order.created_at.isoformat() if order.created_at else None,
-        'has_result':    order.result is not None,
-        'result_status': order.result.status if order.result else None,
+        'created_at':     order.created_at.isoformat() if order.created_at else None,
+        'has_result':     order.result is not None,
+        'result_status':  order.result.status if order.result else None,
     }
 
 

@@ -218,67 +218,79 @@ function LabResultsModal({ order, onClose }) {
 }
 
 // ── Lab Investigations Renderer ───────────────────────────────────
-function LabInvestigationsRenderer({ labItems, labOrders }) {
+function LabInvestigationsRenderer({ labOrders, allPatientLabOrders, apptId }) {
   const [openModal, setOpenModal] = useState(null)
 
-  const findOrder = (testName) =>
-    labOrders.find(o =>
-      o.test_name === testName ||
-      o.name === testName ||
-      (o.items || []).some(i => i.test_name === testName || i.name === testName)
+  const orderedIds = new Set((labOrders || []).map(o => o.id))
+  const unordered = (allPatientLabOrders || []).filter(
+    o => !orderedIds.has(o.id) && o.has_result
+  )
+
+  const renderOrder = (order, tag) => {
+    const isReported = order.has_result && ['completed', 'reported', 'signed', 'pending_review'].includes(order.result_status)
+    const abnormals = (order.items || []).filter(it => it.is_abnormal && it.result_value)
+    const tests = order.test_names?.length ? order.test_names : (order.items || []).map(i => i.test_name).filter(Boolean)
+
+    return (
+      <div key={order.id}>
+        <div className="flex items-center gap-2.5 text-sm flex-wrap">
+          <FlaskConical size={13} className={`flex-shrink-0 ${isReported ? 'text-teal-500' : 'text-gray-400'}`} />
+          <span className="font-medium text-gray-800">{tests.join(', ') || order.order_id}</span>
+          {order.priority === 'stat' && (
+            <span className="text-[10px] font-bold bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full uppercase">STAT</span>
+          )}
+          {tag === 'not-ordered' && (
+            <span className="text-[10px] font-bold bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full uppercase tracking-wide">
+              Not Ordered
+            </span>
+          )}
+          {!isReported ? (
+            <span className="text-[10px] font-bold bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded-full uppercase tracking-wide">
+              Pending
+            </span>
+          ) : (
+            <button onClick={() => setOpenModal(order)}
+              className="flex items-center gap-1 text-[11px] text-blue-500 hover:text-blue-700 font-medium ml-1">
+              <Maximize2 size={11} /> Results
+            </button>
+          )}
+        </div>
+
+        {abnormals.length > 0 && (
+          <div className="ml-5 mt-1.5 pl-3 border-l-2 border-red-100">
+            <table className="text-xs">
+              <tbody>
+                {abnormals.map((it, j) => (
+                  <tr key={j}>
+                    <td className="pr-4 text-gray-600 font-medium py-0.5">{it.test_name || it.name}</td>
+                    <td className="pr-3 text-red-600 font-bold">
+                      {it.result_value}
+                      <AlertTriangle size={10} className="inline ml-1" />
+                    </td>
+                    <td className="pr-3 text-red-400">{it.result_unit || it.unit || ''}</td>
+                    <td className="text-gray-400 font-mono">ref: {it.reference_range || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     )
+  }
 
   return (
     <div className="space-y-2">
-      {labItems.map((lab, i) => {
-        const order = findOrder(lab.test_name)
-        const isReported = order?.status === 'completed' || order?.status === 'reported' ||
-          order?.items?.some(it => it.result_value)
-        const abnormals = (order?.items || []).filter(it => it.is_abnormal && it.result_value)
+      {(labOrders || []).map(o => renderOrder(o, 'ordered'))}
 
-        return (
-          <div key={i}>
-            <div className="flex items-center gap-2.5 text-sm">
-              <FlaskConical size={13} className={`flex-shrink-0 ${isReported ? 'text-teal-500' : 'text-gray-400'}`} />
-              <span className="font-medium text-gray-800">{lab.test_name}</span>
-              {lab.test_type && <span className="text-xs text-gray-400 capitalize">{lab.test_type}</span>}
-
-              {!isReported && (
-                <span className="text-[10px] font-bold bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded-full uppercase tracking-wide">
-                  Pending
-                </span>
-              )}
-
-              {isReported && order && (
-                <button onClick={() => setOpenModal(order)}
-                  className="flex items-center gap-1 text-[11px] text-blue-500 hover:text-blue-700 font-medium ml-1">
-                  <Maximize2 size={11} /> All Results
-                </button>
-              )}
-            </div>
-
-            {abnormals.length > 0 && (
-              <div className="ml-5 mt-1.5 pl-3 border-l-2 border-red-100">
-                <table className="text-xs">
-                  <tbody>
-                    {abnormals.map((it, j) => (
-                      <tr key={j}>
-                        <td className="pr-4 text-gray-600 font-medium py-0.5">{it.test_name || it.name}</td>
-                        <td className="pr-3 text-red-600 font-bold">
-                          {it.result_value}
-                          <AlertTriangle size={10} className="inline ml-1" />
-                        </td>
-                        <td className="pr-3 text-red-400">{it.result_unit || ''}</td>
-                        <td className="text-gray-400 font-mono">ref: {it.reference_range || '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+      {unordered.length > 0 && (
+        <>
+          <div className="mt-2 pt-2 border-t border-dashed border-orange-100 text-[10px] font-bold text-orange-500 uppercase tracking-wide">
+            External / Not Ordered
           </div>
-        )
-      })}
+          {unordered.map(o => renderOrder(o, 'not-ordered'))}
+        </>
+      )}
 
       {openModal && <LabResultsModal order={openModal} onClose={() => setOpenModal(null)} />}
     </div>
@@ -286,36 +298,51 @@ function LabInvestigationsRenderer({ labItems, labOrders }) {
 }
 
 // ── Imaging Investigations Renderer ───────────────────────────────
-function ImagingInvestigationsRenderer({ imagingItems, imagingOrders }) {
-  const findOrder = (procName) =>
-    (imagingOrders || []).find(o =>
-      o.procedure_name === procName || o.name === procName ||
-      (o.items || []).some(i => i.procedure_name === procName || i.name === procName)
+function ImagingInvestigationsRenderer({ imagingOrders, allPatientImagingOrders }) {
+  const orderedIds = new Set((imagingOrders || []).map(o => o.id))
+  const unordered = (allPatientImagingOrders || []).filter(
+    o => !orderedIds.has(o.id) && o.has_result
+  )
+
+  const renderOrder = (order, tag) => {
+    const isReported = order.has_result && ['completed', 'reported', 'signed', 'pending_review'].includes(order.result_status)
+    const label = order.study_description || order.body_part
+      ? `${order.modality_label || order.modality || ''}${order.body_part ? ' — ' + order.body_part : ''}${order.study_description ? ' · ' + order.study_description : ''}`
+      : order.modality_label || order.modality || order.order_id
+
+    return (
+      <div key={order.id} className="flex items-center gap-2.5 text-sm flex-wrap">
+        <Scan size={13} className={`flex-shrink-0 ${isReported ? 'text-teal-500' : 'text-gray-400'}`} />
+        <span className="font-medium text-gray-800">{label}</span>
+        {tag === 'not-ordered' && (
+          <span className="text-[10px] font-bold bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full uppercase tracking-wide">
+            Not Ordered
+          </span>
+        )}
+        {isReported ? (
+          <span className="text-[10px] font-bold bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded-full uppercase tracking-wide">
+            Reported
+          </span>
+        ) : (
+          <span className="text-[10px] font-bold bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded-full uppercase tracking-wide">
+            Pending
+          </span>
+        )}
+      </div>
     )
+  }
 
   return (
     <div className="space-y-1.5">
-      {imagingItems.map((img, i) => {
-        const order = findOrder(img.procedure_name)
-        const isReported = order?.status === 'completed' || order?.status === 'reported' ||
-          order?.report || order?.result
-        return (
-          <div key={i} className="flex items-center gap-2.5 text-sm">
-            <Scan size={13} className={`flex-shrink-0 ${isReported ? 'text-teal-500' : 'text-gray-400'}`} />
-            <span className="font-medium text-gray-800">{img.procedure_name}</span>
-            {img.modality && <span className="text-xs text-gray-400">({img.modality})</span>}
-            {isReported ? (
-              <span className="text-[10px] font-bold bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded-full uppercase tracking-wide">
-                Reported
-              </span>
-            ) : (
-              <span className="text-[10px] font-bold bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded-full uppercase tracking-wide">
-                Pending
-              </span>
-            )}
+      {(imagingOrders || []).map(o => renderOrder(o, 'ordered'))}
+      {unordered.length > 0 && (
+        <>
+          <div className="mt-2 pt-2 border-t border-dashed border-orange-100 text-[10px] font-bold text-orange-500 uppercase tracking-wide">
+            External / Not Ordered
           </div>
-        )
-      })}
+          {unordered.map(o => renderOrder(o, 'not-ordered'))}
+        </>
+      )}
     </div>
   )
 }
@@ -349,7 +376,7 @@ function FormBlock({ submission, index }) {
 }
 
 // ── Patient Chart Document ─────────────────────────────────────────
-function PatientChartDocument({ encounter, patientId, soap, prescriptions, labItems, imagingItems, counselling, formSubmissions, labOrders, imagingOrders }) {
+function PatientChartDocument({ encounter, patientId, soap, prescriptions, labItems, imagingItems, counselling, formSubmissions, labOrders, imagingOrders, allPatientLabOrders, allPatientImagingOrders }) {
   const appt = encounter.appointment || encounter
   const v = encounter.vitals || {}
   const reason = appt.reason || encounter.reason
@@ -446,17 +473,17 @@ function PatientChartDocument({ encounter, patientId, soap, prescriptions, labIt
         <div>
           <SoapLabel letter="I" label="Investigations" color="#7c3aed" bg="#f5f3ff" />
 
-          {labItems.length > 0 && (
+          {(labOrders.length > 0 || allPatientLabOrders.some(o => o.has_result)) && (
             <div className="mb-4">
               <div className="text-xs font-bold text-gray-600 mb-2">Lab Orders</div>
-              <LabInvestigationsRenderer labItems={labItems} labOrders={labOrders} />
+              <LabInvestigationsRenderer labOrders={labOrders} allPatientLabOrders={allPatientLabOrders} />
             </div>
           )}
 
-          {imagingItems.length > 0 && (
+          {(imagingOrders.length > 0 || allPatientImagingOrders.some(o => o.has_result)) && (
             <div>
               <div className="text-xs font-bold text-gray-600 mb-2">Imaging Orders</div>
-              <ImagingInvestigationsRenderer imagingItems={imagingItems} imagingOrders={imagingOrders} />
+              <ImagingInvestigationsRenderer imagingOrders={imagingOrders} allPatientImagingOrders={allPatientImagingOrders} />
             </div>
           )}
 
@@ -1230,8 +1257,10 @@ export default function OpdChart() {
   const [actionLoading, setActionLoading] = useState('')
   const [orderToast, setOrderToast]       = useState('')
   const [formSubmissions, setFormSubmissions] = useState(undefined)   // undefined=loading, []=empty, [...]=loaded
-  const [labOrders, setLabOrders]         = useState([])
-  const [imagingOrders, setImagingOrders] = useState([])
+  const [labOrders, setLabOrders]               = useState([])
+  const [imagingOrders, setImagingOrders]       = useState([])
+  const [allPatientLabOrders, setAllPatientLabOrders]         = useState([])
+  const [allPatientImagingOrders, setAllPatientImagingOrders] = useState([])
 
   const load = useCallback(async () => {
     try {
@@ -1288,25 +1317,32 @@ export default function OpdChart() {
       .catch(() => setFormSubmissions([]))
   }, [id])
 
-  // Fetch imaging orders — runs after encounter loads so we have appointment_id
+  // Fetch lab + imaging orders scoped to this encounter's appointment, then all patient orders
+  // to surface results that arrived without a corresponding doctor order ("Not Ordered").
   useEffect(() => {
     if (!encounter) return
     const apptId = encounter.appointment?.id || encounter.appointment_id
     const pid = encounter.patient?.id || encounter.appointment?.patient_id || encounter.patient_id
     if (!pid) return
-    const params = apptId ? { appointment_id: apptId, limit: 50 } : { patient_id: pid, limit: 50 }
-    api.get('/lab-orders', { params })
-      .then(res => {
-        const orders = Array.isArray(res) ? res : (res?.orders || res?.items || [])
-        setLabOrders(orders)
-      })
-      .catch(() => setLabOrders([]))
-    api.get('/imaging-orders', { params })
-      .then(res => {
-        const orders = Array.isArray(res) ? res : (res?.orders || res?.items || [])
-        setImagingOrders(orders)
-      })
-      .catch(() => setImagingOrders([]))
+
+    const toArray = (res) => Array.isArray(res) ? res : (res?.orders || res?.items || [])
+
+    if (apptId) {
+      api.get('/lab-orders', { params: { appointment_id: apptId } })
+        .then(res => setLabOrders(toArray(res)))
+        .catch(() => setLabOrders([]))
+      api.get('/imaging-orders', { params: { appointment_id: apptId } })
+        .then(res => setImagingOrders(toArray(res)))
+        .catch(() => setImagingOrders([]))
+    }
+
+    // All patient orders — used to detect unordered (externally arrived) results
+    api.get('/lab-orders', { params: { patient_id: pid, limit: 100 } })
+      .then(res => setAllPatientLabOrders(toArray(res)))
+      .catch(() => setAllPatientLabOrders([]))
+    api.get('/imaging-orders', { params: { patient_id: pid, limit: 100 } })
+      .then(res => setAllPatientImagingOrders(toArray(res)))
+      .catch(() => setAllPatientImagingOrders([]))
   }, [encounter?.id])
 
   useEffect(() => {
@@ -1634,6 +1670,8 @@ export default function OpdChart() {
                   formSubmissions={formSubmissions}
                   labOrders={labOrders}
                   imagingOrders={imagingOrders}
+                  allPatientLabOrders={allPatientLabOrders}
+                  allPatientImagingOrders={allPatientImagingOrders}
                 />
               )}
               {section === 'counselling' && (
