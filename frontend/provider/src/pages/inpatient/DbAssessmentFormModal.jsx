@@ -30,7 +30,7 @@ const spanFor = (field, layout) => WIDE.has(field.type) ? SPAN.full : (SPAN[Math
 // staff member server-side.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function DbAssessmentFormModal({ form, patientId, admissionId, patientName, onClose, onSubmitted, variant = 'modal' }) {
+export default function DbAssessmentFormModal({ form, patientId, admissionId, encounterId, patientName, onClose, onSubmitted, variant = 'modal' }) {
   const [schema,    setSchema]    = useState(null)   // { sections: [...] }
   const [meta,      setMeta]      = useState(null)   // { title, category, ... }
   const [values,    setValues]    = useState({})
@@ -90,6 +90,7 @@ export default function DbAssessmentFormModal({ form, patientId, admissionId, pa
         submission_id: draftIdRef.current || undefined,
         patient_id:    patientId,
         admission_id:  admissionId ? Number(admissionId) : null,
+        encounter_id:  encounterId || undefined,
         form_data:     valuesRef.current,
         is_draft:      true,
         source:        'provider',
@@ -212,6 +213,7 @@ export default function DbAssessmentFormModal({ form, patientId, admissionId, pa
         submission_id: draftIdRef.current || undefined,
         patient_id:   patientId,
         admission_id: admissionId ? Number(admissionId) : null,
+        encounter_id: encounterId || undefined,
         form_data:    values,
         is_draft:     false,
         source:       'provider',

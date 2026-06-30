@@ -62,6 +62,7 @@ function useVoiceDictation(onResult) {
     rec.start()
     setListening(true)
   }, [onResult])
+  useEffect(() => () => { recRef.current?.stop() }, [])   // stop mic if component unmounts while listening
   return { listening, start }
 }
 

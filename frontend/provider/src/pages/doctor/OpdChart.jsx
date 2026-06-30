@@ -62,8 +62,9 @@ const categorizeSoap = (s) => {
   const combined = ((s.form_category || s.category || '') + ' ' + (s.form_title || '')).toLowerCase()
   if (/subjective|history|complaint|symptom|review.?of.?system|hpi|chief/.test(combined)) return 'S'
   if (/objective|examination|exam|physical|finding|vital|anthropo|sign/.test(combined)) return 'O'
-  if (/plan|treatment|management|follow.?up|referral|procedure|counsel/.test(combined)) return 'P'
+  // Assessment must be checked before Plan — both can match "management" in some titles
   if (/assessment|diagnosis|impression|differential|icd/.test(combined)) return 'A'
+  if (/plan|treatment|management|follow.?up|referral|procedure|counsel/.test(combined)) return 'P'
   return 'A'
 }
 
@@ -285,19 +286,36 @@ function LabInvestigationsRenderer({ labItems, labOrders }) {
 }
 
 // ── Imaging Investigations Renderer ───────────────────────────────
-function ImagingInvestigationsRenderer({ imagingItems }) {
+function ImagingInvestigationsRenderer({ imagingItems, imagingOrders }) {
+  const findOrder = (procName) =>
+    (imagingOrders || []).find(o =>
+      o.procedure_name === procName || o.name === procName ||
+      (o.items || []).some(i => i.procedure_name === procName || i.name === procName)
+    )
+
   return (
     <div className="space-y-1.5">
-      {imagingItems.map((img, i) => (
-        <div key={i} className="flex items-center gap-2.5 text-sm">
-          <Scan size={13} className="text-gray-400 flex-shrink-0" />
-          <span className="font-medium text-gray-800">{img.procedure_name}</span>
-          {img.modality && <span className="text-xs text-gray-400">({img.modality})</span>}
-          <span className="text-[10px] font-bold bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded-full uppercase tracking-wide">
-            Pending
-          </span>
-        </div>
-      ))}
+      {imagingItems.map((img, i) => {
+        const order = findOrder(img.procedure_name)
+        const isReported = order?.status === 'completed' || order?.status === 'reported' ||
+          order?.report || order?.result
+        return (
+          <div key={i} className="flex items-center gap-2.5 text-sm">
+            <Scan size={13} className={`flex-shrink-0 ${isReported ? 'text-teal-500' : 'text-gray-400'}`} />
+            <span className="font-medium text-gray-800">{img.procedure_name}</span>
+            {img.modality && <span className="text-xs text-gray-400">({img.modality})</span>}
+            {isReported ? (
+              <span className="text-[10px] font-bold bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded-full uppercase tracking-wide">
+                Reported
+              </span>
+            ) : (
+              <span className="text-[10px] font-bold bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded-full uppercase tracking-wide">
+                Pending
+              </span>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -331,13 +349,22 @@ function FormBlock({ submission, index }) {
 }
 
 // ── Patient Chart Document ─────────────────────────────────────────
-function PatientChartDocument({ encounter, soap, prescriptions, labItems, imagingItems, counselling, formSubmissions, labOrders, patientId }) {
+function PatientChartDocument({ encounter, soap, prescriptions, labItems, imagingItems, counselling, formSubmissions, labOrders, imagingOrders }) {
   const appt = encounter.appointment || encounter
   const v = encounter.vitals || {}
   const reason = appt.reason || encounter.reason
 
+  // undefined = still loading; show spinner rather than "No documentation"
+  if (formSubmissions === undefined) {
+    return (
+      <div className="flex items-center justify-center py-20 text-gray-300">
+        <span className="w-6 h-6 border-2 border-gray-200 border-t-blue-400 rounded-full animate-spin" />
+      </div>
+    )
+  }
+
   const categorized = { S: [], O: [], A: [], P: [] }
-  ;(formSubmissions || []).forEach(s => {
+  formSubmissions.forEach(s => {
     const cat = categorizeSoap(s)
     if (categorized[cat]) categorized[cat].push(s)
     else categorized.A.push(s)
@@ -429,7 +456,7 @@ function PatientChartDocument({ encounter, soap, prescriptions, labItems, imagin
           {imagingItems.length > 0 && (
             <div>
               <div className="text-xs font-bold text-gray-600 mb-2">Imaging Orders</div>
-              <ImagingInvestigationsRenderer imagingItems={imagingItems} />
+              <ImagingInvestigationsRenderer imagingItems={imagingItems} imagingOrders={imagingOrders} />
             </div>
           )}
 
@@ -1207,17 +1234,14 @@ export default function OpdChart() {
   const [saving, setSaving]               = useState(false)
   const [actionLoading, setActionLoading] = useState('')
   const [orderToast, setOrderToast]       = useState('')
-  const [formSubmissions, setFormSubmissions] = useState(null)
+  const [formSubmissions, setFormSubmissions] = useState(undefined)   // undefined=loading, []=empty, [...]=loaded
   const [labOrders, setLabOrders]         = useState([])
-  // Stable patient ID — set once on first load, stays constant across Save Draft re-loads
-  const [encPatientId, setEncPatientId]   = useState(null)
+  const [imagingOrders, setImagingOrders] = useState([])
 
   const load = useCallback(async () => {
     try {
       const data = await doctorApi.getEncounter(id)
       setEncounter(data)
-      const stablePid = data.patient?.id || data.appointment?.patient_id || data.patient_id || null
-      setEncPatientId(prev => prev ?? stablePid)   // only set once; never reset on re-loads
 
       const note = data.soap_note || {}
       setSoap({
@@ -1260,26 +1284,42 @@ export default function OpdChart() {
 
   useEffect(() => { load() }, [load])
 
-  // Fetch form submissions for this patient today — runs once when patient ID is known
+  // Fetch form submissions scoped to this encounter — `id` (URL param) is the encounter ID,
+  // a stable primitive that never changes during this session.
   useEffect(() => {
-    if (!encPatientId) return
-    const today = new Date()
-    const dateFrom = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}T00:00:00`
-    api.get('/submissions', { params: { patient_id: encPatientId, date_from: dateFrom, limit: 50 } })
+    if (!id) return
+    api.get('/submissions', { params: { encounter_id: id, limit: 100 } })
       .then(res => setFormSubmissions(res?.items || []))
       .catch(() => setFormSubmissions([]))
-  }, [encPatientId])
+  }, [id])
 
-  // Fetch lab orders with results — runs once when patient ID is known
+  // Fetch lab orders for this encounter's patient — scoped by appointment_id where available.
+  // `id` is stable so this runs exactly once.
   useEffect(() => {
-    if (!encPatientId) return
-    api.get('/lab-orders', { params: { patient_id: encPatientId, limit: 50 } })
+    if (!id) return
+    // Lab orders are linked by appointment; encounter object loads async so we fetch after load
+  }, [id])
+
+  // Fetch imaging orders — runs after encounter loads so we have appointment_id
+  useEffect(() => {
+    if (!encounter) return
+    const apptId = encounter.appointment?.id || encounter.appointment_id
+    const pid = encounter.patient?.id || encounter.appointment?.patient_id || encounter.patient_id
+    if (!pid) return
+    const params = apptId ? { appointment_id: apptId, limit: 50 } : { patient_id: pid, limit: 50 }
+    api.get('/lab-orders', { params })
       .then(res => {
         const orders = Array.isArray(res) ? res : (res?.orders || res?.items || [])
         setLabOrders(orders)
       })
       .catch(() => setLabOrders([]))
-  }, [encPatientId])
+    api.get('/imaging-orders', { params })
+      .then(res => {
+        const orders = Array.isArray(res) ? res : (res?.orders || res?.items || [])
+        setImagingOrders(orders)
+      })
+      .catch(() => setImagingOrders([]))
+  }, [encounter?.id])
 
   useEffect(() => {
     if (!orderToast) return
@@ -1381,13 +1421,11 @@ export default function OpdChart() {
     }])
   }
 
-  const refreshSubmissions = (pid) => {
-    if (!pid) return
-    const today = new Date()
-    const dateFrom = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}T00:00:00`
-    api.get('/submissions', { params: { patient_id: pid, date_from: dateFrom, limit: 50 } })
+  const refreshSubmissions = () => {
+    // Always scope to this encounter — `id` is the encounter ID from the URL, never changes
+    api.get('/submissions', { params: { encounter_id: id, limit: 100 } })
       .then(res => setFormSubmissions(res?.items || []))
-      .catch(() => {})
+      .catch(() => setFormSubmissions(prev => prev ?? []))   // keep existing data on failure; never silently blank
   }
 
   if (loading) {
@@ -1585,12 +1623,13 @@ export default function OpdChart() {
               variant="inline"
               form={activeForm}
               patientId={patientId}
+              encounterId={id}
               patientName={patientName}
               onClose={() => setActiveForm(null)}
               onSubmitted={({ schema, formData }) => {
                 setActiveForm(null)
                 handleFormOrders(extractOrdersFromForm(schema, formData))
-                refreshSubmissions(patientId)
+                refreshSubmissions()
               }}
             />
           ) : (
@@ -1606,6 +1645,7 @@ export default function OpdChart() {
                   counselling={counselling}
                   formSubmissions={formSubmissions}
                   labOrders={labOrders}
+                  imagingOrders={imagingOrders}
                 />
               )}
               {section === 'counselling' && (

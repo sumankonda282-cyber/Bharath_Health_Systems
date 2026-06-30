@@ -721,8 +721,13 @@ def update_form(
         "title", "description", "category", "subcategory", "status",
         "schema", "scoring_config", "alert_rules", "is_template",
         "is_iview_enabled", "iview_config", "icon",
-        "requires_cosign", "time_limit_minutes", "clinic_id",
+        "requires_cosign", "time_limit_minutes",
+        # clinic_id: only platform admins may change scope — staff editors are excluded
+        # to prevent cross-tenant form reassignment.
     ]
+    # Allow platform admins (no clinic_id on their JWT) to change scope
+    if payload.get("clinic_id") is not None and hasattr(current, "clinic_id") and current.clinic_id is None:
+        updatable = updatable + ["clinic_id"]
     changed = []
     for field in updatable:
         if field in payload:
@@ -1202,35 +1207,42 @@ def _comment_out(c: "FormSubmissionComment") -> dict:
 @router.get("/submissions")
 def list_patient_submissions(
     db:             Session       = Depends(get_db),
+    current:        "Staff"       = Depends(get_current_staff),
     patient_id:     Optional[str] = Query(None),
+    encounter_id:   Optional[str] = Query(None),
     date_from:      Optional[str] = Query(None),
     date_to:        Optional[str] = Query(None),
     limit:          int           = Query(100, ge=1, le=500),
     offset:         int           = Query(0, ge=0),
 ):
-    """All signed (non-draft, active) submissions for a patient across all forms.
-    Joins AssessmentForm to include form_title. Optionally filter by date range
-    (submitted_at). New additive endpoint — existing consumers unaffected."""
+    """Signed (non-draft, active) submissions for a patient, scoped to the caller's
+    clinic. Supports encounter_id filter to retrieve only a specific visit's forms.
+    Auth required — no unauthenticated access to patient submissions."""
+    if not current:
+        raise HTTPException(status_code=401, detail="Authentication required")
     q = (
         db.query(FormSubmission, AssessmentForm.title.label("form_title"))
         .outerjoin(AssessmentForm, AssessmentForm.id == FormSubmission.form_id)
         .filter(
             FormSubmission.is_draft.is_(False),
             FormSubmission.record_status == "active",
+            FormSubmission.clinic_id == current.clinic_id,   # tenant isolation
         )
     )
     if patient_id:
         q = q.filter(FormSubmission.patient_id == patient_id)
+    if encounter_id:
+        q = q.filter(FormSubmission.encounter_id == encounter_id)
     if date_from:
         try:
             q = q.filter(FormSubmission.submitted_at >= datetime.fromisoformat(date_from))
         except ValueError:
-            pass
+            raise HTTPException(status_code=422, detail=f"Invalid date_from format: {date_from}")
     if date_to:
         try:
             q = q.filter(FormSubmission.submitted_at <= datetime.fromisoformat(date_to))
         except ValueError:
-            pass
+            raise HTTPException(status_code=422, detail=f"Invalid date_to format: {date_to}")
     total = q.count()
     rows = q.order_by(FormSubmission.submitted_at.desc()).offset(offset).limit(limit).all()
     return {

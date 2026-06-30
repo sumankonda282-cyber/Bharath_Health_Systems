@@ -38,7 +38,7 @@ def _care_form_dict(cf: CareForm) -> dict:
 
 
 def _apply_care_form_body(cf: CareForm, body: dict):
-    if "name" in body:        cf.name        = body.get("name")
+    if "name" in body and body["name"]:  cf.name = body["name"]   # guard: never set name to None
     if "description" in body:  cf.description = body.get("description")
     if "color" in body:       cf.color       = body.get("color")
     if "forms" in body:       cf.forms       = body.get("forms") or []
@@ -86,9 +86,10 @@ def update_care_form(form_id: str, body: dict, db: Session = Depends(get_db), cu
 @router.delete("/carechart/care-forms/{form_id}")
 def delete_care_form(form_id: str, db: Session = Depends(get_db), current: Staff = Depends(get_current_staff)):
     cf = db.query(CareForm).filter(CareForm.id == form_id, CareForm.clinic_id == current.clinic_id).first()
-    if cf:
-        db.delete(cf)
-        db.commit()
+    if not cf:
+        raise HTTPException(status_code=404, detail="Care form not found")
+    db.delete(cf)
+    db.commit()
     return {"ok": True}
 
 
