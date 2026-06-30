@@ -545,13 +545,15 @@ PatientChart.jsx
 
 ---
 
-## 20. Known Gaps (to address in future iterations)
+## 20. Resolved Gaps
 
-| Gap | Description | Suggested fix |
-|---|---|---|
-| Filter button position | `⚙` is in the toolbar row. Proposed: move to right end of the vitals strip row to match the original UI sketch. | Move the relative-positioned filter button into `VitalsStrip`, right of `+ Add Vitals`. |
-| "Pending Review" as a filter | There is no filter option to show only pending-review results. The pending count badge exists but the timeline cannot be filtered to show only those entries. | Add a `pending_review` pseudo-filter that shows only `lab_order`/`imaging_order` entries where `result.status === 'pending_review' && !result.acknowledged_at`. |
-| Acknowledge button visibility for non-doctors | All staff see the Acknowledge button; non-doctors get a 403 on click. | Check the staff role from the auth context and hide the button for non-doctor roles. |
+All three gaps identified at initial build have been fixed:
+
+| Gap | Resolution |
+|---|---|
+| Filter button position | `⚙` moved into `VitalsStrip`, right of `+ Add Vitals`. Filter state (`showFilter`, `filterBtnRef`) lives inside `VitalsStrip`; `filterDropRef` passed down from parent for outside-click detection. Toolbar row no longer contains the filter button. |
+| "Pending Review" as a filter | Added `{ key: 'pending_review', label: 'Pending Review', pseudo: true }` to `FILTER_TYPES`. Pseudo-filters are toggled independently of real type filters. When active, only `lab_order`/`imaging_order` entries where `result.status === 'pending_review' && !result.acknowledged_at` are shown. Displayed with amber color and a divider in the dropdown. |
+| Acknowledge button visibility | `isDoctor` derived from `useAuth().user.role === 'doctor'`. Passed as prop to `LabOrderEntry` and `ImagingOrderEntry`. Doctors see the clickable "Acknowledge" button; non-doctors see a read-only "Pending Review" label (amber text, no button). |
 
 ---
 

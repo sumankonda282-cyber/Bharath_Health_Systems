@@ -6,6 +6,7 @@ import {
   Activity,
 } from 'lucide-react'
 import api from '../api/client'
+import { useAuth } from '../contexts/AuthContext'
 
 // ── Formatting helpers ──────────────────────────────────────────────────────
 
@@ -45,14 +46,15 @@ function priorityColor(p) {
 // ── Filter types ─────────────────────────────────────────────────────────────
 
 const FILTER_TYPES = [
-  { key: 'ward_round',     label: 'Doctor Notes' },
-  { key: 'progress_note',  label: 'Progress Notes' },
-  { key: 'nursing_note',   label: 'Nurse Notes' },
-  { key: 'lab_order',      label: 'Lab Results' },
-  { key: 'imaging_order',  label: 'Imaging Results' },
+  { key: 'ward_round',      label: 'Doctor Notes' },
+  { key: 'progress_note',   label: 'Progress Notes' },
+  { key: 'nursing_note',    label: 'Nurse Notes' },
+  { key: 'lab_order',       label: 'Lab Results' },
+  { key: 'imaging_order',   label: 'Imaging Results' },
   { key: 'medication_order', label: 'Medications' },
-  { key: 'clinical_order', label: 'Orders' },
-  { key: 'transfer',       label: 'Transfers' },
+  { key: 'clinical_order',  label: 'Orders' },
+  { key: 'transfer',        label: 'Transfers' },
+  { key: 'pending_review',  label: 'Pending Review', pseudo: true },
 ]
 
 // ── Entry renderers ───────────────────────────────────────────────────────────
@@ -137,7 +139,7 @@ function ProgressNoteEntry({ entry }) {
   )
 }
 
-function LabOrderEntry({ entry, admissionId, onAcknowledge }) {
+function LabOrderEntry({ entry, admissionId, onAcknowledge, isDoctor }) {
   const r = entry.result
   const hasResult = !!r
   const isAbnormal = hasResult && (r.observations || []).some(o => o.flag && o.flag !== 'N' && o.flag !== '')
@@ -201,13 +203,18 @@ function LabOrderEntry({ entry, admissionId, onAcknowledge }) {
                 <div className="text-[11px] text-gray-600 italic mt-1">{r.interpretation}</div>
               )}
               <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                {isPending && !isAcknowledged && (
+                {isPending && !isAcknowledged && isDoctor && (
                   <button
                     onClick={() => onAcknowledge('lab', r.id)}
                     className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 transition-colors"
                   >
                     <Clock size={10} /> Pending Review — Acknowledge
                   </button>
+                )}
+                {isPending && !isAcknowledged && !isDoctor && (
+                  <span className="flex items-center gap-1 text-[11px] text-amber-600">
+                    <Clock size={10} /> Pending Review
+                  </span>
                 )}
                 {isAcknowledged && (
                   <span className="flex items-center gap-1 text-[11px] text-emerald-600">
@@ -234,7 +241,7 @@ function LabOrderEntry({ entry, admissionId, onAcknowledge }) {
   )
 }
 
-function ImagingOrderEntry({ entry, admissionId, onAcknowledge }) {
+function ImagingOrderEntry({ entry, admissionId, onAcknowledge, isDoctor }) {
   const r = entry.result
   const hasResult = !!r
   const isPending = hasResult && r.status === 'pending_review'
@@ -280,13 +287,18 @@ function ImagingOrderEntry({ entry, admissionId, onAcknowledge }) {
                 </div>
               )}
               <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                {isPending && !isAcknowledged && (
+                {isPending && !isAcknowledged && isDoctor && (
                   <button
                     onClick={() => onAcknowledge('imaging', r.id)}
                     className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 transition-colors"
                   >
                     <Clock size={10} /> Pending Review — Acknowledge
                   </button>
+                )}
+                {isPending && !isAcknowledged && !isDoctor && (
+                  <span className="flex items-center gap-1 text-[11px] text-amber-600">
+                    <Clock size={10} /> Pending Review
+                  </span>
                 )}
                 {isAcknowledged && (
                   <span className="flex items-center gap-1 text-[11px] text-emerald-600">
@@ -543,9 +555,21 @@ function AddVitalsModal({ admission, onClose, onSaved }) {
 
 // ── Vitals strip ──────────────────────────────────────────────────────────────
 
-function VitalsStrip({ vitals, onAddVitals }) {
+function VitalsStrip({ vitals, onAddVitals, activeFilters, onFilterChange, filterDropRef }) {
   const latest = vitals && vitals[0]
-  const filterRef = useRef(null)
+  const [showFilter, setShowFilter] = useState(false)
+  const filterBtnRef = useRef(null)
+  const filterActive = activeFilters.length > 0
+
+  useEffect(() => {
+    if (!showFilter) return
+    function handler(e) {
+      if (filterBtnRef.current?.contains(e.target) || filterDropRef.current?.contains(e.target)) return
+      setShowFilter(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showFilter])
 
   return (
     <div className="flex items-center gap-4 px-4 py-2 bg-white border-b border-gray-100 overflow-x-auto">
@@ -566,13 +590,35 @@ function VitalsStrip({ vitals, onAddVitals }) {
           </span>
         </>
       )}
-      <div className="ml-auto shrink-0">
+      <div className="ml-auto flex items-center gap-2 shrink-0">
         <button
           onClick={onAddVitals}
           className="text-[11px] text-emerald-600 hover:text-emerald-800 font-medium whitespace-nowrap"
         >
           + Add Vitals
         </button>
+        <div className="relative" ref={filterBtnRef}>
+          <button
+            onClick={() => setShowFilter(v => !v)}
+            title="Filter entries"
+            className={`flex items-center justify-center w-7 h-7 rounded-lg border transition-colors ${
+              filterActive
+                ? 'bg-blue-50 border-blue-200 text-blue-600'
+                : 'border-gray-200 text-gray-500 hover:bg-gray-50'
+            }`}
+          >
+            <span className="text-[14px] leading-none">⚙</span>
+          </button>
+          {showFilter && (
+            <div ref={filterDropRef}>
+              <FilterDropdown
+                activeFilters={activeFilters}
+                onChange={onFilterChange}
+                onClose={() => setShowFilter(false)}
+              />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -590,7 +636,7 @@ function VitalChip({ label, value, unit }) {
 
 // ── Patient header strip ──────────────────────────────────────────────────────
 
-function PatientHeader({ admission, patient, vitals, onAddVitals, onShowAdmForm }) {
+function PatientHeader({ admission, patient, vitals, onAddVitals, onShowAdmForm, activeFilters, onFilterChange, filterDropRef }) {
   const acuityColor = { critical: '#dc2626', high: '#d97706', medium: '#2563eb', low: '#059669' }
   const acuity = admission?.acuity_level
 
@@ -634,29 +680,53 @@ function PatientHeader({ admission, patient, vitals, onAddVitals, onShowAdmForm 
         </button>
       </div>
       {/* Vitals strip */}
-      <VitalsStrip vitals={vitals} onAddVitals={onAddVitals} />
+      <VitalsStrip
+        vitals={vitals}
+        onAddVitals={onAddVitals}
+        activeFilters={activeFilters}
+        onFilterChange={onFilterChange}
+        filterDropRef={filterDropRef}
+      />
     </div>
   )
 }
 
 // ── Filter dropdown ───────────────────────────────────────────────────────────
 
-function FilterDropdown({ activeFilters, onChange, onClose, anchorRef }) {
-  const all = activeFilters.length === 0 || activeFilters.length === FILTER_TYPES.length
+const REAL_FILTER_KEYS = FILTER_TYPES.filter(f => !f.pseudo).map(f => f.key)
 
-  function toggle(key) {
-    if (all) {
-      onChange(FILTER_TYPES.map(f => f.key).filter(k => k !== key))
-    } else if (activeFilters.includes(key)) {
-      const next = activeFilters.filter(k => k !== key)
-      onChange(next.length === 0 ? [] : next)
+function FilterDropdown({ activeFilters, onChange, onClose }) {
+  const isPendingOnly = activeFilters.includes('pending_review')
+  const realActive = activeFilters.filter(k => k !== 'pending_review')
+  const allReal = realActive.length === 0 || realActive.length === REAL_FILTER_KEYS.length
+
+  function toggle(key, isPseudo) {
+    if (isPseudo) {
+      // Toggle pending_review independently of real filters
+      if (isPendingOnly) {
+        onChange(activeFilters.filter(k => k !== 'pending_review'))
+      } else {
+        onChange([...activeFilters, 'pending_review'])
+      }
+      return
+    }
+    // Real filter toggle
+    const withoutPending = activeFilters.filter(k => k !== 'pending_review')
+    if (allReal) {
+      // Currently showing all — deselect all others and show only this one
+      const next = REAL_FILTER_KEYS.filter(k => k !== key)
+      onChange(isPendingOnly ? [...next, 'pending_review'] : next)
+    } else if (withoutPending.includes(key)) {
+      const next = withoutPending.filter(k => k !== key)
+      onChange(isPendingOnly ? [...next, 'pending_review'] : next)
     } else {
-      onChange([...activeFilters, key])
+      const next = [...withoutPending, key]
+      onChange(isPendingOnly ? [...next, 'pending_review'] : next)
     }
   }
 
   return (
-    <div className="absolute right-0 top-full mt-1 z-30 bg-white border border-gray-200 rounded-xl shadow-xl p-2 w-44">
+    <div className="absolute right-0 top-full mt-1 z-30 bg-white border border-gray-200 rounded-xl shadow-xl p-2 w-48">
       <div className="flex items-center justify-between px-2 py-1 mb-1">
         <span className="text-[11px] font-bold text-gray-700">Filter entries</span>
         <button
@@ -667,16 +737,23 @@ function FilterDropdown({ activeFilters, onChange, onClose, anchorRef }) {
         </button>
       </div>
       {FILTER_TYPES.map(ft => {
-        const checked = all || activeFilters.includes(ft.key)
+        const checked = ft.pseudo
+          ? isPendingOnly
+          : (allReal || activeFilters.includes(ft.key))
         return (
-          <label key={ft.key} className="flex items-center gap-2 px-2 py-1 rounded cursor-pointer hover:bg-gray-50">
+          <label
+            key={ft.key}
+            className={`flex items-center gap-2 px-2 py-1 rounded cursor-pointer hover:bg-gray-50 ${ft.pseudo ? 'border-t border-gray-100 mt-1 pt-2' : ''}`}
+          >
             <input
               type="checkbox"
               checked={checked}
-              onChange={() => toggle(ft.key)}
+              onChange={() => toggle(ft.key, ft.pseudo)}
               className="accent-blue-600 w-3.5 h-3.5"
             />
-            <span className="text-[12px] text-gray-700">{ft.label}</span>
+            <span className={`text-[12px] ${ft.pseudo ? 'text-amber-700 font-medium' : 'text-gray-700'}`}>
+              {ft.label}
+            </span>
           </label>
         )
       })}
@@ -687,14 +764,14 @@ function FilterDropdown({ activeFilters, onChange, onClose, anchorRef }) {
 // ── Main WardRoundsChart ──────────────────────────────────────────────────────
 
 export default function WardRoundsChart({ admission, patient, vitals, onVitalsAdded, onShowAdmForm }) {
+  const { user } = useAuth()
+  const isDoctor = user?.role === 'doctor'
   const [entries, setEntries] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [activeFilters, setActiveFilters] = useState([])  // empty = show all
-  const [showFilter, setShowFilter] = useState(false)
   const [showNewRound, setShowNewRound] = useState(false)
   const [showAddVitals, setShowAddVitals] = useState(false)
-  const filterBtnRef = useRef(null)
   const filterDropRef = useRef(null)
 
   async function load() {
@@ -713,16 +790,6 @@ export default function WardRoundsChart({ admission, patient, vitals, onVitalsAd
 
   useEffect(() => { load() }, [admission?.id])
 
-  // Close filter dropdown on outside click
-  useEffect(() => {
-    if (!showFilter) return
-    function handler(e) {
-      if (filterBtnRef.current?.contains(e.target) || filterDropRef.current?.contains(e.target)) return
-      setShowFilter(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [showFilter])
 
   async function acknowledge(kind, resultId) {
     try {
@@ -738,9 +805,19 @@ export default function WardRoundsChart({ admission, patient, vitals, onVitalsAd
   }
 
   // Group by day
-  const filtered = activeFilters.length === 0
-    ? entries
-    : entries.filter(e => activeFilters.includes(e.type))
+  const realFilters = activeFilters.filter(k => k !== 'pending_review')
+  const pendingOnly = activeFilters.includes('pending_review')
+
+  const filtered = entries.filter(e => {
+    const typeMatch = realFilters.length === 0 || realFilters.includes(e.type)
+    if (!typeMatch) return false
+    if (pendingOnly) {
+      // Only show lab/imaging entries with an unacknowledged pending_review result
+      if (e.type !== 'lab_order' && e.type !== 'imaging_order') return false
+      return e.result?.status === 'pending_review' && !e.result?.acknowledged_at
+    }
+    return true
+  })
 
   const days = []
   const seen = new Set()
@@ -764,6 +841,9 @@ export default function WardRoundsChart({ admission, patient, vitals, onVitalsAd
         vitals={vitals}
         onAddVitals={() => setShowAddVitals(true)}
         onShowAdmForm={onShowAdmForm}
+        activeFilters={activeFilters}
+        onFilterChange={setActiveFilters}
+        filterDropRef={filterDropRef}
       />
 
       {/* Toolbar */}
@@ -779,28 +859,6 @@ export default function WardRoundsChart({ admission, patient, vitals, onVitalsAd
             <AlertTriangle size={11} /> {pendingCount} pending review
           </span>
         )}
-        <div className="ml-auto relative" ref={filterBtnRef}>
-          <button
-            onClick={() => setShowFilter(v => !v)}
-            title="Filter entries"
-            className={`flex items-center justify-center w-7 h-7 rounded-lg border transition-colors ${
-              activeFilters.length > 0
-                ? 'bg-blue-50 border-blue-200 text-blue-600'
-                : 'border-gray-200 text-gray-500 hover:bg-gray-50'
-            }`}
-          >
-            <span className="text-[14px] leading-none">⚙</span>
-          </button>
-          {showFilter && (
-            <div ref={filterDropRef}>
-              <FilterDropdown
-                activeFilters={activeFilters}
-                onChange={setActiveFilters}
-                onClose={() => setShowFilter(false)}
-              />
-            </div>
-          )}
-        </div>
       </div>
 
       {/* Timeline */}
@@ -839,10 +897,10 @@ export default function WardRoundsChart({ admission, patient, vitals, onVitalsAd
                   {entry.type === 'nursing_note' && <NursingNoteEntry entry={entry} />}
                   {entry.type === 'progress_note' && <ProgressNoteEntry entry={entry} />}
                   {entry.type === 'lab_order' && (
-                    <LabOrderEntry entry={entry} admissionId={admission?.id} onAcknowledge={acknowledge} />
+                    <LabOrderEntry entry={entry} admissionId={admission?.id} onAcknowledge={acknowledge} isDoctor={isDoctor} />
                   )}
                   {entry.type === 'imaging_order' && (
-                    <ImagingOrderEntry entry={entry} admissionId={admission?.id} onAcknowledge={acknowledge} />
+                    <ImagingOrderEntry entry={entry} admissionId={admission?.id} onAcknowledge={acknowledge} isDoctor={isDoctor} />
                   )}
                   {entry.type === 'medication_order' && <MedicationOrderEntry entry={entry} />}
                   {entry.type === 'clinical_order' && <ClinicalOrderEntry entry={entry} />}
