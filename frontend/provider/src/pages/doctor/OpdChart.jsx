@@ -8,7 +8,7 @@ import {
   Pill, Scan, Lock, Search, X, Plus, Trash2,
   AlertCircle, Clock, ClipboardList, MessageSquare, Star,
   FileText, AlertTriangle, ExternalLink,
-  Maximize2, User, Printer
+  Maximize2, User, Printer, Pencil
 } from 'lucide-react'
 import { PageLoader } from '../../components/ui/Spinner'
 import DbAssessmentFormModal from '../inpatient/DbAssessmentFormModal'
@@ -944,77 +944,44 @@ function FormRow({ form, pinned, onPin, onOpen }) {
   )
 }
 
-function SubmittedFormsPanel({ submissions }) {
-  const [search, setSearch] = useState('')
-  const [open, setOpen]     = useState(null)
-
+// Shows one pen icon per unique submitted form — click reopens it to edit/resubmit
+function SubmittedFormsPanel({ submissions, onOpenForm }) {
   if (!submissions || submissions.length === 0) return null
 
-  const q = search.trim().toLowerCase()
-  const filtered = q
-    ? submissions.filter(s => (s.form_title || '').toLowerCase().includes(q) || (s.form_category || '').toLowerCase().includes(q))
-    : submissions
-
-  const drafts    = filtered.filter(s => s.status === 'draft')
-  const submitted = filtered.filter(s => s.status !== 'draft')
-
-  const renderItem = (s) => (
-    <div key={s.id}>
-      <button
-        onClick={() => setOpen(open === s.id ? null : s.id)}
-        className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-gray-50 transition-colors text-left">
-        <div className="min-w-0 flex-1">
-          <div className="text-xs font-medium text-gray-800 truncate">{s.form_title || 'Assessment Form'}</div>
-        </div>
-        <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
-          {s.status === 'draft'
-            ? <span className="text-[9px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full uppercase">Draft</span>
-            : <span className="text-[9px] font-bold bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded-full uppercase">Done</span>
-          }
-          {open === s.id ? <ChevronUp size={11} className="text-gray-400" /> : <ChevronDown size={11} className="text-gray-400" />}
-        </div>
-      </button>
-      {open === s.id && (
-        <div className="px-3 pb-2 border-t border-gray-50">
-          <FormBlock submission={s} index={0} />
-        </div>
-      )}
-    </div>
-  )
+  // Deduplicate — latest per form_id, track count
+  const latestMap = new Map()
+  const countMap  = new Map()
+  submissions.forEach(s => {
+    countMap.set(s.form_id, (countMap.get(s.form_id) || 0) + 1)
+    const ex = latestMap.get(s.form_id)
+    if (!ex || (s.submitted_at || '') >= (ex.submitted_at || '')) latestMap.set(s.form_id, s)
+  })
+  const unique = Array.from(latestMap.values())
 
   return (
-    <div className="border-b border-gray-100 flex-shrink-0">
-      <div className="px-3 pt-2 pb-1.5 flex items-center gap-2">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 flex-1">
-          This Visit ({submissions.length})
-        </span>
+    <div className="border-b border-gray-100 px-3 py-2 flex-shrink-0">
+      <div className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">
+        This Visit
       </div>
-      {submissions.length > 4 && (
-        <div className="px-3 pb-1.5">
-          <div className="flex items-center gap-1.5 bg-gray-50 rounded-lg px-2 py-1">
-            <Search size={11} className="text-gray-400 flex-shrink-0" />
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search forms…"
-              className="flex-1 text-xs bg-transparent outline-none text-gray-700 placeholder-gray-400"
-            />
-            {search && <button onClick={() => setSearch('')}><X size={11} className="text-gray-400" /></button>}
-          </div>
-        </div>
-      )}
-      <div className="pb-1.5">
-        {drafts.length > 0 && (
-          <div className="px-3 py-0.5 text-[9px] font-bold uppercase tracking-widest text-amber-500">Drafts</div>
-        )}
-        {drafts.map(renderItem)}
-        {submitted.length > 0 && drafts.length > 0 && (
-          <div className="px-3 py-0.5 text-[9px] font-bold uppercase tracking-widest text-gray-400">Submitted</div>
-        )}
-        {submitted.map(renderItem)}
-        {filtered.length === 0 && (
-          <p className="px-3 py-2 text-xs text-gray-400">No forms match "{search}"</p>
-        )}
+      <div className="flex flex-wrap gap-1.5">
+        {unique.map(s => (
+          <button
+            key={s.form_id}
+            onClick={() => onOpenForm && onOpenForm({ id: s.form_id, title: s.form_title, schema: s.form_schema })}
+            title={`Edit: ${s.form_title || 'Assessment Form'}`}
+            className="flex items-center gap-1 px-2 py-1 rounded-lg border border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50 transition-colors group">
+            <span className="text-[10px] font-medium text-gray-700 group-hover:text-blue-700 max-w-[100px] truncate">
+              {s.form_title || 'Form'}
+            </span>
+            {s.status === 'draft'
+              ? <span className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" title="Draft" />
+              : <Pencil size={9} className="text-gray-400 group-hover:text-blue-500 flex-shrink-0" />
+            }
+            {(countMap.get(s.form_id) || 1) > 1 && (
+              <span className="text-[9px] text-gray-400">×{countMap.get(s.form_id)}</span>
+            )}
+          </button>
+        ))}
       </div>
     </div>
   )
@@ -1063,7 +1030,7 @@ function AssessmentPanel({ onOpenForm, onCollapse, clinicId, formSubmissions }) 
   return (
     <div className="h-full flex flex-col overflow-hidden">
       {/* Submitted forms index — all forms filed for this encounter */}
-      <SubmittedFormsPanel submissions={formSubmissions} />
+      <SubmittedFormsPanel submissions={formSubmissions} onOpenForm={onOpenForm} />
 
       <div className="px-3 py-2.5 border-b border-gray-100 flex-shrink-0">
         <div className="flex items-center justify-between mb-2">
