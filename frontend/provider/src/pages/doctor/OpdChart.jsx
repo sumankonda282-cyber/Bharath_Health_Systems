@@ -69,7 +69,7 @@ const categorizeSoap = (s) => {
 }
 
 // ── Form Content Renderer ─────────────────────────────────────────
-function FormContentRenderer({ submission }) {
+function FormContentRenderer({ submission, fieldLabelMap }) {
   if (!submission) return null
 
   const raw = submission.form_data || submission.data || submission.answers || null
@@ -94,8 +94,11 @@ function FormContentRenderer({ submission }) {
     return String(v)
   }
 
+  // Use label from schema if available, fall back to formatKey on field ID
+  const resolveLabel = (k) => (fieldLabelMap && fieldLabelMap[k]) ? fieldLabelMap[k] : formatKey(k)
+
   const entries = Object.entries(raw)
-    .map(([k, v]) => ({ key: k, label: formatKey(k), value: parseValue(v) }))
+    .map(([k, v]) => ({ key: k, label: resolveLabel(k), value: parseValue(v) }))
     .filter(e => e.value && e.value !== 'No')
 
   if (!entries.length) return (
@@ -108,44 +111,24 @@ function FormContentRenderer({ submission }) {
     </p>
   )
 
-  const short  = entries.filter(e => e.value.length < 25)
-  const medium = entries.filter(e => e.value.length >= 25 && e.value.length < 65)
-  const wide   = entries.filter(e => e.value.length >= 65 && e.value.length < 180)
-  const full   = entries.filter(e => e.value.length >= 180)
+  // Bucket by value length. Short single-word values get 3-col; longer values get 2-col or full width.
+  // Never truncate — let values wrap naturally inside their cell.
+  const inline  = entries.filter(e => e.value.length < 40 && !e.value.includes('\n'))
+  const para    = entries.filter(e => e.value.length >= 40 || e.value.includes('\n'))
 
   return (
-    <div className="space-y-1.5 text-sm text-gray-800">
-      {short.length > 0 && (
-        <div className="grid grid-cols-4 gap-x-6 gap-y-1">
-          {short.map(e => (
-            <span key={e.key} className="min-w-0 truncate">
-              <span className="text-gray-400 text-xs">{e.label}: </span>
-              <span className="font-medium">{e.value}</span>
-            </span>
+    <div className="space-y-2 text-sm text-gray-800">
+      {inline.length > 0 && (
+        <div className="grid gap-x-6 gap-y-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))' }}>
+          {inline.map(e => (
+            <div key={e.key} className="min-w-0">
+              <span className="text-gray-400 text-xs block leading-tight">{e.label}</span>
+              <span className="font-medium break-words">{e.value}</span>
+            </div>
           ))}
         </div>
       )}
-      {medium.length > 0 && (
-        <div className="grid grid-cols-3 gap-x-6 gap-y-1">
-          {medium.map(e => (
-            <span key={e.key} className="min-w-0">
-              <span className="text-gray-400 text-xs">{e.label}: </span>
-              <span className="font-medium">{e.value}</span>
-            </span>
-          ))}
-        </div>
-      )}
-      {wide.length > 0 && (
-        <div className="grid grid-cols-2 gap-x-8 gap-y-1">
-          {wide.map(e => (
-            <span key={e.key} className="min-w-0">
-              <span className="text-gray-400 text-xs">{e.label}: </span>
-              <span className="font-medium">{e.value}</span>
-            </span>
-          ))}
-        </div>
-      )}
-      {full.map(e => (
+      {para.map(e => (
         <div key={e.key}>
           <span className="text-gray-400 text-xs">{e.label}: </span>
           <span className="font-medium whitespace-pre-wrap">{e.value}</span>
@@ -443,20 +426,24 @@ function SoapLabel({ letter, label, color, bg }) {
 
 function FormBlock({ submission, index }) {
   const isDraft = submission.status === 'draft' || submission.is_draft
-  // null = not fetched yet, false = fetch done but no data, object = has data
-  const [fullData, setFullData] = useState(
-    submission.form_data || submission.data || submission.answers || null
-  )
-  const [fetching, setFetching] = useState(false)
+  const [fullData, setFullData]         = useState(submission.form_data || submission.data || null)
+  const [fieldLabelMap, setFieldLabelMap] = useState(null)
+  const [fetching, setFetching]         = useState(false)
 
   useEffect(() => {
     if (fullData !== null) return
     setFetching(true)
     api.get(`/submissions/${submission.id}`)
       .then(r => {
-        const d = r?.form_data || r?.data || r?.answers || null
-        // store false if empty/missing so we don't retry and show fallback link
+        const d = r?.form_data || r?.data || null
         setFullData(d && Object.keys(d).length > 0 ? d : false)
+        // Build field ID → label map from schema sections so renderer shows real labels
+        const schema = r?.form_schema
+        if (schema?.sections) {
+          const map = {}
+          schema.sections.forEach(sec => (sec.fields || []).forEach(f => { if (f.id && f.label) map[f.id] = f.label }))
+          setFieldLabelMap(map)
+        }
       })
       .catch(() => setFullData(false))
       .finally(() => setFetching(false))
@@ -465,9 +452,9 @@ function FormBlock({ submission, index }) {
   const enriched = { ...submission, form_data: fullData || null }
 
   return (
-    <div className={index > 0 ? 'mt-3 pt-3' : ''}>
-      <div className="flex items-center gap-2 mb-1.5">
-        <span className="text-xs font-bold text-gray-600">{submission.form_title}</span>
+    <div className={index > 0 ? 'mt-3 pt-3 border-t border-gray-100' : ''}>
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-xs font-bold text-gray-700">{submission.form_title}</span>
         {isDraft && (
           <span className="text-[10px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full uppercase tracking-wide">
             Draft
@@ -477,7 +464,7 @@ function FormBlock({ submission, index }) {
           <span className="w-3 h-3 border border-gray-300 border-t-blue-400 rounded-full animate-spin inline-block" />
         )}
       </div>
-      <FormContentRenderer submission={enriched} />
+      <FormContentRenderer submission={enriched} fieldLabelMap={fieldLabelMap} />
     </div>
   )
 }
@@ -567,7 +554,7 @@ function PatientChartDocument({ encounter, patientId, soap, prescriptions, labIt
           {Object.values(v).some(Boolean) && (
             <div className="mb-3">
               <div className="text-xs font-bold text-gray-600 mb-1.5">Vitals</div>
-              <div className="grid grid-cols-4 gap-x-6 gap-y-1 text-sm">
+              <div className="grid gap-x-6 gap-y-1 text-sm" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))' }}>
                 {v.bp     && <span><span className="text-gray-400 text-xs">BP: </span><span className="font-medium">{v.bp}</span></span>}
                 {v.pulse  && <span><span className="text-gray-400 text-xs">HR: </span><span className="font-medium">{v.pulse} bpm</span></span>}
                 {v.temp   && <span><span className="text-gray-400 text-xs">Temp: </span><span className="font-medium">{v.temp}°C</span></span>}
@@ -947,41 +934,76 @@ function FormRow({ form, pinned, onPin, onOpen }) {
 }
 
 function SubmittedFormsPanel({ submissions }) {
-  const [open, setOpen] = useState(null)
+  const [search, setSearch] = useState('')
+  const [open, setOpen]     = useState(null)
 
   if (!submissions || submissions.length === 0) return null
 
+  const q = search.trim().toLowerCase()
+  const filtered = q
+    ? submissions.filter(s => (s.form_title || '').toLowerCase().includes(q) || (s.form_category || '').toLowerCase().includes(q))
+    : submissions
+
+  const drafts    = filtered.filter(s => s.status === 'draft')
+  const submitted = filtered.filter(s => s.status !== 'draft')
+
+  const renderItem = (s) => (
+    <div key={s.id}>
+      <button
+        onClick={() => setOpen(open === s.id ? null : s.id)}
+        className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-gray-50 transition-colors text-left">
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-medium text-gray-800 truncate">{s.form_title || 'Assessment Form'}</div>
+        </div>
+        <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
+          {s.status === 'draft'
+            ? <span className="text-[9px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full uppercase">Draft</span>
+            : <span className="text-[9px] font-bold bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded-full uppercase">Done</span>
+          }
+          {open === s.id ? <ChevronUp size={11} className="text-gray-400" /> : <ChevronDown size={11} className="text-gray-400" />}
+        </div>
+      </button>
+      {open === s.id && (
+        <div className="px-3 pb-2 border-t border-gray-50">
+          <FormBlock submission={s} index={0} />
+        </div>
+      )}
+    </div>
+  )
+
   return (
     <div className="border-b border-gray-100 flex-shrink-0">
-      <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-gray-400">
-        Submitted This Visit
+      <div className="px-3 pt-2 pb-1.5 flex items-center gap-2">
+        <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 flex-1">
+          This Visit ({submissions.length})
+        </span>
       </div>
-      <div className="space-y-0.5 pb-2">
-        {submissions.map(s => (
-          <div key={s.id}>
-            <button
-              onClick={() => setOpen(open === s.id ? null : s.id)}
-              className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-gray-50 transition-colors text-left">
-              <div className="min-w-0">
-                <div className="text-xs font-medium text-gray-800 truncate">{s.form_title || 'Assessment Form'}</div>
-                {s.submitted_at && (
-                  <div className="text-[10px] text-gray-400">{fmtDate(s.submitted_at)}</div>
-                )}
-              </div>
-              <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
-                <span className="text-[9px] font-bold bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded-full uppercase tracking-wide">
-                  {s.status || 'submitted'}
-                </span>
-                {open === s.id ? <ChevronUp size={11} className="text-gray-400" /> : <ChevronDown size={11} className="text-gray-400" />}
-              </div>
-            </button>
-            {open === s.id && (
-              <div className="px-3 pb-2">
-                <FormBlock submission={s} index={0} />
-              </div>
-            )}
+      {submissions.length > 4 && (
+        <div className="px-3 pb-1.5">
+          <div className="flex items-center gap-1.5 bg-gray-50 rounded-lg px-2 py-1">
+            <Search size={11} className="text-gray-400 flex-shrink-0" />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search forms…"
+              className="flex-1 text-xs bg-transparent outline-none text-gray-700 placeholder-gray-400"
+            />
+            {search && <button onClick={() => setSearch('')}><X size={11} className="text-gray-400" /></button>}
           </div>
-        ))}
+        </div>
+      )}
+      <div className="pb-1.5">
+        {drafts.length > 0 && (
+          <div className="px-3 py-0.5 text-[9px] font-bold uppercase tracking-widest text-amber-500">Drafts</div>
+        )}
+        {drafts.map(renderItem)}
+        {submitted.length > 0 && drafts.length > 0 && (
+          <div className="px-3 py-0.5 text-[9px] font-bold uppercase tracking-widest text-gray-400">Submitted</div>
+        )}
+        {submitted.map(renderItem)}
+        {filtered.length === 0 && (
+          <p className="px-3 py-2 text-xs text-gray-400">No forms match "{search}"</p>
+        )}
       </div>
     </div>
   )
@@ -1480,7 +1502,7 @@ export default function OpdChart() {
   // a stable primitive that never changes during this session.
   useEffect(() => {
     if (!id) return
-    api.get('/submissions', { params: { encounter_id: id, limit: 100 } })
+    api.get('/submissions', { params: { encounter_id: id, limit: 100, include_drafts: true } })
       .then(res => setFormSubmissions(res?.items || []))
       .catch(() => setFormSubmissions([]))
   }, [id])
@@ -1615,9 +1637,9 @@ export default function OpdChart() {
 
   const refreshSubmissions = () => {
     // Always scope to this encounter — `id` is the encounter ID from the URL, never changes
-    api.get('/submissions', { params: { encounter_id: id, limit: 100 } })
+    api.get('/submissions', { params: { encounter_id: id, limit: 100, include_drafts: true } })
       .then(res => setFormSubmissions(res?.items || []))
-      .catch(() => setFormSubmissions(prev => prev ?? []))   // keep existing data on failure; never silently blank
+      .catch(() => setFormSubmissions(prev => prev ?? []))
   }
 
   if (loading) {
@@ -1837,7 +1859,7 @@ export default function OpdChart() {
               }}
             />
           ) : (
-            <div className="p-5 max-w-3xl">
+            <div className="p-5 w-full max-w-4xl">
               {section === 'chart' && (
                 <PatientChartDocument
                   encounter={encounter}
