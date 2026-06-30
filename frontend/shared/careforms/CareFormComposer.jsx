@@ -81,6 +81,9 @@ function ConditionRow({ condition, onUpdate, onRemove, forms }) {
         <option value="">Select form…</option>
         {forms.map(f => <option key={f.form_id} value={f.form_id}>{f.name}</option>)}
       </select>
+      <input value={c.field || ''} onChange={e => update('field', e.target.value)}
+        placeholder="field ID…" className={inputCls} style={{ borderColor: '#e5e7eb', maxWidth: 100 }}
+        title="Field ID within the selected form (e.g. score, bmi)" />
       <select value={c.operator} onChange={e => update('operator', e.target.value)}
         className={inputCls} style={{ borderColor: '#e5e7eb', minWidth: 100 }}>
         {OPERATORS.map(o => <option key={o}>{o}</option>)}

@@ -349,7 +349,7 @@ function FormBlock({ submission, index }) {
 }
 
 // ── Patient Chart Document ─────────────────────────────────────────
-function PatientChartDocument({ encounter, soap, prescriptions, labItems, imagingItems, counselling, formSubmissions, labOrders, imagingOrders }) {
+function PatientChartDocument({ encounter, patientId, soap, prescriptions, labItems, imagingItems, counselling, formSubmissions, labOrders, imagingOrders }) {
   const appt = encounter.appointment || encounter
   const v = encounter.vitals || {}
   const reason = appt.reason || encounter.reason
@@ -799,7 +799,7 @@ function FormRow({ form, pinned, onPin, onOpen }) {
   )
 }
 
-function AssessmentPanel({ onOpenForm, onCollapse }) {
+function AssessmentPanel({ onOpenForm, onCollapse, clinicId }) {
   const [forms, setForms]     = useState([])
   const [favIds, setFavIds]   = useState(new Set())
   const [search, setSearch]   = useState('')
@@ -813,20 +813,15 @@ function AssessmentPanel({ onOpenForm, onCollapse }) {
 
   useEffect(() => {
     let alive = true
-    ;(async () => {
-      let clinicId = null
-      try { const me = await api.get('/auth/staff/me'); clinicId = me?.clinic_id ?? null } catch { /* unscoped */ }
-      const params = { status: 'published', limit: 300 }
-      if (clinicId != null) params.clinic_id = clinicId
-      try {
-        const r = await api.get('/assessment-forms', { params })
-        if (alive) setForms(r?.forms || [])
-      } catch { /* leave empty */ }
-      finally { if (alive) setLoading(false) }
-    })()
+    const params = { status: 'published', limit: 300 }
+    if (clinicId != null) params.clinic_id = clinicId
+    api.get('/assessment-forms', { params })
+      .then(r => { if (alive) setForms(r?.forms || []) })
+      .catch(() => {})
+      .finally(() => { if (alive) setLoading(false) })
     loadFavs()
     return () => { alive = false }
-  }, [loadFavs])
+  }, [loadFavs, clinicId])
 
   const togglePin = async (form, e) => {
     e.stopPropagation()
@@ -1293,13 +1288,6 @@ export default function OpdChart() {
       .catch(() => setFormSubmissions([]))
   }, [id])
 
-  // Fetch lab orders for this encounter's patient — scoped by appointment_id where available.
-  // `id` is stable so this runs exactly once.
-  useEffect(() => {
-    if (!id) return
-    // Lab orders are linked by appointment; encounter object loads async so we fetch after load
-  }, [id])
-
   // Fetch imaging orders — runs after encounter loads so we have appointment_id
   useEffect(() => {
     if (!encounter) return
@@ -1688,7 +1676,7 @@ export default function OpdChart() {
         {/* Right assessment panel */}
         {panelOpen ? (
           <div className="w-[272px] flex-shrink-0 bg-white border-l border-gray-200 flex flex-col overflow-hidden">
-            <AssessmentPanel onOpenForm={setActiveForm} onCollapse={() => setPanelOpen(false)} />
+            <AssessmentPanel onOpenForm={setActiveForm} onCollapse={() => setPanelOpen(false)} clinicId={user?.clinic_id ?? null} />
           </div>
         ) : (
           <button onClick={() => setPanelOpen(true)}
