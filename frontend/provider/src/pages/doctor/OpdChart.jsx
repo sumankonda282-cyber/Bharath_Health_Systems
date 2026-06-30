@@ -98,7 +98,15 @@ function FormContentRenderer({ submission }) {
     .map(([k, v]) => ({ key: k, label: formatKey(k), value: parseValue(v) }))
     .filter(e => e.value && e.value !== 'No')
 
-  if (!entries.length) return null
+  if (!entries.length) return (
+    <p className="text-sm text-gray-500 italic">
+      Form submitted —{' '}
+      <a href={`/forms/submission/${submission.id}`} target="_blank" rel="noreferrer"
+        className="text-blue-500 hover:underline inline-flex items-center gap-0.5">
+        View <ExternalLink size={10} />
+      </a>
+    </p>
+  )
 
   const short  = entries.filter(e => e.value.length < 25)
   const medium = entries.filter(e => e.value.length >= 25 && e.value.length < 65)
@@ -360,21 +368,26 @@ function SoapLabel({ letter, label, color, bg }) {
 
 function FormBlock({ submission, index }) {
   const isDraft = submission.status === 'draft' || submission.is_draft
+  // null = not fetched yet, false = fetch done but no data, object = has data
   const [fullData, setFullData] = useState(
     submission.form_data || submission.data || submission.answers || null
   )
+  const [fetching, setFetching] = useState(false)
 
   useEffect(() => {
-    if (fullData) return
+    if (fullData !== null) return
+    setFetching(true)
     api.get(`/submissions/${submission.id}`)
       .then(r => {
-        const d = r.data?.form_data || r.data?.data || r.data?.answers || null
-        if (d) setFullData(d)
+        const d = r?.form_data || r?.data || r?.answers || null
+        // store false if empty/missing so we don't retry and show fallback link
+        setFullData(d && Object.keys(d).length > 0 ? d : false)
       })
-      .catch(() => {})
+      .catch(() => setFullData(false))
+      .finally(() => setFetching(false))
   }, [submission.id])
 
-  const enriched = { ...submission, form_data: fullData }
+  const enriched = { ...submission, form_data: fullData || null }
 
   return (
     <div className={index > 0 ? 'mt-3 pt-3' : ''}>
@@ -385,7 +398,7 @@ function FormBlock({ submission, index }) {
             Draft
           </span>
         )}
-        {!fullData && (
+        {fetching && (
           <span className="w-3 h-3 border border-gray-300 border-t-blue-400 rounded-full animate-spin inline-block" />
         )}
       </div>
@@ -397,7 +410,18 @@ function FormBlock({ submission, index }) {
 // ── Patient Chart Document ─────────────────────────────────────────
 function PatientChartDocument({ encounter, patientId, soap, prescriptions, labItems, imagingItems, counselling, formSubmissions, labOrders, imagingOrders, allPatientLabOrders, allPatientImagingOrders }) {
   const appt = encounter.appointment || encounter
-  const v = encounter.vitals || {}
+  const vRaw = encounter.vitals || {}
+  // Normalise vitals field names — encounter detail returns full names; desk list pre-formats them
+  const v = {
+    bp:     vRaw.bp || (vRaw.blood_pressure_systolic && vRaw.blood_pressure_diastolic
+              ? `${vRaw.blood_pressure_systolic}/${vRaw.blood_pressure_diastolic}` : null),
+    pulse:  vRaw.pulse  || (vRaw.pulse_rate  ? String(vRaw.pulse_rate)  : null),
+    temp:   vRaw.temp   || (vRaw.temperature ? String(vRaw.temperature) : null),
+    spo2:   vRaw.spo2   || (vRaw.oxygen_saturation ? String(vRaw.oxygen_saturation) : null),
+    weight: vRaw.weight || (vRaw.weight_kg   ? String(vRaw.weight_kg)   : null),
+    height: vRaw.height || (vRaw.height_cm   ? String(vRaw.height_cm)   : null),
+    sugar:  vRaw.sugar  || (vRaw.blood_sugar ? String(vRaw.blood_sugar)  : null),
+  }
   const reason = appt.reason || encounter.reason
 
   // undefined = still loading; show spinner rather than "No documentation"
@@ -1508,7 +1532,17 @@ export default function OpdChart() {
   ].filter(Boolean).join(' · ')
   const mrn = patient.patient_id || patient.mrn || patient.bh_id || ''
 
-  const v = encounter.vitals || {}
+  const vRawHeader = encounter.vitals || {}
+  const v = {
+    bp:     vRawHeader.bp || (vRawHeader.blood_pressure_systolic && vRawHeader.blood_pressure_diastolic
+              ? `${vRawHeader.blood_pressure_systolic}/${vRawHeader.blood_pressure_diastolic}` : null),
+    pulse:  vRawHeader.pulse  || (vRawHeader.pulse_rate  ? String(vRawHeader.pulse_rate)  : null),
+    temp:   vRawHeader.temp   || (vRawHeader.temperature ? String(vRawHeader.temperature) : null),
+    spo2:   vRawHeader.spo2   || (vRawHeader.oxygen_saturation ? String(vRawHeader.oxygen_saturation) : null),
+    weight: vRawHeader.weight || (vRawHeader.weight_kg   ? String(vRawHeader.weight_kg)   : null),
+    height: vRawHeader.height || (vRawHeader.height_cm   ? String(vRawHeader.height_cm)   : null),
+    sugar:  vRawHeader.sugar  || (vRawHeader.blood_sugar ? String(vRawHeader.blood_sugar)  : null),
+  }
   const hasVitals = Object.values(v).some(Boolean)
 
   // Demographics fields for the collapsible row
