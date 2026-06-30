@@ -3,10 +3,10 @@ import {
   Stethoscope, FileText, FlaskConical, ImageIcon, Pill,
   ClipboardList, ArrowRightLeft, ChevronDown, ChevronUp,
   CheckCircle, Clock, AlertTriangle, PlusCircle, X,
-  Settings, Activity,
+  Activity,
 } from 'lucide-react'
 import api from '../api/client'
-import { usePin } from '../contexts/PinContext'
+import { useAuth } from '../contexts/AuthContext'
 
 // ── Formatting helpers ──────────────────────────────────────────────────────
 
@@ -46,30 +46,22 @@ function priorityColor(p) {
 // ── Filter types ─────────────────────────────────────────────────────────────
 
 const FILTER_TYPES = [
-  { key: 'ward_round',     label: 'Doctor Notes' },
-  { key: 'progress_note',  label: 'Progress Notes' },
-  { key: 'nursing_note',   label: 'Nurse Notes' },
-  { key: 'lab_order',      label: 'Lab Results' },
-  { key: 'imaging_order',  label: 'Imaging Results' },
+  { key: 'ward_round',      label: 'Doctor Notes' },
+  { key: 'progress_note',   label: 'Progress Notes' },
+  { key: 'nursing_note',    label: 'Nurse Notes' },
+  { key: 'lab_order',       label: 'Lab Results' },
+  { key: 'imaging_order',   label: 'Imaging Results' },
   { key: 'medication_order', label: 'Medications' },
-  { key: 'clinical_order', label: 'Orders' },
-  { key: 'transfer',       label: 'Transfers' },
+  { key: 'clinical_order',  label: 'Orders' },
+  { key: 'transfer',        label: 'Transfers' },
+  { key: 'pending_review',  label: 'Pending Review', pseudo: true },
 ]
 
 // ── Entry renderers ───────────────────────────────────────────────────────────
 
-function SOAPSection({ label, text }) {
-  if (!text) return null
-  return (
-    <div className="mb-1">
-      <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400 mr-1">{label}</span>
-      <span className="text-[12px] text-gray-700 whitespace-pre-wrap">{text}</span>
-    </div>
-  )
-}
-
 function WardRoundEntry({ entry }) {
   const [open, setOpen] = useState(true)
+  const noteText = [entry.subjective, entry.objective, entry.assessment, entry.plan].filter(Boolean).join('\n\n')
   return (
     <div className="border border-blue-100 rounded-lg bg-blue-50/40 overflow-hidden">
       <button
@@ -79,19 +71,16 @@ function WardRoundEntry({ entry }) {
         <div className="flex items-center gap-2">
           <Stethoscope size={13} className="text-blue-600 shrink-0" />
           <span className="text-[12px] font-semibold text-blue-900">{entry.doctor_name}</span>
-          <span className="text-[11px] text-gray-500">— {fmtTime(entry.timestamp)}</span>
+          <span className="text-[11px] text-gray-500">Ward Round · {fmtTime(entry.timestamp)}</span>
         </div>
         {open ? <ChevronUp size={13} className="text-gray-400" /> : <ChevronDown size={13} className="text-gray-400" />}
       </button>
       {open && (
-        <div className="px-3 pb-3 pt-1 border-t border-blue-100">
-          <SOAPSection label="S" text={entry.subjective} />
-          <SOAPSection label="O" text={entry.objective} />
-          <SOAPSection label="A" text={entry.assessment} />
-          <SOAPSection label="P" text={entry.plan} />
-          {!entry.subjective && !entry.objective && !entry.assessment && !entry.plan && (
-            <span className="text-[11px] text-gray-400 italic">No notes recorded</span>
-          )}
+        <div className="px-3 pb-3 pt-2 border-t border-blue-100">
+          {noteText
+            ? <p className="text-[12px] text-gray-700 leading-relaxed whitespace-pre-wrap">{noteText}</p>
+            : <span className="text-[11px] text-gray-400 italic">No notes recorded</span>
+          }
         </div>
       )}
     </div>
@@ -121,6 +110,7 @@ function NursingNoteEntry({ entry }) {
 
 function ProgressNoteEntry({ entry }) {
   const [open, setOpen] = useState(true)
+  const noteText = [entry.subjective, entry.objective, entry.assessment, entry.plan].filter(Boolean).join('\n\n')
   return (
     <div className="border border-purple-100 rounded-lg bg-purple-50/30 overflow-hidden">
       <button
@@ -133,23 +123,23 @@ function ProgressNoteEntry({ entry }) {
           <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 font-medium uppercase">
             {entry.note_type || 'Progress'}
           </span>
-          <span className="text-[11px] text-gray-500">— {fmtTime(entry.timestamp)}</span>
+          <span className="text-[11px] text-gray-500">· {fmtTime(entry.timestamp)}</span>
         </div>
         {open ? <ChevronUp size={13} className="text-gray-400" /> : <ChevronDown size={13} className="text-gray-400" />}
       </button>
       {open && (
-        <div className="px-3 pb-3 pt-1 border-t border-purple-100">
-          <SOAPSection label="S" text={entry.subjective} />
-          <SOAPSection label="O" text={entry.objective} />
-          <SOAPSection label="A" text={entry.assessment} />
-          <SOAPSection label="P" text={entry.plan} />
+        <div className="px-3 pb-3 pt-2 border-t border-purple-100">
+          {noteText
+            ? <p className="text-[12px] text-gray-700 leading-relaxed whitespace-pre-wrap">{noteText}</p>
+            : <span className="text-[11px] text-gray-400 italic">No content</span>
+          }
         </div>
       )}
     </div>
   )
 }
 
-function LabOrderEntry({ entry, admissionId, onAcknowledge }) {
+function LabOrderEntry({ entry, admissionId, onAcknowledge, isDoctor }) {
   const r = entry.result
   const hasResult = !!r
   const isAbnormal = hasResult && (r.observations || []).some(o => o.flag && o.flag !== 'N' && o.flag !== '')
@@ -213,13 +203,18 @@ function LabOrderEntry({ entry, admissionId, onAcknowledge }) {
                 <div className="text-[11px] text-gray-600 italic mt-1">{r.interpretation}</div>
               )}
               <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                {isPending && !isAcknowledged && (
+                {isPending && !isAcknowledged && isDoctor && (
                   <button
                     onClick={() => onAcknowledge('lab', r.id)}
                     className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 transition-colors"
                   >
                     <Clock size={10} /> Pending Review — Acknowledge
                   </button>
+                )}
+                {isPending && !isAcknowledged && !isDoctor && (
+                  <span className="flex items-center gap-1 text-[11px] text-amber-600">
+                    <Clock size={10} /> Pending Review
+                  </span>
                 )}
                 {isAcknowledged && (
                   <span className="flex items-center gap-1 text-[11px] text-emerald-600">
@@ -246,7 +241,7 @@ function LabOrderEntry({ entry, admissionId, onAcknowledge }) {
   )
 }
 
-function ImagingOrderEntry({ entry, admissionId, onAcknowledge }) {
+function ImagingOrderEntry({ entry, admissionId, onAcknowledge, isDoctor }) {
   const r = entry.result
   const hasResult = !!r
   const isPending = hasResult && r.status === 'pending_review'
@@ -292,13 +287,18 @@ function ImagingOrderEntry({ entry, admissionId, onAcknowledge }) {
                 </div>
               )}
               <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                {isPending && !isAcknowledged && (
+                {isPending && !isAcknowledged && isDoctor && (
                   <button
                     onClick={() => onAcknowledge('imaging', r.id)}
                     className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 transition-colors"
                   >
                     <Clock size={10} /> Pending Review — Acknowledge
                   </button>
+                )}
+                {isPending && !isAcknowledged && !isDoctor && (
+                  <span className="flex items-center gap-1 text-[11px] text-amber-600">
+                    <Clock size={10} /> Pending Review
+                  </span>
                 )}
                 {isAcknowledged && (
                   <span className="flex items-center gap-1 text-[11px] text-emerald-600">
@@ -410,20 +410,20 @@ function TransferEntry({ entry }) {
 // ── New Ward Round note modal ─────────────────────────────────────────────────
 
 function NewRoundModal({ admission, onClose, onSaved }) {
-  const [form, setForm] = useState({ round_date: new Date().toISOString(), subjective: '', objective: '', assessment: '', plan: '' })
+  const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
 
   async function submit(e) {
     e.preventDefault()
-    if (!form.assessment && !form.plan && !form.subjective && !form.objective) {
-      setError('Enter at least one SOAP field.')
-      return
-    }
+    if (!note.trim()) { setError('Note cannot be empty.'); return }
     setSaving(true)
     setError(null)
     try {
-      await api.post(`/inpatient/admissions/${admission.id}/rounds`, form)
+      await api.post(`/inpatient/admissions/${admission.id}/rounds`, {
+        round_date: new Date().toISOString(),
+        assessment: note.trim(),
+      })
       onSaved()
       onClose()
     } catch {
@@ -433,34 +433,25 @@ function NewRoundModal({ admission, onClose, onSaved }) {
     }
   }
 
-  const field = (label, key, placeholder) => (
-    <div>
-      <label className="block text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-1">{label}</label>
-      <textarea
-        rows={3}
-        className="w-full text-[12px] border border-gray-200 rounded-lg px-2.5 py-1.5 resize-none focus:outline-none focus:border-blue-400"
-        placeholder={placeholder}
-        value={form[key]}
-        onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-      />
-    </div>
-  )
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg flex flex-col">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <span className="text-[14px] font-bold text-gray-900 flex items-center gap-2">
             <Stethoscope size={16} className="text-blue-600" /> New Ward Round Note
           </span>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
         </div>
-        <form onSubmit={submit} className="p-5 space-y-3 overflow-y-auto flex-1">
-          {field('Subjective (S)', 'subjective', 'Patient complaints, history updates…')}
-          {field('Objective (O)', 'objective', 'Examination findings, vitals…')}
-          {field('Assessment (A)', 'assessment', 'Diagnosis, clinical impression…')}
-          {field('Plan (P)', 'plan', 'Management plan, medications, investigations…')}
-          {error && <div className="text-[11px] text-red-600">{error}</div>}
+        <form onSubmit={submit} className="p-5">
+          <textarea
+            rows={7}
+            autoFocus
+            className="w-full text-[13px] border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:border-blue-400"
+            placeholder="Enter ward round note…"
+            value={note}
+            onChange={e => setNote(e.target.value)}
+          />
+          {error && <div className="text-[11px] text-red-600 mt-1">{error}</div>}
         </form>
         <div className="flex gap-2 px-5 py-3 border-t border-gray-100">
           <button onClick={onClose} className="flex-1 text-[12px] py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">Cancel</button>
@@ -564,9 +555,21 @@ function AddVitalsModal({ admission, onClose, onSaved }) {
 
 // ── Vitals strip ──────────────────────────────────────────────────────────────
 
-function VitalsStrip({ vitals, onAddVitals }) {
+function VitalsStrip({ vitals, onAddVitals, activeFilters, onFilterChange, filterDropRef }) {
   const latest = vitals && vitals[0]
-  const filterRef = useRef(null)
+  const [showFilter, setShowFilter] = useState(false)
+  const filterBtnRef = useRef(null)
+  const filterActive = activeFilters.length > 0
+
+  useEffect(() => {
+    if (!showFilter) return
+    function handler(e) {
+      if (filterBtnRef.current?.contains(e.target) || filterDropRef.current?.contains(e.target)) return
+      setShowFilter(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showFilter])
 
   return (
     <div className="flex items-center gap-4 px-4 py-2 bg-white border-b border-gray-100 overflow-x-auto">
@@ -587,13 +590,35 @@ function VitalsStrip({ vitals, onAddVitals }) {
           </span>
         </>
       )}
-      <div className="ml-auto shrink-0">
+      <div className="ml-auto flex items-center gap-2 shrink-0">
         <button
           onClick={onAddVitals}
           className="text-[11px] text-emerald-600 hover:text-emerald-800 font-medium whitespace-nowrap"
         >
           + Add Vitals
         </button>
+        <div className="relative" ref={filterBtnRef}>
+          <button
+            onClick={() => setShowFilter(v => !v)}
+            title="Filter entries"
+            className={`flex items-center justify-center w-7 h-7 rounded-lg border transition-colors ${
+              filterActive
+                ? 'bg-blue-50 border-blue-200 text-blue-600'
+                : 'border-gray-200 text-gray-500 hover:bg-gray-50'
+            }`}
+          >
+            <span className="text-[14px] leading-none">⚙</span>
+          </button>
+          {showFilter && (
+            <div ref={filterDropRef}>
+              <FilterDropdown
+                activeFilters={activeFilters}
+                onChange={onFilterChange}
+                onClose={() => setShowFilter(false)}
+              />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -611,7 +636,7 @@ function VitalChip({ label, value, unit }) {
 
 // ── Patient header strip ──────────────────────────────────────────────────────
 
-function PatientHeader({ admission, patient, vitals, onAddVitals, onShowAdmForm }) {
+function PatientHeader({ admission, patient, vitals, onAddVitals, onShowAdmForm, activeFilters, onFilterChange, filterDropRef }) {
   const acuityColor = { critical: '#dc2626', high: '#d97706', medium: '#2563eb', low: '#059669' }
   const acuity = admission?.acuity_level
 
@@ -655,29 +680,53 @@ function PatientHeader({ admission, patient, vitals, onAddVitals, onShowAdmForm 
         </button>
       </div>
       {/* Vitals strip */}
-      <VitalsStrip vitals={vitals} onAddVitals={onAddVitals} />
+      <VitalsStrip
+        vitals={vitals}
+        onAddVitals={onAddVitals}
+        activeFilters={activeFilters}
+        onFilterChange={onFilterChange}
+        filterDropRef={filterDropRef}
+      />
     </div>
   )
 }
 
 // ── Filter dropdown ───────────────────────────────────────────────────────────
 
-function FilterDropdown({ activeFilters, onChange, onClose, anchorRef }) {
-  const all = activeFilters.length === 0 || activeFilters.length === FILTER_TYPES.length
+const REAL_FILTER_KEYS = FILTER_TYPES.filter(f => !f.pseudo).map(f => f.key)
 
-  function toggle(key) {
-    if (all) {
-      onChange(FILTER_TYPES.map(f => f.key).filter(k => k !== key))
-    } else if (activeFilters.includes(key)) {
-      const next = activeFilters.filter(k => k !== key)
-      onChange(next.length === 0 ? [] : next)
+function FilterDropdown({ activeFilters, onChange, onClose }) {
+  const isPendingOnly = activeFilters.includes('pending_review')
+  const realActive = activeFilters.filter(k => k !== 'pending_review')
+  const allReal = realActive.length === 0 || realActive.length === REAL_FILTER_KEYS.length
+
+  function toggle(key, isPseudo) {
+    if (isPseudo) {
+      // Toggle pending_review independently of real filters
+      if (isPendingOnly) {
+        onChange(activeFilters.filter(k => k !== 'pending_review'))
+      } else {
+        onChange([...activeFilters, 'pending_review'])
+      }
+      return
+    }
+    // Real filter toggle
+    const withoutPending = activeFilters.filter(k => k !== 'pending_review')
+    if (allReal) {
+      // Currently showing all — deselect all others and show only this one
+      const next = REAL_FILTER_KEYS.filter(k => k !== key)
+      onChange(isPendingOnly ? [...next, 'pending_review'] : next)
+    } else if (withoutPending.includes(key)) {
+      const next = withoutPending.filter(k => k !== key)
+      onChange(isPendingOnly ? [...next, 'pending_review'] : next)
     } else {
-      onChange([...activeFilters, key])
+      const next = [...withoutPending, key]
+      onChange(isPendingOnly ? [...next, 'pending_review'] : next)
     }
   }
 
   return (
-    <div className="absolute right-0 top-full mt-1 z-30 bg-white border border-gray-200 rounded-xl shadow-xl p-2 w-44">
+    <div className="absolute right-0 top-full mt-1 z-30 bg-white border border-gray-200 rounded-xl shadow-xl p-2 w-48">
       <div className="flex items-center justify-between px-2 py-1 mb-1">
         <span className="text-[11px] font-bold text-gray-700">Filter entries</span>
         <button
@@ -688,16 +737,23 @@ function FilterDropdown({ activeFilters, onChange, onClose, anchorRef }) {
         </button>
       </div>
       {FILTER_TYPES.map(ft => {
-        const checked = all || activeFilters.includes(ft.key)
+        const checked = ft.pseudo
+          ? isPendingOnly
+          : (allReal || activeFilters.includes(ft.key))
         return (
-          <label key={ft.key} className="flex items-center gap-2 px-2 py-1 rounded cursor-pointer hover:bg-gray-50">
+          <label
+            key={ft.key}
+            className={`flex items-center gap-2 px-2 py-1 rounded cursor-pointer hover:bg-gray-50 ${ft.pseudo ? 'border-t border-gray-100 mt-1 pt-2' : ''}`}
+          >
             <input
               type="checkbox"
               checked={checked}
-              onChange={() => toggle(ft.key)}
+              onChange={() => toggle(ft.key, ft.pseudo)}
               className="accent-blue-600 w-3.5 h-3.5"
             />
-            <span className="text-[12px] text-gray-700">{ft.label}</span>
+            <span className={`text-[12px] ${ft.pseudo ? 'text-amber-700 font-medium' : 'text-gray-700'}`}>
+              {ft.label}
+            </span>
           </label>
         )
       })}
@@ -708,14 +764,14 @@ function FilterDropdown({ activeFilters, onChange, onClose, anchorRef }) {
 // ── Main WardRoundsChart ──────────────────────────────────────────────────────
 
 export default function WardRoundsChart({ admission, patient, vitals, onVitalsAdded, onShowAdmForm }) {
+  const { user } = useAuth()
+  const isDoctor = user?.role === 'doctor'
   const [entries, setEntries] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [activeFilters, setActiveFilters] = useState([])  // empty = show all
-  const [showFilter, setShowFilter] = useState(false)
   const [showNewRound, setShowNewRound] = useState(false)
   const [showAddVitals, setShowAddVitals] = useState(false)
-  const filterBtnRef = useRef(null)
   const filterDropRef = useRef(null)
 
   async function load() {
@@ -734,16 +790,6 @@ export default function WardRoundsChart({ admission, patient, vitals, onVitalsAd
 
   useEffect(() => { load() }, [admission?.id])
 
-  // Close filter dropdown on outside click
-  useEffect(() => {
-    if (!showFilter) return
-    function handler(e) {
-      if (filterBtnRef.current?.contains(e.target) || filterDropRef.current?.contains(e.target)) return
-      setShowFilter(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [showFilter])
 
   async function acknowledge(kind, resultId) {
     try {
@@ -759,9 +805,19 @@ export default function WardRoundsChart({ admission, patient, vitals, onVitalsAd
   }
 
   // Group by day
-  const filtered = activeFilters.length === 0
-    ? entries
-    : entries.filter(e => activeFilters.includes(e.type))
+  const realFilters = activeFilters.filter(k => k !== 'pending_review')
+  const pendingOnly = activeFilters.includes('pending_review')
+
+  const filtered = entries.filter(e => {
+    const typeMatch = realFilters.length === 0 || realFilters.includes(e.type)
+    if (!typeMatch) return false
+    if (pendingOnly) {
+      // Only show lab/imaging entries with an unacknowledged pending_review result
+      if (e.type !== 'lab_order' && e.type !== 'imaging_order') return false
+      return e.result?.status === 'pending_review' && !e.result?.acknowledged_at
+    }
+    return true
+  })
 
   const days = []
   const seen = new Set()
@@ -785,6 +841,9 @@ export default function WardRoundsChart({ admission, patient, vitals, onVitalsAd
         vitals={vitals}
         onAddVitals={() => setShowAddVitals(true)}
         onShowAdmForm={onShowAdmForm}
+        activeFilters={activeFilters}
+        onFilterChange={setActiveFilters}
+        filterDropRef={filterDropRef}
       />
 
       {/* Toolbar */}
@@ -800,28 +859,6 @@ export default function WardRoundsChart({ admission, patient, vitals, onVitalsAd
             <AlertTriangle size={11} /> {pendingCount} pending review
           </span>
         )}
-        <div className="ml-auto relative" ref={filterBtnRef}>
-          <button
-            onClick={() => setShowFilter(v => !v)}
-            title="Filter entries"
-            className={`flex items-center justify-center w-7 h-7 rounded-lg border transition-colors ${
-              activeFilters.length > 0
-                ? 'bg-blue-50 border-blue-200 text-blue-600'
-                : 'border-gray-200 text-gray-500 hover:bg-gray-50'
-            }`}
-          >
-            <span className="text-[14px] leading-none">⚙</span>
-          </button>
-          {showFilter && (
-            <div ref={filterDropRef}>
-              <FilterDropdown
-                activeFilters={activeFilters}
-                onChange={setActiveFilters}
-                onClose={() => setShowFilter(false)}
-              />
-            </div>
-          )}
-        </div>
       </div>
 
       {/* Timeline */}
@@ -860,10 +897,10 @@ export default function WardRoundsChart({ admission, patient, vitals, onVitalsAd
                   {entry.type === 'nursing_note' && <NursingNoteEntry entry={entry} />}
                   {entry.type === 'progress_note' && <ProgressNoteEntry entry={entry} />}
                   {entry.type === 'lab_order' && (
-                    <LabOrderEntry entry={entry} admissionId={admission?.id} onAcknowledge={acknowledge} />
+                    <LabOrderEntry entry={entry} admissionId={admission?.id} onAcknowledge={acknowledge} isDoctor={isDoctor} />
                   )}
                   {entry.type === 'imaging_order' && (
-                    <ImagingOrderEntry entry={entry} admissionId={admission?.id} onAcknowledge={acknowledge} />
+                    <ImagingOrderEntry entry={entry} admissionId={admission?.id} onAcknowledge={acknowledge} isDoctor={isDoctor} />
                   )}
                   {entry.type === 'medication_order' && <MedicationOrderEntry entry={entry} />}
                   {entry.type === 'clinical_order' && <ClinicalOrderEntry entry={entry} />}
