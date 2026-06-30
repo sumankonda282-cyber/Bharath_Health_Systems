@@ -305,8 +305,91 @@ function LabInvestigationsRenderer({ labOrders, allPatientLabOrders, apptId }) {
   )
 }
 
+// ── Imaging Result Modal ──────────────────────────────────────────
+function ImagingResultModal({ order, onClose }) {
+  const result = order?.result || {}
+
+  useEffect(() => {
+    const esc = (e) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', esc)
+    return () => document.removeEventListener('keydown', esc)
+  }, [onClose])
+
+  const label = order.study_description || order.body_part
+    ? `${order.modality_label || order.modality || ''}${order.body_part ? ' — ' + order.body_part : ''}${order.study_description ? ' · ' + order.study_description : ''}`
+    : order.modality_label || order.modality || 'Imaging Result'
+
+  const hasContent = result.findings || result.impression || result.radiologist_notes || result.conclusion
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+        style={{ width: '60vw', maxHeight: '80vh' }}
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
+          <div>
+            <div className="font-bold text-gray-900 text-base flex items-center gap-2">
+              <Scan size={15} className="text-teal-500" />
+              {label}
+            </div>
+            <div className="text-xs text-gray-400 mt-0.5 flex items-center gap-3">
+              {order?.ordered_at && <span>Ordered {fmtDate(order.ordered_at)}</span>}
+              {result?.reported_at && <span>Reported {fmtDate(result.reported_at)}</span>}
+              {result?.radiologist_name && <span>by {result.radiologist_name}</span>}
+              {order?.status && <span className="capitalize">{String(order.status).replace(/_/g, ' ')}</span>}
+            </div>
+          </div>
+          <button onClick={onClose}
+            className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors">
+            <X size={14} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+          {!hasContent ? (
+            <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+              <Scan size={40} className="opacity-20 mb-3" />
+              <p className="text-sm">Report not yet available</p>
+            </div>
+          ) : (
+            <>
+              {result.findings && (
+                <div>
+                  <div className="text-[11px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">Findings</div>
+                  <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">{result.findings}</p>
+                </div>
+              )}
+              {result.impression && (
+                <div>
+                  <div className="text-[11px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">Impression</div>
+                  <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed font-medium">{result.impression}</p>
+                </div>
+              )}
+              {result.conclusion && (
+                <div>
+                  <div className="text-[11px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">Conclusion</div>
+                  <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">{result.conclusion}</p>
+                </div>
+              )}
+              {result.radiologist_notes && (
+                <div>
+                  <div className="text-[11px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">Radiologist Notes</div>
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed italic">{result.radiologist_notes}</p>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Imaging Investigations Renderer ───────────────────────────────
 function ImagingInvestigationsRenderer({ imagingOrders, allPatientImagingOrders }) {
+  const [openModal, setOpenModal] = useState(null)
+
   const orderedIds = new Set((imagingOrders || []).map(o => o.id))
   const unordered = (allPatientImagingOrders || []).filter(
     o => !orderedIds.has(o.id) && o.has_result
@@ -327,14 +410,15 @@ function ImagingInvestigationsRenderer({ imagingOrders, allPatientImagingOrders 
             Not Ordered
           </span>
         )}
-        {isReported ? (
-          <span className="text-[10px] font-bold bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded-full uppercase tracking-wide">
-            Reported
-          </span>
-        ) : (
+        {!isReported ? (
           <span className="text-[10px] font-bold bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded-full uppercase tracking-wide">
             Pending
           </span>
+        ) : (
+          <button onClick={() => setOpenModal(order)}
+            className="flex items-center gap-1 text-[11px] text-blue-500 hover:text-blue-700 font-medium ml-1">
+            <Maximize2 size={11} /> Report
+          </button>
         )}
       </div>
     )
@@ -351,6 +435,7 @@ function ImagingInvestigationsRenderer({ imagingOrders, allPatientImagingOrders 
           {unordered.map(o => renderOrder(o, 'not-ordered'))}
         </>
       )}
+      {openModal && <ImagingResultModal order={openModal} onClose={() => setOpenModal(null)} />}
     </div>
   )
 }
