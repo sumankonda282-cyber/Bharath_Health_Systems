@@ -16,7 +16,7 @@ from app.models.models import (
 )
 from app.core.security import (
     get_current_staff, require_doctor_or_nurse, require_imaging_access,
-    require_imaging_sign,
+    require_imaging_sign, require_any_staff,
 )
 from app.core import ids
 
@@ -92,14 +92,20 @@ def create_imaging_order(
 
 @router.get('')
 def list_imaging_orders(
-    status:  Optional[str] = Query(None),
-    db:      Session = Depends(get_db),
-    current = Depends(require_imaging_access),
+    status:         Optional[str] = Query(None),
+    appointment_id: Optional[int] = Query(None),
+    patient_id:     Optional[int] = Query(None),
+    db:             Session = Depends(get_db),
+    current = Depends(require_any_staff),
 ):
     q = db.query(ImagingOrder).filter_by(clinic_id=current.clinic_id)
     if status:
         q = q.filter_by(status=status)
-    orders  = q.order_by(ImagingOrder.created_at.desc()).limit(200).all()
+    if appointment_id:
+        q = q.filter_by(appointment_id=appointment_id)
+    if patient_id:
+        q = q.filter_by(patient_id=patient_id)
+    orders = q.order_by(ImagingOrder.created_at.desc()).limit(200).all()
     patients = {
         p.id: p for p in db.query(Patient)
         .filter(Patient.id.in_([o.patient_id for o in orders])).all()
@@ -296,19 +302,20 @@ def collection_sheet(
 
 def _order_out(order: ImagingOrder, patient) -> dict:
     return {
-        'id':               order.id,
-        'order_id':         order.order_id,
-        'patient_id':       order.patient_id,
-        'patient_name':     patient.full_name if patient else '',
-        'modality':         order.modality,
-        'modality_label':   MODALITY_LABELS.get(order.modality or '', order.modality or ''),
-        'body_part':        order.body_part,
+        'id':                order.id,
+        'order_id':          order.order_id,
+        'appointment_id':    order.appointment_id,
+        'patient_id':        order.patient_id,
+        'patient_name':      patient.full_name if patient else '',
+        'modality':          order.modality,
+        'modality_label':    MODALITY_LABELS.get(order.modality or '', order.modality or ''),
+        'body_part':         order.body_part,
         'study_description': order.study_description,
-        'priority':         order.priority,
-        'status':           order.status,
-        'created_at':       order.created_at.isoformat() if order.created_at else None,
-        'has_result':       order.result is not None,
-        'result_status':    order.result.status if order.result else None,
+        'priority':          order.priority,
+        'status':            order.status,
+        'created_at':        order.created_at.isoformat() if order.created_at else None,
+        'has_result':        order.result is not None,
+        'result_status':     order.result.status if order.result else None,
     }
 
 

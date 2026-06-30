@@ -854,6 +854,8 @@ class LabResult(Base):
     report_hash     = Column(String(64), nullable=True)   # SHA-256 for tamper detection
     amended_from    = Column(Integer, ForeignKey("lab_results.id"), nullable=True)
     source          = Column(String(30), default='bridge')  # bridge | manual | pdf_upload
+    acknowledged_by = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    acknowledged_at = Column(DateTime, nullable=True)
     created_at      = Column(DateTime, server_default=func.now())
 
     order           = relationship("LabOrder", back_populates="result")
@@ -935,6 +937,8 @@ class ImagingResult(Base):
     signed_at       = Column(DateTime, nullable=True)
     report_hash     = Column(String(64), nullable=True)
     source          = Column(String(30), default='bridge')
+    acknowledged_by = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    acknowledged_at = Column(DateTime, nullable=True)
     created_at      = Column(DateTime, server_default=func.now())
 
     order           = relationship("ImagingOrder", back_populates="result")

@@ -4,7 +4,7 @@ import {
   X, Lock, CheckCircle, Save, BookOpen,
   Edit3, ShoppingBag, Utensils, Navigation,
   Activity, Heart, Pill, ClipboardList,
-  MessageSquare, Bed, ShieldAlert,
+  MessageSquare, Bed, ShieldAlert, ListChecks,
 } from 'lucide-react'
 import { useWardSession } from '../contexts/WardSessionContext'
 import { usePin } from '../contexts/PinContext'
@@ -20,6 +20,7 @@ import PrePostOp from './PrePostOp'
 import PatientMovement from './PatientMovement'
 import DischargeSummary from './DischargeSummary'
 import NursingNotes from './NursingNotes'
+import WardRoundsChart from './WardRoundsChart'
 
 import { GREEN, NAVY } from '../constants/colors'
 import CautionBadge from '../components/CautionBadge'
@@ -145,6 +146,7 @@ const FORM_KEY_MAP_FROM_POOL = (() => {
 // ── Patient sidebar items ────────────────────────────────────────────────────
 const PATIENT_NAV = [
   { key: 'dashboard',    icon: Activity,      label: 'Dashboard' },
+  { key: 'ward-rounds',  icon: ListChecks,    label: 'Ward Rounds' },
   { key: 'provider',     icon: Heart,         label: 'Provider View' },
   { key: 'medications',  icon: Pill,          label: 'Medication List' },
   { key: 'mar',          icon: ClipboardList, label: 'MAR' },
@@ -835,6 +837,15 @@ export default function PatientChart() {
 
   const renderContent = (nav) => {
     switch (nav) {
+      case 'ward-rounds': return (
+        <WardRoundsChart
+          admission={admission}
+          patient={adm}
+          vitals={vitals}
+          onVitalsAdded={load}
+          onShowAdmForm={() => setShowAdmForm(true)}
+        />
+      )
       case 'provider':    return <ProviderView admission={admission} vitals={vitals} />
       case 'medications': return <MedicationList admission={admission} />
       case 'mar':         return <MAR admission={admission} />
