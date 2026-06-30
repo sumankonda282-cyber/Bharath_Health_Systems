@@ -51,35 +51,42 @@ FORM = {
     "icon":        "📋",
     "clinic_id":   None,       # global — visible in both global and clinic-scoped searches
     "is_template": True,       # appears in form library
+    # schema must use sections[] structure — _form_field_count reads sections[].fields
     "schema": {
-        "fields": [
+        "sections": [
             {
-                "id":          "chief_complaint",
-                "type":        "text",
-                "label":       "Chief Complaint",
-                "required":    True,
-                "placeholder": "Main reason for today's visit"
-            },
-            {
-                "id":          "duration",
-                "type":        "text",
-                "label":       "Duration of Symptoms",
-                "required":    False,
-                "placeholder": "e.g. 3 days, 2 weeks"
-            },
-            {
-                "id":          "severity",
-                "type":        "select",
-                "label":       "Severity",
-                "required":    False,
-                "options":     ["Mild", "Moderate", "Severe"]
-            },
-            {
-                "id":          "associated_symptoms",
-                "type":        "textarea",
-                "label":       "Associated Symptoms",
-                "required":    False,
-                "placeholder": "Any other symptoms the patient reports…"
+                "id":     "history",
+                "title":  "History",
+                "fields": [
+                    {
+                        "id":          "chief_complaint",
+                        "type":        "text",
+                        "label":       "Chief Complaint",
+                        "required":    True,
+                        "placeholder": "Main reason for today's visit"
+                    },
+                    {
+                        "id":          "duration",
+                        "type":        "text",
+                        "label":       "Duration of Symptoms",
+                        "required":    False,
+                        "placeholder": "e.g. 3 days, 2 weeks"
+                    },
+                    {
+                        "id":          "severity",
+                        "type":        "select",
+                        "label":       "Severity",
+                        "required":    False,
+                        "options":     ["Mild", "Moderate", "Severe"]
+                    },
+                    {
+                        "id":          "associated_symptoms",
+                        "type":        "textarea",
+                        "label":       "Associated Symptoms",
+                        "required":    False,
+                        "placeholder": "Any other symptoms the patient reports…"
+                    }
+                ]
             }
         ]
     }
@@ -94,7 +101,15 @@ def seed():
             AssessmentForm.deleted_at.is_(None),
         ).first()
         if existing:
-            print(f"[seed] Form already exists (id={existing.id}) — skipping.")
+            # Re-insert if schema uses old flat fields structure (won't pass _form_field_count)
+            old_schema = existing.schema or {}
+            if "fields" in old_schema and "sections" not in old_schema:
+                print(f"[seed] Existing form has flat schema — replacing with sections[] structure.")
+                existing.schema = FORM["schema"]
+                db.commit()
+                print(f"[seed] Updated id={existing.id} schema to sections[] format.")
+            else:
+                print(f"[seed] Form already exists (id={existing.id}) — skipping.")
             return
 
         now = datetime.utcnow()

@@ -923,12 +923,29 @@ except Exception as e:
 
 echo "[bg-migrations] Seeding demo/test accounts (idempotent)..."
 timeout 60 python seed.py || echo "[bg-migrations] Demo seed failed (non-fatal)"
-echo "[bg-migrations] Consolidating to a single canonical Vital Signs form..."
-timeout 120 python seed_vitals.py || echo "[bg-migrations] Vitals consolidation failed (non-fatal)"
-echo "[bg-migrations] Seeding the standardized DB assessment-form library (idempotent; empty stubs upgraded in place)..."
-timeout 180 python seed_assessment_forms.py --all || echo "[bg-migrations] Assessment forms seed failed (non-fatal)"
-echo "[bg-migrations] Seeding validated scored tools (PHQ-9, GAD-7, GCS, Morse, APGAR, Pain, Wound)..."
-timeout 60 python seed_forms.py || echo "[bg-migrations] Validated tools seed failed (non-fatal)"
+# Assessment form seeds disabled — all global form templates cleared on next deploy.
+# seed_vitals.py / seed_assessment_forms.py / seed_forms.py intentionally skipped.
+echo "[bg-migrations] Clearing ALL assessment form templates (full library reset)..."
+python - <<'PYEOF'
+import os, sys
+sys.path.insert(0, os.path.dirname(__file__))
+DATABASE_URL = os.environ.get("DATABASE_URL", "")
+if not DATABASE_URL:
+    print("[clear-forms] DATABASE_URL not set — skipping"); sys.exit(0)
+for old, new in [("postgres://","postgresql+psycopg2://"),("postgresql://","postgresql+psycopg2://"),("postgresql+asyncpg","postgresql+psycopg2")]:
+    if DATABASE_URL.startswith(old) and new not in DATABASE_URL:
+        DATABASE_URL = DATABASE_URL.replace(old, new, 1); break
+from sqlalchemy import create_engine, text
+engine = create_engine(DATABASE_URL, pool_pre_ping=True, connect_args={"options":"-c prepared_statement_cache_size=0"})
+with engine.begin() as conn:
+    result = conn.execute(text("""
+        UPDATE assessment_forms
+        SET deleted_at = NOW()
+        WHERE deleted_at IS NULL
+          AND title != 'OPD History & Complaint (Test)'
+    """))
+    print(f"[clear-forms] Soft-deleted {result.rowcount} form templates (all clinics).")
+PYEOF
 echo "[bg-migrations] Seeding OPD test form for chart rendering verification..."
 timeout 30 python seed_opd_test_form.py || echo "[bg-migrations] OPD test form seed failed (non-fatal)"
 echo "[bg-migrations] Done."

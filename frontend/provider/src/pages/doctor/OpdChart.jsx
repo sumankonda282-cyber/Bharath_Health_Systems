@@ -98,7 +98,15 @@ function FormContentRenderer({ submission }) {
     .map(([k, v]) => ({ key: k, label: formatKey(k), value: parseValue(v) }))
     .filter(e => e.value && e.value !== 'No')
 
-  if (!entries.length) return null
+  if (!entries.length) return (
+    <p className="text-sm text-gray-500 italic">
+      Form submitted —{' '}
+      <a href={`/forms/submission/${submission.id}`} target="_blank" rel="noreferrer"
+        className="text-blue-500 hover:underline inline-flex items-center gap-0.5">
+        View <ExternalLink size={10} />
+      </a>
+    </p>
+  )
 
   const short  = entries.filter(e => e.value.length < 25)
   const medium = entries.filter(e => e.value.length >= 25 && e.value.length < 65)
@@ -150,6 +158,7 @@ function FormContentRenderer({ submission }) {
 // ── Lab Results Modal ─────────────────────────────────────────────
 function LabResultsModal({ order, onClose }) {
   const items = order?.items || order?.results || []
+  const modalTitle = order?.test_names?.join(', ') || items.map(i => i.test_name || i.name).filter(Boolean).join(', ') || order?.name || 'Lab Results'
 
   useEffect(() => {
     const esc = (e) => { if (e.key === 'Escape') onClose() }
@@ -165,7 +174,7 @@ function LabResultsModal({ order, onClose }) {
         onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
           <div>
-            <div className="font-bold text-gray-900 text-base">{order?.test_name || order?.name || 'Lab Results'}</div>
+            <div className="font-bold text-gray-900 text-base">{modalTitle}</div>
             <div className="text-xs text-gray-400 mt-0.5 flex items-center gap-3">
               {order?.ordered_at && <span>Ordered {fmtDate(order.ordered_at)}</span>}
               {order?.resulted_at && <span>Resulted {fmtDate(order.resulted_at)}</span>}
@@ -297,8 +306,80 @@ function LabInvestigationsRenderer({ labOrders, allPatientLabOrders, apptId }) {
   )
 }
 
+// ── Imaging Result Modal ──────────────────────────────────────────
+function ImagingResultModal({ order, onClose }) {
+  // Backend returns findings/impression as flat fields on the order object, not nested under result
+  const findings  = order?.findings
+  const impression = order?.impression
+  const signedAt  = order?.signed_at
+  const hasContent = findings || impression
+
+  useEffect(() => {
+    const esc = (e) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', esc)
+    return () => document.removeEventListener('keydown', esc)
+  }, [onClose])
+
+  const label = order.study_description || order.body_part
+    ? `${order.modality_label || order.modality || ''}${order.body_part ? ' — ' + order.body_part : ''}${order.study_description ? ' · ' + order.study_description : ''}`
+    : order.modality_label || order.modality || 'Imaging Result'
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+        style={{ width: '60vw', maxHeight: '80vh' }}
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
+          <div>
+            <div className="font-bold text-gray-900 text-base flex items-center gap-2">
+              <Scan size={15} className="text-teal-500" />
+              {label}
+            </div>
+            <div className="text-xs text-gray-400 mt-0.5 flex items-center gap-3">
+              {order?.created_at && <span>Ordered {fmtDate(order.created_at)}</span>}
+              {signedAt && <span>Signed {fmtDate(signedAt)}</span>}
+              {order?.status && <span className="capitalize">{String(order.status).replace(/_/g, ' ')}</span>}
+            </div>
+          </div>
+          <button onClick={onClose}
+            className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors">
+            <X size={14} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+          {!hasContent ? (
+            <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+              <Scan size={40} className="opacity-20 mb-3" />
+              <p className="text-sm">Report not yet available</p>
+            </div>
+          ) : (
+            <>
+              {findings && (
+                <div>
+                  <div className="text-[11px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">Findings</div>
+                  <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">{findings}</p>
+                </div>
+              )}
+              {impression && (
+                <div>
+                  <div className="text-[11px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">Impression</div>
+                  <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed font-medium">{impression}</p>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Imaging Investigations Renderer ───────────────────────────────
 function ImagingInvestigationsRenderer({ imagingOrders, allPatientImagingOrders }) {
+  const [openModal, setOpenModal] = useState(null)
+
   const orderedIds = new Set((imagingOrders || []).map(o => o.id))
   const unordered = (allPatientImagingOrders || []).filter(
     o => !orderedIds.has(o.id) && o.has_result
@@ -319,14 +400,15 @@ function ImagingInvestigationsRenderer({ imagingOrders, allPatientImagingOrders 
             Not Ordered
           </span>
         )}
-        {isReported ? (
-          <span className="text-[10px] font-bold bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded-full uppercase tracking-wide">
-            Reported
-          </span>
-        ) : (
+        {!isReported ? (
           <span className="text-[10px] font-bold bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded-full uppercase tracking-wide">
             Pending
           </span>
+        ) : (
+          <button onClick={() => setOpenModal(order)}
+            className="flex items-center gap-1 text-[11px] text-blue-500 hover:text-blue-700 font-medium ml-1">
+            <Maximize2 size={11} /> Report
+          </button>
         )}
       </div>
     )
@@ -343,6 +425,7 @@ function ImagingInvestigationsRenderer({ imagingOrders, allPatientImagingOrders 
           {unordered.map(o => renderOrder(o, 'not-ordered'))}
         </>
       )}
+      {openModal && <ImagingResultModal order={openModal} onClose={() => setOpenModal(null)} />}
     </div>
   )
 }
@@ -360,21 +443,26 @@ function SoapLabel({ letter, label, color, bg }) {
 
 function FormBlock({ submission, index }) {
   const isDraft = submission.status === 'draft' || submission.is_draft
+  // null = not fetched yet, false = fetch done but no data, object = has data
   const [fullData, setFullData] = useState(
     submission.form_data || submission.data || submission.answers || null
   )
+  const [fetching, setFetching] = useState(false)
 
   useEffect(() => {
-    if (fullData) return
+    if (fullData !== null) return
+    setFetching(true)
     api.get(`/submissions/${submission.id}`)
       .then(r => {
-        const d = r.data?.form_data || r.data?.data || r.data?.answers || null
-        if (d) setFullData(d)
+        const d = r?.form_data || r?.data || r?.answers || null
+        // store false if empty/missing so we don't retry and show fallback link
+        setFullData(d && Object.keys(d).length > 0 ? d : false)
       })
-      .catch(() => {})
+      .catch(() => setFullData(false))
+      .finally(() => setFetching(false))
   }, [submission.id])
 
-  const enriched = { ...submission, form_data: fullData }
+  const enriched = { ...submission, form_data: fullData || null }
 
   return (
     <div className={index > 0 ? 'mt-3 pt-3' : ''}>
@@ -385,7 +473,7 @@ function FormBlock({ submission, index }) {
             Draft
           </span>
         )}
-        {!fullData && (
+        {fetching && (
           <span className="w-3 h-3 border border-gray-300 border-t-blue-400 rounded-full animate-spin inline-block" />
         )}
       </div>
@@ -397,7 +485,19 @@ function FormBlock({ submission, index }) {
 // ── Patient Chart Document ─────────────────────────────────────────
 function PatientChartDocument({ encounter, patientId, soap, prescriptions, labItems, imagingItems, counselling, formSubmissions, labOrders, imagingOrders, allPatientLabOrders, allPatientImagingOrders }) {
   const appt = encounter.appointment || encounter
-  const v = encounter.vitals || {}
+  const vRaw = encounter.vitals || {}
+  // Normalise vitals field names — encounter detail returns full names; desk list pre-formats them
+  const v = {
+    bp:     vRaw.bp || (vRaw.blood_pressure_systolic && vRaw.blood_pressure_diastolic
+              ? `${vRaw.blood_pressure_systolic}/${vRaw.blood_pressure_diastolic}` : null),
+    pulse:  vRaw.pulse  || (vRaw.pulse_rate  ? String(vRaw.pulse_rate)  : null),
+    temp:   vRaw.temp   || (vRaw.temperature ? String(vRaw.temperature) : null),
+    spo2:   vRaw.spo2   || (vRaw.oxygen_saturation ? String(vRaw.oxygen_saturation) : null),
+    weight: vRaw.weight || (vRaw.weight_kg   ? String(vRaw.weight_kg)   : null),
+    height: vRaw.height || (vRaw.height_cm   ? String(vRaw.height_cm)   : null),
+    sugar:  vRaw.sugar  || (vRaw.blood_sugar ? String(vRaw.blood_sugar)  : null),
+    rr:     vRaw.rr     || (vRaw.respiration_rate ? String(vRaw.respiration_rate) : null),
+  }
   const reason = appt.reason || encounter.reason
 
   // undefined = still loading; show spinner rather than "No documentation"
@@ -475,6 +575,7 @@ function PatientChartDocument({ encounter, patientId, soap, prescriptions, labIt
                 {v.weight && <span><span className="text-gray-400 text-xs">Wt: </span><span className="font-medium">{v.weight} kg</span></span>}
                 {v.height && <span><span className="text-gray-400 text-xs">Ht: </span><span className="font-medium">{v.height} cm</span></span>}
                 {v.sugar && <span><span className="text-gray-400 text-xs">Sugar: </span><span className="font-medium">{v.sugar}</span></span>}
+                {v.rr    && <span><span className="text-gray-400 text-xs">RR: </span><span className="font-medium">{v.rr}/min</span></span>}
               </div>
             </div>
           )}
@@ -527,10 +628,6 @@ function PatientChartDocument({ encounter, patientId, soap, prescriptions, labIt
         <div>
           <SoapLabel letter="P" label="Plan" color="#16a34a" bg="#f0fdf4" />
 
-          {soap.plan && (
-            <p className="text-sm text-gray-800 whitespace-pre-wrap mb-3">{soap.plan}</p>
-          )}
-
           {prescriptions.length > 0 && (
             <div className="mb-4">
               <div className="text-xs font-bold text-gray-600 mb-2">Medications</div>
@@ -553,6 +650,10 @@ function PatientChartDocument({ encounter, patientId, soap, prescriptions, labIt
                 ))}
               </div>
             </div>
+          )}
+
+          {soap.plan && (
+            <p className="text-sm text-gray-800 whitespace-pre-wrap mb-3">{soap.plan}</p>
           )}
 
           {counselling && counselling.trim() && (
@@ -845,7 +946,48 @@ function FormRow({ form, pinned, onPin, onOpen }) {
   )
 }
 
-function AssessmentPanel({ onOpenForm, onCollapse, clinicId }) {
+function SubmittedFormsPanel({ submissions }) {
+  const [open, setOpen] = useState(null)
+
+  if (!submissions || submissions.length === 0) return null
+
+  return (
+    <div className="border-b border-gray-100 flex-shrink-0">
+      <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-gray-400">
+        Submitted This Visit
+      </div>
+      <div className="space-y-0.5 pb-2">
+        {submissions.map(s => (
+          <div key={s.id}>
+            <button
+              onClick={() => setOpen(open === s.id ? null : s.id)}
+              className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-gray-50 transition-colors text-left">
+              <div className="min-w-0">
+                <div className="text-xs font-medium text-gray-800 truncate">{s.form_title || 'Assessment Form'}</div>
+                {s.submitted_at && (
+                  <div className="text-[10px] text-gray-400">{fmtDate(s.submitted_at)}</div>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
+                <span className="text-[9px] font-bold bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded-full uppercase tracking-wide">
+                  {s.status || 'submitted'}
+                </span>
+                {open === s.id ? <ChevronUp size={11} className="text-gray-400" /> : <ChevronDown size={11} className="text-gray-400" />}
+              </div>
+            </button>
+            {open === s.id && (
+              <div className="px-3 pb-2">
+                <FormBlock submission={s} index={0} />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function AssessmentPanel({ onOpenForm, onCollapse, clinicId, formSubmissions }) {
   const [forms, setForms]     = useState([])
   const [favIds, setFavIds]   = useState(new Set())
   const [search, setSearch]   = useState('')
@@ -887,6 +1029,9 @@ function AssessmentPanel({ onOpenForm, onCollapse, clinicId }) {
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
+      {/* Submitted forms index — all forms filed for this encounter */}
+      <SubmittedFormsPanel submissions={formSubmissions} />
+
       <div className="px-3 py-2.5 border-b border-gray-100 flex-shrink-0">
         <div className="flex items-center justify-between mb-2">
           <div className="text-xs font-bold text-gray-500 uppercase tracking-wide">Assessment Forms</div>
@@ -1295,15 +1440,19 @@ export default function OpdChart() {
       })
       setCounselling(note.counselling || '')
 
+      // API returns prescriptions as [{id, status, items:[{medicine_name,...}]}]
+      // Flatten all items across all prescription objects
       setPrescriptions(
-        (data.prescription?.items || data.prescriptions || []).map(p => ({
-          drug_name:    p.drug_name    || p.name || '',
-          dosage:       p.dosage       || '',
-          frequency:    p.frequency    || '',
-          duration:     p.duration     || '',
-          route:        p.route        || '',
-          instructions: p.instructions || '',
-        }))
+        (data.prescriptions || []).flatMap(pr =>
+          (pr.items || []).map(p => ({
+            drug_name:    p.medicine_name || p.drug_name || p.name || '',
+            dosage:       p.dosage        || '',
+            frequency:    p.frequency     || '',
+            duration:     p.duration      || '',
+            route:        p.route         || '',
+            instructions: p.instructions  || '',
+          }))
+        )
       )
 
       setLabItems(
@@ -1506,9 +1655,20 @@ export default function OpdChart() {
     patient.age != null ? `${patient.age} yrs` : null,
     patient.gender ? patient.gender.charAt(0).toUpperCase() + patient.gender.slice(1) : null,
   ].filter(Boolean).join(' · ')
-  const mrn = patient.patient_id || patient.mrn || patient.bh_id || ''
+  const mrn = patient.clinic_patient_id || patient.uhid || patient.bh_id || ''
 
-  const v = encounter.vitals || {}
+  const vRawHeader = encounter.vitals || {}
+  const v = {
+    bp:     vRawHeader.bp || (vRawHeader.blood_pressure_systolic && vRawHeader.blood_pressure_diastolic
+              ? `${vRawHeader.blood_pressure_systolic}/${vRawHeader.blood_pressure_diastolic}` : null),
+    pulse:  vRawHeader.pulse  || (vRawHeader.pulse_rate  ? String(vRawHeader.pulse_rate)  : null),
+    temp:   vRawHeader.temp   || (vRawHeader.temperature ? String(vRawHeader.temperature) : null),
+    spo2:   vRawHeader.spo2   || (vRawHeader.oxygen_saturation ? String(vRawHeader.oxygen_saturation) : null),
+    weight: vRawHeader.weight || (vRawHeader.weight_kg   ? String(vRawHeader.weight_kg)   : null),
+    height: vRawHeader.height || (vRawHeader.height_cm   ? String(vRawHeader.height_cm)   : null),
+    sugar:  vRawHeader.sugar  || (vRawHeader.blood_sugar ? String(vRawHeader.blood_sugar)  : null),
+    rr:     vRawHeader.rr     || (vRawHeader.respiration_rate ? String(vRawHeader.respiration_rate) : null),
+  }
   const hasVitals = Object.values(v).some(Boolean)
 
   // Demographics fields for the collapsible row
@@ -1634,6 +1794,7 @@ export default function OpdChart() {
             {v.weight    && <span className="text-xs"><span className="text-blue-500/70 font-medium">Wt </span><span className="font-bold text-gray-800">{v.weight} kg</span></span>}
             {v.height    && <span className="text-xs"><span className="text-blue-500/70 font-medium">Ht </span><span className="font-bold text-gray-800">{v.height} cm</span></span>}
             {v.sugar && <span className="text-xs"><span className="text-blue-500/70 font-medium">Sugar </span><span className="font-bold text-gray-800">{v.sugar}</span></span>}
+            {v.rr    && <span className="text-xs"><span className="text-blue-500/70 font-medium">RR </span><span className="font-bold text-gray-800">{v.rr}/min</span></span>}
           </div>
         )}
       </div>
@@ -1733,7 +1894,7 @@ export default function OpdChart() {
         {/* Right assessment panel */}
         {panelOpen ? (
           <div className="w-[272px] flex-shrink-0 bg-white border-l border-gray-200 flex flex-col overflow-hidden">
-            <AssessmentPanel onOpenForm={setActiveForm} onCollapse={() => setPanelOpen(false)} clinicId={user?.clinic_id ?? null} />
+            <AssessmentPanel onOpenForm={setActiveForm} onCollapse={() => setPanelOpen(false)} clinicId={user?.clinic_id ?? null} formSubmissions={formSubmissions ?? []} />
           </div>
         ) : (
           <button onClick={() => setPanelOpen(true)}
