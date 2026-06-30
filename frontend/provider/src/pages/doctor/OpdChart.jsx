@@ -307,7 +307,11 @@ function LabInvestigationsRenderer({ labOrders, allPatientLabOrders, apptId }) {
 
 // ── Imaging Result Modal ──────────────────────────────────────────
 function ImagingResultModal({ order, onClose }) {
-  const result = order?.result || {}
+  // Backend returns findings/impression as flat fields on the order object, not nested under result
+  const findings  = order?.findings
+  const impression = order?.impression
+  const signedAt  = order?.signed_at
+  const hasContent = findings || impression
 
   useEffect(() => {
     const esc = (e) => { if (e.key === 'Escape') onClose() }
@@ -318,8 +322,6 @@ function ImagingResultModal({ order, onClose }) {
   const label = order.study_description || order.body_part
     ? `${order.modality_label || order.modality || ''}${order.body_part ? ' — ' + order.body_part : ''}${order.study_description ? ' · ' + order.study_description : ''}`
     : order.modality_label || order.modality || 'Imaging Result'
-
-  const hasContent = result.findings || result.impression || result.radiologist_notes || result.conclusion
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
@@ -334,9 +336,8 @@ function ImagingResultModal({ order, onClose }) {
               {label}
             </div>
             <div className="text-xs text-gray-400 mt-0.5 flex items-center gap-3">
-              {order?.ordered_at && <span>Ordered {fmtDate(order.ordered_at)}</span>}
-              {result?.reported_at && <span>Reported {fmtDate(result.reported_at)}</span>}
-              {result?.radiologist_name && <span>by {result.radiologist_name}</span>}
+              {order?.created_at && <span>Ordered {fmtDate(order.created_at)}</span>}
+              {signedAt && <span>Signed {fmtDate(signedAt)}</span>}
               {order?.status && <span className="capitalize">{String(order.status).replace(/_/g, ' ')}</span>}
             </div>
           </div>
@@ -354,28 +355,16 @@ function ImagingResultModal({ order, onClose }) {
             </div>
           ) : (
             <>
-              {result.findings && (
+              {findings && (
                 <div>
                   <div className="text-[11px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">Findings</div>
-                  <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">{result.findings}</p>
+                  <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">{findings}</p>
                 </div>
               )}
-              {result.impression && (
+              {impression && (
                 <div>
                   <div className="text-[11px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">Impression</div>
-                  <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed font-medium">{result.impression}</p>
-                </div>
-              )}
-              {result.conclusion && (
-                <div>
-                  <div className="text-[11px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">Conclusion</div>
-                  <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">{result.conclusion}</p>
-                </div>
-              )}
-              {result.radiologist_notes && (
-                <div>
-                  <div className="text-[11px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">Radiologist Notes</div>
-                  <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed italic">{result.radiologist_notes}</p>
+                  <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed font-medium">{impression}</p>
                 </div>
               )}
             </>

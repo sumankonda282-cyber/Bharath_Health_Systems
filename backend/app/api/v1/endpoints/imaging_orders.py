@@ -316,6 +316,9 @@ def _order_out(order: ImagingOrder, patient) -> dict:
         'created_at':        order.created_at.isoformat() if order.created_at else None,
         'has_result':        order.result is not None,
         'result_status':     order.result.status if order.result else None,
+        'findings':          order.result.findings if order.result else None,
+        'impression':        order.result.impression if order.result else None,
+        'signed_at':         order.result.signed_at.isoformat() if order.result and order.result.signed_at else None,
     }
 
 
