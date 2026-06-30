@@ -712,6 +712,7 @@ def update_form(
     request: Request,
     payload: Dict[str, Any] = Body(...),
     db:      Session        = Depends(get_db),
+    current                 = Depends(get_current_staff),
 ):
     form = db.query(AssessmentForm).filter(AssessmentForm.id == form_id).first()
     if not form:
@@ -1207,7 +1208,7 @@ def _comment_out(c: "FormSubmissionComment") -> dict:
 @router.get("/submissions")
 def list_patient_submissions(
     db:             Session       = Depends(get_db),
-    current:        "Staff"       = Depends(get_current_staff),
+    current                       = Depends(get_current_staff),
     patient_id:     Optional[str] = Query(None),
     encounter_id:   Optional[str] = Query(None),
     date_from:      Optional[str] = Query(None),
