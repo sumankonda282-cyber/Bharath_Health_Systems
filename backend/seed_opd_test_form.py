@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """
-Seeds one OPD test assessment form for verifying the OPD chart form rendering.
+Seeds one OPD test assessment form for verifying chart form rendering.
 
-The form uses category "History & Complaint" so the categorization regex in
-OpdChart.jsx routes it to the S (Subjective) SOAP bucket.
+Rules followed:
+- category "History & Complaint" → routes to S (Subjective) bucket via OpdChart.jsx regex
+- status "published" + published_at set → appears in search results
+- clinic_id None → global, visible to all clinics (both global + clinic-scoped queries)
+- 4 structured fields → _form_field_count > 0 so include_empty filter does not hide it
+- schema fields have id/type/label matching what FormContentRenderer reads as key-value pairs
+- is_template True → appears in form library search
 
-It has four structured fields so FormContentRenderer renders real key-value
-content rather than the fallback link.
-
-Idempotent — skips insert if a form with this exact title already exists.
+Idempotent — skips insert if a non-deleted form with this title already exists.
 
 Run from backend/ directory:
     python seed_opd_test_form.py
@@ -40,42 +42,43 @@ Session = sessionmaker(bind=engine)
 FORM_TITLE = "OPD History & Complaint (Test)"
 
 FORM = {
-    "title": FORM_TITLE,
-    "description": "Test form for verifying OPD chart SOAP categorization and form-data rendering. Routes to Subjective (S) section.",
-    "category": "History & Complaint",
+    "title":       FORM_TITLE,
+    "description": "Test form — History of presenting illness. Verifies OPD chart SOAP routing (Subjective section) and form-data key-value rendering.",
+    # "History & Complaint" matches /history|complaint/ regex → routes to S bucket
+    "category":    "History & Complaint",
     "subcategory": "subjective",
-    "status": "published",
-    "icon": "📋",
-    "clinic_id": None,   # global — available to all clinics
-    "is_template": True,
+    "status":      "published",
+    "icon":        "📋",
+    "clinic_id":   None,       # global — visible in both global and clinic-scoped searches
+    "is_template": True,       # appears in form library
     "schema": {
         "fields": [
             {
-                "id": "chief_complaint",
-                "type": "text",
-                "label": "Chief Complaint",
-                "required": True,
+                "id":          "chief_complaint",
+                "type":        "text",
+                "label":       "Chief Complaint",
+                "required":    True,
                 "placeholder": "Main reason for today's visit"
             },
             {
-                "id": "duration",
-                "type": "text",
-                "label": "Duration of Symptoms",
-                "required": False,
+                "id":          "duration",
+                "type":        "text",
+                "label":       "Duration of Symptoms",
+                "required":    False,
                 "placeholder": "e.g. 3 days, 2 weeks"
             },
             {
-                "id": "severity",
-                "type": "select",
-                "label": "Severity",
-                "required": False,
-                "options": ["Mild", "Moderate", "Severe"]
+                "id":          "severity",
+                "type":        "select",
+                "label":       "Severity",
+                "required":    False,
+                "options":     ["Mild", "Moderate", "Severe"]
             },
             {
-                "id": "associated_symptoms",
-                "type": "textarea",
-                "label": "Associated Symptoms",
-                "required": False,
+                "id":          "associated_symptoms",
+                "type":        "textarea",
+                "label":       "Associated Symptoms",
+                "required":    False,
                 "placeholder": "Any other symptoms the patient reports…"
             }
         ]
@@ -94,24 +97,26 @@ def seed():
             print(f"[seed] Form already exists (id={existing.id}) — skipping.")
             return
 
+        now = datetime.utcnow()
         form = AssessmentForm(
-            title           = FORM["title"],
-            description     = FORM["description"],
-            category        = FORM["category"],
-            subcategory     = FORM["subcategory"],
-            status          = FORM["status"],
-            icon            = FORM["icon"],
-            clinic_id       = FORM["clinic_id"],
-            is_template     = FORM["is_template"],
-            schema          = FORM["schema"],
-            version         = 1,
-            created_at      = datetime.utcnow(),
-            updated_at      = datetime.utcnow(),
+            title        = FORM["title"],
+            description  = FORM["description"],
+            category     = FORM["category"],
+            subcategory  = FORM["subcategory"],
+            status       = FORM["status"],
+            icon         = FORM["icon"],
+            clinic_id    = FORM["clinic_id"],
+            is_template  = FORM["is_template"],
+            schema       = FORM["schema"],
+            version      = 1,
+            published_at = now,   # required so status=published is meaningful
+            created_at   = now,
+            updated_at   = now,
         )
         db.add(form)
         db.commit()
         db.refresh(form)
-        print(f"[seed] Created form id={form.id} title='{form.title}' category='{form.category}'")
+        print(f"[seed] Created: id={form.id} title='{form.title}' category='{form.category}' status='{form.status}'")
     finally:
         db.close()
 

@@ -929,6 +929,8 @@ echo "[bg-migrations] Seeding the standardized DB assessment-form library (idemp
 timeout 180 python seed_assessment_forms.py --all || echo "[bg-migrations] Assessment forms seed failed (non-fatal)"
 echo "[bg-migrations] Seeding validated scored tools (PHQ-9, GAD-7, GCS, Morse, APGAR, Pain, Wound)..."
 timeout 60 python seed_forms.py || echo "[bg-migrations] Validated tools seed failed (non-fatal)"
+echo "[bg-migrations] Seeding OPD test form for chart rendering verification..."
+timeout 30 python seed_opd_test_form.py || echo "[bg-migrations] OPD test form seed failed (non-fatal)"
 echo "[bg-migrations] Done."
 ) &
 
