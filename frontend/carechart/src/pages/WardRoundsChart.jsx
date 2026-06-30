@@ -481,8 +481,8 @@ function NewRoundModal({ admission, onClose, onSaved }) {
 
 function AddVitalsModal({ admission, onClose, onSaved }) {
   const [form, setForm] = useState({
-    bp_systolic: '', bp_diastolic: '', heart_rate: '', temperature: '',
-    respiratory_rate: '', spo2: '', weight_kg: '', notes: '',
+    bp_systolic: '', bp_diastolic: '', pulse: '', temperature: '',
+    respiration_rate: '', spo2: '', weight: '', notes: '',
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
@@ -533,11 +533,11 @@ function AddVitalsModal({ admission, onClose, onSaved }) {
         <form onSubmit={submit} className="p-4 grid grid-cols-2 gap-3">
           {num('BP Systolic', 'bp_systolic', 'mmHg')}
           {num('BP Diastolic', 'bp_diastolic', 'mmHg')}
-          {num('Heart Rate', 'heart_rate', 'bpm')}
+          {num('Heart Rate', 'pulse', 'bpm')}
           {num('Temperature', 'temperature', '°C')}
-          {num('RR', 'respiratory_rate', '/min')}
+          {num('RR', 'respiration_rate', '/min')}
           {num('SpO2', 'spo2', '%')}
-          {num('Weight', 'weight_kg', 'kg')}
+          {num('Weight', 'weight', 'kg')}
           <div className="col-span-2">
             <label className="block text-[10px] font-semibold text-gray-500 mb-0.5">Notes</label>
             <input
@@ -577,11 +577,11 @@ function VitalsStrip({ vitals, onAddVitals }) {
           {latest.bp_systolic != null && (
             <VitalChip label="BP" value={`${latest.bp_systolic}/${latest.bp_diastolic}`} unit="mmHg" />
           )}
-          {latest.heart_rate != null && <VitalChip label="HR" value={latest.heart_rate} unit="bpm" />}
+          {latest.pulse != null && <VitalChip label="HR" value={latest.pulse} unit="bpm" />}
           {latest.temperature != null && <VitalChip label="Temp" value={latest.temperature} unit="°C" />}
           {latest.spo2 != null && <VitalChip label="SpO2" value={`${latest.spo2}%`} />}
-          {latest.respiratory_rate != null && <VitalChip label="RR" value={latest.respiratory_rate} unit="/min" />}
-          {latest.weight_kg != null && <VitalChip label="Wt" value={latest.weight_kg} unit="kg" />}
+          {latest.respiration_rate != null && <VitalChip label="RR" value={latest.respiration_rate} unit="/min" />}
+          {latest.weight != null && <VitalChip label="Wt" value={latest.weight} unit="kg" />}
           <span className="text-[10px] text-gray-400 whitespace-nowrap shrink-0">
             {fmt(latest.recorded_at)}
           </span>
