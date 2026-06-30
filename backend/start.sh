@@ -782,6 +782,10 @@ for _sql in [
     \"CREATE INDEX IF NOT EXISTS idx_form_sub_comments_sub ON form_submission_comments(submission_id)\",
     \"ALTER TABLE form_alerts ADD COLUMN IF NOT EXISTS clinic_id INTEGER REFERENCES clinics(id)\",
     \"ALTER TABLE form_alerts ADD COLUMN IF NOT EXISTS patient_id INTEGER REFERENCES patients(id)\",
+    \"ALTER TABLE lab_results ADD COLUMN IF NOT EXISTS acknowledged_by INTEGER REFERENCES staff(id)\",
+    \"ALTER TABLE lab_results ADD COLUMN IF NOT EXISTS acknowledged_at TIMESTAMP\",
+    \"ALTER TABLE imaging_results ADD COLUMN IF NOT EXISTS acknowledged_by INTEGER REFERENCES staff(id)\",
+    \"ALTER TABLE imaging_results ADD COLUMN IF NOT EXISTS acknowledged_at TIMESTAMP\",
     \"CREATE INDEX IF NOT EXISTS idx_appointments_encounter_no ON appointments(encounter_no)\",
     \"CREATE INDEX IF NOT EXISTS idx_admissions_encounter_no ON admissions(encounter_no)\",
 ]:

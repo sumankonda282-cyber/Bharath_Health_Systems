@@ -14,7 +14,7 @@ from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy import text, or_, and_, func
 
 from app.db.session import get_db
-from app.core.security import get_current_staff, require_billing_waive
+from app.core.security import get_current_staff, require_billing_waive, require_doctor
 from app.core import ids
 from app.models.models import (
     Clinic, Staff, Patient, Appointment,
@@ -27,6 +27,7 @@ from app.models.models import (
     VisitorPass, VisitorPolicy,
     MedicationOrder, ClinicalOrder, DocumentationSession,
     BedStatusLog, BillingWaiverLog,
+    LabOrder, LabResult, ImagingOrder, ImagingResult,
 )
 
 router = APIRouter(prefix="/inpatient", tags=["inpatient"])
@@ -2146,6 +2147,304 @@ def admission_timeline(
 
     events.sort(key=lambda e: e["timestamp"] or datetime.min, reverse=True)
     return events[:100]
+
+
+@router.get("/admissions/{admission_id}/chart-timeline")
+def chart_timeline(
+    admission_id: int,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(get_current_staff),
+):
+    """Rich chronological timeline for Ward Rounds chart view.
+    Returns fully structured entries for all clinical event types."""
+    adm = db.query(Admission).filter(
+        Admission.id == admission_id,
+        Admission.clinic_id == current.clinic_id,
+    ).first()
+    if not adm:
+        raise HTTPException(status_code=404, detail="Admission not found")
+
+    events = []
+
+    # Ward rounds (doctor SOAP notes)
+    rounds = db.query(WardRound).filter(
+        WardRound.admission_id == admission_id,
+        WardRound.clinic_id == current.clinic_id,
+    ).all()
+    for r in rounds:
+        doctor = db.query(Staff).filter(Staff.id == r.doctor_id).first()
+        events.append({
+            "type": "ward_round",
+            "timestamp": r.created_at,
+            "id": r.id,
+            "doctor_id": r.doctor_id,
+            "doctor_name": doctor.full_name if doctor else "Unknown",
+            "round_date": r.round_date,
+            "subjective": r.subjective,
+            "objective": r.objective,
+            "assessment": r.assessment,
+            "plan": r.plan,
+        })
+
+    # Nursing notes
+    nursing_notes = db.query(NursingNote).filter(
+        NursingNote.admission_id == admission_id,
+    ).all()
+    for n in nursing_notes:
+        writer = db.query(Staff).filter(Staff.id == n.written_by).first()
+        events.append({
+            "type": "nursing_note",
+            "timestamp": n.written_at,
+            "id": n.id,
+            "note_text": n.note_text,
+            "note_type": n.note_type,
+            "shift": n.shift,
+            "is_handoff": n.is_handoff,
+            "written_by": n.written_by,
+            "written_by_name": writer.full_name if writer else "Unknown",
+        })
+
+    # Progress notes
+    progress_notes = db.query(ProgressNote).filter(
+        ProgressNote.admission_id == admission_id,
+    ).all()
+    for n in progress_notes:
+        writer = db.query(Staff).filter(Staff.id == n.written_by).first()
+        events.append({
+            "type": "progress_note",
+            "timestamp": n.note_time,
+            "id": n.id,
+            "note_type": n.note_type,
+            "subjective": n.subjective,
+            "objective": n.objective,
+            "assessment": n.assessment,
+            "plan": n.plan,
+            "written_by": n.written_by,
+            "written_by_name": writer.full_name if writer else "Unknown",
+        })
+
+    # Lab orders (with results if available)
+    lab_orders = db.query(LabOrder).filter(
+        LabOrder.patient_id == adm.patient_id,
+        LabOrder.clinic_id == current.clinic_id,
+    ).all()
+    for lo in lab_orders:
+        orderer = db.query(Staff).filter(Staff.id == lo.ordered_by).first()
+        result_data = None
+        if lo.result:
+            r = lo.result
+            ack_by_staff = db.query(Staff).filter(Staff.id == r.acknowledged_by).first() if r.acknowledged_by else None
+            result_data = {
+                "id": r.id,
+                "status": r.status,
+                "observations": r.observations or [],
+                "interpretation": r.interpretation,
+                "has_pdf": bool(r.pdf_b64),
+                "pdf_b64": r.pdf_b64,
+                "acknowledged_by": r.acknowledged_by,
+                "acknowledged_by_name": ack_by_staff.full_name if ack_by_staff else None,
+                "acknowledged_at": r.acknowledged_at,
+                "signed_at": r.signed_at,
+                "created_at": r.created_at,
+            }
+        events.append({
+            "type": "lab_order",
+            "timestamp": lo.created_at,
+            "id": lo.id,
+            "order_id": lo.order_id,
+            "test_names": lo.test_names or [],
+            "priority": lo.priority,
+            "status": lo.status,
+            "ordered_by": lo.ordered_by,
+            "ordered_by_name": orderer.full_name if orderer else "Unknown",
+            "appointment_id": lo.appointment_id,
+            "result": result_data,
+        })
+
+    # Imaging orders (with results if available)
+    imaging_orders = db.query(ImagingOrder).filter(
+        ImagingOrder.patient_id == adm.patient_id,
+        ImagingOrder.clinic_id == current.clinic_id,
+    ).all()
+    for io in imaging_orders:
+        orderer = db.query(Staff).filter(Staff.id == io.ordered_by).first()
+        result_data = None
+        if io.result:
+            r = io.result
+            ack_by_staff = db.query(Staff).filter(Staff.id == r.acknowledged_by).first() if r.acknowledged_by else None
+            result_data = {
+                "id": r.id,
+                "status": r.status,
+                "findings": r.findings,
+                "impression": r.impression,
+                "has_pdf": bool(r.pdf_b64),
+                "pdf_b64": r.pdf_b64,
+                "acknowledged_by": r.acknowledged_by,
+                "acknowledged_by_name": ack_by_staff.full_name if ack_by_staff else None,
+                "acknowledged_at": r.acknowledged_at,
+                "signed_at": r.signed_at,
+                "created_at": r.created_at,
+            }
+        events.append({
+            "type": "imaging_order",
+            "timestamp": io.created_at,
+            "id": io.id,
+            "order_id": io.order_id,
+            "modality": io.modality,
+            "body_part": io.body_part,
+            "study_description": io.study_description,
+            "priority": io.priority,
+            "status": io.status,
+            "ordered_by": io.ordered_by,
+            "ordered_by_name": orderer.full_name if orderer else "Unknown",
+            "appointment_id": io.appointment_id,
+            "result": result_data,
+        })
+
+    # Medication orders
+    med_orders = db.query(MedicationOrder).filter(
+        MedicationOrder.admission_id == admission_id,
+        MedicationOrder.clinic_id == current.clinic_id,
+    ).all()
+    for m in med_orders:
+        orderer = db.query(Staff).filter(Staff.id == m.ordered_by).first()
+        events.append({
+            "type": "medication_order",
+            "timestamp": m.ordered_at,
+            "id": m.id,
+            "drug_name": m.drug_name,
+            "generic_name": m.generic_name,
+            "dose": m.dose,
+            "route": m.route,
+            "frequency": m.frequency,
+            "duration_days": m.duration_days,
+            "is_prn": m.is_prn,
+            "is_stat": m.is_stat,
+            "is_continuous": m.is_continuous,
+            "status": m.status,
+            "instructions": m.instructions,
+            "ordered_by": m.ordered_by,
+            "ordered_by_name": orderer.full_name if orderer else "Unknown",
+            "discontinued_at": m.discontinued_at,
+            "discontinue_reason": m.discontinue_reason,
+        })
+
+    # Clinical orders
+    clinical_orders = db.query(ClinicalOrder).filter(
+        ClinicalOrder.admission_id == admission_id,
+        ClinicalOrder.clinic_id == current.clinic_id,
+    ).all()
+    for c in clinical_orders:
+        orderer = db.query(Staff).filter(Staff.id == c.ordered_by).first()
+        events.append({
+            "type": "clinical_order",
+            "timestamp": c.ordered_at,
+            "id": c.id,
+            "order_type": c.order_type,
+            "order_detail": c.order_detail,
+            "priority": c.priority,
+            "status": c.status,
+            "instructions": c.instructions,
+            "ordered_by": c.ordered_by,
+            "ordered_by_name": orderer.full_name if orderer else "Unknown",
+        })
+
+    # Transfers
+    transfers = db.query(AdmissionTransfer).filter(
+        AdmissionTransfer.admission_id == admission_id,
+    ).all()
+    for t in transfers:
+        mover = db.query(Staff).filter(Staff.id == t.transferred_by).first()
+        events.append({
+            "type": "transfer",
+            "timestamp": t.transferred_at,
+            "id": t.id,
+            "from_ward": t.from_ward_id,
+            "to_ward": t.to_ward_id,
+            "reason": t.reason,
+            "transferred_by_name": mover.full_name if mover else "Unknown",
+        })
+
+    events.sort(key=lambda e: (e["timestamp"] or datetime.min), reverse=True)
+    return events
+
+
+@router.post("/admissions/{admission_id}/lab-results/{result_id}/acknowledge")
+def acknowledge_lab_result(
+    admission_id: int,
+    result_id: int,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(require_doctor),
+):
+    adm = db.query(Admission).filter(
+        Admission.id == admission_id,
+        Admission.clinic_id == current.clinic_id,
+    ).first()
+    if not adm:
+        raise HTTPException(status_code=404, detail="Admission not found")
+
+    result = db.query(LabResult).filter(LabResult.id == result_id).first()
+    if not result:
+        raise HTTPException(status_code=404, detail="Lab result not found")
+
+    order = db.query(LabOrder).filter(
+        LabOrder.id == result.order_id,
+        LabOrder.patient_id == adm.patient_id,
+        LabOrder.clinic_id == current.clinic_id,
+    ).first()
+    if not order:
+        raise HTTPException(status_code=403, detail="Result does not belong to this admission")
+
+    result.acknowledged_by = current.id
+    result.acknowledged_at = datetime.utcnow()
+    db.commit()
+    db.refresh(result)
+    ack_staff = db.query(Staff).filter(Staff.id == result.acknowledged_by).first()
+    return {
+        "id": result.id,
+        "acknowledged_by": result.acknowledged_by,
+        "acknowledged_by_name": ack_staff.full_name if ack_staff else None,
+        "acknowledged_at": result.acknowledged_at,
+    }
+
+
+@router.post("/admissions/{admission_id}/imaging-results/{result_id}/acknowledge")
+def acknowledge_imaging_result(
+    admission_id: int,
+    result_id: int,
+    db: Session = Depends(get_db),
+    current: Staff = Depends(require_doctor),
+):
+    adm = db.query(Admission).filter(
+        Admission.id == admission_id,
+        Admission.clinic_id == current.clinic_id,
+    ).first()
+    if not adm:
+        raise HTTPException(status_code=404, detail="Admission not found")
+
+    result = db.query(ImagingResult).filter(ImagingResult.id == result_id).first()
+    if not result:
+        raise HTTPException(status_code=404, detail="Imaging result not found")
+
+    order = db.query(ImagingOrder).filter(
+        ImagingOrder.id == result.order_id,
+        ImagingOrder.patient_id == adm.patient_id,
+        ImagingOrder.clinic_id == current.clinic_id,
+    ).first()
+    if not order:
+        raise HTTPException(status_code=403, detail="Result does not belong to this admission")
+
+    result.acknowledged_by = current.id
+    result.acknowledged_at = datetime.utcnow()
+    db.commit()
+    db.refresh(result)
+    ack_staff = db.query(Staff).filter(Staff.id == result.acknowledged_by).first()
+    return {
+        "id": result.id,
+        "acknowledged_by": result.acknowledged_by,
+        "acknowledged_by_name": ack_staff.full_name if ack_staff else None,
+        "acknowledged_at": result.acknowledged_at,
+    }
 
 
 # ── Phase 4: Inpatient Billing ─────────────────────────────────────────────────
