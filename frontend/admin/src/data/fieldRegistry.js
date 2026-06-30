@@ -234,7 +234,7 @@ export const FIELD_REGISTRY = [
     type: 'textarea',
     col_span: 4,
     enable_dictation: true,
-    placeholder: 'Patient's primary presenting complaint in their own words…',
+    placeholder: "Patient's primary presenting complaint in their own words…",
     required: true,
     tags: ['subjective', 'complaint'],
   },
