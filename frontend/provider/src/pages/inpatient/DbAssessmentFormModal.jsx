@@ -7,7 +7,7 @@ import {
 } from '../forms/formEngine'
 import useFormDraft, { draftMirrorKey, saveStatusLabel } from '@shared/hooks/useFormDraft'
 import { computeNormalFill } from '@shared/forms/normalFill'
-import { sectionHasLayout, buildRowMap, sectionGridStyle, gridCellStyle } from '@shared/forms/gridLayout'
+import { sectionHasLayout, buildRowMap, makeSectionGridStyle, gridCellStyle, gridColsOf } from '@shared/forms/gridLayout'
 
 const NAVY  = '#0F2557'
 const GREEN = '#059669'
@@ -66,7 +66,7 @@ export default function DbAssessmentFormModal({ form, patientId, admissionId, en
       .then(f => {
         if (!alive) return
         const sections = f?.schema?.sections || []
-        setSchema({ sections })
+        setSchema({ sections, grid_cols: f?.schema?.grid_cols })
         setMeta({
           title:          f?.title || form?.title || form?.name,
           category:       f?.category,
@@ -394,6 +394,7 @@ export default function DbAssessmentFormModal({ form, patientId, admissionId, en
                         index={si}
                         tabbed={false}
                         accent={meta?.accent}
+                        gridCols={gridColsOf(schema)}
                         values={values}
                         errors={errors}
                         touched={touched}
@@ -464,7 +465,7 @@ export default function DbAssessmentFormModal({ form, patientId, admissionId, en
 }
 
 // ─── One stacked section: header tint + colour, collapsible, column grid ───────
-function SectionBody({ section, index, tabbed, accent, values, errors, touched, setFieldValue }) {
+function SectionBody({ section, index, tabbed, accent, gridCols, values, errors, touched, setFieldValue }) {
   const layout = section.layout || 1
   const headColor = section.header_color || accent || NAVY
   const headTint = (section.header_color || accent) ? (section.header_color || accent) + '1f' : undefined
@@ -497,14 +498,14 @@ function SectionBody({ section, index, tabbed, accent, values, errors, touched, 
         const rowMap  = useGrid ? buildRowMap(visible) : null
         return (
           <div className="px-4 py-4">
-          <div className={useGrid ? '' : `grid gap-x-5 gap-y-3 ${COLS[layout] || COLS[1]}`} style={useGrid ? sectionGridStyle : undefined}>
+          <div className={useGrid ? '' : `grid gap-x-5 gap-y-3 ${COLS[layout] || COLS[1]}`} style={useGrid ? makeSectionGridStyle(gridCols) : undefined}>
             {visible.map(field => (
               <div
                 key={field.id}
                 id={`dbform-field-${field.id}`}
                 className={useGrid ? undefined : spanFor(field, layout)}
                 style={{
-                  ...(useGrid ? gridCellStyle(field, rowMap) : {}),
+                  ...(useGrid ? gridCellStyle(field, rowMap, gridCols) : {}),
                   borderLeft: field.color ? '3px solid ' + field.color : undefined,
                   paddingLeft: field.color ? 8 : undefined,
                 }}

@@ -8,6 +8,7 @@ import {
   ToggleLeft, BarChart2, LayoutGrid, Sliders, Activity, Layers, Ban, Columns, MapPin,
 } from 'lucide-react'
 import api from '../../api/client'
+import { gridColsOf } from '@shared/forms/gridLayout'
 
 // ─── Field type icon map ──────────────────────────────────────────────────────
 
@@ -166,22 +167,30 @@ function CollapsibleSection({ title, icon: Icon, defaultOpen = false, children }
 
 // Grid size on the free 12-column CareForm canvas. Drag-resize on the canvas
 // updates the same {x,y,w,h}; these inputs let the admin set it precisely.
-function GridSizeControl({ layout, onChange }) {
+function GridSizeControl({ layout, onChange, cols = 12 }) {
   const l = layout || { x: 0, y: 0, w: 6, h: 1 }
   const upd = (k, raw) => {
     let v = Math.max(1, Number(raw) || 1)
-    if (k === 'w') v = Math.min(v, 12 - (l.x || 0))
+    if (k === 'w') v = Math.min(v, cols - (l.x || 0))
+    if (k === 'x') v = Math.min(Math.max(0, Number(raw) || 0), cols - (l.w || 1))
     onChange({ x: l.x ?? 0, y: l.y ?? 0, w: l.w ?? 6, h: l.h ?? 1, [k]: v })
   }
   const inp = 'w-14 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-[#F5821E]'
   return (
-    <PropRow label="Grid size">
-      <div className="flex items-center gap-2">
+    <PropRow label="Grid size & position">
+      <div className="flex items-center gap-2 flex-wrap">
         <Columns size={13} className="text-gray-500 flex-shrink-0" />
-        <input type="number" min={1} max={12} value={l.w ?? 6} onChange={e => upd('w', e.target.value)} className={inp} title="Width (1–12 columns)" />
+        <input type="number" min={1} max={cols} value={l.w ?? 6} onChange={e => upd('w', e.target.value)} className={inp} title={`Width (1–${cols} columns)`} />
         <span className="text-gray-500 text-xs">×</span>
         <input type="number" min={1} value={l.h ?? 1} onChange={e => upd('h', e.target.value)} className={inp} title="Height (rows)" />
-        <span className="text-[10px] text-gray-500">W×H · 12-col grid</span>
+        <span className="text-[10px] text-gray-500">W×H · {cols}-col</span>
+      </div>
+      <div className="flex items-center gap-2 mt-2">
+        <span className="text-[10px] text-gray-500 w-8">at x/y</span>
+        <input type="number" min={0} max={cols - 1} value={l.x ?? 0} onChange={e => upd('x', e.target.value)} className={inp} title="Column position (0-based)" />
+        <span className="text-gray-500 text-xs">,</span>
+        <input type="number" min={0} value={l.y ?? 0} onChange={e => upd('y', e.target.value)} className={inp} title="Row position (0-based)" />
+        <span className="text-[10px] text-gray-500">arrow keys nudge</span>
       </div>
     </PropRow>
   )
@@ -1572,7 +1581,7 @@ function SectionProperties({ section, dispatch }) {
 
 // ─── Field Properties ─────────────────────────────────────────────────────────
 
-function FieldProperties({ field, sectionId, sectionLayout, dispatch, allFields }) {
+function FieldProperties({ field, sectionId, sectionLayout, dispatch, allFields, cols }) {
   function set(key, value) {
     dispatch({ type: 'UPDATE_FIELD_PROP', payload: { sectionId, fieldId: field.id, key, value } })
   }
@@ -1596,6 +1605,7 @@ function FieldProperties({ field, sectionId, sectionLayout, dispatch, allFields 
         <GridSizeControl
           layout={field.layout}
           onChange={lay => set('layout', lay)}
+          cols={cols}
         />
 
         {/* Field colour */}
@@ -1785,6 +1795,7 @@ export default function PropertiesPanel({ form, selectedId, selectedType, dispat
           sectionLayout={selectedFieldSectionLayout}
           dispatch={dispatch}
           allFields={allFields}
+          cols={gridColsOf(form.schema)}
         />
       )}
     </div>
