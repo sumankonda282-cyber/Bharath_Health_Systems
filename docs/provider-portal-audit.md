@@ -8,7 +8,34 @@
 
 ---
 
-## TIER 0 — Data-loss / correctness bugs (WHY entered data disappears) — fix first
+## TIER 0 — STATUS after code-verification (each finding re-checked against source)
+
+> Discipline note: on verification, the two "CRITICAL" items were **overstated** —
+> the data is preserved/visible, not lost. Real fixes were 0.3 and 0.6 (+ minor 0.4).
+> **Verdicts:** 0.1 not-loss · 0.2 false-mechanism · 0.3 FIXED · 0.4 FIXED · 0.5 false ·
+> 0.6 FIXED · 0.7 low-value gap.
+
+- **0.1 Lab reload — NOT data loss.** Ordered labs render in the chart's read-only
+  Investigations section (from the separate `/lab-orders` fetch). Only the editable
+  "add tests" list starts empty — which is *safer*, because the save path
+  delete/reinserts items and would wipe results if repopulated. Left as-is by design.
+- **0.2 Reopen forms — mechanism was wrong.** `DbAssessmentFormModal` self-fetches the
+  schema by `form.id` (line 65), so the missing `form_schema` in the list is irrelevant;
+  forms reopen with fields. Residual UX nit: reopen needs a manual "carry-forward" click,
+  so a careless resubmit adds a newer blank submission that dominates the chart view
+  (original preserved). Optional improvement — auto-prefill last same-session submission
+  (touches the shared modal used by IPD; needs sign-off).
+- **0.3 Prescription route — FIXED** (commit: route end-to-end + column).
+- **0.4 Per-test lab order note — FIXED** (added `LabOrderItem.order_note`, additive).
+- **0.5 Investigations section — false positive.** `hasInv` already counts confirmed
+  `labOrders`/`imagingOrders`; section does not vanish after send.
+- **0.6 Follow-up field — FIXED** (surfaced in chart → reminder/SMS).
+- **0.7 Imaging modality via form bridge — low-value gap.** `extractOrdersFromForm` only
+  has the field's text value; modality isn't carried by the imaging_search field, so
+  there's nothing to persist without a field-schema change. Deferred (not a silent drop
+  of entered data).
+
+### Original findings (pre-verification, for reference)
 
 | # | Bug | Where | Failure |
 |---|-----|-------|---------|
