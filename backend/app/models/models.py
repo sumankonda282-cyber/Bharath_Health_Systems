@@ -2212,6 +2212,10 @@ class AssessmentFormAudit(Base):
     actor_name  = Column(String(200), nullable=True)
     actor_type  = Column(String(20), nullable=True)    # staff|platform_admin|unknown
     detail      = Column(Text, nullable=True)
+    # Structured, field-level diff for 'edited' events: a list of
+    # {field_id, label, change, from, to} so the admin log can show exactly which
+    # field changed and how — not just "schema was edited".
+    changes     = Column(JSON, nullable=True)
     created_at  = Column(DateTime, server_default=func.now(), index=True)
 
 

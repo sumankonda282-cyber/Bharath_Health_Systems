@@ -17,6 +17,7 @@ import FormBuilder from './pages/FormBuilder'
 import FormPool from './pages/FormPool'
 import FormPreview from './pages/FormPreview'
 import FormAnalytics from './pages/FormAnalytics'
+import FormAuditLog from './pages/FormAuditLog'
 import PopulationDashboard from './pages/PopulationDashboard'
 
 function PrivateRoute({ children }) {
@@ -47,6 +48,7 @@ export default function App() {
           <Route path="hospital-settings" element={<HospitalSettings />} />
           <Route path="forms"             element={<FormPool />} />
           <Route path="forms/analytics"   element={<FormAnalytics />} />
+          <Route path="forms/audit"       element={<FormAuditLog />} />
           <Route path="forms/preview/:id" element={<FormPreview />} />
           <Route path="forms/preview"     element={<FormPreview />} />
           <Route path="population"        element={<PopulationDashboard />} />

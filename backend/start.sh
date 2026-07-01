@@ -701,6 +701,9 @@ safe_cols = [
     \"CREATE INDEX IF NOT EXISTS idx_assessment_forms_deleted_at ON assessment_forms(deleted_at)\",
     \"CREATE TABLE IF NOT EXISTS assessment_form_audit (id SERIAL PRIMARY KEY, form_id INTEGER NOT NULL, form_title VARCHAR(200), action VARCHAR(20) NOT NULL, actor_id INTEGER, actor_name VARCHAR(200), actor_type VARCHAR(20), detail TEXT, created_at TIMESTAMP DEFAULT NOW())\",
     \"CREATE INDEX IF NOT EXISTS idx_assessment_form_audit_form ON assessment_form_audit(form_id, created_at DESC)\",
+    \"ALTER TABLE assessment_form_audit ADD COLUMN IF NOT EXISTS changes JSON\",
+    \"CREATE INDEX IF NOT EXISTS idx_assessment_form_audit_action ON assessment_form_audit(action, created_at DESC)\",
+    \"CREATE INDEX IF NOT EXISTS idx_assessment_form_audit_actor ON assessment_form_audit(actor_id)\",
 
     # ── Assessment-form scope (global vs health-center). Column is in the CREATE TABLE
     #    above, but ensure it exists on DBs created from an older schema. ──
