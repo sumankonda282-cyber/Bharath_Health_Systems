@@ -440,6 +440,81 @@ export const FIELD_REGISTRY = [
     enable_dictation: true,
     tags: ['plan', 'followup'],
   },
+
+  // ── Presenting-complaint qualifiers (seeded: Adult OPD History) ─────────────
+  {
+    field_id: 'complaint_severity', label: 'Severity', type: 'dropdown', col_span: 1,
+    options: [
+      { label: 'Mild', value: 'mild' }, { label: 'Moderate', value: 'moderate' }, { label: 'Severe', value: 'severe' },
+    ],
+    clinical_code: { system: 'SNOMED', code: '246112005', display: 'Severity' },
+    tags: ['subjective', 'complaint'],
+  },
+  {
+    field_id: 'complaint_timing', label: 'Timing', type: 'dropdown', col_span: 1,
+    options: [
+      { label: 'Constant', value: 'constant' }, { label: 'Intermittent', value: 'intermittent' },
+      { label: 'Worse in morning', value: 'morning' }, { label: 'Worse at night', value: 'night' },
+      { label: 'After meals', value: 'post_meal' }, { label: 'With activity', value: 'exertional' },
+    ],
+    tags: ['subjective', 'complaint'],
+  },
+  {
+    field_id: 'hpi_narrative', label: 'History of Presenting Illness', type: 'textarea',
+    col_span: 4, enable_dictation: true,
+    clinical_code: { system: 'LOINC', code: '10164-2', display: 'History of Present illness Narrative' },
+    tags: ['subjective', 'complaint', 'hpi'],
+  },
+
+  // ── Review of Systems gates (seeded: Adult OPD History) ─────────────────────
+  // Each system: a yes_no gate + a revealed detail narrative. LOINC 10187-3 is the
+  // Review-of-Systems narrative concept; the per-system detail shares the family.
+  ...['cardiac', 'respiratory', 'gi', 'neuro', 'gu', 'msk'].flatMap(sys => {
+    const labelMap = {
+      cardiac: 'Cardiovascular', respiratory: 'Respiratory', gi: 'Gastrointestinal',
+      neuro: 'Neurological', gu: 'Genitourinary', msk: 'Musculoskeletal',
+    }
+    const L = labelMap[sys]
+    return [
+      { field_id: `ros_${sys}`, label: `ROS — ${L}`, type: 'yes_no', col_span: 2,
+        clinical_code: { system: 'LOINC', code: '10187-3', display: 'Review of systems Narrative' },
+        tags: ['subjective', 'ros', sys] },
+      { field_id: `ros_${sys}_detail`, label: `ROS — ${L} detail`, type: 'textarea', col_span: 4,
+        enable_dictation: true, tags: ['subjective', 'ros', sys] },
+    ]
+  }),
+
+  // ── Examination: hydration + systemic exam gates (seeded: Adult OPD Examination)
+  {
+    field_id: 'hydration', label: 'Hydration', type: 'dropdown', col_span: 2,
+    options: [
+      { label: 'Adequate', value: 'adequate' }, { label: 'Mild dehydration', value: 'mild' },
+      { label: 'Moderate dehydration', value: 'moderate' }, { label: 'Severe dehydration', value: 'severe' },
+    ],
+    clinical_code: { system: 'SNOMED', code: '34095006', display: 'Dehydration' },
+    tags: ['examination', 'objective'],
+  },
+  // Per-system exam gate + findings + note. SNOMED body-system codes on the gate.
+  ...[
+    { sys: 'cvs',  L: 'Cardiovascular (CVS)',           code: '113257007', disp: 'Cardiovascular system structure' },
+    { sys: 'resp', L: 'Respiratory (RS)',               code: '20139000',  disp: 'Respiratory system structure' },
+    { sys: 'abdo', L: 'Abdomen (P/A)',                  code: '113345001', disp: 'Abdominal structure' },
+    { sys: 'cns',  L: 'Central Nervous System (CNS)',   code: '25087005',  disp: 'Nervous system structure' },
+  ].flatMap(({ sys, L, code, disp }) => [
+    { field_id: `${sys}_exam`, label: `${L} exam`, type: 'single_choice', col_span: 2,
+      options: [{ label: 'Normal', value: 'normal' }, { label: 'Abnormal', value: 'abnormal' }],
+      clinical_code: { system: 'SNOMED', code, display: disp }, tags: ['examination', 'objective', sys] },
+    { field_id: `${sys}_findings`, label: `${L} findings`, type: 'dropdown', col_span: 2,
+      searchable: true, multi_select: true, tags: ['examination', 'objective', sys] },
+    { field_id: `${sys}_note`, label: `${L} note`, type: 'textarea', col_span: 4,
+      enable_dictation: true, tags: ['examination', 'objective', sys] },
+  ]),
+  {
+    field_id: 'local_examination', label: 'Local Examination', type: 'textarea',
+    col_span: 4, enable_dictation: true,
+    clinical_code: { system: 'LOINC', code: '29545-1', display: 'Physical findings' },
+    tags: ['examination', 'objective'],
+  },
 ]
 
 // Build lookup maps for fast access

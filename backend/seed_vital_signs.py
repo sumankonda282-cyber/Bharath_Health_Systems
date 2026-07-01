@@ -204,7 +204,9 @@ def run():
     db = SessionLocal()
     try:
         # Find by title even if soft-deleted, so we revive & preserve submissions.
-        form = db.query(AssessmentForm).filter(AssessmentForm.title == CANON_TITLE).first()
+        form = db.query(AssessmentForm).filter(
+            AssessmentForm.title == CANON_TITLE, AssessmentForm.clinic_id.is_(None)
+        ).first()  # global curated form only — never overwrite a clinic-scoped form
         now = datetime.utcnow()
         if form:
             form.description      = "Standard vital signs — the single vitals record used by reception, nursing and doctors, embeddable in any care form."
