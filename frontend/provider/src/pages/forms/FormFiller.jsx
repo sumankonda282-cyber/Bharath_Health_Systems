@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { ChevronLeft, Save, Send, AlertTriangle, CheckCircle2, Clock, Loader2, X } from 'lucide-react'
 import api from '../../api/client'
-import { LangContext, isFieldVisible, getCompletionPct, FieldRenderer, ScoreCard, AlertCard, PatientDataContext } from './formEngine'
+import { LangContext, isFieldVisible, effectiveValues, getCompletionPct, FieldRenderer, ScoreCard, AlertCard, PatientDataContext } from './formEngine'
 import { sectionHasLayout, buildRowMap, makeSectionGridStyle, gridCellStyle, gridColsOf } from '@shared/forms/gridLayout'
 
 // ─── Section/field layout maps (Tailwind-safe — literal class strings only) ────
@@ -20,6 +20,10 @@ export default function FormFiller() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const patientIdFromUrl = searchParams.get('patient_id')
+  // Read-only view (design standard §11): a chart/link may open the full-page
+  // filler in view-only mode (?readonly=1) so a closed-session form can't be
+  // edited/re-submitted by navigating to the filler directly.
+  const readOnly = searchParams.get('readonly') === '1'
   const draftKey = `form_draft_${assignmentId}`
 
   const [state, setState] = useState({
@@ -135,11 +139,16 @@ export default function FormFiller() {
           } catch { /* no draft is the normal case */ }
         }
 
-        // Fetch prev submission for carry-forward (by form + patient)
-        if (patientIdFromUrl && form.id) {
+        // Carry-forward is scoped to the CURRENT session (design standard §11.4):
+        // clinical measurements must never cross OPD encounters / IPD admissions.
+        // The full-page filler only carries a reliable admission key, so we scope
+        // to it and otherwise do NOT offer a prior submission (no cross-session
+        // bleed of stale readings).
+        const sessionAdmissionId = assignment?.admission_id ?? null
+        if (patientIdFromUrl && form.id && sessionAdmissionId != null) {
           try {
             const prevRes = await api.get(`/assessment-forms/${form.id}/submissions`, {
-              params: { patient_id: patientIdFromUrl, limit: 1, include_data: true },
+              params: { patient_id: patientIdFromUrl, admission_id: Number(sessionAdmissionId), limit: 1, include_data: true },
             })
             const submissions = prevRes?.items || []
             if (submissions.length > 0) {
@@ -232,6 +241,7 @@ export default function FormFiller() {
   }
 
   const handleSubmit = async () => {
+    if (readOnly) return   // view-only — closed session, record is locked
     const errors = validateAll()
     if (Object.keys(errors).length > 0) {
       setState(s => ({ ...s, errors, touched: Object.fromEntries(Object.keys(errors).map(k => [k, true])) }))
@@ -403,27 +413,34 @@ export default function FormFiller() {
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            {timeLimitSecs !== null && (
+            {readOnly && (
+              <span className="text-xs font-medium text-gray-500 px-2 py-1 rounded-lg bg-gray-100">Read-only</span>
+            )}
+            {!readOnly && timeLimitSecs !== null && (
               <span className={`flex items-center gap-1 text-xs font-mono font-semibold px-2 py-1 rounded-lg ${timeLimitSecs < 300 ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-600'}`}>
                 <Clock size={12} />
                 {formatTime(timeLimitSecs)}
               </span>
             )}
-            <button
-              onClick={saveDraft}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition"
-            >
-              <Save size={14} />
-              {draftSaved ? 'Saved!' : 'Save Draft'}
-            </button>
-            <button
-              onClick={handleSubmit}
-              disabled={submitting}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#F5821E] text-white text-sm font-semibold hover:bg-orange-600 transition disabled:opacity-60"
-            >
-              {submitting ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-              Submit
-            </button>
+            {!readOnly && (
+              <button
+                onClick={saveDraft}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition"
+              >
+                <Save size={14} />
+                {draftSaved ? 'Saved!' : 'Save Draft'}
+              </button>
+            )}
+            {!readOnly && (
+              <button
+                onClick={handleSubmit}
+                disabled={submitting}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#F5821E] text-white text-sm font-semibold hover:bg-orange-600 transition disabled:opacity-60"
+              >
+                {submitting ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                Submit
+              </button>
+            )}
           </div>
         </div>
 
@@ -478,26 +495,8 @@ export default function FormFiller() {
         )}
       </div>
 
-      {/* Section tabs */}
-      {sections.length > 1 && (
-        <div className="max-w-4xl mx-auto w-full px-4 mt-4">
-          <div className="flex gap-1 bg-white rounded-xl border border-gray-100 p-1 overflow-x-auto">
-            {sections.map((s, i) => (
-              <button
-                key={i}
-                onClick={() => update({ activeSection: i })}
-                className={`px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition ${
-                  activeSection === i ? 'bg-[#0F2557] text-white' : 'text-gray-500 hover:bg-gray-50'
-                }`}
-              >
-                {i + 1}. {s.title || s.name || `Section ${i + 1}`}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Form sections */}
+      {/* Form sections — all stacked, single scroll (design standard §5.8: no
+          tabs, no paging). Section navigation tabs removed. */}
       <div className="max-w-4xl mx-auto w-full px-4 py-6 flex-1">
         {sections.length === 0 && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
@@ -511,8 +510,9 @@ export default function FormFiller() {
             </button>
           </div>
         )}
+        {/* Disabled fieldset makes every control inert in one shot when locked. */}
+        <fieldset disabled={readOnly} className="border-0 p-0 m-0 min-w-0">
         {sections.map((section, si) => {
-          if (sections.length > 1 && si !== activeSection) return null
           const layout = section.layout || 1
           const accent = formMeta?.accent
           const headColor = section.header_color || accent || '#0F2557'
@@ -537,7 +537,8 @@ export default function FormFiller() {
 
               {(() => {
                 // CareForm free-grid placement (design = fill); legacy flow fallback.
-                const vis     = (section.fields || []).filter(f => isFieldVisible(f, values))
+                const _ev      = effectiveValues(section.fields || [], values)
+                const vis     = (section.fields || []).filter(f => isFieldVisible(f, _ev))
                 const useGrid = sectionHasLayout(section.fields)
                 const rowMap  = useGrid ? buildRowMap(vis) : null
                 return (
@@ -568,33 +569,18 @@ export default function FormFiller() {
             </div>
           )
         })}
+        </fieldset>
 
-        {/* Section navigation */}
-        {sections.length > 1 && (
-          <div className="flex justify-between">
+        {/* Single bottom Submit — sections are all stacked above (no paging). */}
+        {sections.length > 0 && !readOnly && (
+          <div className="flex justify-end mt-4">
             <button
-              onClick={() => update({ activeSection: Math.max(0, activeSection - 1) })}
-              disabled={activeSection === 0}
-              className="px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-white transition disabled:opacity-40"
+              onClick={handleSubmit}
+              disabled={submitting}
+              className="px-6 py-2 rounded-xl bg-[#F5821E] text-white text-sm font-semibold hover:bg-orange-600 transition disabled:opacity-60"
             >
-              ← Previous
+              {submitting ? 'Submitting...' : 'Submit Form'}
             </button>
-            {activeSection < sections.length - 1 ? (
-              <button
-                onClick={() => update({ activeSection: activeSection + 1 })}
-                className="px-4 py-2 rounded-xl bg-[#0F2557] text-white text-sm font-semibold hover:bg-[#0F2557]/90 transition"
-              >
-                Next →
-              </button>
-            ) : (
-              <button
-                onClick={handleSubmit}
-                disabled={submitting}
-                className="px-6 py-2 rounded-xl bg-[#F5821E] text-white text-sm font-semibold hover:bg-orange-600 transition disabled:opacity-60"
-              >
-                {submitting ? 'Submitting...' : 'Submit Form'}
-              </button>
-            )}
           </div>
         )}
       </div>

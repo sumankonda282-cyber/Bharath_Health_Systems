@@ -84,6 +84,25 @@ export function evaluateCondition(condition, values) {
   }
 }
 
+// Transitive visibility (design standard §4): a child gated on field B must not
+// show when B is itself hidden, even if B holds a stale value from before its own
+// gate closed. Compute an "effective values" map where any hidden field's value is
+// treated as absent, iterated to a fixpoint so multi-level cascades resolve.
+export function effectiveValues(allFields, values) {
+  const keyOf = f => f.id || f.field_id
+  let vals = { ...values }
+  for (let pass = 0; pass < 6; pass++) {
+    let changed = false
+    for (const f of allFields) {
+      const k = keyOf(f)
+      const present = vals[k] !== undefined && vals[k] !== null && vals[k] !== ''
+      if (present && !isFieldVisible(f, vals)) { delete vals[k]; changed = true }
+    }
+    if (!changed) break
+  }
+  return vals
+}
+
 export function isFieldVisible(field, values) {
   if (!field.conditions || field.conditions.length === 0) return true
   const logic = field.condition_logic || 'ALL'

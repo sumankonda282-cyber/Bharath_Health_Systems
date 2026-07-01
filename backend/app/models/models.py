@@ -582,6 +582,30 @@ class PatientTag(Base):
     saved_tag = relationship("ClinicPatientTag", back_populates="patient_tags")
 
 
+class ProblemList(Base):
+    """Longitudinal, coded problem list (gap B6 / ABDM Condition resource).
+    Unlike patient_tags (a flat quick-label store), a problem carries clinical
+    status, onset, resolution and coding — the maintained list of a patient's
+    active/resolved conditions across encounters, centralised in one table so
+    every portal and a future FHIR/ABDM export reads it from one place."""
+    __tablename__ = "problem_list"
+    id            = Column(Integer, primary_key=True, index=True)
+    patient_id    = Column(Integer, ForeignKey("patients.id", ondelete="CASCADE"), nullable=False, index=True)
+    clinic_id     = Column(Integer, ForeignKey("clinics.id"), nullable=True, index=True)
+    problem       = Column(String(300), nullable=False)          # display name
+    code          = Column(String(40), nullable=True)            # ICD-10 / SNOMED code
+    code_system   = Column(String(20), nullable=True)            # 'ICD-10' | 'SNOMED'
+    status        = Column(String(20), default="active")         # active | resolved | inactive
+    onset_date    = Column(Date, nullable=True)
+    resolved_date = Column(Date, nullable=True)
+    note          = Column(Text, nullable=True)
+    recorded_by   = Column(Integer, nullable=True)               # staff id
+    recorded_by_name = Column(String(200), nullable=True)
+    encounter_id  = Column(String(24), nullable=True, index=True)
+    created_at    = Column(DateTime, server_default=func.now())
+    updated_at    = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
 class EncounterAccessLog(Base):
     __tablename__ = "encounter_access_logs"
     id                  = Column(Integer, primary_key=True, index=True)
@@ -619,6 +643,11 @@ class Medicine(Base):
     __tablename__ = "medicines"
     id             = Column(Integer, primary_key=True, index=True)
     branch_id      = Column(Integer, ForeignKey("branches.id"), nullable=True)
+    # Link to the global drug concept (FDB-style): a tenant's stock row points at
+    # the shared catalog drug. "In stock here" = a medicines row for this branch
+    # with qty>0 that references the drug — computed as a join, never a flag on the
+    # global drugs table. Nullable so legacy/free-text stock still works.
+    drug_id        = Column(Integer, ForeignKey("drugs.id"), nullable=True, index=True)
     name           = Column(String(200), nullable=False)
     generic_name   = Column(String(200), nullable=True)
     category       = Column(String(100), nullable=True)
@@ -652,6 +681,9 @@ class Prescription(Base):
     notes          = Column(Text, nullable=True)
     created_at     = Column(DateTime, server_default=func.now())
     dispensed_at   = Column(DateTime, nullable=True)
+    # Idempotent link back to the assessment-form submission whose medication_order
+    # cart produced this prescription. India: one patient cart = ONE pharmacy order.
+    source_submission_id = Column(Integer, nullable=True, index=True)
 
     patient     = relationship("Patient", back_populates="prescriptions")
     appointment = relationship("Appointment", back_populates="prescriptions")
@@ -670,6 +702,7 @@ class PrescriptionItem(Base):
     instructions        = Column(Text, nullable=True)
     quantity_prescribed = Column(Integer, nullable=True)
     quantity_dispensed  = Column(Integer, nullable=True)
+    is_refill           = Column(Boolean, default=False)
 
     prescription = relationship("Prescription", back_populates="items")
     medicine     = relationship("Medicine", back_populates="prescription_items")
@@ -2409,6 +2442,12 @@ class DrugInteraction(Base):
     id         = Column(Integer, primary_key=True, index=True)
     drug_a     = Column(String(200), nullable=False, index=True)
     drug_b     = Column(String(200), nullable=False, index=True)
+    # FDB-style concept link: when an interaction party resolves to a catalog drug,
+    # cache its id here (best-effort — many parties are drug classes, e.g. "MAO
+    # Inhibitors", and stay NULL). The CDS matches by normalized generic name AND
+    # by id, so unmapped rows still fire.
+    drug_a_id  = Column(Integer, ForeignKey("drugs.id"), nullable=True, index=True)
+    drug_b_id  = Column(Integer, ForeignKey("drugs.id"), nullable=True, index=True)
     severity         = Column(String(20), nullable=False)   # contraindicated|serious|moderate
     interaction_type = Column(String(30), default="drug-drug")  # drug-drug|drug-food|drug-condition
     effect           = Column(Text, nullable=True)

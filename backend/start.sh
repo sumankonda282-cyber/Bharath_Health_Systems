@@ -168,6 +168,18 @@ safe_cols = [
     \"ALTER TABLE medicines ADD COLUMN IF NOT EXISTS schedule VARCHAR(10)\",
     \"ALTER TABLE medicines ADD COLUMN IF NOT EXISTS gst_rate NUMERIC(5,2)\",
     \"ALTER TABLE medicines ADD COLUMN IF NOT EXISTS mrp NUMERIC(10,2)\",
+    # ── Link tenant stock to the global drug catalog (FDB-style concept id). ──
+    # 'In stock here' becomes a join of drugs (catalog) → medicines (this branch),
+    # never a flag on the shared drugs row. Composite indexes keep tenant-filtered
+    # search O(one-tenant's-rows), not O(whole-table) — scales to 10k+ tenants.
+    \"ALTER TABLE medicines ADD COLUMN IF NOT EXISTS drug_id INTEGER REFERENCES drugs(id)\",
+    \"CREATE INDEX IF NOT EXISTS idx_medicines_branch_drug ON medicines(branch_id, drug_id)\",
+    \"CREATE INDEX IF NOT EXISTS idx_medicines_branch_name ON medicines(branch_id, name)\",
+    \"CREATE INDEX IF NOT EXISTS idx_medicines_drug ON medicines(drug_id)\",
+    # Idempotent backfill: match existing stock to the catalog by generic name
+    # (exact, case-insensitive) only where not already linked. Conservative — a
+    # name that doesn't match stays NULL (still searchable as free-text stock).
+    \"UPDATE medicines m SET drug_id = d.id FROM drugs d WHERE m.drug_id IS NULL AND m.generic_name IS NOT NULL AND lower(trim(m.generic_name)) = lower(trim(d.generic))\",
     \"ALTER TABLE clinics ADD COLUMN IF NOT EXISTS drug_license_number VARCHAR(100)\",
     \"ALTER TABLE clinics ADD COLUMN IF NOT EXISTS gstin VARCHAR(20)\",
     \"ALTER TABLE invoices ALTER COLUMN patient_id DROP NOT NULL\",
@@ -380,6 +392,16 @@ safe_cols = [
     \"ALTER TABLE patients ADD COLUMN IF NOT EXISTS portal_user_id INTEGER\",
     \"ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS ip_address VARCHAR(45)\",
 \"ALTER TABLE drug_interactions ADD COLUMN IF NOT EXISTS interaction_type VARCHAR(30) DEFAULT 'drug-drug'\",
+    # ── FDB-style concept link on interactions (best-effort; classes stay NULL). ──
+    \"ALTER TABLE drug_interactions ADD COLUMN IF NOT EXISTS drug_a_id INTEGER REFERENCES drugs(id)\",
+    \"ALTER TABLE drug_interactions ADD COLUMN IF NOT EXISTS drug_b_id INTEGER REFERENCES drugs(id)\",
+    \"CREATE INDEX IF NOT EXISTS idx_drug_interactions_aid ON drug_interactions(drug_a_id)\",
+    \"CREATE INDEX IF NOT EXISTS idx_drug_interactions_bid ON drug_interactions(drug_b_id)\",
+    # Idempotent backfill: link an interaction party to a catalog drug when its
+    # name exactly matches a generic (case-insensitive). Unmatched (drug classes,
+    # combos) stay NULL and still fire via name matching in the CDS.
+    \"UPDATE drug_interactions di SET drug_a_id = d.id FROM drugs d WHERE di.drug_a_id IS NULL AND lower(trim(di.drug_a)) = lower(trim(d.generic))\",
+    \"UPDATE drug_interactions di SET drug_b_id = d.id FROM drugs d WHERE di.drug_b_id IS NULL AND lower(trim(di.drug_b)) = lower(trim(d.generic))\",
     \"CREATE TABLE IF NOT EXISTS imaging_catalog (id SERIAL PRIMARY KEY, name VARCHAR(200) NOT NULL, modality VARCHAR(20) NOT NULL, body_part VARCHAR(100), category VARCHAR(100), turnaround_hours INTEGER DEFAULT 24, preparation TEXT, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW())\",
     \"CREATE INDEX IF NOT EXISTS idx_imaging_catalog_modality ON imaging_catalog(modality)\",
     \"CREATE TABLE IF NOT EXISTS disease_counselling (id SERIAL PRIMARY KEY, icd10_prefix VARCHAR(10) NOT NULL, condition VARCHAR(200), tip TEXT NOT NULL, sort_order INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT NOW())\",
@@ -397,7 +419,10 @@ safe_cols = [
     \"UPDATE drugs SET is_active = TRUE WHERE is_active IS NULL\",
     \"UPDATE lab_tests SET is_active = TRUE WHERE is_active IS NULL\",
     \"UPDATE imaging_catalog SET is_active = TRUE WHERE is_active IS NULL\",
-    \"DELETE FROM form_templates WHERE is_global = TRUE\",
+    # NOTE: removed \"DELETE FROM form_templates WHERE is_global = TRUE\" — it ran on
+    # EVERY deploy and permanently wiped admin-created global form templates (nothing
+    # re-seeds this table; it is written via the /forms API). Destructive-on-deploy,
+    # same class as the retired assessment_forms soft-delete. Never reinstate.
 
     \"\"\"CREATE TABLE IF NOT EXISTS barcode_master (
         id SERIAL PRIMARY KEY,
@@ -686,6 +711,12 @@ safe_cols = [
     #    in-memory, so every redeploy wiped them). One bundle of forms per health center. ──
     \"CREATE TABLE IF NOT EXISTS care_forms (id VARCHAR(40) PRIMARY KEY, clinic_id INTEGER REFERENCES clinics(id), name VARCHAR(200), description TEXT, color VARCHAR(20), forms JSONB DEFAULT '[]'::jsonb, conditions JSONB DEFAULT '[]'::jsonb, published BOOLEAN DEFAULT FALSE, created_by INTEGER, created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW())\",
     \"CREATE INDEX IF NOT EXISTS idx_care_forms_clinic ON care_forms(clinic_id)\",
+
+    # ── Problem list (gap B6): longitudinal, coded, status-tracked conditions —
+    #    one central table every portal + future FHIR/ABDM export reads. ──
+    \"CREATE TABLE IF NOT EXISTS problem_list (id SERIAL PRIMARY KEY, patient_id INTEGER NOT NULL REFERENCES patients(id) ON DELETE CASCADE, clinic_id INTEGER REFERENCES clinics(id), problem VARCHAR(300) NOT NULL, code VARCHAR(40), code_system VARCHAR(20), status VARCHAR(20) DEFAULT 'active', onset_date DATE, resolved_date DATE, note TEXT, recorded_by INTEGER, recorded_by_name VARCHAR(200), encounter_id VARCHAR(24), created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE INDEX IF NOT EXISTS idx_problem_list_patient ON problem_list(patient_id, status)\",
+    \"CREATE INDEX IF NOT EXISTS idx_problem_list_encounter ON problem_list(encounter_id)\",
 ]
 ok = 0
 failed = 0
@@ -733,6 +764,9 @@ for _sql in [
     \"ALTER TABLE vitals ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id)\",
     \"ALTER TABLE soap_notes ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id)\",
     \"ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id)\",
+    \"ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS source_submission_id INTEGER\",
+    \"CREATE INDEX IF NOT EXISTS ix_prescriptions_source_submission_id ON prescriptions(source_submission_id)\",
+    \"ALTER TABLE prescription_items ADD COLUMN IF NOT EXISTS is_refill BOOLEAN DEFAULT FALSE\",
     \"ALTER TABLE lab_orders ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id)\",
     \"ALTER TABLE imaging_orders ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id)\",
     \"ALTER TABLE encounter_access_logs ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id)\",

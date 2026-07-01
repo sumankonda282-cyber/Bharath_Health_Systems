@@ -9,13 +9,13 @@ clinic-specific custom rows.
 import json as _json
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
-from sqlalchemy import text
+from sqlalchemy import text, func
 from sqlalchemy.orm import Session
 from typing import Optional, List
 
 from app.db.session import get_db
 from app.core.security import get_current_staff
-from app.models.models import Staff, DoctorProfile, Drug, DrugInteraction, DrugDoseRange, DrugContraindication, DrugCounselling, DiseaseCounselling, DrugPregnancyCategory, FoodDrugInteraction
+from app.models.models import Staff, DoctorProfile, Drug, DrugInteraction, DrugDoseRange, DrugContraindication, DrugCounselling, DiseaseCounselling, DrugPregnancyCategory, FoodDrugInteraction, Medicine, Branch, Prescription, PrescriptionItem
 
 router = APIRouter(prefix="/terminology", tags=["terminology"])
 
@@ -156,38 +156,165 @@ def conditions_for_specialty(
     return {"specialty": canonical, "conditions": [_term_out(r) for r in rows]}
 
 
+def _ingredient(s):
+    """Ingredient key — strip a trailing strength so 'Paracetamol 500mg' → 'paracetamol'."""
+    import re as _re
+    s = (s or "").lower()
+    s = _re.sub(r"\d+\s*(mg|ml|mcg|g|iu|%).*$", "", s)
+    return _re.sub(r"\s+", " ", s).strip()
+
+
 @router.get("/drugs/search")
 def search_drugs(
     q: str = Query(..., min_length=2),
     limit: int = Query(10, le=30),
+    scope: str = Query("all", description="all = full catalog with in-stock flag; in_stock = only drugs stocked at this tenant"),
+    weight_kg: Optional[float] = Query(None),
+    age_years: Optional[float] = Query(None),
     db: Session = Depends(get_db),
     current: Staff = Depends(get_current_staff),
 ):
+    """Unified, brand-first drug search — the single source every portal calls.
+
+    India-first: matches brand (primary_brand + brands) AND generic AND ATC, so a
+    doctor typing 'Dolo' or 'Augmentin' finds the concept. Each result carries a
+    live in-stock flag for the caller's tenant (join drugs → this branch's
+    medicines). scope='in_stock' returns only stocked drugs (pharmacy stock search);
+    scope='all' returns the whole catalog with availability flagged (provider /
+    carechart / pharmacy new-order search). Backward compatible — only adds fields.
+    """
+    q = q.strip()
     like = f"%{q}%"
-    rows = (
-        db.query(Drug)
-        .filter(
-            Drug.is_active == True,
-            (Drug.clinic_id == None) | (Drug.clinic_id == current.clinic_id),
-            (Drug.generic.ilike(like)) | (Drug.brands.ilike(like)),
+    starts = f"{q}%"
+    # Defensive: only treat numeric age/weight as present (robust to bad input and
+    # to direct (non-FastAPI) calls where Query(None) defaults aren't resolved).
+    weight_kg = weight_kg if isinstance(weight_kg, (int, float)) and not isinstance(weight_kg, bool) else None
+    age_years = age_years if isinstance(age_years, (int, float)) and not isinstance(age_years, bool) else None
+
+    # Tenant's branch set: the caller's branch, else all branches of their clinic.
+    branch_ids: list = []
+    if getattr(current, "branch_id", None):
+        branch_ids = [current.branch_id]
+    elif getattr(current, "clinic_id", None):
+        branch_ids = [b.id for b in db.query(Branch.id).filter(Branch.clinic_id == current.clinic_id).all()]
+
+    # Per-drug on-hand for this tenant, aggregated once (avoids N+1).
+    stock_by_drug: dict = {}
+    if branch_ids:
+        srows = (
+            db.query(Medicine.drug_id, func.coalesce(func.sum(Medicine.stock_quantity), 0))
+            .filter(
+                Medicine.is_active == True,
+                Medicine.drug_id.isnot(None),
+                Medicine.branch_id.in_(branch_ids),
+            )
+            .group_by(Medicine.drug_id)
+            .all()
         )
-        .order_by(Drug.generic.ilike(f"{q}%").desc(), Drug.generic)
-        .limit(limit).all()
+        stock_by_drug = {drug_id: int(qty or 0) for drug_id, qty in srows}
+
+    base = db.query(Drug).filter(
+        Drug.is_active == True,
+        (Drug.clinic_id == None) | (Drug.clinic_id == current.clinic_id),
+        (Drug.generic.ilike(like)) | (Drug.brands.ilike(like)) | (Drug.primary_brand.ilike(like)) | (Drug.atc.ilike(starts)),
     )
-    return [{
-        "id": d.id,
-        "generic": d.generic,
-        "name": d.generic,
-        "generic_name": d.generic,
-        "atc": d.atc,
-        "drug_class": d.drug_class,
-        "routes": d.routes,
-        "brands_raw": d.brands,
-        "brands": d.brands.split("|") if d.brands else [],
-        "primary_brand": d.primary_brand,
-        "rx_only": d.rx_only,
-        "formulations": _json.loads(d.formulations) if d.formulations else [],
-    } for d in rows]
+    if scope == "in_stock":
+        stocked_ids = [did for did, qty in stock_by_drug.items() if qty > 0]
+        if not stocked_ids:
+            return []
+        base = base.filter(Drug.id.in_(stocked_ids))
+
+    # Pull a wider candidate set, then rank by the doctor's own usage first
+    # (repetitive-use rule) → prefix match → name. Take `limit` after ranking.
+    candidates = (
+        base.order_by(
+            (Drug.primary_brand.ilike(starts)).desc(),
+            (Drug.generic.ilike(starts)).desc(),
+            Drug.generic,
+        )
+        .limit(max(limit * 4, 40)).all()
+    )
+
+    # This doctor's prescribing frequency, keyed by ingredient (repetitive-use rank).
+    usage: dict = {}
+    did = getattr(current, "id", None)
+    if did:
+        try:
+            urows = (
+                db.query(PrescriptionItem.medicine_name, func.count(PrescriptionItem.id))
+                .join(Prescription, Prescription.id == PrescriptionItem.prescription_id)
+                .filter(Prescription.prescribed_by == did, PrescriptionItem.medicine_name.isnot(None))
+                .group_by(PrescriptionItem.medicine_name).all()
+            )
+            for nm, c in urows:
+                usage[_ingredient(nm)] = usage.get(_ingredient(nm), 0) + int(c)
+        except Exception:
+            usage = {}
+
+    def usage_score(d):
+        return max(usage.get(_ingredient(d.generic), 0),
+                   usage.get(_ingredient(d.primary_brand or ""), 0))
+
+    candidates.sort(key=lambda d: (-usage_score(d), 0 if (d.primary_brand or "").lower().startswith(q.lower()) else 1, d.generic))
+    rows = candidates[:limit]
+
+    # Inline best-fit dose per result when age/weight is known (batch the rules).
+    dose_want = (weight_kg is not None) or (age_years is not None)
+    rules_by: dict = {}
+    if dose_want and rows:
+        ings = list({_ingredient(d.generic) for d in rows})
+        for r in db.query(DrugDoseRange).all():
+            k = _ingredient(r.generic)
+            if k in ings:
+                rules_by.setdefault(k, []).append(r)
+
+    out = []
+    for d in rows:
+        suggested = None
+        if dose_want:
+            core = _dose_core(d, rules_by.get(_ingredient(d.generic), []), weight_kg, age_years, None)
+            if core["options"]:
+                suggested = core["options"][0]["label"]
+        out.append({
+            "id": d.id, "drug_id": d.id,
+            "generic": d.generic,
+            "name": d.primary_brand or d.generic,   # brand-first display for India
+            "generic_name": d.generic,
+            "atc": d.atc, "drug_class": d.drug_class, "routes": d.routes,
+            "brands_raw": d.brands, "brands": d.brands.split("|") if d.brands else [],
+            "primary_brand": d.primary_brand, "rx_only": d.rx_only,
+            "formulations": _json.loads(d.formulations) if d.formulations else [],
+            "in_stock": stock_by_drug.get(d.id, 0) > 0,
+            "stock_qty": stock_by_drug.get(d.id, 0),
+            "usage": usage_score(d),
+            "suggested_dose": suggested,
+        })
+    return out
+
+
+# Class-based RED-FLAG counselling — urgent "stop & contact the doctor" warnings
+# derived from the drug's class, so every drug in a risky class gets the right
+# safety net without seeding it per-drug. (keyword-in-class/generic → tip)
+_RED_FLAGS = [
+    (["penicillin", "cephalosporin", "amoxicillin", "antibiotic", "antibacterial", "macrolide",
+      "quinolone", "sulfon", "cotrimoxazole", "cillin", "cef", "azithro", "floxacin"],
+     "Stop the medicine and contact your doctor immediately if you develop a rash, itching, "
+     "swelling of the face or lips, or difficulty breathing."),
+    (["penicillin", "cephalosporin", "antibiotic", "antibacterial", "macrolide", "quinolone", "cillin"],
+     "Complete the full course even if you feel better."),
+    (["nsaid", "ibuprofen", "diclofenac", "aceclofenac", "naproxen", "ketorolac", "aspirin", "analgesic/antipyretic"],
+     "Stop and see a doctor if you notice black or tarry stools, vomiting blood, or severe stomach pain."),
+    (["anticoagulant", "antiplatelet", "warfarin", "heparin", "clopidogrel"],
+     "Seek urgent care for unusual bleeding or bruising, blood in urine or stool, or a severe headache."),
+    (["corticosteroid", "steroid", "prednisolone", "dexamethasone", "hydrocortisone"],
+     "Do not stop this medicine suddenly — contact your doctor before stopping."),
+    (["opioid", "benzodiazepine", "sedative", "morphine", "tramadol", "codeine", "alprazolam", "diazepam"],
+     "May cause drowsiness — do not drive or operate machinery, and avoid alcohol."),
+    (["antidiabetic", "sulfonylurea", "insulin", "metformin", "glimepiride", "gliclazide"],
+     "Watch for low-sugar signs (sweating, shakiness, confusion) — take sugar and contact your doctor."),
+    (["antihypertensive", "ace inhibitor", "arb", "amlodipine", "beta blocker", "diuretic"],
+     "Rise slowly from sitting or lying down to avoid dizziness."),
+]
 
 
 @router.get("/drugs/counselling")
@@ -196,14 +323,27 @@ def get_drug_counselling(
     db: Session = Depends(get_db),
     current: Staff = Depends(get_current_staff),
 ):
-    """Return patient counselling tips for a drug by generic name (case-insensitive)."""
+    """Patient counselling tips for a drug: the seeded per-drug tips PLUS urgent
+    red-flag safety warnings derived from the drug's class (auto-generated for the
+    patient counselling section)."""
+    g = generic.strip()
     rows = (
         db.query(DrugCounselling)
-        .filter(DrugCounselling.generic.ilike(generic.strip()))
+        .filter(DrugCounselling.generic.ilike(g))
         .order_by(DrugCounselling.sort_order)
         .all()
     )
-    return {"generic": generic, "tips": [r.tip for r in rows]}
+    tips = [r.tip for r in rows]
+
+    # Class-based red flags (deduped, capped).
+    drug = db.query(Drug).filter(Drug.generic.ilike(g)).first()
+    hay = " ".join([(drug.drug_class or "") if drug else "", g]).lower()
+    red_flags = []
+    for keys, tip in _RED_FLAGS:
+        if any(k in hay for k in keys) and tip not in red_flags:
+            red_flags.append(tip)
+
+    return {"generic": g, "tips": tips, "red_flags": red_flags}
 
 
 @router.get("/drugs/pregnancy")
@@ -512,6 +652,34 @@ def cds_check(
                     })
                     break
 
+    # 5. CDSCO drug-schedule flags (Indian standard) — H1 register/stewardship, X
+    #    duplicate prescription + register. Sourced from the schedule reference.
+    if names:
+        scheds = db.query(DrugPregnancyCategory).filter(
+            DrugPregnancyCategory.generic.in_([resolved[n].generic if n in resolved else n for n in lower]),
+            DrugPregnancyCategory.schedule.isnot(None),
+        ).all() if resolved else []
+        if not scheds:
+            scheds = []
+            for n in names:
+                scheds += db.query(DrugPregnancyCategory).filter(
+                    DrugPregnancyCategory.generic.ilike(n),
+                    DrugPregnancyCategory.schedule.isnot(None)).all()
+        for s in scheds:
+            sched = (s.schedule or "").strip().upper()
+            if sched == "X":
+                warnings.append({
+                    "type": "schedule", "severity": "serious", "drugs": [s.generic], "schedule": "X",
+                    "message": f"{s.generic} is Schedule X (CDSCO) — narcotic/psychotropic.",
+                    "management": "Duplicate prescription + entry in the Schedule X register.",
+                })
+            elif sched == "H1":
+                warnings.append({
+                    "type": "schedule", "severity": "moderate", "drugs": [s.generic], "schedule": "H1",
+                    "message": f"{s.generic} is Schedule H1 (CDSCO) — antimicrobial/habit-forming.",
+                    "management": "Record in the Schedule H1 register; follow antimicrobial stewardship.",
+                })
+
     order = {"contraindicated": 0, "serious": 1, "moderate": 2, "minor": 3}
     warnings.sort(key=lambda w: order.get(w["severity"], 9))
     return {"warnings": warnings, "checked_drugs": names, "checked_diagnoses": codes}
@@ -542,6 +710,106 @@ def _dose_label(form, strength, unit, qty, qunit, deliver):
 _LIQUID_FORMS = {"syr", "syrup", "susp", "suspension", "drops", "soln", "solution", "elixir", "liquid"}
 
 
+def _dose_core(drug_row, rules, weight_kg, yrs, route):
+    """Pure dose math shared by /drugs/dose-suggest and the inline search dose.
+    Returns population, body_flag, target/caps, and all market-formulation options
+    sorted best-first. No DB — caller supplies the Drug row + its DrugDoseRange rows."""
+    population = "pediatric" if (yrs is not None and yrs < 12) else "adult"
+    body_flag = None
+    if population == "adult" and weight_kg:
+        if weight_kg < 35:   body_flag = "very_low"
+        elif weight_kg < 45: body_flag = "underweight"
+
+    def pick_rule(pop, rt):
+        for r in rules:
+            if (r.population or "adult") == pop and (not rt or (r.route or "").lower() == rt.lower()):
+                return r
+        return None
+    rule = (pick_rule(population, route) or pick_rule(population, None)
+            or pick_rule("adult", route) or pick_rule("adult", None))
+
+    forms = []
+    if drug_row and drug_row.formulations:
+        try:
+            forms = _json.loads(drug_row.formulations) or []
+        except Exception:
+            forms = []
+    if route:
+        forms = [f for f in forms if (f.get("route") or "").lower() == route.lower()] or forms
+
+    target_mg = max_single = max_daily = None
+    is_mgkg = bool(rule and (rule.unit or "").lower() == "mg/kg")
+    if rule:
+        ms = float(rule.max_single_mg) if rule.max_single_mg is not None else None
+        md = float(rule.max_daily_mg) if rule.max_daily_mg is not None else None
+        if is_mgkg and weight_kg:
+            target_mg = ms * weight_kg if ms else None
+            max_single = ms * weight_kg if ms else None
+            max_daily = md * weight_kg if md else None
+        else:
+            max_single, max_daily = ms, md
+
+    if body_flag and weight_kg:
+        mgkg_rule = next((r for r in rules if (r.unit or "").lower() == "mg/kg" and r.max_single_mg is not None), None)
+        if mgkg_rule:
+            w_single = float(mgkg_rule.max_single_mg) * weight_kg
+            if max_single is None or w_single < max_single:
+                max_single = w_single
+            wd = float(mgkg_rule.max_daily_mg) * weight_kg if mgkg_rule.max_daily_mg is not None else None
+            if wd is not None and (max_daily is None or wd < max_daily):
+                max_daily = wd
+            if not target_mg:
+                target_mg = w_single
+
+    cap_flag = (target_mg * 1.25) if (is_mgkg and target_mg) else max_single
+
+    options = []
+    for f in forms:
+        form = (f.get("form") or "").strip()
+        unit = f.get("unit") or "mg"
+        rt = f.get("route") or ""
+        fl = form.lower()
+        if unit != "mg":
+            continue
+        for s in (f.get("doses") or []):
+            try:
+                strength = float(s)
+            except Exception:
+                continue
+            if not strength:
+                continue
+            if target_mg:
+                if fl in _LIQUID_FORMS:
+                    ml = _round_half((target_mg / strength) * 5)
+                    if ml <= 0:
+                        continue
+                    deliver = (ml / 5.0) * strength
+                    qty, qunit = ml, "mL"
+                else:
+                    n = _round_half(target_mg / strength)
+                    if n < 0.5 or n > 6:
+                        continue
+                    deliver = n * strength
+                    qty, qunit = n, form
+                closeness = abs(deliver - target_mg)
+            else:
+                deliver, qty, qunit = strength, 1, form
+                closeness = abs(strength - (max_single or strength))
+            options.append({
+                "form": form, "route": rt, "strength": strength, "unit": unit,
+                "quantity": qty, "quantity_unit": qunit, "deliver_mg": round(deliver, 1),
+                "exceeds_max": bool(cap_flag and deliver > cap_flag + 0.01),
+                "label": _dose_label(form, strength, unit, qty, qunit, deliver),
+                "_close": closeness,
+            })
+    options.sort(key=lambda o: (o["exceeds_max"], o["_close"]))
+    return {
+        "population": population, "body_flag": body_flag, "rule": rule, "is_mgkg": is_mgkg,
+        "target_mg": target_mg, "max_single": max_single, "max_daily": max_daily,
+        "options": options,
+    }
+
+
 @router.get("/drugs/dose-suggest")
 def dose_suggest(
     generic: str = Query(...),
@@ -567,94 +835,26 @@ def dose_suggest(
     age_months = age_months if isinstance(age_months, int) and not isinstance(age_months, bool) else None
 
     yrs = age_years if age_years is not None else (age_months / 12.0 if age_months is not None else None)
-    population = "pediatric" if (yrs is not None and yrs < 12) else "adult"
 
     rules = db.query(DrugDoseRange).filter(DrugDoseRange.generic.ilike(g)).all()
-
-    def pick_rule(pop, rt):
-        for r in rules:
-            if (r.population or "adult") == pop and (not rt or (r.route or "").lower() == rt.lower()):
-                return r
-        return None
-
-    rule = (pick_rule(population, route) or pick_rule(population, None)
-            or pick_rule("adult", route) or pick_rule("adult", None))
-
     drug = db.query(Drug).filter(Drug.generic.ilike(g)).first()
-    forms = []
-    if drug and drug.formulations:
-        try:
-            forms = _json.loads(drug.formulations) or []
-        except Exception:
-            forms = []
-    if route:
-        forms = [f for f in forms if (f.get("route") or "").lower() == route.lower()] or forms
 
-    target_mg = max_single = max_daily = None
-    is_mgkg = bool(rule and (rule.unit or "").lower() == "mg/kg")
-    if rule:
-        ms = float(rule.max_single_mg) if rule.max_single_mg is not None else None
-        md = float(rule.max_daily_mg) if rule.max_daily_mg is not None else None
-        if is_mgkg and weight_kg:
-            target_mg = ms * weight_kg if ms else None
-            max_single = ms * weight_kg if ms else None
-            max_daily = md * weight_kg if md else None
-        else:
-            max_single, max_daily = ms, md
+    core = _dose_core(drug, rules, weight_kg, yrs, route)
+    population = core["population"]; body_flag = core["body_flag"]; rule = core["rule"]
+    is_mgkg = core["is_mgkg"]; target_mg = core["target_mg"]
+    max_single = core["max_single"]; max_daily = core["max_daily"]
 
-    # Flag threshold: for paediatric mg/kg the single-dose rate IS the target, so
-    # allow a rounding tolerance (a 16 kg child's 250 mg tab ≈ 15.6 mg/kg is fine).
-    # For adults the absolute single-dose cap is hard.
-    cap_flag = (target_mg * 1.25) if (is_mgkg and target_mg) else max_single
-
-    options = []
-    for f in forms:
-        form = (f.get("form") or "").strip()
-        unit = f.get("unit") or "mg"
-        rt = f.get("route") or ""
-        fl = form.lower()
-        if unit != "mg":      # skip %-strength topicals etc. for systemic dosing
-            continue
-        for s in (f.get("doses") or []):
-            try:
-                strength = float(s)
-            except Exception:
-                continue
-            if not strength:
-                continue
-            if target_mg:
-                if fl in _LIQUID_FORMS:
-                    ml = _round_half((target_mg / strength) * 5)   # strength assumed mg per 5 mL
-                    if ml <= 0:
-                        continue
-                    deliver = (ml / 5.0) * strength
-                    qty, qunit = ml, "mL"
-                else:
-                    n = _round_half(target_mg / strength)
-                    if n < 0.5 or n > 6:
-                        continue
-                    deliver = n * strength
-                    qty, qunit = n, form
-                closeness = abs(deliver - target_mg)
-            else:
-                deliver, qty, qunit = strength, 1, form
-                closeness = abs(strength - (max_single or strength))
-            options.append({
-                "form": form, "route": rt, "strength": strength, "unit": unit,
-                "quantity": qty, "quantity_unit": qunit, "deliver_mg": round(deliver, 1),
-                "exceeds_max": bool(cap_flag and deliver > cap_flag + 0.01),
-                "label": _dose_label(form, strength, unit, qty, qunit, deliver),
-                "_close": closeness,
-            })
-
-    options.sort(key=lambda o: (o["exceeds_max"], o["_close"]))
-    nearest = options[:3]
+    nearest = core["options"][:5]          # the 5 closest market formulations
     for o in nearest:
         o.pop("_close", None)
 
     msg = None
     if population == "pediatric" and is_mgkg and not weight_kg:
         msg = "Enter the patient's weight for paediatric (mg/kg) dosing."
+    elif body_flag == "very_low":
+        msg = f"Very low body weight ({weight_kg} kg) — verify dose; weight-based cap applied."
+    elif body_flag == "underweight":
+        msg = f"Low body weight ({weight_kg} kg) — consider weight-based dosing; cap tightened."
     elif not rule:
         msg = "No dose rule on file; showing available formulations only."
     elif not nearest:
@@ -663,6 +863,7 @@ def dose_suggest(
     return {
         "generic": g,
         "population": population,
+        "body_flag": body_flag,
         "route": route,
         "weight_kg": weight_kg,
         "age_years": yrs,

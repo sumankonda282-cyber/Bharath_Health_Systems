@@ -261,6 +261,14 @@ function OptionsEditor({ options = [], onChange, showScoreWeight = false, showTe
               onChange={e => updateOption(i, 'value', e.target.value)}
               placeholder="value"
             />
+            {opt.code && (
+              <span
+                className="text-[9px] font-mono px-1 py-0.5 rounded bg-blue-900/40 text-blue-300 flex-shrink-0"
+                title={`Coded: ${opt.system || 'SNOMED'} ${opt.code}`}
+              >
+                {(opt.system || 'CODE').slice(0, 6)} {opt.code}
+              </span>
+            )}
             {showScoreWeight && (
               <input
                 type="number"
@@ -352,12 +360,20 @@ function TerminologySearchModal({ onAdd, onClose }) {
           )}
           {results.map((r, i) => {
             const label = r.term || r.name || r.label || String(r)
-            const val = (r.code || label).toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 40)
+            // Keep a readable slug as the option value (chart stays human-readable),
+            // but ATTACH the real terminology code + system to the option so the
+            // answer is FHIR/ABDM-exportable (exporter maps value→option.code). No
+            // longer discards r.code as the old slug-only path did.
+            const code = r.code || null
+            const system = r.system || r.code_system || (code ? 'SNOMED' : null)
+            const val = label.toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 40)
             const cat = r.category || r.type || ''
             return (
               <button
                 key={i}
-                onClick={() => onAdd({ label, value: val })}
+                onClick={() => onAdd(code
+                  ? { label, value: val, code, system }
+                  : { label, value: val })}
                 className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-800 group transition-colors"
               >
                 <div className="flex items-baseline gap-2">

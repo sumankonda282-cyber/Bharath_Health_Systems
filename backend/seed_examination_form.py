@@ -136,7 +136,9 @@ SCHEMA = {
 def run():
     db = SessionLocal()
     try:
-        form = db.query(AssessmentForm).filter(AssessmentForm.title == CANON_TITLE).first()
+        form = db.query(AssessmentForm).filter(
+            AssessmentForm.title == CANON_TITLE, AssessmentForm.clinic_id.is_(None)
+        ).first()  # global curated form only — never overwrite a clinic-scoped form
         now = datetime.utcnow()
         desc = ("Objective record — general inspection and a systematic systemic "
                 "examination with algorithmic Normal/Abnormal gates per system.")
