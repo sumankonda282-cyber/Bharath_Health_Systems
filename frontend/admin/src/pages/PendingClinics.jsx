@@ -175,7 +175,7 @@ export default function PendingClinics() {
                       </button>
                       <Link
                         to={`/clinics/${c.id}`}
-                        className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-dim hover:text-gray-200 hover-app border border-app transition-colors"
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-dim hover:text-app hover-app border border-app transition-colors"
                       >
                         <ExternalLink size={11} />
                       </Link>

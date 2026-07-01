@@ -477,7 +477,7 @@ function DetailDrawer({ staff, onClose, onChanged }) {
             <div className="font-mono text-[11px] text-sky-300 truncate">{staff.employee_code}</div>
             <div className="text-[11px] text-faint">{staff.role_label} · {staff.clinic_name}</div>
           </div>
-          <button onClick={onClose} className="text-faint hover:text-white"><X size={18} /></button>
+          <button onClick={onClose} className="text-faint hover:text-app"><X size={18} /></button>
         </div>
 
         <div className="flex-1 overflow-y-auto">

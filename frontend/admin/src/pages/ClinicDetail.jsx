@@ -277,7 +277,7 @@ export default function ClinicDetail() {
   return (
     <div>
       <div className="mb-6">
-        <Link to="/clinics" className="inline-flex items-center gap-1 text-faint hover:text-white text-sm mb-3">
+        <Link to="/clinics" className="inline-flex items-center gap-1 text-faint hover:text-app text-sm mb-3">
           <ArrowLeft size={14} />Back to Health Centers
         </Link>
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -312,7 +312,7 @@ export default function ClinicDetail() {
       <div className="flex gap-1 mb-5 border-b border-app">
         {TABS.map(tab => (
           <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-            className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${activeTab === tab.key ? 'border-indigo-500 text-app' : 'border-transparent text-dim hover:text-white'}`}>
+            className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${activeTab === tab.key ? 'border-indigo-500 text-app' : 'border-transparent text-dim hover:text-app'}`}>
             {tab.label}
           </button>
         ))}
@@ -322,7 +322,7 @@ export default function ClinicDetail() {
         <div className="card overflow-hidden">
           <div className="px-5 py-4 border-b border-app flex items-center justify-between">
             <h3 className="text-xs font-semibold text-faint uppercase tracking-wider">Staff Roster</h3>
-            <button onClick={loadStaff} className="text-xs text-dim hover:text-white">Refresh</button>
+            <button onClick={loadStaff} className="text-xs text-dim hover:text-app">Refresh</button>
           </div>
           {staffLoading ? (
             <div className="p-10 flex justify-center"><div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" /></div>
@@ -626,7 +626,7 @@ export default function ClinicDetail() {
                   <p className="text-sm text-dim mt-0.5">{clinic.name}</p>
                 </div>
               </div>
-              <button onClick={() => { setManagerModal(false); setManagerSuccess(null) }} className="text-faint hover:text-white p-1 -m-1"><X size={20} /></button>
+              <button onClick={() => { setManagerModal(false); setManagerSuccess(null) }} className="text-faint hover:text-app p-1 -m-1"><X size={20} /></button>
             </div>
 
             {managerSuccess ? (
@@ -645,14 +645,14 @@ export default function ClinicDetail() {
                       <div className="text-xs text-faint mb-1">Username</div>
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-mono text-app text-sm select-all">{managerSuccess.username || '—'}</span>
-                        <button onClick={() => navigator.clipboard.writeText(managerSuccess.username || '')} className="text-dim hover:text-white"><Copy size={14} /></button>
+                        <button onClick={() => navigator.clipboard.writeText(managerSuccess.username || '')} className="text-dim hover:text-app"><Copy size={14} /></button>
                       </div>
                     </div>
                     <div className="surface-2 rounded-xl p-4">
                       <div className="text-xs text-faint mb-1">Temporary password</div>
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-mono text-indigo-300 text-sm tracking-wider select-all">{managerSuccess.temp_password || '—'}</span>
-                        <button onClick={() => navigator.clipboard.writeText(managerSuccess.temp_password || '')} className="text-dim hover:text-white"><Copy size={14} /></button>
+                        <button onClick={() => navigator.clipboard.writeText(managerSuccess.temp_password || '')} className="text-dim hover:text-app"><Copy size={14} /></button>
                       </div>
                     </div>
                   </div>

@@ -252,7 +252,7 @@ export default function HealthCenters() {
               key={s}
               onClick={() => setTab(s)}
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium capitalize whitespace-nowrap transition-all ${
-                tab === s ? 'bg-[#F5821E] text-app' : 'filter-chip text-dim hover:text-white'
+                tab === s ? 'bg-[#F5821E] text-app' : 'filter-chip text-dim hover:text-app'
               }`}
             >
               {s}
@@ -273,7 +273,7 @@ export default function HealthCenters() {
             className="filter-chip surface border border-app text-app text-xs rounded-lg pl-7 pr-7 py-1.5 outline-none focus:border-[#F5821E] w-48 placeholder-gray-500"
           />
           {search && (
-            <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-faint hover:text-white">
+            <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-faint hover:text-app">
               <X size={10} />
             </button>
           )}
@@ -320,7 +320,7 @@ export default function HealthCenters() {
         <button
           onClick={() => downloadCSV(filtered, `health-centers-${tab}.csv`)}
           disabled={filtered.length === 0}
-          className="flex items-center gap-1.5 text-xs font-medium text-dim surface border border-app rounded-lg px-2.5 py-1.5 hover:border-[#F5821E] hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex items-center gap-1.5 text-xs font-medium text-dim surface border border-app rounded-lg px-2.5 py-1.5 hover:border-[#F5821E] hover:text-app transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <Download size={12} /> Export
         </button>
@@ -328,7 +328,7 @@ export default function HealthCenters() {
         {hasFilters && (
           <button
             onClick={() => { setTab('all'); setSearch(''); setFilterPlan(''); setFilterState(''); setActiveModules([]) }}
-            className="text-xs text-dim hover:text-white underline"
+            className="text-xs text-dim hover:text-app underline"
           >
             Reset
           </button>
@@ -463,7 +463,7 @@ export default function HealthCenters() {
                     <button
                       key={p}
                       onClick={() => bulkChangePlan(p)}
-                      className="block w-full text-left px-3 py-1.5 text-dim hover:bg-[#F5821E] hover:text-white capitalize transition-colors"
+                      className="block w-full text-left px-3 py-1.5 text-dim hover:bg-[#F5821E] hover:text-app capitalize transition-colors"
                     >
                       {p}
                     </button>
@@ -481,7 +481,7 @@ export default function HealthCenters() {
 
             <button
               onClick={clearSelection}
-              className="px-2 py-1 rounded-lg text-dim hover:text-white hover-app font-medium transition-colors flex items-center gap-1"
+              className="px-2 py-1 rounded-lg text-dim hover:text-app hover-app font-medium transition-colors flex items-center gap-1"
             >
               <X size={12} /> Clear
             </button>

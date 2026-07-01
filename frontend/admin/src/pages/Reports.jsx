@@ -139,7 +139,7 @@ function SavedReportsModal({ onClose, savedReports, onLoad, onDelete, onSaveCurr
             <BookMarked size={16} className="text-[#F5821E]" />
             <span className="font-semibold text-app text-sm">Saved Reports</span>
           </div>
-          <button onClick={onClose} className="text-faint hover:text-white transition-colors">
+          <button onClick={onClose} className="text-faint hover:text-app transition-colors">
             <X size={16} />
           </button>
         </div>
@@ -263,7 +263,7 @@ function TablePanel({ selectedColumns, onToggle }) {
           {search && (
             <button
               onClick={() => setSearch('')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-faint hover:text-white"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-faint hover:text-app"
             >
               <X size={11} />
             </button>
@@ -325,7 +325,7 @@ function TablePanel({ selectedColumns, onToggle }) {
                               ? 'bg-[#F5821E]/10 text-[#F5821E]'
                               : colMatchesSearch
                               ? 'bg-yellow-500/5 text-yellow-200 hover-app'
-                              : 'text-dim hover-app hover:text-gray-200'
+                              : 'text-dim hover-app hover:text-app'
                           }`}
                         >
                           <input

@@ -97,7 +97,7 @@ export default function ResetPassword() {
                     placeholder="Min. 8 characters"
                   />
                   <button type="button" onClick={() => setShowPw(v => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300">
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-dim">
                     {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
@@ -161,7 +161,7 @@ export default function ResetPassword() {
         </div>
 
         <p className="text-center mt-4">
-          <button onClick={() => navigate('/login')} className="text-gray-500 text-xs hover:text-gray-300 transition-colors">
+          <button onClick={() => navigate('/login')} className="text-gray-500 text-xs hover:text-dim transition-colors">
             ← Back to Sign In
           </button>
         </p>

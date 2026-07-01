@@ -133,15 +133,15 @@ function ToastContainer({ toasts, onRemove }) {
 function ConfirmModal({ message, onConfirm, onCancel }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl p-6 w-80 flex flex-col gap-4">
+      <div className="surface border border-app rounded-2xl shadow-2xl p-6 w-80 flex flex-col gap-4">
         <div className="flex items-center gap-3 text-red-400">
           <AlertTriangle className="w-5 h-5 shrink-0" />
-          <p className="text-sm text-gray-200">{message}</p>
+          <p className="text-sm text-app">{message}</p>
         </div>
         <div className="flex justify-end gap-2">
           <button
             onClick={onCancel}
-            className="px-4 py-1.5 rounded-lg text-sm border border-gray-700 text-gray-300 hover:bg-gray-800 transition-colors"
+            className="px-4 py-1.5 rounded-lg text-sm border border-app text-dim hover-app transition-colors"
           >
             Cancel
           </button>
@@ -287,7 +287,7 @@ export default function FormPool() {
       <div className="flex flex-wrap items-center gap-2">
 
         {/* Tabs */}
-        <div className="flex items-center gap-0.5 bg-gray-900 border border-gray-800 rounded-xl p-1">
+        <div className="flex items-center gap-0.5 surface border border-app rounded-xl p-1">
           {TABS.map(t => (
             <button
               key={t.key}
@@ -295,7 +295,7 @@ export default function FormPool() {
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap
                 ${activeTab === t.key
                   ? 'bg-[#F5821E] text-white shadow-sm'
-                  : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'}`}
+                  : 'text-dim hover:text-app hover-app'}`}
             >
               {t.label}
             </button>
@@ -304,7 +304,7 @@ export default function FormPool() {
 
         {/* Search */}
         <div className="relative flex-1 min-w-[160px] max-w-xs">
-          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
@@ -324,11 +324,11 @@ export default function FormPool() {
               <option key={c.value} value={c.value}>{c.label}</option>
             ))}
           </select>
-          <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+          <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-faint pointer-events-none" />
         </div>
 
         {/* Count */}
-        <span className="text-xs text-gray-500 bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 font-medium">
+        <span className="text-xs text-faint surface-2 border border-app rounded-lg px-2.5 py-1.5 font-medium">
           {filtered.length} form{filtered.length !== 1 ? 's' : ''}
         </span>
 
@@ -359,7 +359,7 @@ export default function FormPool() {
       {!loading && !error && filtered.length === 0 && (
         <div className="card-p text-center py-16">
           <ClipboardList className="w-10 h-10 mx-auto mb-3 text-gray-700" />
-          <p className="text-sm text-gray-500">No forms found</p>
+          <p className="text-sm text-faint">No forms found</p>
         </div>
       )}
 
@@ -406,19 +406,19 @@ function TrashView({ items, loading, actionLoading, onRestore }) {
   if (!items.length) return (
     <div className="card-p text-center py-16">
       <Trash2 className="w-10 h-10 mx-auto mb-3 text-gray-700" />
-      <p className="text-sm text-gray-500">Trash is empty</p>
+      <p className="text-sm text-faint">Trash is empty</p>
     </div>
   )
   return (
     <div className="space-y-2">
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-faint">
         Deleted forms are kept for 30 days, then auto-removed (forms with submissions are never auto-purged). Restore any time.
       </p>
       {items.map(it => (
-        <div key={it.id} className="bg-gray-900 border border-gray-800 rounded-xl p-3 flex items-center gap-3">
+        <div key={it.id} className="surface border border-app rounded-xl p-3 flex items-center gap-3">
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-semibold text-gray-100 truncate">{it.title}</div>
-            <div className="text-[11px] text-gray-500">
+            <div className="text-sm font-semibold text-app truncate">{it.title}</div>
+            <div className="text-[11px] text-faint">
               {it.category || '—'}
               {it.deleted_by_name ? ` · deleted by ${it.deleted_by_name}` : ''}
               {it.deleted_at ? ` · ${new Date(it.deleted_at).toLocaleDateString('en-IN')}` : ''}
@@ -447,16 +447,16 @@ function FormCard({ form, loading, onEdit, onPreview, onPublish, onArchive, onDu
   const isPublished = status === 'published'
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl hover:border-gray-700 transition-colors flex flex-col">
+    <div className="surface border border-app rounded-xl hover:border-gray-700 transition-colors flex flex-col">
 
       {/* Card header */}
       <div className="p-4 flex items-start gap-3">
-        <div className="w-9 h-9 rounded-lg bg-gray-800 border border-gray-700 flex items-center justify-center text-lg shrink-0 select-none">
+        <div className="w-9 h-9 rounded-lg surface-2 border border-app flex items-center justify-center text-lg shrink-0 select-none">
           {form.icon ?? '📋'}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <h3 className="font-semibold text-gray-100 text-sm truncate">{form.title}</h3>
+            <h3 className="font-semibold text-app text-sm truncate">{form.title}</h3>
             <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium border ${badgeCls}`}>
               {status}
             </span>
@@ -467,21 +467,21 @@ function FormCard({ form, loading, onEdit, onPreview, onPublish, onArchive, onDu
             )}
           </div>
           {form.description && (
-            <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{form.description}</p>
+            <p className="text-xs text-faint mt-0.5 line-clamp-2">{form.description}</p>
           )}
         </div>
       </div>
 
       {/* Meta */}
-      <div className="px-4 pb-3 flex items-center gap-2.5 text-xs text-gray-600">
-        <span className="flex items-center gap-1 text-gray-500">{catIcon} {form.category ?? '—'}</span>
+      <div className="px-4 pb-3 flex items-center gap-2.5 text-xs text-faint">
+        <span className="flex items-center gap-1 text-faint">{catIcon} {form.category ?? '—'}</span>
         {form.version_number && (
-          <span className="bg-gray-800 border border-gray-700 px-1.5 py-0.5 rounded text-gray-400">
+          <span className="surface-2 border border-app px-1.5 py-0.5 rounded text-dim">
             v{form.version_number}
           </span>
         )}
         {form.question_count != null && (
-          <span className="text-gray-500">{form.question_count} Qs</span>
+          <span className="text-faint">{form.question_count} Qs</span>
         )}
         {form.is_iview_enabled && (
           <span className="bg-cyan-900/40 text-cyan-400 border border-cyan-800/50 px-1.5 py-0.5 rounded text-[10px]">
@@ -490,7 +490,7 @@ function FormCard({ form, loading, onEdit, onPreview, onPublish, onArchive, onDu
         )}
       </div>
 
-      <div className="border-t border-gray-800 mx-4" />
+      <div className="border-t border-app mx-4" />
 
       {/* Actions */}
       <div className="p-3 flex items-center justify-between">
@@ -515,7 +515,7 @@ function FormCard({ form, loading, onEdit, onPreview, onPublish, onArchive, onDu
             ? (
               <button
                 onClick={onArchive}
-                className="flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-lg border border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-gray-200 transition-colors"
+                className="flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-lg border border-app text-dim hover-app hover:text-app transition-colors"
               >
                 <Archive className="w-3 h-3" /> Archive
               </button>
@@ -539,7 +539,7 @@ function IconBtn({ children, title, onClick, disabled, className = '' }) {
       title={title}
       onClick={onClick}
       disabled={disabled}
-      className={`p-1.5 rounded-lg text-gray-500 hover:text-gray-200 hover:bg-gray-800 transition-colors disabled:opacity-40 ${className}`}
+      className={`p-1.5 rounded-lg text-faint hover:text-app hover-app transition-colors disabled:opacity-40 ${className}`}
     >
       {children}
     </button>

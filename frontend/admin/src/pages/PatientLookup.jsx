@@ -113,7 +113,7 @@ function PatientDrawer({ patientId, onClose }) {
               className={`px-2.5 py-1 rounded-full text-[12px] border transition-colors ${
                 tab === t
                   ? 'bg-[#F5821E]/15 text-[#F5821E] border-[#F5821E]/40'
-                  : 'bg-transparent text-dim border-gray-800 hover:text-app hover:border-app'
+                  : 'bg-transparent text-dim border-app hover:text-app hover:border-app'
               }`}
             >
               {t}

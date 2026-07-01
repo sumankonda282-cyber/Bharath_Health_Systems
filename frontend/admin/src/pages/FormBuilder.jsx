@@ -647,7 +647,7 @@ function FormSettingsModal({ form, dispatch, onClose }) {
             <Settings size={15} className="text-dim" />
             Form Settings
           </h2>
-          <button onClick={onClose} className="text-faint hover:text-white transition-colors">
+          <button onClick={onClose} className="text-faint hover:text-app transition-colors">
             <X size={16} />
           </button>
         </div>
@@ -1173,7 +1173,7 @@ export default function FormBuilder() {
         <header className="sticky top-0 z-40 flex items-center gap-3 px-4 py-2.5 surface border-b border-app flex-shrink-0">
           <button
             onClick={() => navigate('/forms')}
-            className="p-1.5 rounded-lg hover-app text-dim hover:text-white transition-colors"
+            className="p-1.5 rounded-lg hover-app text-dim hover:text-app transition-colors"
             title="Back to Forms"
           >
             <ArrowLeft size={18} />
@@ -1211,7 +1211,7 @@ export default function FormBuilder() {
             className={`p-1.5 rounded-lg transition-colors ${
               showSettings
                 ? 'bg-[#F5821E]/20 text-[#F5821E] border border-[#F5821E]/30'
-                : 'surface-2 text-dim hover:text-white border border-app'
+                : 'surface-2 text-dim hover:text-app border border-app'
             }`}
           >
             <Settings size={16} />
@@ -1221,7 +1221,7 @@ export default function FormBuilder() {
             <button
               onClick={() => navigate(`/forms/audit?form_id=${form.id || routeId}`)}
               title="View change history for this form"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium surface-2 text-dim hover:text-white border border-app transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium surface-2 text-dim hover:text-app border border-app transition-colors"
             >
               <Clock size={15} />
               History
@@ -1233,7 +1233,7 @@ export default function FormBuilder() {
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
               previewMode
                 ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
-                : 'surface-2 text-dim hover:text-white border border-app'
+                : 'surface-2 text-dim hover:text-app border border-app'
             }`}
           >
             {previewMode ? <EyeOff size={15} /> : <Eye size={15} />}
@@ -1243,7 +1243,7 @@ export default function FormBuilder() {
           <button
             onClick={saveDraft}
             disabled={saving || !isDirty}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium surface-2 text-dim hover:text-white border border-app disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium surface-2 text-dim hover:text-app border border-app disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             <Save size={15} />
             {saving ? 'Saving…' : 'Save Draft'}

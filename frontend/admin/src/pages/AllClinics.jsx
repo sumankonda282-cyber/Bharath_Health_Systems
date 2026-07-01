@@ -48,7 +48,7 @@ function ClinicDetailDrawer({ clinic, onClose }) {
             </div>
             <p className="text-xs text-faint">{[clinic.city, clinic.state].filter(Boolean).join(', ') || '—'}</p>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-dim hover:text-white hover-app transition-colors flex-shrink-0">
+          <button onClick={onClose} className="p-1.5 rounded-lg text-dim hover:text-app hover-app transition-colors flex-shrink-0">
             <X size={16} />
           </button>
         </div>
@@ -163,7 +163,7 @@ export default function AllClinics() {
               key={s}
               onClick={() => setTab(s)}
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium capitalize whitespace-nowrap transition-all ${
-                tab === s ? 'bg-[#F5821E] text-app' : 'text-dim hover:text-white'
+                tab === s ? 'bg-[#F5821E] text-app' : 'text-dim hover:text-app'
               }`}
             >
               {s}
@@ -183,7 +183,7 @@ export default function AllClinics() {
             className="surface border border-app text-app text-xs rounded-lg pl-7 pr-7 py-1.5 outline-none focus:border-[#F5821E] w-44 placeholder-gray-500"
           />
           {search && (
-            <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-faint hover:text-white">
+            <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-faint hover:text-app">
               <X size={10} />
             </button>
           )}
@@ -215,7 +215,7 @@ export default function AllClinics() {
             className="bg-transparent text-xs text-app outline-none w-28" />
         </div>
         {hasFilters && (
-          <button onClick={clearFilters} className="text-xs text-dim hover:text-white underline">Clear</button>
+          <button onClick={clearFilters} className="text-xs text-dim hover:text-app underline">Clear</button>
         )}
         <span className="text-xs text-faint ml-auto">{filtered.length} results</span>
       </div>
