@@ -1229,8 +1229,11 @@ def _vital_dict(v: VitalSign) -> dict:
         "temperature": float(v.temperature) if v.temperature is not None else None,
         "pulse": v.pulse,
         "respiration_rate": v.respiration_rate,
+        "respiratory_rate": v.respiration_rate,        # alias for shared chart shell reader
         "bp_systolic": v.bp_systolic,
         "bp_diastolic": v.bp_diastolic,
+        "blood_pressure_systolic": v.bp_systolic,      # alias for shared chart shell reader
+        "blood_pressure_diastolic": v.bp_diastolic,
         "spo2": float(v.spo2) if v.spo2 is not None else None,
         "weight": float(v.weight) if v.weight is not None else None,
         "height": float(v.height) if v.height is not None else None,
