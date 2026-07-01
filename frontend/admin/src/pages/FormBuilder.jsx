@@ -196,6 +196,7 @@ const initialState = {
     icon: '📋',
     status: 'draft',
     is_iview_enabled: false,
+    iview_config: null,
     requires_cosign: false,
     time_limit_minutes: null,
     scoring_config: null,
@@ -1047,6 +1048,7 @@ export default function FormBuilder() {
         clinic_id:           form.clinic_id ?? null,
         scoring_config:      form.scoring_config,
         alert_rules:         form.alert_rules,
+        iview_config:        form.iview_config ?? null,
         schema:              form.schema,
       }
       let result
@@ -1059,6 +1061,10 @@ export default function FormBuilder() {
     } catch (err) {
       console.error('Save failed:', err)
       dispatch({ type: 'SET_SAVING', payload: false })
+      // No silent failures (CLAUDE.md §0). The field_id-freeze guard returns 409
+      // with the offending ids — surface the backend message so the admin knows
+      // exactly why the save was rejected.
+      alert(err?.response?.data?.detail || err?.message || 'Save failed. Please try again.')
     }
   }
 

@@ -718,6 +718,40 @@ def update_form(
     if not form:
         raise HTTPException(status_code=404, detail="Form not found")
 
+    # ── field_id freeze (design standard §7.7) ──────────────────────────────
+    # Once a form has real (non-draft) submissions, its field_ids are the storage
+    # keys of charted clinical data. A schema edit may ADD fields and change
+    # labels/options/layout freely, but it may NOT drop or rename an existing
+    # field_id — that would orphan charted values. Enforce it here.
+    if "schema" in payload:
+        def _field_ids(schema):
+            ids = set()
+            for sec in (schema or {}).get("sections", []) or []:
+                for f in sec.get("fields", []) or []:
+                    fid = f.get("field_id") or f.get("id")
+                    if fid:
+                        ids.add(fid)
+            return ids
+
+        has_real_submission = bool(
+            db.query(FormSubmission.id)
+              .filter(FormSubmission.form_id == form_id, FormSubmission.is_draft.is_(False))
+              .first()
+        )
+        if has_real_submission:
+            old_ids = _field_ids(form.schema)
+            new_ids = _field_ids(payload["schema"])
+            dropped = sorted(old_ids - new_ids)
+            if dropped:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        "Cannot remove or rename field_id(s) on a form with existing "
+                        f"submissions: {', '.join(dropped)}. Charted data is keyed on these "
+                        "ids. Add new fields or edit labels/options instead."
+                    ),
+                )
+
     updatable = [
         "title", "description", "category", "subcategory", "status",
         "schema", "scoring_config", "alert_rules", "is_template",

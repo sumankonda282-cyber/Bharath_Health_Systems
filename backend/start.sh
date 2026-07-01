@@ -397,7 +397,10 @@ safe_cols = [
     \"UPDATE drugs SET is_active = TRUE WHERE is_active IS NULL\",
     \"UPDATE lab_tests SET is_active = TRUE WHERE is_active IS NULL\",
     \"UPDATE imaging_catalog SET is_active = TRUE WHERE is_active IS NULL\",
-    \"DELETE FROM form_templates WHERE is_global = TRUE\",
+    # NOTE: removed \"DELETE FROM form_templates WHERE is_global = TRUE\" — it ran on
+    # EVERY deploy and permanently wiped admin-created global form templates (nothing
+    # re-seeds this table; it is written via the /forms API). Destructive-on-deploy,
+    # same class as the retired assessment_forms soft-delete. Never reinstate.
 
     \"\"\"CREATE TABLE IF NOT EXISTS barcode_master (
         id SERIAL PRIMARY KEY,
