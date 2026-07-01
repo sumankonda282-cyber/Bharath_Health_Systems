@@ -628,7 +628,7 @@ function PlansEditorTab({ planConfig, onSaved, addToast }) {
             <div className="px-4 py-3 flex items-center gap-2 border-b border-app" style={{ background: plan.color + '11' }}>
               <div className="w-3 h-3 rounded-full shrink-0" style={{ background: plan.color || '#6B7280' }} />
               <input value={plan.label || key} onChange={e => setPlan(key, 'label', e.target.value)}
-                className="flex-1 bg-transparent text-sm font-bold text-white outline-none placeholder-gray-600"
+                className="flex-1 bg-transparent text-sm font-bold text-app outline-none placeholder-gray-600"
                 placeholder="Plan Name" />
               <input type="color" value={plan.color || '#6B7280'} onChange={e => setPlan(key, 'color', e.target.value)}
                 className="w-6 h-6 rounded cursor-pointer bg-transparent border-0 p-0" title="Plan color" />
@@ -703,12 +703,12 @@ function PaymentsTab({ addToast }) {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-1.5 text-sm">
-          <span className="text-gray-400">Total Collected:</span>
+          <span className="text-dim">Total Collected:</span>
           <span className="font-bold text-emerald-400 text-base">{fmtMoney(data.total_collected)}</span>
         </div>
         <div className="ml-auto flex items-center gap-2">
           <div className="relative">
-            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-faint pointer-events-none" />
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search…"
               className="surface border border-app text-app text-xs rounded-lg pl-7 pr-3 py-1.5 outline-none focus:border-[#F5821E] w-36 transition-colors placeholder-gray-500" />
           </div>
@@ -744,11 +744,11 @@ function PaymentsTab({ addToast }) {
                 {filtered.map(p => (
                   <tr key={p.id} className="hover-app transition-colors">
                     <td className="px-4 py-3">
-                      <div className="text-sm font-medium text-white">{p.clinic_name}</div>
-                      {p.clinic_city && <div className="text-[10px] text-gray-500">{p.clinic_city}</div>}
+                      <div className="text-sm font-medium text-app">{p.clinic_name}</div>
+                      {p.clinic_city && <div className="text-[10px] text-faint">{p.clinic_city}</div>}
                     </td>
                     <td className="px-3 py-3 text-emerald-400 font-semibold text-sm">{fmtMoney(p.amount)}</td>
-                    <td className="px-3 py-3 text-gray-400 text-xs capitalize">{p.method?.replace('_', ' ')}</td>
+                    <td className="px-3 py-3 text-dim text-xs capitalize">{p.method?.replace('_', ' ')}</td>
                     <td className="px-3 py-3 text-faint text-xs font-mono">{p.reference || '—'}</td>
                     <td className="px-3 py-3 text-faint text-xs">
                       {p.period_from ? `${fmtDate(p.period_from)} – ${fmtDate(p.period_to)}` : '—'}
@@ -800,7 +800,7 @@ function AnalyticsTab({ clinics, planConfig }) {
       <div className="surface border border-app rounded-xl p-5">
         <div className="text-xs font-semibold text-dim uppercase tracking-wider mb-4">MRR by Plan</div>
         {planMrr.length === 0 ? (
-          <p className="text-sm text-gray-600 text-center py-6">No revenue data yet</p>
+          <p className="text-sm text-faint text-center py-6">No revenue data yet</p>
         ) : (
           <div className="space-y-3">
             {planMrr.map(([planKey, mrr]) => {
@@ -813,11 +813,11 @@ function AnalyticsTab({ clinics, planConfig }) {
                     <div className="flex items-center gap-2">
                       <div className="w-2.5 h-2.5 rounded-full" style={{ background: info.color || '#6B7280' }} />
                       <span className="text-sm text-app font-medium">{info.label || planKey}</span>
-                      <span className="text-xs text-gray-500">{count} health center{count !== 1 ? 's' : ''}</span>
+                      <span className="text-xs text-faint">{count} health center{count !== 1 ? 's' : ''}</span>
                     </div>
                     <span className="text-sm font-semibold text-app">{fmtMoney(mrr)}</span>
                   </div>
-                  <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+                  <div className="h-2 surface-2 rounded-full overflow-hidden">
                     <div className="h-full rounded-full transition-all duration-700"
                       style={{ width: `${pct}%`, background: info.color || '#6B7280' }} />
                   </div>
@@ -849,7 +849,7 @@ function AnalyticsTab({ clinics, planConfig }) {
                   <td className="px-4 py-2.5">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full" style={{ background: info.color || '#6B7280' }} />
-                      <span className="text-white font-medium">{info.label || planKey}</span>
+                      <span className="text-app font-medium">{info.label || planKey}</span>
                     </div>
                   </td>
                   <td className="px-3 py-2.5 text-right text-dim">{count}</td>
@@ -973,7 +973,7 @@ export default function Subscriptions() {
           const Icon = t.icon
           return (
             <button key={t.key} onClick={() => setTab(t.key)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex-1 justify-center ${tab === t.key ? 'bg-gray-800 text-white shadow-sm' : 'text-gray-500 hover:text-dim'}`}>
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex-1 justify-center ${tab === t.key ? 'surface-2 text-app shadow-sm' : 'text-faint hover:text-dim'}`}>
               <Icon size={12} />{t.label}
             </button>
           )
@@ -993,7 +993,7 @@ export default function Subscriptions() {
               {/* Filters */}
               <div className="flex flex-wrap gap-2 items-center">
                 <div className="relative">
-                  <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+                  <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-faint pointer-events-none" />
                   <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search health centers…"
                     className="surface border border-app text-app text-xs rounded-lg pl-7 pr-7 py-1.5 outline-none focus:border-[#F5821E] w-44 transition-colors placeholder-gray-500" />
                   {search && (
@@ -1016,7 +1016,7 @@ export default function Subscriptions() {
                   <button onClick={() => { setSearch(''); setFilterPlan(''); setFilterStatus('') }}
                     className="text-xs text-gray-400 hover:text-app underline">Clear</button>
                 )}
-                <span className="text-xs text-gray-600 ml-auto">{filtered.length} of {clinics.length}</span>
+                <span className="text-xs text-faint ml-auto">{filtered.length} of {clinics.length}</span>
               </div>
 
               {/* Table */}
@@ -1047,10 +1047,10 @@ export default function Subscriptions() {
                           const modules = getActiveModules(c)
                           return (
                             <tr key={c.id}
-                              className={`cursor-pointer hover:bg-gray-800/40 transition-colors ${overdue ? 'bg-red-950/10' : expiring ? 'bg-yellow-950/10' : ''}`}
+                              className={`cursor-pointer hover-app transition-colors ${overdue ? 'bg-red-950/10' : expiring ? 'bg-yellow-950/10' : ''}`}
                               onClick={() => setDrawerClinic(c)}>
                               <td className="px-4 py-3">
-                                <div className="font-semibold text-white text-sm">{c.name}</div>
+                                <div className="font-semibold text-app text-sm">{c.name}</div>
                                 <div className="text-[10px] text-faint mt-0.5">{c.city}{c.state ? `, ${c.state}` : ''}</div>
                                 {overdue  && <div className="text-[10px] text-red-400 mt-0.5">● Overdue</div>}
                                 {!overdue && expiring && <div className="text-[10px] text-yellow-400 mt-0.5">● Expiring soon</div>}
@@ -1062,13 +1062,13 @@ export default function Subscriptions() {
                                 <StatusBadge status={c.status} />
                               </td>
                               <td className="px-3 py-3 text-center">
-                                <span className="text-white font-semibold">{c.doctor_count ?? 0}</span>
-                                <span className="text-gray-600 text-[10px]">/{planConfig?.plans?.[c.plan || 'free']?.max_doctors >= 999 ? '∞' : (planConfig?.plans?.[c.plan || 'free']?.max_doctors ?? '—')}</span>
+                                <span className="text-app font-semibold">{c.doctor_count ?? 0}</span>
+                                <span className="text-faint text-[10px]">/{planConfig?.plans?.[c.plan || 'free']?.max_doctors >= 999 ? '∞' : (planConfig?.plans?.[c.plan || 'free']?.max_doctors ?? '—')}</span>
                               </td>
                               <td className="px-3 py-3 text-right">
                                 <span className="text-emerald-400 font-semibold text-xs">{bill > 0 ? fmtMoney(bill) : '—'}</span>
                               </td>
-                              <td className={`px-3 py-3 text-xs ${overdue ? 'text-red-400' : expiring ? 'text-yellow-400' : 'text-gray-500'}`}>
+                              <td className={`px-3 py-3 text-xs ${overdue ? 'text-red-400' : expiring ? 'text-yellow-400' : 'text-faint'}`}>
                                 {fmtDate(c.subscription_expires_at)}
                               </td>
                               <td className="px-3 py-3">
