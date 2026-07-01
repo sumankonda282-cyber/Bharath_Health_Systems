@@ -689,6 +689,12 @@ safe_cols = [
     #    in-memory, so every redeploy wiped them). One bundle of forms per health center. ──
     \"CREATE TABLE IF NOT EXISTS care_forms (id VARCHAR(40) PRIMARY KEY, clinic_id INTEGER REFERENCES clinics(id), name VARCHAR(200), description TEXT, color VARCHAR(20), forms JSONB DEFAULT '[]'::jsonb, conditions JSONB DEFAULT '[]'::jsonb, published BOOLEAN DEFAULT FALSE, created_by INTEGER, created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW())\",
     \"CREATE INDEX IF NOT EXISTS idx_care_forms_clinic ON care_forms(clinic_id)\",
+
+    # ── Problem list (gap B6): longitudinal, coded, status-tracked conditions —
+    #    one central table every portal + future FHIR/ABDM export reads. ──
+    \"CREATE TABLE IF NOT EXISTS problem_list (id SERIAL PRIMARY KEY, patient_id INTEGER NOT NULL REFERENCES patients(id) ON DELETE CASCADE, clinic_id INTEGER REFERENCES clinics(id), problem VARCHAR(300) NOT NULL, code VARCHAR(40), code_system VARCHAR(20), status VARCHAR(20) DEFAULT 'active', onset_date DATE, resolved_date DATE, note TEXT, recorded_by INTEGER, recorded_by_name VARCHAR(200), encounter_id VARCHAR(24), created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE INDEX IF NOT EXISTS idx_problem_list_patient ON problem_list(patient_id, status)\",
+    \"CREATE INDEX IF NOT EXISTS idx_problem_list_encounter ON problem_list(encounter_id)\",
 ]
 ok = 0
 failed = 0

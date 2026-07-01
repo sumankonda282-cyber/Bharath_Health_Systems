@@ -582,6 +582,30 @@ class PatientTag(Base):
     saved_tag = relationship("ClinicPatientTag", back_populates="patient_tags")
 
 
+class ProblemList(Base):
+    """Longitudinal, coded problem list (gap B6 / ABDM Condition resource).
+    Unlike patient_tags (a flat quick-label store), a problem carries clinical
+    status, onset, resolution and coding — the maintained list of a patient's
+    active/resolved conditions across encounters, centralised in one table so
+    every portal and a future FHIR/ABDM export reads it from one place."""
+    __tablename__ = "problem_list"
+    id            = Column(Integer, primary_key=True, index=True)
+    patient_id    = Column(Integer, ForeignKey("patients.id", ondelete="CASCADE"), nullable=False, index=True)
+    clinic_id     = Column(Integer, ForeignKey("clinics.id"), nullable=True, index=True)
+    problem       = Column(String(300), nullable=False)          # display name
+    code          = Column(String(40), nullable=True)            # ICD-10 / SNOMED code
+    code_system   = Column(String(20), nullable=True)            # 'ICD-10' | 'SNOMED'
+    status        = Column(String(20), default="active")         # active | resolved | inactive
+    onset_date    = Column(Date, nullable=True)
+    resolved_date = Column(Date, nullable=True)
+    note          = Column(Text, nullable=True)
+    recorded_by   = Column(Integer, nullable=True)               # staff id
+    recorded_by_name = Column(String(200), nullable=True)
+    encounter_id  = Column(String(24), nullable=True, index=True)
+    created_at    = Column(DateTime, server_default=func.now())
+    updated_at    = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
 class EncounterAccessLog(Base):
     __tablename__ = "encounter_access_logs"
     id                  = Column(Integer, primary_key=True, index=True)
