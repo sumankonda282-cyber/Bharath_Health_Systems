@@ -945,7 +945,7 @@ function FormRow({ form, pinned, onPin, onOpen }) {
 }
 
 // Shows one pen icon per unique submitted form — click reopens it to edit/resubmit
-function SubmittedFormsPanel({ submissions, onOpenForm }) {
+function SubmittedFormsPanel({ submissions, onOpenForm, sessionClosed }) {
   if (!submissions || submissions.length === 0) return null
 
   // Deduplicate — latest per form_id, track count
@@ -958,6 +958,8 @@ function SubmittedFormsPanel({ submissions, onOpenForm }) {
   })
   const unique = Array.from(latestMap.values())
 
+  // Session closed (OPD completed / cancelled) → no edit. Chips become a
+  // read-only record: no pencil, click opens the form in view-only mode.
   return (
     <div className="border-b border-gray-100 px-3 py-2 flex-shrink-0">
       <div className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">
@@ -967,15 +969,17 @@ function SubmittedFormsPanel({ submissions, onOpenForm }) {
         {unique.map(s => (
           <button
             key={s.form_id}
-            onClick={() => onOpenForm && onOpenForm({ id: s.form_id, title: s.form_title, schema: s.form_schema })}
-            title={`Edit: ${s.form_title || 'Assessment Form'}`}
+            onClick={() => onOpenForm && onOpenForm({ id: s.form_id, title: s.form_title, schema: s.form_schema, readOnly: sessionClosed })}
+            title={sessionClosed ? `View: ${s.form_title || 'Assessment Form'}` : `Edit: ${s.form_title || 'Assessment Form'}`}
             className="flex items-center gap-1 px-2 py-1 rounded-lg border border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50 transition-colors group">
             <span className="text-[10px] font-medium text-gray-700 group-hover:text-blue-700 max-w-[100px] truncate">
               {s.form_title || 'Form'}
             </span>
-            {s.status === 'draft'
-              ? <span className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" title="Draft" />
-              : <Pencil size={9} className="text-gray-400 group-hover:text-blue-500 flex-shrink-0" />
+            {sessionClosed
+              ? null
+              : s.status === 'draft'
+                ? <span className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" title="Draft" />
+                : <Pencil size={9} className="text-gray-400 group-hover:text-blue-500 flex-shrink-0" />
             }
             {(countMap.get(s.form_id) || 1) > 1 && (
               <span className="text-[9px] text-gray-400">×{countMap.get(s.form_id)}</span>
@@ -987,7 +991,7 @@ function SubmittedFormsPanel({ submissions, onOpenForm }) {
   )
 }
 
-function AssessmentPanel({ onOpenForm, onCollapse, clinicId, formSubmissions }) {
+function AssessmentPanel({ onOpenForm, onCollapse, clinicId, formSubmissions, sessionClosed }) {
   const [forms, setForms]     = useState([])
   const [favIds, setFavIds]   = useState(new Set())
   const [search, setSearch]   = useState('')
@@ -1030,7 +1034,7 @@ function AssessmentPanel({ onOpenForm, onCollapse, clinicId, formSubmissions }) 
   return (
     <div className="h-full flex flex-col overflow-hidden">
       {/* Submitted forms index — all forms filed for this encounter */}
-      <SubmittedFormsPanel submissions={formSubmissions} onOpenForm={onOpenForm} />
+      <SubmittedFormsPanel submissions={formSubmissions} onOpenForm={onOpenForm} sessionClosed={sessionClosed} />
 
       <div className="px-3 py-2.5 border-b border-gray-100 flex-shrink-0">
         <div className="flex items-center justify-between mb-2">
@@ -2043,7 +2047,7 @@ export default function OpdChart() {
               }}
             />
           ) : (
-            <div className="p-5 w-full max-w-4xl">
+            <div className="p-5 w-full max-w-6xl mx-auto">
               {section === 'chart' && (
                 <PatientChartDocument
                   encounter={encounter}
@@ -2100,7 +2104,7 @@ export default function OpdChart() {
         {/* Right assessment panel */}
         {panelOpen ? (
           <div className="w-[272px] flex-shrink-0 bg-white border-l border-gray-200 flex flex-col overflow-hidden">
-            <AssessmentPanel onOpenForm={setActiveForm} onCollapse={() => setPanelOpen(false)} clinicId={user?.clinic_id ?? null} formSubmissions={formSubmissions ?? []} />
+            <AssessmentPanel onOpenForm={setActiveForm} onCollapse={() => setPanelOpen(false)} clinicId={user?.clinic_id ?? null} formSubmissions={formSubmissions ?? []} sessionClosed={readonly} />
           </div>
         ) : (
           <button onClick={() => setPanelOpen(true)}

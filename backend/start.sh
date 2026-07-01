@@ -919,15 +919,19 @@ except Exception as e:
 
 echo "[bg-migrations] Seeding demo/test accounts (idempotent)..."
 timeout 60 python seed.py || echo "[bg-migrations] Demo seed failed (non-fatal)"
-# Assessment form seeds disabled — all global form templates cleared on next deploy.
-# seed_vitals.py / seed_assessment_forms.py / seed_forms.py intentionally skipped.
-echo "[bg-migrations] Clearing ALL assessment form templates (full library reset)..."
+# ── Fresh curated form library (clean-slate rebuild) ────────────────────────
+# The legacy auto-seeded library (seed_assessment_forms.py, seed_forms.py,
+# seed_vitals.py) is intentionally NOT executed. Those files remain in the repo
+# as reference so any legacy form can be ported to the design standard later.
+# We RETIRE every existing form (soft-delete — reversible, submissions preserved)
+# and then seed ONLY our curated, design-standard forms below.
+echo "[bg-migrations] Retiring legacy form library (soft-delete, reversible)..."
 python - <<'PYEOF'
 import os, sys
 sys.path.insert(0, os.path.dirname(__file__))
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
 if not DATABASE_URL:
-    print("[clear-forms] DATABASE_URL not set — skipping"); sys.exit(0)
+    print("[retire-forms] DATABASE_URL not set — skipping"); sys.exit(0)
 for old, new in [("postgres://","postgresql+psycopg2://"),("postgresql://","postgresql+psycopg2://"),("postgresql+asyncpg","postgresql+psycopg2")]:
     if DATABASE_URL.startswith(old) and new not in DATABASE_URL:
         DATABASE_URL = DATABASE_URL.replace(old, new, 1); break
@@ -938,14 +942,11 @@ with engine.begin() as conn:
         UPDATE assessment_forms
         SET deleted_at = NOW()
         WHERE deleted_at IS NULL
-          AND title != 'OPD History & Complaint (Test)'
     """))
-    print(f"[clear-forms] Soft-deleted {result.rowcount} form templates (all clinics).")
+    print(f"[retire-forms] Soft-deleted {result.rowcount} legacy form(s) — reversible.")
 PYEOF
-echo "[bg-migrations] Seeding OPD test form for chart rendering verification..."
-timeout 30 python seed_opd_test_form.py || echo "[bg-migrations] OPD test form seed failed (non-fatal)"
-echo "[bg-migrations] Seeding Vitals — Standard care section..."
-timeout 30 python seed_vitals_section.py || echo "[bg-migrations] Vitals section seed failed (non-fatal)"
+echo "[bg-migrations] Seeding curated library — Vital Signs (revives if present)..."
+timeout 30 python seed_vital_signs.py || echo "[bg-migrations] Vital Signs seed failed (non-fatal)"
 echo "[bg-migrations] Done."
 ) &
 
