@@ -489,6 +489,20 @@ def update_staff(
     for field in updatable:
         if field in body:
             setattr(s, field, body[field])
+
+    # Doctor profile fields are collected in the same edit form but live on
+    # DoctorProfile — persist them so specialty/fee edits don't silently revert.
+    if s.role == "doctor" and ("specialty" in body or "consultation_fee" in body):
+        dp = db.query(DoctorProfile).filter(DoctorProfile.staff_id == s.id).first()
+        if dp:
+            if "specialty" in body:
+                dp.specialty = body["specialty"]
+            if "consultation_fee" in body and body["consultation_fee"] not in (None, ""):
+                try:
+                    dp.consultation_fee = float(body["consultation_fee"])
+                except (TypeError, ValueError):
+                    pass
+
     db.commit()
     return {"message": "Updated successfully"}
 
