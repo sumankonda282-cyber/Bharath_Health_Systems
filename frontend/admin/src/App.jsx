@@ -19,6 +19,7 @@ import FormPreview from './pages/FormPreview'
 import FormAnalytics from './pages/FormAnalytics'
 import FormAuditLog from './pages/FormAuditLog'
 import PopulationDashboard from './pages/PopulationDashboard'
+import { TooltipProvider } from './components/ui/Tooltip'
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth()
@@ -28,7 +29,7 @@ function PrivateRoute({ children }) {
 
 export default function App() {
   return (
-    <>
+    <TooltipProvider>
       <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
@@ -58,6 +59,6 @@ export default function App() {
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </BrowserRouter>
-    </>
+    </TooltipProvider>
   )
 }

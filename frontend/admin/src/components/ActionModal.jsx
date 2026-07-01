@@ -33,16 +33,16 @@ export default function ActionModal({ open, onClose, onConfirm, action, clinicNa
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-md p-6">
+      <div className="surface border border-app rounded-2xl w-full max-w-md p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold text-white">{label} — {clinicName}</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-white"><X size={20} /></button>
+          <h3 className="text-lg font-bold text-app">{label} — {clinicName}</h3>
+          <button onClick={onClose} className="text-faint hover:text-app"><X size={20} /></button>
         </div>
 
         {needsReason && (
           <div className="space-y-3">
             <div>
-              <label className="text-xs font-semibold text-gray-400 mb-1.5 block">Reason *</label>
+              <label className="text-xs font-semibold text-dim mb-1.5 block">Reason *</label>
               {action === 'reject' ? (
                 <textarea
                   className="input resize-none"
@@ -57,7 +57,7 @@ export default function ActionModal({ open, onClose, onConfirm, action, clinicNa
                     {SUSPENSION_REASONS.map(r => (
                       <button key={r.value} type="button"
                         onClick={() => setReason(r.value)}
-                        className={`p-2.5 rounded-xl border text-sm font-medium text-left transition-all ${reason === r.value ? 'border-indigo-500 bg-indigo-500/10 text-indigo-300' : 'border-gray-700 text-gray-400 hover:border-gray-600'}`}>
+                        className={`p-2.5 rounded-xl border text-sm font-medium text-left transition-all ${reason === r.value ? 'border-indigo-500 bg-indigo-500/10 text-indigo-300' : 'border-app text-dim hover:border-app'}`}>
                         {r.label}
                       </button>
                     ))}
@@ -78,10 +78,10 @@ export default function ActionModal({ open, onClose, onConfirm, action, clinicNa
         )}
 
         {action === 'approve' && (
-          <p className="text-gray-400 text-sm">This clinic will go live and clinic admin will be able to login.</p>
+          <p className="text-dim text-sm">This clinic will go live and clinic admin will be able to login.</p>
         )}
         {action === 'reactivate' && (
-          <p className="text-gray-400 text-sm">This will restore access for the clinic and their staff.</p>
+          <p className="text-dim text-sm">This will restore access for the clinic and their staff.</p>
         )}
 
         <div className="flex gap-3 mt-5">
@@ -89,7 +89,7 @@ export default function ActionModal({ open, onClose, onConfirm, action, clinicNa
           <button
             onClick={handleSubmit}
             disabled={loading || (needsReason && action !== 'reject' && !reason)}
-            className={`flex-1 justify-center inline-flex items-center gap-2 px-4 py-2 text-white text-sm font-semibold rounded-xl transition-colors ${color} disabled:opacity-50`}>
+            className={`flex-1 justify-center inline-flex items-center gap-2 px-4 py-2 text-app text-sm font-semibold rounded-xl transition-colors ${color} disabled:opacity-50`}>
             {loading ? 'Processing…' : label}
           </button>
         </div>

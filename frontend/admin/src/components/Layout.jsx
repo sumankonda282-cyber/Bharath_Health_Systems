@@ -3,11 +3,15 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import {
   LayoutDashboard, Clock, Building2, ShieldCheck,
-  ClipboardList, BarChart3, LogOut, Menu, X, Search, CreditCard, Hospital,
+  ClipboardList, BarChart3, LogOut, Menu as MenuIcon, X, Search, CreditCard, Hospital,
   FileText, Users, Bell, RefreshCw, ChevronDown, PanelLeft, KeyRound, FileClock,
 } from 'lucide-react'
 import api from '../api/client'
 import BrandLogo from './BrandLogo'
+import { Tooltip } from './ui/Tooltip'
+import { IconButton } from './ui/IconButton'
+import { Menu, MenuItem, MenuSeparator } from './ui/Menu'
+import ThemeToggle from './ThemeToggle'
 
 const NAV = [
   { to: '/dashboard',         icon: LayoutDashboard, label: 'Platform Analytics' },
@@ -88,39 +92,39 @@ function FeedbackBell() {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(v => !v)}
-        className="relative p-1.5 rounded-lg text-gray-400 hover:bg-white/10 flex items-center justify-center transition-colors"
+        className="relative p-1.5 rounded-lg text-dim hover:bg-white/10 flex items-center justify-center transition-colors"
         title="Feedback"
       >
         <Bell size={18} />
         {items.length > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-0.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-0.5 rounded-full bg-red-500 text-app text-[10px] font-bold flex items-center justify-center">
             {items.length}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 top-12 w-80 bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl z-50 overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-800 flex items-center justify-between">
-            <span className="text-white font-semibold text-sm">Unread Feedback</span>
-            <span className="text-gray-500 text-xs">{items.length} unread</span>
+        <div className="absolute right-0 top-12 w-80 surface border border-app rounded-2xl shadow-2xl z-50 overflow-hidden">
+          <div className="px-4 py-3 border-b border-app flex items-center justify-between">
+            <span className="text-app font-semibold text-sm">Unread Feedback</span>
+            <span className="text-faint text-xs">{items.length} unread</span>
           </div>
           {items.length === 0 ? (
-            <div className="px-4 py-8 text-center text-gray-500 text-sm">No unread feedback</div>
+            <div className="px-4 py-8 text-center text-faint text-sm">No unread feedback</div>
           ) : (
-            <ul className="max-h-96 overflow-y-auto divide-y divide-gray-800">
+            <ul className="max-h-96 overflow-y-auto divide-y divide-[color:var(--border)]">
               {items.map(item => {
                 const tc = TYPE_COLORS[item.type] || TYPE_COLORS.general
                 return (
-                  <li key={item.id} className="px-4 py-3 hover:bg-gray-800/50 transition-colors">
+                  <li key={item.id} className="px-4 py-3 hover:surface-2 transition-colors">
                     <div className="flex items-start justify-between gap-2 mb-1">
-                      <span className="font-medium text-white text-sm truncate">{item.name}</span>
-                      <span className="text-gray-500 text-xs whitespace-nowrap flex-shrink-0">{timeAgo(item.created_at)}</span>
+                      <span className="font-medium text-app text-sm truncate">{item.name}</span>
+                      <span className="text-faint text-xs whitespace-nowrap flex-shrink-0">{timeAgo(item.created_at)}</span>
                     </div>
                     <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: tc.bg, color: tc.color }}>
                       {tc.label}
                     </span>
-                    <p className="text-gray-400 text-xs leading-relaxed mt-1.5 mb-2 line-clamp-2">
+                    <p className="text-dim text-xs leading-relaxed mt-1.5 mb-2 line-clamp-2">
                       {item.message.length > 80 ? item.message.slice(0, 80) + '…' : item.message}
                     </p>
                     <button
@@ -141,60 +145,33 @@ function FeedbackBell() {
 }
 
 function ProfileDropdown({ user, logout, onChangePassword }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef(null)
-
-  useEffect(() => {
-    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
-
-  return (
-    <div ref={ref} className="relative">
-      <button
-        onClick={() => setOpen(v => !v)}
-        className="flex items-center gap-1.5 p-1 rounded-xl hover:bg-white/10 transition-colors"
-        title={user?.email}
+  const trigger = (
+    <button className="flex items-center gap-1.5 p-1 rounded-xl hover:bg-white/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30">
+      <div
+        className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+        style={{ background: 'rgba(245,130,30,0.25)', color: '#F5821E' }}
       >
-        <div
-          className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-          style={{ background: 'rgba(245,130,30,0.25)', color: '#F5821E' }}
-        >
-          {getInitials(user?.email || user?.full_name)}
+        {getInitials(user?.email || user?.full_name)}
+      </div>
+      <div className="hidden md:block text-left">
+        <div className="text-xs font-semibold text-app leading-tight max-w-[120px] truncate">
+          {user?.email || user?.full_name}
         </div>
-        <div className="hidden md:block text-left">
-          <div className="text-xs font-semibold text-white leading-tight max-w-[120px] truncate">
-            {user?.email || user?.full_name}
-          </div>
-          <div className="text-[11px] leading-tight" style={{ color: 'rgba(255,255,255,0.5)' }}>Super Admin</div>
-        </div>
-        <ChevronDown size={13} className="text-gray-400" />
-      </button>
-
-      {open && (
-        <div className="absolute right-0 top-12 w-56 bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl z-50 overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-800">
-            <div className="text-white text-sm font-semibold truncate">{user?.email || user?.full_name}</div>
-            <div className="text-gray-500 text-xs">Super Admin</div>
-          </div>
-          <div className="p-2">
-            <button
-              onClick={() => { setOpen(false); onChangePassword && onChangePassword() }}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-gray-300 hover:bg-white/5 hover:text-white text-sm font-medium transition-colors"
-            >
-              <KeyRound size={15} />Change Password
-            </button>
-            <button
-              onClick={logout}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300 text-sm font-medium transition-colors"
-            >
-              <LogOut size={15} />Sign Out
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
+        <div className="text-[11px] leading-tight" style={{ color: 'rgba(255,255,255,0.5)' }}>Super Admin</div>
+      </div>
+      <ChevronDown size={13} className="text-dim" />
+    </button>
+  )
+  return (
+    <Menu trigger={trigger} width={224}>
+      <div className="px-3 py-2 border-b border-app mb-1">
+        <div className="text-app text-sm font-semibold truncate">{user?.email || user?.full_name}</div>
+        <div className="text-faint text-xs">Super Admin</div>
+      </div>
+      <MenuItem icon={KeyRound} onSelect={() => onChangePassword && onChangePassword()}>Change Password</MenuItem>
+      <MenuSeparator />
+      <MenuItem icon={LogOut} tone="danger" onSelect={logout}>Sign Out</MenuItem>
+    </Menu>
   )
 }
 
@@ -214,7 +191,7 @@ function SidebarContent({ onClose, collapsed = false }) {
               </span>
             </div>
             {onClose && (
-              <button onClick={onClose} className="md:hidden text-white/50 hover:text-white p-1">
+              <button onClick={onClose} className="md:hidden text-app/50 hover:text-app p-1">
                 <X size={18} />
               </button>
             )}
@@ -222,17 +199,18 @@ function SidebarContent({ onClose, collapsed = false }) {
         )}
       </div>
 
-      {/* Nav */}
+      {/* Nav — scrolls independently; collapsed items show a Radix tooltip */}
       <nav className="flex-1 px-2 py-3 overflow-y-auto">
         {NAV.map(({ to, icon: Icon, label }) => (
-          <NavLink key={to} to={to}
-            onClick={onClose}
-            title={collapsed ? label : undefined}
-            className={({ isActive }) => `${isActive ? 'sidebar-link-active' : 'sidebar-link'} ${collapsed ? 'justify-center' : ''}`}
-          >
-            <Icon size={17} className="flex-shrink-0" />
-            {!collapsed && <span className="flex-1 truncate">{label}</span>}
-          </NavLink>
+          <Tooltip key={to} label={collapsed ? label : null} side="right">
+            <NavLink to={to}
+              onClick={onClose}
+              className={({ isActive }) => `${isActive ? 'sidebar-link-active' : 'sidebar-link'} ${collapsed ? 'justify-center' : ''}`}
+            >
+              <Icon size={17} className="flex-shrink-0" />
+              {!collapsed && <span className="flex-1 truncate">{label}</span>}
+            </NavLink>
+          </Tooltip>
         ))}
       </nav>
     </div>
@@ -262,13 +240,13 @@ function ChangePasswordModal({ open, onClose }) {
     finally { setSaving(false) }
   }
 
-  const inputCls = 'w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500'
+  const inputCls = 'w-full px-3 py-2 surface-2 border border-app rounded-lg text-app text-sm focus:outline-none focus:border-indigo-500'
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60">
-      <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-sm p-6">
+      <div className="surface border border-app rounded-2xl w-full max-w-sm p-6">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-bold text-white">Change Password</h3>
-          <button onClick={close} className="text-gray-500 hover:text-white"><X size={18} /></button>
+          <h3 className="text-lg font-bold text-app">Change Password</h3>
+          <button onClick={close} className="text-faint hover:text-app"><X size={18} /></button>
         </div>
         {ok ? (
           <>
@@ -280,7 +258,7 @@ function ChangePasswordModal({ open, onClose }) {
             <input className={inputCls} type={show ? 'text' : 'password'} placeholder="Current password" value={cur} onChange={e => setCur(e.target.value)} required autoFocus />
             <input className={inputCls} type={show ? 'text' : 'password'} placeholder="New password (min 8 chars)" value={nw} onChange={e => setNw(e.target.value)} required />
             <input className={inputCls} type={show ? 'text' : 'password'} placeholder="Confirm new password" value={conf} onChange={e => setConf(e.target.value)} required />
-            <label className="flex items-center gap-2 text-xs text-gray-400 select-none"><input type="checkbox" checked={show} onChange={e => setShow(e.target.checked)} />Show passwords</label>
+            <label className="flex items-center gap-2 text-xs text-dim select-none"><input type="checkbox" checked={show} onChange={e => setShow(e.target.checked)} />Show passwords</label>
             {err && <p className="text-red-400 text-xs">{err}</p>}
             <div className="flex gap-3 pt-1">
               <button type="button" onClick={close} className="btn-secondary flex-1 justify-center text-sm">Cancel</button>
@@ -304,16 +282,53 @@ export default function Layout() {
     try { localStorage.setItem('admin_sidebar_collapsed', next ? '1' : '0') } catch {}
     return next
   })
+  // Draggable sidebar width (persisted), active only when expanded.
+  const [navWidth, setNavWidth] = useState(() => {
+    const w = parseInt(localStorage.getItem('admin_sidebar_width') || '', 10)
+    return Number.isFinite(w) ? Math.min(320, Math.max(180, w)) : 208
+  })
+  const dragRef = useRef(null)
+  const startResize = (e) => {
+    e.preventDefault()
+    const move = (ev) => {
+      const x = ev.touches ? ev.touches[0].clientX : ev.clientX
+      const w = Math.min(320, Math.max(180, x))
+      setNavWidth(w)
+    }
+    const up = () => {
+      try { localStorage.setItem('admin_sidebar_width', String(dragRef.current || navWidth)) } catch {}
+      window.removeEventListener('mousemove', move)
+      window.removeEventListener('mouseup', up)
+      window.removeEventListener('touchmove', move)
+      window.removeEventListener('touchend', up)
+    }
+    const track = (ev) => { dragRef.current = ev.touches ? ev.touches[0].clientX : ev.clientX; move(ev) }
+    window.addEventListener('mousemove', track)
+    window.addEventListener('mouseup', up)
+    window.addEventListener('touchmove', track)
+    window.addEventListener('touchend', up)
+  }
   const { user, logout } = useAuth()
   const location = useLocation()
   const pageTitle = PAGE_TITLES[location.pathname] || ''
   const todayLabel = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#0a0f1e]">
-      {/* Desktop sidebar */}
-      <aside className={`hidden md:flex flex-col ${collapsed ? 'w-16' : 'w-52'} flex-shrink-0 transition-all duration-200`}>
+    <div className="flex h-screen overflow-hidden app-bg">
+      {/* Desktop sidebar — collapsible + draggable width */}
+      <aside
+        className="hidden md:flex flex-col flex-shrink-0 relative"
+        style={{ width: collapsed ? 64 : navWidth, transition: 'width 120ms ease-out' }}
+      >
         <SidebarContent collapsed={collapsed} />
+        {!collapsed && (
+          <div
+            onMouseDown={startResize}
+            onTouchStart={startResize}
+            title="Drag to resize"
+            className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-[#F5821E]/40 active:bg-[#F5821E]/60 transition-colors"
+          />
+        )}
       </aside>
 
       {/* Mobile overlay */}
@@ -329,19 +344,19 @@ export default function Layout() {
       {/* Right panel */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Top header */}
-        <header className="h-12 flex items-center gap-3 px-4 flex-shrink-0 z-30 border-b border-gray-800/60" style={{ background: '#0F2557' }}>
-          <button onClick={() => setMobileOpen(true)} className="md:hidden p-1.5 rounded-lg text-white/70 hover:bg-white/10">
-            <Menu size={20} />
-          </button>
-          <button onClick={toggleCollapsed} className="hidden md:inline-flex p-1.5 rounded-lg text-white/70 hover:bg-white/10 transition-colors" title="Toggle sidebar">
-            <PanelLeft size={20} />
-          </button>
+        <header className="h-12 flex items-center gap-3 px-4 flex-shrink-0 z-30 border-b border-app" style={{ background: '#0F2557' }}>
+          <span className="md:hidden">
+            <IconButton icon={MenuIcon} label="Menu" size={20} onClick={() => setMobileOpen(true)} />
+          </span>
+          <span className="hidden md:inline-flex">
+            <IconButton icon={PanelLeft} label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} size={20} onClick={toggleCollapsed} />
+          </span>
           <div className="md:hidden">
             <BrandLogo size="sm" />
           </div>
 
           {pageTitle && (
-            <h1 className="hidden md:block text-sm font-bold text-white truncate">{pageTitle}</h1>
+            <h1 className="hidden md:block text-sm font-bold text-app truncate">{pageTitle}</h1>
           )}
 
           <div className="flex-1" />
@@ -350,13 +365,8 @@ export default function Layout() {
             {todayLabel}
           </span>
 
-          <button
-            onClick={() => window.location.reload()}
-            className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-white/60"
-            title="Refresh"
-          >
-            <RefreshCw size={16} />
-          </button>
+          <IconButton icon={RefreshCw} label="Refresh" size={16} onClick={() => window.location.reload()} />
+          <ThemeToggle />
 
           <FeedbackBell />
           <ProfileDropdown user={user} logout={logout} onChangePassword={() => setPwModal(true)} />

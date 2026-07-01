@@ -105,7 +105,7 @@ function DraggableChip({ type, label, icon: Icon, onAddField, activeSectionId })
       {...attributes}
       onClick={() => onAddField(type, activeSectionId)}
       className={`flex flex-col items-center gap-1 p-2 rounded-lg cursor-pointer
-        hover:bg-gray-800 text-gray-300 hover:text-white transition-colors text-center
+        hover:surface-2 text-dim hover:text-app transition-colors text-center
         ${isDragging ? 'opacity-50' : ''}`}
     >
       <Icon size={16} />
@@ -126,7 +126,7 @@ const TAG_COLORS = {
   history:        'bg-orange-900/50 text-orange-300',
   examination:    'bg-green-900/50 text-green-300',
 }
-function tagColor(tag) { return TAG_COLORS[tag] || 'bg-gray-800 text-gray-400' }
+function tagColor(tag) { return TAG_COLORS[tag] || 'surface-2 text-dim' }
 
 const TYPE_BADGE = {
   number:    'N',
@@ -146,19 +146,19 @@ function RegistryTab({ onAddPreset, activeSectionId }) {
   return (
     <div className="flex flex-col h-full">
       {/* Search input */}
-      <div className="px-2 py-2 sticky top-0 bg-gray-900 z-10">
+      <div className="px-2 py-2 sticky top-0 surface z-10">
         <div className="relative">
-          <Search size={11} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+          <Search size={11} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-faint pointer-events-none" />
           <input
             type="text"
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="Search label or field ID…"
-            className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-7 pr-3 py-1.5 text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-blue-500"
+            className="w-full surface-2 border border-app rounded-lg pl-7 pr-3 py-1.5 text-xs text-app placeholder-gray-500 focus:outline-none focus:border-blue-500"
             autoFocus
           />
         </div>
-        <p className="text-[10px] text-gray-600 mt-1 px-0.5">
+        <p className="text-[10px] text-faint mt-1 px-0.5">
           {results.length} field{results.length !== 1 ? 's' : ''} · click to insert with canonical ID
         </p>
       </div>
@@ -169,20 +169,20 @@ function RegistryTab({ onAddPreset, activeSectionId }) {
           <button
             key={field.field_id}
             onClick={() => onAddPreset(field, activeSectionId)}
-            className="w-full text-left px-2.5 py-2 rounded-lg bg-gray-800/60 hover:bg-gray-700 border border-gray-700/50 hover:border-blue-500/50 transition-colors group"
+            className="w-full text-left px-2.5 py-2 rounded-lg surface-2 hover:surface-3 border border-app hover:border-blue-500/50 transition-colors group"
           >
             <div className="flex items-center gap-2 mb-0.5">
               <span className="text-[10px] font-mono font-bold text-blue-400 bg-blue-900/30 px-1 rounded">
                 {TYPE_BADGE[field.type] || field.type.slice(0, 3)}
               </span>
-              <span className="text-xs font-medium text-gray-100 group-hover:text-white truncate flex-1">
+              <span className="text-xs font-medium text-app group-hover:text-app truncate flex-1">
                 {field.label}
               </span>
               {field.unit && (
-                <span className="text-[10px] text-gray-500 flex-shrink-0">{field.unit}</span>
+                <span className="text-[10px] text-faint flex-shrink-0">{field.unit}</span>
               )}
             </div>
-            <div className="text-[10px] font-mono text-gray-500 mb-1">{field.field_id}</div>
+            <div className="text-[10px] font-mono text-faint mb-1">{field.field_id}</div>
             <div className="flex flex-wrap gap-1">
               {(field.tags || []).slice(0, 3).map(t => (
                 <span key={t} className={`text-[9px] px-1 rounded ${tagColor(t)}`}>{t}</span>
@@ -192,7 +192,7 @@ function RegistryTab({ onAddPreset, activeSectionId }) {
         ))}
 
         {results.length === 0 && (
-          <div className="text-center py-8 text-gray-600 text-xs">
+          <div className="text-center py-8 text-faint text-xs">
             No fields match "{query}"
           </div>
         )}
@@ -207,15 +207,15 @@ export default function FieldPalette({ onAddField, onAddSection, onAddPreset, ac
   const [tab, setTab] = useState('types') // 'types' | 'registry'
 
   return (
-    <div className="flex flex-col h-full bg-gray-900 overflow-hidden">
+    <div className="flex flex-col h-full surface overflow-hidden">
       {/* Tab bar */}
-      <div className="flex border-b border-gray-800 flex-shrink-0">
+      <div className="flex border-b border-app flex-shrink-0">
         <button
           onClick={() => setTab('types')}
           className={`flex-1 py-2 text-[11px] font-semibold transition-colors ${
             tab === 'types'
-              ? 'text-white border-b-2 border-blue-500'
-              : 'text-gray-500 hover:text-gray-300'
+              ? 'text-app border-b-2 border-blue-500'
+              : 'text-faint hover:text-dim'
           }`}
         >
           Field Types
@@ -224,8 +224,8 @@ export default function FieldPalette({ onAddField, onAddSection, onAddPreset, ac
           onClick={() => setTab('registry')}
           className={`flex-1 py-2 text-[11px] font-semibold flex items-center justify-center gap-1 transition-colors ${
             tab === 'registry'
-              ? 'text-white border-b-2 border-blue-500'
-              : 'text-gray-500 hover:text-gray-300'
+              ? 'text-app border-b-2 border-blue-500'
+              : 'text-faint hover:text-dim'
           }`}
           title="Search the Master Field Registry — insert canonical fields with pre-set IDs, units, and normal ranges"
         >
@@ -240,7 +240,7 @@ export default function FieldPalette({ onAddField, onAddSection, onAddPreset, ac
           <div className="pb-4">
             {FIELD_GROUPS.map((group) => (
               <div key={group.label}>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-3 py-2 mt-2">
+                <p className="text-xs font-semibold text-faint uppercase tracking-wider px-3 py-2 mt-2">
                   {group.label}
                 </p>
                 <div className="grid grid-cols-2 gap-1 px-2">
@@ -263,7 +263,7 @@ export default function FieldPalette({ onAddField, onAddSection, onAddPreset, ac
         )}
       </div>
 
-      <div className="sticky bottom-0 px-3 py-3 bg-gray-900 border-t border-gray-800 flex-shrink-0">
+      <div className="sticky bottom-0 px-3 py-3 surface border-t border-app flex-shrink-0">
         <button
           onClick={onAddSection}
           className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg

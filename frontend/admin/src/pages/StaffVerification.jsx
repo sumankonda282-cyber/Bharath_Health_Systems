@@ -19,7 +19,7 @@ const STATUS = {
   verified:    { label: 'Verified',    cls: 'bg-green-500/15 text-green-300 border-green-500/30' },
   pending:     { label: 'Pending',     cls: 'bg-amber-500/15 text-amber-300 border-amber-500/30' },
   expired:     { label: 'Expired',     cls: 'bg-red-500/15 text-red-300 border-red-500/30' },
-  not_working: { label: 'Not working', cls: 'bg-slate-500/20 text-slate-300 border-slate-500/40' },
+  not_working: { label: 'Not working', cls: 'bg-slate-500/20 text-dim border-slate-500/40' },
 }
 
 const EVENT_META = {
@@ -137,7 +137,7 @@ export default function StaffVerification() {
   const selectedCenter = data.filters.centers.find(c => String(c.id) === String(hc))
 
   return (
-    <div className="bg-[#0a0f1e] min-h-full text-gray-200">
+    <div className="app-bg min-h-full text-app">
       {/* STAT CARDS = role filters */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
         {ROLE_CARDS.map(({ key, label, Icon }) => {
@@ -146,7 +146,7 @@ export default function StaffVerification() {
             <button
               key={key}
               onClick={() => setRoleF(on ? '' : key)}
-              className={`kpi-card text-left transition-all relative ${on ? 'ring-1 ring-[#F5821E] border-[#F5821E]/60' : 'hover:border-gray-700'}`}
+              className={`kpi-card text-left transition-all relative ${on ? 'ring-1 ring-[#F5821E] border-[#F5821E]/60' : 'hover:border-app'}`}
             >
               {on && <span className="absolute right-2.5 top-2.5 text-[10px] font-bold text-[#F5821E] inline-flex items-center gap-0.5"><X size={10} />clear</span>}
               <div className="flex items-center gap-3">
@@ -154,8 +154,8 @@ export default function StaffVerification() {
                   <Icon size={18} className="text-[#F5821E]" />
                 </div>
                 <div>
-                  <div className="text-xl font-bold text-white leading-none">{byRole[key] ?? 0}</div>
-                  <div className="text-xs text-gray-400 mt-1">{label}{on ? ' · filtering' : ''}</div>
+                  <div className="text-xl font-bold text-app leading-none">{byRole[key] ?? 0}</div>
+                  <div className="text-xs text-dim mt-1">{label}{on ? ' · filtering' : ''}</div>
                 </div>
               </div>
             </button>
@@ -166,25 +166,25 @@ export default function StaffVerification() {
       {/* TOOLBAR — one line */}
       <div className="card-sm flex flex-wrap items-center gap-2 p-2.5 mb-4">
         <select value={hc} onChange={e => setHc(e.target.value)}
-          className="filter-chip bg-[#10182e] border-gray-800 text-gray-200 max-w-[200px]">
+          className="filter-chip bg-[#10182e] border-app text-app max-w-[200px]">
           <option value="">All Health Centers</option>
           {data.filters.centers.map(c => <option key={c.id} value={c.id}>{c.hc_id ? `${c.hc_id} · ` : ''}{c.name}</option>)}
         </select>
 
         <select value={stateF} onChange={e => setStateF(e.target.value)}
-          className="filter-chip bg-[#10182e] border-gray-800 text-gray-200">
+          className="filter-chip bg-[#10182e] border-app text-app">
           <option value="">All States</option>
           {data.filters.states.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
 
         <select value={cityF} onChange={e => setCityF(e.target.value)}
-          className="filter-chip bg-[#10182e] border-gray-800 text-gray-200">
+          className="filter-chip bg-[#10182e] border-app text-app">
           <option value="">All Cities</option>
           {data.filters.cities.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
 
         <select value={statusF} onChange={e => setStatusF(e.target.value)}
-          className="filter-chip bg-[#10182e] border-gray-800 text-gray-200">
+          className="filter-chip bg-[#10182e] border-app text-app">
           <option value="">All Status</option>
           <option value="verified">Verified</option>
           <option value="pending">Pending</option>
@@ -192,19 +192,19 @@ export default function StaffVerification() {
           <option value="not_working">Not working</option>
         </select>
 
-        <div className="filter-chip bg-[#10182e] border-gray-800 text-gray-300 gap-1.5">
-          <Calendar size={13} className="text-gray-500" />
+        <div className="filter-chip bg-[#10182e] border-app text-dim gap-1.5">
+          <Calendar size={13} className="text-faint" />
           <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} title="Registered from"
-            className="bg-transparent outline-none text-xs text-gray-200 w-[112px]" />
-          <span className="text-gray-600">→</span>
+            className="bg-transparent outline-none text-xs text-app w-[112px]" />
+          <span className="text-faint">→</span>
           <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} title="Registered to"
-            className="bg-transparent outline-none text-xs text-gray-200 w-[112px]" />
+            className="bg-transparent outline-none text-xs text-app w-[112px]" />
         </div>
 
         <div className="relative flex-1 min-w-[160px]">
-          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500" />
+          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-faint" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search name, employee ID, license no…"
-            className="w-full bg-[#10182e] border border-gray-800 rounded-lg pl-8 pr-3 py-1.5 text-sm text-gray-200 outline-none focus:border-[#F5821E]/40" />
+            className="w-full bg-[#10182e] border border-app rounded-lg pl-8 pr-3 py-1.5 text-sm text-app outline-none focus:border-[#F5821E]/40" />
         </div>
 
         {hasFilters && (
@@ -213,7 +213,7 @@ export default function StaffVerification() {
 
         <div className="relative" ref={exportRef}>
           <button onClick={() => setExportOpen(o => !o)} title="Export"
-            className="w-9 h-9 rounded-lg bg-[#F5821E] hover:bg-[#e0741a] text-white flex items-center justify-center transition-colors">
+            className="w-9 h-9 rounded-lg bg-[#F5821E] hover:bg-[#e0741a] text-app flex items-center justify-center transition-colors">
             <Download size={17} />
           </button>
           {exportOpen && (
@@ -244,7 +244,7 @@ export default function StaffVerification() {
       ) : rows.length === 0 ? (
         <div className="card-sm text-center py-16">
           <ShieldCheck size={40} className="mx-auto mb-3 text-[#F5821E]/40" />
-          <p className="text-gray-400 font-medium">No licensed clinical staff match these filters</p>
+          <p className="text-dim font-medium">No licensed clinical staff match these filters</p>
           {hasFilters && <button onClick={clearAll} className="btn-secondary text-xs mt-3">Clear filters</button>}
         </div>
       ) : (
@@ -264,29 +264,29 @@ export default function StaffVerification() {
                   <th className="th-sm">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-800/70">
+              <tbody className="divide-y divide-[color:var(--border)]">
                 {rows.map(s => {
                   const st = STATUS[s.status] || STATUS.pending
                   const expCls = s.status === 'expired' ? 'text-red-400 font-medium'
-                    : s.expiring_soon ? 'text-amber-400 font-medium' : 'text-gray-300'
+                    : s.expiring_soon ? 'text-amber-400 font-medium' : 'text-dim'
                   return (
                     <tr key={s.id} onClick={() => setDrawer(s)}
-                      className="hover:bg-white/[0.04] cursor-pointer transition-colors">
+                      className="hover-app cursor-pointer transition-colors">
                       <td className="td-sm font-mono text-[12px] text-sky-300 font-semibold whitespace-nowrap">{s.employee_code}</td>
                       <td className="td-sm">
-                        <div className="text-white font-medium">{s.full_name}</div>
-                        {s.mobile && <div className="text-[11px] text-gray-500">{s.mobile}</div>}
+                        <div className="text-app font-medium">{s.full_name}</div>
+                        {s.mobile && <div className="text-[11px] text-faint">{s.mobile}</div>}
                       </td>
                       <td className="td-sm">
-                        <span className="text-[11px] text-gray-300 bg-[#13294f] rounded px-2 py-0.5">{s.role_label}</span>
+                        <span className="text-[11px] text-dim bg-[#13294f] rounded px-2 py-0.5">{s.role_label}</span>
                       </td>
-                      <td className="td-sm text-gray-400">
+                      <td className="td-sm text-dim">
                         {s.clinic_name}
-                        {s.city && <span className="text-gray-600"> · {s.city}</span>}
+                        {s.city && <span className="text-faint"> · {s.city}</span>}
                       </td>
-                      <td className="td-sm font-mono text-[12px] text-gray-300">{s.license_number || '—'}</td>
-                      <td className="td-sm text-gray-400 whitespace-nowrap">{fmtDate(s.registered_date)}</td>
-                      <td className="td-sm text-gray-400 whitespace-nowrap">{fmtDate(s.renewal_date)}</td>
+                      <td className="td-sm font-mono text-[12px] text-dim">{s.license_number || '—'}</td>
+                      <td className="td-sm text-dim whitespace-nowrap">{fmtDate(s.registered_date)}</td>
+                      <td className="td-sm text-dim whitespace-nowrap">{fmtDate(s.renewal_date)}</td>
                       <td className={`td-sm whitespace-nowrap ${expCls}`}>
                         {fmtDate(s.expiry_date)}
                         {s.expiring_soon && <span className="ml-1 text-[10px]">({s.days_to_expiry}d)</span>}
@@ -300,7 +300,7 @@ export default function StaffVerification() {
               </tbody>
             </table>
           </div>
-          <div className="px-4 py-2.5 border-t border-gray-800/70 text-xs text-gray-500 flex items-center justify-between">
+          <div className="px-4 py-2.5 border-t border-app text-xs text-faint flex items-center justify-between">
             <span>{rows.length} {roleF ? ROLE_CARDS.find(r => r.key === roleF)?.label.toLowerCase() : 'clinical staff'}{rows.length === 1 ? '' : (roleF ? 's' : '')} shown</span>
             {data.summary?.expiring_soon > 0 && (
               <span className="text-amber-400 inline-flex items-center gap-1">
@@ -355,19 +355,19 @@ function ExportPopup({ filteredCount, roleLabel, center, currentParams, asOf, on
   }
 
   return (
-    <div className="absolute right-0 top-full mt-2 w-80 bg-[#0e1f3d] border border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden">
-      <div className="px-4 py-3 border-b border-gray-700 flex items-center gap-2 text-white font-semibold text-sm">
+    <div className="absolute right-0 top-full mt-2 w-80 bg-[#0e1f3d] border border-app rounded-xl shadow-2xl z-50 overflow-hidden">
+      <div className="px-4 py-3 border-b border-app flex items-center gap-2 text-app font-semibold text-sm">
         <Download size={15} className="text-[#F5821E]" /> Export staff list
       </div>
       <div className="p-4 space-y-3">
         <button onClick={() => setScope('current')}
-          className={`w-full flex items-center gap-2.5 text-left text-[13px] rounded-lg px-3 py-2.5 border transition-colors ${scope === 'current' ? 'border-[#F5821E] bg-[#F5821E]/10 text-white' : 'border-gray-700 bg-[#0b1c38] text-gray-300'}`}>
-          <span className={`w-3.5 h-3.5 rounded-full border-2 flex-shrink-0 ${scope === 'current' ? 'border-[#F5821E] bg-[#F5821E]' : 'border-gray-500'}`} />
+          className={`w-full flex items-center gap-2.5 text-left text-[13px] rounded-lg px-3 py-2.5 border transition-colors ${scope === 'current' ? 'border-[#F5821E] bg-[#F5821E]/10 text-app' : 'border-app app-bg text-dim'}`}>
+          <span className={`w-3.5 h-3.5 rounded-full border-2 flex-shrink-0 ${scope === 'current' ? 'border-[#F5821E] bg-[#F5821E]' : 'border-app'}`} />
           Current filtered list ({filteredCount}{roleLabel ? ` ${roleLabel.toLowerCase()}s` : ' staff'})
         </button>
         <button onClick={() => setScope('center')}
-          className={`w-full flex items-center gap-2.5 text-left text-[13px] rounded-lg px-3 py-2.5 border transition-colors ${scope === 'center' ? 'border-[#F5821E] bg-[#F5821E]/10 text-white' : 'border-gray-700 bg-[#0b1c38] text-gray-300'}`}>
-          <span className={`w-3.5 h-3.5 rounded-full border-2 flex-shrink-0 ${scope === 'center' ? 'border-[#F5821E] bg-[#F5821E]' : 'border-gray-500'}`} />
+          className={`w-full flex items-center gap-2.5 text-left text-[13px] rounded-lg px-3 py-2.5 border transition-colors ${scope === 'center' ? 'border-[#F5821E] bg-[#F5821E]/10 text-app' : 'border-app app-bg text-dim'}`}>
+          <span className={`w-3.5 h-3.5 rounded-full border-2 flex-shrink-0 ${scope === 'center' ? 'border-[#F5821E] bg-[#F5821E]' : 'border-app'}`} />
           {centerScopeLabel}
         </button>
 
@@ -378,12 +378,12 @@ function ExportPopup({ filteredCount, roleLabel, center, currentParams, asOf, on
             { fmt: 'csv',   label: 'CSV',   cls: 'bg-blue-700 hover:bg-blue-600',  Icon: Download },
           ].map(({ fmt, label, cls, Icon }) => (
             <button key={fmt} onClick={() => doExport(fmt)} disabled={!!busy}
-              className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold text-white py-2 rounded-lg transition-colors disabled:opacity-50 ${cls}`}>
+              className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold text-app py-2 rounded-lg transition-colors disabled:opacity-50 ${cls}`}>
               <Icon size={13} />{busy === fmt ? '…' : label}
             </button>
           ))}
         </div>
-        <p className="text-[11px] text-gray-500 leading-snug">
+        <p className="text-[11px] text-faint leading-snug">
           Downloads the registry columns (employee ID, license no, registered / renewed / expiry, status) for the chosen scope.
         </p>
       </div>
@@ -466,23 +466,23 @@ function DetailDrawer({ staff, onClose, onChanged }) {
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} />
-      <div className="fixed top-0 right-0 h-full w-full max-w-md z-50 bg-[#0a0f1e] border-l border-gray-800 shadow-2xl flex flex-col">
+      <div className="fixed top-0 right-0 h-full w-full max-w-md z-50 app-bg border-l border-app shadow-2xl flex flex-col">
         {/* header */}
-        <div className="px-5 py-4 border-b border-gray-800 flex items-start gap-3">
-          <div className="w-10 h-10 rounded-full bg-[#F5821E] text-white flex items-center justify-center font-bold text-sm flex-shrink-0">
+        <div className="px-5 py-4 border-b border-app flex items-start gap-3">
+          <div className="w-10 h-10 rounded-full bg-[#F5821E] text-app flex items-center justify-center font-bold text-sm flex-shrink-0">
             {initials(staff.full_name)}
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-white font-semibold">{staff.full_name}</div>
+            <div className="text-app font-semibold">{staff.full_name}</div>
             <div className="font-mono text-[11px] text-sky-300 truncate">{staff.employee_code}</div>
-            <div className="text-[11px] text-gray-500">{staff.role_label} · {staff.clinic_name}</div>
+            <div className="text-[11px] text-faint">{staff.role_label} · {staff.clinic_name}</div>
           </div>
-          <button onClick={onClose} className="text-gray-500 hover:text-white"><X size={18} /></button>
+          <button onClick={onClose} className="text-faint hover:text-app"><X size={18} /></button>
         </div>
 
         <div className="flex-1 overflow-y-auto">
           {/* status + actions */}
-          <div className="px-5 py-4 border-b border-gray-800 space-y-3">
+          <div className="px-5 py-4 border-b border-app space-y-3">
             <div className="flex items-center justify-between">
               <span className={`inline-block text-[11px] font-semibold px-2.5 py-1 rounded-full border ${st.cls}`}>{st.label}</span>
               <div className="flex items-center gap-2">
@@ -511,8 +511,8 @@ function DetailDrawer({ staff, onClose, onChanged }) {
           </div>
 
           {/* license detail / edit form */}
-          <div className="px-5 py-4 border-b border-gray-800">
-            <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-3">License details</div>
+          <div className="px-5 py-4 border-b border-app">
+            <div className="text-[11px] font-semibold text-faint uppercase tracking-wider mb-3">License details</div>
             {editing ? (
               <div className="space-y-3">
                 <Field label="License number">
@@ -534,7 +534,7 @@ function DetailDrawer({ staff, onClose, onChanged }) {
                   <input value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))}
                     className="reg-input" placeholder="e.g. Renewed for 2026, document re-uploaded" />
                 </Field>
-                <p className="text-[11px] text-gray-500">Dates are entered manually (no licensing-authority sync). Saving records an audit entry and re-checks expiry automatically.</p>
+                <p className="text-[11px] text-faint">Dates are entered manually (no licensing-authority sync). Saving records an audit entry and re-checks expiry automatically.</p>
                 <div className="flex gap-2 pt-1">
                   <button onClick={save} disabled={saving} className="btn-success flex-1 justify-center text-xs disabled:opacity-50">{saving ? 'Saving…' : 'Save license'}</button>
                   <button onClick={() => { setEditing(false); setErr(null) }} className="btn-secondary flex-1 justify-center text-xs">Cancel</button>
@@ -553,25 +553,25 @@ function DetailDrawer({ staff, onClose, onChanged }) {
 
           {/* audit timeline */}
           <div className="px-5 py-4">
-            <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+            <div className="text-[11px] font-semibold text-faint uppercase tracking-wider mb-3 flex items-center gap-1.5">
               <History size={12} /> Audit history
             </div>
             {loadingHist ? (
-              <div className="text-gray-500 text-sm py-4">Loading…</div>
+              <div className="text-faint text-sm py-4">Loading…</div>
             ) : !hist?.history?.length ? (
-              <div className="text-gray-500 text-sm py-4">No recorded events.</div>
+              <div className="text-faint text-sm py-4">No recorded events.</div>
             ) : (
-              <div className="relative pl-5 before:content-[''] before:absolute before:left-[5px] before:top-1 before:bottom-1 before:w-0.5 before:bg-gray-800">
+              <div className="relative pl-5 before:content-[''] before:absolute before:left-[5px] before:top-1 before:bottom-1 before:w-0.5 before:surface-2">
                 {hist.history.map((ev, i) => {
                   const meta = EVENT_META[ev.event_type] || { label: ev.event_type, dot: 'bg-gray-400', Icon: FileText }
                   return (
                     <div key={ev.id || i} className="relative pb-4 last:pb-0">
                       <span className={`absolute -left-5 top-1 w-3 h-3 rounded-full border-2 border-[#0a0f1e] ${meta.dot}`} />
-                      <div className="text-[11px] text-gray-500">{fmtDateTime(ev.created_at)}</div>
-                      <div className="text-[13px] text-gray-100 font-medium">{meta.label}{ev.changed_by_name ? <span className="text-gray-500 font-normal"> · {ev.changed_by_name}</span> : null}</div>
-                      {ev.note && <div className="text-[11.5px] text-gray-400 mt-0.5">{ev.note}</div>}
+                      <div className="text-[11px] text-faint">{fmtDateTime(ev.created_at)}</div>
+                      <div className="text-[13px] text-app font-medium">{meta.label}{ev.changed_by_name ? <span className="text-faint font-normal"> · {ev.changed_by_name}</span> : null}</div>
+                      {ev.note && <div className="text-[11.5px] text-dim mt-0.5">{ev.note}</div>}
                       {(ev.expiry_date || ev.license_number) && (
-                        <div className="text-[11px] text-gray-600 mt-0.5 font-mono">
+                        <div className="text-[11px] text-faint mt-0.5 font-mono">
                           {ev.license_number ? `${ev.license_number}` : ''}{ev.expiry_date ? ` · exp ${fmtDate(ev.expiry_date)}` : ''}
                         </div>
                       )}
@@ -592,7 +592,7 @@ function DetailDrawer({ staff, onClose, onChanged }) {
 function Field({ label, children }) {
   return (
     <label className="block">
-      <span className="block text-[11px] text-gray-500 mb-1">{label}</span>
+      <span className="block text-[11px] text-faint mb-1">{label}</span>
       {children}
     </label>
   )
@@ -601,8 +601,8 @@ function Field({ label, children }) {
 function Detail({ label, value, mono, valueCls = '' }) {
   return (
     <div>
-      <dt className="text-[11px] text-gray-500">{label}</dt>
-      <dd className={`text-gray-200 ${mono ? 'font-mono text-[12px]' : ''} ${valueCls}`}>{value}</dd>
+      <dt className="text-[11px] text-faint">{label}</dt>
+      <dd className={`text-app ${mono ? 'font-mono text-[12px]' : ''} ${valueCls}`}>{value}</dd>
     </div>
   )
 }

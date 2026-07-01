@@ -192,9 +192,11 @@ def get_encounter(
         "patient": {
             "id":               p.id, "uhid": p.uhid, "bh_id": p.bh_id,
             "clinic_patient_id": p.clinic_patient_id,
-            "full_name":        p.full_name, "mobile": p.mobile, "email": p.email,
+            "full_name":        p.full_name, "mobile": p.mobile,
+            "phone":            p.mobile, "email": p.email,
             "gender":           p.gender, "blood_group": p.blood_group,
             "allergies":        p.allergies,
+            "address":          p.address, "city": p.city, "state": p.state,
             "date_of_birth":    str(p.date_of_birth) if p.date_of_birth else None,
             "age":              _age(p),
         } if p else None,

@@ -28,7 +28,7 @@ function InlineTrend({ note = 'Trend data unavailable' }) {
         />
       </svg>
       <div className="absolute inset-0 flex items-center justify-center">
-        <span className="text-[11px] text-gray-600">{note}</span>
+        <span className="text-[11px] text-faint">{note}</span>
       </div>
     </div>
   )
@@ -69,8 +69,8 @@ function StatusDonut({ segments }) {
         {segments.map((seg) => (
           <div key={seg.key} className="flex items-center gap-2 text-[11px]">
             <span className="h-2 w-2 rounded-full" style={{ backgroundColor: seg.color }} />
-            <span className="text-gray-400">{seg.label}</span>
-            <span className="ml-auto font-semibold text-white">{seg.value}</span>
+            <span className="text-dim">{seg.label}</span>
+            <span className="ml-auto font-semibold text-app">{seg.value}</span>
           </div>
         ))}
       </div>
@@ -81,7 +81,7 @@ function StatusDonut({ segments }) {
 function ChartCard({ title, children }) {
   return (
     <div className="card-sm p-3">
-      <div className="mb-2 text-[11px] uppercase tracking-wide text-gray-500">{title}</div>
+      <div className="mb-2 text-[11px] uppercase tracking-wide text-faint">{title}</div>
       {children}
     </div>
   )
@@ -123,7 +123,7 @@ export default function Dashboard() {
   if (loading) {
     return (
       <div className="flex justify-center py-32">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-gray-800 border-t-[#F5821E]" />
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-app border-t-[#F5821E]" />
       </div>
     )
   }
@@ -216,7 +216,7 @@ export default function Dashboard() {
       to: '/health-centers',
       label: 'Expiring <7d',
       value: expiring_soon ?? '—',
-      sub: <span className={expiring_soon > 0 ? 'text-[#F5821E]' : 'text-gray-500'}>At risk</span>,
+      sub: <span className={expiring_soon > 0 ? 'text-[#F5821E]' : 'text-faint'}>At risk</span>,
     },
     {
       to: '/pending',
@@ -240,9 +240,9 @@ export default function Dashboard() {
         {kpis.map((k) => {
           const inner = (
             <>
-              <div className="text-[10px] uppercase tracking-wide text-gray-500">{k.label}</div>
-              <div className="text-2xl font-bold text-white">{k.value}</div>
-              <div className="text-[11px] text-gray-500">{k.sub}</div>
+              <div className="text-[10px] uppercase tracking-wide text-faint">{k.label}</div>
+              <div className="text-2xl font-bold text-app">{k.value}</div>
+              <div className="text-[11px] text-faint">{k.sub}</div>
             </>
           )
           return k.to ? (
@@ -261,9 +261,9 @@ export default function Dashboard() {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {activity.map((a) => (
           <div key={a.label} className="kpi-card">
-            <div className="text-[10px] uppercase tracking-wide text-gray-500">{a.label}</div>
-            <div className="text-2xl font-bold text-white">{a.value}</div>
-            <div className="text-[11px] text-gray-500">{a.sub}</div>
+            <div className="text-[10px] uppercase tracking-wide text-faint">{a.label}</div>
+            <div className="text-2xl font-bold text-app">{a.value}</div>
+            <div className="text-[11px] text-faint">{a.sub}</div>
           </div>
         ))}
       </div>
@@ -289,17 +289,17 @@ export default function Dashboard() {
 
         <div className="space-y-3">
           <div className="card-sm p-3">
-            <div className="mb-2 text-[11px] uppercase tracking-wide text-gray-500">Module Adoption</div>
+            <div className="mb-2 text-[11px] uppercase tracking-wide text-faint">Module Adoption</div>
             <div className="flex flex-col gap-2">
               {MODULES.map((m) => {
                 const pct = module_adoption[m.key] ?? 0
                 return (
                   <div key={m.key} className="flex items-center gap-2 text-[11px]">
-                    <span className="w-20 shrink-0 text-gray-400">{m.label}</span>
-                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-800">
+                    <span className="w-20 shrink-0 text-dim">{m.label}</span>
+                    <div className="h-1.5 flex-1 overflow-hidden rounded-full surface-2">
                       <div className="h-full bg-[#F5821E]" style={{ width: `${pct}%` }} />
                     </div>
-                    <span className="w-8 text-right text-gray-400">{pct}%</span>
+                    <span className="w-8 text-right text-dim">{pct}%</span>
                   </div>
                 )
               })}
@@ -307,27 +307,27 @@ export default function Dashboard() {
           </div>
 
           <div className="card-sm p-3">
-            <div className="mb-2 text-[11px] uppercase tracking-wide text-gray-500">Approval SLA</div>
+            <div className="mb-2 text-[11px] uppercase tracking-wide text-faint">Approval SLA</div>
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between text-[11px]">
-                <span className="text-gray-400">Oldest pending</span>
-                <span className="font-semibold text-white">—</span>
+                <span className="text-dim">Oldest pending</span>
+                <span className="font-semibold text-app">—</span>
               </div>
               <div className="flex items-center justify-between text-[11px]">
-                <span className="text-gray-400">Avg approval</span>
-                <span className="font-semibold text-white">—</span>
+                <span className="text-dim">Avg approval</span>
+                <span className="font-semibold text-app">—</span>
               </div>
             </div>
           </div>
 
           <div className="card-sm p-3">
-            <div className="mb-2 text-[11px] uppercase tracking-wide text-gray-500">Revenue at Risk</div>
+            <div className="mb-2 text-[11px] uppercase tracking-wide text-faint">Revenue at Risk</div>
             <div className="flex items-center justify-between text-[11px]">
-              <span className="text-gray-400">HCs at risk</span>
-              <span className="font-semibold text-white">—</span>
+              <span className="text-dim">HCs at risk</span>
+              <span className="font-semibold text-app">—</span>
             </div>
             <div className="flex items-center justify-between text-[11px]">
-              <span className="text-gray-400">Exposure</span>
+              <span className="text-dim">Exposure</span>
               <span className="font-semibold text-[#F5821E]">₹{mrr.toLocaleString('en-IN')}</span>
             </div>
           </div>
@@ -337,7 +337,7 @@ export default function Dashboard() {
       {/* Row 4 — ranking tables */}
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         <div className="card-sm p-3">
-          <div className="mb-2 flex items-center gap-2 text-[11px] uppercase tracking-wide text-gray-500">
+          <div className="mb-2 flex items-center gap-2 text-[11px] uppercase tracking-wide text-faint">
             <TrendingUp className="h-3.5 w-3.5" /> Top Health Centers by MRR
           </div>
           <table className="w-full">
@@ -352,7 +352,7 @@ export default function Dashboard() {
             </thead>
             <tbody>
               <tr>
-                <td className="td-sm text-center text-gray-600" colSpan={5}>
+                <td className="td-sm text-center text-faint" colSpan={5}>
                   No ranking data available
                 </td>
               </tr>
@@ -361,7 +361,7 @@ export default function Dashboard() {
         </div>
 
         <div className="card-sm p-3">
-          <div className="mb-2 flex items-center gap-2 text-[11px] uppercase tracking-wide text-gray-500">
+          <div className="mb-2 flex items-center gap-2 text-[11px] uppercase tracking-wide text-faint">
             <Users className="h-3.5 w-3.5" /> Top by Patients
           </div>
           <table className="w-full">
@@ -375,7 +375,7 @@ export default function Dashboard() {
             </thead>
             <tbody>
               <tr>
-                <td className="td-sm text-center text-gray-600" colSpan={4}>
+                <td className="td-sm text-center text-faint" colSpan={4}>
                   No ranking data available
                 </td>
               </tr>
@@ -386,22 +386,22 @@ export default function Dashboard() {
 
       {/* Row 5 — alerts feed */}
       <div className="card-sm p-3">
-        <div className="mb-2 flex items-center gap-2 text-[11px] uppercase tracking-wide text-gray-500">
+        <div className="mb-2 flex items-center gap-2 text-[11px] uppercase tracking-wide text-faint">
           <AlertTriangle className="h-3.5 w-3.5" /> Alerts
         </div>
         <div className="max-h-48 overflow-y-auto">
           {alerts.length === 0 ? (
-            <div className="py-4 text-center text-[11px] text-gray-600">No active alerts</div>
+            <div className="py-4 text-center text-[11px] text-faint">No active alerts</div>
           ) : (
             alerts.map((a) => {
               const row = (
-                <div className="flex items-center gap-3 border-b border-gray-800/40 py-1.5">
+                <div className="flex items-center gap-3 border-b border-app py-1.5">
                   <span className="h-2 w-2 rounded-full" style={{ backgroundColor: a.color }} />
-                  <span className="text-[12px] text-gray-300">{a.text}</span>
+                  <span className="text-[12px] text-dim">{a.text}</span>
                 </div>
               )
               return a.to ? (
-                <Link key={a.key} to={a.to} className="block hover:bg-gray-800/30">
+                <Link key={a.key} to={a.to} className="block hover-app">
                   {row}
                 </Link>
               ) : (
@@ -414,23 +414,23 @@ export default function Dashboard() {
 
       {/* Rate Card — real data from endpoint */}
       <div className="card-sm p-3">
-        <div className="mb-2 flex items-center gap-2 text-[11px] uppercase tracking-wide text-gray-500">
+        <div className="mb-2 flex items-center gap-2 text-[11px] uppercase tracking-wide text-faint">
           <IndianRupee className="h-3.5 w-3.5" /> Rate Card
         </div>
         {Object.keys(rate_card).length === 0 ? (
-          <div className="py-4 text-center text-[11px] text-gray-600">No rate card configured</div>
+          <div className="py-4 text-center text-[11px] text-faint">No rate card configured</div>
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {Object.entries(rate_card).map(([plan, info]) => (
               <div key={plan} className="kpi-card">
-                <div className="text-[10px] uppercase tracking-wide text-gray-500">
+                <div className="text-[10px] uppercase tracking-wide text-faint">
                   {info.label || plan}
                 </div>
-                <div className="text-sm font-bold text-white">
+                <div className="text-sm font-bold text-app">
                   ₹{Number(info.price_per_doctor || 0).toLocaleString('en-IN')}
-                  <span className="text-[11px] font-normal text-gray-500"> /doctor</span>
+                  <span className="text-[11px] font-normal text-faint"> /doctor</span>
                 </div>
-                <div className="text-[11px] text-gray-500">
+                <div className="text-[11px] text-faint">
                   Max {info.max_doctors ?? '—'} doctors
                 </div>
               </div>

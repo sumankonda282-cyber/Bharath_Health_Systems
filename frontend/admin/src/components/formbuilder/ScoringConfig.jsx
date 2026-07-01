@@ -267,21 +267,21 @@ function normalizeConfig(raw) {
 
 function BuiltinBandTable({ bands }) {
   return (
-    <div className="bg-gray-800 rounded-xl overflow-hidden border border-gray-700/50">
+    <div className="surface-2 rounded-xl overflow-hidden border border-app">
       <table className="w-full text-sm">
-        <thead className="bg-gray-700">
+        <thead className="surface-3">
           <tr>
-            <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">Range</th>
-            <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">Interpretation</th>
-            <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">Action</th>
+            <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-dim">Range</th>
+            <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-dim">Interpretation</th>
+            <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-dim">Action</th>
           </tr>
         </thead>
         <tbody>
           {bands.map((b, i) => (
-            <tr key={i} className="border-b border-gray-700/50 last:border-0">
-              <td className="px-3 py-2 font-mono text-gray-300 text-xs whitespace-nowrap">{b.min}–{b.max}</td>
-              <td className="px-3 py-2 text-white text-xs">{b.label}</td>
-              <td className="px-3 py-2 text-gray-400 text-xs">{b.action || '—'}</td>
+            <tr key={i} className="border-b border-app last:border-0">
+              <td className="px-3 py-2 font-mono text-dim text-xs whitespace-nowrap">{b.min}–{b.max}</td>
+              <td className="px-3 py-2 text-app text-xs">{b.label}</td>
+              <td className="px-3 py-2 text-dim text-xs">{b.action || '—'}</td>
             </tr>
           ))}
         </tbody>
@@ -294,27 +294,27 @@ function BuiltinBandTable({ bands }) {
 
 function CustomBandRow({ band, index, onChange, onDelete }) {
   return (
-    <div className="flex items-center gap-2 py-2 border-b border-gray-700/50 last:border-0">
+    <div className="flex items-center gap-2 py-2 border-b border-app last:border-0">
       <input
         type="number"
         value={band.min}
         onChange={e => onChange(index, 'min', Number(e.target.value))}
-        className="w-14 bg-gray-900 border border-gray-700 text-white text-xs rounded-lg px-2 py-1.5 outline-none focus:border-[#F5821E] transition-colors"
+        className="w-14 surface border border-app text-app text-xs rounded-lg px-2 py-1.5 outline-none focus:border-[#F5821E] transition-colors"
         placeholder="Min"
       />
-      <span className="text-gray-500 text-xs flex-shrink-0">–</span>
+      <span className="text-faint text-xs flex-shrink-0">–</span>
       <input
         type="number"
         value={band.max}
         onChange={e => onChange(index, 'max', Number(e.target.value))}
-        className="w-14 bg-gray-900 border border-gray-700 text-white text-xs rounded-lg px-2 py-1.5 outline-none focus:border-[#F5821E] transition-colors"
+        className="w-14 surface border border-app text-app text-xs rounded-lg px-2 py-1.5 outline-none focus:border-[#F5821E] transition-colors"
         placeholder="Max"
       />
       <input
         type="text"
         value={band.label}
         onChange={e => onChange(index, 'label', e.target.value)}
-        className="flex-1 bg-gray-900 border border-gray-700 text-white text-xs rounded-lg px-2 py-1.5 outline-none focus:border-[#F5821E] transition-colors min-w-0"
+        className="flex-1 surface border border-app text-app text-xs rounded-lg px-2 py-1.5 outline-none focus:border-[#F5821E] transition-colors min-w-0"
         placeholder="Label…"
       />
       <div className="flex gap-1 flex-shrink-0">
@@ -335,10 +335,10 @@ function CustomBandRow({ band, index, onChange, onDelete }) {
         type="text"
         value={band.action}
         onChange={e => onChange(index, 'action', e.target.value)}
-        className="w-24 bg-gray-900 border border-gray-700 text-white text-xs rounded-lg px-2 py-1.5 outline-none focus:border-[#F5821E] transition-colors"
+        className="w-24 surface border border-app text-app text-xs rounded-lg px-2 py-1.5 outline-none focus:border-[#F5821E] transition-colors"
         placeholder="Action…"
       />
-      <button onClick={() => onDelete(index)} className="text-gray-600 hover:text-red-400 transition-colors flex-shrink-0">
+      <button onClick={() => onDelete(index)} className="text-faint hover:text-red-400 transition-colors flex-shrink-0">
         <X size={13} />
       </button>
     </div>
@@ -380,27 +380,27 @@ function ExpressionEditor({ score, allFields, onChange }) {
   return (
     <div className="space-y-3">
       <div>
-        <label className="block text-xs font-semibold text-gray-400 mb-1">Formula Expression</label>
+        <label className="block text-xs font-semibold text-dim mb-1">Formula Expression</label>
         <textarea
           value={score.expression || ''}
           onChange={e => setExpression(e.target.value)}
           rows={3}
           placeholder="e.g.  ageScore + bpScore * 1.5  or  IF(diabetic, score + 2, score)"
-          className="w-full bg-gray-900 border border-gray-700 text-white text-xs rounded-lg px-3 py-2 outline-none focus:border-[#F5821E] transition-colors font-mono resize-none"
+          className="w-full surface border border-app text-app text-xs rounded-lg px-3 py-2 outline-none focus:border-[#F5821E] transition-colors font-mono resize-none"
         />
-        <p className="mt-1 text-xs text-gray-600">
+        <p className="mt-1 text-xs text-faint">
           Use variable names defined below. Operators: + - * / ^ (pow). Functions: IF(cond,t,f) MIN() MAX() ABS() ROUND().
         </p>
       </div>
       <div>
         <div className="flex items-center justify-between mb-1">
-          <label className="text-xs font-semibold text-gray-400">Variable Bindings</label>
+          <label className="text-xs font-semibold text-dim">Variable Bindings</label>
           <button onClick={addVariable} className="text-xs text-[#F5821E] hover:text-[#e07319] transition-colors flex items-center gap-1">
             <Plus size={11} /> Add Variable
           </button>
         </div>
         {vars.length === 0 && (
-          <p className="text-xs text-gray-600 italic">No variables defined.</p>
+          <p className="text-xs text-faint italic">No variables defined.</p>
         )}
         <div className="space-y-1.5">
           {vars.map(([name, fieldId]) => (
@@ -409,14 +409,14 @@ function ExpressionEditor({ score, allFields, onChange }) {
                 type="text"
                 value={name}
                 onChange={e => renameVariable(name, e.target.value)}
-                className="w-28 bg-gray-900 border border-gray-700 text-white text-xs rounded-lg px-2 py-1.5 outline-none focus:border-[#F5821E] transition-colors font-mono"
+                className="w-28 surface border border-app text-app text-xs rounded-lg px-2 py-1.5 outline-none focus:border-[#F5821E] transition-colors font-mono"
                 placeholder="varName"
               />
-              <span className="text-gray-500 text-xs flex-shrink-0">=</span>
+              <span className="text-faint text-xs flex-shrink-0">=</span>
               <select
                 value={fieldId}
                 onChange={e => setVariable(name, e.target.value)}
-                className="flex-1 bg-gray-900 border border-gray-700 text-white text-xs rounded-lg px-2 py-1.5 outline-none focus:border-[#F5821E] transition-colors"
+                className="flex-1 surface border border-app text-app text-xs rounded-lg px-2 py-1.5 outline-none focus:border-[#F5821E] transition-colors"
               >
                 <option value="">— select field —</option>
                 {allFields
@@ -425,7 +425,7 @@ function ExpressionEditor({ score, allFields, onChange }) {
                     <option key={field.id} value={field.field_id}>{field.label}</option>
                   ))}
               </select>
-              <button onClick={() => removeVariable(name)} className="text-gray-600 hover:text-red-400 transition-colors flex-shrink-0">
+              <button onClick={() => removeVariable(name)} className="text-faint hover:text-red-400 transition-colors flex-shrink-0">
                 <X size={13} />
               </button>
             </div>
@@ -485,10 +485,10 @@ function ScoreCard({ score, allFields, onChange, onDelete, isOnly }) {
   )
 
   return (
-    <div className="bg-gray-800 border border-gray-700/60 rounded-xl overflow-hidden">
+    <div className="surface-2 border border-app rounded-xl overflow-hidden">
       {/* Score header */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-700/50">
-        <button onClick={() => setOpen(v => !v)} className="text-gray-500 hover:text-gray-300 transition-colors flex-shrink-0">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-app">
+        <button onClick={() => setOpen(v => !v)} className="text-faint hover:text-dim transition-colors flex-shrink-0">
           {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </button>
         <BarChart2 size={13} className="text-[#F5821E] flex-shrink-0" />
@@ -496,11 +496,11 @@ function ScoreCard({ score, allFields, onChange, onDelete, isOnly }) {
           type="text"
           value={score.label}
           onChange={e => updateScore({ label: e.target.value })}
-          className="flex-1 bg-transparent text-sm font-semibold text-white outline-none min-w-0 placeholder-gray-600"
+          className="flex-1 bg-transparent text-sm font-semibold text-app outline-none min-w-0 placeholder-gray-600"
           placeholder="Score label…"
         />
         {!isOnly && (
-          <button onClick={onDelete} className="text-gray-600 hover:text-red-400 transition-colors flex-shrink-0">
+          <button onClick={onDelete} className="text-faint hover:text-red-400 transition-colors flex-shrink-0">
             <Trash2 size={13} />
           </button>
         )}
@@ -510,7 +510,7 @@ function ScoreCard({ score, allFields, onChange, onDelete, isOnly }) {
         <div className="p-3 space-y-4">
           {/* Score type chips */}
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Score Type</label>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-dim mb-2">Score Type</label>
             <div className="flex flex-wrap gap-1">
               {SCORE_TYPES.map(st => (
                 <button
@@ -519,8 +519,8 @@ function ScoreCard({ score, allFields, onChange, onDelete, isOnly }) {
                   className={[
                     'px-2 py-1 rounded-lg text-xs font-medium transition-all border',
                     score.type === st.value
-                      ? 'bg-[#F5821E] border-[#F5821E] text-white'
-                      : 'bg-gray-900 border-gray-700 text-gray-400 hover:text-white hover:border-gray-600',
+                      ? 'bg-[#F5821E] border-[#F5821E] text-app'
+                      : 'surface border-app text-dim hover:text-app hover:border-app',
                   ].join(' ')}
                 >
                   {st.label}
@@ -533,11 +533,11 @@ function ScoreCard({ score, allFields, onChange, onDelete, isOnly }) {
           {isBuiltin && builtinDef && (
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Score Bands</span>
-                <span className="text-xs text-gray-500 italic">Standard scale</span>
+                <span className="text-xs font-semibold uppercase tracking-wider text-dim">Score Bands</span>
+                <span className="text-xs text-faint italic">Standard scale</span>
               </div>
               <BuiltinBandTable bands={builtinDef.bands} />
-              <p className="mt-1.5 text-xs text-gray-500">{builtinDef.label}</p>
+              <p className="mt-1.5 text-xs text-faint">{builtinDef.label}</p>
             </div>
           )}
 
@@ -554,9 +554,9 @@ function ScoreCard({ score, allFields, onChange, onDelete, isOnly }) {
           {score.type === 'custom' && (
             <>
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Fields to Sum</label>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-dim mb-1.5">Fields to Sum</label>
                 {sumCandidates.length === 0 ? (
-                  <p className="text-xs text-gray-500 italic">No numeric / calculated fields in form.</p>
+                  <p className="text-xs text-faint italic">No numeric / calculated fields in form.</p>
                 ) : (
                   <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
                     {sumCandidates.map(({ field }) => {
@@ -566,7 +566,7 @@ function ScoreCard({ score, allFields, onChange, onDelete, isOnly }) {
                           key={field.id}
                           className={[
                             'flex items-center gap-2 px-2.5 py-1.5 rounded-lg cursor-pointer transition-colors border',
-                            checked ? 'bg-[#F5821E]/10 border-[#F5821E]/40' : 'bg-gray-900 border-gray-700 hover:border-gray-600',
+                            checked ? 'bg-[#F5821E]/10 border-[#F5821E]/40' : 'surface border-app hover:border-app',
                           ].join(' ')}
                         >
                           <input
@@ -576,8 +576,8 @@ function ScoreCard({ score, allFields, onChange, onDelete, isOnly }) {
                             className="accent-[#F5821E]"
                           />
                           <div className="min-w-0">
-                            <span className="text-xs text-white truncate block">{field.label}</span>
-                            <span className="text-[10px] font-mono text-gray-500">{field.field_id}</span>
+                            <span className="text-xs text-app truncate block">{field.label}</span>
+                            <span className="text-[10px] font-mono text-faint">{field.field_id}</span>
                           </div>
                         </label>
                       )
@@ -586,11 +586,11 @@ function ScoreCard({ score, allFields, onChange, onDelete, isOnly }) {
                 )}
               </div>
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Score Bands</label>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-dim mb-1.5">Score Bands</label>
                 {sortedBands.length === 0 ? (
-                  <p className="text-xs text-gray-500 italic mb-1.5">No bands defined.</p>
+                  <p className="text-xs text-faint italic mb-1.5">No bands defined.</p>
                 ) : (
-                  <div className="bg-gray-900 rounded-xl px-2 mb-2 border border-gray-700/50">
+                  <div className="surface rounded-xl px-2 mb-2 border border-app">
                     {sortedBands.map((band, i) => (
                       <CustomBandRow
                         key={i}
@@ -649,7 +649,7 @@ export default function ScoringConfig({ form, allFields, onUpdate, onUpdateFormP
       {/* ── Scores list ── */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <label className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+          <label className="text-xs font-semibold uppercase tracking-wider text-dim">
             Scores ({scores.length})
           </label>
           <button
@@ -674,24 +674,24 @@ export default function ScoringConfig({ form, allFields, onUpdate, onUpdateFormP
       </div>
 
       {/* ── iView Configuration ── */}
-      <div className="pt-4 border-t border-gray-700/60">
+      <div className="pt-4 border-t border-app">
         <div className="flex items-center gap-2 mb-3">
-          <Clock size={14} className="text-gray-400" />
-          <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+          <Clock size={14} className="text-dim" />
+          <span className="text-xs font-semibold uppercase tracking-wider text-dim">
             iView Configuration
           </span>
         </div>
 
         <div className="flex items-center justify-between mb-3">
           <div>
-            <p className="text-sm text-white">Enable iView</p>
-            <p className="text-xs text-gray-500">Periodic reassessment tracking</p>
+            <p className="text-sm text-app">Enable iView</p>
+            <p className="text-xs text-faint">Periodic reassessment tracking</p>
           </div>
           <button
             onClick={() => onUpdateFormProp('is_iview_enabled', !form.is_iview_enabled)}
             className={[
               'relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 transition-colors duration-200 focus:outline-none',
-              form.is_iview_enabled ? 'bg-[#F5821E] border-[#F5821E]' : 'bg-gray-700 border-gray-700',
+              form.is_iview_enabled ? 'bg-[#F5821E] border-[#F5821E]' : 'surface-3 border-app',
             ].join(' ')}
           >
             <span className={[
@@ -703,7 +703,7 @@ export default function ScoringConfig({ form, allFields, onUpdate, onUpdateFormP
 
         {form.is_iview_enabled && (
           <div>
-            <label className="block text-xs text-gray-400 mb-1.5">Reassessment Interval</label>
+            <label className="block text-xs text-dim mb-1.5">Reassessment Interval</label>
             <div className="flex flex-wrap gap-1.5">
               {IVIEW_TIME_BANDS.map(band => (
                 <button
@@ -712,8 +712,8 @@ export default function ScoringConfig({ form, allFields, onUpdate, onUpdateFormP
                   className={[
                     'px-3 py-1 rounded-lg text-xs font-medium transition-all border',
                     form.iview_time_band === band
-                      ? 'bg-[#F5821E] border-[#F5821E] text-white'
-                      : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white hover:border-gray-600',
+                      ? 'bg-[#F5821E] border-[#F5821E] text-app'
+                      : 'surface-2 border-app text-dim hover:text-app hover:border-app',
                   ].join(' ')}
                 >
                   {band}

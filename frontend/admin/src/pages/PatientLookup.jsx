@@ -39,7 +39,7 @@ function money(n) {
 function PortalBadge({ value }) {
   return value
     ? <span className="badge-xs bg-green-500/15 text-green-400 border border-green-500/30">Yes</span>
-    : <span className="badge-xs bg-gray-700/40 text-gray-400 border border-gray-700">No</span>
+    : <span className="badge-xs surface-3 text-dim border border-app">No</span>
 }
 
 function StatusBadge({ status }) {
@@ -49,20 +49,20 @@ function StatusBadge({ status }) {
 function KV({ label, value }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="text-[11px] text-gray-500 uppercase tracking-wide">{label}</span>
-      <span className="text-sm text-white break-words">{value || '—'}</span>
+      <span className="text-[11px] text-faint uppercase tracking-wide">{label}</span>
+      <span className="text-sm text-app break-words">{value || '—'}</span>
     </div>
   )
 }
 
 function KpiChip({ icon: Icon, label, value, accent }) {
   return (
-    <div className="kpi-card flex flex-col gap-1 p-3 rounded-lg bg-[#0a0f1e] border border-gray-800/60">
-      <div className="flex items-center gap-1.5 text-[11px] text-gray-500 uppercase tracking-wide">
-        <Icon size={13} className="text-gray-500" />
+    <div className="kpi-card flex flex-col gap-1 p-3 rounded-lg app-bg border border-app">
+      <div className="flex items-center gap-1.5 text-[11px] text-faint uppercase tracking-wide">
+        <Icon size={13} className="text-faint" />
         {label}
       </div>
-      <span className={`text-base font-semibold ${accent || 'text-white'}`}>{value}</span>
+      <span className={`text-base font-semibold ${accent || 'text-app'}`}>{value}</span>
     </div>
   )
 }
@@ -89,23 +89,23 @@ function PatientDrawer({ patientId, onClose }) {
   return (
     <>
       <div className="fixed inset-0 bg-black/50 z-30" onClick={onClose} />
-      <div className="fixed right-0 top-0 h-full w-[480px] bg-[#0f172a] border-l border-gray-800/60 z-40 flex flex-col shadow-2xl transition-transform">
-        <div className="flex items-start justify-between p-4 border-b border-gray-800/60">
+      <div className="fixed right-0 top-0 h-full w-[480px] surface border-l border-app z-40 flex flex-col shadow-2xl transition-transform">
+        <div className="flex items-start justify-between p-4 border-b border-app">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-9 h-9 rounded-full bg-[#F5821E]/15 flex items-center justify-center shrink-0">
               <User size={18} className="text-[#F5821E]" />
             </div>
             <div className="min-w-0">
-              <div className="text-sm font-semibold text-white truncate">{detail?.full_name || 'Patient'}</div>
-              <div className="text-[11px] text-gray-500">{detail?.bh_id || '—'}</div>
+              <div className="text-sm font-semibold text-app truncate">{detail?.full_name || 'Patient'}</div>
+              <div className="text-[11px] text-faint">{detail?.bh_id || '—'}</div>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded hover:bg-gray-800 text-gray-400 hover:text-white">
+          <button onClick={onClose} className="p-1.5 rounded hover-app text-dim hover:text-app">
             <X size={18} />
           </button>
         </div>
 
-        <div className="flex flex-wrap gap-1.5 px-4 py-2.5 border-b border-gray-800/60">
+        <div className="flex flex-wrap gap-1.5 px-4 py-2.5 border-b border-app">
           {DRAWER_TABS.map((t) => (
             <button
               key={t}
@@ -113,7 +113,7 @@ function PatientDrawer({ patientId, onClose }) {
               className={`px-2.5 py-1 rounded-full text-[12px] border transition-colors ${
                 tab === t
                   ? 'bg-[#F5821E]/15 text-[#F5821E] border-[#F5821E]/40'
-                  : 'bg-transparent text-gray-400 border-gray-800 hover:text-white hover:border-gray-700'
+                  : 'bg-transparent text-dim border-app hover:text-app hover:border-app'
               }`}
             >
               {t}
@@ -168,12 +168,12 @@ function PatientDrawer({ patientId, onClose }) {
                   </thead>
                   <tbody>
                     {(detail.health_centers || []).length === 0 ? (
-                      <tr><td className="td-sm text-gray-500" colSpan={2}>No health centers.</td></tr>
+                      <tr><td className="td-sm text-faint" colSpan={2}>No health centers.</td></tr>
                     ) : (
                       (detail.health_centers || []).map((hc) => (
-                        <tr key={hc.clinic_id} className="border-t border-gray-800/60">
-                          <td className="td-sm text-white">{hc.name}</td>
-                          <td className="td-sm text-gray-400">{hc.city || '—'}</td>
+                        <tr key={hc.clinic_id} className="border-t border-app">
+                          <td className="td-sm text-app">{hc.name}</td>
+                          <td className="td-sm text-dim">{hc.city || '—'}</td>
                         </tr>
                       ))
                     )}
@@ -191,11 +191,11 @@ function PatientDrawer({ patientId, onClose }) {
                   </thead>
                   <tbody>
                     {(detail.timeline || []).length === 0 ? (
-                      <tr><td className="td-sm text-gray-500" colSpan={2}>No timeline entries.</td></tr>
+                      <tr><td className="td-sm text-faint" colSpan={2}>No timeline entries.</td></tr>
                     ) : (
                       (detail.timeline || []).map((t) => (
-                        <tr key={t.id} className="border-t border-gray-800/60">
-                          <td className="td-sm text-gray-300">{fmtDate(t.date)}</td>
+                        <tr key={t.id} className="border-t border-app">
+                          <td className="td-sm text-dim">{fmtDate(t.date)}</td>
                           <td className="td-sm"><StatusBadge status={t.status} /></td>
                         </tr>
                       ))
@@ -220,12 +220,12 @@ function PatientDrawer({ patientId, onClose }) {
                     </thead>
                     <tbody>
                       {(detail.clinical?.diagnoses || []).length === 0 ? (
-                        <tr><td className="td-sm text-gray-500" colSpan={2}>No diagnoses recorded.</td></tr>
+                        <tr><td className="td-sm text-faint" colSpan={2}>No diagnoses recorded.</td></tr>
                       ) : (
                         (detail.clinical.diagnoses || []).map((dx, i) => (
-                          <tr key={`${dx.tag_name}-${i}`} className="border-t border-gray-800/60">
-                            <td className="td-sm text-white">{dx.tag_name}</td>
-                            <td className="td-sm text-gray-400">{dx.icd10_code || '—'}</td>
+                          <tr key={`${dx.tag_name}-${i}`} className="border-t border-app">
+                            <td className="td-sm text-app">{dx.tag_name}</td>
+                            <td className="td-sm text-dim">{dx.icd10_code || '—'}</td>
                           </tr>
                         ))
                       )}
@@ -242,7 +242,7 @@ function PatientDrawer({ patientId, onClose }) {
                     icon={IndianRupee}
                     label="Outstanding"
                     value={money(detail.financial?.outstanding)}
-                    accent={Number(detail.financial?.outstanding || 0) > 0 ? 'text-[#F5821E]' : 'text-white'}
+                    accent={Number(detail.financial?.outstanding || 0) > 0 ? 'text-[#F5821E]' : 'text-app'}
                   />
                 </div>
               )}
@@ -335,20 +335,20 @@ export default function PatientLookup() {
   }
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
-  const selectCls = 'filter-chip bg-[#0a0f1e] border border-gray-800/60 rounded-md text-sm text-gray-200 px-2 py-1.5 focus:outline-none focus:border-[#F5821E]'
-  const numCls = 'bg-[#0a0f1e] border border-gray-800/60 rounded-md text-sm text-gray-200 px-2 py-1.5 w-16 focus:outline-none focus:border-[#F5821E]'
+  const selectCls = 'filter-chip app-bg border border-app rounded-md text-sm text-app px-2 py-1.5 focus:outline-none focus:border-[#F5821E]'
+  const numCls = 'app-bg border border-app rounded-md text-sm text-app px-2 py-1.5 w-16 focus:outline-none focus:border-[#F5821E]'
 
   return (
-    <div className="w-full min-h-screen bg-[#0a0f1e] flex flex-col">
-      <form onSubmit={onSubmit} className="toolbar sticky top-0 z-20 bg-[#0a0f1e] border-b border-gray-800/60 px-4 py-3">
+    <div className="w-full min-h-screen app-bg flex flex-col">
+      <form onSubmit={onSubmit} className="toolbar sticky top-0 z-20 app-bg border-b border-app px-4 py-3">
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative flex-1 min-w-[240px]">
-            <Search size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500" />
+            <Search size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-faint" />
             <input
               value={filters.q}
               onChange={(e) => onSearchText(e.target.value)}
               placeholder="Search name, mobile, BH-ID, UHID"
-              className="w-full bg-[#0f172a] border border-gray-800/60 rounded-md text-sm text-white pl-8 pr-3 py-2 focus:outline-none focus:border-[#F5821E]"
+              className="w-full surface border border-app rounded-md text-sm text-app pl-8 pr-3 py-2 focus:outline-none focus:border-[#F5821E]"
             />
           </div>
 
@@ -368,7 +368,7 @@ export default function PatientLookup() {
           </select>
 
           <div className="flex items-center gap-1">
-            <span className="text-[11px] text-gray-500 uppercase">Age</span>
+            <span className="text-[11px] text-faint uppercase">Age</span>
             <input
               type="number" min="0" value={filters.age_from}
               onChange={(e) => onSelectChange('age_from', e.target.value)}
@@ -382,7 +382,7 @@ export default function PatientLookup() {
           </div>
 
           <div className="flex items-center gap-1">
-            <span className="text-[11px] text-gray-500 uppercase">Registered</span>
+            <span className="text-[11px] text-faint uppercase">Registered</span>
             <input
               type="date" value={filters.reg_date_from}
               onChange={(e) => onSelectChange('reg_date_from', e.target.value)}
@@ -408,7 +408,7 @@ export default function PatientLookup() {
 
           <button
             type="button" onClick={clearAll}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-sm text-gray-300 border border-gray-800/60 hover:text-white hover:border-gray-700"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-sm text-dim border border-app hover:text-app hover:border-app"
           >
             <X size={14} /> Clear
           </button>
@@ -429,14 +429,14 @@ export default function PatientLookup() {
         )}
 
         {!loading && !error && results.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-24 text-gray-500">
+          <div className="flex flex-col items-center justify-center py-24 text-faint">
             <User size={40} className="mb-3 opacity-50" />
             <p className="text-sm">No patients found</p>
           </div>
         )}
 
         {!loading && !error && results.length > 0 && (
-          <div className="card-sm rounded-lg border border-gray-800/60 overflow-hidden bg-[#0f172a]">
+          <div className="card-sm rounded-lg border border-app overflow-hidden surface">
             <table className="w-full">
               <thead>
                 <tr>
@@ -456,20 +456,20 @@ export default function PatientLookup() {
                   <tr
                     key={p.patient_id}
                     onClick={() => setSelectedId(p.patient_id)}
-                    className="border-t border-gray-800/60 hover:bg-gray-800/30 cursor-pointer"
+                    className="border-t border-app hover:surface-2 cursor-pointer"
                   >
                     <td className="td-sm">
-                      <div className="text-white">{p.full_name}</div>
-                      <div className="text-[11px] text-gray-500">{p.bh_id || '—'}</div>
+                      <div className="text-app">{p.full_name}</div>
+                      <div className="text-[11px] text-faint">{p.bh_id || '—'}</div>
                     </td>
-                    <td className="td-sm text-gray-300">{p.bh_id || '—'}</td>
-                    <td className="td-sm text-gray-300">{p.mobile || '—'}</td>
-                    <td className="td-sm text-gray-300">{(p.gender || '—')}{p.age != null ? ` / ${p.age}` : ''}</td>
-                    <td className="td-sm text-gray-300">{p.clinic_name || '—'}</td>
-                    <td className="td-sm text-gray-300">{[p.city, p.state].filter(Boolean).join(', ') || '—'}</td>
-                    <td className="td-sm text-gray-400">{fmtDate(p.created_at)}</td>
+                    <td className="td-sm text-dim">{p.bh_id || '—'}</td>
+                    <td className="td-sm text-dim">{p.mobile || '—'}</td>
+                    <td className="td-sm text-dim">{(p.gender || '—')}{p.age != null ? ` / ${p.age}` : ''}</td>
+                    <td className="td-sm text-dim">{p.clinic_name || '—'}</td>
+                    <td className="td-sm text-dim">{[p.city, p.state].filter(Boolean).join(', ') || '—'}</td>
+                    <td className="td-sm text-dim">{fmtDate(p.created_at)}</td>
                     <td className="td-sm"><PortalBadge value={p.has_portal_account} /></td>
-                    <td className="td-sm text-gray-400">{fmtDate(p.last_visit)}</td>
+                    <td className="td-sm text-dim">{fmtDate(p.last_visit)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -479,19 +479,19 @@ export default function PatientLookup() {
       </div>
 
       {!loading && !error && results.length > 0 && (
-        <div className="flex items-center justify-end gap-2 px-4 py-2.5 border-t border-gray-800/60 bg-[#0a0f1e]">
+        <div className="flex items-center justify-end gap-2 px-4 py-2.5 border-t border-app app-bg">
           <button
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page <= 1}
-            className="p-1.5 rounded border border-gray-800/60 text-gray-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+            className="p-1.5 rounded border border-app text-dim hover:text-app disabled:opacity-30 disabled:cursor-not-allowed"
           >
             <ChevronLeft size={16} />
           </button>
-          <span className="text-sm text-gray-400">{page} of {totalPages}</span>
+          <span className="text-sm text-dim">{page} of {totalPages}</span>
           <button
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             disabled={page >= totalPages}
-            className="p-1.5 rounded border border-gray-800/60 text-gray-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+            className="p-1.5 rounded border border-app text-dim hover:text-app disabled:opacity-30 disabled:cursor-not-allowed"
           >
             <ChevronRight size={16} />
           </button>

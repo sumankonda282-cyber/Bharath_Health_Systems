@@ -57,7 +57,7 @@ function defaultDateRange() {
 }
 
 function ActionBadge({ action }) {
-  const meta = ACTION_META[action] || { label: action, badge: 'bg-gray-700 text-gray-400 border border-gray-600' }
+  const meta = ACTION_META[action] || { label: action, badge: 'surface-3 text-dim border border-app' }
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${meta.badge}`}>
       {meta.label}
@@ -69,9 +69,9 @@ function ActionBadge({ action }) {
 function DetailRow({ label, value }) {
   if (value === null || value === undefined || value === '') return null
   return (
-    <div className="flex flex-col gap-0.5 py-2.5 border-b border-gray-800 last:border-0">
-      <span className="text-xs text-gray-500 uppercase tracking-wide">{label}</span>
-      <span className="text-sm text-gray-100 break-words">{value}</span>
+    <div className="flex flex-col gap-0.5 py-2.5 border-b border-app last:border-0">
+      <span className="text-xs text-faint uppercase tracking-wide">{label}</span>
+      <span className="text-sm text-app break-words">{value}</span>
     </div>
   )
 }
@@ -79,13 +79,13 @@ function DetailRow({ label, value }) {
 function DetailsJson({ details }) {
   if (!details || typeof details !== 'object' || Object.keys(details).length === 0) return null
   return (
-    <div className="flex flex-col gap-0.5 py-2.5 border-b border-gray-800 last:border-0">
-      <span className="text-xs text-gray-500 uppercase tracking-wide">Details</span>
+    <div className="flex flex-col gap-0.5 py-2.5 border-b border-app last:border-0">
+      <span className="text-xs text-faint uppercase tracking-wide">Details</span>
       <div className="mt-1 space-y-1">
         {Object.entries(details).map(([k, v]) => (
           <div key={k} className="flex gap-2 text-xs">
-            <span className="text-gray-400 font-medium shrink-0">{k}:</span>
-            <span className="text-gray-200 break-all">
+            <span className="text-dim font-medium shrink-0">{k}:</span>
+            <span className="text-app break-all">
               {typeof v === 'object' ? JSON.stringify(v) : String(v)}
             </span>
           </div>
@@ -128,13 +128,13 @@ function AuditDrawer({ log, onClose }) {
       />
 
       {/* Drawer */}
-      <div className="fixed top-0 right-0 bottom-0 z-50 w-full md:w-[400px] bg-gray-900 border-l border-gray-800 flex flex-col shadow-2xl">
+      <div className="fixed top-0 right-0 bottom-0 z-50 w-full md:w-[400px] surface border-l border-app flex flex-col shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800 shrink-0">
-          <h2 className="text-base font-semibold text-white">Event Details</h2>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-app shrink-0">
+          <h2 className="text-base font-semibold text-app">Event Details</h2>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
+            className="p-1.5 rounded-md text-dim hover:text-app hover-app transition-colors"
             title="Close"
           >
             <X size={18} />
@@ -142,7 +142,7 @@ function AuditDrawer({ log, onClose }) {
         </div>
 
         {/* Action badge prominent display */}
-        <div className="px-4 py-3 border-b border-gray-800 shrink-0">
+        <div className="px-4 py-3 border-b border-app shrink-0">
           <ActionBadge action={log.action} />
         </div>
 
@@ -318,8 +318,8 @@ export default function AuditLog() {
         .print-header { display: none; }
       `}</style>
 
-      <div className="bg-[#0a0f1e] min-h-full">
-        <h1 className="text-lg font-bold text-white mb-3 no-print">Activity Log</h1>
+      <div className="app-bg min-h-full">
+        <h1 className="text-lg font-bold text-app mb-3 no-print">Activity Log</h1>
 
         {/* Consolidated toolbar */}
         <div className="toolbar no-print">
@@ -329,7 +329,7 @@ export default function AuditLog() {
             value={startDate}
             onChange={e => setStartDate(e.target.value)}
           />
-          <span className="text-xs text-gray-500">to</span>
+          <span className="text-xs text-faint">to</span>
           <input
             type="date"
             className="input py-1 text-sm w-36"
@@ -359,7 +359,7 @@ export default function AuditLog() {
             {ACTION_FILTER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
           <div className="relative">
-            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500" />
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-faint" />
             <input
               type="text"
               placeholder="Search..."
@@ -391,7 +391,7 @@ export default function AuditLog() {
               <span>{failedLogins.length} failed logins in last 24h</span>
               <button
                 onClick={() => setShowFailed(s => !s)}
-                className="ml-auto inline-flex items-center gap-1 text-orange-200 hover:text-white font-semibold"
+                className="ml-auto inline-flex items-center gap-1 text-orange-200 hover:text-app font-semibold"
               >
                 View Details
                 <ChevronDown size={14} className={`transition-transform ${showFailed ? 'rotate-180' : ''}`} />
@@ -401,11 +401,11 @@ export default function AuditLog() {
               <div className="mt-1 bg-orange-500/5 border border-orange-500/20 rounded-lg divide-y divide-orange-500/10">
                 {failedLogins.map(l => (
                   <div key={l.id} className="flex items-center gap-4 px-3 py-1.5 text-xs">
-                    <span className="font-mono text-gray-400 whitespace-nowrap">
+                    <span className="font-mono text-dim whitespace-nowrap">
                       {new Date(l.created_at).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
                     </span>
-                    <span className="text-gray-200">{l.admin_name || l.user_id || '—'}</span>
-                    <span className="font-mono text-gray-500 ml-auto">{l.ip_address || '—'}</span>
+                    <span className="text-app">{l.admin_name || l.user_id || '—'}</span>
+                    <span className="font-mono text-faint ml-auto">{l.ip_address || '—'}</span>
                   </div>
                 ))}
               </div>
@@ -416,17 +416,17 @@ export default function AuditLog() {
         {/* NABH 30-day summary chips */}
         <div className="flex flex-wrap gap-2 mt-3 mb-3 no-print">
           {nabh30 === null ? (
-            <span className="badge-xs text-gray-500">Loading 30-day summary…</span>
+            <span className="badge-xs text-faint">Loading 30-day summary…</span>
           ) : (
             <>
               <span className="filter-chip text-emerald-300 border-emerald-500/30">
-                ✓ Total (30d): <strong className="text-white ml-1">{nabh30.total.toLocaleString()}</strong>
+                ✓ Total (30d): <strong className="text-app ml-1">{nabh30.total.toLocaleString()}</strong>
               </span>
-              <span className="filter-chip text-gray-300">
-                Unique Users: <strong className="text-white ml-1">{nabh30.uniqueUsers}</strong>
+              <span className="filter-chip text-dim">
+                Unique Users: <strong className="text-app ml-1">{nabh30.uniqueUsers}</strong>
               </span>
-              <span className="filter-chip text-gray-300">
-                Top Staff: <strong className="text-white ml-1">{nabh30.topStaff}</strong>
+              <span className="filter-chip text-dim">
+                Top Staff: <strong className="text-app ml-1">{nabh30.topStaff}</strong>
               </span>
             </>
           )}
@@ -449,7 +449,7 @@ export default function AuditLog() {
             ) : error ? (
               <div className="p-12 text-center text-red-400">{error}</div>
             ) : filteredLogs.length === 0 ? (
-              <div className="p-12 text-center text-gray-500">No activity records found</div>
+              <div className="p-12 text-center text-faint">No activity records found</div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
@@ -464,24 +464,24 @@ export default function AuditLog() {
                       <th className="th-sm">IP Address</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-800">
+                  <tbody className="divide-y divide-[color:var(--border)]">
                     {filteredLogs.map(l => (
                       <tr
                         key={l.id}
-                        className={`tr-hover cursor-pointer transition-colors ${selectedLog?.id === l.id ? 'bg-white/5' : ''}`}
+                        className={`tr-hover cursor-pointer transition-colors ${selectedLog?.id === l.id ? 'surface-2' : ''}`}
                         onClick={() => handleRowClick(l)}
                       >
-                        <td className="td-sm text-xs text-gray-400 whitespace-nowrap font-mono">
+                        <td className="td-sm text-xs text-dim whitespace-nowrap font-mono">
                           {new Date(l.created_at).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
                         </td>
                         <td className="td-sm">
-                          <div className="text-white text-sm">{l.admin_name || l.user_id || '—'}</div>
+                          <div className="text-app text-sm">{l.admin_name || l.user_id || '—'}</div>
                           {l.user_id && l.admin_name && (
-                            <div className="text-xs text-gray-500">ID: {l.user_id}</div>
+                            <div className="text-xs text-faint">ID: {l.user_id}</div>
                           )}
                         </td>
                         <td className="td-sm">
-                          <span className="text-xs capitalize text-gray-400 bg-gray-800 px-2 py-0.5 rounded-full">
+                          <span className="text-xs capitalize text-dim surface-2 px-2 py-0.5 rounded-full">
                             {l.user_type || 'admin'}
                           </span>
                         </td>
@@ -489,24 +489,24 @@ export default function AuditLog() {
                           <ActionBadge action={l.action} />
                         </td>
                         <td className="td-sm">
-                          <div className="text-white text-sm">{l.target_name || l.entity_id || '—'}</div>
-                          <div className="text-xs text-gray-500 capitalize">
+                          <div className="text-app text-sm">{l.target_name || l.entity_id || '—'}</div>
+                          <div className="text-xs text-faint capitalize">
                             {l.entity_type || l.target_type || ''}
                           </div>
                         </td>
                         <td className="td-sm max-w-xs">
-                          {l.reason && <div className="text-sm text-gray-300">{l.reason.replace(/_/g, ' ')}</div>}
-                          {l.comment && <div className="text-xs text-gray-500">{l.comment}</div>}
+                          {l.reason && <div className="text-sm text-dim">{l.reason.replace(/_/g, ' ')}</div>}
+                          {l.comment && <div className="text-xs text-faint">{l.comment}</div>}
                           {l.details && typeof l.details === 'object' && Object.keys(l.details).length > 0 && (
-                            <div className="text-xs text-gray-500 truncate max-w-48" title={JSON.stringify(l.details)}>
+                            <div className="text-xs text-faint truncate max-w-48" title={JSON.stringify(l.details)}>
                               {Object.entries(l.details).slice(0, 2).map(([k, v]) => `${k}: ${v}`).join(', ')}
                             </div>
                           )}
                           {!l.reason && !l.comment && (!l.details || Object.keys(l.details || {}).length === 0) && (
-                            <span className="text-gray-600">—</span>
+                            <span className="text-faint">—</span>
                           )}
                         </td>
-                        <td className="td-sm text-xs text-gray-500 font-mono">
+                        <td className="td-sm text-xs text-faint font-mono">
                           {l.ip_address || '—'}
                         </td>
                       </tr>
@@ -521,7 +521,7 @@ export default function AuditLog() {
         {/* Pagination */}
         {!loading && !error && (filteredLogs.length > 0 || offset > 0) && (
           <div className="flex items-center justify-between mt-3 no-print">
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-faint">
               Showing {offset + 1}–{offset + filteredLogs.length}{hasMore ? '+' : ''}
             </span>
             <div className="flex gap-2">

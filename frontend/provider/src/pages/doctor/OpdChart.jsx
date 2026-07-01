@@ -1959,11 +1959,13 @@ export default function OpdChart() {
   const hasVitals = Object.values(v).some(Boolean)
 
   // Demographics fields for the collapsible row
+  const _phone = patient.phone || patient.mobile
+  const _address = [patient.address, patient.city, patient.state].filter(Boolean).join(', ')
   const demoFields = [
     patient.blood_group    && { label: 'Blood', value: patient.blood_group },
     patient.date_of_birth  && { label: 'DOB', value: fmtDate(patient.date_of_birth) },
-    patient.phone          && { label: 'Phone', value: patient.phone },
-    patient.address        && { label: 'Address', value: patient.address },
+    _phone                 && { label: 'Phone', value: _phone },
+    _address               && { label: 'Address', value: _address },
     patient.insurance_type && { label: 'Insurance', value: patient.insurance_type },
     patient.payment_mode   && { label: 'Payment', value: patient.payment_mode },
   ].filter(Boolean)

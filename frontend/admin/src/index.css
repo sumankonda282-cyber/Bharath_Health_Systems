@@ -3,21 +3,80 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Popover/tooltip entrance — origin-aware scale from the trigger, never from 0. */
+@keyframes uiPop {
+  from { opacity: 0; transform: scale(0.96) translateY(-2px); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [class*="animate-[uiPop"] { animation: none !important; }
+}
+
 :root {
   --red:    #CC1414;
   --navy:   #0F2557;
   --saffron: #F5821E;
   --gold:   #D4AF37;
+
+  /* Semantic theme tokens — LIGHT (warm neutrals, Claude-like). Every surface/text/
+     border class below reads these, so switching .dark re-themes the whole portal. */
+  --app-bg:       #f7f7f5;
+  --surface:      #ffffff;
+  --surface-2:    #f3f3f1;
+  --surface-3:    #ececea;
+  --border:       #e6e4e0;
+  --border-strong:#d7d4ce;
+  --text:         #23231f;
+  --text-dim:     #6c6c64;
+  --text-faint:   #9b9b92;
+  --hover:        rgba(0,0,0,0.04);
+  --primary:      #0F2557;
+  --primary-hover:#0a1a3e;
+  --primary-fg:   #ffffff;
+  --accent:       #F5821E;
+  --scroll-thumb: #d7d4ce;
+}
+
+:root.dark {
+  /* DARK — warm charcoal, calm contrast (not harsh). */
+  --app-bg:       #191a1c;
+  --surface:      #202124;
+  --surface-2:    #26282c;
+  --surface-3:    #2d2f34;
+  --border:       #34363c;
+  --border-strong:#40434b;
+  --text:         #ececea;
+  --text-dim:     #a2a29a;
+  --text-faint:   #74746c;
+  --hover:        rgba(255,255,255,0.05);
+  --primary:      #3a5bd0;
+  --primary-hover:#4468e0;
+  --primary-fg:   #ffffff;
+  --accent:       #F5821E;
+  --scroll-thumb: #40434b;
 }
 
 @layer base {
   * { box-sizing: border-box; }
   body {
     font-family: 'Inter', system-ui, sans-serif;
-    background-color: #0f172a;
-    color: #f1f5f9;
+    background-color: var(--app-bg);
+    color: var(--text);
     -webkit-font-smoothing: antialiased;
   }
+}
+
+@layer utilities {
+  /* Semantic helpers for pages/agents — use these instead of hardcoded gray-900 etc. */
+  .app-bg     { background-color: var(--app-bg); }
+  .surface    { background-color: var(--surface); }
+  .surface-2  { background-color: var(--surface-2); }
+  .surface-3  { background-color: var(--surface-3); }
+  .border-app { border-color: var(--border); }
+  .text-app   { color: var(--text); }
+  .text-dim   { color: var(--text-dim); }
+  .text-faint { color: var(--text-faint); }
+  .hover-app:hover { background-color: var(--hover); }
 }
 
 @layer components {
@@ -25,9 +84,10 @@
   .btn {
     @apply inline-flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-sm transition-all duration-150 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed;
   }
-  .btn-primary   { @apply btn text-white; background-color: var(--navy); }
-  .btn-primary:hover { background-color: #0a1a3e; }
-  .btn-secondary { @apply btn bg-white/5 hover:bg-white/10 text-gray-200 border border-white/10; }
+  .btn-primary   { @apply btn; color: var(--primary-fg); background-color: var(--primary); }
+  .btn-primary:hover { background-color: var(--primary-hover); }
+  .btn-secondary { @apply btn; color: var(--text); background-color: var(--surface-2); border: 1px solid var(--border); }
+  .btn-secondary:hover { background-color: var(--surface-3); }
   .btn-danger    { @apply btn bg-red-600 hover:bg-red-500 text-white; }
   .btn-success   { @apply btn bg-green-600 hover:bg-green-500 text-white; }
   .btn-warning   { @apply btn bg-amber-600 hover:bg-amber-500 text-white; }
@@ -35,16 +95,17 @@
   .btn-navy:hover { background-color: #0a1a3e; }
 
   /* Cards */
-  .card   { @apply bg-gray-900 border border-gray-800 rounded-2xl; }
-  .card-p { @apply bg-gray-900 border border-gray-800 rounded-2xl p-5; }
+  .card   { background-color: var(--surface); border: 1px solid var(--border); @apply rounded-2xl; }
+  .card-p { background-color: var(--surface); border: 1px solid var(--border); @apply rounded-2xl p-5; }
 
   /* Form elements */
   .input {
-    @apply w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-xl text-sm text-white
-           placeholder-gray-500 focus:outline-none focus:ring-2 focus:border-transparent transition-all;
+    @apply w-full px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-transparent transition-all;
+    background-color: var(--surface-2); border: 1px solid var(--border); color: var(--text);
     --tw-ring-color: var(--saffron);
   }
-  .label { @apply block text-xs font-semibold text-gray-400 mb-1.5; }
+  .input::placeholder { color: var(--text-faint); }
+  .label { @apply block text-xs font-semibold mb-1.5; color: var(--text-dim); }
 
   /* Badges — shared set matching other portals */
   .badge        { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold; }
@@ -66,42 +127,43 @@
 
   /* Page layout */
   .page-header { @apply flex items-center justify-between mb-6; }
-  .page-title  { @apply text-2xl font-extrabold text-white; }
+  .page-title  { @apply text-2xl font-extrabold; color: var(--text); }
 
   /* Tables */
-  .table-wrapper { @apply overflow-x-auto rounded-2xl border border-gray-800; }
-  .table    { @apply min-w-full divide-y divide-gray-800; }
-  .th       { @apply px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider bg-gray-900/60; }
-  .td       { @apply px-4 py-3 text-sm text-gray-200 align-middle; }
-  .tr-hover { @apply hover:bg-white/[0.03] transition-colors; }
+  .table-wrapper { @apply overflow-x-auto rounded-2xl; border: 1px solid var(--border); }
+  .table    { @apply min-w-full; }
+  .table > * > tr { border-bottom: 1px solid var(--border); }
+  .th       { @apply px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider; color: var(--text-dim); background-color: var(--surface-2); }
+  .td       { @apply px-4 py-3 text-sm align-middle; color: var(--text); }
+  .tr-hover:hover { background-color: var(--hover); transition: background-color 120ms; }
 
   /* High-density table */
-  .td-sm { @apply px-3 py-1.5 text-sm text-gray-200 align-middle; }
-  .th-sm { @apply px-3 py-2 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider bg-gray-900/40; }
+  .td-sm { @apply px-3 py-1.5 text-sm align-middle; color: var(--text); }
+  .th-sm { @apply px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider; color: var(--text-faint); background-color: var(--surface-2); }
   /* Compact card */
-  .card-sm { @apply bg-[#0f172a] border border-gray-800/60 rounded-xl; }
+  .card-sm { background-color: var(--surface); border: 1px solid var(--border); @apply rounded-xl; }
   /* KPI card */
-  .kpi-card { @apply bg-[#0f172a] border border-gray-800/60 rounded-xl p-3 flex flex-col gap-1; }
+  .kpi-card { background-color: var(--surface); border: 1px solid var(--border); @apply rounded-xl p-3 flex flex-col gap-1; }
   /* Toolbar row */
   .toolbar { @apply flex items-center gap-2 flex-wrap; }
   /* Filter chip */
-  .filter-chip { @apply flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-800/60 border border-gray-700/60 rounded-lg text-xs text-gray-300 hover:border-orange-500/40 transition-colors; }
+  .filter-chip { @apply flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors; background-color: var(--surface-2); border: 1px solid var(--border); color: var(--text-dim); }
+  .filter-chip:hover { border-color: var(--accent); }
   /* Dense badge */
   .badge-xs { @apply inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold; }
 
   /* Sidebar */
   .sidebar-link {
-    @apply flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium mb-0.5
-           transition-all text-gray-400 hover:bg-white/5 hover:text-white;
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium mb-0.5 transition-all;
+    color: rgba(255,255,255,0.65);
   }
+  .sidebar-link:hover { background-color: rgba(255,255,255,0.08); color: #fff; }
   .sidebar-link-active {
-    @apply flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold mb-0.5
-           transition-all text-white;
-    background-color: var(--navy);
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold mb-0.5 transition-all text-white;
+    background-color: rgba(255,255,255,0.12);
   }
 }
 
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #1e293b; }
-::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #475569; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border-radius: 4px; }

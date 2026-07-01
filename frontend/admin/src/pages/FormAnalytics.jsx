@@ -29,7 +29,7 @@ function DonutChart({ segments, size = 120, thickness = 28 }) {
   if (total === 0)
     return (
       <div
-        className="rounded-full bg-gray-800 flex items-center justify-center text-gray-500 text-xs"
+        className="rounded-full surface-2 flex items-center justify-center text-faint text-xs"
         style={{ width: size, height: size }}
       >
         No data
@@ -89,16 +89,16 @@ function HBarChart({ data }) {
     <div className="space-y-2.5">
       {data.map((d, i) => (
         <div key={i} className="flex items-center gap-3">
-          <span className="text-xs text-gray-400 w-28 truncate text-right capitalize">
+          <span className="text-xs text-dim w-28 truncate text-right capitalize">
             {d.label.replace(/_/g, ' ')}
           </span>
-          <div className="flex-1 bg-gray-800 rounded-full h-2.5 overflow-hidden">
+          <div className="flex-1 surface-2 rounded-full h-2.5 overflow-hidden">
             <div
               className="h-full rounded-full transition-all duration-500"
               style={{ width: `${(d.value / max) * 100}%`, background: d.color }}
             />
           </div>
-          <span className="text-xs text-gray-300 w-6 text-right">{d.value}</span>
+          <span className="text-xs text-dim w-6 text-right">{d.value}</span>
         </div>
       ))}
     </div>
@@ -183,7 +183,7 @@ function StatusBadge({ status }) {
   const styles = {
     draft: 'bg-yellow-900/30 text-yellow-400 border border-yellow-800/50',
     published: 'bg-green-900/30 text-green-400 border border-green-800/50',
-    retired: 'bg-gray-700/50 text-gray-400 border border-gray-600/50',
+    retired: 'surface-3 text-dim border border-app',
     template: 'bg-blue-900/30 text-blue-400 border border-blue-800/50',
   }
   return (
@@ -232,10 +232,10 @@ function FormDetailDrawer({ form, onClose, navigate }) {
         onClick={onClose}
       />
 
-      <div className="fixed right-0 top-0 h-full w-full max-w-lg bg-gray-900 border-l border-gray-800 z-50 overflow-y-auto shadow-2xl flex flex-col">
-        <div className="sticky top-0 bg-gray-900 border-b border-gray-800 px-6 py-4 flex items-start justify-between gap-4 z-10">
+      <div className="fixed right-0 top-0 h-full w-full max-w-lg surface border-l border-app z-50 overflow-y-auto shadow-2xl flex flex-col">
+        <div className="sticky top-0 surface border-b border-app px-6 py-4 flex items-start justify-between gap-4 z-10">
           <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-bold text-white truncate">
+            <h2 className="text-lg font-bold text-app truncate">
               {form.title || 'Untitled Form'}
             </h2>
             <div className="flex flex-wrap gap-1.5 mt-2">
@@ -259,7 +259,7 @@ function FormDetailDrawer({ form, onClose, navigate }) {
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors flex-shrink-0"
+            className="p-1.5 rounded-lg text-dim hover:text-app hover-app transition-colors flex-shrink-0"
           >
             <X size={16} />
           </button>
@@ -268,7 +268,7 @@ function FormDetailDrawer({ form, onClose, navigate }) {
         <div className="flex-1 px-6 py-5 space-y-6">
           {loading ? (
             <div className="flex items-center justify-center py-20">
-              <Loader2 size={28} className="animate-spin text-gray-500" />
+              <Loader2 size={28} className="animate-spin text-faint" />
             </div>
           ) : error ? (
             <div className="flex items-center gap-3 bg-red-900/20 border border-red-800/50 rounded-xl px-4 py-3 text-red-400 text-sm">
@@ -278,32 +278,32 @@ function FormDetailDrawer({ form, onClose, navigate }) {
           ) : (
             <>
               <div className="grid grid-cols-2 gap-3">
-                <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3">
-                  <p className="text-xs text-gray-500 mb-1">Category</p>
-                  <p className="text-sm font-medium text-white capitalize">
+                <div className="surface-2 border border-app rounded-xl p-3">
+                  <p className="text-xs text-faint mb-1">Category</p>
+                  <p className="text-sm font-medium text-app capitalize">
                     {(detail?.category || form.category || 'general').replace(/_/g, ' ')}
                   </p>
                 </div>
-                <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3">
-                  <p className="text-xs text-gray-500 mb-1">Version</p>
-                  <p className="text-sm font-medium text-white">v{detail?.version ?? form.version ?? 1}</p>
+                <div className="surface-2 border border-app rounded-xl p-3">
+                  <p className="text-xs text-faint mb-1">Version</p>
+                  <p className="text-sm font-medium text-app">v{detail?.version ?? form.version ?? 1}</p>
                 </div>
-                <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3">
-                  <p className="text-xs text-gray-500 mb-1">Created</p>
-                  <p className="text-sm font-medium text-white">
+                <div className="surface-2 border border-app rounded-xl p-3">
+                  <p className="text-xs text-faint mb-1">Created</p>
+                  <p className="text-sm font-medium text-app">
                     {fmtDate(detail?.created_at || form.created_at)}
                   </p>
                 </div>
-                <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3">
-                  <p className="text-xs text-gray-500 mb-1">Updated</p>
-                  <p className="text-sm font-medium text-white">
+                <div className="surface-2 border border-app rounded-xl p-3">
+                  <p className="text-xs text-faint mb-1">Updated</p>
+                  <p className="text-sm font-medium text-app">
                     {fmtDate(detail?.updated_at || form.updated_at)}
                   </p>
                 </div>
               </div>
 
               <div>
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-faint mb-3">
                   Schema Statistics
                 </h3>
                 <div className="grid grid-cols-3 gap-3">
@@ -314,10 +314,10 @@ function FormDetailDrawer({ form, onClose, navigate }) {
                   ].map((s) => (
                     <div
                       key={s.label}
-                      className="bg-gray-800 border border-gray-700/50 rounded-xl p-3 text-center"
+                      className="surface-2 border border-app rounded-xl p-3 text-center"
                     >
-                      <p className="text-2xl font-bold text-white">{s.value}</p>
-                      <p className="text-xs text-gray-500 mt-0.5">{s.label}</p>
+                      <p className="text-2xl font-bold text-app">{s.value}</p>
+                      <p className="text-xs text-faint mt-0.5">{s.label}</p>
                     </div>
                   ))}
                 </div>
@@ -325,16 +325,16 @@ function FormDetailDrawer({ form, onClose, navigate }) {
 
               {Object.keys(stats.fieldTypes).length > 0 && (
                 <div>
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-faint mb-3">
                     Field Types
                   </h3>
-                  <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl divide-y divide-gray-700/50">
+                  <div className="surface-2 border border-app rounded-xl divide-y divide-[color:var(--border)]">
                     {Object.entries(stats.fieldTypes).map(([type, count]) => (
                       <div key={type} className="flex items-center justify-between px-4 py-2.5">
-                        <span className="text-sm text-gray-300 capitalize">
+                        <span className="text-sm text-dim capitalize">
                           {type.replace(/_/g, ' ')}
                         </span>
-                        <span className="text-sm font-semibold text-white">{count}</span>
+                        <span className="text-sm font-semibold text-app">{count}</span>
                       </div>
                     ))}
                   </div>
@@ -343,26 +343,26 @@ function FormDetailDrawer({ form, onClose, navigate }) {
 
               {scoring && (
                 <div>
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-faint mb-3">
                     Scoring Configuration
                   </h3>
-                  <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl px-4 py-3 space-y-2">
+                  <div className="surface-2 border border-app rounded-xl px-4 py-3 space-y-2">
                     {scoring.type && (
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-400">Type</span>
-                        <span className="text-white capitalize">{scoring.type}</span>
+                        <span className="text-dim">Type</span>
+                        <span className="text-app capitalize">{scoring.type}</span>
                       </div>
                     )}
                     {scoring.max_score !== undefined && (
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-400">Max Score</span>
-                        <span className="text-white">{scoring.max_score}</span>
+                        <span className="text-dim">Max Score</span>
+                        <span className="text-app">{scoring.max_score}</span>
                       </div>
                     )}
                     {scoring.interpretation && (
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-400">Interpretation</span>
-                        <span className="text-white capitalize">{scoring.interpretation}</span>
+                        <span className="text-dim">Interpretation</span>
+                        <span className="text-app capitalize">{scoring.interpretation}</span>
                       </div>
                     )}
                   </div>
@@ -370,12 +370,12 @@ function FormDetailDrawer({ form, onClose, navigate }) {
               )}
 
               <div>
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-faint mb-3">
                   Alert Rules
                 </h3>
-                <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl px-4 py-3 flex items-center justify-between">
-                  <span className="text-sm text-gray-400">Total alert rules</span>
-                  <span className="text-lg font-bold text-white">
+                <div className="surface-2 border border-app rounded-xl px-4 py-3 flex items-center justify-between">
+                  <span className="text-sm text-dim">Total alert rules</span>
+                  <span className="text-lg font-bold text-app">
                     {Array.isArray(alerts) ? alerts.length : 0}
                   </span>
                 </div>
@@ -383,28 +383,28 @@ function FormDetailDrawer({ form, onClose, navigate }) {
 
               {iview && (
                 <div>
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-faint mb-3">
                     iView Configuration
                   </h3>
-                  <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl px-4 py-3 space-y-2">
+                  <div className="surface-2 border border-app rounded-xl px-4 py-3 space-y-2">
                     {iview.enabled !== undefined && (
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-400">Enabled</span>
-                        <span className={iview.enabled ? 'text-green-400' : 'text-gray-400'}>
+                        <span className="text-dim">Enabled</span>
+                        <span className={iview.enabled ? 'text-green-400' : 'text-dim'}>
                           {iview.enabled ? 'Yes' : 'No'}
                         </span>
                       </div>
                     )}
                     {iview.mode && (
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-400">Mode</span>
-                        <span className="text-white capitalize">{iview.mode}</span>
+                        <span className="text-dim">Mode</span>
+                        <span className="text-app capitalize">{iview.mode}</span>
                       </div>
                     )}
                     {iview.layout && (
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-400">Layout</span>
-                        <span className="text-white capitalize">{iview.layout}</span>
+                        <span className="text-dim">Layout</span>
+                        <span className="text-app capitalize">{iview.layout}</span>
                       </div>
                     )}
                   </div>
@@ -414,13 +414,13 @@ function FormDetailDrawer({ form, onClose, navigate }) {
           )}
         </div>
 
-        <div className="sticky bottom-0 bg-gray-900 border-t border-gray-800 px-6 py-4">
+        <div className="sticky bottom-0 surface border-t border-app px-6 py-4">
           <button
             onClick={() => {
               onClose()
               navigate(`/forms/builder/${form.id}`)
             }}
-            className="w-full flex items-center justify-center gap-2 bg-[#F5821E] hover:bg-[#e07319] text-white px-4 py-2.5 rounded-xl text-sm font-medium transition-colors"
+            className="w-full flex items-center justify-center gap-2 bg-[#F5821E] hover:bg-[#e07319] text-app px-4 py-2.5 rounded-xl text-sm font-medium transition-colors"
           >
             <Pencil size={15} />
             Edit Form
@@ -464,7 +464,7 @@ function FormsTable({ forms, onViewDetails }) {
     })
 
   function SortIcon({ col }) {
-    if (sortKey !== col) return <ChevronDown size={12} className="text-gray-600" />
+    if (sortKey !== col) return <ChevronDown size={12} className="text-faint" />
     return sortDir === 'asc' ? (
       <ChevronUp size={12} className="text-[#F5821E]" />
     ) : (
@@ -473,35 +473,35 @@ function FormsTable({ forms, onViewDetails }) {
   }
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-      <div className="px-4 py-3 border-b border-gray-800 flex items-center gap-3">
-        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex-1">All Forms</span>
+    <div className="surface border border-app rounded-xl overflow-hidden">
+      <div className="px-4 py-3 border-b border-app flex items-center gap-3">
+        <span className="text-xs font-semibold text-faint uppercase tracking-wider flex-1">All Forms</span>
         <div className="relative">
-          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-faint pointer-events-none" />
           <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
             placeholder="Filter forms…"
-            className="w-48 bg-gray-800 border border-gray-700 text-white text-xs rounded-lg pl-8 pr-3 py-1.5 outline-none focus:border-gray-600 placeholder-gray-500" />
+            className="w-48 surface-2 border border-app text-app text-xs rounded-lg pl-8 pr-3 py-1.5 outline-none focus:border-app placeholder-gray-500" />
           {search && (
-            <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white">
+            <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-faint hover:text-app">
               <X size={12} />
             </button>
           )}
         </div>
-        <span className="text-xs text-gray-600">{filtered.length} forms</span>
+        <span className="text-xs text-faint">{filtered.length} forms</span>
       </div>
 
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-gray-800 text-xs text-gray-500 uppercase tracking-wide">
-              <th className="px-4 py-2.5 text-left cursor-pointer hover:text-white select-none" onClick={() => toggleSort('title')}>
+            <tr className="border-b border-app text-xs text-faint uppercase tracking-wide">
+              <th className="px-4 py-2.5 text-left cursor-pointer hover:text-app select-none" onClick={() => toggleSort('title')}>
                 <span className="flex items-center gap-1">Form Title <SortIcon col="title" /></span>
               </th>
-              <th className="px-3 py-2.5 text-left cursor-pointer hover:text-white select-none" onClick={() => toggleSort('category')}>
+              <th className="px-3 py-2.5 text-left cursor-pointer hover:text-app select-none" onClick={() => toggleSort('category')}>
                 <span className="flex items-center gap-1">Category <SortIcon col="category" /></span>
               </th>
               <th className="px-3 py-2.5 text-left">Ver</th>
-              <th className="px-3 py-2.5 text-left cursor-pointer hover:text-white select-none" onClick={() => toggleSort('status')}>
+              <th className="px-3 py-2.5 text-left cursor-pointer hover:text-app select-none" onClick={() => toggleSort('status')}>
                 <span className="flex items-center gap-1">Status <SortIcon col="status" /></span>
               </th>
               <th className="px-3 py-2.5 text-center">iView</th>
@@ -509,10 +509,10 @@ function FormsTable({ forms, onViewDetails }) {
               <th className="px-3 py-2.5 text-center">Template</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-800/50">
+          <tbody className="divide-y divide-[color:var(--border)]">
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-5 py-12 text-center text-gray-500 text-xs">
+                <td colSpan={7} className="px-5 py-12 text-center text-faint text-xs">
                   No forms match your filter.
                 </td>
               </tr>
@@ -520,11 +520,11 @@ function FormsTable({ forms, onViewDetails }) {
               filtered.map((form) => (
                 <tr
                   key={form.id}
-                  className="hover:bg-gray-800/30 transition-colors cursor-pointer"
+                  className="hover-app transition-colors cursor-pointer"
                   onClick={() => onViewDetails(form)}
                 >
                   <td className="px-4 py-2.5">
-                    <span className="font-medium text-white text-xs">{form.title || 'Untitled'}</span>
+                    <span className="font-medium text-app text-xs">{form.title || 'Untitled'}</span>
                   </td>
                   <td className="px-3 py-2.5">
                     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
@@ -532,16 +532,16 @@ function FormsTable({ forms, onViewDetails }) {
                       {(form.category || 'general').replace(/_/g, ' ')}
                     </span>
                   </td>
-                  <td className="px-3 py-2.5 text-gray-400 font-mono text-xs">v{form.version ?? 1}</td>
+                  <td className="px-3 py-2.5 text-dim font-mono text-xs">v{form.version ?? 1}</td>
                   <td className="px-3 py-2.5"><StatusBadge status={form.status || 'draft'} /></td>
                   <td className="px-3 py-2.5 text-center">
-                    {form.is_iview_enabled ? <span className="text-indigo-400 text-xs font-medium">Yes</span> : <span className="text-gray-600 text-xs">—</span>}
+                    {form.is_iview_enabled ? <span className="text-indigo-400 text-xs font-medium">Yes</span> : <span className="text-faint text-xs">—</span>}
                   </td>
                   <td className="px-3 py-2.5 text-center">
-                    {form.requires_cosign ? <span className="text-orange-400 text-xs font-medium">Yes</span> : <span className="text-gray-600 text-xs">—</span>}
+                    {form.requires_cosign ? <span className="text-orange-400 text-xs font-medium">Yes</span> : <span className="text-faint text-xs">—</span>}
                   </td>
                   <td className="px-3 py-2.5 text-center">
-                    {form.is_template || form.status === 'template' ? <span className="text-blue-400 text-xs font-medium">Yes</span> : <span className="text-gray-600 text-xs">—</span>}
+                    {form.is_template || form.status === 'template' ? <span className="text-blue-400 text-xs font-medium">Yes</span> : <span className="text-faint text-xs">—</span>}
                   </td>
                 </tr>
               ))
@@ -603,10 +603,10 @@ export default function FormAnalytics() {
       {/* Compact top bar */}
       <div className="flex items-center gap-2">
         <button onClick={() => navigate('/forms')}
-          className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors">
+          className="p-1.5 rounded-lg text-dim hover:text-app hover-app transition-colors">
           <ArrowLeft size={15} />
         </button>
-        <span className="text-sm font-semibold text-white">Form Analytics</span>
+        <span className="text-sm font-semibold text-app">Form Analytics</span>
         <div className="flex items-center gap-1.5 ml-2 text-blue-300 bg-blue-950/40 border border-blue-800/50 rounded-lg px-2.5 py-1 text-xs">
           <Info size={11} className="text-blue-400 flex-shrink-0" />
           Illustrative data — live submissions update after first form responses
@@ -615,8 +615,8 @@ export default function FormAnalytics() {
 
       {error ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
-          <AlertCircle size={40} className="text-gray-600 mb-3" />
-          <p className="text-gray-400 font-medium mb-1">{error}</p>
+          <AlertCircle size={40} className="text-faint mb-3" />
+          <p className="text-dim font-medium mb-1">{error}</p>
           <button onClick={() => window.location.reload()} className="mt-3 text-sm text-[#F5821E] hover:underline">Try again</button>
         </div>
       ) : loading ? (
@@ -634,18 +634,18 @@ export default function FormAnalytics() {
               { icon: Archive, label: 'Retired', value: retiredCount, color: '#6b7280' },
               { icon: BarChart2, label: 'Draft', value: draftCount, color: '#eab308' },
             ].map(({ icon: Icon, label, value, color }) => (
-              <div key={label} className="flex items-center gap-2 bg-gray-900 border border-gray-800 rounded-xl px-3 py-2">
+              <div key={label} className="flex items-center gap-2 surface border border-app rounded-xl px-3 py-2">
                 <Icon size={13} style={{ color }} />
-                <span className="text-xs text-gray-500">{label}</span>
-                <span className="text-lg font-bold text-white leading-none">{value}</span>
+                <span className="text-xs text-faint">{label}</span>
+                <span className="text-lg font-bold text-app leading-none">{value}</span>
               </div>
             ))}
           </div>
 
           {/* Charts Row */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
-              <h2 className="text-base font-semibold text-white mb-5">
+            <div className="surface border border-app rounded-2xl p-6">
+              <h2 className="text-base font-semibold text-app mb-5">
                 Form Status Distribution
               </h2>
               <div className="flex items-center gap-8">
@@ -662,9 +662,9 @@ export default function FormAnalytics() {
                         className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                         style={{ background: s.color }}
                       />
-                      <span className="text-sm text-gray-300 flex-1">{s.label}</span>
-                      <span className="text-sm font-semibold text-white">{s.value}</span>
-                      <span className="text-xs text-gray-500 w-10 text-right">
+                      <span className="text-sm text-dim flex-1">{s.label}</span>
+                      <span className="text-sm font-semibold text-app">{s.value}</span>
+                      <span className="text-xs text-faint w-10 text-right">
                         {totalForms > 0
                           ? `${Math.round((s.value / totalForms) * 100)}%`
                           : '0%'}
@@ -675,10 +675,10 @@ export default function FormAnalytics() {
               </div>
             </div>
 
-            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
-              <h2 className="text-base font-semibold text-white mb-5">Forms by Category</h2>
+            <div className="surface border border-app rounded-2xl p-6">
+              <h2 className="text-base font-semibold text-app mb-5">Forms by Category</h2>
               {categoryData.length === 0 ? (
-                <p className="text-gray-500 text-sm">No category data available.</p>
+                <p className="text-faint text-sm">No category data available.</p>
               ) : (
                 <HBarChart data={categoryData} />
               )}

@@ -26,7 +26,7 @@ export const GAP = 6      // px gap between cells
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function getFieldTypeIcon(type, size = 16) {
-  const props = { size, className: 'text-gray-400 flex-shrink-0' }
+  const props = { size, className: 'text-dim flex-shrink-0' }
   const map = {
     text:              <Type {...props} />,
     textarea:          <AlignLeft {...props} />,
@@ -141,26 +141,26 @@ function GridField({ field, sectionId, isSelected, onSelect, dispatch, live, onS
       onClick={e => { if (!overlay) { e.stopPropagation(); onSelect(field.id, 'field') } }}
       className={[
         'relative group flex flex-col justify-center px-3 py-2 rounded-lg cursor-grab active:cursor-grabbing transition-all select-none overflow-hidden',
-        isBreak ? 'bg-gray-900/60 border-dashed' : 'bg-gray-800',
+        isBreak ? 'surface-2 border-dashed' : 'surface-2',
         'border',
-        isSelected ? 'border-[#F5821E] ring-1 ring-[#F5821E]/40' : 'border-gray-700 hover:border-gray-600',
+        isSelected ? 'border-[#F5821E] ring-1 ring-[#F5821E]/40' : 'border-app hover:border-app',
         isDragging ? 'opacity-60 shadow-2xl' : '',
         overlay ? 'shadow-2xl w-56' : '',
       ].join(' ')}
     >
       <div className="flex items-center gap-1.5 min-w-0">
-        <GripVertical size={12} className="text-gray-600 flex-shrink-0" />
+        <GripVertical size={12} className="text-faint flex-shrink-0" />
         {getFieldTypeIcon(field.type, 13)}
-        <span className="text-sm font-medium text-white truncate">{field.label || 'Untitled'}</span>
+        <span className="text-sm font-medium text-app truncate">{field.label || 'Untitled'}</span>
         {field.required && <span className="text-[#F5821E] text-sm leading-none">*</span>}
         {field.conditions?.length > 0 && <Eye size={11} className="text-purple-400 flex-shrink-0" title="Conditional" />}
         {hasLogic(field) && <Zap size={11} className="text-amber-400 flex-shrink-0" title="Has logic / intelligence" />}
-        {field.hidden && <EyeOff size={11} className="text-gray-500 flex-shrink-0" />}
+        {field.hidden && <EyeOff size={11} className="text-faint flex-shrink-0" />}
       </div>
       <div className="flex items-center gap-2 mt-0.5 min-w-0">
-        <span className="text-[10px] bg-gray-700 text-gray-400 px-1.5 py-0.5 rounded flex-shrink-0">{field.type}</span>
-        <span className="text-[10px] text-gray-500 font-mono truncate">{field.field_id}</span>
-        <span className="text-[10px] text-gray-600 ml-auto flex-shrink-0">{w}×{h}</span>
+        <span className="text-[10px] surface-3 text-dim px-1.5 py-0.5 rounded flex-shrink-0">{field.type}</span>
+        <span className="text-[10px] text-faint font-mono truncate">{field.field_id}</span>
+        <span className="text-[10px] text-faint ml-auto flex-shrink-0">{w}×{h}</span>
       </div>
 
       {!overlay && (
@@ -169,7 +169,7 @@ function GridField({ field, sectionId, isSelected, onSelect, dispatch, live, onS
           <button
             onPointerDown={e => e.stopPropagation()}
             onClick={e => { e.stopPropagation(); dispatch({ type: 'DUPLICATE_FIELD', payload: { sectionId, fieldId: field.id } }) }}
-            className="absolute top-1 right-6 text-gray-600 hover:text-[#F5821E] opacity-0 group-hover:opacity-100 transition-opacity"
+            className="absolute top-1 right-6 text-faint hover:text-[#F5821E] opacity-0 group-hover:opacity-100 transition-opacity"
             title="Duplicate field (Ctrl+D)"
           >
             <Copy size={12} />
@@ -178,7 +178,7 @@ function GridField({ field, sectionId, isSelected, onSelect, dispatch, live, onS
           <button
             onPointerDown={e => e.stopPropagation()}
             onClick={e => { e.stopPropagation(); dispatch({ type: 'DELETE_FIELD', payload: { sectionId, fieldId: field.id } }) }}
-            className="absolute top-1 right-1 text-gray-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+            className="absolute top-1 right-1 text-faint hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
             title="Delete field"
           >
             <X size={13} />
@@ -188,7 +188,7 @@ function GridField({ field, sectionId, isSelected, onSelect, dispatch, live, onS
             onPointerDown={e => onStartResize(e, field)}
             onClick={e => e.stopPropagation()}
             title="Drag to resize"
-            className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize flex items-end justify-end p-0.5 text-gray-600 hover:text-[#F5821E]"
+            className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize flex items-end justify-end p-0.5 text-faint hover:text-[#F5821E]"
           >
             <svg width="8" height="8" viewBox="0 0 8 8"><path d="M8 0v8H0" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg>
           </div>
@@ -297,7 +297,7 @@ function GridBody({ section, selectedId, selectedType, dispatch, onSelect, regis
       {section.fields.length === 0 && (
         <div
           style={{ gridColumn: `1 / span ${cols}`, gridRow: '1 / span 3' }}
-          className="flex items-center justify-center border-2 border-dashed border-gray-700 rounded-lg text-gray-500 text-xs"
+          className="flex items-center justify-center border-2 border-dashed border-app rounded-lg text-faint text-xs"
         >
           Drag a control here, or click one in the palette
         </div>
@@ -319,24 +319,24 @@ function SectionBlock({ section, selectedId, selectedType, dispatch, onSelect, r
   }
 
   return (
-    <div className={['bg-gray-800/40 border rounded-xl mb-4 overflow-hidden transition-all', isSelected ? 'border-[#F5821E]' : 'border-gray-700'].join(' ')}>
+    <div className={['surface-2 border rounded-xl mb-4 overflow-hidden transition-all', isSelected ? 'border-[#F5821E]' : 'border-app'].join(' ')}>
       {/* Header */}
       <div
-        className="flex items-center gap-2 px-4 py-3 border-b border-gray-700/60 cursor-pointer select-none"
+        className="flex items-center gap-2 px-4 py-3 border-b border-app cursor-pointer select-none"
         style={{ background: section.header_color ? section.header_color + '1f' : undefined }}
         onClick={() => onSelect(section.id, 'section')}
       >
-        <GripVertical size={16} className="text-gray-600 flex-shrink-0" />
+        <GripVertical size={16} className="text-faint flex-shrink-0" />
         <div className="flex flex-col flex-shrink-0" onClick={e => e.stopPropagation()}>
           <button type="button" title="Move section up"
             onClick={() => dispatch({ type: 'MOVE_SECTION', payload: { sectionId: section.id, dir: -1 } })}
-            className="text-gray-600 hover:text-gray-300 leading-none transition-colors"><ChevronUp size={12} /></button>
+            className="text-faint hover:text-dim leading-none transition-colors"><ChevronUp size={12} /></button>
           <button type="button" title="Move section down"
             onClick={() => dispatch({ type: 'MOVE_SECTION', payload: { sectionId: section.id, dir: 1 } })}
-            className="text-gray-600 hover:text-gray-300 leading-none transition-colors"><ChevronDown size={12} /></button>
+            className="text-faint hover:text-dim leading-none transition-colors"><ChevronDown size={12} /></button>
         </div>
         <input
-          className="flex-1 bg-transparent text-white font-semibold text-sm focus:outline-none min-w-0"
+          className="flex-1 bg-transparent text-app font-semibold text-sm focus:outline-none min-w-0"
           style={{ color: section.header_color || undefined }}
           value={section.title}
           onClick={e => e.stopPropagation()}
@@ -351,7 +351,7 @@ function SectionBlock({ section, selectedId, selectedType, dispatch, onSelect, r
         {section.collapsible && (
           <button
             onClick={e => { e.stopPropagation(); dispatch({ type: 'UPDATE_SECTION', payload: { sectionId: section.id, key: 'collapsed', value: !section.collapsed } }) }}
-            className="text-gray-500 hover:text-gray-300 transition-colors"
+            className="text-faint hover:text-dim transition-colors"
             title={section.collapsed ? 'Expand' : 'Collapse'}
           >
             {section.collapsed ? <ChevronRight size={16} /> : <ChevronUp size={16} />}
@@ -359,7 +359,7 @@ function SectionBlock({ section, selectedId, selectedType, dispatch, onSelect, r
         )}
         <button
           onClick={e => { e.stopPropagation(); dispatch({ type: 'DELETE_SECTION', payload: section.id }) }}
-          className="text-gray-600 hover:text-red-400 transition-colors" title="Delete section"
+          className="text-faint hover:text-red-400 transition-colors" title="Delete section"
         ><X size={16} /></button>
       </div>
 
@@ -376,14 +376,14 @@ function SectionBlock({ section, selectedId, selectedType, dispatch, onSelect, r
             cols={cols}
           />
           <div className="mt-3 relative">
-            <button onClick={() => setShowQuickAdd(v => !v)} className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-300 transition-colors">
+            <button onClick={() => setShowQuickAdd(v => !v)} className="flex items-center gap-1 text-xs text-faint hover:text-dim transition-colors">
               <Plus size={12} /> Add Field
             </button>
             {showQuickAdd && (
-              <div className="absolute left-0 top-6 z-20 bg-gray-800 border border-gray-700 rounded-xl shadow-xl p-2 grid grid-cols-2 gap-1 w-56">
+              <div className="absolute left-0 top-6 z-20 surface-2 border border-app rounded-xl shadow-xl p-2 grid grid-cols-2 gap-1 w-56">
                 {QUICK_ADD_TYPES.map(ft => (
                   <button key={ft.type} onClick={() => handleAddField(ft.type)}
-                    className="flex items-center gap-1.5 text-xs text-gray-300 hover:bg-gray-700 px-2 py-1.5 rounded-lg transition-colors text-left">
+                    className="flex items-center gap-1.5 text-xs text-dim hover:surface-3 px-2 py-1.5 rounded-lg transition-colors text-left">
                     {getFieldTypeIcon(ft.type, 12)} {ft.label}
                   </button>
                 ))}
@@ -407,12 +407,12 @@ export default function FormCanvas({ schema, selectedId, selectedType, dispatch,
     <div className="min-h-full p-6">
       {schema.sections.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center">
-          <div className="w-20 h-20 rounded-full bg-gray-800 flex items-center justify-center mb-4">
-            <Clipboard size={36} className="text-gray-600" />
+          <div className="w-20 h-20 rounded-full surface-2 flex items-center justify-center mb-4">
+            <Clipboard size={36} className="text-faint" />
           </div>
-          <h3 className="text-lg font-semibold text-white mb-2">Start building your CareForm</h3>
-          <p className="text-gray-500 text-sm mb-6">Add a section, then drag controls onto the grid and place them freely.</p>
-          <button onClick={() => dispatch({ type: 'ADD_SECTION' })} className="flex items-center gap-2 px-5 py-2.5 bg-[#F5821E] hover:bg-[#e07010] text-white font-medium rounded-xl transition-colors">
+          <h3 className="text-lg font-semibold text-app mb-2">Start building your CareForm</h3>
+          <p className="text-faint text-sm mb-6">Add a section, then drag controls onto the grid and place them freely.</p>
+          <button onClick={() => dispatch({ type: 'ADD_SECTION' })} className="flex items-center gap-2 px-5 py-2.5 bg-[#F5821E] hover:bg-[#e07010] text-app font-medium rounded-xl transition-colors">
             <Plus size={16} /> Add First Section
           </button>
         </div>
@@ -430,7 +430,7 @@ export default function FormCanvas({ schema, selectedId, selectedType, dispatch,
               cols={cols}
             />
           ))}
-          <button onClick={() => dispatch({ type: 'ADD_SECTION' })} className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-gray-700 hover:border-[#F5821E] hover:text-[#F5821E] text-gray-500 rounded-xl transition-colors text-sm font-medium">
+          <button onClick={() => dispatch({ type: 'ADD_SECTION' })} className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-app hover:border-[#F5821E] hover:text-[#F5821E] text-faint rounded-xl transition-colors text-sm font-medium">
             <Plus size={16} /> Add Section
           </button>
         </>

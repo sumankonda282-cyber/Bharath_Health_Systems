@@ -597,7 +597,7 @@ function StatusBadge({ status }) {
   const map = {
     draft:     'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30',
     published: 'bg-green-500/20 text-green-400 border border-green-500/30',
-    retired:   'bg-gray-500/20 text-gray-400 border border-gray-500/30',
+    retired:   'bg-gray-500/20 text-dim border border-app',
   }
   return (
     <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${map[status] || map.draft}`}>
@@ -608,7 +608,7 @@ function StatusBadge({ status }) {
 
 // ─── Form Settings Modal ──────────────────────────────────────────────────────
 
-const inputCls = 'w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#F5821E] transition-colors'
+const inputCls = 'w-full surface-2 border border-app rounded-lg px-3 py-2 text-sm text-app placeholder-gray-500 focus:outline-none focus:border-[#F5821E] transition-colors'
 const textareaCls = inputCls + ' resize-none'
 
 const FORM_ACCENT_PALETTE = ['#0F2557', '#CC1414', '#F5821E', '#16A34A', '#7C3AED', '#0891B2', '#D97706', '#DB2777', '#0D9488', '#475569']
@@ -619,12 +619,12 @@ function Toggle({ value, onChange, label }) {
       <div
         role="switch"
         aria-checked={value}
-        className={`relative w-9 h-5 rounded-full transition-colors flex-shrink-0 ${value ? 'bg-[#F5821E]' : 'bg-gray-700'}`}
+        className={`relative w-9 h-5 rounded-full transition-colors flex-shrink-0 ${value ? 'bg-[#F5821E]' : 'surface-3'}`}
         onClick={() => onChange(!value)}
       >
         <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${value ? 'translate-x-4' : 'translate-x-0.5'}`} />
       </div>
-      {label && <span className="text-sm text-gray-300">{label}</span>}
+      {label && <span className="text-sm text-dim">{label}</span>}
     </label>
   )
 }
@@ -641,13 +641,13 @@ function FormSettingsModal({ form, dispatch, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-end">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative w-96 h-full bg-gray-900 border-l border-gray-800 shadow-2xl overflow-y-auto flex flex-col">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800 flex-shrink-0">
-          <h2 className="text-sm font-semibold text-white flex items-center gap-2">
-            <Settings size={15} className="text-gray-400" />
+      <div className="relative w-96 h-full surface border-l border-app shadow-2xl overflow-y-auto flex flex-col">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-app flex-shrink-0">
+          <h2 className="text-sm font-semibold text-app flex items-center gap-2">
+            <Settings size={15} className="text-dim" />
             Form Settings
           </h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors">
+          <button onClick={onClose} className="text-faint hover:text-app transition-colors">
             <X size={16} />
           </button>
         </div>
@@ -655,7 +655,7 @@ function FormSettingsModal({ form, dispatch, onClose }) {
         <div className="flex-1 p-5 space-y-4 overflow-y-auto">
           {/* Description */}
           <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1">Description</label>
+            <label className="block text-xs font-medium text-dim mb-1">Description</label>
             <textarea
               className={textareaCls}
               rows={3}
@@ -667,9 +667,9 @@ function FormSettingsModal({ form, dispatch, onClose }) {
 
           {/* Icon */}
           <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1">Icon (emoji)</label>
+            <label className="block text-xs font-medium text-dim mb-1">Icon (emoji)</label>
             <div className="flex items-center gap-2">
-              <div className="w-10 h-10 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center text-2xl">
+              <div className="w-10 h-10 rounded-xl surface-2 border border-app flex items-center justify-center text-2xl">
                 {form.icon || '📋'}
               </div>
               <input
@@ -684,7 +684,7 @@ function FormSettingsModal({ form, dispatch, onClose }) {
 
           {/* Subcategory */}
           <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1">Subcategory</label>
+            <label className="block text-xs font-medium text-dim mb-1">Subcategory</label>
             <input
               className={inputCls}
               value={form.subcategory || ''}
@@ -695,7 +695,7 @@ function FormSettingsModal({ form, dispatch, onClose }) {
 
           {/* Status */}
           <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1">Status</label>
+            <label className="block text-xs font-medium text-dim mb-1">Status</label>
             <select
               className={inputCls}
               value={form.status || 'draft'}
@@ -711,7 +711,7 @@ function FormSettingsModal({ form, dispatch, onClose }) {
               more freedom. Changing it only affects new placement; existing
               fields keep their column values (which now mean a smaller slice). */}
           <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1">
+            <label className="block text-xs font-medium text-dim mb-1">
               Layout grid resolution
             </label>
             <select
@@ -724,7 +724,7 @@ function FormSettingsModal({ form, dispatch, onClose }) {
               <option value={36}>36 columns — extra-fine</option>
               <option value={48}>48 columns — maximum freedom</option>
             </select>
-            <p className="text-[11px] text-gray-600 mt-1 leading-relaxed">
+            <p className="text-[11px] text-faint mt-1 leading-relaxed">
               More columns = finer control over field width and position. Existing
               fields keep their layout; the renderer honours this per-form.
             </p>
@@ -732,7 +732,7 @@ function FormSettingsModal({ form, dispatch, onClose }) {
 
           {/* Availability / scope: global vs a single health center */}
           <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1">Availability</label>
+            <label className="block text-xs font-medium text-dim mb-1">Availability</label>
             <select
               className={inputCls}
               value={scoped ? 'clinic' : 'global'}
@@ -758,14 +758,14 @@ function FormSettingsModal({ form, dispatch, onClose }) {
                 ))}
               </select>
             )}
-            <p className="mt-1 text-xs text-gray-600">
+            <p className="mt-1 text-xs text-faint">
               Global forms appear in every health center. Scoped forms appear only in the selected center’s portals.
             </p>
           </div>
 
           {/* Form accent colour */}
           <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1">Form accent colour</label>
+            <label className="block text-xs font-medium text-dim mb-1">Form accent colour</label>
             <div className="flex items-center gap-1.5 flex-wrap">
               {FORM_ACCENT_PALETTE.map(c => {
                 const current = form.schema?.theme?.accent || ''
@@ -784,13 +784,13 @@ function FormSettingsModal({ form, dispatch, onClose }) {
                 type="color"
                 value={form.schema?.theme?.accent || '#0F2557'}
                 onChange={e => dispatch({ type: 'SET_FORM_PROP', payload: { key: 'schema', value: { ...form.schema, theme: { ...(form.schema.theme || {}), accent: e.target.value } } } })}
-                className="w-6 h-6 rounded cursor-pointer border border-gray-700 p-0 bg-gray-800"
+                className="w-6 h-6 rounded cursor-pointer border border-app p-0 surface-2"
               />
               {form.schema?.theme?.accent && (
                 <button
                   type="button"
                   onClick={() => dispatch({ type: 'SET_FORM_PROP', payload: { key: 'schema', value: { ...form.schema, theme: { ...(form.schema.theme || {}), accent: '' } } } })}
-                  className="text-xs text-gray-500 hover:text-gray-300"
+                  className="text-xs text-faint hover:text-dim"
                 >
                   clear
                 </button>
@@ -798,16 +798,16 @@ function FormSettingsModal({ form, dispatch, onClose }) {
             </div>
           </div>
 
-          <div className="border-t border-gray-800 pt-4 space-y-3">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Workflow</p>
+          <div className="border-t border-app pt-4 space-y-3">
+            <p className="text-xs font-semibold text-faint uppercase tracking-wider">Workflow</p>
 
             {/* Co-sign */}
             <Toggle
               value={form.requires_cosign || false}
               onChange={v => set('requires_cosign', v)}
               label={
-                <span className="flex items-center gap-1.5 text-sm text-gray-300">
-                  <PenLine size={13} className="text-gray-400" />
+                <span className="flex items-center gap-1.5 text-sm text-dim">
+                  <PenLine size={13} className="text-dim" />
                   Requires co-sign
                 </span>
               }
@@ -815,7 +815,7 @@ function FormSettingsModal({ form, dispatch, onClose }) {
 
             {/* Time limit */}
             <div>
-              <label className="block text-xs font-medium text-gray-400 mb-1 flex items-center gap-1">
+              <label className="block text-xs font-medium text-dim mb-1 flex items-center gap-1">
                 <Clock size={11} />
                 Time limit (minutes)
               </label>
@@ -831,7 +831,7 @@ function FormSettingsModal({ form, dispatch, onClose }) {
                 {form.time_limit_minutes && (
                   <button
                     onClick={() => set('time_limit_minutes', null)}
-                    className="text-gray-500 hover:text-red-400 transition-colors flex-shrink-0"
+                    className="text-faint hover:text-red-400 transition-colors flex-shrink-0"
                   >
                     <X size={14} />
                   </button>
@@ -840,8 +840,8 @@ function FormSettingsModal({ form, dispatch, onClose }) {
             </div>
           </div>
 
-          <div className="border-t border-gray-800 pt-4 space-y-3">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Integration</p>
+          <div className="border-t border-app pt-4 space-y-3">
+            <p className="text-xs font-semibold text-faint uppercase tracking-wider">Integration</p>
 
             <Toggle
               value={form.is_iview_enabled || false}
@@ -1167,13 +1167,13 @@ export default function FormBuilder() {
 
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-      <div className="flex flex-col h-screen bg-gray-950 text-white overflow-hidden">
+      <div className="flex flex-col h-screen app-bg text-app overflow-hidden">
 
         {/* ── Toolbar ── */}
-        <header className="sticky top-0 z-40 flex items-center gap-3 px-4 py-2.5 bg-gray-900 border-b border-gray-800 flex-shrink-0">
+        <header className="sticky top-0 z-40 flex items-center gap-3 px-4 py-2.5 surface border-b border-app flex-shrink-0">
           <button
             onClick={() => navigate('/forms')}
-            className="p-1.5 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white transition-colors"
+            className="p-1.5 rounded-lg hover-app text-dim hover:text-app transition-colors"
             title="Back to Forms"
           >
             <ArrowLeft size={18} />
@@ -1186,14 +1186,14 @@ export default function FormBuilder() {
             type="text"
             value={form.title}
             onChange={e => dispatch({ type: 'SET_TITLE', payload: e.target.value })}
-            className="flex-1 min-w-0 bg-transparent text-lg font-semibold text-white placeholder-gray-600 outline-none border-b border-transparent focus:border-orange-500 transition-colors py-0.5 max-w-xs"
+            className="flex-1 min-w-0 bg-transparent text-lg font-semibold text-app placeholder-gray-600 outline-none border-b border-transparent focus:border-orange-500 transition-colors py-0.5 max-w-xs"
             placeholder="Untitled Form"
           />
 
           <select
             value={form.category}
             onChange={e => dispatch({ type: 'SET_CATEGORY', payload: e.target.value })}
-            className="bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg px-2 py-1.5 outline-none focus:border-orange-500 transition-colors"
+            className="surface-2 border border-app text-dim text-sm rounded-lg px-2 py-1.5 outline-none focus:border-orange-500 transition-colors"
           >
             {CATEGORIES.map(c => (
               <option key={c.value} value={c.value}>{c.label}</option>
@@ -1211,7 +1211,7 @@ export default function FormBuilder() {
             className={`p-1.5 rounded-lg transition-colors ${
               showSettings
                 ? 'bg-[#F5821E]/20 text-[#F5821E] border border-[#F5821E]/30'
-                : 'bg-gray-800 text-gray-400 hover:text-white border border-gray-700'
+                : 'surface-2 text-dim hover:text-app border border-app'
             }`}
           >
             <Settings size={16} />
@@ -1221,7 +1221,7 @@ export default function FormBuilder() {
             <button
               onClick={() => navigate(`/forms/audit?form_id=${form.id || routeId}`)}
               title="View change history for this form"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-800 text-gray-300 hover:text-white border border-gray-700 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium surface-2 text-dim hover:text-app border border-app transition-colors"
             >
               <Clock size={15} />
               History
@@ -1233,7 +1233,7 @@ export default function FormBuilder() {
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
               previewMode
                 ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
-                : 'bg-gray-800 text-gray-300 hover:text-white border border-gray-700'
+                : 'surface-2 text-dim hover:text-app border border-app'
             }`}
           >
             {previewMode ? <EyeOff size={15} /> : <Eye size={15} />}
@@ -1243,7 +1243,7 @@ export default function FormBuilder() {
           <button
             onClick={saveDraft}
             disabled={saving || !isDirty}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-800 text-gray-300 hover:text-white border border-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium surface-2 text-dim hover:text-app border border-app disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             <Save size={15} />
             {saving ? 'Saving…' : 'Save Draft'}
@@ -1252,7 +1252,7 @@ export default function FormBuilder() {
           <button
             onClick={handlePublish}
             disabled={saving}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-orange-500 hover:bg-orange-400 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-orange-500 hover:bg-orange-400 text-app disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             <Send size={15} />
             Publish
@@ -1268,7 +1268,7 @@ export default function FormBuilder() {
           ) : (
           <>
           {/* Left: Field Palette */}
-          <aside className="hidden md:flex flex-col w-48 flex-shrink-0 border-r border-gray-800 overflow-y-auto bg-gray-900">
+          <aside className="hidden md:flex flex-col w-48 flex-shrink-0 border-r border-app overflow-y-auto surface">
             <FieldPalette
               onAddField={handleAddField}
               onAddSection={handleAddSection}
@@ -1291,7 +1291,7 @@ export default function FormBuilder() {
           </main>
 
           {/* Right: Properties */}
-          <aside className="hidden md:flex flex-col w-80 flex-shrink-0 border-l border-gray-800 overflow-y-auto bg-gray-900">
+          <aside className="hidden md:flex flex-col w-80 flex-shrink-0 border-l border-app overflow-y-auto surface">
             <PropertiesPanel
               form={form}
               selectedId={selectedId}
@@ -1307,7 +1307,7 @@ export default function FormBuilder() {
         {/* Mobile FAB */}
         <button
           onClick={() => setPaletteOpen(v => !v)}
-          className="md:hidden fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-orange-500 hover:bg-orange-400 text-white shadow-lg flex items-center justify-center transition-colors"
+          className="md:hidden fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-orange-500 hover:bg-orange-400 text-app shadow-lg flex items-center justify-center transition-colors"
           aria-label="Add field"
         >
           <Plus size={24} />
@@ -1317,7 +1317,7 @@ export default function FormBuilder() {
         {paletteOpen && (
           <div className="md:hidden fixed inset-0 z-40 flex">
             <div className="absolute inset-0 bg-black/60" onClick={() => setPaletteOpen(false)} />
-            <div className="relative w-56 bg-gray-900 h-full overflow-y-auto border-r border-gray-800 shadow-2xl">
+            <div className="relative w-56 surface h-full overflow-y-auto border-r border-app shadow-2xl">
               <FieldPalette
                 onAddField={(type, sid) => { handleAddField(type, sid); setPaletteOpen(false) }}
                 onAddSection={() => { handleAddSection(); setPaletteOpen(false) }}
