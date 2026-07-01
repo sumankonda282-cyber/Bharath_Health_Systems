@@ -2043,7 +2043,7 @@ export default function OpdChart() {
               }}
             />
           ) : (
-            <div className="p-5 w-full max-w-4xl">
+            <div className="p-5 w-full max-w-6xl mx-auto">
               {section === 'chart' && (
                 <PatientChartDocument
                   encounter={encounter}
