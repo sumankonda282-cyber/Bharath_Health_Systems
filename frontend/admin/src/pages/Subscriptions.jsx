@@ -308,7 +308,7 @@ function ChangePlanModal({ clinic, planConfig, onClose, onSaved, addToast }) {
         <form onSubmit={submit} className="p-6">
           <div className="space-y-2 mb-5">
             {plans.map(([key, plan]) => (
-              <label key={key} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${selected === key ? 'border-[#F5821E] bg-[#F5821E0D]' : 'border-gray-700/50 bg-gray-800/30 hover:border-gray-600'}`}
+              <label key={key} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${selected === key ? 'border-[#F5821E] bg-[#F5821E0D]' : 'border-app bg-gray-800/30 hover:border-gray-600'}`}
                 onClick={() => setSelected(key)}>
                 <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${selected === key ? 'border-[#F5821E]' : 'border-gray-600'}`}>
                   {selected === key && <div className="w-2 h-2 rounded-full bg-[#F5821E]" />}
@@ -316,7 +316,7 @@ function ChangePlanModal({ clinic, planConfig, onClose, onSaved, addToast }) {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold text-app">{plan.label || key}</span>
-                    {key === clinic.plan && <span className="text-[10px] bg-gray-700 text-gray-400 px-1.5 py-0.5 rounded-full">Current</span>}
+                    {key === clinic.plan && <span className="text-[10px] bg-gray-700 text-dim px-1.5 py-0.5 rounded-full">Current</span>}
                   </div>
                   <div className="text-xs text-faint mt-0.5">
                     {plan.price_per_doctor > 0 ? `₹${plan.price_per_doctor}/doctor/month` : 'Free'}
@@ -330,14 +330,14 @@ function ChangePlanModal({ clinic, planConfig, onClose, onSaved, addToast }) {
             ))}
           </div>
           {selected !== clinic.plan && (
-            <div className="bg-gray-800/50 rounded-xl p-3 mb-4 border border-gray-700/50">
+            <div className="surface-2 rounded-xl p-3 mb-4 border border-app">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-gray-400">Current bill</span>
-                <span className="text-gray-300">{fmtMoney(currentBill)}/mo</span>
+                <span className="text-dim">Current bill</span>
+                <span className="text-dim">{fmtMoney(currentBill)}/mo</span>
               </div>
               <div className="flex items-center justify-between text-xs mt-1.5">
-                <span className="text-gray-400">New bill</span>
-                <span className={`font-semibold ${newBill > currentBill ? 'text-emerald-400' : newBill < currentBill ? 'text-orange-400' : 'text-gray-300'}`}>
+                <span className="text-dim">New bill</span>
+                <span className={`font-semibold ${newBill > currentBill ? 'text-emerald-400' : newBill < currentBill ? 'text-orange-400' : 'text-dim'}`}>
                   {fmtMoney(newBill)}/mo
                 </span>
               </div>
@@ -424,7 +424,7 @@ function ClinicDrawer({ clinic, planConfig, onClose, onAction, addToast }) {
   return (
     <>
       <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose} />
-      <div className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-gray-950 border-l border-gray-800 z-50 overflow-y-auto flex flex-col">
+      <div className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-gray-950 border-l border-app z-50 overflow-y-auto flex flex-col">
         {/* Header */}
         <div className="sticky top-0 bg-gray-950 border-b border-app px-5 py-4 flex items-start gap-3">
           <button onClick={onClose} className="p-1.5 rounded-lg text-dim hover:text-app hover-app transition-colors mt-0.5 shrink-0">
@@ -445,13 +445,13 @@ function ClinicDrawer({ clinic, planConfig, onClose, onAction, addToast }) {
           {/* Bill & Expiry */}
           <div className="grid grid-cols-2 gap-3">
             <div className="surface border border-app rounded-xl p-3">
-              <div className="text-xs text-gray-500 mb-1">Monthly Bill</div>
-              <div className="text-lg font-bold text-white">{fmtMoney(bill)}</div>
+              <div className="text-xs text-faint mb-1">Monthly Bill</div>
+              <div className="text-lg font-bold text-app">{fmtMoney(bill)}</div>
               <div className="text-[10px] text-faint mt-0.5">{clinic.doctor_count || 0} doctors × {fmtMoney(planInfo.price_per_doctor)}</div>
             </div>
             <div className="surface border border-app rounded-xl p-3">
-              <div className="text-xs text-gray-500 mb-1">Subscription</div>
-              <div className={`text-sm font-bold ${overdue ? 'text-red-400' : expiring ? 'text-yellow-400' : 'text-white'}`}>
+              <div className="text-xs text-faint mb-1">Subscription</div>
+              <div className={`text-sm font-bold ${overdue ? 'text-red-400' : expiring ? 'text-yellow-400' : 'text-app'}`}>
                 {fmtDate(clinic.subscription_expires_at)}
               </div>
               <div className="text-[10px] text-faint mt-0.5 capitalize">{clinic.subscription_status || 'active'}</div>
@@ -496,7 +496,7 @@ function ClinicDrawer({ clinic, planConfig, onClose, onAction, addToast }) {
                 <div className="w-5 h-5 border-2 border-[#F5821E] border-t-transparent rounded-full animate-spin" />
               </div>
             ) : payments.length === 0 ? (
-              <p className="text-xs text-gray-600 text-center py-3">No payments recorded yet</p>
+              <p className="text-xs text-faint text-center py-3">No payments recorded yet</p>
             ) : (
               <div className="space-y-2">
                 {payments.map(p => (
@@ -505,7 +505,7 @@ function ClinicDrawer({ clinic, planConfig, onClose, onAction, addToast }) {
                       <div className="text-sm font-semibold text-app">{fmtMoney(p.amount)}</div>
                       <div className="text-[10px] text-faint mt-0.5 capitalize">{p.method?.replace('_', ' ')} · {fmtDate(p.created_at)}</div>
                     </div>
-                    {p.reference && <div className="text-[10px] text-gray-600 text-right">{p.reference}</div>}
+                    {p.reference && <div className="text-[10px] text-faint text-right">{p.reference}</div>}
                   </div>
                 ))}
               </div>
@@ -514,7 +514,7 @@ function ClinicDrawer({ clinic, planConfig, onClose, onAction, addToast }) {
         </div>
 
         {/* Action Buttons */}
-        <div className="sticky bottom-0 bg-gray-950 border-t border-gray-800 p-4 space-y-2">
+        <div className="sticky bottom-0 bg-gray-950 border-t border-app p-4 space-y-2">
           <div className="grid grid-cols-2 gap-2">
             <button onClick={() => setShowPayModal(true)}
               className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold text-app transition-colors"
@@ -522,7 +522,7 @@ function ClinicDrawer({ clinic, planConfig, onClose, onAction, addToast }) {
               <Banknote size={14} />Record Payment
             </button>
             <button onClick={() => setShowPlanModal(true)}
-              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium bg-gray-800 hover:bg-gray-700 text-gray-200 transition-colors">
+              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium surface-2 hover:bg-gray-700 text-app transition-colors">
               <Layers size={14} />Change Plan
             </button>
           </div>
@@ -613,7 +613,7 @@ function PlansEditorTab({ planConfig, onSaved, addToast }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-xs text-gray-500">Edit plan pricing, limits and features. Changes apply to all new bills.</p>
+        <p className="text-xs text-faint">Edit plan pricing, limits and features. Changes apply to all new bills.</p>
         <button onClick={save} disabled={saving || !dirty}
           className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-app rounded-xl transition-colors disabled:opacity-40"
           style={{ background: dirty ? '#F5821E' : undefined, backgroundColor: dirty ? undefined : 'rgb(31 41 55)' }}>
