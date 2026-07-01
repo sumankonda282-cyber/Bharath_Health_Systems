@@ -919,33 +919,12 @@ except Exception as e:
 
 echo "[bg-migrations] Seeding demo/test accounts (idempotent)..."
 timeout 60 python seed.py || echo "[bg-migrations] Demo seed failed (non-fatal)"
-# ── Fresh curated form library (clean-slate rebuild) ────────────────────────
-# The legacy auto-seeded library (seed_assessment_forms.py, seed_forms.py,
-# seed_vitals.py) is intentionally NOT executed. Those files remain in the repo
-# as reference so any legacy form can be ported to the design standard later.
-# We RETIRE every existing form (soft-delete — reversible, submissions preserved)
-# and then seed ONLY our curated, design-standard forms below.
-echo "[bg-migrations] Retiring legacy form library (soft-delete, reversible)..."
-python - <<'PYEOF'
-import os, sys
-sys.path.insert(0, os.path.dirname(__file__))
-DATABASE_URL = os.environ.get("DATABASE_URL", "")
-if not DATABASE_URL:
-    print("[retire-forms] DATABASE_URL not set — skipping"); sys.exit(0)
-for old, new in [("postgres://","postgresql+psycopg2://"),("postgresql://","postgresql+psycopg2://"),("postgresql+asyncpg","postgresql+psycopg2")]:
-    if DATABASE_URL.startswith(old) and new not in DATABASE_URL:
-        DATABASE_URL = DATABASE_URL.replace(old, new, 1); break
-from sqlalchemy import create_engine, text
-engine = create_engine(DATABASE_URL, pool_pre_ping=True, connect_args={"options":"-c prepared_statement_cache_size=0"})
-with engine.begin() as conn:
-    result = conn.execute(text("""
-        UPDATE assessment_forms
-        SET deleted_at = NOW()
-        WHERE deleted_at IS NULL
-    """))
-    print(f"[retire-forms] Soft-deleted {result.rowcount} legacy form(s) — reversible.")
-PYEOF
-echo "[bg-migrations] Seeding curated library — Vital Signs (revives if present)..."
+# ── Curated form library ────────────────────────────────────────────────────
+# NO destructive retire step runs here — nothing is soft-deleted on deploy, so
+# no form is ever lost. The legacy auto-seeded library (seed_assessment_forms.py,
+# seed_forms.py, seed_vitals.py) is simply not re-executed; its files remain in
+# the repo for reference. We only (idempotently) ensure our curated forms exist.
+echo "[bg-migrations] Ensuring curated library — Vital Signs (idempotent upsert)..."
 timeout 30 python seed_vital_signs.py || echo "[bg-migrations] Vital Signs seed failed (non-fatal)"
 echo "[bg-migrations] Done."
 ) &
