@@ -228,7 +228,7 @@ def get_encounter(
             {
                 "id":     pr.id,
                 "status": pr.status,
-                "items":  [{"medicine_name": i.medicine_name, "dosage": i.dosage, "frequency": i.frequency, "duration": i.duration, "instructions": i.instructions} for i in pr.items]
+                "items":  [{"medicine_name": i.medicine_name, "dosage": i.dosage, "frequency": i.frequency, "duration": i.duration, "route": i.route, "instructions": i.instructions} for i in pr.items]
             } for pr in appt.prescriptions
         ],
         "lab_orders": [
@@ -300,6 +300,7 @@ def complete_encounter(
                     dosage=item.get("dosage", ""),
                     frequency=item.get("frequency", ""),
                     duration=item.get("duration", ""),
+                    route=item.get("route", ""),
                     instructions=item.get("instructions", ""),
                 ))
 
@@ -660,6 +661,7 @@ def save_encounter_draft(
                     dosage=item.get("dosage", ""),
                     frequency=item.get("frequency", ""),
                     duration=item.get("duration", ""),
+                    route=item.get("route", ""),
                     instructions=item.get("instructions", ""),
                 ))
 

@@ -1210,6 +1210,7 @@ def sync_prescription_from_submission(db: Session, sub, form, current) -> Option
             dosage              = _dose_label(o),
             frequency           = o.get("frequency") or None,
             duration            = (f"{o['duration_days']} days" if o.get("duration_days") else None),
+            route               = o.get("route") or None,
             instructions        = o.get("instructions") or None,
             quantity_prescribed = qty,
             is_refill           = bool(o.get("is_refill")),

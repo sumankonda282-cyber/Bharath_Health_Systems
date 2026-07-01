@@ -1792,6 +1792,7 @@ export default function OpdChart() {
         dosage:        p.dosage || '',
         frequency:     p.frequency || '',
         duration:      p.duration || '',
+        route:         p.route || '',
         instructions:  p.instructions || '',
       })),
     },

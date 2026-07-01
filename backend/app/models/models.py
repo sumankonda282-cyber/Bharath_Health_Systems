@@ -699,6 +699,7 @@ class PrescriptionItem(Base):
     dosage              = Column(String(100), nullable=True)
     frequency           = Column(String(100), nullable=True)
     duration            = Column(String(100), nullable=True)
+    route               = Column(String(50), nullable=True)
     instructions        = Column(Text, nullable=True)
     quantity_prescribed = Column(Integer, nullable=True)
     quantity_dispensed  = Column(Integer, nullable=True)
