@@ -524,85 +524,6 @@ function FormBlock({ submission, index }) {
   )
 }
 
-// ── Problem List — longitudinal, coded, status-tracked conditions ──
-function ProblemListPanel({ patientId, encounterId, readonly }) {
-  const [items, setItems]   = useState(null)
-  const [adding, setAdding] = useState(false)
-  const [draft, setDraft]   = useState('')
-
-  const load = useCallback(() => {
-    if (!patientId) return
-    api.get('/problems', { params: { patient_id: patientId } })
-      .then(r => setItems(r?.items || []))
-      .catch(() => setItems([]))
-  }, [patientId])
-  useEffect(() => { load() }, [load])
-
-  const addProblem = async () => {
-    const name = draft.trim()
-    if (!name) return
-    try {
-      await api.post('/problems', { patient_id: patientId, problem: name, encounter_id: encounterId || undefined })
-      setDraft(''); setAdding(false); load()
-    } catch { /* surfaced by axios interceptor */ }
-  }
-  const setStatus = async (id, status) => {
-    try { await api.patch(`/problems/${id}`, { status }); load() } catch { /* noop */ }
-  }
-
-  if (items === null) return null
-  const active   = items.filter(p => p.status === 'active')
-  const resolved = items.filter(p => p.status !== 'active')
-
-  return (
-    <div className="mb-5">
-      <div className="flex items-center justify-between mb-1.5">
-        <div className="text-[11px] font-bold uppercase tracking-widest text-rose-600">Problem List</div>
-        {!readonly && !adding && (
-          <button onClick={() => setAdding(true)} className="text-[11px] text-blue-500 hover:text-blue-700 flex items-center gap-0.5">
-            <Plus size={11} /> Add
-          </button>
-        )}
-      </div>
-      {adding && (
-        <div className="flex items-center gap-2 mb-2">
-          <input autoFocus value={draft} onChange={e => setDraft(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') addProblem(); if (e.key === 'Escape') { setAdding(false); setDraft('') } }}
-            placeholder="Problem / diagnosis…"
-            className="flex-1 px-2 py-1 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400" />
-          <button onClick={addProblem} className="px-2 py-1 text-xs font-medium bg-[#0F2557] text-white rounded-lg">Add</button>
-          <button onClick={() => { setAdding(false); setDraft('') }} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
-        </div>
-      )}
-      {active.length === 0 && resolved.length === 0 && !adding && (
-        <p className="text-xs text-gray-400 italic">No problems recorded.</p>
-      )}
-      <div className="flex flex-wrap gap-1.5">
-        {active.map(p => (
-          <span key={p.id} className="group inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-rose-200 bg-rose-50 text-xs text-rose-800">
-            {p.problem}
-            {p.code && <span className="text-[9px] font-mono text-rose-400">{p.code}</span>}
-            {!readonly && (
-              <button onClick={() => setStatus(p.id, 'resolved')} title="Mark resolved"
-                className="opacity-0 group-hover:opacity-100 text-rose-400 hover:text-green-600 transition-opacity">
-                <CheckCircle size={11} />
-              </button>
-            )}
-          </span>
-        ))}
-        {resolved.map(p => (
-          <span key={p.id} className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-gray-200 bg-gray-50 text-xs text-gray-400 line-through">
-            {p.problem}
-            {!readonly && (
-              <button onClick={() => setStatus(p.id, 'active')} title="Reactivate" className="no-underline hover:text-blue-500">↺</button>
-            )}
-          </span>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 // ── Patient Chart Document ─────────────────────────────────────────
 function PatientChartDocument({ encounter, patientId, soap, prescriptions, labItems, imagingItems, counselling, formSubmissions, labOrders, imagingOrders, allPatientLabOrders, allPatientImagingOrders }) {
   const appt = encounter.appointment || encounter
@@ -655,13 +576,9 @@ function PatientChartDocument({ encounter, patientId, soap, prescriptions, labIt
   const hasP   = !!(soap.plan || prescriptions.length || counselling || categorized.P.length)
   const hasAny = hasS || hasO || hasInv || hasA || hasP
 
-  const problemReadonly = appt.status === 'completed' || appt.status === 'cancelled'
-  const encId = encounter?.encounter_no || encounter?.encounter_id || null
-
   if (!hasAny) {
     return (
       <div>
-        <ProblemListPanel patientId={patientId} encounterId={encId} readonly={problemReadonly} />
         <div className="flex flex-col items-center justify-center py-20 text-gray-400">
           <FileText size={44} className="opacity-20 mb-3" />
           <p className="text-sm font-medium">No clinical documentation yet</p>
@@ -677,8 +594,6 @@ function PatientChartDocument({ encounter, patientId, soap, prescriptions, labIt
 
   return (
     <div>
-      <ProblemListPanel patientId={patientId} encounterId={encId} readonly={problemReadonly} />
-
       {/* Chief Complaint — always first if present */}
       {reason && (
         <div className="mb-5">
@@ -1756,7 +1671,9 @@ export default function OpdChart() {
   const [panelOpen, setPanelOpen]         = useState(true)
   const [activeForm, setActiveForm]       = useState(null)
   const [medFormOpen, setMedFormOpen]     = useState(false)
-  const [demoOpen, setDemoOpen]           = useState(false)
+  // Demographics row expanded by default on desktop (≥lg); collapsed on mobile.
+  const [demoOpen, setDemoOpen]           = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches)
 
   const [soap, setSoap]                   = useState({ subjective: '', objective: '', assessment: '', plan: '' })
   const [counselling, setCounselling]     = useState('')
@@ -2064,6 +1981,22 @@ export default function OpdChart() {
               <Video size={13} className="text-green-500 flex-shrink-0" title="Telehealth" />
             )}
 
+            {/* Allergies — safety-critical, always visible when present */}
+            {(() => {
+              const al = patient.allergies
+              const list = Array.isArray(al) ? al : (al ? [al] : [])
+              const text = list.filter(Boolean).join(', ').trim()
+              if (text) return (
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md bg-red-50 text-red-700 border border-red-200 flex-shrink-0"
+                  title={`Allergies: ${text}`}>
+                  <AlertTriangle size={11} /> {text}
+                </span>
+              )
+              return (
+                <span className="text-[11px] text-gray-400 flex-shrink-0" title="No known drug allergies recorded">NKDA</span>
+              )
+            })()}
+
             {/* Demographics toggle */}
             {demoFields.length > 0 && (
               <button onClick={() => setDemoOpen(o => !o)}
@@ -2083,11 +2016,11 @@ export default function OpdChart() {
             </button>
             {!readonly && (
               <button onClick={handleSaveDraft} disabled={saving}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors">
+                title="Save draft"
+                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-50 transition-colors">
                 {saving
-                  ? <span className="w-3 h-3 border border-gray-400/30 border-t-gray-600 rounded-full animate-spin" />
-                  : <Save size={12} />}
-                Save Draft
+                  ? <span className="w-4 h-4 block border border-gray-400/30 border-t-gray-600 rounded-full animate-spin" />
+                  : <Save size={15} />}
               </button>
             )}
 
@@ -2189,7 +2122,7 @@ export default function OpdChart() {
               }}
             />
           ) : (
-            <div className="p-5 w-full max-w-6xl mx-auto">
+            <div className="px-5 py-4 w-full">
               {section === 'chart' && (
                 <PatientChartDocument
                   encounter={encounter}
