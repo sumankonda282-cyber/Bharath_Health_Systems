@@ -1188,6 +1188,7 @@ def list_submissions(
     db:          Session        = Depends(get_db),
     patient_id:  Optional[str]  = Query(None),
     encounter_id:Optional[str]  = Query(None),
+    admission_id:Optional[int]  = Query(None),
     include_drafts: bool        = Query(False),
     include_history: bool       = Query(False),
     include_data: bool          = Query(False),
@@ -1202,6 +1203,7 @@ def list_submissions(
     q = db.query(FormSubmission).filter(FormSubmission.form_id == form_id)
     if patient_id:   q = q.filter(FormSubmission.patient_id   == patient_id)
     if encounter_id: q = q.filter(FormSubmission.encounter_id == encounter_id)
+    if admission_id is not None: q = q.filter(FormSubmission.admission_id == admission_id)
     if not include_drafts:
         q = q.filter(FormSubmission.is_draft.is_(False))
     if not include_history:

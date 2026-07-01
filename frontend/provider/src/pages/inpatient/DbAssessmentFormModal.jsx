@@ -153,12 +153,20 @@ export default function DbAssessmentFormModal({ form, patientId, admissionId, en
   const [lastSub, setLastSub] = useState(null)
   useEffect(() => {
     if (!form?.id || !patientId) return
+    // Carry-forward is scoped to the CURRENT session (design standard §11.4):
+    // clinical measurements must never cross OPD encounters / IPD admissions.
+    // Only offer a prior submission from the same encounter (OPD) or admission
+    // (IPD). Without a session key we do not fetch — no cross-session bleed.
+    if (!encounterId && !admissionId) { setLastSub(null); return }
     let alive = true
-    api.get(`/assessment-forms/${form.id}/submissions`, { params: { patient_id: patientId, limit: 1, include_data: true } })
+    const params = { limit: 1, include_data: true }
+    if (encounterId) params.encounter_id = encounterId
+    if (admissionId) params.admission_id = Number(admissionId)
+    api.get(`/assessment-forms/${form.id}/submissions`, { params })
       .then(r => { if (alive && r?.items?.length) setLastSub(r.items[0]) })
       .catch(() => { /* no prior submission is normal */ })
     return () => { alive = false }
-  }, [form?.id, patientId])
+  }, [form?.id, patientId, encounterId, admissionId])
 
   const handleCarryForward = () => {
     if (!lastSub?.form_data) return

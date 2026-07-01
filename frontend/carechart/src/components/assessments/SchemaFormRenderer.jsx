@@ -658,12 +658,16 @@ export default function SchemaFormRenderer({ formId, patientId, encounterId, onS
   const [lastSub, setLastSub] = useState(null)
   useEffect(() => {
     if (!formId || !pid) return
+    // Carry-forward scoped to the CURRENT admission/encounter (design standard
+    // §11.4): clinical measurements must never cross sessions. Without a session
+    // key we do not fetch a prior submission — no cross-session bleed.
+    if (!enc) { setLastSub(null); return }
     let alive = true
-    api.get(`/assessment-forms/${formId}/submissions`, { params: { patient_id: pid, limit: 1, include_data: true } })
+    api.get(`/assessment-forms/${formId}/submissions`, { params: { patient_id: pid, encounter_id: enc, limit: 1, include_data: true } })
       .then(r => { if (alive && r?.items?.length) setLastSub(r.items[0]) })
       .catch(() => { /* no prior submission is normal */ })
     return () => { alive = false }
-  }, [formId, pid])
+  }, [formId, pid, enc])
 
   const handleCarryForward = () => {
     if (!lastSub?.form_data) return

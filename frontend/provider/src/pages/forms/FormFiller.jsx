@@ -135,11 +135,16 @@ export default function FormFiller() {
           } catch { /* no draft is the normal case */ }
         }
 
-        // Fetch prev submission for carry-forward (by form + patient)
-        if (patientIdFromUrl && form.id) {
+        // Carry-forward is scoped to the CURRENT session (design standard §11.4):
+        // clinical measurements must never cross OPD encounters / IPD admissions.
+        // The full-page filler only carries a reliable admission key, so we scope
+        // to it and otherwise do NOT offer a prior submission (no cross-session
+        // bleed of stale readings).
+        const sessionAdmissionId = assignment?.admission_id ?? null
+        if (patientIdFromUrl && form.id && sessionAdmissionId != null) {
           try {
             const prevRes = await api.get(`/assessment-forms/${form.id}/submissions`, {
-              params: { patient_id: patientIdFromUrl, limit: 1, include_data: true },
+              params: { patient_id: patientIdFromUrl, admission_id: Number(sessionAdmissionId), limit: 1, include_data: true },
             })
             const submissions = prevRes?.items || []
             if (submissions.length > 0) {
