@@ -54,7 +54,7 @@ function Toast({ msg, type = 'success', onClose }) {
 }
 
 // ─── Dynamic Form Renderer ────────────────────────────────────────────────────
-function FormRenderer({ template, initial = {}, onSave, onCancel, saving }) {
+function FormRenderer({ template, initial = {}, onSave, onCancel, saving, readOnly = false }) {
   const [data, setData] = useState(initial)
 
   const set = (id, val) => setData(d => ({ ...d, [id]: val }))
@@ -154,12 +154,26 @@ function FormRenderer({ template, initial = {}, onSave, onCancel, saving }) {
 
   return (
     <div className="space-y-4">
-      {(template.schema?.sections || []).flatMap(s => s.fields || []).map((field, i) => renderField(field, i))}
+      {readOnly && (
+        <div className="px-3 py-1.5 rounded-lg bg-gray-100 text-[11px] font-medium text-gray-500 text-center">
+          Read-only — this visit is closed. Submitted record cannot be edited.
+        </div>
+      )}
+      {/* A disabled fieldset makes every control inert in one shot when locked. */}
+      <fieldset disabled={readOnly} className="border-0 p-0 m-0 min-w-0 space-y-4">
+        {(template.schema?.sections || []).flatMap(s => s.fields || []).map((field, i) => renderField(field, i))}
+      </fieldset>
       <div className="flex gap-2 pt-2 border-t border-gray-100">
-        <button type="button" onClick={onCancel} className="btn-secondary flex-1 justify-center text-sm">Cancel</button>
-        <button type="button" onClick={() => onSave(data)} disabled={saving} className="btn-primary flex-1 justify-center text-sm">
-          {saving ? <><Loader2 size={13} className="animate-spin" />Saving…</> : <><Check size={13} />Save Form</>}
-        </button>
+        {readOnly ? (
+          <button type="button" onClick={onCancel} className="btn-primary flex-1 justify-center text-sm">Close</button>
+        ) : (
+          <>
+            <button type="button" onClick={onCancel} className="btn-secondary flex-1 justify-center text-sm">Cancel</button>
+            <button type="button" onClick={() => onSave(data)} disabled={saving} className="btn-primary flex-1 justify-center text-sm">
+              {saving ? <><Loader2 size={13} className="animate-spin" />Saving…</> : <><Check size={13} />Save Form</>}
+            </button>
+          </>
+        )}
       </div>
     </div>
   )
@@ -555,6 +569,9 @@ export default function PatientChart() {
                   onSave={(data) => saveFormResponse(activeTemplate, data)}
                   onCancel={() => setActiveFormId(null)}
                   saving={formSaving}
+                  /* Session-state edit lock (design standard §11): once the visit is
+                     completed or cancelled the record is read-only. */
+                  readOnly={appt?.status === 'completed' || appt?.status === 'cancelled'}
                 />
               </div>
             )}

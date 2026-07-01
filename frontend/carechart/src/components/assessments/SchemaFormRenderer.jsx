@@ -564,7 +564,7 @@ function SectionBlock({ section, formData, onFieldChange, theme, gridCols }) {
  * @param {Function} onSaved      - Called after successful submit
  * @param {Function} onClose      - Called on cancel
  */
-export default function SchemaFormRenderer({ formId, patientId, encounterId, onSaved, admission, onClose }) {
+export default function SchemaFormRenderer({ formId, patientId, encounterId, onSaved, admission, onClose, readOnly: readOnlyProp }) {
   const [form, setForm]       = useState(null)
   const [loading, setLoading] = useState(true)
   const [loadErr, setLoadErr] = useState(null)
@@ -579,6 +579,13 @@ export default function SchemaFormRenderer({ formId, patientId, encounterId, onS
   dataRef.current  = formData
   const pid = patientId || admission?.patient_id
   const enc = encounterId || admission?.id
+  // Session-state edit lock (design standard §11): once the patient is discharged
+  // the admission is closed and every submitted form becomes permanently
+  // read-only. An explicit readOnly prop always wins.
+  const readOnly = readOnlyProp ?? !!(
+    admission?.discharged || admission?.discharge_date || admission?.discharged_at ||
+    admission?.status === 'discharged' || admission?.status === 'closed'
+  )
 
   useEffect(() => {
     if (!formId) return
@@ -595,7 +602,7 @@ export default function SchemaFormRenderer({ formId, patientId, encounterId, onS
   // ── PowerForm save-states: localStorage mirror + debounced server autosave ──
   const draft = useFormDraft({
     mirrorKey: (formId && pid) ? draftMirrorKey(formId, pid, enc || '') : null,
-    enabled:   !loading && !loadErr && !done && !!form && !!pid,
+    enabled:   !loading && !loadErr && !done && !!form && !!pid && !readOnly,
     saveFn:    async () => {
       const res = await api.post(`/assessment-forms/${formId}/submit`, {
         submission_id: draftIdRef.current || undefined,
@@ -678,6 +685,7 @@ export default function SchemaFormRenderer({ formId, patientId, encounterId, onS
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (readOnly) return   // discharged admission — record is locked
     draft.cancelPending()   // no autosave may fire mid-sign (would create a stray draft)
     setSaving(true)
     setSubmitErr(null)
@@ -765,7 +773,13 @@ export default function SchemaFormRenderer({ formId, patientId, encounterId, onS
         </div>
       )}
 
-      {sections.length > 0 && (
+      {readOnly && sections.length > 0 && (
+        <div className="px-3 py-1.5 rounded-lg bg-gray-100 text-[11px] font-medium text-gray-500 text-center">
+          Read-only — this admission is discharged. Submitted record cannot be edited.
+        </div>
+      )}
+
+      {!readOnly && sections.length > 0 && (
         <div className="flex items-center justify-end gap-2">
           {lastSub && (
             <button type="button" onClick={handleCarryForward}
@@ -781,6 +795,8 @@ export default function SchemaFormRenderer({ formId, patientId, encounterId, onS
         </div>
       )}
 
+      {/* A disabled fieldset makes every control inert in one shot when locked. */}
+      <fieldset disabled={readOnly} className="border-0 p-0 m-0 min-w-0 space-y-4">
       {sections.map(section => (
         <SectionBlock
           key={section.id}
@@ -791,6 +807,7 @@ export default function SchemaFormRenderer({ formId, patientId, encounterId, onS
           gridCols={gridColsOf(form?.schema)}
         />
       ))}
+      </fieldset>
 
       {submitErr && (
         <div className="flex items-center gap-2 p-3 rounded-lg border border-red-200 bg-red-50 text-red-700">
@@ -799,7 +816,16 @@ export default function SchemaFormRenderer({ formId, patientId, encounterId, onS
         </div>
       )}
 
-      {sections.length > 0 && (
+      {readOnly && sections.length > 0 && onClose && (
+        <div className="flex items-center justify-end gap-3 pt-2 border-t border-gray-100">
+          <button type="button" onClick={onClose}
+            className="px-5 py-2 text-sm font-medium text-white bg-gray-700 rounded-lg hover:bg-gray-800">
+            Close
+          </button>
+        </div>
+      )}
+
+      {!readOnly && sections.length > 0 && (
         <div className="flex items-center justify-between gap-3 pt-2 border-t border-gray-100">
           <span className={`text-xs flex items-center gap-1.5 min-w-0 truncate ${
             draft.status === 'error' ? 'text-red-500'
