@@ -1150,10 +1150,26 @@ const COUNSEL_CHIPS = [
   'Follow-up advised', 'Smoking / alcohol cessation advised', 'Warning signs explained',
 ]
 
-function CounsellingSection({ value, onChange, readonly, patientId }) {
+function CounsellingSection({ value, onChange, readonly, patientId, followUpDays, onFollowUpChange }) {
   return (
     <div className="space-y-3">
       <div className="text-xs font-bold text-gray-500 uppercase tracking-wide">Patient Counselling</div>
+
+      {/* Follow-up — drives the reminder + patient SMS on Conclude & Complete */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <Clock size={14} className="text-gray-400" />
+        <span className="text-sm text-gray-600">Follow-up in</span>
+        <input
+          type="number" min="0" inputMode="numeric"
+          value={followUpDays ?? ''} disabled={readonly}
+          onChange={e => onFollowUpChange(e.target.value)}
+          placeholder="—"
+          className="w-20 border border-gray-200 rounded-lg px-2 py-1 text-sm text-center focus:outline-none focus:border-green-400 disabled:bg-gray-50 disabled:text-gray-500"
+        />
+        <span className="text-sm text-gray-600">days</span>
+        <span className="text-[11px] text-gray-400">(sends the patient a reminder on completion)</span>
+      </div>
+
       {!readonly && (
         <div className="flex flex-wrap gap-1.5">
           {COUNSEL_CHIPS.map(c => (
@@ -1675,7 +1691,7 @@ export default function OpdChart() {
   const [demoOpen, setDemoOpen]           = useState(() =>
     typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches)
 
-  const [soap, setSoap]                   = useState({ subjective: '', objective: '', assessment: '', plan: '' })
+  const [soap, setSoap]                   = useState({ subjective: '', objective: '', assessment: '', plan: '', follow_up_days: '' })
   const [counselling, setCounselling]     = useState('')
   const [prescriptions, setPrescriptions] = useState([])
   const [labItems, setLabItems]           = useState([])
@@ -1701,6 +1717,7 @@ export default function OpdChart() {
         objective:  note.objective  || '',
         assessment: note.assessment || '',
         plan:       note.plan       || '',
+        follow_up_days: note.follow_up_days ?? '',
       })
       setCounselling(note.counselling || '')
 
@@ -1785,7 +1802,12 @@ export default function OpdChart() {
 
   // Backend reads prescription.items[].medicine_name and lab_order.tests[].test_name.
   const buildPayload = () => ({
-    soap: { ...soap, counselling },
+    soap: {
+      ...soap,
+      counselling,
+      follow_up_days: soap.follow_up_days === '' || soap.follow_up_days == null
+        ? null : Number(soap.follow_up_days),
+    },
     prescription: {
       items: (prescriptions || []).map(p => ({
         medicine_name: p.drug_name || p.medicine_name || p.name || '',
@@ -2146,6 +2168,8 @@ export default function OpdChart() {
                   onChange={setCounselling}
                   readonly={readonly}
                   patientId={patientId}
+                  followUpDays={soap.follow_up_days}
+                  onFollowUpChange={(days) => setSoap(s => ({ ...s, follow_up_days: days }))}
                 />
               )}
               {section === 'prescriptions' && (
