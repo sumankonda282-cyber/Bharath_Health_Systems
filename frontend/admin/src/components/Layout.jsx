@@ -3,11 +3,14 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import {
   LayoutDashboard, Clock, Building2, ShieldCheck,
-  ClipboardList, BarChart3, LogOut, Menu, X, Search, CreditCard, Hospital,
+  ClipboardList, BarChart3, LogOut, Menu as MenuIcon, X, Search, CreditCard, Hospital,
   FileText, Users, Bell, RefreshCw, ChevronDown, PanelLeft, KeyRound, FileClock,
 } from 'lucide-react'
 import api from '../api/client'
 import BrandLogo from './BrandLogo'
+import { Tooltip } from './ui/Tooltip'
+import { IconButton } from './ui/IconButton'
+import { Menu, MenuItem, MenuSeparator } from './ui/Menu'
 
 const NAV = [
   { to: '/dashboard',         icon: LayoutDashboard, label: 'Platform Analytics' },
@@ -141,60 +144,33 @@ function FeedbackBell() {
 }
 
 function ProfileDropdown({ user, logout, onChangePassword }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef(null)
-
-  useEffect(() => {
-    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
-
-  return (
-    <div ref={ref} className="relative">
-      <button
-        onClick={() => setOpen(v => !v)}
-        className="flex items-center gap-1.5 p-1 rounded-xl hover:bg-white/10 transition-colors"
-        title={user?.email}
+  const trigger = (
+    <button className="flex items-center gap-1.5 p-1 rounded-xl hover:bg-white/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30">
+      <div
+        className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+        style={{ background: 'rgba(245,130,30,0.25)', color: '#F5821E' }}
       >
-        <div
-          className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-          style={{ background: 'rgba(245,130,30,0.25)', color: '#F5821E' }}
-        >
-          {getInitials(user?.email || user?.full_name)}
+        {getInitials(user?.email || user?.full_name)}
+      </div>
+      <div className="hidden md:block text-left">
+        <div className="text-xs font-semibold text-white leading-tight max-w-[120px] truncate">
+          {user?.email || user?.full_name}
         </div>
-        <div className="hidden md:block text-left">
-          <div className="text-xs font-semibold text-white leading-tight max-w-[120px] truncate">
-            {user?.email || user?.full_name}
-          </div>
-          <div className="text-[11px] leading-tight" style={{ color: 'rgba(255,255,255,0.5)' }}>Super Admin</div>
-        </div>
-        <ChevronDown size={13} className="text-gray-400" />
-      </button>
-
-      {open && (
-        <div className="absolute right-0 top-12 w-56 bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl z-50 overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-800">
-            <div className="text-white text-sm font-semibold truncate">{user?.email || user?.full_name}</div>
-            <div className="text-gray-500 text-xs">Super Admin</div>
-          </div>
-          <div className="p-2">
-            <button
-              onClick={() => { setOpen(false); onChangePassword && onChangePassword() }}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-gray-300 hover:bg-white/5 hover:text-white text-sm font-medium transition-colors"
-            >
-              <KeyRound size={15} />Change Password
-            </button>
-            <button
-              onClick={logout}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300 text-sm font-medium transition-colors"
-            >
-              <LogOut size={15} />Sign Out
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
+        <div className="text-[11px] leading-tight" style={{ color: 'rgba(255,255,255,0.5)' }}>Super Admin</div>
+      </div>
+      <ChevronDown size={13} className="text-gray-400" />
+    </button>
+  )
+  return (
+    <Menu trigger={trigger} width={224}>
+      <div className="px-3 py-2 border-b border-gray-800 mb-1">
+        <div className="text-white text-sm font-semibold truncate">{user?.email || user?.full_name}</div>
+        <div className="text-gray-500 text-xs">Super Admin</div>
+      </div>
+      <MenuItem icon={KeyRound} onSelect={() => onChangePassword && onChangePassword()}>Change Password</MenuItem>
+      <MenuSeparator />
+      <MenuItem icon={LogOut} tone="danger" onSelect={logout}>Sign Out</MenuItem>
+    </Menu>
   )
 }
 
@@ -222,17 +198,18 @@ function SidebarContent({ onClose, collapsed = false }) {
         )}
       </div>
 
-      {/* Nav */}
+      {/* Nav — scrolls independently; collapsed items show a Radix tooltip */}
       <nav className="flex-1 px-2 py-3 overflow-y-auto">
         {NAV.map(({ to, icon: Icon, label }) => (
-          <NavLink key={to} to={to}
-            onClick={onClose}
-            title={collapsed ? label : undefined}
-            className={({ isActive }) => `${isActive ? 'sidebar-link-active' : 'sidebar-link'} ${collapsed ? 'justify-center' : ''}`}
-          >
-            <Icon size={17} className="flex-shrink-0" />
-            {!collapsed && <span className="flex-1 truncate">{label}</span>}
-          </NavLink>
+          <Tooltip key={to} label={collapsed ? label : null} side="right">
+            <NavLink to={to}
+              onClick={onClose}
+              className={({ isActive }) => `${isActive ? 'sidebar-link-active' : 'sidebar-link'} ${collapsed ? 'justify-center' : ''}`}
+            >
+              <Icon size={17} className="flex-shrink-0" />
+              {!collapsed && <span className="flex-1 truncate">{label}</span>}
+            </NavLink>
+          </Tooltip>
         ))}
       </nav>
     </div>
@@ -304,6 +281,32 @@ export default function Layout() {
     try { localStorage.setItem('admin_sidebar_collapsed', next ? '1' : '0') } catch {}
     return next
   })
+  // Draggable sidebar width (persisted), active only when expanded.
+  const [navWidth, setNavWidth] = useState(() => {
+    const w = parseInt(localStorage.getItem('admin_sidebar_width') || '', 10)
+    return Number.isFinite(w) ? Math.min(320, Math.max(180, w)) : 208
+  })
+  const dragRef = useRef(null)
+  const startResize = (e) => {
+    e.preventDefault()
+    const move = (ev) => {
+      const x = ev.touches ? ev.touches[0].clientX : ev.clientX
+      const w = Math.min(320, Math.max(180, x))
+      setNavWidth(w)
+    }
+    const up = () => {
+      try { localStorage.setItem('admin_sidebar_width', String(dragRef.current || navWidth)) } catch {}
+      window.removeEventListener('mousemove', move)
+      window.removeEventListener('mouseup', up)
+      window.removeEventListener('touchmove', move)
+      window.removeEventListener('touchend', up)
+    }
+    const track = (ev) => { dragRef.current = ev.touches ? ev.touches[0].clientX : ev.clientX; move(ev) }
+    window.addEventListener('mousemove', track)
+    window.addEventListener('mouseup', up)
+    window.addEventListener('touchmove', track)
+    window.addEventListener('touchend', up)
+  }
   const { user, logout } = useAuth()
   const location = useLocation()
   const pageTitle = PAGE_TITLES[location.pathname] || ''
@@ -311,9 +314,20 @@ export default function Layout() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#0a0f1e]">
-      {/* Desktop sidebar */}
-      <aside className={`hidden md:flex flex-col ${collapsed ? 'w-16' : 'w-52'} flex-shrink-0 transition-all duration-200`}>
+      {/* Desktop sidebar — collapsible + draggable width */}
+      <aside
+        className="hidden md:flex flex-col flex-shrink-0 relative"
+        style={{ width: collapsed ? 64 : navWidth, transition: 'width 120ms ease-out' }}
+      >
         <SidebarContent collapsed={collapsed} />
+        {!collapsed && (
+          <div
+            onMouseDown={startResize}
+            onTouchStart={startResize}
+            title="Drag to resize"
+            className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-[#F5821E]/40 active:bg-[#F5821E]/60 transition-colors"
+          />
+        )}
       </aside>
 
       {/* Mobile overlay */}
@@ -330,12 +344,12 @@ export default function Layout() {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Top header */}
         <header className="h-12 flex items-center gap-3 px-4 flex-shrink-0 z-30 border-b border-gray-800/60" style={{ background: '#0F2557' }}>
-          <button onClick={() => setMobileOpen(true)} className="md:hidden p-1.5 rounded-lg text-white/70 hover:bg-white/10">
-            <Menu size={20} />
-          </button>
-          <button onClick={toggleCollapsed} className="hidden md:inline-flex p-1.5 rounded-lg text-white/70 hover:bg-white/10 transition-colors" title="Toggle sidebar">
-            <PanelLeft size={20} />
-          </button>
+          <span className="md:hidden">
+            <IconButton icon={MenuIcon} label="Menu" size={20} onClick={() => setMobileOpen(true)} />
+          </span>
+          <span className="hidden md:inline-flex">
+            <IconButton icon={PanelLeft} label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} size={20} onClick={toggleCollapsed} />
+          </span>
           <div className="md:hidden">
             <BrandLogo size="sm" />
           </div>
@@ -350,13 +364,7 @@ export default function Layout() {
             {todayLabel}
           </span>
 
-          <button
-            onClick={() => window.location.reload()}
-            className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-white/60"
-            title="Refresh"
-          >
-            <RefreshCw size={16} />
-          </button>
+          <IconButton icon={RefreshCw} label="Refresh" size={16} onClick={() => window.location.reload()} />
 
           <FeedbackBell />
           <ProfileDropdown user={user} logout={logout} onChangePassword={() => setPwModal(true)} />
