@@ -908,6 +908,21 @@ except Exception as e:
     print(f'[startup] Index creation failed: {e}')
 " || echo "[bg-migrations] Column migrations failed — continuing"
 
+# ── Curated form library — SEED EARLY ────────────────────────────────────────
+# These MUST run before the heavy seeds below (ID backfill ~180s + medical
+# library up to ~1200s). Previously they were queued dead-last and frequently
+# never executed before a Render dyno recycle, so the curated forms were absent
+# from the DB (invisible in admin AND OPD). They only need the AssessmentForm
+# table, which the column migrations above just ensured. Fast + idempotent +
+# non-fatal, so running them first is safe and guarantees the forms exist within
+# seconds of deploy. NO destructive retire step — nothing is ever soft-deleted.
+echo "[bg-migrations] Ensuring curated library — Vital Signs (idempotent upsert)..."
+timeout 60 python seed_vital_signs.py || echo "[bg-migrations] Vital Signs seed failed (non-fatal)"
+echo "[bg-migrations] Ensuring curated library — Adult OPD History (Subjective) (idempotent upsert)..."
+timeout 60 python seed_history_form.py || echo "[bg-migrations] History form seed failed (non-fatal)"
+echo "[bg-migrations] Ensuring curated library — Adult OPD Examination (Objective) (idempotent upsert)..."
+timeout 60 python seed_examination_form.py || echo "[bg-migrations] Examination form seed failed (non-fatal)"
+
 # Standardized identifier system: backfill HC IDs, branch codes, employee IDs,
 # encounter numbers, MRNs + branch_id propagation, then add uniqueness guards.
 # (This module is the data half of the start.sh migration — no Alembic.)
@@ -953,17 +968,8 @@ except Exception as e:
 
 echo "[bg-migrations] Seeding demo/test accounts (idempotent)..."
 timeout 60 python seed.py || echo "[bg-migrations] Demo seed failed (non-fatal)"
-# ── Curated form library ────────────────────────────────────────────────────
-# NO destructive retire step runs here — nothing is soft-deleted on deploy, so
-# no form is ever lost. The legacy auto-seeded library (seed_assessment_forms.py,
-# seed_forms.py, seed_vitals.py) is simply not re-executed; its files remain in
-# the repo for reference. We only (idempotently) ensure our curated forms exist.
-echo "[bg-migrations] Ensuring curated library — Vital Signs (idempotent upsert)..."
-timeout 30 python seed_vital_signs.py || echo "[bg-migrations] Vital Signs seed failed (non-fatal)"
-echo "[bg-migrations] Ensuring curated library — Adult OPD History (Subjective) (idempotent upsert)..."
-timeout 30 python seed_history_form.py || echo "[bg-migrations] History form seed failed (non-fatal)"
-echo "[bg-migrations] Ensuring curated library — Adult OPD Examination (Objective) (idempotent upsert)..."
-timeout 30 python seed_examination_form.py || echo "[bg-migrations] Examination form seed failed (non-fatal)"
+# (Curated form library is now seeded EARLY — see above, right after the column
+# migrations — so it can never be starved by the heavy seeds on a dyno recycle.)
 echo "[bg-migrations] Done."
 ) &
 
