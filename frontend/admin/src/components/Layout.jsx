@@ -177,7 +177,7 @@ function ProfileDropdown({ user, logout, onChangePassword }) {
 
 function SidebarContent({ onClose, collapsed = false }) {
   return (
-    <div className="flex flex-col h-full" style={{ background: '#0F2557' }}>
+    <div className="chrome flex flex-col h-full" style={{ background: '#0F2557' }}>
       {/* Brand header */}
       <div className={`flex items-center justify-between border-b ${collapsed ? 'px-2 py-4 justify-center' : 'px-4 py-4'}`} style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
         {collapsed ? (
@@ -290,19 +290,23 @@ export default function Layout() {
   const dragRef = useRef(null)
   const startResize = (e) => {
     e.preventDefault()
-    const move = (ev) => {
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+    const track = (ev) => {
       const x = ev.touches ? ev.touches[0].clientX : ev.clientX
       const w = Math.min(320, Math.max(180, x))
+      dragRef.current = w
       setNavWidth(w)
     }
     const up = () => {
-      try { localStorage.setItem('admin_sidebar_width', String(dragRef.current || navWidth)) } catch {}
-      window.removeEventListener('mousemove', move)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      try { if (dragRef.current) localStorage.setItem('admin_sidebar_width', String(dragRef.current)) } catch {}
+      window.removeEventListener('mousemove', track)
       window.removeEventListener('mouseup', up)
-      window.removeEventListener('touchmove', move)
+      window.removeEventListener('touchmove', track)
       window.removeEventListener('touchend', up)
     }
-    const track = (ev) => { dragRef.current = ev.touches ? ev.touches[0].clientX : ev.clientX; move(ev) }
     window.addEventListener('mousemove', track)
     window.addEventListener('mouseup', up)
     window.addEventListener('touchmove', track)
@@ -344,7 +348,7 @@ export default function Layout() {
       {/* Right panel */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Top header */}
-        <header className="h-12 flex items-center gap-3 px-4 flex-shrink-0 z-30 border-b border-app" style={{ background: '#0F2557' }}>
+        <header className="chrome h-12 flex items-center gap-3 px-4 flex-shrink-0 z-30 border-b border-app" style={{ background: '#0F2557' }}>
           <span className="md:hidden">
             <IconButton icon={MenuIcon} label="Menu" size={20} onClick={() => setMobileOpen(true)} />
           </span>

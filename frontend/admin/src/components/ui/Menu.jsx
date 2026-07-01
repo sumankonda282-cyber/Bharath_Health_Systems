@@ -30,7 +30,7 @@ export function Menu({ trigger, children, align = 'end', side = 'bottom', width 
 }
 
 const ITEM_TONES = {
-  default: 'text-dim hover:bg-white/5 hover:text-app data-[highlighted]:bg-white/5 data-[highlighted]:text-app',
+  default: 'text-dim hover:bg-[color:var(--hover)] hover:text-app data-[highlighted]:bg-[color:var(--hover)] data-[highlighted]:text-app',
   danger:  'text-red-400 hover:bg-red-500/10 hover:text-red-300 data-[highlighted]:bg-red-500/10 data-[highlighted]:text-red-300',
 }
 

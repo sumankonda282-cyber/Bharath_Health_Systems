@@ -56,6 +56,23 @@
   --scroll-thumb: #40434b;
 }
 
+/* Fixed-dark chrome — the sidebar and top header keep the navy brand background
+   in BOTH themes, so tokens are re-pinned locally to light-on-navy values here.
+   Anything token-based inside (title, icons, profile, dropdowns) stays legible. */
+.chrome {
+  --surface:      #16306b;
+  --surface-2:    #1b3878;
+  --surface-3:    #224086;
+  --border:       rgba(255,255,255,0.10);
+  --border-strong:rgba(255,255,255,0.20);
+  --text:         #f4f6fb;
+  --text-dim:     rgba(255,255,255,0.72);
+  --text-faint:   rgba(255,255,255,0.48);
+  --hover:        rgba(255,255,255,0.08);
+  --scroll-thumb: rgba(255,255,255,0.25);
+  color: var(--text);
+}
+
 @layer base {
   * { box-sizing: border-box; }
   body {

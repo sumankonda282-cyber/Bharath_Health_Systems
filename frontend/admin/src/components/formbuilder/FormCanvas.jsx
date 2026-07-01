@@ -269,7 +269,7 @@ function GridBody({ section, selectedId, selectedType, dispatch, onSelect, regis
         gap: `${GAP}px`,
         minHeight: ROW_H * 2,
         gridTemplateRows: `repeat(${totalRows}, ${ROW_H}px)`,
-        backgroundImage: `linear-gradient(to right, rgba(255,255,255,0.04) 1px, transparent 1px)`,
+        backgroundImage: `linear-gradient(to right, var(--border) 1px, transparent 1px)`,
         backgroundSize: `calc((100% + ${GAP}px) / ${cols}) 100%`,
       }}
       className={`relative rounded-lg p-1 transition-colors ${isOver ? 'bg-[#F5821E]/5 ring-1 ring-[#F5821E]/30' : ''}`}

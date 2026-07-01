@@ -67,7 +67,7 @@ function DonutChart({ segments, size = 120, thickness = 28 }) {
   return (
     <svg width={size} height={size}>
       {paths}
-      <circle cx={cx} cy={cy} r={r - thickness / 2} fill="#111827" />
+      <circle cx={cx} cy={cy} r={r - thickness / 2} fill="var(--surface)" />
       <text
         x={cx}
         y={cy}

@@ -19,11 +19,11 @@ function InlineTrend({ note = 'Trend data unavailable' }) {
   return (
     <div className="relative h-16 w-full">
       <svg viewBox="0 0 200 60" preserveAspectRatio="none" className="h-full w-full">
-        <line x1="0" y1="48" x2="200" y2="48" stroke="#1f2937" strokeWidth="1" />
+        <line x1="0" y1="48" x2="200" y2="48" stroke="var(--border-strong)" strokeWidth="1" />
         <polyline
           points="0,46 40,44 80,45 120,43 160,44 200,42"
           fill="none"
-          stroke="#374151"
+          stroke="var(--text-faint)"
           strokeWidth="2"
         />
       </svg>
@@ -43,7 +43,7 @@ function StatusDonut({ segments }) {
   return (
     <div className="flex items-center gap-4">
       <svg viewBox="0 0 80 80" className="h-24 w-24 -rotate-90">
-        <circle cx="40" cy="40" r={radius} fill="none" stroke="#1f2937" strokeWidth="10" />
+        <circle cx="40" cy="40" r={radius} fill="none" stroke="var(--border-strong)" strokeWidth="10" />
         {total > 0 &&
           segments.map((seg) => {
             const frac = seg.value / total

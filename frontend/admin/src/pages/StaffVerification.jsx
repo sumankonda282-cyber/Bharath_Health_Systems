@@ -166,25 +166,25 @@ export default function StaffVerification() {
       {/* TOOLBAR — one line */}
       <div className="card-sm flex flex-wrap items-center gap-2 p-2.5 mb-4">
         <select value={hc} onChange={e => setHc(e.target.value)}
-          className="filter-chip bg-[#10182e] border-app text-app max-w-[200px]">
+          className="filter-chip border-app text-app max-w-[200px]">
           <option value="">All Health Centers</option>
           {data.filters.centers.map(c => <option key={c.id} value={c.id}>{c.hc_id ? `${c.hc_id} · ` : ''}{c.name}</option>)}
         </select>
 
         <select value={stateF} onChange={e => setStateF(e.target.value)}
-          className="filter-chip bg-[#10182e] border-app text-app">
+          className="filter-chip border-app text-app">
           <option value="">All States</option>
           {data.filters.states.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
 
         <select value={cityF} onChange={e => setCityF(e.target.value)}
-          className="filter-chip bg-[#10182e] border-app text-app">
+          className="filter-chip border-app text-app">
           <option value="">All Cities</option>
           {data.filters.cities.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
 
         <select value={statusF} onChange={e => setStatusF(e.target.value)}
-          className="filter-chip bg-[#10182e] border-app text-app">
+          className="filter-chip border-app text-app">
           <option value="">All Status</option>
           <option value="verified">Verified</option>
           <option value="pending">Pending</option>
@@ -192,7 +192,7 @@ export default function StaffVerification() {
           <option value="not_working">Not working</option>
         </select>
 
-        <div className="filter-chip bg-[#10182e] border-app text-dim gap-1.5">
+        <div className="filter-chip border-app text-dim gap-1.5">
           <Calendar size={13} className="text-faint" />
           <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} title="Registered from"
             className="bg-transparent outline-none text-xs text-app w-[112px]" />
@@ -204,7 +204,7 @@ export default function StaffVerification() {
         <div className="relative flex-1 min-w-[160px]">
           <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-faint" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search name, employee ID, license no…"
-            className="w-full bg-[#10182e] border border-app rounded-lg pl-8 pr-3 py-1.5 text-sm text-app outline-none focus:border-[#F5821E]/40" />
+            className="w-full surface-2 border border-app rounded-lg pl-8 pr-3 py-1.5 text-sm text-app outline-none focus:border-[#F5821E]/40" />
         </div>
 
         {hasFilters && (
@@ -278,7 +278,7 @@ export default function StaffVerification() {
                         {s.mobile && <div className="text-[11px] text-faint">{s.mobile}</div>}
                       </td>
                       <td className="td-sm">
-                        <span className="text-[11px] text-dim bg-[#13294f] rounded px-2 py-0.5">{s.role_label}</span>
+                        <span className="text-[11px] text-dim surface-3 rounded px-2 py-0.5">{s.role_label}</span>
                       </td>
                       <td className="td-sm text-dim">
                         {s.clinic_name}
@@ -355,7 +355,7 @@ function ExportPopup({ filteredCount, roleLabel, center, currentParams, asOf, on
   }
 
   return (
-    <div className="absolute right-0 top-full mt-2 w-80 bg-[#0e1f3d] border border-app rounded-xl shadow-2xl z-50 overflow-hidden">
+    <div className="absolute right-0 top-full mt-2 w-80 surface border border-app rounded-xl shadow-2xl z-50 overflow-hidden">
       <div className="px-4 py-3 border-b border-app flex items-center gap-2 text-app font-semibold text-sm">
         <Download size={15} className="text-[#F5821E]" /> Export staff list
       </div>
@@ -584,7 +584,7 @@ function DetailDrawer({ staff, onClose, onChanged }) {
         </div>
       </div>
 
-      <style>{`.reg-input{width:100%;background:#10182e;border:1px solid #2a3a5e;border-radius:8px;padding:6px 10px;font-size:13px;color:#e7ecf5;outline:none}.reg-input:focus{border-color:rgba(245,130,30,.5)}`}</style>
+      <style>{`.reg-input{width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:13px;color:var(--text);outline:none}.reg-input:focus{border-color:rgba(245,130,30,.5)}`}</style>
     </>
   )
 }

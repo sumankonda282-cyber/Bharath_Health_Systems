@@ -15,16 +15,16 @@ export function Tooltip({ label, shortcut, side = 'bottom', children }) {
         <T.Content
           side={side}
           sideOffset={6}
-          className="z-[100] select-none rounded-md surface border border-white/10 px-2 py-1 text-[11px] font-medium text-app shadow-lg
+          className="z-[100] select-none rounded-md surface border border-app px-2 py-1 text-[11px] font-medium text-app shadow-lg
                      data-[state=delayed-open]:animate-[uiPop_120ms_ease-out]"
         >
           <span className="flex items-center gap-1.5">
             {label}
             {shortcut && (
-              <kbd className="rounded bg-white/10 px-1 text-[10px] text-dim">{shortcut}</kbd>
+              <kbd className="rounded surface-2 px-1 text-[10px] text-dim">{shortcut}</kbd>
             )}
           </span>
-          <T.Arrow className="fill-gray-900" />
+          <T.Arrow className="fill-[color:var(--surface)]" />
         </T.Content>
       </T.Portal>
     </T.Root>

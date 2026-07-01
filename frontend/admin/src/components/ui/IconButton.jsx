@@ -5,7 +5,7 @@ import { Tooltip } from './Tooltip'
  * icon action. Accessible (aria-label), press feedback, active + tone variants.
  */
 const TONES = {
-  default: 'text-dim hover:text-app hover:bg-white/10',
+  default: 'text-dim hover:text-app hover-app',
   muted:   'text-faint hover:text-dim hover-app',
   danger:  'text-red-400 hover:text-red-300 hover:bg-red-500/10',
   brand:   'text-[#F5821E] hover:bg-[#F5821E]/10',
@@ -22,8 +22,8 @@ export function IconButton({
       aria-label={label}
       aria-pressed={active}
       className={`inline-flex items-center justify-center p-1.5 rounded-lg transition-all
-                  active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30
-                  ${active ? 'bg-white/15 text-app' : TONES[tone] || TONES.default} ${className}`}
+                  active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--border-strong)]
+                  ${active ? 'surface-3 text-app' : TONES[tone] || TONES.default} ${className}`}
       style={{ transitionDuration: '140ms' }}
       {...rest}
     >

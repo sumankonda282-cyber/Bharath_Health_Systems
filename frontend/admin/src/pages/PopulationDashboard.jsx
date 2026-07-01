@@ -74,7 +74,7 @@ function Donut({ segments, size = 110, stroke = 18 }) {
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
       <g transform={`rotate(-90 ${size / 2} ${size / 2})`}>
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#1f2937" strokeWidth={stroke} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--border-strong)" strokeWidth={stroke} />
         {segments.map((s) => {
           const len = (s.value / total) * c
           const el = (

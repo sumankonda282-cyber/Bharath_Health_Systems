@@ -616,7 +616,7 @@ function PlansEditorTab({ planConfig, onSaved, addToast }) {
         <p className="text-xs text-faint">Edit plan pricing, limits and features. Changes apply to all new bills.</p>
         <button onClick={save} disabled={saving || !dirty}
           className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-app rounded-xl transition-colors disabled:opacity-40"
-          style={{ background: dirty ? '#F5821E' : undefined, backgroundColor: dirty ? undefined : 'rgb(31 41 55)' }}>
+          style={{ background: dirty ? '#F5821E' : 'var(--surface-3)', color: dirty ? '#fff' : undefined }}>
           {saving ? <RefreshCw size={13} className="animate-spin" /> : <Save size={13} />}
           {saving ? 'Saving…' : 'Save All Changes'}
         </button>
