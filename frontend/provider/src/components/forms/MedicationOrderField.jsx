@@ -65,6 +65,7 @@ export default function MedicationOrderField({ field, value, onChange }) {
   const [allergy, setAllergy] = useState(null)
   const [cdsWarnings, setCdsWarnings] = useState([])   // interaction/duplication/dose/contra/schedule
   const [tips, setTips] = useState([])
+  const [redFlags, setRedFlags] = useState([])
   const [loadingIntel, setLoadingIntel] = useState(false)
   const [ackDup, setAckDup] = useState(false)       // duplicate acknowledged as refill
   const timer = useRef(null)
@@ -132,7 +133,7 @@ export default function MedicationOrderField({ field, value, onChange }) {
     const generic = d.generic || d.name
     const route = draft.route || 'PO'
     setResults([]); setOpen(false); setQ('')
-    setDose(null); setAllergy(null); setCdsWarnings([]); setTips([]); setAckDup(false)
+    setDose(null); setAllergy(null); setCdsWarnings([]); setTips([]); setRedFlags([]); setAckDup(false)
     setDraft({ drug: generic, generic, drug_class: d.drug_class || null, brand: d.primary_brand || null,
                route, in_stock: !!d.in_stock, drug_id: d.drug_id || d.id || null })
     setLoadingIntel(true)
@@ -157,8 +158,11 @@ export default function MedicationOrderField({ field, value, onChange }) {
     if (algR.status === 'fulfilled' && algR.value) setAllergy(algR.value)
     if (cnsR.status === 'fulfilled') {
       const t = cnsR.value?.tips || []
-      setTips(t)
-      if (t.length && !draft.instructions) upd({ instructions: t.join('. ') })   // auto-fill counselling, editable
+      const rf = cnsR.value?.red_flags || []          // urgent "stop & contact doctor" warnings
+      setTips(t); setRedFlags(rf)
+      // Auto-fill counselling — red flags first, then general tips (editable).
+      const all = [...rf, ...t]
+      if (all.length && !draft.instructions) upd({ instructions: all.join(' ') })
     }
     setLoadingIntel(false)
   }
@@ -170,7 +174,7 @@ export default function MedicationOrderField({ field, value, onChange }) {
 
   function resetComposer() {
     setDraft(EMPTY); setEditIdx(null); setDose(null); setAllergy(null)
-    setCdsWarnings([]); setTips([]); setAckDup(false); setQ('')
+    setCdsWarnings([]); setTips([]); setRedFlags([]); setAckDup(false); setQ('')
   }
 
   function addToCart() {
@@ -186,7 +190,7 @@ export default function MedicationOrderField({ field, value, onChange }) {
   }
 
   function editItem(i) {
-    setDraft(cart[i]); setEditIdx(i); setDose(null); setAllergy(null); setCdsWarnings([]); setTips([]); setAckDup(false)
+    setDraft(cart[i]); setEditIdx(i); setDose(null); setAllergy(null); setCdsWarnings([]); setTips([]); setRedFlags([]); setAckDup(false)
   }
   function removeItem(i) {
     const next = cart.slice(); next.splice(i, 1); setCart(next)
@@ -317,6 +321,17 @@ export default function MedicationOrderField({ field, value, onChange }) {
                   className="w-16 border border-gray-300 rounded-lg px-2 py-1.5 text-sm" placeholder="PO" />
               </label>
             </div>
+
+            {/* Red-flag safety counselling (class-based) — patient-facing warnings */}
+            {redFlags.length > 0 && (
+              <ul className="space-y-0.5">
+                {redFlags.map((rf, i) => (
+                  <li key={i} className="flex items-start gap-1 text-xs text-red-600">
+                    <ShieldAlert size={12} className="mt-0.5 flex-shrink-0" /> {rf}
+                  </li>
+                ))}
+              </ul>
+            )}
 
             {/* instructions (counselling auto-filled, editable) */}
             <input type="text" value={draft.instructions || ''} onChange={e => upd({ instructions: e.target.value })}

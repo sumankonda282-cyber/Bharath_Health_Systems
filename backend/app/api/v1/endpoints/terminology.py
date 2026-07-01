@@ -292,20 +292,58 @@ def search_drugs(
     return out
 
 
+# Class-based RED-FLAG counselling — urgent "stop & contact the doctor" warnings
+# derived from the drug's class, so every drug in a risky class gets the right
+# safety net without seeding it per-drug. (keyword-in-class/generic → tip)
+_RED_FLAGS = [
+    (["penicillin", "cephalosporin", "amoxicillin", "antibiotic", "antibacterial", "macrolide",
+      "quinolone", "sulfon", "cotrimoxazole", "cillin", "cef", "azithro", "floxacin"],
+     "Stop the medicine and contact your doctor immediately if you develop a rash, itching, "
+     "swelling of the face or lips, or difficulty breathing."),
+    (["penicillin", "cephalosporin", "antibiotic", "antibacterial", "macrolide", "quinolone", "cillin"],
+     "Complete the full course even if you feel better."),
+    (["nsaid", "ibuprofen", "diclofenac", "aceclofenac", "naproxen", "ketorolac", "aspirin", "analgesic/antipyretic"],
+     "Stop and see a doctor if you notice black or tarry stools, vomiting blood, or severe stomach pain."),
+    (["anticoagulant", "antiplatelet", "warfarin", "heparin", "clopidogrel"],
+     "Seek urgent care for unusual bleeding or bruising, blood in urine or stool, or a severe headache."),
+    (["corticosteroid", "steroid", "prednisolone", "dexamethasone", "hydrocortisone"],
+     "Do not stop this medicine suddenly — contact your doctor before stopping."),
+    (["opioid", "benzodiazepine", "sedative", "morphine", "tramadol", "codeine", "alprazolam", "diazepam"],
+     "May cause drowsiness — do not drive or operate machinery, and avoid alcohol."),
+    (["antidiabetic", "sulfonylurea", "insulin", "metformin", "glimepiride", "gliclazide"],
+     "Watch for low-sugar signs (sweating, shakiness, confusion) — take sugar and contact your doctor."),
+    (["antihypertensive", "ace inhibitor", "arb", "amlodipine", "beta blocker", "diuretic"],
+     "Rise slowly from sitting or lying down to avoid dizziness."),
+]
+
+
 @router.get("/drugs/counselling")
 def get_drug_counselling(
     generic: str = Query(..., min_length=2),
     db: Session = Depends(get_db),
     current: Staff = Depends(get_current_staff),
 ):
-    """Return patient counselling tips for a drug by generic name (case-insensitive)."""
+    """Patient counselling tips for a drug: the seeded per-drug tips PLUS urgent
+    red-flag safety warnings derived from the drug's class (auto-generated for the
+    patient counselling section)."""
+    g = generic.strip()
     rows = (
         db.query(DrugCounselling)
-        .filter(DrugCounselling.generic.ilike(generic.strip()))
+        .filter(DrugCounselling.generic.ilike(g))
         .order_by(DrugCounselling.sort_order)
         .all()
     )
-    return {"generic": generic, "tips": [r.tip for r in rows]}
+    tips = [r.tip for r in rows]
+
+    # Class-based red flags (deduped, capped).
+    drug = db.query(Drug).filter(Drug.generic.ilike(g)).first()
+    hay = " ".join([(drug.drug_class or "") if drug else "", g]).lower()
+    red_flags = []
+    for keys, tip in _RED_FLAGS:
+        if any(k in hay for k in keys) and tip not in red_flags:
+            red_flags.append(tip)
+
+    return {"generic": g, "tips": tips, "red_flags": red_flags}
 
 
 @router.get("/drugs/pregnancy")
