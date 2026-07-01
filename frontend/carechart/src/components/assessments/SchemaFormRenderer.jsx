@@ -10,7 +10,7 @@ import api from '../../api/client'
 import TermSearch, { SEARCH_TYPES } from '../forms/TermSearch'
 import useFormDraft, { draftMirrorKey, saveStatusLabel } from '@shared/hooks/useFormDraft'
 import { computeNormalFill } from '@shared/forms/normalFill'
-import { sectionHasLayout, buildRowMap, sectionGridStyle, gridCellStyle } from '@shared/forms/gridLayout'
+import { sectionHasLayout, buildRowMap, makeSectionGridStyle, gridCellStyle, gridColsOf } from '@shared/forms/gridLayout'
 import MedicationOrderField from '../forms/MedicationOrderField'
 import PatientAutoField from '../forms/PatientAutoField'
 import { PatientDataContext } from '../forms/patientContext'
@@ -443,7 +443,7 @@ function FieldRenderer({ field, value, onChange, formData = {} }) {
 
 // ── Section block ────────────────────────────────────────────────────────────
 
-function SectionBlock({ section, formData, onFieldChange, theme }) {
+function SectionBlock({ section, formData, onFieldChange, theme, gridCols }) {
   const { id, title, applicability_mode, fields = [] } = section
   const isNaAllowed = applicability_mode === 'na_allowed'
   const [applicable, setApplicable] = useState('Applicable')
@@ -525,13 +525,13 @@ function SectionBlock({ section, formData, onFieldChange, theme }) {
         const useGrid = sectionHasLayout(fields)
         const rowMap  = useGrid ? buildRowMap(visible) : null
         return (
-          <div className={useGrid ? 'p-4' : `p-4 grid ${gridClass} gap-4`} style={useGrid ? sectionGridStyle : undefined}>
+          <div className={useGrid ? 'p-4' : `p-4 grid ${gridClass} gap-4`} style={useGrid ? makeSectionGridStyle(gridCols) : undefined}>
             {visible.map(field => (
               <div
                 key={field.id || field.field_id}
                 className={useGrid ? undefined : getColSpan(field)}
                 style={{
-                  ...(useGrid ? gridCellStyle(field, rowMap) : {}),
+                  ...(useGrid ? gridCellStyle(field, rowMap, gridCols) : {}),
                   borderLeft: field.color ? '3px solid ' + field.color : undefined,
                   paddingLeft: field.color ? 8 : undefined,
                 }}
@@ -784,6 +784,7 @@ export default function SchemaFormRenderer({ formId, patientId, encounterId, onS
           formData={formData}
           onFieldChange={handleFieldChange}
           theme={form?.schema?.theme}
+          gridCols={gridColsOf(form?.schema)}
         />
       ))}
 

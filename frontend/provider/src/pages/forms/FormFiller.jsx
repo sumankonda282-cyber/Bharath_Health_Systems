@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { ChevronLeft, Save, Send, AlertTriangle, CheckCircle2, Clock, Loader2, X } from 'lucide-react'
 import api from '../../api/client'
 import { LangContext, isFieldVisible, getCompletionPct, FieldRenderer, ScoreCard, AlertCard, PatientDataContext } from './formEngine'
-import { sectionHasLayout, buildRowMap, sectionGridStyle, gridCellStyle } from '@shared/forms/gridLayout'
+import { sectionHasLayout, buildRowMap, makeSectionGridStyle, gridCellStyle, gridColsOf } from '@shared/forms/gridLayout'
 
 // ─── Section/field layout maps (Tailwind-safe — literal class strings only) ────
 // Do NOT build these via `grid-cols-${n}` template strings; Tailwind purges those.
@@ -117,7 +117,7 @@ export default function FormFiller() {
             alert_rules:    form.alert_rules,
             accent:         schema?.theme?.accent || null,
           },
-          schema: { sections },
+          schema: { sections, grid_cols: schema?.grid_cols },
         })
 
         // Resume an in-progress SERVER draft (authoritative over the localStorage mirror).
@@ -541,14 +541,14 @@ export default function FormFiller() {
                 const useGrid = sectionHasLayout(section.fields)
                 const rowMap  = useGrid ? buildRowMap(vis) : null
                 return (
-                  <div className={useGrid ? '' : `grid gap-4 ${COLS[layout] || COLS[1]}`} style={useGrid ? sectionGridStyle : undefined}>
+                  <div className={useGrid ? '' : `grid gap-4 ${COLS[layout] || COLS[1]}`} style={useGrid ? makeSectionGridStyle(gridColsOf(schema)) : undefined}>
                     {vis.map(field => (
                       <div
                         key={field.id}
                         id={`field-${field.id}`}
                         className={useGrid ? undefined : spanFor(field, layout)}
                         style={{
-                          ...(useGrid ? gridCellStyle(field, rowMap) : {}),
+                          ...(useGrid ? gridCellStyle(field, rowMap, gridColsOf(schema)) : {}),
                           borderLeft: field.color ? '3px solid ' + field.color : undefined,
                           paddingLeft: field.color ? 8 : undefined,
                         }}

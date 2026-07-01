@@ -4,7 +4,8 @@ import { ArrowLeft, Save, Eye, EyeOff, Send, Plus, Settings, X, Clock, PenLine }
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import api from '../api/client'
 import FieldPalette from '../components/formbuilder/FieldPalette'
-import FormCanvas, { ROW_H, GAP } from '../components/formbuilder/FormCanvas'
+import FormCanvas, { ROW_H, GAP, DEFAULT_NEW_COLS } from '../components/formbuilder/FormCanvas'
+import { gridColsOf } from '@shared/forms/gridLayout'
 import PropertiesPanel from '../components/formbuilder/PropertiesPanel'
 import FormPreview from '../components/formbuilder/FormPreview'
 
@@ -45,13 +46,14 @@ const FULL_WIDTH_TYPES = new Set([
 ])
 const TALL_TYPES = new Set(['textarea', 'table', 'body_map', 'matrix', 'rich_text', 'signature'])
 
-function defaultW(field, oldSectionLayout) {
-  if (FULL_WIDTH_TYPES.has(field.type)) return GRID_COLS
-  // Map a legacy col_span (on an N-col section) onto the 12-col grid.
+function defaultW(field, oldSectionLayout, cols = GRID_COLS) {
+  if (FULL_WIDTH_TYPES.has(field.type)) return cols
+  // Map a legacy col_span (on an N-col section) onto the grid.
   if (field.col_span && oldSectionLayout > 1) {
-    return Math.max(1, Math.min(GRID_COLS, Math.round((field.col_span / oldSectionLayout) * GRID_COLS)))
+    return Math.max(1, Math.min(cols, Math.round((field.col_span / oldSectionLayout) * cols)))
   }
-  return 6
+  // Default a fresh field to half the row.
+  return Math.max(2, Math.round(cols / 2))
 }
 function defaultH(field) { return TALL_TYPES.has(field.type) ? 2 : 1 }
 
@@ -107,7 +109,7 @@ function makeSection(index) {
   }
 }
 
-function makeField(type) {
+function makeField(type, cols = GRID_COLS) {
   const base = {
     id: genId('fld'),
     type,
@@ -178,7 +180,7 @@ function makeField(type) {
   return {
     ...base,
     ...(typeDefaults[type] || {}),
-    layout: { x: 0, y: 0, w: defaultW({ type, col_span: 1 }, 1), h: defaultH({ type }) },
+    layout: { x: 0, y: 0, w: defaultW({ type, col_span: 1 }, 1, cols), h: defaultH({ type }) },
   }
 }
 
@@ -198,7 +200,9 @@ const initialState = {
     time_limit_minutes: null,
     scoring_config: null,
     alert_rules: [],
-    schema: { sections: [] },
+    // New forms get the finer 24-col resolution for maximum placement freedom.
+    // Loaded legacy forms keep whatever they saved (undefined → 12).
+    schema: { sections: [], grid_cols: DEFAULT_NEW_COLS },
   },
   selectedId: null,
   selectedType: null,
@@ -280,7 +284,7 @@ function reducer(state, action) {
 
     case 'ADD_FIELD': {
       const { sectionId, fieldType, afterIndex } = action.payload
-      const field = makeField(fieldType)
+      const field = makeField(fieldType, gridColsOf(form.schema))
       return {
         ...state,
         isDirty: true,
@@ -702,6 +706,29 @@ function FormSettingsModal({ form, dispatch, onClose }) {
             </select>
           </div>
 
+          {/* Grid resolution — how finely fields can be placed/sized. Higher =
+              more freedom. Changing it only affects new placement; existing
+              fields keep their column values (which now mean a smaller slice). */}
+          <div>
+            <label className="block text-xs font-medium text-gray-400 mb-1">
+              Layout grid resolution
+            </label>
+            <select
+              className={inputCls}
+              value={gridColsOf(form.schema)}
+              onChange={e => set('schema', { ...form.schema, grid_cols: Number(e.target.value) })}
+            >
+              <option value={12}>12 columns — standard</option>
+              <option value={24}>24 columns — fine (recommended)</option>
+              <option value={36}>36 columns — extra-fine</option>
+              <option value={48}>48 columns — maximum freedom</option>
+            </select>
+            <p className="text-[11px] text-gray-600 mt-1 leading-relaxed">
+              More columns = finer control over field width and position. Existing
+              fields keep their layout; the renderer honours this per-form.
+            </p>
+          </div>
+
           {/* Availability / scope: global vs a single health center */}
           <div>
             <label className="block text-xs font-medium text-gray-400 mb-1">Availability</label>
@@ -949,6 +976,30 @@ export default function FormBuilder() {
           if (entry) dispatchWithHistory({ type: 'DELETE_FIELD', payload: { sectionId: entry.sectionId, fieldId: selectedId } })
         }
       }
+
+      // Arrow keys — nudge the selected field on the grid. Plain arrows move it
+      // one cell; Shift+arrows resize it one cell. This is the precise-placement
+      // companion to free drag/resize.
+      if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key) && selectedId && selectedType === 'field') {
+        const entry = allFields.find(f => f.field.id === selectedId)
+        if (!entry) return
+        e.preventDefault()
+        const cols = gridColsOf(form.schema)
+        const l = { x: 0, y: 0, w: 6, h: 1, ...(entry.field.layout || {}) }
+        const next = { ...l }
+        if (e.shiftKey) {
+          if (e.key === 'ArrowRight') next.w = Math.min(cols - l.x, l.w + 1)
+          if (e.key === 'ArrowLeft')  next.w = Math.max(1, l.w - 1)
+          if (e.key === 'ArrowDown')  next.h = l.h + 1
+          if (e.key === 'ArrowUp')    next.h = Math.max(1, l.h - 1)
+        } else {
+          if (e.key === 'ArrowRight') next.x = Math.min(cols - l.w, l.x + 1)
+          if (e.key === 'ArrowLeft')  next.x = Math.max(0, l.x - 1)
+          if (e.key === 'ArrowDown')  next.y = l.y + 1
+          if (e.key === 'ArrowUp')    next.y = Math.max(0, l.y - 1)
+        }
+        dispatchWithHistory({ type: 'SET_FIELD_LAYOUT', payload: { sectionId: entry.sectionId, fieldId: selectedId, layout: next } })
+      }
     }
 
     window.addEventListener('keydown', handleKeyDown)
@@ -1094,10 +1145,11 @@ export default function FormBuilder() {
       if (!sec || !grid) return
       const field = sec.fields.find(f => f.id === active.id)
       if (!field) return
-      const stepX = (grid.clientWidth - (GRID_COLS - 1) * GAP) / GRID_COLS + GAP
+      const cols = gridColsOf(form.schema)
+      const stepX = (grid.clientWidth - (cols - 1) * GAP) / cols + GAP
       const stepY = ROW_H + GAP
       const x = field.layout?.x ?? 0, y = field.layout?.y ?? 0, w = field.layout?.w ?? 6
-      const nx = Math.min(Math.max(x + Math.round((delta?.x || 0) / stepX), 0), GRID_COLS - w)
+      const nx = Math.min(Math.max(x + Math.round((delta?.x || 0) / stepX), 0), cols - w)
       const ny = Math.max(y + Math.round((delta?.y || 0) / stepY), 0)
       if (nx !== x || ny !== y) {
         dispatchWithHistory({ type: 'SET_FIELD_LAYOUT', payload: { sectionId, fieldId: field.id, layout: { x: nx, y: ny } } })
