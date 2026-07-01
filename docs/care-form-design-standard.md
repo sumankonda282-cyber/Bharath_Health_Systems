@@ -320,8 +320,8 @@ These fields are populated automatically on every form open:
 3. **Two things documented together = one form.** If two sets of fields are always documented in the same encounter visit, they belong in one comprehensive form, not two separate forms. Two forms = two chips = unnecessary cognitive load.
 4. The chip label is the form title. It truncates at ~20 characters with an ellipsis if longer.
 5. Draft chips show an amber dot instead of a pencil. Clicking them reopens the form with all partially filled data restored exactly as left.
-6. Submitted chips in an active session show a pencil icon. Clicking opens the form pre-populated with the last submission — all fields editable, submitting creates a new version.
-7. Submitted chips in a closed session show no icon — clicking opens a read-only view of the submitted data. No editing.
+6. **A submitted form stays editable for the whole time the encounter is open.** In an active OPD session (before it is concluded/completed) or an active IPD admission (before discharge), the chip shows a pencil icon. Clicking opens the form pre-populated with the last submission — all fields editable, and re-submitting saves the changes. There is no per-submission lock while the encounter is live; the doctor can revise any form as many times as needed until the visit closes.
+7. **Read-only begins only at session close / discharge.** The moment the OPD session is concluded (or the IPD patient is discharged), every submitted form for that encounter becomes a permanent record: the chip loses its pencil icon and clicking it opens the form in a read-only view — all inputs disabled, no submit or save-draft, only a Close action. Editing is never possible after close.
 
 ### Visual summary:
 ```

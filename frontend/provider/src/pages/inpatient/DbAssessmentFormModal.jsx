@@ -53,6 +53,9 @@ export default function DbAssessmentFormModal({ form, patientId, admissionId, en
   valuesRef.current = values
 
   const title = meta?.title || form?.title || form?.name || 'Assessment Form'
+  // Read-only when opened from a closed session (OPD completed / cancelled).
+  // No editing, no submit — the form is a record to view, not amend.
+  const readOnly = !!form?.readOnly
 
   // ── Load the full form schema (the panel only carries summary fields) ──
   useEffect(() => {
@@ -344,10 +347,16 @@ export default function DbAssessmentFormModal({ form, patientId, admissionId, en
                 </div>
               )}
 
-              {/* Fields */}
+              {/* Fields — a disabled fieldset makes every control read-only in one shot */}
               <div className="flex-1 overflow-y-auto px-6 py-5">
-                <div className="max-w-5xl mx-auto space-y-2">
-                  {/* Speed actions */}
+                <fieldset disabled={readOnly} className="max-w-5xl mx-auto space-y-2 border-0 p-0 m-0 min-w-0">
+                  {readOnly && (
+                    <div className="mb-2 px-3 py-1.5 rounded-lg bg-gray-100 text-[11px] font-medium text-gray-500 text-center">
+                      Read-only — this visit is closed. Submitted record cannot be edited.
+                    </div>
+                  )}
+                  {/* Speed actions — edit-only, hidden in read-only */}
+                  {!readOnly && (
                   <div className="flex items-center justify-end gap-2 mb-1">
                     {lastSub && (
                       <button onClick={handleCarryForward}
@@ -361,6 +370,7 @@ export default function DbAssessmentFormModal({ form, patientId, admissionId, en
                       <CheckCheck size={12} /> Mark all normal
                     </button>
                   </div>
+                  )}
                   {draft.recovery && (
                     <div className="flex items-center justify-between gap-3 mb-3 px-4 py-2.5 rounded-xl border border-amber-200 bg-amber-50">
                       <span className="text-xs text-amber-800 flex items-center gap-1.5 min-w-0">
@@ -394,10 +404,20 @@ export default function DbAssessmentFormModal({ form, patientId, admissionId, en
                       />
                     )
                   })}
-                </div>
+                </fieldset>
               </div>
 
-              {/* Footer */}
+              {/* Footer — read-only shows only a Close action, no submit/draft */}
+              {readOnly ? (
+                <div className="flex-shrink-0 border-t px-6 py-3.5 flex items-center justify-end gap-3"
+                  style={{ borderColor: '#e9eaec', background: '#f9fafb' }}>
+                  <button onClick={onClose}
+                    className="px-5 py-2 rounded-xl text-sm font-semibold text-white hover:opacity-90"
+                    style={{ background: NAVY }}>
+                    Close
+                  </button>
+                </div>
+              ) : (
               <div className="flex-shrink-0 border-t px-6 py-3.5 flex items-center justify-between gap-3"
                 style={{ borderColor: '#e9eaec', background: '#f9fafb' }}>
                 {errors._submit ? (
@@ -442,6 +462,7 @@ export default function DbAssessmentFormModal({ form, patientId, admissionId, en
                   )}
                 </div>
               </div>
+              )}
             </div>
           </LangContext.Provider>
         )}
