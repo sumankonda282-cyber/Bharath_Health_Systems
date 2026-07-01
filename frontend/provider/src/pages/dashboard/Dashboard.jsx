@@ -192,25 +192,25 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* KPI cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 mb-5">
+      {/* KPI pills — compact, click-through, single tight row on wide screens */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-2 mb-5">
         <div className="cursor-pointer" onClick={() => isToday && openModal("Appointments", todayAppts)}>
-          <StatCard label="Appointments" value={s.appointments ?? 0} icon={Calendar} color="blue" sub={isToday ? 'Tap to view' : 'in period'} />
+          <StatCard compact label="Appointments" value={s.appointments ?? 0} icon={Calendar} color="blue" sub={isToday ? 'Tap to view' : 'in period'} />
         </div>
         <div className="cursor-pointer" onClick={() => isToday && openModal('Waiting / Confirmed', todayAppts.filter(a => a.status === 'pending' || a.status === 'confirmed'))}>
-          <StatCard label="Waiting" value={s.waiting ?? 0} icon={Clock} color="orange" />
+          <StatCard compact label="Waiting" value={s.waiting ?? 0} icon={Clock} color="orange" />
         </div>
         <div className="cursor-pointer" onClick={() => isToday && openModal('Completed', todayAppts.filter(a => a.status === 'completed'))}>
-          <StatCard label="Completed" value={s.completed ?? 0} icon={CheckCircle} color="green" sub={`${s.completion_rate ?? 0}% rate`} />
+          <StatCard compact label="Completed" value={s.completed ?? 0} icon={CheckCircle} color="green" sub={`${s.completion_rate ?? 0}% completion rate`} />
         </div>
-        <StatCard label="New Patients" value={s.new_patients ?? 0} icon={UserPlus} color="purple" />
-        <StatCard label="Revenue Collected" value={inr(s.revenue_collected)} icon={IndianRupee} color="green"
-          sub={s.revenue_outstanding ? `${inr(s.revenue_outstanding)} due` : 'all settled'} />
-        <Link to="/appointments" className="block">
-          <StatCard label="Pending Online" value={s.pending_online ?? 0} icon={Globe} color="orange" sub="Tap to confirm" />
-        </Link>
-        <StatCard label="Telehealth" value={s.telehealth ?? 0} icon={Video} color="blue" sub={`${s.walk_in ?? 0} walk-in`} />
-        <StatCard label="Total Patients" value={s.total_patients ?? 0} icon={Users} color="purple" to="/patients" />
+        <StatCard compact label="New Patients" value={s.new_patients ?? 0} icon={UserPlus} color="purple" />
+        <StatCard compact label="Revenue" value={inr(s.revenue_collected)} icon={IndianRupee} color="green"
+          sub={s.revenue_outstanding ? `${inr(s.revenue_outstanding)} outstanding` : 'all settled'} />
+        <div className="cursor-pointer">
+          <StatCard compact label="Pending Online" value={s.pending_online ?? 0} icon={Globe} color="orange" sub="Confirm from Appointments" to="/appointments" />
+        </div>
+        <StatCard compact label="Telehealth" value={s.telehealth ?? 0} icon={Video} color="blue" sub={`${s.walk_in ?? 0} walk-in`} />
+        <StatCard compact label="Total Patients" value={s.total_patients ?? 0} icon={Users} color="purple" to="/patients" />
       </div>
 
       {/* Analytics row */}
