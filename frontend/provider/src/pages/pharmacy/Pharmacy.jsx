@@ -102,7 +102,11 @@ export default function Pharmacy() {
       {tab === 'pending' && (
         <div className="card">
           {loading ? <PageLoader /> : pending.length === 0 ? (
-            <div className="p-10 text-center text-gray-400"><CheckCircle size={32} className="mx-auto mb-2 opacity-30" /><p>No pending prescriptions</p></div>
+            <div className="p-10 text-center text-gray-400">
+              <CheckCircle size={32} className="mx-auto mb-2 opacity-30" />
+              <p className="font-medium text-gray-500">All caught up — no pending prescriptions</p>
+              <p className="text-xs mt-1 text-gray-400">New prescriptions from doctors land here for dispensing.</p>
+            </div>
           ) : (
             <div className="table-wrapper rounded-xl border-0">
               <table className="table">
