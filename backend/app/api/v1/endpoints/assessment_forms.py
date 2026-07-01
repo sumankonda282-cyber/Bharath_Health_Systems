@@ -32,6 +32,7 @@ from app.models.models import (
     StaffFormFavorite,
     Prescription,
     PrescriptionItem,
+    ClinicalFieldDefinition,
 )
 
 router = APIRouter(tags=["Assessment Forms"])
@@ -681,6 +682,85 @@ def list_forms(
             for f in forms
         ],
     }
+
+
+# ---------------------------------------------------------------------------
+# Canonical clinical field dictionary — what the admin form builder picks from.
+# One concept = one field_id; labels are the human wordings a builder chooses.
+# ---------------------------------------------------------------------------
+
+@router.get("/field-dictionary")
+def list_field_dictionary(
+    q:        Optional[str] = Query(None, description="search field_id / label / group"),
+    group:    Optional[str] = Query(None),
+    clinic_id: Optional[int] = Query(None, description="include this clinic's custom fields too"),
+    db:       Session       = Depends(get_db),
+):
+    """The canonical field list the admin form builder shows: each entry is one
+    concept with its canonical ``field_id`` and the label wordings a builder can pick.
+    Returns global fields (clinic_id NULL) plus, when ``clinic_id`` is passed, that
+    clinic's custom fields. The builder binds the field_id; the label is presentation."""
+    query = db.query(ClinicalFieldDefinition).filter(ClinicalFieldDefinition.is_active.is_(True))
+    if clinic_id is not None:
+        query = query.filter(
+            (ClinicalFieldDefinition.clinic_id.is_(None)) |
+            (ClinicalFieldDefinition.clinic_id == clinic_id)
+        )
+    else:
+        query = query.filter(ClinicalFieldDefinition.clinic_id.is_(None))
+    if group:
+        query = query.filter(ClinicalFieldDefinition.group == group)
+    rows = query.order_by(ClinicalFieldDefinition.group, ClinicalFieldDefinition.field_id).all()
+    if q:
+        ql = q.lower()
+        rows = [r for r in rows if ql in (r.field_id or "").lower()
+                or ql in (r.group or "").lower()
+                or any(ql in (l or "").lower() for l in (r.labels or []))]
+    return {"fields": [{
+        "field_id":  r.field_id,
+        "group":     r.group,
+        "data_type": r.data_type,
+        "unit":      r.unit,
+        "labels":    r.labels or [],
+        "aliases":   r.aliases or [],
+        "clinic_id": r.clinic_id,
+    } for r in rows]}
+
+
+@router.post("/field-dictionary", status_code=status.HTTP_201_CREATED)
+def upsert_field_definition(
+    payload: Dict[str, Any] = Body(...),
+    db:      Session        = Depends(get_db),
+):
+    """Admin adds/updates a field in the dictionary. A new canonical concept gets a new
+    ``field_id``; adding a synonym to an existing concept just appends to its ``labels``
+    (so builders see more wordings for the SAME id). clinic_id set = a clinic-custom
+    field; NULL = global (platform)."""
+    field_id = (payload.get("field_id") or "").strip().lower()
+    if not field_id:
+        raise HTTPException(status_code=400, detail="field_id is required")
+    clinic_id = payload.get("clinic_id")
+    row = (db.query(ClinicalFieldDefinition)
+             .filter(ClinicalFieldDefinition.field_id == field_id,
+                     ClinicalFieldDefinition.clinic_id == clinic_id)
+             .first())
+    if row is None:
+        row = ClinicalFieldDefinition(field_id=field_id, clinic_id=clinic_id,
+                                      labels=[], aliases=[])
+        db.add(row)
+    for k in ("group", "data_type", "unit"):
+        if k in payload:
+            setattr(row, k, payload[k])
+    if "labels" in payload:
+        row.labels = payload["labels"] or []
+    if "add_label" in payload and payload["add_label"]:
+        row.labels = list(dict.fromkeys((row.labels or []) + [payload["add_label"]]))
+    if "aliases" in payload:
+        row.aliases = payload["aliases"] or []
+    db.commit()
+    db.refresh(row)
+    return {"field_id": row.field_id, "clinic_id": row.clinic_id,
+            "labels": row.labels or [], "group": row.group}
 
 
 @router.post("/assessment-forms/", status_code=status.HTTP_201_CREATED)

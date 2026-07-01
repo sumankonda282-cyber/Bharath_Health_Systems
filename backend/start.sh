@@ -700,6 +700,8 @@ safe_cols = [
     \"ALTER TABLE assessment_forms ADD COLUMN IF NOT EXISTS deleted_by_name VARCHAR(200)\",
     \"CREATE INDEX IF NOT EXISTS idx_assessment_forms_deleted_at ON assessment_forms(deleted_at)\",
     \"CREATE TABLE IF NOT EXISTS assessment_form_audit (id SERIAL PRIMARY KEY, form_id INTEGER NOT NULL, form_title VARCHAR(200), action VARCHAR(20) NOT NULL, actor_id INTEGER, actor_name VARCHAR(200), actor_type VARCHAR(20), detail TEXT, created_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE TABLE IF NOT EXISTS clinical_field_definitions (id SERIAL PRIMARY KEY, field_id VARCHAR(80) NOT NULL, clinic_id INTEGER REFERENCES clinics(id), \\\"group\\\" VARCHAR(50), data_type VARCHAR(20), unit VARCHAR(30), labels JSON, aliases JSON, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW())\",
+    \"CREATE UNIQUE INDEX IF NOT EXISTS ux_clinical_field_def_global ON clinical_field_definitions(field_id) WHERE clinic_id IS NULL\",
     \"CREATE INDEX IF NOT EXISTS idx_assessment_form_audit_form ON assessment_form_audit(form_id, created_at DESC)\",
     \"ALTER TABLE assessment_form_audit ADD COLUMN IF NOT EXISTS changes JSON\",
     \"CREATE INDEX IF NOT EXISTS idx_assessment_form_audit_action ON assessment_form_audit(action, created_at DESC)\",
@@ -927,6 +929,8 @@ echo "[bg-migrations] Ensuring curated library — Adult OPD History (Subjective
 timeout 60 python seed_history_form.py || echo "[bg-migrations] History form seed failed (non-fatal)"
 echo "[bg-migrations] Ensuring curated library — Adult OPD Examination (Objective) (idempotent upsert)..."
 timeout 60 python seed_examination_form.py || echo "[bg-migrations] Examination form seed failed (non-fatal)"
+echo "[bg-migrations] Seeding canonical clinical field dictionary (idempotent)..."
+timeout 60 python seed_field_dictionary.py || echo "[bg-migrations] Field dictionary seed failed (non-fatal)"
 
 # Standardized identifier system: backfill HC IDs, branch codes, employee IDs,
 # encounter numbers, MRNs + branch_id propagation, then add uniqueness guards.
