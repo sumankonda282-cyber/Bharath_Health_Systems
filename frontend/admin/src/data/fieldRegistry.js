@@ -43,10 +43,10 @@ export const FIELD_REGISTRY = [
     tags: ['vitals', 'hemodynamics', 'bp'],
   },
   {
-    field_id: 'pulse_rate',
-    label: 'Pulse Rate',
+    field_id: 'heart_rate',
+    label: 'Heart Rate',
     type: 'number',
-    unit: 'bpm',
+    unit: '/min',
     col_span: 1,
     min: 20, max: 300,
     placeholder: '60–100',
