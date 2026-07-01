@@ -82,7 +82,10 @@ export default function MedicationOrderField({ field, value, onChange }) {
     timer.current = setTimeout(async () => {
       setSearching(true)
       try {
-        const res = await api.get('/terminology/drugs/search', { params: { q: term.trim(), limit: 10, scope: 'all' } })
+        const params = { q: term.trim(), limit: 10, scope: 'all' }   // usage-ranked, in-stock flagged
+        if (ctx?.weight_kg) params.weight_kg = ctx.weight_kg          // → inline best-fit dose
+        if (ctx?.age != null) params.age_years = ctx.age
+        const res = await api.get('/terminology/drugs/search', { params })
         const list = Array.isArray(res) ? res : (res?.items || [])
         setResults(list); setOpen(list.length > 0)
       } catch { setResults([]); setOpen(false) }
@@ -110,7 +113,12 @@ export default function MedicationOrderField({ field, value, onChange }) {
       meds.length > 1 ? api.post('/terminology/drugs/check-interactions', { generics: meds }) : Promise.resolve([]),
       api.get('/terminology/drugs/counselling', { params: { generic } }),
     ])
-    if (doseR.status === 'fulfilled') setDose(doseR.value)
+    if (doseR.status === 'fulfilled') {
+      setDose(doseR.value)
+      // Auto-fill the best-fit market formulation (the closest option); editable.
+      const best = doseR.value?.options?.[0]
+      if (best) chooseFormulation(best)
+    }
     if (algR.status === 'fulfilled' && algR.value) setAllergy(algR.value)
     if (intR.status === 'fulfilled') setInteractions(Array.isArray(intR.value) ? intR.value : [])
     if (cnsR.status === 'fulfilled') {
@@ -193,7 +201,8 @@ export default function MedicationOrderField({ field, value, onChange }) {
                   className="px-3 py-2 cursor-pointer hover:bg-blue-50 border-b border-gray-50 last:border-0 flex items-center gap-2">
                   {r.in_stock ? <span className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" title="In stock" /> : <span className="w-2 h-2 flex-shrink-0" />}
                   <span className="font-medium">{r.primary_brand || r.name || r.generic}</span>
-                  <span className="text-gray-400 text-xs truncate">{r.generic}</span>
+                  <span className="text-gray-400 text-xs truncate flex-1">{r.generic}</span>
+                  {r.suggested_dose && <span className="text-[#0F2557] text-xs font-semibold flex-shrink-0">{r.suggested_dose}</span>}
                 </li>
               ))}
             </ul>
@@ -234,22 +243,28 @@ export default function MedicationOrderField({ field, value, onChange }) {
               )}
             </div>
 
-            {/* dose formulation pills */}
-            {dose && (dose.options || []).length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {(dose.options || []).map((opt, i) => {
-                  const chosen = draft.dose_label === opt.label
-                  return (
-                    <button key={i} type="button" onClick={() => chooseFormulation(opt)}
-                      className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all ${
-                        chosen ? 'bg-[#0F2557] text-white border-[#0F2557]'
-                        : opt.exceeds_max ? 'bg-red-50 text-red-600 border-red-200' : 'bg-white text-gray-700 border-gray-200 hover:border-[#0F2557]'}`}>
-                      {chosen && <Check size={11} />}{opt.label}{opt.exceeds_max ? ' ⚠' : ''}
-                    </button>
-                  )
-                })}
+            {/* Dose — 5 nearest market formulations (dropdown) OR type manually */}
+            {dose && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-gray-500 flex-shrink-0">
+                  Dose{dose.target_mg ? ` (target ≈ ${dose.target_mg} mg)` : ''}
+                </span>
+                {(dose.options || []).length > 0 && (
+                  <select value={draft.dose_manual ? '' : (draft.dose_label || '')}
+                    onChange={e => { const opt = (dose.options || []).find(o => o.label === e.target.value); if (opt) { chooseFormulation(opt); upd({ dose_manual: '' }) } }}
+                    className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm max-w-[240px]">
+                    <option value="">Select…</option>
+                    {(dose.options || []).map((o, i) => (
+                      <option key={i} value={o.label}>{o.label}{o.exceeds_max ? ' ⚠ over max' : ''}</option>
+                    ))}
+                  </select>
+                )}
+                <input type="text" value={draft.dose_manual || ''}
+                  onChange={e => upd({ dose_manual: e.target.value, dose_label: e.target.value })}
+                  placeholder="or type…" className="w-28 border border-gray-200 rounded-lg px-2 py-1.5 text-sm" />
               </div>
             )}
+            {dose?.message && <p className="text-xs text-amber-600">{dose.message}</p>}
 
             {/* frequency + duration + route */}
             <div className="flex flex-wrap items-end gap-2">
