@@ -3,7 +3,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import {
   LayoutDashboard, Users, Calendar, Stethoscope, Pill,
   FlaskConical, Scan, Receipt, BarChart3, Send, Settings,
-  ShieldCheck, ChevronRight, Building2, LayoutGrid, BedDouble, Activity, ClipboardList, Video, Layers
+  ShieldCheck, ChevronRight, Building2, LayoutGrid, BedDouble, Activity, ClipboardList, Video
 } from 'lucide-react'
 import BrandLogo from '../BrandLogo'
 
@@ -16,7 +16,6 @@ const ALL_NAV = [
   { to: '/inpatient',   label: 'Inpatient Desk', icon: BedDouble,     roles: ['doctor','clinic_admin','nurse'], hospitalOnly: true },
   { to: '/forms/iview', label: 'iView',          icon: Activity,      roles: ['doctor','nurse','clinic_admin'], hospitalOnly: true },
   { to: '/forms',       label: 'Assessments',   icon: ClipboardList, roles: ['doctor','nurse','clinic_admin'], end: true },
-  { to: '/forms/care',  label: 'Care Forms',    icon: Layers,        roles: ['doctor','nurse','clinic_admin'] },
   { to: '/pharmacy',     label: 'Pharmacy',     icon: Pill,            roles: ['pharmacist','clinic_admin'] },
   { to: '/lab',          label: 'Laboratory',   icon: FlaskConical,    roles: ['lab_tech','clinic_admin','doctor','radiologist'] },
   { to: '/imaging',      label: 'Imaging',      icon: Scan,            roles: ['imaging_tech','imaging_technician','radiologist','clinic_admin','doctor'] },
