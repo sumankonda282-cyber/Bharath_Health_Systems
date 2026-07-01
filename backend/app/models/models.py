@@ -681,6 +681,9 @@ class Prescription(Base):
     notes          = Column(Text, nullable=True)
     created_at     = Column(DateTime, server_default=func.now())
     dispensed_at   = Column(DateTime, nullable=True)
+    # Idempotent link back to the assessment-form submission whose medication_order
+    # cart produced this prescription. India: one patient cart = ONE pharmacy order.
+    source_submission_id = Column(Integer, nullable=True, index=True)
 
     patient     = relationship("Patient", back_populates="prescriptions")
     appointment = relationship("Appointment", back_populates="prescriptions")
@@ -699,6 +702,7 @@ class PrescriptionItem(Base):
     instructions        = Column(Text, nullable=True)
     quantity_prescribed = Column(Integer, nullable=True)
     quantity_dispensed  = Column(Integer, nullable=True)
+    is_refill           = Column(Boolean, default=False)
 
     prescription = relationship("Prescription", back_populates="items")
     medicine     = relationship("Medicine", back_populates="prescription_items")

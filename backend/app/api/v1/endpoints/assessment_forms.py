@@ -30,6 +30,8 @@ from app.models.models import (
     iViewFlowsheet,
     iViewObservation,
     StaffFormFavorite,
+    Prescription,
+    PrescriptionItem,
 )
 
 router = APIRouter(tags=["Assessment Forms"])
@@ -985,6 +987,100 @@ def create_assignment(
 # Provider submission routes
 # ---------------------------------------------------------------------------
 
+def _collect_medication_cart(schema: Dict[str, Any], form_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Pull every ``medication_order`` cart line out of a signed form's data.
+
+    A ``medication_order`` field stores an ARRAY of drug orders (the cart). One form
+    may carry more than one such field; we flatten them all into a single ordered list
+    because — Indian pharmacy model — the whole patient med list is ONE order.
+    """
+    orders: List[Dict[str, Any]] = []
+    for section in (schema or {}).get("sections", []) or []:
+        for f in (section or {}).get("fields", []) or []:
+            if (f or {}).get("type") != "medication_order":
+                continue
+            val = (form_data or {}).get(f.get("field_id"))
+            if isinstance(val, list):
+                orders.extend([o for o in val if isinstance(o, dict) and (o.get("drug") or o.get("generic"))])
+            elif isinstance(val, dict) and (val.get("drug") or val.get("generic")):
+                orders.append(val)
+    return orders
+
+
+def _dose_label(o: Dict[str, Any]) -> Optional[str]:
+    if o.get("dose_label"):
+        return str(o["dose_label"])
+    if o.get("dose_mg"):
+        return f"{o['dose_mg']} mg"
+    return None
+
+
+def sync_prescription_from_submission(db: Session, sub, form, current) -> Optional[int]:
+    """Idempotently turn a signed form's medication_order cart into ONE prescription.
+
+    India model: the entire patient med list submitted together is a SINGLE pharmacy
+    order (the pharmacist may partial-fill). So we upsert exactly one Prescription per
+    submission (keyed by ``source_submission_id``) with one PrescriptionItem per cart
+    line. Re-signing replaces the items in place; an emptied cart deletes the order.
+
+    Returns the prescription id (or None when the form has no medication orders).
+    """
+    orders = _collect_medication_cart(form.schema or {}, sub.data or {})
+    rx = (
+        db.query(Prescription)
+        .filter(Prescription.source_submission_id == sub.id,
+                Prescription.clinic_id == current.clinic_id)
+        .first()
+    )
+
+    if not orders:
+        # Cart cleared on re-sign → retract the pending order (never touch a dispensed one).
+        if rx is not None and (rx.status or "pending") == "pending":
+            db.query(PrescriptionItem).filter(
+                PrescriptionItem.prescription_id == rx.id
+            ).delete(synchronize_session=False)
+            db.delete(rx)
+        return None
+
+    if rx is None:
+        rx = Prescription(
+            clinic_id            = current.clinic_id,
+            patient_id           = sub.patient_id,
+            branch_id            = getattr(sub, "branch_id", None) or getattr(current, "branch_id", None),
+            prescribed_by        = current.id,
+            status               = "pending",
+            source_submission_id = sub.id,
+        )
+        db.add(rx)
+        db.flush()
+    elif (rx.status or "pending") != "pending":
+        # Already being dispensed — do not silently rewrite what the pharmacy is filling.
+        return rx.id
+    else:
+        db.query(PrescriptionItem).filter(
+            PrescriptionItem.prescription_id == rx.id
+        ).delete(synchronize_session=False)
+
+    for o in orders:
+        qty = o.get("quantity")
+        try:
+            qty = int(qty) if qty not in (None, "") else None
+        except (TypeError, ValueError):
+            qty = None
+        db.add(PrescriptionItem(
+            prescription_id     = rx.id,
+            medicine_id         = None,
+            medicine_name       = o.get("brand") or o.get("generic") or o.get("drug"),
+            dosage              = _dose_label(o),
+            frequency           = o.get("frequency") or None,
+            duration            = (f"{o['duration_days']} days" if o.get("duration_days") else None),
+            instructions        = o.get("instructions") or None,
+            quantity_prescribed = qty,
+            is_refill           = bool(o.get("is_refill")),
+        ))
+    return rx.id
+
+
 @router.post("/assessment-forms/{form_id}/submit", status_code=201)
 def submit_form(
     form_id:  int,
@@ -1125,11 +1221,15 @@ def submit_form(
         ).delete(synchronize_session=False)
         save_iview_row(db, sub, form)
 
+    # Cart → pharmacy: the whole medication_order cart becomes ONE prescription order.
+    prescription_id = sync_prescription_from_submission(db, sub, form, current)
+
     db.commit()
     db.refresh(sub)
 
     return {
         "submission_id":  sub.id,
+        "prescription_id": prescription_id,
         "status":         "submitted",
         "score_result":   scoring_result,
         "alerts_fired":   alerts_fired,
