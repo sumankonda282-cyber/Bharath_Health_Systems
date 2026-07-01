@@ -23,8 +23,10 @@ import {
   HeartPulse,
   RefreshCw,
   ChevronDown,
+  FileClock,
 } from 'lucide-react'
 import api from '../api/client'
+import { IconButton } from '../components/ui/IconButton'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -332,10 +334,13 @@ export default function FormPool() {
           {filtered.length} form{filtered.length !== 1 ? 's' : ''}
         </span>
 
-        {/* New */}
+        {/* Audit log + New */}
+        <span className="ml-auto">
+          <IconButton icon={FileClock} label="Form audit log" size={17} onClick={() => navigate('/forms/audit')} />
+        </span>
         <button
           onClick={() => navigate('/forms/builder')}
-          className="btn-primary ml-auto"
+          className="btn-primary"
         >
           <Plus size={14} /> New Form
         </button>

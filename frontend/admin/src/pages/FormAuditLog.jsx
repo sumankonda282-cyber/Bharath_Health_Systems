@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import api from '../api/client'
 import {
   Search, ChevronLeft, ChevronRight, ChevronDown, X, RefreshCw,
@@ -115,6 +115,7 @@ function Row({ entry }) {
 
 export default function FormAuditLog() {
   const [params] = useSearchParams()
+  const navigate = useNavigate()
   const initialRange = defaultDateRange()
   const [q, setQ]           = useState('')
   const [action, setAction] = useState('')
@@ -161,6 +162,10 @@ export default function FormAuditLog() {
       {/* Header */}
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-2">
+          <button onClick={() => navigate('/forms')} aria-label="Back to Assessment Forms"
+            className="p-1.5 rounded-lg text-dim hover:text-app hover-app transition-colors">
+            <ChevronLeft size={18} />
+          </button>
           <FileClock className="text-blue-400" size={22} />
           <h1 className="text-xl font-semibold text-app">Form Audit Log</h1>
         </div>
