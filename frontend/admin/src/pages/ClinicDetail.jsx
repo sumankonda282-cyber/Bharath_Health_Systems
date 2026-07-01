@@ -261,7 +261,7 @@ export default function ClinicDetail() {
       <button onClick={load} className="btn-secondary text-sm">Try Again</button>
     </div>
   )
-  if (!clinic) return <div className="text-gray-500 p-8">Health Center not found</div>
+  if (!clinic) return <div className="text-faint p-8">Health Center not found</div>
 
   const { billing } = clinic
 
@@ -277,7 +277,7 @@ export default function ClinicDetail() {
   return (
     <div>
       <div className="mb-6">
-        <Link to="/clinics" className="inline-flex items-center gap-1 text-gray-500 hover:text-white text-sm mb-3">
+        <Link to="/clinics" className="inline-flex items-center gap-1 text-faint hover:text-white text-sm mb-3">
           <ArrowLeft size={14} />Back to Health Centers
         </Link>
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -287,7 +287,7 @@ export default function ClinicDetail() {
               <span className={`badge ${STATUS_BADGE[clinic.status] || 'badge-pending'}`}>{clinic.status}</span>
               <span className={`badge ${PLAN_COLORS[clinic.plan] || 'badge-free'}`}>{clinic.plan}</span>
             </div>
-            <p className="text-gray-500 text-sm mt-1">{clinic.specialty} · {clinic.city}, {clinic.state}</p>
+            <p className="text-faint text-sm mt-1">{clinic.specialty} · {clinic.city}, {clinic.state}</p>
           </div>
           {/* Actions */}
           <div className="flex flex-wrap gap-2">
@@ -309,10 +309,10 @@ export default function ClinicDetail() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-5 border-b border-gray-800">
+      <div className="flex gap-1 mb-5 border-b border-app">
         {TABS.map(tab => (
           <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-            className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${activeTab === tab.key ? 'border-indigo-500 text-white' : 'border-transparent text-gray-400 hover:text-white'}`}>
+            className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${activeTab === tab.key ? 'border-indigo-500 text-app' : 'border-transparent text-dim hover:text-white'}`}>
             {tab.label}
           </button>
         ))}
@@ -320,9 +320,9 @@ export default function ClinicDetail() {
 
       {activeTab === 'staff' && (
         <div className="card overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-800 flex items-center justify-between">
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Staff Roster</h3>
-            <button onClick={loadStaff} className="text-xs text-gray-400 hover:text-white">Refresh</button>
+          <div className="px-5 py-4 border-b border-app flex items-center justify-between">
+            <h3 className="text-xs font-semibold text-faint uppercase tracking-wider">Staff Roster</h3>
+            <button onClick={loadStaff} className="text-xs text-dim hover:text-white">Refresh</button>
           </div>
           {staffLoading ? (
             <div className="p-10 flex justify-center"><div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" /></div>
@@ -331,7 +331,7 @@ export default function ClinicDetail() {
           ) : (
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-xs text-gray-500 uppercase tracking-wider border-b border-gray-800">
+                <tr className="text-left text-xs text-faint uppercase tracking-wider border-b border-app">
                   <th className="px-5 py-3">Name</th>
                   <th className="px-5 py-3">Role</th>
                   <th className="px-5 py-3">Email</th>
@@ -340,13 +340,13 @@ export default function ClinicDetail() {
                   <th className="px-5 py-3"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-800">
+              <tbody className="divide-y divide-[color:var(--border)]">
                 {staffList.map(s => (
                   <tr key={s.id}>
-                    <td className="px-5 py-3 text-white font-medium">{s.full_name}</td>
-                    <td className="px-5 py-3 text-gray-400 capitalize">{s.role?.replace('_', ' ')}</td>
-                    <td className="px-5 py-3 text-gray-400">{s.email || '—'}</td>
-                    <td className="px-5 py-3 text-gray-400">{s.mobile || '—'}</td>
+                    <td className="px-5 py-3 text-app font-medium">{s.full_name}</td>
+                    <td className="px-5 py-3 text-dim capitalize">{s.role?.replace('_', ' ')}</td>
+                    <td className="px-5 py-3 text-dim">{s.email || '—'}</td>
+                    <td className="px-5 py-3 text-dim">{s.mobile || '—'}</td>
                     <td className="px-5 py-3">
                       <span className={`badge ${s.is_active ? 'badge-active' : 'badge-revoked'}`}>{s.is_active ? 'Active' : 'Inactive'}</span>
                     </td>
@@ -361,7 +361,7 @@ export default function ClinicDetail() {
                   </tr>
                 ))}
                 {staffList.length === 0 && (
-                  <tr><td colSpan={6} className="px-5 py-8 text-center text-gray-500">No staff found</td></tr>
+                  <tr><td colSpan={6} className="px-5 py-8 text-center text-faint">No staff found</td></tr>
                 )}
               </tbody>
             </table>
@@ -373,13 +373,13 @@ export default function ClinicDetail() {
         {/* Clinic Info */}
         <div className="lg:col-span-2 space-y-5">
           <div className="card-p">
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">Health Center Information</h3>
+            <h3 className="text-xs font-semibold text-faint uppercase tracking-wider mb-4">Health Center Information</h3>
             <div className="grid grid-cols-2 gap-4 text-sm">
-              <div><div className="text-gray-500 mb-0.5">Admin</div><div className="text-white">{clinic.admin_name}</div></div>
-              <div><div className="text-gray-500 mb-0.5">Email</div><div className="text-white">{clinic.admin_email}</div></div>
-              <div><div className="text-gray-500 mb-0.5">Phone</div><div className="text-white">{clinic.phone}</div></div>
-              <div><div className="text-gray-500 mb-0.5">Registered</div><div className="text-white">{new Date(clinic.created_at).toLocaleDateString('en-IN')}</div></div>
-              <div className="col-span-2"><div className="text-gray-500 mb-0.5">Address</div><div className="text-white">{clinic.city}, {clinic.state}</div></div>
+              <div><div className="text-faint mb-0.5">Admin</div><div className="text-app">{clinic.admin_name}</div></div>
+              <div><div className="text-faint mb-0.5">Email</div><div className="text-app">{clinic.admin_email}</div></div>
+              <div><div className="text-faint mb-0.5">Phone</div><div className="text-app">{clinic.phone}</div></div>
+              <div><div className="text-faint mb-0.5">Registered</div><div className="text-app">{new Date(clinic.created_at).toLocaleDateString('en-IN')}</div></div>
+              <div className="col-span-2"><div className="text-faint mb-0.5">Address</div><div className="text-app">{clinic.city}, {clinic.state}</div></div>
             </div>
             {clinic.license_document_url && (
               <a href={clinic.license_document_url} target="_blank" rel="noreferrer"
@@ -391,22 +391,22 @@ export default function ClinicDetail() {
               <div className="mt-4 bg-red-500/10 border border-red-500/20 rounded-xl p-3">
                 <div className="text-xs font-semibold text-red-400 mb-1">Suspension Reason</div>
                 <div className="text-sm text-red-300">{clinic.suspension_reason?.replace('_', ' ')}</div>
-                {clinic.suspension_comment && <div className="text-xs text-gray-400 mt-1">{clinic.suspension_comment}</div>}
+                {clinic.suspension_comment && <div className="text-xs text-dim mt-1">{clinic.suspension_comment}</div>}
               </div>
             )}
           </div>
 
           {/* Staff */}
           <div className="card overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-800">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Staff ({clinic.staff?.length || 0})</h3>
+            <div className="px-5 py-4 border-b border-app">
+              <h3 className="text-xs font-semibold text-faint uppercase tracking-wider">Staff ({clinic.staff?.length || 0})</h3>
             </div>
-            <div className="divide-y divide-gray-800">
+            <div className="divide-y divide-[color:var(--border)]">
               {(clinic.staff || []).map(s => (
                 <div key={s.id} className="px-5 py-3 flex items-center justify-between">
                   <div>
-                    <div className="text-sm font-medium text-white">{s.full_name}</div>
-                    <div className="text-xs text-gray-500">{s.email} · <span className="capitalize">{s.role?.replace('_', ' ')}</span></div>
+                    <div className="text-sm font-medium text-app">{s.full_name}</div>
+                    <div className="text-xs text-faint">{s.email} · <span className="capitalize">{s.role?.replace('_', ' ')}</span></div>
                     {s.license_number && <div className="text-xs text-indigo-400 mt-0.5">License: {s.license_number}</div>}
                   </div>
                   <span className={`badge ${s.is_active ? 'badge-active' : 'badge-revoked'}`}>{s.is_active ? 'Active' : 'Inactive'}</span>
@@ -420,28 +420,28 @@ export default function ClinicDetail() {
         <div className="space-y-5">
           {/* Billing */}
           <div className="card-p">
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4 flex items-center gap-1.5"><IndianRupee size={12} />Billing</h3>
+            <h3 className="text-xs font-semibold text-faint uppercase tracking-wider mb-4 flex items-center gap-1.5"><IndianRupee size={12} />Billing</h3>
             <div className="space-y-2 text-sm">
-              <div className="flex justify-between"><span className="text-gray-500">Active Doctors</span><span className="text-white font-semibold">{billing?.active_doctors ?? '—'}</span></div>
-              <div className="flex justify-between"><span className="text-gray-500">Rate / Doctor</span><span className="text-white">₹{billing?.price_per_doctor}/mo</span></div>
-              <div className="border-t border-gray-800 pt-2 flex justify-between"><span className="text-gray-400 font-semibold">Monthly Total</span><span className="text-emerald-400 font-bold text-lg">₹{billing?.monthly_total?.toLocaleString('en-IN')}</span></div>
+              <div className="flex justify-between"><span className="text-faint">Active Doctors</span><span className="text-app font-semibold">{billing?.active_doctors ?? '—'}</span></div>
+              <div className="flex justify-between"><span className="text-faint">Rate / Doctor</span><span className="text-app">₹{billing?.price_per_doctor}/mo</span></div>
+              <div className="border-t border-app pt-2 flex justify-between"><span className="text-dim font-semibold">Monthly Total</span><span className="text-emerald-400 font-bold text-lg">₹{billing?.monthly_total?.toLocaleString('en-IN')}</span></div>
             </div>
           </div>
 
           {/* Audit Log */}
           <div className="card overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-800">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Recent Actions</h3>
+            <div className="px-4 py-3 border-b border-app">
+              <h3 className="text-xs font-semibold text-faint uppercase tracking-wider">Recent Actions</h3>
             </div>
-            <div className="divide-y divide-gray-800 max-h-64 overflow-y-auto">
+            <div className="divide-y divide-[color:var(--border)] max-h-64 overflow-y-auto">
               {(clinic.audit_log || []).length === 0 ? (
-                <p className="p-4 text-gray-600 text-sm">No actions recorded</p>
+                <p className="p-4 text-faint text-sm">No actions recorded</p>
               ) : clinic.audit_log.map((l, i) => (
                 <div key={i} className="px-4 py-3">
-                  <div className="text-sm text-white">{ACTION_LABELS[l.action] || l.action}</div>
-                  {l.reason && <div className="text-xs text-gray-500 mt-0.5">Reason: {l.reason?.replace('_', ' ')}</div>}
-                  {l.comment && <div className="text-xs text-gray-500">{l.comment}</div>}
-                  <div className="text-xs text-gray-600 mt-0.5">{l.admin_name} · {new Date(l.created_at).toLocaleDateString('en-IN')}</div>
+                  <div className="text-sm text-app">{ACTION_LABELS[l.action] || l.action}</div>
+                  {l.reason && <div className="text-xs text-faint mt-0.5">Reason: {l.reason?.replace('_', ' ')}</div>}
+                  {l.comment && <div className="text-xs text-faint">{l.comment}</div>}
+                  <div className="text-xs text-faint mt-0.5">{l.admin_name} · {new Date(l.created_at).toLocaleDateString('en-IN')}</div>
                 </div>
               ))}
             </div>
@@ -460,30 +460,30 @@ export default function ClinicDetail() {
           <div className="space-y-5">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="kpi-card">
-                <div className="flex items-center gap-1.5 text-xs text-gray-500 uppercase tracking-wider mb-2"><CreditCard size={13} />Plan</div>
+                <div className="flex items-center gap-1.5 text-xs text-faint uppercase tracking-wider mb-2"><CreditCard size={13} />Plan</div>
                 <span className={`badge ${PLAN_COLORS[clinic.plan] || 'badge-free'} capitalize`}>{clinic.plan || 'free'}</span>
               </div>
               <div className="kpi-card">
-                <div className="flex items-center gap-1.5 text-xs text-gray-500 uppercase tracking-wider mb-2"><CalendarCheck size={13} />Expiry</div>
-                <div className={`text-lg font-bold ${expiryUrgent ? 'text-red-400' : 'text-white'}`}>
+                <div className="flex items-center gap-1.5 text-xs text-faint uppercase tracking-wider mb-2"><CalendarCheck size={13} />Expiry</div>
+                <div className={`text-lg font-bold ${expiryUrgent ? 'text-red-400' : 'text-app'}`}>
                   {expiry ? expiry.toLocaleDateString('en-IN') : '—'}
                 </div>
                 {expiry && daysLeft !== null && (
-                  <div className={`text-xs mt-0.5 ${expiryUrgent ? 'text-red-400' : 'text-gray-500'}`}>
+                  <div className={`text-xs mt-0.5 ${expiryUrgent ? 'text-red-400' : 'text-faint'}`}>
                     {daysLeft < 0 ? `Expired ${Math.abs(daysLeft)}d ago` : `${daysLeft}d left`}
                   </div>
                 )}
               </div>
               <div className="kpi-card">
-                <div className="flex items-center gap-1.5 text-xs text-gray-500 uppercase tracking-wider mb-2"><IndianRupee size={13} />MRR</div>
+                <div className="flex items-center gap-1.5 text-xs text-faint uppercase tracking-wider mb-2"><IndianRupee size={13} />MRR</div>
                 <div className="text-lg font-bold text-emerald-400">₹{Number(mrr || 0).toLocaleString('en-IN')}</div>
-                <div className="text-xs text-gray-500 mt-0.5">per month</div>
+                <div className="text-xs text-faint mt-0.5">per month</div>
               </div>
             </div>
 
             <div className="card-sm overflow-hidden">
-              <div className="px-5 py-4 border-b border-gray-800">
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Payment History</h3>
+              <div className="px-5 py-4 border-b border-app">
+                <h3 className="text-xs font-semibold text-faint uppercase tracking-wider">Payment History</h3>
               </div>
               {paymentsLoading ? (
                 <div className="p-10 flex justify-center"><div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: ACCENT, borderTopColor: 'transparent' }} /></div>
@@ -492,7 +492,7 @@ export default function ClinicDetail() {
               ) : (
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-left text-xs text-gray-500 uppercase tracking-wider border-b border-gray-800">
+                    <tr className="text-left text-xs text-faint uppercase tracking-wider border-b border-app">
                       <th className="th-sm">Date</th>
                       <th className="th-sm">Amount</th>
                       <th className="th-sm">Method</th>
@@ -501,23 +501,23 @@ export default function ClinicDetail() {
                       <th className="th-sm">By</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-800">
+                  <tbody className="divide-y divide-[color:var(--border)]">
                     {payments.map(p => (
                       <tr key={p.id}>
-                        <td className="td-sm text-gray-400">{p.created_at ? new Date(p.created_at).toLocaleDateString('en-IN') : '—'}</td>
+                        <td className="td-sm text-dim">{p.created_at ? new Date(p.created_at).toLocaleDateString('en-IN') : '—'}</td>
                         <td className="td-sm text-emerald-400 font-semibold">₹{Number(p.amount || 0).toLocaleString('en-IN')}</td>
-                        <td className="td-sm text-gray-400 capitalize">{p.method || '—'}</td>
-                        <td className="td-sm text-gray-400 font-mono text-xs">{p.reference || '—'}</td>
-                        <td className="td-sm text-gray-400">
+                        <td className="td-sm text-dim capitalize">{p.method || '—'}</td>
+                        <td className="td-sm text-dim font-mono text-xs">{p.reference || '—'}</td>
+                        <td className="td-sm text-dim">
                           {p.period_from || p.period_to
                             ? `${p.period_from ? new Date(p.period_from).toLocaleDateString('en-IN') : '—'} → ${p.period_to ? new Date(p.period_to).toLocaleDateString('en-IN') : '—'}`
                             : '—'}
                         </td>
-                        <td className="td-sm text-gray-400">{p.notes || '—'}</td>
+                        <td className="td-sm text-dim">{p.notes || '—'}</td>
                       </tr>
                     ))}
                     {payments.length === 0 && (
-                      <tr><td colSpan={6} className="td-sm text-center text-gray-500 py-8">No payments recorded for this Health Center</td></tr>
+                      <tr><td colSpan={6} className="td-sm text-center text-faint py-8">No payments recorded for this Health Center</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -537,46 +537,46 @@ export default function ClinicDetail() {
             <>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="kpi-card">
-                  <div className="flex items-center gap-1.5 text-xs text-gray-500 uppercase tracking-wider mb-2"><Users size={13} />Total Patients</div>
-                  <div className="text-2xl font-bold text-white">{Number(clinicalStats?.total_patients || 0).toLocaleString('en-IN')}</div>
+                  <div className="flex items-center gap-1.5 text-xs text-faint uppercase tracking-wider mb-2"><Users size={13} />Total Patients</div>
+                  <div className="text-2xl font-bold text-app">{Number(clinicalStats?.total_patients || 0).toLocaleString('en-IN')}</div>
                 </div>
                 <div className="kpi-card">
-                  <div className="flex items-center gap-1.5 text-xs text-gray-500 uppercase tracking-wider mb-2"><CalendarCheck size={13} />Appointments</div>
-                  <div className="text-2xl font-bold text-white">{Number(clinicalStats?.total_appointments || 0).toLocaleString('en-IN')}</div>
+                  <div className="flex items-center gap-1.5 text-xs text-faint uppercase tracking-wider mb-2"><CalendarCheck size={13} />Appointments</div>
+                  <div className="text-2xl font-bold text-app">{Number(clinicalStats?.total_appointments || 0).toLocaleString('en-IN')}</div>
                 </div>
                 <div className="kpi-card">
-                  <div className="flex items-center gap-1.5 text-xs text-gray-500 uppercase tracking-wider mb-2"><FlaskConical size={13} />Lab Orders</div>
-                  <div className="text-2xl font-bold text-white">{Number(clinicalStats?.total_lab_orders || 0).toLocaleString('en-IN')}</div>
+                  <div className="flex items-center gap-1.5 text-xs text-faint uppercase tracking-wider mb-2"><FlaskConical size={13} />Lab Orders</div>
+                  <div className="text-2xl font-bold text-app">{Number(clinicalStats?.total_lab_orders || 0).toLocaleString('en-IN')}</div>
                 </div>
                 <div className="kpi-card">
-                  <div className="flex items-center gap-1.5 text-xs text-gray-500 uppercase tracking-wider mb-2"><Pill size={13} />Prescriptions</div>
-                  <div className="text-2xl font-bold text-white">{Number(clinicalStats?.total_prescriptions || 0).toLocaleString('en-IN')}</div>
+                  <div className="flex items-center gap-1.5 text-xs text-faint uppercase tracking-wider mb-2"><Pill size={13} />Prescriptions</div>
+                  <div className="text-2xl font-bold text-app">{Number(clinicalStats?.total_prescriptions || 0).toLocaleString('en-IN')}</div>
                 </div>
               </div>
 
               <div className="card-sm overflow-hidden">
-                <div className="px-5 py-4 border-b border-gray-800 flex items-center gap-1.5">
-                  <Stethoscope size={13} className="text-gray-500" />
-                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Top Doctors by Appointments</h3>
+                <div className="px-5 py-4 border-b border-app flex items-center gap-1.5">
+                  <Stethoscope size={13} className="text-faint" />
+                  <h3 className="text-xs font-semibold text-faint uppercase tracking-wider">Top Doctors by Appointments</h3>
                 </div>
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-left text-xs text-gray-500 uppercase tracking-wider border-b border-gray-800">
+                    <tr className="text-left text-xs text-faint uppercase tracking-wider border-b border-app">
                       <th className="th-sm">Rank</th>
                       <th className="th-sm">Doctor</th>
                       <th className="th-sm">Appointments</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-800">
+                  <tbody className="divide-y divide-[color:var(--border)]">
                     {(clinicalStats?.top_doctors || []).map((d, i) => (
                       <tr key={`${d.name}-${i}`}>
-                        <td className="td-sm text-gray-500 font-mono">{i + 1}</td>
-                        <td className="td-sm text-white font-medium">{d.name}</td>
-                        <td className="td-sm text-gray-300">{Number(d.appointments || 0).toLocaleString('en-IN')}</td>
+                        <td className="td-sm text-faint font-mono">{i + 1}</td>
+                        <td className="td-sm text-app font-medium">{d.name}</td>
+                        <td className="td-sm text-dim">{Number(d.appointments || 0).toLocaleString('en-IN')}</td>
                       </tr>
                     ))}
                     {(clinicalStats?.top_doctors || []).length === 0 && (
-                      <tr><td colSpan={3} className="td-sm text-center text-gray-500 py-8">No doctor activity recorded</td></tr>
+                      <tr><td colSpan={3} className="td-sm text-center text-faint py-8">No doctor activity recorded</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -589,10 +589,10 @@ export default function ClinicDetail() {
       {/* Password Reset Modal */}
       {pwdModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-sm p-6">
-            <h3 className="text-lg font-bold text-white mb-1">Password Reset</h3>
-            <p className="text-sm text-gray-400 mb-4">{pwdModal.staffName}</p>
-            <div className="bg-gray-800 rounded-xl p-4 mb-3 font-mono text-lg text-center text-indigo-300 tracking-widest select-all">
+          <div className="surface border border-app rounded-2xl w-full max-w-sm p-6">
+            <h3 className="text-lg font-bold text-app mb-1">Password Reset</h3>
+            <p className="text-sm text-dim mb-4">{pwdModal.staffName}</p>
+            <div className="surface-2 rounded-xl p-4 mb-3 font-mono text-lg text-center text-indigo-300 tracking-widest select-all">
               {pwdModal.tempPassword}
             </div>
             <p className="text-xs text-amber-400 mb-4">Show this once only. It will not be shown again.</p>
@@ -614,19 +614,19 @@ export default function ClinicDetail() {
       {/* Create Manager Modal */}
       {managerModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl">
+          <div className="surface border border-app rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl">
             {/* Header */}
-            <div className="flex items-start justify-between gap-4 px-6 py-5 border-b border-gray-800">
+            <div className="flex items-start justify-between gap-4 px-6 py-5 border-b border-app">
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-xl bg-indigo-500/15 flex items-center justify-center shrink-0">
                   <ShieldCheck size={20} style={{ color: ACCENT }} />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-white leading-tight">Create Health Center Manager</h3>
-                  <p className="text-sm text-gray-400 mt-0.5">{clinic.name}</p>
+                  <h3 className="text-lg font-bold text-app leading-tight">Create Health Center Manager</h3>
+                  <p className="text-sm text-dim mt-0.5">{clinic.name}</p>
                 </div>
               </div>
-              <button onClick={() => { setManagerModal(false); setManagerSuccess(null) }} className="text-gray-500 hover:text-white p-1 -m-1"><X size={20} /></button>
+              <button onClick={() => { setManagerModal(false); setManagerSuccess(null) }} className="text-faint hover:text-white p-1 -m-1"><X size={20} /></button>
             </div>
 
             {managerSuccess ? (
@@ -636,38 +636,38 @@ export default function ClinicDetail() {
                     <CheckCircle size={22} className="text-emerald-400 shrink-0" />
                     <div>
                       <div className="text-emerald-300 font-semibold">{managerSuccess.full_name} created</div>
-                      <div className="text-xs text-gray-400">{managerSuccess.scope_label || 'Health Center Manager'}{managerSuccess.department ? ` · ${managerSuccess.department}` : ''}</div>
+                      <div className="text-xs text-dim">{managerSuccess.scope_label || 'Health Center Manager'}{managerSuccess.department ? ` · ${managerSuccess.department}` : ''}</div>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="bg-gray-800/60 rounded-xl p-4">
-                      <div className="text-xs text-gray-500 mb-1">Username</div>
+                    <div className="surface-2 rounded-xl p-4">
+                      <div className="text-xs text-faint mb-1">Username</div>
                       <div className="flex items-center justify-between gap-2">
-                        <span className="font-mono text-white text-sm select-all">{managerSuccess.username || '—'}</span>
-                        <button onClick={() => navigator.clipboard.writeText(managerSuccess.username || '')} className="text-gray-400 hover:text-white"><Copy size={14} /></button>
+                        <span className="font-mono text-app text-sm select-all">{managerSuccess.username || '—'}</span>
+                        <button onClick={() => navigator.clipboard.writeText(managerSuccess.username || '')} className="text-dim hover:text-white"><Copy size={14} /></button>
                       </div>
                     </div>
-                    <div className="bg-gray-800/60 rounded-xl p-4">
-                      <div className="text-xs text-gray-500 mb-1">Temporary password</div>
+                    <div className="surface-2 rounded-xl p-4">
+                      <div className="text-xs text-faint mb-1">Temporary password</div>
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-mono text-indigo-300 text-sm tracking-wider select-all">{managerSuccess.temp_password || '—'}</span>
-                        <button onClick={() => navigator.clipboard.writeText(managerSuccess.temp_password || '')} className="text-gray-400 hover:text-white"><Copy size={14} /></button>
+                        <button onClick={() => navigator.clipboard.writeText(managerSuccess.temp_password || '')} className="text-dim hover:text-white"><Copy size={14} /></button>
                       </div>
                     </div>
                   </div>
 
                   {/* Delivery status */}
                   <div className="space-y-2">
-                    <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Credential delivery</div>
+                    <div className="text-xs font-semibold text-faint uppercase tracking-wider">Credential delivery</div>
                     <div className="flex flex-wrap gap-2">
                       {managerSuccess.email && (
-                        <span className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border ${managerSuccess.email_sent ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' : 'border-gray-700 bg-gray-800 text-gray-400'}`}>
+                        <span className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border ${managerSuccess.email_sent ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' : 'border-app surface-2 text-dim'}`}>
                           <Mail size={12} />{managerSuccess.email_sent ? `Emailed to ${managerSuccess.email}` : 'Email not sent (delivery off)'}
                         </span>
                       )}
                       {managerSuccess.mobile && (
-                        <span className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border ${managerSuccess.sms_sent ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' : 'border-gray-700 bg-gray-800 text-gray-400'}`}>
+                        <span className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border ${managerSuccess.sms_sent ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' : 'border-app surface-2 text-dim'}`}>
                           <Phone size={12} />{managerSuccess.sms_sent ? `Texted to ${managerSuccess.mobile}` : 'SMS not sent (delivery off)'}
                         </span>
                       )}
@@ -675,7 +675,7 @@ export default function ClinicDetail() {
                     <p className="text-xs text-amber-400">Shown once — share privately. The manager must change this password on first login.</p>
                   </div>
                 </div>
-                <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-800">
+                <div className="flex justify-end gap-3 px-6 py-4 border-t border-app">
                   <button onClick={() => navigator.clipboard.writeText(`Username: ${managerSuccess.username || ''}\nTemp password: ${managerSuccess.temp_password || ''}\nLogin: ${managerSuccess.login_url || ''}`)} className="btn-secondary justify-center text-sm"><Copy size={13} />Copy all</button>
                   <button onClick={() => { setManagerModal(false); setManagerSuccess(null) }} className="btn-primary justify-center text-sm">Done</button>
                 </div>
@@ -686,35 +686,35 @@ export default function ClinicDetail() {
                   <form id="mgr-form" onSubmit={handleCreateManager} className="space-y-6">
                     {/* Access level */}
                     <section>
-                      <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Access level</div>
+                      <div className="text-xs font-semibold text-faint uppercase tracking-wider mb-2">Access level</div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {[
                           { key: 'center',     icon: ShieldCheck, title: 'Health Center Supervisor', desc: 'Whole center · manages all managers & staff' },
                           { key: 'department', icon: Building2,    title: 'Health Center Manager',    desc: 'Scoped to one or more departments' },
                         ].map(opt => (
                           <button type="button" key={opt.key} onClick={() => setScope(opt.key)}
-                            className={`flex items-start gap-3 p-4 rounded-xl border text-left transition-all ${mf.scope === opt.key ? 'border-indigo-500 bg-indigo-500/10' : 'border-gray-700 hover:border-gray-600'}`}>
-                            <opt.icon size={18} className={mf.scope === opt.key ? 'text-indigo-300 mt-0.5' : 'text-gray-500 mt-0.5'} />
+                            className={`flex items-start gap-3 p-4 rounded-xl border text-left transition-all ${mf.scope === opt.key ? 'border-indigo-500 bg-indigo-500/10' : 'border-app hover:border-gray-600'}`}>
+                            <opt.icon size={18} className={mf.scope === opt.key ? 'text-indigo-300 mt-0.5' : 'text-faint mt-0.5'} />
                             <div>
-                              <div className={`text-sm font-semibold ${mf.scope === opt.key ? 'text-white' : 'text-gray-300'}`}>{opt.title}</div>
-                              <div className="text-xs text-gray-500 mt-0.5">{opt.desc}</div>
+                              <div className={`text-sm font-semibold ${mf.scope === opt.key ? 'text-app' : 'text-dim'}`}>{opt.title}</div>
+                              <div className="text-xs text-faint mt-0.5">{opt.desc}</div>
                             </div>
                           </button>
                         ))}
                       </div>
                       {mf.scope === 'department' && (
                         <div className="mt-3">
-                          <label className="block text-xs text-gray-400 mb-1">Department *</label>
+                          <label className="block text-xs text-dim mb-1">Department *</label>
                           {departments.length > 0 ? (
                             <select value={mf.department_id} onChange={e => setManagerForm(f => ({ ...f, department_id: e.target.value, department: departments.find(d => String(d.id) === e.target.value)?.name || '' }))}
-                              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500">
+                              className="w-full px-3 py-2 surface-2 border border-app rounded-lg text-app text-sm focus:outline-none focus:border-indigo-500">
                               <option value="">— Select department —</option>
                               {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                             </select>
                           ) : (
                             <input value={mf.department} onChange={e => setManagerForm(f => ({ ...f, department: e.target.value }))}
                               placeholder="e.g. Pharmacy, Laboratory, Front Desk"
-                              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500" />
+                              className="w-full px-3 py-2 surface-2 border border-app rounded-lg text-app text-sm focus:outline-none focus:border-indigo-500" />
                           )}
                         </div>
                       )}
@@ -722,39 +722,39 @@ export default function ClinicDetail() {
 
                     {/* Identity */}
                     <section>
-                      <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Manager details</div>
+                      <div className="text-xs font-semibold text-faint uppercase tracking-wider mb-2">Manager details</div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
-                          <label className="block text-xs text-gray-400 mb-1">Full name *</label>
+                          <label className="block text-xs text-dim mb-1">Full name *</label>
                           <input required value={mf.full_name} onChange={e => setManagerForm(f => ({ ...f, full_name: e.target.value }))}
                             placeholder="e.g. Priya Sharma"
-                            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500" />
+                            className="w-full px-3 py-2 surface-2 border border-app rounded-lg text-app text-sm focus:outline-none focus:border-indigo-500" />
                         </div>
                         <div>
-                          <label className="block text-xs text-gray-400 mb-1">Designation</label>
+                          <label className="block text-xs text-dim mb-1">Designation</label>
                           <div className="relative">
-                            <Briefcase size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                            <Briefcase size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
                             <input value={mf.designation} onChange={e => setManagerForm(f => ({ ...f, designation: e.target.value }))}
                               placeholder="e.g. Operations Lead"
-                              className="w-full pl-9 pr-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500" />
+                              className="w-full pl-9 pr-3 py-2 surface-2 border border-app rounded-lg text-app text-sm focus:outline-none focus:border-indigo-500" />
                           </div>
                         </div>
                         <div>
-                          <label className="block text-xs text-gray-400 mb-1">Email</label>
+                          <label className="block text-xs text-dim mb-1">Email</label>
                           <div className="relative">
-                            <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                            <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
                             <input type="email" value={mf.email} onChange={e => setManagerForm(f => ({ ...f, email: e.target.value }))}
                               placeholder="manager@healthcenter.com"
-                              className="w-full pl-9 pr-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500" />
+                              className="w-full pl-9 pr-3 py-2 surface-2 border border-app rounded-lg text-app text-sm focus:outline-none focus:border-indigo-500" />
                           </div>
                         </div>
                         <div>
-                          <label className="block text-xs text-gray-400 mb-1">Mobile</label>
+                          <label className="block text-xs text-dim mb-1">Mobile</label>
                           <div className="relative">
-                            <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                            <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
                             <input inputMode="numeric" value={mf.mobile} onChange={e => onMobileChange(e.target.value)}
                               placeholder="10-digit mobile"
-                              className={`w-full pl-9 pr-3 py-2 bg-gray-800 border rounded-lg text-white text-sm focus:outline-none ${mobileValid ? 'border-gray-700 focus:border-indigo-500' : 'border-red-500/60'}`} />
+                              className={`w-full pl-9 pr-3 py-2 surface-2 border rounded-lg text-app text-sm focus:outline-none ${mobileValid ? 'border-app focus:border-indigo-500' : 'border-red-500/60'}`} />
                           </div>
                           {!mobileValid && <p className="text-red-400 text-xs mt-1">Enter exactly 10 digits</p>}
                         </div>
@@ -764,11 +764,11 @@ export default function ClinicDetail() {
 
                     {/* Permission template */}
                     <section>
-                      <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Start from a template</div>
+                      <div className="text-xs font-semibold text-faint uppercase tracking-wider mb-2">Start from a template</div>
                       <div className="flex flex-wrap gap-2">
                         {MANAGER_TEMPLATES.map(t => (
                           <button type="button" key={t.key} onClick={() => applyTemplate(t.key)} title={t.desc}
-                            className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${mf.template === t.key ? 'border-indigo-500 bg-indigo-500/10 text-white' : 'border-gray-700 text-gray-400 hover:border-gray-600'}`}>
+                            className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${mf.template === t.key ? 'border-indigo-500 bg-indigo-500/10 text-app' : 'border-app text-dim hover:border-gray-600'}`}>
                             {t.label}
                           </button>
                         ))}
@@ -777,12 +777,12 @@ export default function ClinicDetail() {
 
                     {/* Modules */}
                     <section>
-                      <div className="flex items-center gap-2 mb-2"><Layers size={13} className="text-gray-500" /><span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Apps this manager can open</span></div>
+                      <div className="flex items-center gap-2 mb-2"><Layers size={13} className="text-faint" /><span className="text-xs font-semibold text-faint uppercase tracking-wider">Apps this manager can open</span></div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         {MODULE_DEFS.map(m => (
                           <button type="button" key={m.key} onClick={() => toggleMap('modules', m.key)}
-                            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border text-sm text-left transition-all ${mf.modules[m.key] ? 'border-indigo-500 bg-indigo-500/10 text-white' : 'border-gray-700 text-gray-400 hover:border-gray-600'}`}>
-                            <span className={`w-4 h-4 rounded flex items-center justify-center shrink-0 ${mf.modules[m.key] ? 'bg-indigo-500' : 'border border-gray-600'}`}>{mf.modules[m.key] && <Check size={11} className="text-white" />}</span>
+                            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border text-sm text-left transition-all ${mf.modules[m.key] ? 'border-indigo-500 bg-indigo-500/10 text-app' : 'border-app text-dim hover:border-gray-600'}`}>
+                            <span className={`w-4 h-4 rounded flex items-center justify-center shrink-0 ${mf.modules[m.key] ? 'bg-indigo-500' : 'border border-gray-600'}`}>{mf.modules[m.key] && <Check size={11} className="text-app" />}</span>
                             {m.label}
                           </button>
                         ))}
@@ -791,12 +791,12 @@ export default function ClinicDetail() {
 
                     {/* Duties */}
                     <section>
-                      <div className="flex items-center gap-2 mb-2"><ShieldCheck size={13} className="text-gray-500" /><span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Duties this manager can perform</span></div>
+                      <div className="flex items-center gap-2 mb-2"><ShieldCheck size={13} className="text-faint" /><span className="text-xs font-semibold text-faint uppercase tracking-wider">Duties this manager can perform</span></div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         {visibleDuties.map(d => (
                           <button type="button" key={d.key} onClick={() => toggleMap('duties', d.key)}
-                            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border text-sm text-left transition-all ${mf.duties[d.key] ? 'border-indigo-500 bg-indigo-500/10 text-white' : 'border-gray-700 text-gray-400 hover:border-gray-600'}`}>
-                            <span className={`w-4 h-4 rounded flex items-center justify-center shrink-0 ${mf.duties[d.key] ? 'bg-indigo-500' : 'border border-gray-600'}`}>{mf.duties[d.key] && <Check size={11} className="text-white" />}</span>
+                            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border text-sm text-left transition-all ${mf.duties[d.key] ? 'border-indigo-500 bg-indigo-500/10 text-app' : 'border-app text-dim hover:border-gray-600'}`}>
+                            <span className={`w-4 h-4 rounded flex items-center justify-center shrink-0 ${mf.duties[d.key] ? 'bg-indigo-500' : 'border border-gray-600'}`}>{mf.duties[d.key] && <Check size={11} className="text-app" />}</span>
                             {d.label}{d.supervisorOnly && <span className="ml-auto text-[10px] uppercase tracking-wide text-indigo-400/70">supervisor</span>}
                           </button>
                         ))}
@@ -805,11 +805,11 @@ export default function ClinicDetail() {
 
                     {/* Manageable roles */}
                     <section>
-                      <div className="flex items-center gap-2 mb-2"><Users size={13} className="text-gray-500" /><span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Staff roles this manager can create</span></div>
+                      <div className="flex items-center gap-2 mb-2"><Users size={13} className="text-faint" /><span className="text-xs font-semibold text-faint uppercase tracking-wider">Staff roles this manager can create</span></div>
                       <div className="flex flex-wrap gap-2">
                         {visibleRoles.map(r => (
                           <button type="button" key={r.key} onClick={() => toggleRole(r.key)}
-                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${mf.manageable_roles.includes(r.key) ? 'border-indigo-500 bg-indigo-500/10 text-white' : 'border-gray-700 text-gray-400 hover:border-gray-600'}`}>
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${mf.manageable_roles.includes(r.key) ? 'border-indigo-500 bg-indigo-500/10 text-app' : 'border-app text-dim hover:border-gray-600'}`}>
                             {mf.manageable_roles.includes(r.key) && <Check size={11} />}{r.label}
                           </button>
                         ))}
@@ -820,8 +820,8 @@ export default function ClinicDetail() {
                   </form>
                 </div>
                 {/* Footer */}
-                <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-gray-800">
-                  <div className="text-xs text-gray-500">{Object.values(mf.modules).filter(Boolean).length} apps · {Object.values(mf.duties).filter(Boolean).length} duties · {mf.manageable_roles.length} roles</div>
+                <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-app">
+                  <div className="text-xs text-faint">{Object.values(mf.modules).filter(Boolean).length} apps · {Object.values(mf.duties).filter(Boolean).length} duties · {mf.manageable_roles.length} roles</div>
                   <div className="flex gap-3">
                     <button type="button" onClick={() => setManagerModal(false)} className="btn-secondary justify-center text-sm">Cancel</button>
                     <button type="submit" form="mgr-form" disabled={managerSaving || !canCreate} className="btn-primary justify-center text-sm disabled:opacity-50">
@@ -838,12 +838,12 @@ export default function ClinicDetail() {
       {/* Plan Modal */}
       {planModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-sm p-6">
-            <h3 className="text-lg font-bold text-white mb-4">Change Plan — {clinic.name}</h3>
+          <div className="surface border border-app rounded-2xl w-full max-w-sm p-6">
+            <h3 className="text-lg font-bold text-app mb-4">Change Plan — {clinic.name}</h3>
             <div className="grid grid-cols-2 gap-2 mb-4">
               {PLANS.map(p => (
                 <button key={p} onClick={() => setSelectedPlan(p)}
-                  className={`p-3 rounded-xl border text-sm font-medium capitalize transition-all ${selectedPlan === p ? 'border-indigo-500 bg-indigo-500/10 text-white' : 'border-gray-700 text-gray-400 hover:border-gray-600'}`}>
+                  className={`p-3 rounded-xl border text-sm font-medium capitalize transition-all ${selectedPlan === p ? 'border-indigo-500 bg-indigo-500/10 text-app' : 'border-app text-dim hover:border-gray-600'}`}>
                   {p}
                 </button>
               ))}

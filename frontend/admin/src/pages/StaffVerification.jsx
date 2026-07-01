@@ -137,7 +137,7 @@ export default function StaffVerification() {
   const selectedCenter = data.filters.centers.find(c => String(c.id) === String(hc))
 
   return (
-    <div className="bg-[#0a0f1e] min-h-full text-gray-200">
+    <div className="bg-[#0a0f1e] min-h-full text-app">
       {/* STAT CARDS = role filters */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
         {ROLE_CARDS.map(({ key, label, Icon }) => {
@@ -154,8 +154,8 @@ export default function StaffVerification() {
                   <Icon size={18} className="text-[#F5821E]" />
                 </div>
                 <div>
-                  <div className="text-xl font-bold text-white leading-none">{byRole[key] ?? 0}</div>
-                  <div className="text-xs text-gray-400 mt-1">{label}{on ? ' · filtering' : ''}</div>
+                  <div className="text-xl font-bold text-app leading-none">{byRole[key] ?? 0}</div>
+                  <div className="text-xs text-dim mt-1">{label}{on ? ' · filtering' : ''}</div>
                 </div>
               </div>
             </button>
@@ -166,25 +166,25 @@ export default function StaffVerification() {
       {/* TOOLBAR — one line */}
       <div className="card-sm flex flex-wrap items-center gap-2 p-2.5 mb-4">
         <select value={hc} onChange={e => setHc(e.target.value)}
-          className="filter-chip bg-[#10182e] border-gray-800 text-gray-200 max-w-[200px]">
+          className="filter-chip bg-[#10182e] border-app text-app max-w-[200px]">
           <option value="">All Health Centers</option>
           {data.filters.centers.map(c => <option key={c.id} value={c.id}>{c.hc_id ? `${c.hc_id} · ` : ''}{c.name}</option>)}
         </select>
 
         <select value={stateF} onChange={e => setStateF(e.target.value)}
-          className="filter-chip bg-[#10182e] border-gray-800 text-gray-200">
+          className="filter-chip bg-[#10182e] border-app text-app">
           <option value="">All States</option>
           {data.filters.states.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
 
         <select value={cityF} onChange={e => setCityF(e.target.value)}
-          className="filter-chip bg-[#10182e] border-gray-800 text-gray-200">
+          className="filter-chip bg-[#10182e] border-app text-app">
           <option value="">All Cities</option>
           {data.filters.cities.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
 
         <select value={statusF} onChange={e => setStatusF(e.target.value)}
-          className="filter-chip bg-[#10182e] border-gray-800 text-gray-200">
+          className="filter-chip bg-[#10182e] border-app text-app">
           <option value="">All Status</option>
           <option value="verified">Verified</option>
           <option value="pending">Pending</option>
@@ -192,19 +192,19 @@ export default function StaffVerification() {
           <option value="not_working">Not working</option>
         </select>
 
-        <div className="filter-chip bg-[#10182e] border-gray-800 text-gray-300 gap-1.5">
-          <Calendar size={13} className="text-gray-500" />
+        <div className="filter-chip bg-[#10182e] border-app text-dim gap-1.5">
+          <Calendar size={13} className="text-faint" />
           <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} title="Registered from"
-            className="bg-transparent outline-none text-xs text-gray-200 w-[112px]" />
-          <span className="text-gray-600">→</span>
+            className="bg-transparent outline-none text-xs text-app w-[112px]" />
+          <span className="text-faint">→</span>
           <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} title="Registered to"
-            className="bg-transparent outline-none text-xs text-gray-200 w-[112px]" />
+            className="bg-transparent outline-none text-xs text-app w-[112px]" />
         </div>
 
         <div className="relative flex-1 min-w-[160px]">
-          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500" />
+          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-faint" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search name, employee ID, license no…"
-            className="w-full bg-[#10182e] border border-gray-800 rounded-lg pl-8 pr-3 py-1.5 text-sm text-gray-200 outline-none focus:border-[#F5821E]/40" />
+            className="w-full bg-[#10182e] border border-app rounded-lg pl-8 pr-3 py-1.5 text-sm text-app outline-none focus:border-[#F5821E]/40" />
         </div>
 
         {hasFilters && (
@@ -244,7 +244,7 @@ export default function StaffVerification() {
       ) : rows.length === 0 ? (
         <div className="card-sm text-center py-16">
           <ShieldCheck size={40} className="mx-auto mb-3 text-[#F5821E]/40" />
-          <p className="text-gray-400 font-medium">No licensed clinical staff match these filters</p>
+          <p className="text-dim font-medium">No licensed clinical staff match these filters</p>
           {hasFilters && <button onClick={clearAll} className="btn-secondary text-xs mt-3">Clear filters</button>}
         </div>
       ) : (
@@ -264,29 +264,29 @@ export default function StaffVerification() {
                   <th className="th-sm">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-800/70">
+              <tbody className="divide-y divide-[color:var(--border)]">
                 {rows.map(s => {
                   const st = STATUS[s.status] || STATUS.pending
                   const expCls = s.status === 'expired' ? 'text-red-400 font-medium'
-                    : s.expiring_soon ? 'text-amber-400 font-medium' : 'text-gray-300'
+                    : s.expiring_soon ? 'text-amber-400 font-medium' : 'text-dim'
                   return (
                     <tr key={s.id} onClick={() => setDrawer(s)}
-                      className="hover:bg-white/[0.04] cursor-pointer transition-colors">
+                      className="hover-app cursor-pointer transition-colors">
                       <td className="td-sm font-mono text-[12px] text-sky-300 font-semibold whitespace-nowrap">{s.employee_code}</td>
                       <td className="td-sm">
-                        <div className="text-white font-medium">{s.full_name}</div>
-                        {s.mobile && <div className="text-[11px] text-gray-500">{s.mobile}</div>}
+                        <div className="text-app font-medium">{s.full_name}</div>
+                        {s.mobile && <div className="text-[11px] text-faint">{s.mobile}</div>}
                       </td>
                       <td className="td-sm">
-                        <span className="text-[11px] text-gray-300 bg-[#13294f] rounded px-2 py-0.5">{s.role_label}</span>
+                        <span className="text-[11px] text-dim bg-[#13294f] rounded px-2 py-0.5">{s.role_label}</span>
                       </td>
-                      <td className="td-sm text-gray-400">
+                      <td className="td-sm text-dim">
                         {s.clinic_name}
-                        {s.city && <span className="text-gray-600"> · {s.city}</span>}
+                        {s.city && <span className="text-faint"> · {s.city}</span>}
                       </td>
-                      <td className="td-sm font-mono text-[12px] text-gray-300">{s.license_number || '—'}</td>
-                      <td className="td-sm text-gray-400 whitespace-nowrap">{fmtDate(s.registered_date)}</td>
-                      <td className="td-sm text-gray-400 whitespace-nowrap">{fmtDate(s.renewal_date)}</td>
+                      <td className="td-sm font-mono text-[12px] text-dim">{s.license_number || '—'}</td>
+                      <td className="td-sm text-dim whitespace-nowrap">{fmtDate(s.registered_date)}</td>
+                      <td className="td-sm text-dim whitespace-nowrap">{fmtDate(s.renewal_date)}</td>
                       <td className={`td-sm whitespace-nowrap ${expCls}`}>
                         {fmtDate(s.expiry_date)}
                         {s.expiring_soon && <span className="ml-1 text-[10px]">({s.days_to_expiry}d)</span>}
@@ -300,7 +300,7 @@ export default function StaffVerification() {
               </tbody>
             </table>
           </div>
-          <div className="px-4 py-2.5 border-t border-gray-800/70 text-xs text-gray-500 flex items-center justify-between">
+          <div className="px-4 py-2.5 border-t border-app text-xs text-faint flex items-center justify-between">
             <span>{rows.length} {roleF ? ROLE_CARDS.find(r => r.key === roleF)?.label.toLowerCase() : 'clinical staff'}{rows.length === 1 ? '' : (roleF ? 's' : '')} shown</span>
             {data.summary?.expiring_soon > 0 && (
               <span className="text-amber-400 inline-flex items-center gap-1">
@@ -355,18 +355,18 @@ function ExportPopup({ filteredCount, roleLabel, center, currentParams, asOf, on
   }
 
   return (
-    <div className="absolute right-0 top-full mt-2 w-80 bg-[#0e1f3d] border border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden">
-      <div className="px-4 py-3 border-b border-gray-700 flex items-center gap-2 text-white font-semibold text-sm">
+    <div className="absolute right-0 top-full mt-2 w-80 bg-[#0e1f3d] border border-app rounded-xl shadow-2xl z-50 overflow-hidden">
+      <div className="px-4 py-3 border-b border-app flex items-center gap-2 text-app font-semibold text-sm">
         <Download size={15} className="text-[#F5821E]" /> Export staff list
       </div>
       <div className="p-4 space-y-3">
         <button onClick={() => setScope('current')}
-          className={`w-full flex items-center gap-2.5 text-left text-[13px] rounded-lg px-3 py-2.5 border transition-colors ${scope === 'current' ? 'border-[#F5821E] bg-[#F5821E]/10 text-white' : 'border-gray-700 bg-[#0b1c38] text-gray-300'}`}>
+          className={`w-full flex items-center gap-2.5 text-left text-[13px] rounded-lg px-3 py-2.5 border transition-colors ${scope === 'current' ? 'border-[#F5821E] bg-[#F5821E]/10 text-white' : 'border-app bg-[#0b1c38] text-dim'}`}>
           <span className={`w-3.5 h-3.5 rounded-full border-2 flex-shrink-0 ${scope === 'current' ? 'border-[#F5821E] bg-[#F5821E]' : 'border-gray-500'}`} />
           Current filtered list ({filteredCount}{roleLabel ? ` ${roleLabel.toLowerCase()}s` : ' staff'})
         </button>
         <button onClick={() => setScope('center')}
-          className={`w-full flex items-center gap-2.5 text-left text-[13px] rounded-lg px-3 py-2.5 border transition-colors ${scope === 'center' ? 'border-[#F5821E] bg-[#F5821E]/10 text-white' : 'border-gray-700 bg-[#0b1c38] text-gray-300'}`}>
+          className={`w-full flex items-center gap-2.5 text-left text-[13px] rounded-lg px-3 py-2.5 border transition-colors ${scope === 'center' ? 'border-[#F5821E] bg-[#F5821E]/10 text-white' : 'border-app bg-[#0b1c38] text-dim'}`}>
           <span className={`w-3.5 h-3.5 rounded-full border-2 flex-shrink-0 ${scope === 'center' ? 'border-[#F5821E] bg-[#F5821E]' : 'border-gray-500'}`} />
           {centerScopeLabel}
         </button>

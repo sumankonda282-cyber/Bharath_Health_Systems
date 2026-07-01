@@ -230,8 +230,8 @@ export default function HealthCenters() {
   return (
     <div className="space-y-3 pb-24">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-base font-bold text-white">Health Centers</h1>
-        <span className="text-xs text-gray-500">{filtered.length} of {centers.length}</span>
+        <h1 className="text-base font-bold text-app">Health Centers</h1>
+        <span className="text-xs text-faint">{filtered.length} of {centers.length}</span>
       </div>
 
       {flash && (
@@ -246,13 +246,13 @@ export default function HealthCenters() {
 
       {/* Consolidated toolbar */}
       <div className="toolbar flex flex-wrap items-center gap-2">
-        <div className="flex gap-0.5 bg-gray-900 border border-gray-800 p-0.5 rounded-lg">
+        <div className="flex gap-0.5 surface border border-app p-0.5 rounded-lg">
           {STATUS_TABS.map((s) => (
             <button
               key={s}
               onClick={() => setTab(s)}
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium capitalize whitespace-nowrap transition-all ${
-                tab === s ? 'bg-[#F5821E] text-white' : 'filter-chip text-gray-400 hover:text-white'
+                tab === s ? 'bg-[#F5821E] text-app' : 'filter-chip text-dim hover:text-white'
               }`}
             >
               {s}
@@ -264,16 +264,16 @@ export default function HealthCenters() {
         <div className="flex-1" />
 
         <div className="relative">
-          <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+          <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-faint pointer-events-none" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search name / city…"
-            className="filter-chip bg-gray-900 border border-gray-800 text-white text-xs rounded-lg pl-7 pr-7 py-1.5 outline-none focus:border-[#F5821E] w-48 placeholder-gray-500"
+            className="filter-chip surface border border-app text-app text-xs rounded-lg pl-7 pr-7 py-1.5 outline-none focus:border-[#F5821E] w-48 placeholder-gray-500"
           />
           {search && (
-            <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white">
+            <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-faint hover:text-white">
               <X size={10} />
             </button>
           )}
@@ -282,7 +282,7 @@ export default function HealthCenters() {
         <select
           value={filterPlan}
           onChange={(e) => setFilterPlan(e.target.value)}
-          className="filter-chip bg-gray-900 border border-gray-800 text-white text-xs rounded-lg px-2.5 py-1.5 outline-none focus:border-[#F5821E] capitalize"
+          className="filter-chip surface border border-app text-app text-xs rounded-lg px-2.5 py-1.5 outline-none focus:border-[#F5821E] capitalize"
         >
           <option value="">All Plans</option>
           {PLAN_OPTIONS.map((p) => <option key={p} value={p}>{p}</option>)}
@@ -291,7 +291,7 @@ export default function HealthCenters() {
         <select
           value={filterState}
           onChange={(e) => setFilterState(e.target.value)}
-          className="filter-chip bg-gray-900 border border-gray-800 text-white text-xs rounded-lg px-2.5 py-1.5 outline-none focus:border-[#F5821E]"
+          className="filter-chip surface border border-app text-app text-xs rounded-lg px-2.5 py-1.5 outline-none focus:border-[#F5821E]"
         >
           <option value="">All States</option>
           {uniqueStates.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -308,7 +308,7 @@ export default function HealthCenters() {
                 className={`text-sm leading-none rounded-md px-1.5 py-1 border transition-all ${
                   active
                     ? 'border-[#F5821E] ring-1 ring-[#F5821E] bg-[#F5821E]/10'
-                    : 'border-gray-800 bg-gray-900 opacity-50 hover:opacity-100'
+                    : 'border-app surface opacity-50 hover:opacity-100'
                 }`}
               >
                 {m.emoji}
@@ -320,7 +320,7 @@ export default function HealthCenters() {
         <button
           onClick={() => downloadCSV(filtered, `health-centers-${tab}.csv`)}
           disabled={filtered.length === 0}
-          className="flex items-center gap-1.5 text-xs font-medium text-gray-300 bg-gray-900 border border-gray-800 rounded-lg px-2.5 py-1.5 hover:border-[#F5821E] hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex items-center gap-1.5 text-xs font-medium text-dim surface border border-app rounded-lg px-2.5 py-1.5 hover:border-[#F5821E] hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <Download size={12} /> Export
         </button>
@@ -328,7 +328,7 @@ export default function HealthCenters() {
         {hasFilters && (
           <button
             onClick={() => { setTab('all'); setSearch(''); setFilterPlan(''); setFilterState(''); setActiveModules([]) }}
-            className="text-xs text-gray-400 hover:text-white underline"
+            className="text-xs text-dim hover:text-white underline"
           >
             Reset
           </button>
@@ -336,7 +336,7 @@ export default function HealthCenters() {
       </div>
 
       {/* Table */}
-      <div className="card-sm bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+      <div className="card-sm surface border border-app rounded-xl overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 size={28} className="animate-spin text-[#F5821E]" />
@@ -346,7 +346,7 @@ export default function HealthCenters() {
             <AlertCircle size={18} /><span className="text-sm">{error}</span>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-gray-500">
+          <div className="flex flex-col items-center justify-center py-16 text-faint">
             <Building2 size={32} className="mb-3 opacity-30" />
             <p className="text-sm">No Health Centers match your filters</p>
           </div>
@@ -354,7 +354,7 @@ export default function HealthCenters() {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-800 text-gray-500">
+                <tr className="border-b border-app text-faint">
                   <th className="th-sm w-8 px-3 py-2.5 text-left">
                     <input
                       type="checkbox"
@@ -374,14 +374,14 @@ export default function HealthCenters() {
                   <th className="th-sm w-6 px-3 py-2.5"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-800/50">
+              <tbody className="divide-y divide-[color:var(--border)]">
                 {filtered.map((c) => {
                   const isSel = selected.has(c.id)
                   return (
                     <tr
                       key={c.id}
                       onClick={() => navigate(`/clinics/${c.id}`)}
-                      className={`cursor-pointer transition-colors ${isSel ? 'bg-[#F5821E]/5' : 'hover:bg-gray-800/40'}`}
+                      className={`cursor-pointer transition-colors ${isSel ? 'bg-[#F5821E]/5' : 'hover-app'}`}
                     >
                       <td className="td-sm px-3 py-2.5" onClick={(e) => { e.stopPropagation(); toggleRow(c.id) }}>
                         <input
@@ -393,11 +393,11 @@ export default function HealthCenters() {
                         />
                       </td>
                       <td className="td-sm px-3 py-2.5">
-                        <div className="font-semibold text-white text-sm">{c.name}</div>
-                        <div className="text-[11px] text-gray-500">{c.specialty || 'Health Center'}</div>
+                        <div className="font-semibold text-app text-sm">{c.name}</div>
+                        <div className="text-[11px] text-faint">{c.specialty || 'Health Center'}</div>
                       </td>
                       <td className="td-sm px-3 py-2.5">
-                        <span className={`badge-xs capitalize ${STATUS_BADGE[c.status] || 'bg-gray-700 text-gray-400'}`}>
+                        <span className={`badge-xs capitalize ${STATUS_BADGE[c.status] || 'bg-gray-700 text-dim'}`}>
                           {c.status}
                         </span>
                       </td>
@@ -406,8 +406,8 @@ export default function HealthCenters() {
                           {c.plan || 'free'}
                         </span>
                       </td>
-                      <td className="td-sm px-3 py-2.5 text-center text-white font-semibold">{c.doctor_count ?? '—'}</td>
-                      <td className="td-sm px-3 py-2.5 text-center text-gray-400">{c.patient_count ?? '—'}</td>
+                      <td className="td-sm px-3 py-2.5 text-center text-app font-semibold">{c.doctor_count ?? '—'}</td>
+                      <td className="td-sm px-3 py-2.5 text-center text-dim">{c.patient_count ?? '—'}</td>
                       <td className="td-sm px-3 py-2.5 text-right text-emerald-400 font-semibold">{fmtMRR(c.monthly_bill)}</td>
                       <td className="td-sm px-3 py-2.5">
                         <div className="flex items-center gap-0.5 text-sm leading-none">
@@ -418,9 +418,9 @@ export default function HealthCenters() {
                           ))}
                         </div>
                       </td>
-                      <td className="td-sm px-3 py-2.5 text-gray-500 text-xs">{fmtDate(c.created_at)}</td>
+                      <td className="td-sm px-3 py-2.5 text-faint text-xs">{fmtDate(c.created_at)}</td>
                       <td className="td-sm px-3 py-2.5 text-right">
-                        <ChevronRight size={14} className="text-gray-600" />
+                        <ChevronRight size={14} className="text-faint" />
                       </td>
                     </tr>
                   )
@@ -434,8 +434,8 @@ export default function HealthCenters() {
       {/* Bulk action bar */}
       {selected.size > 0 && (
         <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50">
-          <div className="flex items-center gap-2 bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl px-3 py-2 text-xs">
-            <span className="text-white font-semibold flex items-center gap-1.5">
+          <div className="flex items-center gap-2 surface border border-app rounded-2xl shadow-2xl px-3 py-2 text-xs">
+            <span className="text-app font-semibold flex items-center gap-1.5">
               <Check size={13} className="text-[#F5821E]" />
               {selected.size} selected
             </span>
@@ -444,7 +444,7 @@ export default function HealthCenters() {
             <button
               onClick={bulkExtend}
               disabled={busy}
-              className="px-2.5 py-1 rounded-lg bg-gray-800 text-gray-200 hover:bg-gray-700 font-medium transition-colors disabled:opacity-40"
+              className="px-2.5 py-1 rounded-lg surface-2 text-app hover:bg-gray-700 font-medium transition-colors disabled:opacity-40"
             >
               Extend 30d
             </button>
@@ -453,17 +453,17 @@ export default function HealthCenters() {
               <button
                 onClick={() => setPlanMenuOpen((v) => !v)}
                 disabled={busy}
-                className="px-2.5 py-1 rounded-lg bg-gray-800 text-gray-200 hover:bg-gray-700 font-medium transition-colors disabled:opacity-40"
+                className="px-2.5 py-1 rounded-lg surface-2 text-app hover:bg-gray-700 font-medium transition-colors disabled:opacity-40"
               >
                 Change Plan ▾
               </button>
               {planMenuOpen && (
-                <div className="absolute bottom-full mb-1.5 left-0 bg-gray-900 border border-gray-700 rounded-lg shadow-xl overflow-hidden min-w-[120px]">
+                <div className="absolute bottom-full mb-1.5 left-0 surface border border-app rounded-lg shadow-xl overflow-hidden min-w-[120px]">
                   {PLAN_OPTIONS.map((p) => (
                     <button
                       key={p}
                       onClick={() => bulkChangePlan(p)}
-                      className="block w-full text-left px-3 py-1.5 text-gray-300 hover:bg-[#F5821E] hover:text-white capitalize transition-colors"
+                      className="block w-full text-left px-3 py-1.5 text-dim hover:bg-[#F5821E] hover:text-white capitalize transition-colors"
                     >
                       {p}
                     </button>
@@ -474,14 +474,14 @@ export default function HealthCenters() {
 
             <button
               onClick={() => downloadCSV(selectedRows, 'health-centers-selected.csv')}
-              className="px-2.5 py-1 rounded-lg bg-gray-800 text-gray-200 hover:bg-gray-700 font-medium transition-colors flex items-center gap-1"
+              className="px-2.5 py-1 rounded-lg surface-2 text-app hover:bg-gray-700 font-medium transition-colors flex items-center gap-1"
             >
               <Download size={12} /> Export CSV
             </button>
 
             <button
               onClick={clearSelection}
-              className="px-2 py-1 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 font-medium transition-colors flex items-center gap-1"
+              className="px-2 py-1 rounded-lg text-dim hover:text-white hover-app font-medium transition-colors flex items-center gap-1"
             >
               <X size={12} /> Clear
             </button>

@@ -132,9 +132,9 @@ function SavedReportsModal({ onClose, savedReports, onLoad, onDelete, onSaveCurr
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-md mx-4 overflow-hidden shadow-2xl">
+      <div className="surface border border-app rounded-2xl w-full max-w-md mx-4 overflow-hidden shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-app">
           <div className="flex items-center gap-2">
             <BookMarked size={16} className="text-[#F5821E]" />
             <span className="font-semibold text-white text-sm">Saved Reports</span>
@@ -146,7 +146,7 @@ function SavedReportsModal({ onClose, savedReports, onLoad, onDelete, onSaveCurr
 
         {/* Save current */}
         {canSave && (
-          <div className="px-5 py-3 border-b border-gray-800 bg-gray-800/30">
+          <div className="px-5 py-3 border-b border-app surface-2">
             <p className="text-xs text-gray-400 mb-2">Save current column selection as a named report</p>
             <div className="flex gap-2">
               <input
@@ -170,7 +170,7 @@ function SavedReportsModal({ onClose, savedReports, onLoad, onDelete, onSaveCurr
         )}
 
         {/* List */}
-        <div className="overflow-y-auto max-h-80 divide-y divide-gray-800">
+        <div className="overflow-y-auto max-h-80 divide-y divide-[color:var(--border)]">
           {savedReports.length === 0 ? (
             <div className="px-5 py-10 text-center">
               <BookMarked size={28} className="text-gray-700 mx-auto mb-2" />
@@ -179,7 +179,7 @@ function SavedReportsModal({ onClose, savedReports, onLoad, onDelete, onSaveCurr
             </div>
           ) : (
             savedReports.map(r => (
-              <div key={r.id} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-800/40 transition-colors">
+              <div key={r.id} className="flex items-center gap-3 px-5 py-3 hover-app transition-colors">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-white truncate">{r.name}</p>
                   <p className="text-[11px] text-gray-500 mt-0.5">
@@ -250,7 +250,7 @@ function TablePanel({ selectedColumns, onToggle }) {
   return (
     <div className="flex flex-col h-full">
       {/* Search — pinned at top */}
-      <div className="p-3 border-b border-gray-800 flex-shrink-0">
+      <div className="p-3 border-b border-app flex-shrink-0">
         <div className="relative">
           <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
           <input
@@ -258,7 +258,7 @@ function TablePanel({ selectedColumns, onToggle }) {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search tables & columns…"
-            className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded-lg pl-8 pr-7 py-1.5 outline-none focus:border-[#F5821E] transition-colors placeholder-gray-500"
+            className="w-full surface-2 border border-app text-white text-xs rounded-lg pl-8 pr-7 py-1.5 outline-none focus:border-[#F5821E] transition-colors placeholder-gray-500"
           />
           {search && (
             <button
@@ -289,11 +289,11 @@ function TablePanel({ selectedColumns, onToggle }) {
             const selCount = selectedCountFor(t.table)
 
             return (
-              <div key={t.table} className="border-b border-gray-800/50">
+              <div key={t.table} className="border-b border-app">
                 {/* Table header row */}
                 <button
                   type="button"
-                  className="w-full flex items-center gap-2 px-3 py-2 bg-gray-800/40 hover:bg-gray-800/70 transition-colors text-left"
+                  className="w-full flex items-center gap-2 px-3 py-2 surface-2 hover-app transition-colors text-left"
                   onClick={() => toggleExpand(t.table)}
                 >
                   {open
@@ -312,7 +312,7 @@ function TablePanel({ selectedColumns, onToggle }) {
 
                 {/* Column checkboxes */}
                 {open && (
-                  <div className="py-1 bg-gray-900/30">
+                  <div className="py-1 surface">
                     {t.columns.map(col => {
                       const selected = isColumnSelected(t.table, col)
                       const colMatchesSearch = q && col.includes(q)
@@ -324,8 +324,8 @@ function TablePanel({ selectedColumns, onToggle }) {
                             selected
                               ? 'bg-[#F5821E]/10 text-[#F5821E]'
                               : colMatchesSearch
-                              ? 'bg-yellow-500/5 text-yellow-200 hover:bg-gray-800/60'
-                              : 'text-gray-400 hover:bg-gray-800/50 hover:text-gray-200'
+                              ? 'bg-yellow-500/5 text-yellow-200 hover-app'
+                              : 'text-dim hover-app hover:text-gray-200'
                           }`}
                         >
                           <input
@@ -370,7 +370,7 @@ function DataGrid({ selectedColumns, reportData, loading, error, onRetry, onRemo
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
       {/* Selected columns chips header */}
-      <div className="flex-shrink-0 px-4 py-2.5 border-b border-gray-800 bg-gray-900/50">
+      <div className="flex-shrink-0 px-4 py-2.5 border-b border-app surface">
         <div className="flex items-start gap-3 flex-wrap">
           <div className="flex items-center gap-2 flex-shrink-0 pt-0.5">
             <span className="text-xs text-gray-400">
@@ -388,7 +388,7 @@ function DataGrid({ selectedColumns, reportData, loading, error, onRetry, onRemo
             {selectedColumns.map(c => (
               <span
                 key={colKey(c.table, c.column)}
-                className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-800 border border-gray-700 rounded-md text-[11px] text-gray-300"
+                className="inline-flex items-center gap-1 px-2 py-0.5 surface-2 border border-app rounded-md text-[11px] text-gray-300"
               >
                 <span className="text-gray-500">{c.table}.</span>
                 <span>{c.column}</span>
@@ -462,8 +462,8 @@ function DataGrid({ selectedColumns, reportData, loading, error, onRetry, onRemo
             )}
             <div className="overflow-auto flex-1">
             <table className="min-w-full text-sm">
-              <thead className="sticky top-0 z-10 bg-gray-900">
-                <tr className="border-b border-gray-800">
+              <thead className="sticky top-0 z-10 surface">
+                <tr className="border-b border-app">
                   {selectedColumns.map(c => (
                     <th key={colKey(c.table, c.column)} className="th whitespace-nowrap">
                       <span className="text-gray-600 font-normal">{c.table}.</span>
@@ -472,7 +472,7 @@ function DataGrid({ selectedColumns, reportData, loading, error, onRetry, onRemo
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-800/50">
+              <tbody className="divide-y divide-[color:var(--border)]">
                 {rows.map((row, i) => (
                   <tr key={i} className="tr-hover">
                     {selectedColumns.map(c => {
@@ -610,13 +610,13 @@ export default function Reports() {
 
   return (
     <div
-      className="flex flex-col bg-[#0a0f1e] text-gray-200 overflow-hidden"
+      className="flex flex-col surface text-gray-200 overflow-hidden"
       style={{ height: 'calc(100vh - 64px)' }}
     >
       {/* ================================================================ *
        * TOP FILTER BAR — pinned below page header                        *
        * ================================================================ */}
-      <div className="flex-shrink-0 flex items-center gap-3 px-4 py-2.5 border-b border-gray-800 bg-gray-900/80 backdrop-blur-sm flex-wrap">
+      <div className="flex-shrink-0 flex items-center gap-3 px-4 py-2.5 border-b border-app surface backdrop-blur-sm flex-wrap">
 
         {/* Date from */}
         <div className="flex items-center gap-1.5">
@@ -625,7 +625,7 @@ export default function Reports() {
             type="date"
             value={dateFrom}
             onChange={e => setDateFrom(e.target.value)}
-            className="bg-gray-800 border border-gray-700 text-white text-xs rounded-lg px-2.5 py-1.5 outline-none focus:border-[#F5821E] transition-colors"
+            className="surface-2 border border-app text-white text-xs rounded-lg px-2.5 py-1.5 outline-none focus:border-[#F5821E] transition-colors"
           />
         </div>
 
@@ -636,7 +636,7 @@ export default function Reports() {
             type="date"
             value={dateTo}
             onChange={e => setDateTo(e.target.value)}
-            className="bg-gray-800 border border-gray-700 text-white text-xs rounded-lg px-2.5 py-1.5 outline-none focus:border-[#F5821E] transition-colors"
+            className="surface-2 border border-app text-white text-xs rounded-lg px-2.5 py-1.5 outline-none focus:border-[#F5821E] transition-colors"
           />
         </div>
 
@@ -646,7 +646,7 @@ export default function Reports() {
           <select
             value={selectedClinicId}
             onChange={e => setSelectedClinicId(e.target.value)}
-            className="bg-gray-800 border border-gray-700 text-white text-xs rounded-lg px-2.5 py-1.5 outline-none focus:border-[#F5821E] transition-colors min-w-[160px] max-w-[220px]"
+            className="surface-2 border border-app text-white text-xs rounded-lg px-2.5 py-1.5 outline-none focus:border-[#F5821E] transition-colors min-w-[160px] max-w-[220px]"
           >
             <option value="">All centers</option>
             {clinics.map(c => (
@@ -661,7 +661,7 @@ export default function Reports() {
         <button
           type="button"
           onClick={() => setShowSavedModal(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 hover:text-white text-xs font-medium rounded-xl transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 surface-2 hover-app border border-app text-gray-300 hover:text-white text-xs font-medium rounded-xl transition-colors"
         >
           <BookMarked size={13} />
           Saved Reports
@@ -688,7 +688,7 @@ export default function Reports() {
           type="button"
           onClick={() => exportCsv(reportData?.rows || [], selectedColumns)}
           disabled={!reportData?.rows?.length}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed border border-gray-700 text-gray-300 hover:text-white text-xs font-medium rounded-xl transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 surface-2 hover-app disabled:opacity-40 disabled:cursor-not-allowed border border-app text-gray-300 hover:text-white text-xs font-medium rounded-xl transition-colors"
         >
           <Download size={13} />
           Export CSV
@@ -702,10 +702,10 @@ export default function Reports() {
 
         {/* ---- LEFT PANEL ---- */}
         <div
-          className="flex-shrink-0 flex flex-col bg-gray-900 border-r border-gray-800 overflow-hidden"
+          className="flex-shrink-0 flex flex-col surface border-r border-app overflow-hidden"
           style={{ width: '260px' }}
         >
-          <div className="px-3 py-2 border-b border-gray-800 flex-shrink-0 flex items-center justify-between">
+          <div className="px-3 py-2 border-b border-app flex-shrink-0 flex items-center justify-between">
             <p className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">Tables &amp; Columns</p>
             <Database size={12} className="text-gray-700" />
           </div>
@@ -715,7 +715,7 @@ export default function Reports() {
         </div>
 
         {/* ---- MIDDLE PANEL ---- */}
-        <div className="flex-1 min-w-0 flex flex-col bg-[#0a0f1e] overflow-hidden">
+        <div className="flex-1 min-w-0 flex flex-col surface overflow-hidden">
           <DataGrid
             selectedColumns={selectedColumns}
             reportData={reportData}
