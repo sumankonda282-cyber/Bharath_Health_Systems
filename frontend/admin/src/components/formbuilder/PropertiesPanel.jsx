@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   Type, AlignLeft, Hash, Calendar, Clock, CalendarClock, CircleDot,
   CheckSquare, ChevronDown, Star, Calculator, Stethoscope, FlaskConical,
@@ -7,6 +7,7 @@ import {
   Search, Users, Pill, BookOpen, AlertTriangle, Scissors,
   ToggleLeft, BarChart2, LayoutGrid, Sliders, Activity, Layers, Ban, Columns, MapPin,
 } from 'lucide-react'
+import api from '../../api/client'
 
 // ─── Field type icon map ──────────────────────────────────────────────────────
 
@@ -188,7 +189,13 @@ function GridSizeControl({ layout, onChange }) {
 
 // ─── Options Editor ───────────────────────────────────────────────────────────
 
-function OptionsEditor({ options = [], onChange, showScoreWeight = false }) {
+function OptionsEditor({ options = [], onChange, showScoreWeight = false, showTermSearch = false }) {
+  const [termSearchOpen, setTermSearchOpen] = useState(false)
+  function onOpenTermSearch() { setTermSearchOpen(true) }
+  function handleAddFromTerminology(opt) {
+    if (!options.some(o => o.value === opt.value)) onChange([...options, { ...opt, score_weight: 0 }])
+    setTermSearchOpen(false)
+  }
   function addOption() {
     onChange([...options, {
       label: 'Option ' + (options.length + 1),
@@ -260,16 +267,103 @@ function OptionsEditor({ options = [], onChange, showScoreWeight = false }) {
           </div>
         ))}
       </div>
-      <button
-        type="button"
-        onClick={addOption}
-        className="flex items-center gap-1 text-xs text-[#F5821E] hover:text-orange-300 transition-colors"
-      >
-        <Plus size={12} /> Add Option
-      </button>
+      <div className="flex items-center gap-2 flex-wrap">
+        <button
+          type="button"
+          onClick={addOption}
+          className="flex items-center gap-1 text-xs text-[#F5821E] hover:text-orange-300 transition-colors"
+        >
+          <Plus size={12} /> Add Option
+        </button>
+        {showTermSearch && (
+          <button
+            type="button"
+            onClick={onOpenTermSearch}
+            className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors"
+          >
+            <Search size={11} /> Search Terminology
+          </button>
+        )}
+      </div>
       {showScoreWeight && (
         <p className="text-xs text-gray-600 mt-1.5">Score column sets per-option weight for clinical scoring.</p>
       )}
+      {termSearchOpen && (
+        <TerminologySearchModal onAdd={handleAddFromTerminology} onClose={() => setTermSearchOpen(false)} />
+      )}
+    </div>
+  )
+}
+
+// ─── Terminology Search for Dropdown Options ──────────────────────────────────
+
+function TerminologySearchModal({ onAdd, onClose }) {
+  const [q, setQ] = useState('')
+  const [results, setResults] = useState([])
+  const [loading, setLoading] = useState(false)
+  const timerRef = useRef(null)
+
+  const search = useCallback((query) => {
+    if (!query.trim()) { setResults([]); return }
+    setLoading(true)
+    api.get('/terminology/search', { params: { q: query, limit: 30 } })
+      .then(r => setResults(Array.isArray(r) ? r : (r?.results || [])))
+      .catch(() => setResults([]))
+      .finally(() => setLoading(false))
+  }, [])
+
+  useEffect(() => {
+    clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => search(q), 300)
+    return () => clearTimeout(timerRef.current)
+  }, [q, search])
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      <div className="relative w-[480px] max-h-[80vh] bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-800">
+          <Search size={14} className="text-gray-400 flex-shrink-0" />
+          <input
+            autoFocus
+            className="flex-1 bg-transparent text-sm text-white placeholder-gray-500 focus:outline-none"
+            placeholder="Search symptoms, findings, procedures, anatomy…"
+            value={q}
+            onChange={e => setQ(e.target.value)}
+          />
+          <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors"><X size={16} /></button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-2">
+          {loading && <p className="text-xs text-gray-500 text-center py-4">Searching…</p>}
+          {!loading && results.length === 0 && q.trim() && (
+            <p className="text-xs text-gray-500 text-center py-4">No results for "{q}"</p>
+          )}
+          {!loading && results.length === 0 && !q.trim() && (
+            <p className="text-xs text-gray-600 text-center py-6">Type to search the medical terminology library.</p>
+          )}
+          {results.map((r, i) => {
+            const label = r.term || r.name || r.label || String(r)
+            const val = (r.code || label).toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 40)
+            const cat = r.category || r.type || ''
+            return (
+              <button
+                key={i}
+                onClick={() => onAdd({ label, value: val })}
+                className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-800 group transition-colors"
+              >
+                <div className="flex items-baseline gap-2">
+                  <span className="text-sm text-gray-200 group-hover:text-white flex-1">{label}</span>
+                  {cat && <span className="text-[10px] text-gray-500 flex-shrink-0">{cat}</span>}
+                </div>
+                {r.code && <span className="text-[10px] font-mono text-blue-500">{r.code}</span>}
+              </button>
+            )
+          })}
+        </div>
+        <div className="px-4 py-2 border-t border-gray-800 text-[10px] text-gray-600">
+          Powered by BHS medical terms · click a result to add it as an option
+        </div>
+      </div>
     </div>
   )
 }
@@ -597,14 +691,35 @@ function ConditionsEditor({ conditions = [], conditionLogic = 'AND', allFields =
                 <option key={op.value} value={op.value}>{op.label}</option>
               ))}
             </select>
-            {!['is_empty', 'is_not_empty'].includes(cond.operator) && (
-              <input
-                className={inputCls + ' text-xs'}
-                value={cond.value || ''}
-                onChange={e => updateCondition(i, 'value', e.target.value)}
-                placeholder="value…"
-              />
-            )}
+            {!['is_empty', 'is_not_empty'].includes(cond.operator) && (() => {
+              const parentField = allFields.find(({ field: f }) => f.field_id === cond.field_id)?.field
+              const isChoice = parentField && ['radio', 'dropdown', 'yes_no', 'checkbox'].includes(parentField.type)
+              if (isChoice) {
+                const opts = parentField.type === 'yes_no'
+                  ? [{ value: 'yes', label: parentField.yes_label || 'Yes' }, { value: 'no', label: parentField.no_label || 'No' }]
+                  : (parentField.options || [])
+                return (
+                  <select
+                    className={selectCls + ' text-xs'}
+                    value={cond.value || ''}
+                    onChange={e => updateCondition(i, 'value', e.target.value)}
+                  >
+                    <option value="">— select value —</option>
+                    {opts.map(o => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                )
+              }
+              return (
+                <input
+                  className={inputCls + ' text-xs'}
+                  value={cond.value || ''}
+                  onChange={e => updateCondition(i, 'value', e.target.value)}
+                  placeholder="value…"
+                />
+              )
+            })()}
           </div>
         ))}
       </div>
@@ -779,8 +894,23 @@ function TypeSpecificProps({ field, sectionId, dispatch, allFields }) {
             options={field.options || []}
             onChange={opts => set('options', opts)}
             showScoreWeight
+            showTermSearch={type === 'dropdown'}
           />
         </PropRow>
+        {type === 'dropdown' && (
+          <div className="bg-gray-800/40 border border-gray-700/50 rounded-lg p-2.5 space-y-2 mb-3">
+            <Toggle
+              value={field.searchable !== false}
+              onChange={v => set('searchable', v)}
+              label="Searchable (type to filter options)"
+            />
+            <Toggle
+              value={!!field.multi_select}
+              onChange={v => set('multi_select', v)}
+              label="Multi-select (allow multiple answers)"
+            />
+          </div>
+        )}
         {(type === 'radio' || type === 'checkbox') && (
           <PropRow label="Display Style">
             <BtnGroup
@@ -1477,12 +1607,16 @@ function FieldProperties({ field, sectionId, sectionLayout, dispatch, allFields 
             <PropRow label="Label">
               <input className={inputCls} value={field.label || ''} onChange={e => set('label', e.target.value)} placeholder="Field label shown to users" />
             </PropRow>
-            <PropRow label="Field ID">
+            <PropRow label="Field ID" hint="Permanent identity — frozen once any submission uses it. Change only before first use.">
               <input
-                className="w-full bg-gray-800/50 border border-gray-700/50 rounded-lg px-3 py-1.5 text-xs text-gray-500 font-mono focus:outline-none cursor-not-allowed"
+                className="w-full bg-gray-800/50 border border-gray-600 rounded-lg px-3 py-1.5 text-xs text-blue-300 font-mono focus:outline-none focus:border-blue-500 transition-colors"
                 value={field.field_id || ''}
-                readOnly
-                title="Auto-generated from label"
+                onChange={e => {
+                  const raw = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/^_/, '').slice(0, 60)
+                  set('field_id', raw)
+                }}
+                spellCheck={false}
+                title="Editable — auto-generated from label. Frozen after first submission."
               />
             </PropRow>
             <PropRow label="Help Text">
@@ -1507,6 +1641,12 @@ function FieldProperties({ field, sectionId, sectionLayout, dispatch, allFields 
                 <Toggle value={field.hidden || false} onChange={v => set('hidden', v)} />
                 <span className="text-sm text-gray-300 flex items-center gap-1.5">
                   <EyeOff size={12} className="text-gray-400" /> Hidden by default
+                </span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer select-none" title="Stored in submission for audit but not shown in patient chart">
+                <Toggle value={!!field.chart_excluded} onChange={v => set('chart_excluded', v)} />
+                <span className="text-sm text-gray-300 flex items-center gap-1.5">
+                  <Eye size={12} className="text-gray-500 line-through" /> Chart-excluded
                 </span>
               </label>
             </div>

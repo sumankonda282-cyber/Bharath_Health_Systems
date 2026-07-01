@@ -407,7 +407,12 @@ function reducer(state, action) {
                 fields: s.fields.map(f => {
                   if (f.id !== fieldId) return f
                   const updated = { ...f, [key]: value }
-                  if (key === 'label') updated.field_id = labelToId(value)
+                  // Auto-derive field_id from label only when the field_id is still the
+                  // default "new_field" — once a user has explicitly set a custom field_id,
+                  // label changes should not overwrite it.
+                  if (key === 'label' && (!f.field_id || f.field_id === 'new_field' || f.field_id === labelToId(f.label || ''))) {
+                    updated.field_id = labelToId(value)
+                  }
                   return updated
                 }),
               }
