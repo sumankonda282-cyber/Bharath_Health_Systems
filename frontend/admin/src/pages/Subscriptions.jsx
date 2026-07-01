@@ -308,7 +308,7 @@ function ChangePlanModal({ clinic, planConfig, onClose, onSaved, addToast }) {
         <form onSubmit={submit} className="p-6">
           <div className="space-y-2 mb-5">
             {plans.map(([key, plan]) => (
-              <label key={key} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${selected === key ? 'border-[#F5821E] bg-[#F5821E0D]' : 'border-app bg-gray-800/30 hover:border-gray-600'}`}
+              <label key={key} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${selected === key ? 'border-[#F5821E] bg-[#F5821E0D]' : 'border-app surface-2 hover:border-gray-600'}`}
                 onClick={() => setSelected(key)}>
                 <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${selected === key ? 'border-[#F5821E]' : 'border-gray-600'}`}>
                   {selected === key && <div className="w-2 h-2 rounded-full bg-[#F5821E]" />}
@@ -997,7 +997,7 @@ export default function Subscriptions() {
                   <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search health centers…"
                     className="surface border border-app text-app text-xs rounded-lg pl-7 pr-7 py-1.5 outline-none focus:border-[#F5821E] w-44 transition-colors placeholder-gray-500" />
                   {search && (
-                    <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-app">
+                    <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-faint hover:text-app">
                       <X size={10} />
                     </button>
                   )}
@@ -1014,7 +1014,7 @@ export default function Subscriptions() {
                 </select>
                 {(search || filterPlan || filterStatus) && (
                   <button onClick={() => { setSearch(''); setFilterPlan(''); setFilterStatus('') }}
-                    className="text-xs text-gray-400 hover:text-app underline">Clear</button>
+                    className="text-xs text-dim hover:text-app underline">Clear</button>
                 )}
                 <span className="text-xs text-faint ml-auto">{filtered.length} of {clinics.length}</span>
               </div>
@@ -1074,9 +1074,9 @@ export default function Subscriptions() {
                               <td className="px-3 py-3">
                                 <div className="flex gap-1 flex-wrap">
                                   {modules.slice(0, 3).map(m => (
-                                    <span key={m} className="text-[9px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-400">{m}</span>
+                                    <span key={m} className="text-[9px] px-1.5 py-0.5 rounded surface-2 text-dim">{m}</span>
                                   ))}
-                                  {modules.length > 3 && <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-500">+{modules.length - 3}</span>}
+                                  {modules.length > 3 && <span className="text-[9px] px-1.5 py-0.5 rounded surface-2 text-faint">+{modules.length - 3}</span>}
                                 </div>
                               </td>
                             </tr>
