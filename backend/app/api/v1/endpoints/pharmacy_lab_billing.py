@@ -699,9 +699,14 @@ def get_invoice(inv_id: int, db: Session = Depends(get_db), current: Staff = Dep
     }
 
 
+class PayRequest(BaseModel):
+    amount: Optional[float] = None        # defaults to the full invoice total
+    payment_method: str
+
+
 @billing_router.post("/invoices/{inv_id}/pay")
 def record_payment(
-    inv_id: int, amount: float, payment_method: str,
+    inv_id: int, body: PayRequest,
     db: Session = Depends(get_db), current: Staff = Depends(get_current_staff),
 ):
     inv = db.query(Invoice).filter(
@@ -709,8 +714,8 @@ def record_payment(
     ).first()
     if not inv:
         raise HTTPException(status_code=404, detail="Not found")
-    inv.amount_paid = Decimal(str(amount))
-    inv.payment_method = payment_method
+    inv.amount_paid = Decimal(str(body.amount)) if body.amount is not None else inv.total
+    inv.payment_method = body.payment_method
     inv.status = 'paid' if inv.amount_paid >= inv.total else 'partially_paid'
     if inv.status == 'paid':
         inv.paid_at = datetime.utcnow()
@@ -877,8 +882,11 @@ def list_lab_orders(
                 "result":          item.result_value,
                 "result_value":    item.result_value,
                 "result_notes":    item.result_notes,
-                "reference_range": test.normal_range if test else None,
-                "unit":            test.unit if test else None,
+                # Prefer the stored per-result value over the catalogue default, so a
+                # manually-entered range/unit survives reload/print (mirrors single-GET).
+                "reference_range": item.reference_range or (test.normal_range if test else None),
+                "unit":            item.unit or (test.unit if test else None),
+                "flag":            item.flag,
                 "is_abnormal":     item.is_abnormal,
                 "completed_at":    str(item.completed_at) if item.completed_at else None,
             })

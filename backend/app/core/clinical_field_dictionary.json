@@ -1,0 +1,199 @@
+{
+  "version": 1,
+  "description": "Canonical clinical data dictionary. One concept = one field_id, no matter which portal captures it or what label it shows. 'labels' are human synonyms (patient app 'BP', reception 'Blood Pressure', provider 'Systolic'); 'aliases' are legacy/storage keys that must resolve to this canonical field_id. Every capture point binds to a field_id here; the resolver maps any label/alias to the one canonical key so data written anywhere lands in one place and is retrieved without confusion.",
+  "concepts": {
+    "blood_pressure": {
+      "group": "vitals", "type": "bp", "unit": "mmHg",
+      "code": "85354-9", "code_system": "LOINC",
+      "labels": ["BP", "Blood Pressure", "Blood Pressure (Sys/Dia)"],
+      "aliases": [],
+      "components": ["blood_pressure_systolic", "blood_pressure_diastolic"],
+      "note": "Composite panel — a paired reading (e.g. 120/80). Decomposes into the two component field_ids; never store a single number here."
+    },
+    "blood_pressure_systolic": {
+      "group": "vitals", "type": "number", "unit": "mmHg",
+      "code": "8480-6", "code_system": "LOINC",
+      "labels": ["Systolic", "SBP", "Systolic BP"],
+      "aliases": ["bp_systolic"]
+    },
+    "blood_pressure_diastolic": {
+      "group": "vitals", "type": "number", "unit": "mmHg",
+      "code": "8462-4", "code_system": "LOINC",
+      "labels": ["Diastolic", "DBP", "Diastolic BP"],
+      "aliases": ["bp_diastolic"]
+    },
+    "pulse": {
+      "group": "vitals", "type": "number", "unit": "bpm",
+      "code": "8867-4", "code_system": "LOINC",
+      "labels": ["Pulse", "Heart Rate", "HR", "PR"],
+      "aliases": ["pulse_rate", "heart_rate"]
+    },
+    "respiratory_rate": {
+      "group": "vitals", "type": "number", "unit": "breaths/min",
+      "code": "9279-1", "code_system": "LOINC",
+      "labels": ["RR", "Respiratory Rate", "Respiration"],
+      "aliases": ["respiration_rate"]
+    },
+    "spo2": {
+      "group": "vitals", "type": "number", "unit": "%",
+      "code": "59408-5", "code_system": "LOINC",
+      "labels": ["SpO2", "Oxygen Saturation", "O2 Sat"],
+      "aliases": ["oxygen_saturation"]
+    },
+    "temperature": {
+      "group": "vitals", "type": "number", "unit": "°C",
+      "code": "8310-5", "code_system": "LOINC",
+      "labels": ["Temp", "Temperature", "Body Temperature"],
+      "aliases": []
+    },
+    "weight": {
+      "group": "vitals", "type": "number", "unit": "kg",
+      "code": "29463-7", "code_system": "LOINC",
+      "labels": ["Weight", "Wt", "Body Weight"],
+      "aliases": ["weight_kg"]
+    },
+    "height": {
+      "group": "vitals", "type": "number", "unit": "cm",
+      "code": "8302-2", "code_system": "LOINC",
+      "labels": ["Height", "Ht", "Body Height"],
+      "aliases": ["height_cm"]
+    },
+    "blood_sugar": {
+      "group": "vitals", "type": "number", "unit": "mg/dL",
+      "code": "2339-0", "code_system": "LOINC",
+      "labels": ["Blood Sugar", "Blood Glucose", "RBS", "Sugar"],
+      "aliases": ["sugar"]
+    },
+    "pain_score": {
+      "group": "vitals", "type": "number", "unit": "0-10",
+      "code": "72514-3", "code_system": "LOINC",
+      "labels": ["Pain Score", "Pain Severity"],
+      "aliases": []
+    },
+    "allergies": {
+      "group": "history", "type": "text", "unit": null,
+      "labels": ["Allergies", "Known Allergies", "Drug Allergies"],
+      "aliases": []
+    },
+    "allergies_coded": {
+      "group": "history", "type": "json", "unit": null,
+      "labels": ["Coded Allergies", "Allergy List"],
+      "aliases": []
+    },
+    "chief_complaint": {
+      "group": "soap_subjective", "type": "text", "unit": null,
+      "labels": ["Chief Complaint", "Presenting Complaint", "CC", "Reason for Visit"],
+      "aliases": ["reason", "reason_for_visit", "triage_complaint"]
+    },
+    "subjective": {
+      "group": "soap", "type": "text", "unit": null,
+      "labels": ["Subjective", "S", "History"],
+      "aliases": []
+    },
+    "objective": {
+      "group": "soap", "type": "text", "unit": null,
+      "labels": ["Objective", "O", "Examination"],
+      "aliases": []
+    },
+    "assessment": {
+      "group": "soap", "type": "text", "unit": null,
+      "labels": ["Assessment", "A", "Diagnosis"],
+      "aliases": []
+    },
+    "plan": {
+      "group": "soap", "type": "text", "unit": null,
+      "labels": ["Plan", "P", "Treatment Plan"],
+      "aliases": []
+    },
+    "counselling": {
+      "group": "soap", "type": "text", "unit": null,
+      "labels": ["Counselling", "Patient Counselling", "Advice"],
+      "aliases": []
+    },
+    "follow_up_days": {
+      "group": "soap", "type": "number", "unit": "days",
+      "labels": ["Follow-up", "Review in", "Follow-up (days)"],
+      "aliases": []
+    },
+    "medicine_name": {
+      "group": "prescription", "type": "text", "unit": null,
+      "labels": ["Drug", "Medicine", "Medication", "Drug Name"],
+      "aliases": ["drug_name"]
+    },
+    "dosage": {
+      "group": "prescription", "type": "text", "unit": null,
+      "labels": ["Dose", "Dosage", "Strength"],
+      "aliases": ["dose"]
+    },
+    "frequency": {
+      "group": "prescription", "type": "text", "unit": null,
+      "labels": ["Frequency", "Freq"],
+      "aliases": []
+    },
+    "duration": {
+      "group": "prescription", "type": "text", "unit": null,
+      "labels": ["Duration", "For"],
+      "aliases": []
+    },
+    "route": {
+      "group": "prescription", "type": "text", "unit": null,
+      "labels": ["Route", "Via"],
+      "aliases": []
+    },
+    "instructions": {
+      "group": "prescription", "type": "text", "unit": null,
+      "labels": ["Instructions", "Directions", "Sig"],
+      "aliases": []
+    },
+    "result_value": {
+      "group": "lab_result", "type": "text", "unit": null,
+      "labels": ["Result", "Value", "Result Value"],
+      "aliases": ["result"]
+    },
+    "unit": {
+      "group": "lab_result", "type": "text", "unit": null,
+      "labels": ["Unit", "Units"],
+      "aliases": []
+    },
+    "reference_range": {
+      "group": "lab_result", "type": "text", "unit": null,
+      "labels": ["Reference Range", "Normal Range", "Ref Range"],
+      "aliases": ["normal_range"]
+    },
+    "flag": {
+      "group": "lab_result", "type": "text", "unit": null,
+      "labels": ["Flag", "H/L"],
+      "aliases": []
+    },
+    "is_abnormal": {
+      "group": "lab_result", "type": "boolean", "unit": null,
+      "labels": ["Abnormal"],
+      "aliases": []
+    },
+    "result_notes": {
+      "group": "lab_result", "type": "text", "unit": null,
+      "labels": ["Result Notes", "Lab Notes"],
+      "aliases": []
+    },
+    "procedure_name": {
+      "group": "imaging_order", "type": "text", "unit": null,
+      "labels": ["Procedure", "Study", "Study Description"],
+      "aliases": ["study_description"]
+    },
+    "modality": {
+      "group": "imaging_order", "type": "text", "unit": null,
+      "labels": ["Modality"],
+      "aliases": []
+    },
+    "findings": {
+      "group": "imaging_result", "type": "text", "unit": null,
+      "labels": ["Findings", "Report"],
+      "aliases": ["report"]
+    },
+    "impression": {
+      "group": "imaging_result", "type": "text", "unit": null,
+      "labels": ["Impression", "Conclusion"],
+      "aliases": []
+    }
+  }
+}

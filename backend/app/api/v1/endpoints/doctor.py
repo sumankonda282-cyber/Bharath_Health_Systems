@@ -671,6 +671,7 @@ def save_encounter_draft(
         lo = db.query(LabOrder).filter(LabOrder.appointment_id == appointment_id).first()
         if not lo:
             lo = LabOrder(
+                order_id=ids.next_lab_order_no(db, appt.clinic_id),  # required (unique, NOT NULL)
                 clinic_id=appt.clinic_id, branch_id=current.branch_id, patient_id=appt.patient_id,
                 appointment_id=appointment_id, ordered_by=current.id,
             )

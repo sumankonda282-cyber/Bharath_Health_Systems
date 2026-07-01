@@ -2202,6 +2202,31 @@ class AssessmentForm(Base):
     updated_at         = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
+class ClinicalFieldDefinition(Base):
+    """Canonical clinical data dictionary — ONE concept = one field_id, shared by every
+    portal and the admin form builder. labels = the human wordings ('BP', 'Blood
+    Pressure', 'Systolic') a builder can pick from; aliases = legacy/storage keys that
+    must resolve to this field_id. Whatever label a form shows, data is captured under
+    the canonical field_id, so it lands in one place per patient and retrieves cleanly.
+    Platform-managed (clinic_id NULL = global); clinic_id set = a clinic's custom field.
+    Seeded from clinical_field_dictionary.json; extendable via the admin portal."""
+    __tablename__ = "clinical_field_definitions"
+    id         = Column(Integer, primary_key=True, index=True)
+    field_id   = Column(String(80), nullable=False, index=True)   # canonical key
+    clinic_id  = Column(Integer, ForeignKey("clinics.id"), nullable=True, index=True)
+    group      = Column(String(50), nullable=True)                # vitals / soap / lab_result …
+    data_type  = Column(String(20), nullable=True)                # number / text / json / boolean / bp
+    unit       = Column(String(30), nullable=True)
+    code       = Column(String(40), nullable=True)                # standard code, e.g. LOINC 8480-6
+    code_system= Column(String(20), nullable=True)                # LOINC / SNOMED …
+    labels     = Column(JSON, default=list)                       # ["Systolic","SBP"] — wordings only
+    aliases    = Column(JSON, default=list)                       # legacy keys → this field_id
+    components = Column(JSON, default=list)                        # composite → component field_ids
+    is_active  = Column(Boolean, default=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
 class AssessmentFormAudit(Base):
     """Append-only audit trail for assessment-form lifecycle: created / edited / published /
     retired / deleted / restored. Drives the admin 'who deleted/edited what, when' view."""
