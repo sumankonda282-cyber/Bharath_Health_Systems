@@ -771,6 +771,7 @@ for _sql in [
     \"CREATE INDEX IF NOT EXISTS ix_prescriptions_source_submission_id ON prescriptions(source_submission_id)\",
     \"ALTER TABLE prescription_items ADD COLUMN IF NOT EXISTS is_refill BOOLEAN DEFAULT FALSE\",
     \"ALTER TABLE prescription_items ADD COLUMN IF NOT EXISTS route VARCHAR(50)\",
+    \"ALTER TABLE lab_order_items ADD COLUMN IF NOT EXISTS order_note TEXT\",
     \"ALTER TABLE lab_orders ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id)\",
     \"ALTER TABLE imaging_orders ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id)\",
     \"ALTER TABLE encounter_access_logs ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id)\",

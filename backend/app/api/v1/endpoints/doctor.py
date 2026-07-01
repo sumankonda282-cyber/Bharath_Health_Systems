@@ -235,7 +235,7 @@ def get_encounter(
             {
                 "id":     lo.id,
                 "status": lo.status,
-                "items":  [{"test_name": i.test_name, "result_value": i.result_value, "is_abnormal": i.is_abnormal} for i in lo.items]
+                "items":  [{"test_name": i.test_name, "notes": i.order_note, "result_value": i.result_value, "is_abnormal": i.is_abnormal} for i in lo.items]
             } for lo in appt.lab_orders
         ],
         "imaging_orders": [
@@ -323,7 +323,8 @@ def complete_encounter(
             for t in tests:
                 test_name = (t.get("test_name") or "").strip()
                 if test_name:
-                    db.add(LabOrderItem(order_id=lo.id, test_name=test_name))
+                    db.add(LabOrderItem(order_id=lo.id, test_name=test_name,
+                                        order_note=(t.get("notes") or None)))
 
     _persist_imaging_orders(db, appt, current, body.get("imaging") or [])
 
@@ -681,7 +682,8 @@ def save_encounter_draft(
         for t in lab_tests:
             test_name = (t.get("test_name") or "").strip()
             if test_name:
-                db.add(LabOrderItem(order_id=lo.id, test_name=test_name))
+                db.add(LabOrderItem(order_id=lo.id, test_name=test_name,
+                                    order_note=(t.get("notes") or None)))
 
     _persist_imaging_orders(db, appt, current, body.get("imaging") or [])
 

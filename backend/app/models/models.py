@@ -860,6 +860,7 @@ class LabOrderItem(Base):
     order_id        = Column(Integer, ForeignKey("lab_orders.id"), nullable=False)
     test_id         = Column(Integer, ForeignKey("lab_tests.id"), nullable=True)
     test_name       = Column(String(200), nullable=True)
+    order_note      = Column(Text, nullable=True)   # ordering doctor's per-test note (e.g. "fasting sample")
     result_value    = Column(Text, nullable=True)
     result_notes    = Column(Text, nullable=True)
     reference_range = Column(String(100), nullable=True)   # resolved range used for flagging
