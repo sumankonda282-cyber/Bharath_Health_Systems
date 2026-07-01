@@ -138,13 +138,33 @@ export function getCompletionPct(sections, values) {
 function FieldLabel({ field }) {
   const { lang, translations } = React.useContext(LangContext)
   return (
-    <label className="block text-sm font-medium text-gray-700 mb-1">
+    <label className="block text-sm font-semibold text-slate-700 mb-1">
       {getLabel(field, lang, translations)}
       {field.required && <span className="text-red-500 ml-1">*</span>}
       {field.help_text && (
-        <span className="ml-2 text-xs text-gray-400 font-normal">{field.help_text}</span>
+        <span className="ml-2 text-xs text-slate-400 font-normal">{field.help_text}</span>
       )}
     </label>
+  )
+}
+
+// Compact fields render the label on the LEFT and the control on the RIGHT so a
+// row of short inputs (vitals, etc.) stays dense and scannable. Readable slate
+// label — never a light-grey/low-visibility colour.
+function CompactField({ field, error, refStatus, children }) {
+  const { lang, translations } = React.useContext(LangContext)
+  return (
+    <div className="flex items-baseline gap-2.5 min-w-0">
+      <label className="shrink-0 w-24 text-[13px] font-semibold text-slate-600 leading-snug">
+        {getLabel(field, lang, translations)}
+        {field.required && <span className="text-red-500 ml-0.5">*</span>}
+      </label>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">{children}</div>
+        {refStatus && <ReferenceIndicator refStatus={refStatus} />}
+        <FieldError error={error} />
+      </div>
+    </div>
   )
 }
 
@@ -172,15 +192,14 @@ function ReferenceIndicator({ refStatus }) {
   )
 }
 
-const INPUT_CLS = 'w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-[#0F2557]/20 focus:border-[#0F2557] outline-none transition'
+const INPUT_CLS = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 placeholder-slate-400 bg-white focus:ring-2 focus:ring-[#0F2557]/20 focus:border-[#0F2557] outline-none transition'
 const INPUT_ERROR_CLS = 'border-red-400 focus:ring-red-200 focus:border-red-500'
 
 function TextField({ field, value, onChange, error }) {
   const dictation = field.enable_dictation !== false
   return (
-    <div>
-      <FieldLabel field={field} />
-      <div className="relative">
+    <CompactField field={field} error={error}>
+      <div className="relative flex-1 min-w-0">
         <input
           type="text"
           value={value || ''}
@@ -196,8 +215,7 @@ function TextField({ field, value, onChange, error }) {
           />
         )}
       </div>
-      <FieldError error={error} />
-    </div>
+    </CompactField>
   )
 }
 
@@ -235,66 +253,55 @@ function TextAreaField({ field, value, onChange, error }) {
 function NumberField({ field, value, onChange, error }) {
   const refStatus = getReferenceStatus(value, field)
   return (
-    <div>
-      <FieldLabel field={field} />
-      <div className="flex items-center gap-2">
-        <input
-          type="number"
-          value={value ?? ''}
-          onChange={e => {
-            let v = e.target.value
-            if (v === '') return onChange('')
-            let n = Number(v)
-            if (!isNaN(n)) {
-              if (field.min != null && n < field.min) n = field.min
-              if (field.max != null && n > field.max) n = field.max
-              v = String(n)
-            }
-            onChange(v)
-          }}
-          min={field.min}
-          max={field.max}
-          step={field.step || 'any'}
-          placeholder={field.placeholder}
-          className={`${INPUT_CLS} ${error ? INPUT_ERROR_CLS : ''}`}
-        />
-        {field.unit && (
-          <span className="shrink-0 text-sm text-gray-500 font-medium">{field.unit}</span>
-        )}
-      </div>
-      <ReferenceIndicator refStatus={refStatus} />
-      <FieldError error={error} />
-    </div>
+    <CompactField field={field} error={error} refStatus={refStatus}>
+      <input
+        type="number"
+        value={value ?? ''}
+        onChange={e => {
+          let v = e.target.value
+          if (v === '') return onChange('')
+          let n = Number(v)
+          if (!isNaN(n)) {
+            if (field.min != null && n < field.min) n = field.min
+            if (field.max != null && n > field.max) n = field.max
+            v = String(n)
+          }
+          onChange(v)
+        }}
+        min={field.min}
+        max={field.max}
+        step={field.step || 'any'}
+        placeholder={field.placeholder}
+        className={`${INPUT_CLS} max-w-[140px] ${error ? INPUT_ERROR_CLS : ''}`}
+      />
+      {field.unit && (
+        <span className="shrink-0 text-sm text-slate-500 font-medium">{field.unit}</span>
+      )}
+    </CompactField>
   )
 }
 
 function DateField({ field, value, onChange, error }) {
   return (
-    <div>
-      <FieldLabel field={field} />
-      <input type="date" value={value || ''} onChange={e => onChange(e.target.value)} className={`${INPUT_CLS} ${error ? INPUT_ERROR_CLS : ''}`} />
-      <FieldError error={error} />
-    </div>
+    <CompactField field={field} error={error}>
+      <input type="date" value={value || ''} onChange={e => onChange(e.target.value)} className={`${INPUT_CLS} max-w-[180px] ${error ? INPUT_ERROR_CLS : ''}`} />
+    </CompactField>
   )
 }
 
 function TimeField({ field, value, onChange, error }) {
   return (
-    <div>
-      <FieldLabel field={field} />
-      <input type="time" value={value || ''} onChange={e => onChange(e.target.value)} className={`${INPUT_CLS} ${error ? INPUT_ERROR_CLS : ''}`} />
-      <FieldError error={error} />
-    </div>
+    <CompactField field={field} error={error}>
+      <input type="time" value={value || ''} onChange={e => onChange(e.target.value)} className={`${INPUT_CLS} max-w-[140px] ${error ? INPUT_ERROR_CLS : ''}`} />
+    </CompactField>
   )
 }
 
 function DateTimeField({ field, value, onChange, error }) {
   return (
-    <div>
-      <FieldLabel field={field} />
-      <input type="datetime-local" value={value || ''} onChange={e => onChange(e.target.value)} className={`${INPUT_CLS} ${error ? INPUT_ERROR_CLS : ''}`} />
-      <FieldError error={error} />
-    </div>
+    <CompactField field={field} error={error}>
+      <input type="datetime-local" value={value || ''} onChange={e => onChange(e.target.value)} className={`${INPUT_CLS} max-w-[220px] ${error ? INPUT_ERROR_CLS : ''}`} />
+    </CompactField>
   )
 }
 
@@ -411,12 +418,11 @@ function CheckboxField({ field, value, onChange, error }) {
 
 function DropdownField({ field, value, onChange, error }) {
   return (
-    <div>
-      <FieldLabel field={field} />
+    <CompactField field={field} error={error}>
       <select
         value={value || ''}
         onChange={e => onChange(e.target.value)}
-        className={`${INPUT_CLS} bg-white ${error ? INPUT_ERROR_CLS : ''}`}
+        className={`${INPUT_CLS} bg-white max-w-[200px] ${error ? INPUT_ERROR_CLS : ''}`}
       >
         <option value="">Select...</option>
         {(field.options || []).map(opt => {
@@ -425,8 +431,7 @@ function DropdownField({ field, value, onChange, error }) {
           return <option key={optVal} value={optVal}>{optLabel}</option>
         })}
       </select>
-      <FieldError error={error} />
-    </div>
+    </CompactField>
   )
 }
 

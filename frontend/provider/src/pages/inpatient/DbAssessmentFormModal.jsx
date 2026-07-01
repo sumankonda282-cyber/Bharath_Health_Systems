@@ -257,26 +257,37 @@ export default function DbAssessmentFormModal({ form, patientId, admissionId, en
       style={isInline ? undefined : { width: '70vw', height: '80vh', maxWidth: 1100 }}
     >
 
-        {/* Header */}
-        <div className="flex-shrink-0 flex items-center justify-between px-6 py-3.5 border-b shadow-sm"
+        {/* Header — single row: form name · patient, with completion + close */}
+        <div className="flex-shrink-0 relative border-b shadow-sm"
           style={{ background: NAVY, borderColor: '#1e3a6e' }}>
-          <div className="flex flex-col gap-0.5 min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-blue-300">Assessment Form</span>
-            <span className="text-lg font-extrabold text-white leading-tight truncate">{title}</span>
-            {patientName && <span className="text-[11px] text-blue-200 truncate">Patient: {patientName}</span>}
+          <div className="flex items-center justify-between gap-4 px-6 py-3">
+            <div className="flex items-baseline gap-2 min-w-0">
+              <span className="text-base font-extrabold text-white leading-tight truncate">{title}</span>
+              {patientName && (
+                <span className="text-[13px] text-blue-200 truncate before:content-['·'] before:mr-2 before:text-blue-400">
+                  {patientName}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-3 flex-shrink-0">
+              {!loading && !loadError && !submitted && (
+                <span className="hidden sm:flex items-center text-[11px] font-semibold px-2.5 py-1 rounded-lg"
+                  style={{ background: '#1e3a6e', color: '#bfdbfe' }}>
+                  {completionPct}% complete
+                </span>
+              )}
+              <button onClick={onClose}
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-blue-300 hover:text-white hover:bg-white/10 transition-colors">
+                <X size={18} />
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-3 flex-shrink-0">
-            {!loading && !loadError && !submitted && (
-              <span className="hidden sm:flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-lg"
-                style={{ background: '#1e3a6e', color: '#bfdbfe' }}>
-                {completionPct}% complete
-              </span>
-            )}
-            <button onClick={onClose}
-              className="w-8 h-8 flex items-center justify-center rounded-lg text-blue-300 hover:text-white hover:bg-white/10 transition-colors">
-              <X size={18} />
-            </button>
-          </div>
+          {/* Thin progress bar */}
+          {!loading && !loadError && !submitted && (
+            <div className="absolute bottom-0 left-0 h-[3px] bg-white/15 w-full">
+              <div className="h-full transition-all duration-300" style={{ width: `${completionPct}%`, background: '#34d399' }} />
+            </div>
+          )}
         </div>
 
         {/* Body */}
@@ -333,23 +344,10 @@ export default function DbAssessmentFormModal({ form, patientId, admissionId, en
         ) : (
           <LangContext.Provider value={{ lang: 'en', translations: null }}>
             <div className="flex-1 flex flex-col min-h-0">
-              {/* Section tabs */}
-              {sections.length > 1 && (
-                <div className="flex-shrink-0 px-5 pt-3">
-                  <div className="flex gap-1 bg-gray-100 rounded-xl p-1 overflow-x-auto">
-                    {sections.map((s, i) => (
-                      <button key={i} onClick={() => setActiveSection(i)}
-                        className={`px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition ${activeSection === i ? 'bg-[#0F2557] text-white' : 'text-gray-500 hover:bg-white'}`}>
-                        {i + 1}. {s.title || s.name || `Section ${i + 1}`}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Fields — a disabled fieldset makes every control read-only in one shot */}
-              <div className="flex-1 overflow-y-auto px-6 py-5">
-                <fieldset disabled={readOnly} className="max-w-5xl mx-auto space-y-2 border-0 p-0 m-0 min-w-0">
+              {/* Fields — all sections stacked vertically, scroll down. No tabs, no paging.
+                  A disabled fieldset makes every control read-only in one shot. */}
+              <div className="flex-1 overflow-y-auto px-6 py-5" style={{ background: '#f1f5f9' }}>
+                <fieldset disabled={readOnly} className="max-w-5xl mx-auto space-y-4 border-0 p-0 m-0 min-w-0">
                   {readOnly && (
                     <div className="mb-2 px-3 py-1.5 rounded-lg bg-gray-100 text-[11px] font-medium text-gray-500 text-center">
                       Read-only — this visit is closed. Submitted record cannot be edited.
@@ -389,13 +387,12 @@ export default function DbAssessmentFormModal({ form, patientId, admissionId, en
                     </div>
                   )}
                   {sections.map((section, si) => {
-                    if (sections.length > 1 && si !== activeSection) return null
                     return (
                       <SectionBody
                         key={section.id || si}
                         section={section}
                         index={si}
-                        tabbed={sections.length > 1}
+                        tabbed={false}
                         accent={meta?.accent}
                         values={values}
                         errors={errors}
@@ -440,26 +437,12 @@ export default function DbAssessmentFormModal({ form, patientId, admissionId, en
                     {savingDraft ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
                     Save draft
                   </button>
-                  {sections.length > 1 && activeSection > 0 && (
-                    <button onClick={() => setActiveSection(s => Math.max(0, s - 1))}
-                      className="px-4 py-2 rounded-xl border border-gray-300 text-sm text-gray-700 hover:bg-gray-50">
-                      ← Previous
-                    </button>
-                  )}
-                  {sections.length > 1 && activeSection < sections.length - 1 ? (
-                    <button onClick={() => setActiveSection(s => Math.min(sections.length - 1, s + 1))}
-                      className="px-4 py-2 rounded-xl text-sm font-semibold text-white hover:opacity-90"
-                      style={{ background: NAVY }}>
-                      Next →
-                    </button>
-                  ) : (
-                    <button onClick={handleSubmit} disabled={submitting || savingDraft}
-                      className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60"
-                      style={{ background: GREEN }}>
-                      {submitting ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-                      {submitting ? 'Signing…' : 'Sign & Submit'}
-                    </button>
-                  )}
+                  <button onClick={handleSubmit} disabled={submitting || savingDraft}
+                    className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60"
+                    style={{ background: GREEN }}>
+                    {submitting ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+                    {submitting ? 'Signing…' : 'Sign & Submit'}
+                  </button>
                 </div>
               </div>
               )}
@@ -492,23 +475,20 @@ function SectionBody({ section, index, tabbed, accent, values, errors, touched, 
   const headTitle = section.title || section.name || `Section ${index + 1}`
 
   return (
-    <div>
-      {/* Header — shown for tabbed sections (title context) and stacked sections */}
-      {(tabbed || canCollapse || section.header_color || accent) && (
-        <div
-          className={`flex items-center gap-2 mb-4 px-2 py-1.5 rounded-lg ${canCollapse ? 'cursor-pointer select-none' : ''}`}
-          style={{ background: headTint }}
-          onClick={canCollapse ? () => setCollapsed(c => !c) : undefined}
-          role={canCollapse ? 'button' : undefined}
-        >
-          {canCollapse && (
-            open ? <ChevronDown size={16} style={{ color: headColor }} /> : <ChevronRight size={16} style={{ color: headColor }} />
-          )}
-          <h3 className="text-base font-bold" style={{ color: headColor }}>
-            {headTitle}
-          </h3>
-        </div>
-      )}
+    <div className="rounded-xl bg-white border border-slate-200 shadow-sm" style={{ borderLeft: `3px solid ${headColor}` }}>
+      {/* Section heading — always shown, navy, sticky while its own fields scroll */}
+      <div
+        className={`sticky top-0 z-10 flex items-center gap-2 px-4 py-2.5 rounded-t-xl border-b border-slate-100 bg-white ${canCollapse ? 'cursor-pointer select-none' : ''}`}
+        onClick={canCollapse ? () => setCollapsed(c => !c) : undefined}
+        role={canCollapse ? 'button' : undefined}
+      >
+        {canCollapse && (
+          open ? <ChevronDown size={16} style={{ color: headColor }} /> : <ChevronRight size={16} style={{ color: headColor }} />
+        )}
+        <h3 className="text-sm font-bold uppercase tracking-wide" style={{ color: headColor }}>
+          {headTitle}
+        </h3>
+      </div>
 
       {open && (() => {
         // CareForm free-grid placement (design = fill); legacy flow fallback.
@@ -516,7 +496,8 @@ function SectionBody({ section, index, tabbed, accent, values, errors, touched, 
         const useGrid = sectionHasLayout(section.fields)
         const rowMap  = useGrid ? buildRowMap(visible) : null
         return (
-          <div className={useGrid ? '' : `grid gap-4 ${COLS[layout] || COLS[1]}`} style={useGrid ? sectionGridStyle : undefined}>
+          <div className="px-4 py-4">
+          <div className={useGrid ? '' : `grid gap-x-5 gap-y-3 ${COLS[layout] || COLS[1]}`} style={useGrid ? sectionGridStyle : undefined}>
             {visible.map(field => (
               <div
                 key={field.id}
@@ -537,6 +518,7 @@ function SectionBody({ section, index, tabbed, accent, values, errors, touched, 
                 />
               </div>
             ))}
+          </div>
           </div>
         )
       })()}
