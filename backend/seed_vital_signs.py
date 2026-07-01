@@ -48,7 +48,7 @@ SCHEMA = {
     "sections": [
         # ── HEMODYNAMICS — 2 rows: site + systolic + diastolic / hr + rhythm + spo2 + rr
         {
-            "id": "s_hemodynamics", "title": "Hemodynamics", "layout": {"columns": 4},
+            "id": "s_hemodynamics", "title": "Hemodynamics", "layout": 4,
             "fields": [
                 {"id": "bp_site", "field_id": "bp_site", "type": "dropdown", "label": "BP Site",
                  "col_span": 2, "searchable": True, "default_value": "left_arm", "required": False,
@@ -83,7 +83,7 @@ SCHEMA = {
         },
         # ── TEMPERATURE — 1 row: site + temp
         {
-            "id": "s_temperature", "title": "Temperature", "layout": {"columns": 4},
+            "id": "s_temperature", "title": "Temperature", "layout": 4,
             "fields": [
                 {"id": "temp_site", "field_id": "temp_site", "type": "dropdown", "label": "Temp Site",
                  "col_span": 2, "searchable": True, "default_value": "oral", "required": False,
@@ -99,7 +99,7 @@ SCHEMA = {
         },
         # ── ANTHROPOMETRICS — 1 row: weight + height + BMI (calculated, engine {field} syntax)
         {
-            "id": "s_anthropometrics", "title": "Anthropometrics", "layout": {"columns": 4},
+            "id": "s_anthropometrics", "title": "Anthropometrics", "layout": 4,
             "fields": [
                 {"id": "weight", "field_id": "weight", "type": "number", "label": "Weight",
                  "unit": "kg", "col_span": 1, "min": 0.5, "max": 500, "step": 0.1, "decimal_places": 1,
@@ -114,7 +114,7 @@ SCHEMA = {
         },
         # ── PAIN — scale full width, algorithmic expansion when pain_score > 0
         {
-            "id": "s_pain", "title": "Pain", "layout": {"columns": 4},
+            "id": "s_pain", "title": "Pain", "layout": 4,
             "fields": [
                 {"id": "pain_score", "field_id": "pain_score", "type": "scale", "label": "Pain Score",
                  "col_span": 4, "min": 0, "max": 10, "left_label": "No Pain", "right_label": "Worst Pain",
@@ -147,7 +147,7 @@ SCHEMA = {
         },
         # ── METABOLIC — 1 row: glucose timing + value (optional)
         {
-            "id": "s_metabolic", "title": "Metabolic", "layout": {"columns": 4},
+            "id": "s_metabolic", "title": "Metabolic", "layout": 4,
             "fields": [
                 {"id": "glucose_timing", "field_id": "glucose_timing", "type": "dropdown", "label": "Glucose Timing",
                  "col_span": 2, "searchable": True, "required": False,
@@ -164,7 +164,7 @@ SCHEMA = {
         },
         # ── NOTES
         {
-            "id": "s_notes", "title": "Notes", "layout": {"columns": 1},
+            "id": "s_notes", "title": "Notes", "layout": 1,
             "fields": [
                 {"id": "notes", "field_id": "notes", "type": "textarea", "label": "Notes",
                  "col_span": 4, "required": False, "enable_dictation": True},
