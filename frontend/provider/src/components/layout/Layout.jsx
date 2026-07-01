@@ -53,7 +53,9 @@ export default function Layout() {
       <main className={`flex-1 min-w-0 flex flex-col ${isFullPage ? 'overflow-hidden' : 'overflow-y-auto'}`}>
         <TopBar onMenuClick={() => setOpen(true)} onToggleSidebar={toggleCollapsed} onRefresh={handleRefresh} />
         <CriticalResultsBanner />
-        <div key={refreshKey} className={`flex-1 ${isFullPage ? 'overflow-hidden' : 'p-1.5 sm:p-2'}`}>
+        {/* Tight shell gutters per the page standard: ≤2px between shell and content
+            on top/sides, ~5px at the bottom. Pages keep their own inner padding. */}
+        <div key={refreshKey} className={`flex-1 ${isFullPage ? 'overflow-hidden' : 'pt-0.5 px-0.5 pb-[5px]'}`}>
           <Outlet />
         </div>
       </main>

@@ -4,7 +4,7 @@ import api from '../../api/client'
 import { cachedFetch, TTL } from '../../utils/cache'
 import { PageLoader } from '../../components/ui/Spinner'
 import Modal from '../../components/ui/Modal'
-import { Calendar, UserPlus, Globe, CheckCircle, X, Save, PlusCircle, Trash2 } from 'lucide-react'
+import { Calendar, UserPlus, Globe, CheckCircle, X, Save, PlusCircle, Trash2, Video, ClipboardList, Footprints } from 'lucide-react'
 import { format } from 'date-fns'
 import { useSearchParams } from 'react-router-dom'
 import { Link } from 'react-router-dom'
@@ -263,7 +263,7 @@ function ScheduleTab({ doctors }) {
                     <p className="text-xs font-semibold text-gray-500">Slot allocation</p>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="label text-xs">🌐 Online slots</label>
+                        <label className="label text-xs flex items-center gap-1"><Globe size={11} /> Online slots</label>
                         <input type="number" min="0" className="input py-1 text-sm" value={d.online_slots}
                           onChange={e => updateDay(day, 'online_slots', Math.max(0, Number(e.target.value)))} />
                       </div>
@@ -273,7 +273,7 @@ function ScheduleTab({ doctors }) {
                           onChange={e => updateDay(day, 'online_auto_confirm', Math.max(0, Number(e.target.value)))} />
                       </div>
                       <div>
-                        <label className="label text-xs">📹 Telehealth slots</label>
+                        <label className="label text-xs flex items-center gap-1"><Video size={11} /> Telehealth slots</label>
                         <input type="number" min="0" className="input py-1 text-sm" value={d.telehealth_slots}
                           onChange={e => updateDay(day, 'telehealth_slots', Math.max(0, Number(e.target.value)))} />
                       </div>
@@ -284,9 +284,9 @@ function ScheduleTab({ doctors }) {
                       </div>
                     </div>
                     <div className="text-xs rounded-lg px-3 py-1.5 bg-gray-50 text-gray-600 flex flex-wrap gap-x-3 gap-y-0.5">
-                      <span>🌐 {Number(d.online_slots) || 0} online</span>
-                      <span>📹 {Number(d.telehealth_slots) || 0} telehealth</span>
-                      <span>🚶 {walkInSlots(d)} walk-in</span>
+                      <span className="inline-flex items-center gap-1"><Globe size={11} /> {Number(d.online_slots) || 0} online</span>
+                      <span className="inline-flex items-center gap-1"><Video size={11} /> {Number(d.telehealth_slots) || 0} telehealth</span>
+                      <span className="inline-flex items-center gap-1"><Footprints size={11} /> {walkInSlots(d)} walk-in</span>
                       <span className="text-gray-400">of {d.max_patients || 0} total</span>
                     </div>
                     {(Number(d.online_slots) + Number(d.telehealth_slots)) > (Number(d.max_patients) || 0) && (
@@ -334,7 +334,7 @@ function ScheduleTab({ doctors }) {
                     <label className="flex items-center gap-2 cursor-pointer select-none">
                       <input type="checkbox" checked={d.online_booking}
                         onChange={e => updateDay(day, 'online_booking', e.target.checked)} className="w-3.5 h-3.5 accent-blue-600" />
-                      <span className="text-xs text-gray-600 font-medium">🌐 Enable online booking</span>
+                      <span className="text-xs text-gray-600 font-medium inline-flex items-center gap-1"><Globe size={11} /> Enable online booking</span>
                     </label>
                     {d.online_booking && (
                       <div className="mt-1.5">
@@ -548,14 +548,14 @@ export default function Appointments() {
             className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-colors ${activeTab === 'queue' ? 'text-white' : 'text-gray-500 hover:bg-gray-50'}`}
             style={activeTab === 'queue' ? { background: '#0F2557' } : {}}
           >
-            📋 Queue
+            <ClipboardList size={14} /> Queue
           </button>
           <button
             onClick={() => setActiveTab('schedule')}
             className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-colors ${activeTab === 'schedule' ? 'text-white' : 'text-gray-500 hover:bg-gray-50'}`}
             style={activeTab === 'schedule' ? { background: '#0F2557' } : {}}
           >
-            🗓 Schedule
+            <Calendar size={14} /> Schedule
           </button>
         </div>
 
