@@ -260,25 +260,25 @@ export default function DbAssessmentFormModal({ form, patientId, admissionId, en
         {/* Header — single row: form name · patient, with completion + close */}
         <div className="flex-shrink-0 relative border-b shadow-sm"
           style={{ background: NAVY, borderColor: '#1e3a6e' }}>
-          <div className="flex items-center justify-between gap-4 px-6 py-3">
+          <div className="flex items-center justify-between gap-4 px-5 py-2">
             <div className="flex items-baseline gap-2 min-w-0">
-              <span className="text-base font-extrabold text-white leading-tight truncate">{title}</span>
+              <span className="text-sm font-bold text-white leading-tight truncate">{title}</span>
               {patientName && (
-                <span className="text-[13px] text-blue-200 truncate before:content-['·'] before:mr-2 before:text-blue-400">
+                <span className="text-xs text-blue-200 truncate before:content-['·'] before:mr-2 before:text-blue-400">
                   {patientName}
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-3 flex-shrink-0">
+            <div className="flex items-center gap-2 flex-shrink-0">
               {!loading && !loadError && !submitted && (
-                <span className="hidden sm:flex items-center text-[11px] font-semibold px-2.5 py-1 rounded-lg"
+                <span className="hidden sm:flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-md"
                   style={{ background: '#1e3a6e', color: '#bfdbfe' }}>
                   {completionPct}% complete
                 </span>
               )}
               <button onClick={onClose}
-                className="w-8 h-8 flex items-center justify-center rounded-lg text-blue-300 hover:text-white hover:bg-white/10 transition-colors">
-                <X size={18} />
+                className="w-7 h-7 flex items-center justify-center rounded-lg text-blue-300 hover:text-white hover:bg-white/10 transition-colors">
+                <X size={16} />
               </button>
             </div>
           </div>
