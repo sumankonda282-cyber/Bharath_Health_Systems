@@ -23,13 +23,13 @@ function SummaryTile({ label, value, icon: Icon, color }) {
     purple: 'text-purple-500',
   }
   return (
-    <div className={`card p-4 border ${colors[color]} flex items-center gap-4`}>
-      <div className={`p-2.5 rounded-xl bg-white/70 ${iconColors[color]}`}>
-        <Icon size={22} />
+    <div className={`rounded-xl border px-2.5 py-2 ${colors[color]} flex items-center gap-2`}>
+      <div className={`w-8 h-8 rounded-lg flex items-center justify-center bg-white/70 flex-shrink-0 ${iconColors[color]}`}>
+        <Icon size={16} />
       </div>
-      <div>
-        <div className="text-2xl font-bold">{value ?? '—'}</div>
-        <div className="text-xs font-medium mt-0.5 opacity-80">{label}</div>
+      <div className="min-w-0">
+        <div className="text-lg font-extrabold leading-none">{value ?? '—'}</div>
+        <div className="text-[11px] font-medium mt-0.5 opacity-80 truncate">{label}</div>
       </div>
     </div>
   )
@@ -149,7 +149,7 @@ export default function BranchOverview() {
       )}
 
       {/* Summary Ribbon */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-5">
         <SummaryTile label="Total OPD Today"     value={totalAppts}   icon={Calendar}   color="blue"   />
         <SummaryTile label="Total Revenue Today" value={`₹${totalRevenue.toLocaleString('en-IN')}`} icon={TrendingUp} color="green" />
         <SummaryTile label="Pending Bills"       value={pendingBills} icon={Clock}      color="orange" />

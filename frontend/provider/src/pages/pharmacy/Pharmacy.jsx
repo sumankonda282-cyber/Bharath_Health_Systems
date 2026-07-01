@@ -59,28 +59,28 @@ export default function Pharmacy() {
         <button onClick={() => setShowAddMed(true)} className="btn-primary"><Plus size={16} />Add Medicine</button>
       </div>
 
-      {/* Stats — each card is a clickable filter */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
+      {/* Stat pills — compact, each is a clickable filter */}
+      <div className="grid grid-cols-3 gap-2 mb-4 max-w-xl">
         <button
           onClick={() => { setTab('inventory'); setLowStockOnly(false) }}
-          className={`card p-4 flex items-center gap-3 text-left w-full transition-all hover:shadow-md ${tab === 'inventory' && !lowStockOnly ? 'ring-2 ring-blue-500' : ''}`}
+          className={`bg-white rounded-xl border px-2.5 py-2 flex items-center gap-2 text-left transition-all hover:shadow-sm ${tab === 'inventory' && !lowStockOnly ? 'border-blue-500 ring-1 ring-blue-500' : 'border-gray-100 hover:border-blue-200'}`}
         >
-          <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0"><Pill size={18} className="text-blue-600" /></div>
-          <div><div className="text-xl font-bold">{medicines.length}</div><div className="text-xs text-gray-500">Total Medicines</div></div>
+          <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0"><Pill size={16} className="text-blue-600" /></div>
+          <div className="min-w-0"><div className="text-lg font-extrabold leading-none text-gray-900">{medicines.length}</div><div className="text-[11px] text-gray-500 truncate mt-0.5">Total Medicines</div></div>
         </button>
         <button
           onClick={() => { setTab('inventory'); setLowStockOnly(true) }}
-          className={`card p-4 flex items-center gap-3 text-left w-full transition-all hover:shadow-md ${lowStockOnly ? 'ring-2 ring-yellow-500' : ''}`}
+          className={`bg-white rounded-xl border px-2.5 py-2 flex items-center gap-2 text-left transition-all hover:shadow-sm ${lowStockOnly ? 'border-yellow-500 ring-1 ring-yellow-500' : 'border-gray-100 hover:border-yellow-200'}`}
         >
-          <div className="w-10 h-10 bg-yellow-100 rounded-xl flex items-center justify-center flex-shrink-0"><AlertTriangle size={18} className="text-yellow-600" /></div>
-          <div><div className="text-xl font-bold text-yellow-600">{lowStock.length}</div><div className="text-xs text-gray-500">Low Stock</div></div>
+          <div className="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center flex-shrink-0"><AlertTriangle size={16} className="text-yellow-600" /></div>
+          <div className="min-w-0"><div className="text-lg font-extrabold leading-none text-yellow-600">{lowStock.length}</div><div className="text-[11px] text-gray-500 truncate mt-0.5">Low Stock</div></div>
         </button>
         <button
           onClick={() => { setTab('pending'); setLowStockOnly(false) }}
-          className={`card p-4 flex items-center gap-3 text-left w-full transition-all hover:shadow-md ${tab === 'pending' ? 'ring-2 ring-orange-500' : ''}`}
+          className={`bg-white rounded-xl border px-2.5 py-2 flex items-center gap-2 text-left transition-all hover:shadow-sm ${tab === 'pending' ? 'border-orange-500 ring-1 ring-orange-500' : 'border-gray-100 hover:border-orange-200'}`}
         >
-          <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center flex-shrink-0"><Package size={18} className="text-orange-600" /></div>
-          <div><div className="text-xl font-bold text-orange-600">{pending.length}</div><div className="text-xs text-gray-500">Pending Dispensing</div></div>
+          <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center flex-shrink-0"><Package size={16} className="text-orange-600" /></div>
+          <div className="min-w-0"><div className="text-lg font-extrabold leading-none text-orange-600">{pending.length}</div><div className="text-[11px] text-gray-500 truncate mt-0.5">Pending</div></div>
         </button>
       </div>
 
