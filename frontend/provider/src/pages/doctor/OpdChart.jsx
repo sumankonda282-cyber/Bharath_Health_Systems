@@ -69,7 +69,38 @@ const categorizeSoap = (s) => {
 }
 
 // ── Form Content Renderer ─────────────────────────────────────────
-function FormContentRenderer({ submission, fieldLabelMap, chartExcluded }) {
+// Reference-range status for a numeric value (design standard §8.7). Keys match
+// the seed reference_range: critical_low / normal_low / normal_high / critical_high.
+function refRangeStatus(num, rr) {
+  if (rr == null || !Number.isFinite(num)) return null
+  const { critical_low, normal_low, normal_high, critical_high } = rr
+  if (critical_low != null && num < critical_low) return 'critical_low'
+  if (critical_high != null && num > critical_high) return 'critical_high'
+  if (normal_low != null && num < normal_low) return 'low'
+  if (normal_high != null && num > normal_high) return 'high'
+  if (normal_low != null || normal_high != null) return 'normal'
+  return null
+}
+
+const REF_BADGE = {
+  normal:        { cls: 'bg-green-50 text-green-700 border-green-200',   icon: '✓' },
+  low:           { cls: 'bg-amber-50 text-amber-700 border-amber-200',   icon: '↓' },
+  high:          { cls: 'bg-amber-50 text-amber-700 border-amber-200',   icon: '↑' },
+  critical_low:  { cls: 'bg-red-50 text-red-700 border-red-300 font-semibold',  icon: '⚠' },
+  critical_high: { cls: 'bg-red-50 text-red-700 border-red-300 font-semibold',  icon: '⚠' },
+}
+
+function RefBadge({ status }) {
+  const b = REF_BADGE[status]
+  if (!b) return null
+  return (
+    <span className={`ml-1.5 inline-flex items-center gap-0.5 px-1 py-px rounded border text-[10px] align-middle ${b.cls}`}>
+      {b.icon}
+    </span>
+  )
+}
+
+function FormContentRenderer({ submission, fieldLabelMap, chartExcluded, fieldMetaMap }) {
   if (!submission) return null
 
   const raw = submission.form_data || submission.data || submission.answers || null
@@ -99,10 +130,11 @@ function FormContentRenderer({ submission, fieldLabelMap, chartExcluded }) {
 
   // Fields marked chart-excluded in Admin are stored for audit but never shown here.
   const isExcluded = (k) => chartExcluded && chartExcluded.has(k)
+  const metaFor = (k) => (fieldMetaMap && fieldMetaMap[k]) || null
 
   const entries = Object.entries(raw)
     .filter(([k]) => !isExcluded(k))
-    .map(([k, v]) => ({ key: k, label: resolveLabel(k), value: parseValue(v) }))
+    .map(([k, v]) => ({ key: k, label: resolveLabel(k), value: parseValue(v), meta: metaFor(k), rawNum: Number(v) }))
     .filter(e => e.value && e.value !== 'No')
 
   if (!entries.length) return (
@@ -124,12 +156,18 @@ function FormContentRenderer({ submission, fieldLabelMap, chartExcluded }) {
     <div className="space-y-2 text-sm text-gray-800">
       {inline.length > 0 && (
         <div className="grid gap-x-6 gap-y-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))' }}>
-          {inline.map(e => (
-            <div key={e.key} className="min-w-0">
-              <span className="text-gray-400 text-xs block leading-tight">{e.label}</span>
-              <span className="font-medium break-words">{e.value}</span>
-            </div>
-          ))}
+          {inline.map(e => {
+            const status = e.meta?.reference_range ? refRangeStatus(e.rawNum, e.meta.reference_range) : null
+            return (
+              <div key={e.key} className="min-w-0">
+                <span className="text-gray-400 text-xs block leading-tight">{e.label}</span>
+                <span className="font-medium break-words">
+                  {e.value}{e.meta?.unit ? <span className="text-gray-400 font-normal"> {e.meta.unit}</span> : null}
+                  <RefBadge status={status} />
+                </span>
+              </div>
+            )
+          })}
         </div>
       )}
       {para.map(e => (
@@ -433,6 +471,7 @@ function FormBlock({ submission, index }) {
   const [fullData, setFullData]         = useState(submission.form_data || submission.data || null)
   const [fieldLabelMap, setFieldLabelMap] = useState(null)
   const [chartExcluded, setChartExcluded] = useState(null)
+  const [fieldMetaMap, setFieldMetaMap]   = useState(null)
   const [fetching, setFetching]         = useState(false)
 
   useEffect(() => {
@@ -448,13 +487,17 @@ function FormBlock({ submission, index }) {
         if (schema?.sections) {
           const map = {}
           const excluded = new Set()
+          const meta = {}
           schema.sections.forEach(sec => (sec.fields || []).forEach(f => {
             const keys = [f.id, f.field_id].filter(Boolean)
             if (f.label) keys.forEach(k => { map[k] = f.label })
             if (f.chart_excluded) keys.forEach(k => excluded.add(k))
+            const rr = f.reference_range || f.ref_range || null
+            if (rr || f.unit) keys.forEach(k => { meta[k] = { reference_range: rr, unit: f.unit || null } })
           }))
           setFieldLabelMap(map)
           setChartExcluded(excluded)
+          setFieldMetaMap(meta)
         }
       })
       .catch(() => setFullData(false))
@@ -476,7 +519,7 @@ function FormBlock({ submission, index }) {
           <span className="w-3 h-3 border border-gray-300 border-t-blue-400 rounded-full animate-spin inline-block" />
         )}
       </div>
-      <FormContentRenderer submission={enriched} fieldLabelMap={fieldLabelMap} chartExcluded={chartExcluded} />
+      <FormContentRenderer submission={enriched} fieldLabelMap={fieldLabelMap} chartExcluded={chartExcluded} fieldMetaMap={fieldMetaMap} />
     </div>
   )
 }

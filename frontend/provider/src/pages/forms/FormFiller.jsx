@@ -495,26 +495,8 @@ export default function FormFiller() {
         )}
       </div>
 
-      {/* Section tabs */}
-      {sections.length > 1 && (
-        <div className="max-w-4xl mx-auto w-full px-4 mt-4">
-          <div className="flex gap-1 bg-white rounded-xl border border-gray-100 p-1 overflow-x-auto">
-            {sections.map((s, i) => (
-              <button
-                key={i}
-                onClick={() => update({ activeSection: i })}
-                className={`px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition ${
-                  activeSection === i ? 'bg-[#0F2557] text-white' : 'text-gray-500 hover:bg-gray-50'
-                }`}
-              >
-                {i + 1}. {s.title || s.name || `Section ${i + 1}`}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Form sections */}
+      {/* Form sections — all stacked, single scroll (design standard §5.8: no
+          tabs, no paging). Section navigation tabs removed. */}
       <div className="max-w-4xl mx-auto w-full px-4 py-6 flex-1">
         {sections.length === 0 && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
@@ -531,7 +513,6 @@ export default function FormFiller() {
         {/* Disabled fieldset makes every control inert in one shot when locked. */}
         <fieldset disabled={readOnly} className="border-0 p-0 m-0 min-w-0">
         {sections.map((section, si) => {
-          if (sections.length > 1 && si !== activeSection) return null
           const layout = section.layout || 1
           const accent = formMeta?.accent
           const headColor = section.header_color || accent || '#0F2557'
@@ -589,32 +570,16 @@ export default function FormFiller() {
         })}
         </fieldset>
 
-        {/* Section navigation */}
-        {sections.length > 1 && (
-          <div className="flex justify-between">
+        {/* Single bottom Submit — sections are all stacked above (no paging). */}
+        {sections.length > 0 && !readOnly && (
+          <div className="flex justify-end mt-4">
             <button
-              onClick={() => update({ activeSection: Math.max(0, activeSection - 1) })}
-              disabled={activeSection === 0}
-              className="px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-white transition disabled:opacity-40"
+              onClick={handleSubmit}
+              disabled={submitting}
+              className="px-6 py-2 rounded-xl bg-[#F5821E] text-white text-sm font-semibold hover:bg-orange-600 transition disabled:opacity-60"
             >
-              ← Previous
+              {submitting ? 'Submitting...' : 'Submit Form'}
             </button>
-            {activeSection < sections.length - 1 ? (
-              <button
-                onClick={() => update({ activeSection: activeSection + 1 })}
-                className="px-4 py-2 rounded-xl bg-[#0F2557] text-white text-sm font-semibold hover:bg-[#0F2557]/90 transition"
-              >
-                Next →
-              </button>
-            ) : !readOnly ? (
-              <button
-                onClick={handleSubmit}
-                disabled={submitting}
-                className="px-6 py-2 rounded-xl bg-[#F5821E] text-white text-sm font-semibold hover:bg-orange-600 transition disabled:opacity-60"
-              >
-                {submitting ? 'Submitting...' : 'Submit Form'}
-              </button>
-            ) : <span />}
           </div>
         )}
       </div>
