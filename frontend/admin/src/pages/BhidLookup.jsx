@@ -41,7 +41,7 @@ export default function BhidLookup() {
 
       {results && (
         <div>
-          <p className="text-sm text-gray-500 mb-3">
+          <p className="text-sm text-faint mb-3">
             {results.total} record(s) found{results.bh_id ? <> for <strong>{results.bh_id}</strong></> : ''}
           </p>
           <div className="space-y-4">
@@ -50,10 +50,10 @@ export default function BhidLookup() {
                 <div className="flex items-start justify-between mb-4">
                   <div>
                     <div className="flex items-center gap-2">
-                      <User size={16} className="text-gray-400" />
+                      <User size={16} className="text-dim" />
                       <span className="font-bold text-gray-900 text-lg">{r.full_name}</span>
                     </div>
-                    <div className="flex items-center gap-4 mt-1 text-sm text-gray-500">
+                    <div className="flex items-center gap-4 mt-1 text-sm text-faint">
                       <span>BH ID: <strong className="text-indigo-600">{r.bh_id || '—'}</strong></span>
                       <span>UHID: <strong>{r.uhid}</strong></span>
                     </div>
@@ -65,10 +65,10 @@ export default function BhidLookup() {
                   </div>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                  <div><span className="text-gray-400">Mobile</span><div className="font-medium">{r.mobile || '—'}</div></div>
-                  <div><span className="text-gray-400">Gender</span><div className="font-medium capitalize">{r.gender || '—'}</div></div>
-                  <div><span className="text-gray-400">DOB</span><div className="font-medium">{r.date_of_birth || '—'}</div></div>
-                  <div><span className="text-gray-400">Health Center</span><div className="font-medium flex items-center gap-1"><Building2 size={12}/>{r.clinic_name}</div></div>
+                  <div><span className="text-dim">Mobile</span><div className="font-medium">{r.mobile || '—'}</div></div>
+                  <div><span className="text-dim">Gender</span><div className="font-medium capitalize">{r.gender || '—'}</div></div>
+                  <div><span className="text-dim">DOB</span><div className="font-medium">{r.date_of_birth || '—'}</div></div>
+                  <div><span className="text-dim">Health Center</span><div className="font-medium flex items-center gap-1"><Building2 size={12}/>{r.clinic_name}</div></div>
                 </div>
               </div>
             ))}
@@ -77,7 +77,7 @@ export default function BhidLookup() {
       )}
 
       {results && results.total === 0 && (
-        <div className="card p-10 text-center text-gray-400">No records found</div>
+        <div className="card p-10 text-center text-dim">No records found</div>
       )}
     </div>
   )

@@ -137,9 +137,9 @@ function SavedReportsModal({ onClose, savedReports, onLoad, onDelete, onSaveCurr
         <div className="flex items-center justify-between px-5 py-4 border-b border-app">
           <div className="flex items-center gap-2">
             <BookMarked size={16} className="text-[#F5821E]" />
-            <span className="font-semibold text-white text-sm">Saved Reports</span>
+            <span className="font-semibold text-app text-sm">Saved Reports</span>
           </div>
-          <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors">
+          <button onClick={onClose} className="text-faint hover:text-white transition-colors">
             <X size={16} />
           </button>
         </div>
@@ -147,7 +147,7 @@ function SavedReportsModal({ onClose, savedReports, onLoad, onDelete, onSaveCurr
         {/* Save current */}
         {canSave && (
           <div className="px-5 py-3 border-b border-app surface-2">
-            <p className="text-xs text-gray-400 mb-2">Save current column selection as a named report</p>
+            <p className="text-xs text-dim mb-2">Save current column selection as a named report</p>
             <div className="flex gap-2">
               <input
                 type="text"
@@ -160,7 +160,7 @@ function SavedReportsModal({ onClose, savedReports, onLoad, onDelete, onSaveCurr
               <button
                 onClick={handleSave}
                 disabled={!saveName.trim()}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#F5821E] hover:bg-[#e07319] disabled:opacity-50 text-white text-xs font-semibold rounded-xl transition-colors flex-shrink-0"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#F5821E] hover:bg-[#e07319] disabled:opacity-50 text-app text-xs font-semibold rounded-xl transition-colors flex-shrink-0"
               >
                 <Plus size={12} />
                 Save
@@ -174,15 +174,15 @@ function SavedReportsModal({ onClose, savedReports, onLoad, onDelete, onSaveCurr
           {savedReports.length === 0 ? (
             <div className="px-5 py-10 text-center">
               <BookMarked size={28} className="text-gray-700 mx-auto mb-2" />
-              <p className="text-sm text-gray-500">No saved reports yet.</p>
-              <p className="text-xs text-gray-600 mt-1">Select columns, then save the configuration here.</p>
+              <p className="text-sm text-faint">No saved reports yet.</p>
+              <p className="text-xs text-faint mt-1">Select columns, then save the configuration here.</p>
             </div>
           ) : (
             savedReports.map(r => (
               <div key={r.id} className="flex items-center gap-3 px-5 py-3 hover-app transition-colors">
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-white truncate">{r.name}</p>
-                  <p className="text-[11px] text-gray-500 mt-0.5">
+                  <p className="text-sm text-app truncate">{r.name}</p>
+                  <p className="text-[11px] text-faint mt-0.5">
                     {r.columns.length} column{r.columns.length !== 1 ? 's' : ''}
                     {r.filters?.date_from ? ` · ${r.filters.date_from} → ${r.filters.date_to}` : ''}
                   </p>
@@ -195,7 +195,7 @@ function SavedReportsModal({ onClose, savedReports, onLoad, onDelete, onSaveCurr
                 </button>
                 <button
                   onClick={() => onDelete(r.id)}
-                  className="text-gray-600 hover:text-red-400 transition-colors flex-shrink-0"
+                  className="text-faint hover:text-red-400 transition-colors flex-shrink-0"
                   title="Delete saved report"
                 >
                   <Trash2 size={13} />
@@ -252,24 +252,24 @@ function TablePanel({ selectedColumns, onToggle }) {
       {/* Search — pinned at top */}
       <div className="p-3 border-b border-app flex-shrink-0">
         <div className="relative">
-          <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+          <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-faint pointer-events-none" />
           <input
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search tables & columns…"
-            className="w-full surface-2 border border-app text-white text-xs rounded-lg pl-8 pr-7 py-1.5 outline-none focus:border-[#F5821E] transition-colors placeholder-gray-500"
+            className="w-full surface-2 border border-app text-app text-xs rounded-lg pl-8 pr-7 py-1.5 outline-none focus:border-[#F5821E] transition-colors placeholder-gray-500"
           />
           {search && (
             <button
               onClick={() => setSearch('')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-faint hover:text-white"
             >
               <X size={11} />
             </button>
           )}
         </div>
-        <p className="text-[10px] text-gray-600 mt-1.5 pl-0.5">
+        <p className="text-[10px] text-faint mt-1.5 pl-0.5">
           {filtered.length} table{filtered.length !== 1 ? 's' : ''}
           {selectedColumns.length > 0 && (
             <span className="ml-2 text-[#F5821E]">{selectedColumns.length} selected</span>
@@ -281,7 +281,7 @@ function TablePanel({ selectedColumns, onToggle }) {
       <div className="flex-1 overflow-y-auto">
         {filtered.length === 0 ? (
           <div className="px-3 py-8 text-center">
-            <p className="text-xs text-gray-600">No tables match &ldquo;{search}&rdquo;</p>
+            <p className="text-xs text-faint">No tables match &ldquo;{search}&rdquo;</p>
           </div>
         ) : (
           filtered.map(t => {
@@ -297,10 +297,10 @@ function TablePanel({ selectedColumns, onToggle }) {
                   onClick={() => toggleExpand(t.table)}
                 >
                   {open
-                    ? <ChevronDown size={11} className="text-gray-500 flex-shrink-0" />
-                    : <ChevronRight size={11} className="text-gray-500 flex-shrink-0" />
+                    ? <ChevronDown size={11} className="text-faint flex-shrink-0" />
+                    : <ChevronRight size={11} className="text-faint flex-shrink-0" />
                   }
-                  <span className="flex-1 min-w-0 text-xs text-gray-200 truncate font-medium">
+                  <span className="flex-1 min-w-0 text-xs text-app truncate font-medium">
                     {t.table}
                   </span>
                   {selCount > 0 && (
@@ -361,8 +361,8 @@ function DataGrid({ selectedColumns, reportData, loading, error, onRetry, onRemo
     return (
       <div className="flex-1 flex flex-col items-center justify-center text-center px-8">
         <Database size={44} className="text-gray-800 mb-4" />
-        <p className="text-sm text-gray-400 font-medium">Select columns from the left panel to build your report</p>
-        <p className="text-xs text-gray-600 mt-1.5">Choose any combination of columns from the 70 available tables, then click Run.</p>
+        <p className="text-sm text-dim font-medium">Select columns from the left panel to build your report</p>
+        <p className="text-xs text-faint mt-1.5">Choose any combination of columns from the 70 available tables, then click Run.</p>
       </div>
     )
   }
@@ -373,12 +373,12 @@ function DataGrid({ selectedColumns, reportData, loading, error, onRetry, onRemo
       <div className="flex-shrink-0 px-4 py-2.5 border-b border-app surface">
         <div className="flex items-start gap-3 flex-wrap">
           <div className="flex items-center gap-2 flex-shrink-0 pt-0.5">
-            <span className="text-xs text-gray-400">
-              <span className="text-white font-semibold">{selectedColumns.length}</span>
+            <span className="text-xs text-dim">
+              <span className="text-app font-semibold">{selectedColumns.length}</span>
               {' '}column{selectedColumns.length !== 1 ? 's' : ''}
             </span>
             {reportData && (
-              <span className="text-xs text-gray-600">
+              <span className="text-xs text-faint">
                 &middot; {total.toLocaleString()} row{total !== 1 ? 's' : ''}
               </span>
             )}
@@ -388,14 +388,14 @@ function DataGrid({ selectedColumns, reportData, loading, error, onRetry, onRemo
             {selectedColumns.map(c => (
               <span
                 key={colKey(c.table, c.column)}
-                className="inline-flex items-center gap-1 px-2 py-0.5 surface-2 border border-app rounded-md text-[11px] text-gray-300"
+                className="inline-flex items-center gap-1 px-2 py-0.5 surface-2 border border-app rounded-md text-[11px] text-dim"
               >
-                <span className="text-gray-500">{c.table}.</span>
+                <span className="text-faint">{c.table}.</span>
                 <span>{c.column}</span>
                 <button
                   type="button"
                   onClick={() => onRemoveColumn(c.table, c.column)}
-                  className="ml-0.5 text-gray-600 hover:text-red-400 transition-colors"
+                  className="ml-0.5 text-faint hover:text-red-400 transition-colors"
                   title={`Remove ${c.table}.${c.column}`}
                 >
                   <X size={10} />
@@ -407,7 +407,7 @@ function DataGrid({ selectedColumns, reportData, loading, error, onRetry, onRemo
           <button
             type="button"
             onClick={onRemoveAll}
-            className="flex-shrink-0 text-[11px] text-gray-500 hover:text-red-400 transition-colors flex items-center gap-1 pt-0.5"
+            className="flex-shrink-0 text-[11px] text-faint hover:text-red-400 transition-colors flex items-center gap-1 pt-0.5"
           >
             <X size={11} />
             Remove all
@@ -421,7 +421,7 @@ function DataGrid({ selectedColumns, reportData, loading, error, onRetry, onRemo
           <div className="flex items-center justify-center h-full">
             <div className="flex flex-col items-center gap-3">
               <Loader2 className="animate-spin text-[#F5821E]" size={24} />
-              <p className="text-xs text-gray-500">Running query&hellip;</p>
+              <p className="text-xs text-faint">Running query&hellip;</p>
             </div>
           </div>
         ) : error ? (
@@ -444,13 +444,13 @@ function DataGrid({ selectedColumns, reportData, loading, error, onRetry, onRemo
           </div>
         ) : !reportData ? (
           <div className="flex items-center justify-center h-full">
-            <p className="text-xs text-gray-600">Click &ldquo;Run&rdquo; in the top bar to fetch data</p>
+            <p className="text-xs text-faint">Click &ldquo;Run&rdquo; in the top bar to fetch data</p>
           </div>
         ) : rows.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full">
             <Database size={32} className="text-gray-700 mb-3" />
-            <p className="text-sm text-gray-500">No rows returned</p>
-            <p className="text-xs text-gray-600 mt-1">Try adjusting the filters or date range.</p>
+            <p className="text-sm text-faint">No rows returned</p>
+            <p className="text-xs text-faint mt-1">Try adjusting the filters or date range.</p>
           </div>
         ) : (
           <div className="flex flex-col h-full overflow-hidden">
@@ -466,7 +466,7 @@ function DataGrid({ selectedColumns, reportData, loading, error, onRetry, onRemo
                 <tr className="border-b border-app">
                   {selectedColumns.map(c => (
                     <th key={colKey(c.table, c.column)} className="th whitespace-nowrap">
-                      <span className="text-gray-600 font-normal">{c.table}.</span>
+                      <span className="text-faint font-normal">{c.table}.</span>
                       {c.column}
                     </th>
                   ))}
@@ -484,7 +484,7 @@ function DataGrid({ selectedColumns, reportData, loading, error, onRetry, onRemo
                             title={val == null ? '' : String(val)}
                           >
                             {val == null
-                              ? <span className="text-gray-600">&mdash;</span>
+                              ? <span className="text-faint">&mdash;</span>
                               : String(val)
                             }
                           </span>
@@ -610,7 +610,7 @@ export default function Reports() {
 
   return (
     <div
-      className="flex flex-col surface text-gray-200 overflow-hidden"
+      className="flex flex-col surface text-app overflow-hidden"
       style={{ height: 'calc(100vh - 64px)' }}
     >
       {/* ================================================================ *
@@ -620,33 +620,33 @@ export default function Reports() {
 
         {/* Date from */}
         <div className="flex items-center gap-1.5">
-          <label className="text-xs text-gray-500 flex-shrink-0">From</label>
+          <label className="text-xs text-faint flex-shrink-0">From</label>
           <input
             type="date"
             value={dateFrom}
             onChange={e => setDateFrom(e.target.value)}
-            className="surface-2 border border-app text-white text-xs rounded-lg px-2.5 py-1.5 outline-none focus:border-[#F5821E] transition-colors"
+            className="surface-2 border border-app text-app text-xs rounded-lg px-2.5 py-1.5 outline-none focus:border-[#F5821E] transition-colors"
           />
         </div>
 
         {/* Date to */}
         <div className="flex items-center gap-1.5">
-          <label className="text-xs text-gray-500 flex-shrink-0">To</label>
+          <label className="text-xs text-faint flex-shrink-0">To</label>
           <input
             type="date"
             value={dateTo}
             onChange={e => setDateTo(e.target.value)}
-            className="surface-2 border border-app text-white text-xs rounded-lg px-2.5 py-1.5 outline-none focus:border-[#F5821E] transition-colors"
+            className="surface-2 border border-app text-app text-xs rounded-lg px-2.5 py-1.5 outline-none focus:border-[#F5821E] transition-colors"
           />
         </div>
 
         {/* Health Center dropdown */}
         <div className="flex items-center gap-1.5">
-          <label className="text-xs text-gray-500 flex-shrink-0">Health Center</label>
+          <label className="text-xs text-faint flex-shrink-0">Health Center</label>
           <select
             value={selectedClinicId}
             onChange={e => setSelectedClinicId(e.target.value)}
-            className="surface-2 border border-app text-white text-xs rounded-lg px-2.5 py-1.5 outline-none focus:border-[#F5821E] transition-colors min-w-[160px] max-w-[220px]"
+            className="surface-2 border border-app text-app text-xs rounded-lg px-2.5 py-1.5 outline-none focus:border-[#F5821E] transition-colors min-w-[160px] max-w-[220px]"
           >
             <option value="">All centers</option>
             {clinics.map(c => (
@@ -661,7 +661,7 @@ export default function Reports() {
         <button
           type="button"
           onClick={() => setShowSavedModal(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 surface-2 hover-app border border-app text-gray-300 hover:text-white text-xs font-medium rounded-xl transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 surface-2 hover-app border border-app text-dim hover:text-app text-xs font-medium rounded-xl transition-colors"
         >
           <BookMarked size={13} />
           Saved Reports
@@ -677,7 +677,7 @@ export default function Reports() {
           type="button"
           onClick={runReport}
           disabled={loading || selectedColumns.length === 0}
-          className="flex items-center gap-1.5 px-4 py-1.5 bg-[#F5821E] hover:bg-[#e07319] disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-xl transition-colors"
+          className="flex items-center gap-1.5 px-4 py-1.5 bg-[#F5821E] hover:bg-[#e07319] disabled:opacity-50 disabled:cursor-not-allowed text-app text-xs font-semibold rounded-xl transition-colors"
         >
           {loading && <Loader2 size={12} className="animate-spin" />}
           {loading ? 'Running…' : 'Run'}
@@ -688,7 +688,7 @@ export default function Reports() {
           type="button"
           onClick={() => exportCsv(reportData?.rows || [], selectedColumns)}
           disabled={!reportData?.rows?.length}
-          className="flex items-center gap-1.5 px-3 py-1.5 surface-2 hover-app disabled:opacity-40 disabled:cursor-not-allowed border border-app text-gray-300 hover:text-white text-xs font-medium rounded-xl transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 surface-2 hover-app disabled:opacity-40 disabled:cursor-not-allowed border border-app text-dim hover:text-app text-xs font-medium rounded-xl transition-colors"
         >
           <Download size={13} />
           Export CSV
@@ -706,7 +706,7 @@ export default function Reports() {
           style={{ width: '260px' }}
         >
           <div className="px-3 py-2 border-b border-app flex-shrink-0 flex items-center justify-between">
-            <p className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">Tables &amp; Columns</p>
+            <p className="text-[10px] uppercase tracking-wider text-faint font-semibold">Tables &amp; Columns</p>
             <Database size={12} className="text-gray-700" />
           </div>
           <div className="flex-1 min-h-0 overflow-hidden">

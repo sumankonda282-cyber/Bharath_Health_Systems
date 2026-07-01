@@ -42,7 +42,7 @@ function fmtWhen(iso) {
 }
 
 function ActionBadge({ action }) {
-  const m = ACTION_META[action] || { label: action, icon: FileClock, badge: 'bg-gray-700 text-gray-400 border border-gray-600' }
+  const m = ACTION_META[action] || { label: action, icon: FileClock, badge: 'bg-gray-700 text-dim border border-gray-600' }
   const Icon = m.icon
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${m.badge}`}>
@@ -53,19 +53,19 @@ function ActionBadge({ action }) {
 
 // One field-level change chip: "Blood Pressure (bp) · Relabeled · BP → Blood Pressure"
 function ChangeChip({ c }) {
-  const m = CHANGE_META[c.change] || { label: c.change, cls: 'bg-gray-700 text-gray-300 border-gray-600' }
+  const m = CHANGE_META[c.change] || { label: c.change, cls: 'bg-gray-700 text-dim border-gray-600' }
   const from = Array.isArray(c.from) ? c.from.join(', ') : c.from
   const to   = Array.isArray(c.to)   ? c.to.join(', ')   : c.to
   return (
     <div className="flex flex-wrap items-center gap-2 text-xs py-1">
       <span className={`px-1.5 py-0.5 rounded border ${m.cls}`}>{m.label}</span>
-      <span className="text-gray-200 font-medium">{c.label}</span>
-      <code className="text-[10px] text-gray-500 bg-gray-800 px-1 rounded">{c.field_id}</code>
+      <span className="text-app font-medium">{c.label}</span>
+      <code className="text-[10px] text-faint surface-2 px-1 rounded">{c.field_id}</code>
       {(from != null || to != null) && (
-        <span className="text-gray-400">
-          {from != null && <span className="line-through text-gray-500">{String(from) || '∅'}</span>}
+        <span className="text-dim">
+          {from != null && <span className="line-through text-faint">{String(from) || '∅'}</span>}
           {from != null && to != null && <span className="mx-1">→</span>}
-          {to != null && <span className="text-gray-200">{String(to) || '∅'}</span>}
+          {to != null && <span className="text-app">{String(to) || '∅'}</span>}
         </span>
       )}
     </div>
@@ -77,32 +77,32 @@ function Row({ entry }) {
   const changes = entry.changes || []
   const hasDetail = changes.length > 0
   return (
-    <div className="border-b border-gray-800">
+    <div className="border-b border-app">
       <button
         onClick={() => hasDetail && setOpen(o => !o)}
-        className={`w-full flex items-center gap-3 px-4 py-3 text-left ${hasDetail ? 'hover:bg-gray-800/50 cursor-pointer' : 'cursor-default'}`}
+        className={`w-full flex items-center gap-3 px-4 py-3 text-left ${hasDetail ? 'hover-app cursor-pointer' : 'cursor-default'}`}
       >
         <div className="w-32 shrink-0"><ActionBadge action={entry.action} /></div>
         <div className="flex-1 min-w-0">
-          <div className="text-sm text-gray-100 truncate">
+          <div className="text-sm text-app truncate">
             {entry.form_title || 'Untitled'}
-            <span className="text-gray-500 ml-1.5 text-xs">#{entry.form_id}</span>
+            <span className="text-faint ml-1.5 text-xs">#{entry.form_id}</span>
           </div>
-          {entry.detail && <div className="text-xs text-gray-500 truncate">{entry.detail}</div>}
+          {entry.detail && <div className="text-xs text-faint truncate">{entry.detail}</div>}
         </div>
-        <div className="w-40 shrink-0 text-sm text-gray-300 truncate">
+        <div className="w-40 shrink-0 text-sm text-dim truncate">
           {entry.actor_name || 'Unknown'}
-          {entry.actor_type && <span className="block text-[10px] text-gray-500">{entry.actor_type.replace('_', ' ')}</span>}
+          {entry.actor_type && <span className="block text-[10px] text-faint">{entry.actor_type.replace('_', ' ')}</span>}
         </div>
-        <div className="w-40 shrink-0 text-xs text-gray-400">{fmtWhen(entry.created_at)}</div>
-        <div className="w-6 shrink-0 text-gray-500">
+        <div className="w-40 shrink-0 text-xs text-dim">{fmtWhen(entry.created_at)}</div>
+        <div className="w-6 shrink-0 text-faint">
           {hasDetail && <ChevronDown size={16} className={`transition-transform ${open ? 'rotate-180' : ''}`} />}
         </div>
       </button>
       {open && hasDetail && (
         <div className="px-4 pb-3 pl-36">
-          <div className="bg-gray-900/60 rounded-lg border border-gray-800 px-3 py-2">
-            <div className="text-[11px] uppercase tracking-wide text-gray-500 mb-1">
+          <div className="surface-2 rounded-lg border border-app px-3 py-2">
+            <div className="text-[11px] uppercase tracking-wide text-faint mb-1">
               {changes.length} field change{changes.length !== 1 ? 's' : ''}
             </div>
             {changes.map((c, i) => <ChangeChip key={i} c={c} />)}
@@ -162,29 +162,29 @@ export default function FormAuditLog() {
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-2">
           <FileClock className="text-blue-400" size={22} />
-          <h1 className="text-xl font-semibold text-gray-100">Form Audit Log</h1>
+          <h1 className="text-xl font-semibold text-app">Form Audit Log</h1>
         </div>
-        <button onClick={load} className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-800">
+        <button onClick={load} className="flex items-center gap-1.5 text-sm text-dim hover:text-app px-3 py-1.5 rounded-lg hover-app">
           <RefreshCw size={14} /> Refresh
         </button>
       </div>
-      <p className="text-sm text-gray-500 mb-5">
+      <p className="text-sm text-faint mb-5">
         Every change to assessment forms — who changed which form, when, and (for edits) exactly which field.
         {formIdFilter && <span className="ml-1 text-blue-400">Filtered to form #{formIdFilter}.</span>}
       </p>
 
       {/* Filters */}
-      <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-4 mb-4 grid grid-cols-1 md:grid-cols-5 gap-3">
+      <div className="surface-2 border border-app rounded-xl p-4 mb-4 grid grid-cols-1 md:grid-cols-5 gap-3">
         <div className="relative md:col-span-2">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
           <input
             value={q} onChange={e => setQ(e.target.value)}
             placeholder="Search form title…"
-            className="w-full pl-9 pr-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-100 placeholder-gray-500 focus:border-blue-500 outline-none"
+            className="w-full pl-9 pr-3 py-2 surface-2 border border-app rounded-lg text-sm text-app placeholder-gray-500 focus:border-blue-500 outline-none"
           />
         </div>
         <select value={action} onChange={e => setAction(e.target.value)}
-          className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-100 focus:border-blue-500 outline-none">
+          className="px-3 py-2 surface-2 border border-app rounded-lg text-sm text-app focus:border-blue-500 outline-none">
           <option value="">All actions</option>
           {(data.facets?.actions || []).map(a => (
             <option key={a} value={a}>{ACTION_META[a]?.label || a}</option>
@@ -193,25 +193,25 @@ export default function FormAuditLog() {
         <input
           value={actor} onChange={e => setActor(e.target.value)}
           placeholder="Actor name…"
-          className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-100 placeholder-gray-500 focus:border-blue-500 outline-none"
+          className="px-3 py-2 surface-2 border border-app rounded-lg text-sm text-app placeholder-gray-500 focus:border-blue-500 outline-none"
         />
         <div className="flex items-center gap-2">
           <input type="date" value={from} onChange={e => setFrom(e.target.value)}
-            className="w-full px-2 py-2 bg-gray-800 border border-gray-700 rounded-lg text-xs text-gray-100 focus:border-blue-500 outline-none" />
-          <span className="text-gray-600 text-xs">→</span>
+            className="w-full px-2 py-2 surface-2 border border-app rounded-lg text-xs text-app focus:border-blue-500 outline-none" />
+          <span className="text-faint text-xs">→</span>
           <input type="date" value={to} onChange={e => setTo(e.target.value)}
-            className="w-full px-2 py-2 bg-gray-800 border border-gray-700 rounded-lg text-xs text-gray-100 focus:border-blue-500 outline-none" />
+            className="w-full px-2 py-2 surface-2 border border-app rounded-lg text-xs text-app focus:border-blue-500 outline-none" />
         </div>
         {hasFilters && (
-          <button onClick={clearFilters} className="md:col-span-5 justify-self-start flex items-center gap-1 text-xs text-gray-400 hover:text-gray-200">
+          <button onClick={clearFilters} className="md:col-span-5 justify-self-start flex items-center gap-1 text-xs text-dim hover:text-app">
             <X size={12} /> Clear filters
           </button>
         )}
       </div>
 
       {/* List */}
-      <div className="bg-gray-900/40 border border-gray-800 rounded-xl overflow-hidden">
-        <div className="flex items-center gap-3 px-4 py-2 text-[11px] uppercase tracking-wide text-gray-500 border-b border-gray-800 bg-gray-900/60">
+      <div className="surface/40 border border-app rounded-xl overflow-hidden">
+        <div className="flex items-center gap-3 px-4 py-2 text-[11px] uppercase tracking-wide text-faint border-b border-app surface-2">
           <div className="w-32 shrink-0">Action</div>
           <div className="flex-1">Form</div>
           <div className="w-40 shrink-0">Who</div>
@@ -220,11 +220,11 @@ export default function FormAuditLog() {
         </div>
 
         {loading ? (
-          <div className="py-16 text-center text-gray-500 text-sm">Loading…</div>
+          <div className="py-16 text-center text-faint text-sm">Loading…</div>
         ) : error ? (
           <div className="py-16 text-center text-red-400 text-sm">{error}</div>
         ) : data.entries.length === 0 ? (
-          <div className="py-16 text-center text-gray-500 text-sm">No audit entries match these filters.</div>
+          <div className="py-16 text-center text-faint text-sm">No audit entries match these filters.</div>
         ) : (
           data.entries.map(e => <Row key={e.id} entry={e} />)
         )}
@@ -232,16 +232,16 @@ export default function FormAuditLog() {
 
       {/* Pagination */}
       {!loading && data.total > PAGE_SIZE && (
-        <div className="flex items-center justify-between mt-4 text-sm text-gray-400">
+        <div className="flex items-center justify-between mt-4 text-sm text-dim">
           <span>{data.total} total entries</span>
           <div className="flex items-center gap-2">
             <button disabled={page === 0} onClick={() => setPage(p => Math.max(0, p - 1))}
-              className="p-1.5 rounded hover:bg-gray-800 disabled:opacity-30 disabled:hover:bg-transparent">
+              className="p-1.5 rounded hover-app disabled:opacity-30 disabled:hover:bg-transparent">
               <ChevronLeft size={16} />
             </button>
             <span className="text-xs">Page {page + 1} of {totalPages}</span>
             <button disabled={page + 1 >= totalPages} onClick={() => setPage(p => p + 1)}
-              className="p-1.5 rounded hover:bg-gray-800 disabled:opacity-30 disabled:hover:bg-transparent">
+              className="p-1.5 rounded hover-app disabled:opacity-30 disabled:hover:bg-transparent">
               <ChevronRight size={16} />
             </button>
           </div>

@@ -383,7 +383,7 @@ function ExportPopup({ filteredCount, roleLabel, center, currentParams, asOf, on
             </button>
           ))}
         </div>
-        <p className="text-[11px] text-gray-500 leading-snug">
+        <p className="text-[11px] text-faint leading-snug">
           Downloads the registry columns (employee ID, license no, registered / renewed / expiry, status) for the chosen scope.
         </p>
       </div>
@@ -466,23 +466,23 @@ function DetailDrawer({ staff, onClose, onChanged }) {
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} />
-      <div className="fixed top-0 right-0 h-full w-full max-w-md z-50 bg-[#0a0f1e] border-l border-gray-800 shadow-2xl flex flex-col">
+      <div className="fixed top-0 right-0 h-full w-full max-w-md z-50 bg-[#0a0f1e] border-l border-app shadow-2xl flex flex-col">
         {/* header */}
-        <div className="px-5 py-4 border-b border-gray-800 flex items-start gap-3">
+        <div className="px-5 py-4 border-b border-app flex items-start gap-3">
           <div className="w-10 h-10 rounded-full bg-[#F5821E] text-white flex items-center justify-center font-bold text-sm flex-shrink-0">
             {initials(staff.full_name)}
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-white font-semibold">{staff.full_name}</div>
+            <div className="text-app font-semibold">{staff.full_name}</div>
             <div className="font-mono text-[11px] text-sky-300 truncate">{staff.employee_code}</div>
-            <div className="text-[11px] text-gray-500">{staff.role_label} · {staff.clinic_name}</div>
+            <div className="text-[11px] text-faint">{staff.role_label} · {staff.clinic_name}</div>
           </div>
-          <button onClick={onClose} className="text-gray-500 hover:text-white"><X size={18} /></button>
+          <button onClick={onClose} className="text-faint hover:text-white"><X size={18} /></button>
         </div>
 
         <div className="flex-1 overflow-y-auto">
           {/* status + actions */}
-          <div className="px-5 py-4 border-b border-gray-800 space-y-3">
+          <div className="px-5 py-4 border-b border-app space-y-3">
             <div className="flex items-center justify-between">
               <span className={`inline-block text-[11px] font-semibold px-2.5 py-1 rounded-full border ${st.cls}`}>{st.label}</span>
               <div className="flex items-center gap-2">
@@ -511,8 +511,8 @@ function DetailDrawer({ staff, onClose, onChanged }) {
           </div>
 
           {/* license detail / edit form */}
-          <div className="px-5 py-4 border-b border-gray-800">
-            <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-3">License details</div>
+          <div className="px-5 py-4 border-b border-app">
+            <div className="text-[11px] font-semibold text-faint uppercase tracking-wider mb-3">License details</div>
             {editing ? (
               <div className="space-y-3">
                 <Field label="License number">
@@ -534,7 +534,7 @@ function DetailDrawer({ staff, onClose, onChanged }) {
                   <input value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))}
                     className="reg-input" placeholder="e.g. Renewed for 2026, document re-uploaded" />
                 </Field>
-                <p className="text-[11px] text-gray-500">Dates are entered manually (no licensing-authority sync). Saving records an audit entry and re-checks expiry automatically.</p>
+                <p className="text-[11px] text-faint">Dates are entered manually (no licensing-authority sync). Saving records an audit entry and re-checks expiry automatically.</p>
                 <div className="flex gap-2 pt-1">
                   <button onClick={save} disabled={saving} className="btn-success flex-1 justify-center text-xs disabled:opacity-50">{saving ? 'Saving…' : 'Save license'}</button>
                   <button onClick={() => { setEditing(false); setErr(null) }} className="btn-secondary flex-1 justify-center text-xs">Cancel</button>
@@ -553,13 +553,13 @@ function DetailDrawer({ staff, onClose, onChanged }) {
 
           {/* audit timeline */}
           <div className="px-5 py-4">
-            <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+            <div className="text-[11px] font-semibold text-faint uppercase tracking-wider mb-3 flex items-center gap-1.5">
               <History size={12} /> Audit history
             </div>
             {loadingHist ? (
-              <div className="text-gray-500 text-sm py-4">Loading…</div>
+              <div className="text-faint text-sm py-4">Loading…</div>
             ) : !hist?.history?.length ? (
-              <div className="text-gray-500 text-sm py-4">No recorded events.</div>
+              <div className="text-faint text-sm py-4">No recorded events.</div>
             ) : (
               <div className="relative pl-5 before:content-[''] before:absolute before:left-[5px] before:top-1 before:bottom-1 before:w-0.5 before:bg-gray-800">
                 {hist.history.map((ev, i) => {
@@ -567,11 +567,11 @@ function DetailDrawer({ staff, onClose, onChanged }) {
                   return (
                     <div key={ev.id || i} className="relative pb-4 last:pb-0">
                       <span className={`absolute -left-5 top-1 w-3 h-3 rounded-full border-2 border-[#0a0f1e] ${meta.dot}`} />
-                      <div className="text-[11px] text-gray-500">{fmtDateTime(ev.created_at)}</div>
-                      <div className="text-[13px] text-gray-100 font-medium">{meta.label}{ev.changed_by_name ? <span className="text-gray-500 font-normal"> · {ev.changed_by_name}</span> : null}</div>
-                      {ev.note && <div className="text-[11.5px] text-gray-400 mt-0.5">{ev.note}</div>}
+                      <div className="text-[11px] text-faint">{fmtDateTime(ev.created_at)}</div>
+                      <div className="text-[13px] text-app font-medium">{meta.label}{ev.changed_by_name ? <span className="text-faint font-normal"> · {ev.changed_by_name}</span> : null}</div>
+                      {ev.note && <div className="text-[11.5px] text-dim mt-0.5">{ev.note}</div>}
                       {(ev.expiry_date || ev.license_number) && (
-                        <div className="text-[11px] text-gray-600 mt-0.5 font-mono">
+                        <div className="text-[11px] text-faint mt-0.5 font-mono">
                           {ev.license_number ? `${ev.license_number}` : ''}{ev.expiry_date ? ` · exp ${fmtDate(ev.expiry_date)}` : ''}
                         </div>
                       )}
@@ -592,7 +592,7 @@ function DetailDrawer({ staff, onClose, onChanged }) {
 function Field({ label, children }) {
   return (
     <label className="block">
-      <span className="block text-[11px] text-gray-500 mb-1">{label}</span>
+      <span className="block text-[11px] text-faint mb-1">{label}</span>
       {children}
     </label>
   )
@@ -601,8 +601,8 @@ function Field({ label, children }) {
 function Detail({ label, value, mono, valueCls = '' }) {
   return (
     <div>
-      <dt className="text-[11px] text-gray-500">{label}</dt>
-      <dd className={`text-gray-200 ${mono ? 'font-mono text-[12px]' : ''} ${valueCls}`}>{value}</dd>
+      <dt className="text-[11px] text-faint">{label}</dt>
+      <dd className={`text-app ${mono ? 'font-mono text-[12px]' : ''} ${valueCls}`}>{value}</dd>
     </div>
   )
 }
