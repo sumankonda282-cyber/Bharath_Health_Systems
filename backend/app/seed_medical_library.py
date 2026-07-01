@@ -204,7 +204,15 @@ def seed_drug_data():
             if existing >= 4500:
                 print(f"[medlib] drugs already loaded ({existing}) — skipping")
             else:
-                conn.execute(text("DELETE FROM drugs"))
+                # Reset ONLY the global catalog — never wipe a clinic's own custom
+                # drugs (clinic_id set). Detach any stock links to global rows first
+                # so the medicines.drug_id FK can't block the reset (best-effort:
+                # the column may not exist on a very old schema).
+                try:
+                    conn.execute(text("UPDATE medicines SET drug_id = NULL WHERE drug_id IN (SELECT id FROM drugs WHERE clinic_id IS NULL)"))
+                except Exception as e:
+                    print(f"[medlib] stock unlink skipped: {e}")
+                conn.execute(text("DELETE FROM drugs WHERE clinic_id IS NULL"))
                 rows = [{
                     "generic": d["generic"][:200], "atc": d.get("atc"),
                     "drug_class": d.get("drug_class"), "routes": d.get("routes"),
