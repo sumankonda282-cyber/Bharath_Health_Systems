@@ -23,15 +23,15 @@ export default function Navbar() {
 
           <div className="hidden md:flex items-center gap-3">
             <a href={PROVIDER_URL} target="_blank" rel="noopener noreferrer"
-              className="inline-flex items-center px-4 py-2 rounded-xl border-2 font-semibold text-sm transition-all"
-              style={{ borderColor: '#0F2557', color: '#0F2557' }}
+              className="press inline-flex items-center px-4 py-2 rounded-xl border-2 font-semibold text-sm"
+              style={{ borderColor: '#0F2557', color: '#0F2557', transition: 'background-color 160ms var(--ease-out), color 160ms var(--ease-out), transform 160ms var(--ease-out)' }}
               onMouseEnter={e => { e.currentTarget.style.background='#0F2557'; e.currentTarget.style.color='white' }}
               onMouseLeave={e => { e.currentTarget.style.background='transparent'; e.currentTarget.style.color='#0F2557' }}>
               Provider Login
             </a>
             <a href={PATIENT_URL} target="_blank" rel="noopener noreferrer"
-              className="inline-flex items-center px-4 py-2 rounded-xl font-semibold text-sm text-white transition-all"
-              style={{ background: '#CC1414' }}
+              className="press inline-flex items-center px-4 py-2 rounded-xl font-semibold text-sm text-white"
+              style={{ background: '#CC1414', transition: 'background-color 160ms var(--ease-out), transform 160ms var(--ease-out)' }}
               onMouseEnter={e => { e.currentTarget.style.background='#b01010' }}
               onMouseLeave={e => { e.currentTarget.style.background='#CC1414' }}>
               My Health Portal

@@ -10,6 +10,7 @@ import {
 import { publicApi } from '../api/client'
 import Navbar from '../components/Navbar'
 import BrandLogo from '../components/BrandLogo'
+import Reveal from '../components/Reveal'
 import { PROVIDER_URL, STAFF_URL, PATIENT_URL, CARECHART_URL, PHARMACY_URL, LAB_URL, IMAGING_URL } from '../constants/urls'
 
 function Footer() {
@@ -213,8 +214,8 @@ function FeedbackForm() {
           placeholder="Tell us what you think, what's missing, or what could be better..." />
       </div>
       <button type="submit" disabled={status === 'sending'}
-        className="w-full py-3 rounded-xl font-semibold text-white text-sm transition-colors"
-        style={{ background: '#0F2557', opacity: status === 'sending' ? 0.7 : 1 }}>
+        className="press w-full py-3 rounded-xl font-semibold text-white text-sm"
+        style={{ background: '#0F2557', opacity: status === 'sending' ? 0.7 : 1, transition: 'opacity 160ms var(--ease-out), transform 160ms var(--ease-out)' }}>
         {status === 'sending' ? 'Sending...' : 'Send Feedback'}
       </button>
       {status === 'error' && <p className="text-red-500 text-sm text-center">Something went wrong. Please try again.</p>}
@@ -297,8 +298,8 @@ export default function HomePage() {
             </div>
             <button
               type="submit"
-              className="px-6 py-3 rounded-xl font-semibold text-white text-sm whitespace-nowrap transition-colors"
-              style={{ background: '#CC1414' }}
+              className="press px-6 py-3 rounded-xl font-semibold text-white text-sm whitespace-nowrap"
+              style={{ background: '#CC1414', transition: 'background-color 160ms var(--ease-out), transform 160ms var(--ease-out)' }}
               onMouseEnter={e => e.currentTarget.style.background = '#b01010'}
               onMouseLeave={e => e.currentTarget.style.background = '#CC1414'}
             >
@@ -308,13 +309,13 @@ export default function HomePage() {
 
           <div className="flex flex-wrap justify-center gap-4 mt-8">
             <Link to="/register"
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm transition-all"
+              className="press inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm"
               style={{ background: 'rgba(255,255,255,0.12)', color: 'white', border: '1px solid rgba(255,255,255,0.25)' }}
             >
               Register Your Health Center (Beta) →
             </Link>
             <a href={PATIENT_URL}
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm transition-all"
+              className="press inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm"
               style={{ background: '#F5821E', color: 'white' }}
             >
               My Health Portal <ArrowRight className="w-4 h-4" />
@@ -367,15 +368,17 @@ export default function HomePage() {
               { num: '02', title: 'Safety Through Documentation', desc: 'Reducing misinterpretation and medical errors with legitimate, structured documentation — protecting patients and providers alike.', color: '#CC1414' },
               { num: '03', title: 'Ease Insurance Approvals', desc: 'Proper clinical documentation means faster, smoother insurance claims — less burden on patients, more revenue for health centers.', color: '#F5821E' },
               { num: '04', title: 'Continuity of Care', desc: 'A unified health record that travels with the patient — ensuring every doctor, every visit, every health center is connected.', color: '#138808' },
-            ].map(v => (
-              <div key={v.num} className="flex gap-5 p-6 rounded-2xl border border-gray-100 bg-gray-50 hover:shadow-md transition-shadow">
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-white text-sm flex-shrink-0"
-                  style={{ background: v.color }}>{v.num}</div>
-                <div>
-                  <h3 className="font-semibold text-gray-900 mb-1">{v.title}</h3>
-                  <p className="text-gray-500 text-sm leading-relaxed">{v.desc}</p>
+            ].map((v, i) => (
+              <Reveal key={v.num} delay={(i % 2) * 90} className="h-full">
+                <div className="lift h-full flex gap-5 p-6 rounded-2xl border border-gray-100 bg-gray-50 hover:shadow-md">
+                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-white text-sm flex-shrink-0"
+                    style={{ background: v.color }}>{v.num}</div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900 mb-1">{v.title}</h3>
+                    <p className="text-gray-500 text-sm leading-relaxed">{v.desc}</p>
+                  </div>
                 </div>
-              </div>
+              </Reveal>
             ))}
           </div>
         </div>
@@ -384,33 +387,32 @@ export default function HomePage() {
       {/* Features */}
       <section id="features" className="py-20 px-4" style={{ background: '#F0F4F8' }}>
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-14">
+          <Reveal className="text-center mb-14">
             <h2 className="text-3xl md:text-4xl font-extrabold" style={{ color: '#0F2557' }}>
               Everything your health center needs
             </h2>
             <p className="text-lg text-gray-500 mt-3">One platform to manage your entire health center operations</p>
-          </div>
+          </Reveal>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {FEATURES.map(({ icon: Icon, title, desc, color, comingSoon }) => (
-              <div
-                key={title}
-                className="bg-white rounded-2xl shadow-md border border-gray-100 p-6 hover:shadow-lg transition-shadow group"
-              >
-                <div
-                  className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4 transition-all"
-                  style={{ background: color + '15' }}
-                >
-                  <Icon className="w-6 h-6" style={{ color }} />
+            {FEATURES.map(({ icon: Icon, title, desc, color, comingSoon }, i) => (
+              <Reveal key={title} delay={(i % 3) * 70} className="h-full">
+                <div className="lift h-full bg-white rounded-2xl shadow-md border border-gray-100 p-6 hover:shadow-xl">
+                  <div
+                    className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4"
+                    style={{ background: color + '15' }}
+                  >
+                    <Icon className="w-6 h-6" style={{ color }} />
+                  </div>
+                  <h3 className="text-lg font-semibold mb-2 flex items-center flex-wrap gap-1" style={{ color: '#0F2557' }}>
+                    {title}
+                    {comingSoon && (
+                      <span className="ml-2 text-xs font-semibold px-2 py-0.5 rounded-full"
+                        style={{ background: '#F5821E22', color: '#F5821E' }}>Coming Soon</span>
+                    )}
+                  </h3>
+                  <p className="text-gray-500 text-sm leading-relaxed">{desc}</p>
                 </div>
-                <h3 className="text-lg font-semibold mb-2 flex items-center flex-wrap gap-1" style={{ color: '#0F2557' }}>
-                  {title}
-                  {comingSoon && (
-                    <span className="ml-2 text-xs font-semibold px-2 py-0.5 rounded-full"
-                      style={{ background: '#F5821E22', color: '#F5821E' }}>Coming Soon</span>
-                  )}
-                </h3>
-                <p className="text-gray-500 text-sm leading-relaxed">{desc}</p>
-              </div>
+              </Reveal>
             ))}
           </div>
         </div>
@@ -522,7 +524,7 @@ export default function HomePage() {
                   ))}
                 </div>
                 <Link to="/telehealth"
-                  className="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl font-semibold text-sm text-white"
+                  className="press inline-flex items-center gap-2 px-7 py-3.5 rounded-xl font-semibold text-sm text-white"
                   style={{ background: '#F5821E' }}>
                   <Video className="w-4 h-4" /> Browse Telehealth Doctors
                 </Link>
@@ -575,15 +577,15 @@ export default function HomePage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/register"
-              className="inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl font-semibold text-sm text-white transition-all"
-              style={{ background: '#CC1414' }}
+              className="press inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl font-semibold text-sm text-white"
+              style={{ background: '#CC1414', transition: 'background-color 160ms var(--ease-out), transform 160ms var(--ease-out)' }}
               onMouseEnter={e => e.currentTarget.style.background = '#b01010'}
               onMouseLeave={e => e.currentTarget.style.background = '#CC1414'}
             >
               Register Your Health Center (Beta) <ArrowRight className="w-4 h-4" />
             </Link>
             <Link to="/clinics"
-              className="inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl font-semibold text-sm transition-all"
+              className="press inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl font-semibold text-sm"
               style={{ background: 'rgba(255,255,255,0.12)', color: 'white', border: '1px solid rgba(255,255,255,0.25)' }}
             >
               Browse Doctors
