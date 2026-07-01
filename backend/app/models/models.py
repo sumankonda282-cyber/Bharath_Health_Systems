@@ -2438,6 +2438,12 @@ class DrugInteraction(Base):
     id         = Column(Integer, primary_key=True, index=True)
     drug_a     = Column(String(200), nullable=False, index=True)
     drug_b     = Column(String(200), nullable=False, index=True)
+    # FDB-style concept link: when an interaction party resolves to a catalog drug,
+    # cache its id here (best-effort — many parties are drug classes, e.g. "MAO
+    # Inhibitors", and stay NULL). The CDS matches by normalized generic name AND
+    # by id, so unmapped rows still fire.
+    drug_a_id  = Column(Integer, ForeignKey("drugs.id"), nullable=True, index=True)
+    drug_b_id  = Column(Integer, ForeignKey("drugs.id"), nullable=True, index=True)
     severity         = Column(String(20), nullable=False)   # contraindicated|serious|moderate
     interaction_type = Column(String(30), default="drug-drug")  # drug-drug|drug-food|drug-condition
     effect           = Column(Text, nullable=True)

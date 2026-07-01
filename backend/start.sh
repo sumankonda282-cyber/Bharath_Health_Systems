@@ -392,6 +392,16 @@ safe_cols = [
     \"ALTER TABLE patients ADD COLUMN IF NOT EXISTS portal_user_id INTEGER\",
     \"ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS ip_address VARCHAR(45)\",
 \"ALTER TABLE drug_interactions ADD COLUMN IF NOT EXISTS interaction_type VARCHAR(30) DEFAULT 'drug-drug'\",
+    # ── FDB-style concept link on interactions (best-effort; classes stay NULL). ──
+    \"ALTER TABLE drug_interactions ADD COLUMN IF NOT EXISTS drug_a_id INTEGER REFERENCES drugs(id)\",
+    \"ALTER TABLE drug_interactions ADD COLUMN IF NOT EXISTS drug_b_id INTEGER REFERENCES drugs(id)\",
+    \"CREATE INDEX IF NOT EXISTS idx_drug_interactions_aid ON drug_interactions(drug_a_id)\",
+    \"CREATE INDEX IF NOT EXISTS idx_drug_interactions_bid ON drug_interactions(drug_b_id)\",
+    # Idempotent backfill: link an interaction party to a catalog drug when its
+    # name exactly matches a generic (case-insensitive). Unmatched (drug classes,
+    # combos) stay NULL and still fire via name matching in the CDS.
+    \"UPDATE drug_interactions di SET drug_a_id = d.id FROM drugs d WHERE di.drug_a_id IS NULL AND lower(trim(di.drug_a)) = lower(trim(d.generic))\",
+    \"UPDATE drug_interactions di SET drug_b_id = d.id FROM drugs d WHERE di.drug_b_id IS NULL AND lower(trim(di.drug_b)) = lower(trim(d.generic))\",
     \"CREATE TABLE IF NOT EXISTS imaging_catalog (id SERIAL PRIMARY KEY, name VARCHAR(200) NOT NULL, modality VARCHAR(20) NOT NULL, body_part VARCHAR(100), category VARCHAR(100), turnaround_hours INTEGER DEFAULT 24, preparation TEXT, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW())\",
     \"CREATE INDEX IF NOT EXISTS idx_imaging_catalog_modality ON imaging_catalog(modality)\",
     \"CREATE TABLE IF NOT EXISTS disease_counselling (id SERIAL PRIMARY KEY, icd10_prefix VARCHAR(10) NOT NULL, condition VARCHAR(200), tip TEXT NOT NULL, sort_order INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT NOW())\",

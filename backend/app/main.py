@@ -25,6 +25,7 @@ from app.api.v1.endpoints.portal import router as portal_router
 from app.api.v1.endpoints.pdf_routes import router as pdf_router
 from app.api.v1.endpoints.referrals import router as referrals_router
 from app.api.v1.endpoints.problems import router as problems_router
+from app.api.v1.endpoints.cds import router as cds_router
 from app.api.v1.endpoints.encounters import router as encounters_router
 from app.api.v1.endpoints.bridge import router as bridge_router
 from app.api.v1.endpoints.lab_orders import router as lab_orders_router
@@ -144,6 +145,7 @@ app.include_router(portal_router, prefix=PREFIX)
 app.include_router(pdf_router, prefix=PREFIX)
 app.include_router(referrals_router, prefix=PREFIX)
 app.include_router(problems_router, prefix=PREFIX)
+app.include_router(cds_router, prefix=PREFIX)
 app.include_router(encounters_router, prefix=PREFIX)
 app.include_router(bridge_router, prefix=PREFIX)
 app.include_router(lab_orders_router, prefix=PREFIX)
