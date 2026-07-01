@@ -617,6 +617,13 @@ def dose_suggest(
     yrs = age_years if age_years is not None else (age_months / 12.0 if age_months is not None else None)
     population = "pediatric" if (yrs is not None and yrs < 12) else "adult"
 
+    # Body-habitus flag (clinical-pharmacy): a low-weight adult must not get the
+    # full fixed adult cap. Thresholds are conservative Indian-adult values.
+    body_flag = None
+    if population == "adult" and weight_kg:
+        if weight_kg < 35:   body_flag = "very_low"
+        elif weight_kg < 45: body_flag = "underweight"
+
     rules = db.query(DrugDoseRange).filter(DrugDoseRange.generic.ilike(g)).all()
 
     def pick_rule(pop, rt):
@@ -649,6 +656,21 @@ def dose_suggest(
             max_daily = md * weight_kg if md else None
         else:
             max_single, max_daily = ms, md
+
+    # Underweight adult: derive a weight-based cap from any mg/kg rule on file and
+    # tighten the adult cap to the lower of {adult cap, weight cap}, so a low-body-
+    # weight adult isn't overdosed on the fixed adult maximum.
+    if body_flag and weight_kg:
+        mgkg_rule = next((r for r in rules if (r.unit or "").lower() == "mg/kg" and r.max_single_mg is not None), None)
+        if mgkg_rule:
+            w_single = float(mgkg_rule.max_single_mg) * weight_kg
+            if max_single is None or w_single < max_single:
+                max_single = w_single
+            wd = float(mgkg_rule.max_daily_mg) * weight_kg if mgkg_rule.max_daily_mg is not None else None
+            if wd is not None and (max_daily is None or wd < max_daily):
+                max_daily = wd
+            if not target_mg:
+                target_mg = w_single
 
     # Flag threshold: for paediatric mg/kg the single-dose rate IS the target, so
     # allow a rounding tolerance (a 16 kg child's 250 mg tab ≈ 15.6 mg/kg is fine).
@@ -703,6 +725,10 @@ def dose_suggest(
     msg = None
     if population == "pediatric" and is_mgkg and not weight_kg:
         msg = "Enter the patient's weight for paediatric (mg/kg) dosing."
+    elif body_flag == "very_low":
+        msg = f"Very low body weight ({weight_kg} kg) — verify dose; weight-based cap applied."
+    elif body_flag == "underweight":
+        msg = f"Low body weight ({weight_kg} kg) — consider weight-based dosing; cap tightened."
     elif not rule:
         msg = "No dose rule on file; showing available formulations only."
     elif not nearest:
@@ -711,6 +737,7 @@ def dose_suggest(
     return {
         "generic": g,
         "population": population,
+        "body_flag": body_flag,
         "route": route,
         "weight_kg": weight_kg,
         "age_years": yrs,
