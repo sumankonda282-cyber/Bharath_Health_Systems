@@ -27,7 +27,7 @@ Extend `CONTRACTS`/tests as new shared surfaces are hardened.
 
 | Concept | Canonical key(s) | Notes |
 |---|---|---|
-| BP systolic/diastolic | `blood_pressure_systolic` / `blood_pressure_diastolic` (+ `bp_systolic`/`bp_diastolic` alias) | inpatient vitals emit both; shared shell reads the long form |
+| Blood pressure (composite) | `blood_pressure` (LOINC 85354-9) → components `blood_pressure_systolic` (8480-6) + `blood_pressure_diastolic` (8462-4) | **"BP"/"Blood Pressure" = the composite sys/dia pair, NEVER a single number.** "Systolic"→systolic only, "Diastolic"→diastolic only. Inpatient vitals emit `bp_systolic`/`bp_diastolic` (+ `blood_pressure_systolic`/`_diastolic` aliases for the shared shell). |
 | Respiratory rate | `respiratory_rate` (+ `respiration_rate` alias) | |
 | Pulse / SpO₂ / Temp | `pulse` / `spo2` / `temperature` | already consistent |
 | Lab result | `result_value`, `result_notes`, `reference_range`, `unit`, `flag`, `is_abnormal` | list GET must return the **stored per-result** values, not the catalogue default |

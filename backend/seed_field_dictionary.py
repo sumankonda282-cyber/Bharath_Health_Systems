@@ -41,8 +41,11 @@ def run():
                 group=spec.get("group"),
                 data_type=spec.get("type"),
                 unit=spec.get("unit"),
+                code=spec.get("code"),
+                code_system=spec.get("code_system"),
                 labels=spec.get("labels") or [],
                 aliases=spec.get("aliases") or [],
+                components=spec.get("components") or [],
                 is_active=True,
             )
             if row:

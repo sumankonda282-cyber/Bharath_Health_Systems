@@ -30,20 +30,34 @@ def test_dictionary_is_consistent():
 
 
 def test_resolver_maps_labels_and_aliases():
-    # The exact drift that caused real bugs — every wording resolves to one id.
-    assert resolve("BP") == "blood_pressure_systolic"
-    assert resolve("Blood Pressure") == "blood_pressure_systolic"
-    assert resolve("Systolic") == "blood_pressure_systolic"
+    # Clinically correct: "BP" is the composite (sys+dia), NOT systolic alone.
+    assert resolve("BP") == "blood_pressure"
+    assert resolve("Blood Pressure") == "blood_pressure"
+    assert resolve("  bp  ") == "blood_pressure"                      # case/whitespace tolerant
+    assert resolve("Systolic") == "blood_pressure_systolic"          # component only
+    assert resolve("SBP") == "blood_pressure_systolic"
+    assert resolve("Diastolic") == "blood_pressure_diastolic"
     assert resolve("bp_systolic") == "blood_pressure_systolic"       # legacy storage key
     assert resolve("respiration_rate") == "respiratory_rate"
     assert resolve("heart_rate") == "pulse" and resolve("HR") == "pulse"
     assert resolve("drug_name") == "medicine_name"
     assert resolve("normal_range") == "reference_range"
     assert resolve("study_description") == "procedure_name"
-    # Case-insensitive + whitespace tolerant.
-    assert resolve("  bp  ") == "blood_pressure_systolic"
     # Unknown term is not force-mapped (never silently mis-file data).
     assert resolve("totally_unknown_field") is None
+
+
+def test_blood_pressure_modeling_is_clinically_correct():
+    """Guard the fix: BP is a composite of the two components with correct LOINC codes;
+    'BP'/'Blood Pressure' must NEVER map to a single component."""
+    c = concepts()
+    assert c["blood_pressure"]["components"] == ["blood_pressure_systolic", "blood_pressure_diastolic"]
+    assert c["blood_pressure_systolic"]["code"] == "8480-6"          # LOINC systolic
+    assert c["blood_pressure_diastolic"]["code"] == "8462-4"         # LOINC diastolic
+    assert c["blood_pressure"]["code"] == "85354-9"                  # LOINC BP panel
+    for wording in ("BP", "Blood Pressure"):
+        assert wording not in c["blood_pressure_systolic"]["labels"]
+        assert wording not in c["blood_pressure_diastolic"]["labels"]
 
 
 def test_is_canonical():
@@ -66,6 +80,7 @@ def test_canonicalize_dict():
 if __name__ == "__main__":
     test_dictionary_is_consistent()
     test_resolver_maps_labels_and_aliases()
+    test_blood_pressure_modeling_is_clinically_correct()
     test_is_canonical()
     test_canonicalize_dict()
     print("ALL FIELD-DICTIONARY ASSERTIONS PASSED")

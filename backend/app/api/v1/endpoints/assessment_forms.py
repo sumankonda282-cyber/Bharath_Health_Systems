@@ -717,13 +717,16 @@ def list_field_dictionary(
                 or ql in (r.group or "").lower()
                 or any(ql in (l or "").lower() for l in (r.labels or []))]
     return {"fields": [{
-        "field_id":  r.field_id,
-        "group":     r.group,
-        "data_type": r.data_type,
-        "unit":      r.unit,
-        "labels":    r.labels or [],
-        "aliases":   r.aliases or [],
-        "clinic_id": r.clinic_id,
+        "field_id":    r.field_id,
+        "group":       r.group,
+        "data_type":   r.data_type,
+        "unit":        r.unit,
+        "code":        r.code,
+        "code_system": r.code_system,
+        "labels":      r.labels or [],
+        "aliases":     r.aliases or [],
+        "components":  r.components or [],
+        "clinic_id":   r.clinic_id,
     } for r in rows]}
 
 
