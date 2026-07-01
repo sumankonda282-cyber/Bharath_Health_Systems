@@ -20,6 +20,10 @@ export default function FormFiller() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const patientIdFromUrl = searchParams.get('patient_id')
+  // Read-only view (design standard §11): a chart/link may open the full-page
+  // filler in view-only mode (?readonly=1) so a closed-session form can't be
+  // edited/re-submitted by navigating to the filler directly.
+  const readOnly = searchParams.get('readonly') === '1'
   const draftKey = `form_draft_${assignmentId}`
 
   const [state, setState] = useState({
@@ -237,6 +241,7 @@ export default function FormFiller() {
   }
 
   const handleSubmit = async () => {
+    if (readOnly) return   // view-only — closed session, record is locked
     const errors = validateAll()
     if (Object.keys(errors).length > 0) {
       setState(s => ({ ...s, errors, touched: Object.fromEntries(Object.keys(errors).map(k => [k, true])) }))
@@ -408,27 +413,34 @@ export default function FormFiller() {
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            {timeLimitSecs !== null && (
+            {readOnly && (
+              <span className="text-xs font-medium text-gray-500 px-2 py-1 rounded-lg bg-gray-100">Read-only</span>
+            )}
+            {!readOnly && timeLimitSecs !== null && (
               <span className={`flex items-center gap-1 text-xs font-mono font-semibold px-2 py-1 rounded-lg ${timeLimitSecs < 300 ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-600'}`}>
                 <Clock size={12} />
                 {formatTime(timeLimitSecs)}
               </span>
             )}
-            <button
-              onClick={saveDraft}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition"
-            >
-              <Save size={14} />
-              {draftSaved ? 'Saved!' : 'Save Draft'}
-            </button>
-            <button
-              onClick={handleSubmit}
-              disabled={submitting}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#F5821E] text-white text-sm font-semibold hover:bg-orange-600 transition disabled:opacity-60"
-            >
-              {submitting ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-              Submit
-            </button>
+            {!readOnly && (
+              <button
+                onClick={saveDraft}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition"
+              >
+                <Save size={14} />
+                {draftSaved ? 'Saved!' : 'Save Draft'}
+              </button>
+            )}
+            {!readOnly && (
+              <button
+                onClick={handleSubmit}
+                disabled={submitting}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#F5821E] text-white text-sm font-semibold hover:bg-orange-600 transition disabled:opacity-60"
+              >
+                {submitting ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                Submit
+              </button>
+            )}
           </div>
         </div>
 
@@ -516,6 +528,8 @@ export default function FormFiller() {
             </button>
           </div>
         )}
+        {/* Disabled fieldset makes every control inert in one shot when locked. */}
+        <fieldset disabled={readOnly} className="border-0 p-0 m-0 min-w-0">
         {sections.map((section, si) => {
           if (sections.length > 1 && si !== activeSection) return null
           const layout = section.layout || 1
@@ -573,6 +587,7 @@ export default function FormFiller() {
             </div>
           )
         })}
+        </fieldset>
 
         {/* Section navigation */}
         {sections.length > 1 && (
@@ -591,7 +606,7 @@ export default function FormFiller() {
               >
                 Next →
               </button>
-            ) : (
+            ) : !readOnly ? (
               <button
                 onClick={handleSubmit}
                 disabled={submitting}
@@ -599,7 +614,7 @@ export default function FormFiller() {
               >
                 {submitting ? 'Submitting...' : 'Submit Form'}
               </button>
-            )}
+            ) : <span />}
           </div>
         )}
       </div>
