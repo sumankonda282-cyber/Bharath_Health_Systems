@@ -928,6 +928,8 @@ echo "[bg-migrations] Ensuring curated library — Vital Signs (idempotent upser
 timeout 30 python seed_vital_signs.py || echo "[bg-migrations] Vital Signs seed failed (non-fatal)"
 echo "[bg-migrations] Ensuring curated library — Adult OPD History (Subjective) (idempotent upsert)..."
 timeout 30 python seed_history_form.py || echo "[bg-migrations] History form seed failed (non-fatal)"
+echo "[bg-migrations] Ensuring curated library — Adult OPD Examination (Objective) (idempotent upsert)..."
+timeout 30 python seed_examination_form.py || echo "[bg-migrations] Examination form seed failed (non-fatal)"
 echo "[bg-migrations] Done."
 ) &
 
