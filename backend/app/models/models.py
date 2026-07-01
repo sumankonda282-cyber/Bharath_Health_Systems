@@ -643,6 +643,11 @@ class Medicine(Base):
     __tablename__ = "medicines"
     id             = Column(Integer, primary_key=True, index=True)
     branch_id      = Column(Integer, ForeignKey("branches.id"), nullable=True)
+    # Link to the global drug concept (FDB-style): a tenant's stock row points at
+    # the shared catalog drug. "In stock here" = a medicines row for this branch
+    # with qty>0 that references the drug — computed as a join, never a flag on the
+    # global drugs table. Nullable so legacy/free-text stock still works.
+    drug_id        = Column(Integer, ForeignKey("drugs.id"), nullable=True, index=True)
     name           = Column(String(200), nullable=False)
     generic_name   = Column(String(200), nullable=True)
     category       = Column(String(100), nullable=True)

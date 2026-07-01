@@ -168,6 +168,18 @@ safe_cols = [
     \"ALTER TABLE medicines ADD COLUMN IF NOT EXISTS schedule VARCHAR(10)\",
     \"ALTER TABLE medicines ADD COLUMN IF NOT EXISTS gst_rate NUMERIC(5,2)\",
     \"ALTER TABLE medicines ADD COLUMN IF NOT EXISTS mrp NUMERIC(10,2)\",
+    # ── Link tenant stock to the global drug catalog (FDB-style concept id). ──
+    # 'In stock here' becomes a join of drugs (catalog) → medicines (this branch),
+    # never a flag on the shared drugs row. Composite indexes keep tenant-filtered
+    # search O(one-tenant's-rows), not O(whole-table) — scales to 10k+ tenants.
+    \"ALTER TABLE medicines ADD COLUMN IF NOT EXISTS drug_id INTEGER REFERENCES drugs(id)\",
+    \"CREATE INDEX IF NOT EXISTS idx_medicines_branch_drug ON medicines(branch_id, drug_id)\",
+    \"CREATE INDEX IF NOT EXISTS idx_medicines_branch_name ON medicines(branch_id, name)\",
+    \"CREATE INDEX IF NOT EXISTS idx_medicines_drug ON medicines(drug_id)\",
+    # Idempotent backfill: match existing stock to the catalog by generic name
+    # (exact, case-insensitive) only where not already linked. Conservative — a
+    # name that doesn't match stays NULL (still searchable as free-text stock).
+    \"UPDATE medicines m SET drug_id = d.id FROM drugs d WHERE m.drug_id IS NULL AND m.generic_name IS NOT NULL AND lower(trim(m.generic_name)) = lower(trim(d.generic))\",
     \"ALTER TABLE clinics ADD COLUMN IF NOT EXISTS drug_license_number VARCHAR(100)\",
     \"ALTER TABLE clinics ADD COLUMN IF NOT EXISTS gstin VARCHAR(20)\",
     \"ALTER TABLE invoices ALTER COLUMN patient_id DROP NOT NULL\",
