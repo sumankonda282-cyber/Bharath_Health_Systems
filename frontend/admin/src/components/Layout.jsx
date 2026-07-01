@@ -11,6 +11,7 @@ import BrandLogo from './BrandLogo'
 import { Tooltip } from './ui/Tooltip'
 import { IconButton } from './ui/IconButton'
 import { Menu, MenuItem, MenuSeparator } from './ui/Menu'
+import ThemeToggle from './ThemeToggle'
 
 const NAV = [
   { to: '/dashboard',         icon: LayoutDashboard, label: 'Platform Analytics' },
@@ -313,7 +314,7 @@ export default function Layout() {
   const todayLabel = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#0a0f1e]">
+    <div className="flex h-screen overflow-hidden app-bg">
       {/* Desktop sidebar — collapsible + draggable width */}
       <aside
         className="hidden md:flex flex-col flex-shrink-0 relative"
@@ -365,6 +366,7 @@ export default function Layout() {
           </span>
 
           <IconButton icon={RefreshCw} label="Refresh" size={16} onClick={() => window.location.reload()} />
+          <ThemeToggle />
 
           <FeedbackBell />
           <ProfileDropdown user={user} logout={logout} onChangePassword={() => setPwModal(true)} />
