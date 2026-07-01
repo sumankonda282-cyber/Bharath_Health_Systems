@@ -2,10 +2,11 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import {
   ClipboardList, Clock, AlertTriangle, CheckCircle2,
-  ChevronRight, Activity, User, BarChart2, Loader2, Star, BookOpen,
+  ChevronRight, Activity, User, BarChart2, Loader2, Star, BookOpen, Layers,
   Search, X, Users
 } from 'lucide-react'
 import api from '../../api/client'
+import CareForms from './CareForms'
 
 const TABS = ['All', 'Pending', 'In Progress', 'Completed', 'Overdue']
 
@@ -465,9 +466,22 @@ export default function FormTaskList() {
             <BookOpen size={14} />
             Form Library
           </button>
+          <button
+            onClick={() => setMainTab('care')}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition ${
+              mainTab === 'care'
+                ? 'bg-[#0F2557] text-white shadow-sm'
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            <Layers size={14} />
+            Care Plans
+          </button>
         </div>
 
-        {mainTab === 'library' ? (
+        {mainTab === 'care' ? (
+          <CareForms />
+        ) : mainTab === 'library' ? (
           <FormLibrary patientId={patientId} />
         ) : (
           <>

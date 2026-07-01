@@ -228,14 +228,14 @@ def get_encounter(
             {
                 "id":     pr.id,
                 "status": pr.status,
-                "items":  [{"medicine_name": i.medicine_name, "dosage": i.dosage, "frequency": i.frequency, "duration": i.duration, "instructions": i.instructions} for i in pr.items]
+                "items":  [{"medicine_name": i.medicine_name, "dosage": i.dosage, "frequency": i.frequency, "duration": i.duration, "route": i.route, "instructions": i.instructions} for i in pr.items]
             } for pr in appt.prescriptions
         ],
         "lab_orders": [
             {
                 "id":     lo.id,
                 "status": lo.status,
-                "items":  [{"test_name": i.test_name, "result_value": i.result_value, "is_abnormal": i.is_abnormal} for i in lo.items]
+                "items":  [{"test_name": i.test_name, "notes": i.order_note, "result_value": i.result_value, "is_abnormal": i.is_abnormal} for i in lo.items]
             } for lo in appt.lab_orders
         ],
         "imaging_orders": [
@@ -300,6 +300,7 @@ def complete_encounter(
                     dosage=item.get("dosage", ""),
                     frequency=item.get("frequency", ""),
                     duration=item.get("duration", ""),
+                    route=item.get("route", ""),
                     instructions=item.get("instructions", ""),
                 ))
 
@@ -322,7 +323,8 @@ def complete_encounter(
             for t in tests:
                 test_name = (t.get("test_name") or "").strip()
                 if test_name:
-                    db.add(LabOrderItem(order_id=lo.id, test_name=test_name))
+                    db.add(LabOrderItem(order_id=lo.id, test_name=test_name,
+                                        order_note=(t.get("notes") or None)))
 
     _persist_imaging_orders(db, appt, current, body.get("imaging") or [])
 
@@ -660,6 +662,7 @@ def save_encounter_draft(
                     dosage=item.get("dosage", ""),
                     frequency=item.get("frequency", ""),
                     duration=item.get("duration", ""),
+                    route=item.get("route", ""),
                     instructions=item.get("instructions", ""),
                 ))
 
@@ -679,7 +682,8 @@ def save_encounter_draft(
         for t in lab_tests:
             test_name = (t.get("test_name") or "").strip()
             if test_name:
-                db.add(LabOrderItem(order_id=lo.id, test_name=test_name))
+                db.add(LabOrderItem(order_id=lo.id, test_name=test_name,
+                                    order_note=(t.get("notes") or None)))
 
     _persist_imaging_orders(db, appt, current, body.get("imaging") or [])
 

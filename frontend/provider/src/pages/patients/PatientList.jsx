@@ -214,6 +214,12 @@ function TagInput({ patientId, currentTags, onTagsChange }) {
 export default function PatientList() {
   const { user } = useAuth()
   const isDoctor = user?.role === 'doctor'
+  // Default: show the CLINIC's patients (all clinical staff share the clinic record).
+  // "My patients" is an opt-in narrowing for doctors — it must never be the default,
+  // or a doctor whose appointments aren't linked to their DoctorProfile sees an empty
+  // list even though the patients exist clinic-wide (they still show on the dashboard).
+  const [myOnly, setMyOnly] = useState(false)
+  const useMine = isDoctor && myOnly
   const [patients, setPatients]     = useState([])
   const [suggestions, setSuggestions] = useState([])
   const [showSuggestions, setShowSuggestions] = useState(false)
@@ -230,7 +236,7 @@ export default function PatientList() {
 
   const loadPatients = (q = search) => {
     setLoading(true)
-    if (isDoctor) {
+    if (useMine) {
       doctorApi.getMyPatients(q ? { search: q, limit: 50 } : { limit: 50 })
         .then(r => { setPatients(Array.isArray(r) ? r : []); setLoading(false) })
         .catch(() => setLoading(false))
@@ -253,7 +259,7 @@ export default function PatientList() {
   useEffect(() => {
     if (search.length < 2) { setSuggestions([]); setShowSuggestions(false); return }
     const t = setTimeout(() => {
-      const listFn = isDoctor
+      const listFn = useMine
         ? doctorApi.getMyPatients({ search, limit: 8 })
         : patientsApi.list({ search, limit: 8 })
       listFn
@@ -264,7 +270,7 @@ export default function PatientList() {
         .catch(() => {})
     }, 200)
     return () => clearTimeout(t)
-  }, [search, isDoctor])
+  }, [search, useMine])
 
   // Close suggestions on outside click
   useEffect(() => {
@@ -290,7 +296,7 @@ export default function PatientList() {
   useEffect(() => {
     const t = setTimeout(() => loadPatients(search), 300)
     return () => clearTimeout(t)
-  }, [search])
+  }, [search, myOnly])
 
   const updateTags = (patientId, tags) => {
     setPatients(ps => ps.map(p => p.id === patientId ? { ...p, tags } : p))
@@ -372,6 +378,18 @@ export default function PatientList() {
                 </div>
               )}
             </div>
+            {isDoctor && (
+              <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden text-sm flex-shrink-0" role="group" aria-label="Patient scope">
+                <button type="button" onClick={() => setMyOnly(false)}
+                  className={`px-3 py-2 font-medium transition-colors ${!myOnly ? 'bg-[#0F2557] text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
+                  All patients
+                </button>
+                <button type="button" onClick={() => setMyOnly(true)}
+                  className={`px-3 py-2 font-medium transition-colors ${myOnly ? 'bg-[#0F2557] text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
+                  My patients
+                </button>
+              </div>
+            )}
             <select className="input w-36" value={genderFilter} onChange={e => setGenderFilter(e.target.value)}>
               <option value="">All Genders</option>
               <option value="male">Male</option>
