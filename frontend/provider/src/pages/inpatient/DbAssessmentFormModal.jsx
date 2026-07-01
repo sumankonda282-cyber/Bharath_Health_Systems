@@ -3,7 +3,7 @@ import { X, Loader2, AlertTriangle, CheckCircle2, FileText, ChevronDown, Chevron
 import api from '../../api/client'
 import {
   LangContext, FieldRenderer, ScoreCard, AlertCard,
-  isFieldVisible, getCompletionPct, PatientDataContext,
+  isFieldVisible, effectiveValues, getCompletionPct, PatientDataContext,
 } from '../forms/formEngine'
 import useFormDraft, { draftMirrorKey, saveStatusLabel } from '@shared/hooks/useFormDraft'
 import { computeNormalFill } from '@shared/forms/normalFill'
@@ -501,7 +501,9 @@ function SectionBody({ section, index, tabbed, accent, gridCols, values, errors,
 
       {open && (() => {
         // CareForm free-grid placement (design = fill); legacy flow fallback.
-        const visible = (section.fields || []).filter(f => isFieldVisible(f, values))
+        // Transitive visibility: hide a child whose gate is itself hidden (§4).
+        const ev = effectiveValues(section.fields || [], values)
+        const visible = (section.fields || []).filter(f => isFieldVisible(f, ev))
         const useGrid = sectionHasLayout(section.fields)
         const rowMap  = useGrid ? buildRowMap(visible) : null
         return (

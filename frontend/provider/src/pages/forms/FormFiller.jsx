@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { ChevronLeft, Save, Send, AlertTriangle, CheckCircle2, Clock, Loader2, X } from 'lucide-react'
 import api from '../../api/client'
-import { LangContext, isFieldVisible, getCompletionPct, FieldRenderer, ScoreCard, AlertCard, PatientDataContext } from './formEngine'
+import { LangContext, isFieldVisible, effectiveValues, getCompletionPct, FieldRenderer, ScoreCard, AlertCard, PatientDataContext } from './formEngine'
 import { sectionHasLayout, buildRowMap, makeSectionGridStyle, gridCellStyle, gridColsOf } from '@shared/forms/gridLayout'
 
 // ─── Section/field layout maps (Tailwind-safe — literal class strings only) ────
@@ -537,7 +537,8 @@ export default function FormFiller() {
 
               {(() => {
                 // CareForm free-grid placement (design = fill); legacy flow fallback.
-                const vis     = (section.fields || []).filter(f => isFieldVisible(f, values))
+                const _ev      = effectiveValues(section.fields || [], values)
+                const vis     = (section.fields || []).filter(f => isFieldVisible(f, _ev))
                 const useGrid = sectionHasLayout(section.fields)
                 const rowMap  = useGrid ? buildRowMap(vis) : null
                 return (

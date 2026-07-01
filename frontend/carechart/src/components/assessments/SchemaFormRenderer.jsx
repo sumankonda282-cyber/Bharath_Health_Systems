@@ -91,6 +91,23 @@ function isFieldVisible(field, data) {
     : field.conditions.some(c => evalCondition(c, data))
 }
 
+// Transitive visibility (design standard §4): treat a hidden field's stale value
+// as absent so a child gated on it does not appear. Iterated to a fixpoint.
+function effectiveValues(fields, data) {
+  const keyOf = f => f.field_id || f.id
+  let vals = { ...data }
+  for (let pass = 0; pass < 6; pass++) {
+    let changed = false
+    for (const f of fields || []) {
+      const k = keyOf(f)
+      const present = vals[k] !== undefined && vals[k] !== null && vals[k] !== ''
+      if (present && !isFieldVisible(f, vals)) { delete vals[k]; changed = true }
+    }
+    if (!changed) break
+  }
+  return vals
+}
+
 // ── Field label with optional help text ─────────────────────────────────────
 
 function FieldLabel({ label, required, help_text }) {
@@ -521,7 +538,8 @@ function SectionBlock({ section, formData, onFieldChange, theme, gridCols }) {
       {!(section.collapsible && collapsed) && (() => {
         // CareForm free-grid placement (design = fill). Falls back to the legacy
         // column flow for forms that predate the grid (no field.layout).
-        const visible = fields.filter(field => isFieldVisible(field, formData))
+        const ev = effectiveValues(fields, formData)
+        const visible = fields.filter(field => isFieldVisible(field, ev))
         const useGrid = sectionHasLayout(fields)
         const rowMap  = useGrid ? buildRowMap(visible) : null
         return (
