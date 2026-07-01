@@ -14,14 +14,14 @@ os.environ.setdefault("JWT_SECRET_KEY", "test")
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from app.models.models import Base, Drug, DrugInteraction
+from app.models.models import Base, Drug, DrugInteraction, DrugPregnancyCategory
 from app.services.cds import screen_medication_order
 
 
 def _session():
     eng = create_engine("sqlite://")
     Base.metadata.create_all(eng, tables=[
-        Base.metadata.tables[n] for n in ["clinics", "drugs", "drug_interactions"]
+        Base.metadata.tables[n] for n in ["clinics", "drugs", "drug_interactions", "pregnancy_categories"]
     ])
     S = sessionmaker(bind=eng)()
     S.add_all([
@@ -29,6 +29,12 @@ def _session():
         Drug(generic="Aspirin", primary_brand="Ecosprin", drug_class="NSAID/Antiplatelet", is_active=True),
         Drug(generic="Amoxicillin", primary_brand="Mox", drug_class="Penicillin antibiotic", is_active=True),
         Drug(generic="Paracetamol", primary_brand="Dolo 650", drug_class="Analgesic", is_active=True),
+        Drug(generic="Alprazolam", primary_brand="Alprax", drug_class="Benzodiazepine", is_active=True),
+    ])
+    # CDSCO schedules (Indian standard): Amoxicillin = H1, Alprazolam = X
+    S.add_all([
+        DrugPregnancyCategory(generic="Amoxicillin", category="B", schedule="H1"),
+        DrugPregnancyCategory(generic="Alprazolam", category="D", schedule="X"),
     ])
     S.add(DrugInteraction(drug_a="Warfarin", drug_b="Aspirin", severity="contraindicated",
                           interaction_type="drug-drug", effect="Major bleeding risk",
@@ -66,6 +72,17 @@ def test_cds_screen():
     r = screen_medication_order(S, [{"generic": "Warfarin"}, {"generic": "Aspirin"}, {"generic": "Amoxicillin"}], ["Penicillin"])
     assert r["counts"]["interaction"] == 1 and r["counts"]["allergy"] == 1
     assert r["alerts"][0]["tier"] == "hard"  # sorted most-severe first
+
+    # 6) CDSCO Schedule H1 (Amoxicillin) → soft schedule alert
+    r = screen_medication_order(S, [{"generic": "Amoxicillin"}], [])
+    sched = [a for a in r["alerts"] if a["type"] == "schedule"]
+    assert len(sched) == 1 and sched[0]["schedule"] == "H1" and sched[0]["tier"] == "soft"
+
+    # 7) CDSCO Schedule X (Alprazolam) → hard schedule alert + hard_stop
+    r = screen_medication_order(S, [{"generic": "Alprazolam"}], [])
+    sched = [a for a in r["alerts"] if a["type"] == "schedule"]
+    assert len(sched) == 1 and sched[0]["schedule"] == "X" and sched[0]["tier"] == "hard"
+    assert r["has_hard_stop"] is True and r["counts"]["schedule"] == 1
 
 
 if __name__ == "__main__":

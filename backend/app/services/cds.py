@@ -20,10 +20,11 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy import or_, and_, func
 from sqlalchemy.orm import Session
 
-from app.models.models import Drug, DrugInteraction
+from app.models.models import Drug, DrugInteraction, DrugPregnancyCategory
 
 
-# Severity → alert tier (Epic-style). 'hard' = interruptive + override reason.
+# Severity → alert tier. 'hard' = interruptive (needs an override reason), 'soft'
+# = advisory, 'info' = passive note.
 SEVERITY_TIER = {
     "contraindicated": "hard",
     "major":           "hard",
@@ -65,6 +66,16 @@ def _resolve_drug(db: Session, item: Dict[str, Any]) -> Dict[str, Any]:
     gen = item.get("generic") or item.get("generic_name") or item.get("name")
     if row is None and gen:
         row = db.query(Drug).filter(func.lower(Drug.generic) == _norm(gen)).first()
+    # CDSCO schedule (H1/X) comes from the pregnancy_categories reference (which
+    # carries the India schedule) keyed by generic — best-effort, NULL if unknown.
+    schedule = None
+    lookup_gen = (row.generic if row is not None else gen)
+    if lookup_gen:
+        pc = db.query(DrugPregnancyCategory).filter(
+            func.lower(DrugPregnancyCategory.generic) == _norm(lookup_gen)
+        ).first()
+        if pc and pc.schedule:
+            schedule = pc.schedule.strip().upper()
     if row is not None:
         return {
             "id": row.id,
@@ -72,9 +83,36 @@ def _resolve_drug(db: Session, item: Dict[str, Any]) -> Dict[str, Any]:
             "name": row.primary_brand or row.generic,
             "drug_class": row.drug_class or "",
             "brands": row.brands or "",
+            "schedule": schedule,
         }
     return {"id": item.get("drug_id"), "generic": gen or "", "name": item.get("name") or gen or "",
-            "drug_class": "", "brands": ""}
+            "drug_class": "", "brands": "", "schedule": schedule}
+
+
+def _schedule_alerts(drugs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """CDSCO drug-schedule alerts (Indian standard). Schedule H1 → antimicrobial /
+    habit-forming, mandatory H1 register + stewardship. Schedule X → narcotic /
+    psychotropic, duplicate prescription + register."""
+    out: List[Dict[str, Any]] = []
+    for d in drugs:
+        sched = (d.get("schedule") or "").upper()
+        if sched == "X":
+            out.append({
+                "type": "schedule", "severity": "contraindicated", "tier": "hard",
+                "drugs": [d["name"]], "schedule": "X",
+                "message": f"{d['name']} is Schedule X (CDSCO) — narcotic/psychotropic.",
+                "management": "Requires a duplicate prescription and entry in the Schedule X register.",
+                "source": "cdsco-schedule",
+            })
+        elif sched in ("H1",):
+            out.append({
+                "type": "schedule", "severity": "moderate", "tier": "soft",
+                "drugs": [d["name"]], "schedule": "H1",
+                "message": f"{d['name']} is Schedule H1 (CDSCO) — antimicrobial/habit-forming.",
+                "management": "Record in the Schedule H1 register; prescribe per antimicrobial stewardship.",
+                "source": "cdsco-schedule",
+            })
+    return out
 
 
 def _find_interactions(db: Session, drugs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -157,7 +195,11 @@ def screen_medication_order(
 ) -> Dict[str, Any]:
     """Run the full medication-order screen. Returns {alerts, has_hard_stop, counts}."""
     resolved = [_resolve_drug(db, d) for d in (drugs or []) if (d.get("generic") or d.get("name") or d.get("drug_id"))]
-    alerts = _find_interactions(db, resolved) + _allergy_conflicts(resolved, allergies or [])
+    alerts = (
+        _find_interactions(db, resolved)
+        + _allergy_conflicts(resolved, allergies or [])
+        + _schedule_alerts(resolved)
+    )
     # Most severe first.
     tier_rank = {"hard": 0, "soft": 1, "info": 2}
     alerts.sort(key=lambda a: tier_rank.get(a["tier"], 3))
@@ -167,5 +209,6 @@ def screen_medication_order(
         "counts": {
             "interaction": sum(1 for a in alerts if a["type"] == "interaction"),
             "allergy": sum(1 for a in alerts if a["type"] == "allergy"),
+            "schedule": sum(1 for a in alerts if a["type"] == "schedule"),
         },
     }
