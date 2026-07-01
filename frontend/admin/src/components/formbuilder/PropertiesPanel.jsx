@@ -13,7 +13,7 @@ import { gridColsOf } from '@shared/forms/gridLayout'
 // ─── Field type icon map ──────────────────────────────────────────────────────
 
 function getFieldTypeIcon(type, size = 16) {
-  const props = { size, className: 'text-gray-400 flex-shrink-0' }
+  const props = { size, className: 'text-dim flex-shrink-0' }
   const map = {
     text:              <Type {...props} />,
     textarea:          <AlignLeft {...props} />,
@@ -63,12 +63,12 @@ function Toggle({ value, onChange, label }) {
       <div
         role="switch"
         aria-checked={value}
-        className={`relative w-9 h-5 rounded-full transition-colors flex-shrink-0 ${value ? 'bg-[#F5821E]' : 'bg-gray-700'}`}
+        className={`relative w-9 h-5 rounded-full transition-colors flex-shrink-0 ${value ? 'bg-[#F5821E]' : 'surface-3'}`}
         onClick={() => onChange(!value)}
       >
         <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${value ? 'translate-x-4' : 'translate-x-0.5'}`} />
       </div>
-      {label && <span className="text-sm text-gray-300">{label}</span>}
+      {label && <span className="text-sm text-dim">{label}</span>}
     </label>
   )
 }
@@ -76,21 +76,21 @@ function Toggle({ value, onChange, label }) {
 function PropRow({ label, children, hint }) {
   return (
     <div className="mb-3">
-      <label className="block text-xs font-medium text-gray-400 mb-1">{label}</label>
+      <label className="block text-xs font-medium text-dim mb-1">{label}</label>
       {children}
-      {hint && <p className="mt-1 text-xs text-gray-600">{hint}</p>}
+      {hint && <p className="mt-1 text-xs text-faint">{hint}</p>}
     </div>
   )
 }
 
 const inputCls =
-  'w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-[#F5821E] transition-colors'
+  'w-full surface-2 border border-app rounded-lg px-3 py-1.5 text-sm text-app focus:outline-none focus:border-[#F5821E] transition-colors'
 
 const selectCls =
-  'w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-[#F5821E] transition-colors appearance-none'
+  'w-full surface-2 border border-app rounded-lg px-3 py-1.5 text-sm text-app focus:outline-none focus:border-[#F5821E] transition-colors appearance-none'
 
 const textareaCls =
-  'w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-[#F5821E] transition-colors resize-none'
+  'w-full surface-2 border border-app rounded-lg px-3 py-1.5 text-sm text-app focus:outline-none focus:border-[#F5821E] transition-colors resize-none'
 
 function BtnGroup({ options, value, onChange }) {
   return (
@@ -106,8 +106,8 @@ function BtnGroup({ options, value, onChange }) {
             className={[
               'px-2.5 py-1 rounded-lg text-xs font-medium transition-colors',
               v === value
-                ? 'bg-[#F5821E] text-white'
-                : 'bg-gray-700 text-gray-400 hover:bg-gray-600 hover:text-white',
+                ? 'bg-[#F5821E] text-app'
+                : 'surface-3 text-dim hover-app hover:text-app',
             ].join(' ')}
           >
             {l}
@@ -129,7 +129,7 @@ function ColorField({ value, onChange, label }) {
             style={{ background: c, borderColor: '#e5e7eb' }} title={c} />
         ))}
         <input type="color" value={value || '#0F2557'} onChange={e => onChange(e.target.value)} className="w-6 h-6 rounded cursor-pointer border border-gray-200 p-0" />
-        {value && <button type="button" onClick={() => onChange('')} className="text-xs text-gray-400 hover:text-gray-600">clear</button>}
+        {value && <button type="button" onClick={() => onChange('')} className="text-xs text-dim hover:text-dim">clear</button>}
       </div>
     </PropRow>
   )
@@ -137,8 +137,8 @@ function ColorField({ value, onChange, label }) {
 
 function SectionHeader({ title }) {
   return (
-    <div className="bg-gray-800/70 px-4 py-2 border-b border-gray-700 mb-3">
-      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{title}</p>
+    <div className="surface-2 px-4 py-2 border-b border-app mb-3">
+      <p className="text-xs font-semibold text-dim uppercase tracking-wider">{title}</p>
     </div>
   )
 }
@@ -146,17 +146,17 @@ function SectionHeader({ title }) {
 function CollapsibleSection({ title, icon: Icon, defaultOpen = false, children }) {
   const [open, setOpen] = useState(defaultOpen)
   return (
-    <div className="border-t border-gray-800 mt-4 pt-4">
+    <div className="border-t border-app mt-4 pt-4">
       <button
         type="button"
         className="flex items-center gap-2 w-full text-left mb-2 group"
         onClick={() => setOpen(v => !v)}
       >
-        {Icon && <Icon size={14} className="text-gray-400 flex-shrink-0" />}
-        <span className="text-xs font-semibold text-gray-300 uppercase tracking-wider flex-1">{title}</span>
+        {Icon && <Icon size={14} className="text-dim flex-shrink-0" />}
+        <span className="text-xs font-semibold text-dim uppercase tracking-wider flex-1">{title}</span>
         {open
-          ? <ChevronUp size={14} className="text-gray-500 group-hover:text-gray-300 flex-shrink-0" />
-          : <ChevronRight size={14} className="text-gray-500 group-hover:text-gray-300 flex-shrink-0" />}
+          ? <ChevronUp size={14} className="text-faint group-hover:text-dim flex-shrink-0" />
+          : <ChevronRight size={14} className="text-faint group-hover:text-dim flex-shrink-0" />}
       </button>
       {open && <div>{children}</div>}
     </div>
@@ -175,22 +175,22 @@ function GridSizeControl({ layout, onChange, cols = 12 }) {
     if (k === 'x') v = Math.min(Math.max(0, Number(raw) || 0), cols - (l.w || 1))
     onChange({ x: l.x ?? 0, y: l.y ?? 0, w: l.w ?? 6, h: l.h ?? 1, [k]: v })
   }
-  const inp = 'w-14 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-[#F5821E]'
+  const inp = 'w-14 surface-2 border border-app rounded px-2 py-1 text-xs text-app focus:outline-none focus:border-[#F5821E]'
   return (
     <PropRow label="Grid size & position">
       <div className="flex items-center gap-2 flex-wrap">
-        <Columns size={13} className="text-gray-500 flex-shrink-0" />
+        <Columns size={13} className="text-faint flex-shrink-0" />
         <input type="number" min={1} max={cols} value={l.w ?? 6} onChange={e => upd('w', e.target.value)} className={inp} title={`Width (1–${cols} columns)`} />
-        <span className="text-gray-500 text-xs">×</span>
+        <span className="text-faint text-xs">×</span>
         <input type="number" min={1} value={l.h ?? 1} onChange={e => upd('h', e.target.value)} className={inp} title="Height (rows)" />
-        <span className="text-[10px] text-gray-500">W×H · {cols}-col</span>
+        <span className="text-[10px] text-faint">W×H · {cols}-col</span>
       </div>
       <div className="flex items-center gap-2 mt-2">
-        <span className="text-[10px] text-gray-500 w-8">at x/y</span>
+        <span className="text-[10px] text-faint w-8">at x/y</span>
         <input type="number" min={0} max={cols - 1} value={l.x ?? 0} onChange={e => upd('x', e.target.value)} className={inp} title="Column position (0-based)" />
-        <span className="text-gray-500 text-xs">,</span>
+        <span className="text-faint text-xs">,</span>
         <input type="number" min={0} value={l.y ?? 0} onChange={e => upd('y', e.target.value)} className={inp} title="Row position (0-based)" />
-        <span className="text-[10px] text-gray-500">arrow keys nudge</span>
+        <span className="text-[10px] text-faint">arrow keys nudge</span>
       </div>
     </PropRow>
   )
@@ -235,7 +235,7 @@ function OptionsEditor({ options = [], onChange, showScoreWeight = false, showTe
   return (
     <div>
       {showScoreWeight && (
-        <div className="flex items-center gap-1 mb-1 text-xs text-gray-500 px-1">
+        <div className="flex items-center gap-1 mb-1 text-xs text-faint px-1">
           <span className="flex-1">Label</span>
           <span className="w-24">Value (ID)</span>
           <span className="w-12 text-center">Score</span>
@@ -246,8 +246,8 @@ function OptionsEditor({ options = [], onChange, showScoreWeight = false, showTe
         {options.map((opt, i) => (
           <div key={i} className="flex items-center gap-1.5">
             <div className="flex flex-col">
-              <button type="button" onClick={() => moveUp(i)} className="text-gray-600 hover:text-gray-400 leading-none py-0.5"><ChevronUp size={10} /></button>
-              <button type="button" onClick={() => moveDown(i)} className="text-gray-600 hover:text-gray-400 leading-none py-0.5"><ChevronDown size={10} /></button>
+              <button type="button" onClick={() => moveUp(i)} className="text-faint hover:text-dim leading-none py-0.5"><ChevronUp size={10} /></button>
+              <button type="button" onClick={() => moveDown(i)} className="text-faint hover:text-dim leading-none py-0.5"><ChevronDown size={10} /></button>
             </div>
             <input
               className={inputCls + ' flex-1 text-xs'}
@@ -256,7 +256,7 @@ function OptionsEditor({ options = [], onChange, showScoreWeight = false, showTe
               placeholder="Label"
             />
             <input
-              className="w-24 bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-gray-400 font-mono focus:outline-none focus:border-[#F5821E]"
+              className="w-24 surface-2 border border-app rounded-lg px-2 py-1.5 text-xs text-dim font-mono focus:outline-none focus:border-[#F5821E]"
               value={opt.value}
               onChange={e => updateOption(i, 'value', e.target.value)}
               placeholder="value"
@@ -273,12 +273,12 @@ function OptionsEditor({ options = [], onChange, showScoreWeight = false, showTe
               <input
                 type="number"
                 title="Score weight for this option"
-                className="w-12 bg-gray-800 border border-gray-700 rounded-lg px-1.5 py-1.5 text-xs text-blue-300 font-mono focus:outline-none focus:border-[#F5821E] text-center"
+                className="w-12 surface-2 border border-app rounded-lg px-1.5 py-1.5 text-xs text-blue-300 font-mono focus:outline-none focus:border-[#F5821E] text-center"
                 value={opt.score_weight ?? 0}
                 onChange={e => updateOption(i, 'score_weight', Number(e.target.value))}
               />
             )}
-            <button type="button" onClick={() => removeOption(i)} className="text-gray-600 hover:text-red-400 transition-colors flex-shrink-0">
+            <button type="button" onClick={() => removeOption(i)} className="text-faint hover:text-red-400 transition-colors flex-shrink-0">
               <X size={13} />
             </button>
           </div>
@@ -303,7 +303,7 @@ function OptionsEditor({ options = [], onChange, showScoreWeight = false, showTe
         )}
       </div>
       {showScoreWeight && (
-        <p className="text-xs text-gray-600 mt-1.5">Score column sets per-option weight for clinical scoring.</p>
+        <p className="text-xs text-faint mt-1.5">Score column sets per-option weight for clinical scoring.</p>
       )}
       {termSearchOpen && (
         <TerminologySearchModal onAdd={handleAddFromTerminology} onClose={() => setTermSearchOpen(false)} />
@@ -338,25 +338,25 @@ function TerminologySearchModal({ onAdd, onClose }) {
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative w-[480px] max-h-[80vh] bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl flex flex-col overflow-hidden">
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-800">
-          <Search size={14} className="text-gray-400 flex-shrink-0" />
+      <div className="relative w-[480px] max-h-[80vh] surface border border-app rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-app">
+          <Search size={14} className="text-dim flex-shrink-0" />
           <input
             autoFocus
-            className="flex-1 bg-transparent text-sm text-white placeholder-gray-500 focus:outline-none"
+            className="flex-1 bg-transparent text-sm text-app placeholder-gray-500 focus:outline-none"
             placeholder="Search symptoms, findings, procedures, anatomy…"
             value={q}
             onChange={e => setQ(e.target.value)}
           />
-          <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors"><X size={16} /></button>
+          <button onClick={onClose} className="text-faint hover:text-app transition-colors"><X size={16} /></button>
         </div>
         <div className="flex-1 overflow-y-auto p-2">
-          {loading && <p className="text-xs text-gray-500 text-center py-4">Searching…</p>}
+          {loading && <p className="text-xs text-faint text-center py-4">Searching…</p>}
           {!loading && results.length === 0 && q.trim() && (
-            <p className="text-xs text-gray-500 text-center py-4">No results for "{q}"</p>
+            <p className="text-xs text-faint text-center py-4">No results for "{q}"</p>
           )}
           {!loading && results.length === 0 && !q.trim() && (
-            <p className="text-xs text-gray-600 text-center py-6">Type to search the medical terminology library.</p>
+            <p className="text-xs text-faint text-center py-6">Type to search the medical terminology library.</p>
           )}
           {results.map((r, i) => {
             const label = r.term || r.name || r.label || String(r)
@@ -374,18 +374,18 @@ function TerminologySearchModal({ onAdd, onClose }) {
                 onClick={() => onAdd(code
                   ? { label, value: val, code, system }
                   : { label, value: val })}
-                className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-800 group transition-colors"
+                className="w-full text-left px-3 py-2 rounded-lg hover:surface-2 group transition-colors"
               >
                 <div className="flex items-baseline gap-2">
-                  <span className="text-sm text-gray-200 group-hover:text-white flex-1">{label}</span>
-                  {cat && <span className="text-[10px] text-gray-500 flex-shrink-0">{cat}</span>}
+                  <span className="text-sm text-app group-hover:text-app flex-1">{label}</span>
+                  {cat && <span className="text-[10px] text-faint flex-shrink-0">{cat}</span>}
                 </div>
                 {r.code && <span className="text-[10px] font-mono text-blue-500">{r.code}</span>}
               </button>
             )
           })}
         </div>
-        <div className="px-4 py-2 border-t border-gray-800 text-[10px] text-gray-600">
+        <div className="px-4 py-2 border-t border-app text-[10px] text-faint">
           Powered by BHS medical terms · click a result to add it as an option
         </div>
       </div>
@@ -407,7 +407,7 @@ function CascadeConfig({ field, allFields, set }) {
   function setCascadeMap(newMap) { set('cascade_map', newMap) }
 
   if (parentCandidates.length === 0) {
-    return <p className="text-xs text-gray-500 italic">Add a parent radio / dropdown field first to configure cascading.</p>
+    return <p className="text-xs text-faint italic">Add a parent radio / dropdown field first to configure cascading.</p>
   }
 
   return (
@@ -426,18 +426,18 @@ function CascadeConfig({ field, allFields, set }) {
       </PropRow>
       {field.cascade_parent && parentOpts.length > 0 && (
         <div>
-          <p className="text-xs text-gray-400 font-medium mb-2">Options visible when parent equals…</p>
+          <p className="text-xs text-dim font-medium mb-2">Options visible when parent equals…</p>
           <div className="space-y-2">
             {parentOpts.map(pOpt => {
               const visibleVals = (cascadeMap[pOpt.value] || [])
               return (
-                <div key={pOpt.value} className="bg-gray-900 border border-gray-700/50 rounded-lg p-2">
+                <div key={pOpt.value} className="surface border border-app rounded-lg p-2">
                   <p className="text-xs text-yellow-400 font-medium mb-1.5">{pOpt.label}</p>
                   <div className="space-y-1">
                     {(field.options || []).map(opt => {
                       const checked = visibleVals.includes(opt.value)
                       return (
-                        <label key={opt.value} className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer">
+                        <label key={opt.value} className="flex items-center gap-2 text-xs text-dim cursor-pointer">
                           <input
                             type="checkbox"
                             checked={checked}
@@ -454,7 +454,7 @@ function CascadeConfig({ field, allFields, set }) {
                       )
                     })}
                     {(field.options || []).length === 0 && (
-                      <p className="text-xs text-gray-600 italic">Add options above first.</p>
+                      <p className="text-xs text-faint italic">Add options above first.</p>
                     )}
                   </div>
                 </div>
@@ -537,7 +537,7 @@ function AlertTriggerValue({ rule, field, onChange }) {
       : (field.options || [])
     return (
       <select
-        className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-[#F5821E]"
+        className="flex-1 surface-2 border border-app rounded-lg px-2 py-1 text-xs text-app focus:outline-none focus:border-[#F5821E]"
         value={rule.value || ''}
         onChange={e => onChange('value', e.target.value)}
       >
@@ -552,15 +552,15 @@ function AlertTriggerValue({ rule, field, onChange }) {
       <>
         <input
           type="number"
-          className="w-16 bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-[#F5821E]"
+          className="w-16 surface-2 border border-app rounded-lg px-2 py-1 text-xs text-app focus:outline-none focus:border-[#F5821E]"
           value={rule.threshold_low ?? ''}
           onChange={e => onChange('threshold_low', Number(e.target.value))}
           placeholder="Min"
         />
-        <span className="text-gray-500 text-xs flex-shrink-0">–</span>
+        <span className="text-faint text-xs flex-shrink-0">–</span>
         <input
           type="number"
-          className="w-16 bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-[#F5821E]"
+          className="w-16 surface-2 border border-app rounded-lg px-2 py-1 text-xs text-app focus:outline-none focus:border-[#F5821E]"
           value={rule.threshold_high ?? ''}
           onChange={e => onChange('threshold_high', Number(e.target.value))}
           placeholder="Max"
@@ -573,14 +573,14 @@ function AlertTriggerValue({ rule, field, onChange }) {
   return isNumericOp ? (
     <input
       type="number"
-      className="w-20 bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-[#F5821E]"
+      className="w-20 surface-2 border border-app rounded-lg px-2 py-1 text-xs text-app focus:outline-none focus:border-[#F5821E]"
       value={rule.threshold ?? rule.value ?? ''}
       onChange={e => onChange('threshold', Number(e.target.value))}
     />
   ) : (
     <input
       type="text"
-      className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-[#F5821E]"
+      className="flex-1 surface-2 border border-app rounded-lg px-2 py-1 text-xs text-app focus:outline-none focus:border-[#F5821E]"
       value={rule.value || ''}
       onChange={e => onChange('value', e.target.value)}
       placeholder="value…"
@@ -605,7 +605,7 @@ function AlertRulesEditor({ rules = [], field, onChange }) {
           <div key={i} className={`rounded-lg p-2 border space-y-1.5 ${SEVERITY_BG[rule.severity] || SEVERITY_BG.warning}`}>
             <div className="flex items-center gap-1.5 flex-wrap">
               <select
-                className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-[#F5821E]"
+                className="surface-2 border border-app rounded-lg px-2 py-1 text-xs text-app focus:outline-none focus:border-[#F5821E]"
                 value={rule.severity}
                 onChange={e => updateRule(i, 'severity', e.target.value)}
               >
@@ -614,7 +614,7 @@ function AlertRulesEditor({ rules = [], field, onChange }) {
                 <option value="warning">🟡 Warning</option>
               </select>
               <select
-                className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-[#F5821E] flex-1 min-w-0"
+                className="surface-2 border border-app rounded-lg px-2 py-1 text-xs text-app focus:outline-none focus:border-[#F5821E] flex-1 min-w-0"
                 value={rule.operator}
                 onChange={e => updateRule(i, 'operator', e.target.value)}
               >
@@ -623,7 +623,7 @@ function AlertRulesEditor({ rules = [], field, onChange }) {
                 ))}
               </select>
               <AlertTriggerValue rule={rule} field={field} onChange={(key, val) => updateRule(i, key, val)} />
-              <button type="button" onClick={() => removeRule(i)} className="text-gray-600 hover:text-red-400 flex-shrink-0">
+              <button type="button" onClick={() => removeRule(i)} className="text-faint hover:text-red-400 flex-shrink-0">
                 <X size={12} />
               </button>
             </div>
@@ -643,7 +643,7 @@ function AlertRulesEditor({ rules = [], field, onChange }) {
       >
         <Plus size={12} /> Add Alert Rule
       </button>
-      <p className="text-xs text-gray-600 mt-1.5 leading-relaxed">
+      <p className="text-xs text-faint mt-1.5 leading-relaxed">
         Alerts fire when the field value meets the condition at submission.
       </p>
     </div>
@@ -676,7 +676,7 @@ function ConditionsEditor({ conditions = [], conditionLogic = 'AND', allFields =
     <div>
       {conditions.length > 1 && (
         <div className="mb-3">
-          <span className="text-xs text-gray-400 mr-2">Match</span>
+          <span className="text-xs text-dim mr-2">Match</span>
           <BtnGroup
             options={[{ value: 'AND', label: 'ALL (AND)' }, { value: 'OR', label: 'ANY (OR)' }]}
             value={conditionLogic}
@@ -686,7 +686,7 @@ function ConditionsEditor({ conditions = [], conditionLogic = 'AND', allFields =
       )}
       <div className="space-y-2 mb-2">
         {conditions.map((cond, i) => (
-          <div key={i} className="bg-gray-800/60 rounded-lg p-2 space-y-1.5 border border-gray-700/50">
+          <div key={i} className="surface-2 rounded-lg p-2 space-y-1.5 border border-app">
             {i > 0 && (
               <span className="inline-block text-xs font-semibold text-purple-400 bg-purple-900/30 px-1.5 py-0.5 rounded">
                 {conditionLogic}
@@ -703,7 +703,7 @@ function ConditionsEditor({ conditions = [], conditionLogic = 'AND', allFields =
                   <option key={field.id} value={field.field_id}>{field.label || field.field_id}</option>
                 ))}
               </select>
-              <button type="button" onClick={() => removeCondition(i)} className="text-gray-600 hover:text-red-400 flex-shrink-0">
+              <button type="button" onClick={() => removeCondition(i)} className="text-faint hover:text-red-400 flex-shrink-0">
                 <X size={12} />
               </button>
             </div>
@@ -792,7 +792,7 @@ function TypeSpecificProps({ field, sectionId, dispatch, allFields }) {
                 key={p.label}
                 type="button"
                 onClick={() => set('validation_pattern', p.pattern)}
-                className={`text-xs px-2 py-0.5 rounded transition-colors ${field.validation_pattern === p.pattern ? 'bg-[#F5821E] text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'}`}
+                className={`text-xs px-2 py-0.5 rounded transition-colors ${field.validation_pattern === p.pattern ? 'bg-[#F5821E] text-app' : 'surface-3 hover-app text-dim'}`}
               >
                 {p.label}
               </button>
@@ -923,7 +923,7 @@ function TypeSpecificProps({ field, sectionId, dispatch, allFields }) {
           />
         </PropRow>
         {type === 'dropdown' && (
-          <div className="bg-gray-800/40 border border-gray-700/50 rounded-lg p-2.5 space-y-2 mb-3">
+          <div className="surface-2 border border-app rounded-lg p-2.5 space-y-2 mb-3">
             <Toggle
               value={field.searchable !== false}
               onChange={v => set('searchable', v)}
@@ -975,15 +975,15 @@ function TypeSpecificProps({ field, sectionId, dispatch, allFields }) {
             onChange={v => set('yes_no_style', v)}
           />
         </PropRow>
-        <div className="bg-gray-800/60 border border-gray-700/50 rounded-lg p-2.5 space-y-2">
-          <label className="flex items-center gap-2 cursor-pointer text-xs text-gray-300">
+        <div className="surface-2 border border-app rounded-lg p-2.5 space-y-2">
+          <label className="flex items-center gap-2 cursor-pointer text-xs text-dim">
             <input type="checkbox" checked={!!field.yes_expands} onChange={e => set('yes_expands', e.target.checked)} className="accent-green-500" />
             When <span className="text-green-400 font-semibold">Yes</span> — expand extra section/fields
           </label>
           {field.yes_expands && (
             <input className={inputCls + ' text-xs mt-1'} value={field.yes_expand_section || ''} onChange={e => set('yes_expand_section', e.target.value)} placeholder="Section ID or field IDs to reveal (comma-separated)…" />
           )}
-          <label className="flex items-center gap-2 cursor-pointer text-xs text-gray-300">
+          <label className="flex items-center gap-2 cursor-pointer text-xs text-dim">
             <input type="checkbox" checked={!!field.no_expands} onChange={e => set('no_expands', e.target.checked)} className="accent-red-500" />
             When <span className="text-red-400 font-semibold">No</span> — expand extra section/fields
           </label>
@@ -1036,7 +1036,7 @@ function TypeSpecificProps({ field, sectionId, dispatch, allFields }) {
             {rows.map((r, i) => (
               <div key={i} className="flex items-center gap-1.5">
                 <input className={inputCls + ' flex-1 text-xs'} value={r} onChange={e => { const n = [...rows]; n[i] = e.target.value; updateRows(n) }} placeholder={`Row ${i + 1}`} />
-                <button type="button" onClick={() => updateRows(rows.filter((_, idx) => idx !== i))} className="text-gray-600 hover:text-red-400 flex-shrink-0"><X size={12} /></button>
+                <button type="button" onClick={() => updateRows(rows.filter((_, idx) => idx !== i))} className="text-faint hover:text-red-400 flex-shrink-0"><X size={12} /></button>
               </div>
             ))}
           </div>
@@ -1049,7 +1049,7 @@ function TypeSpecificProps({ field, sectionId, dispatch, allFields }) {
             {cols.map((c, i) => (
               <div key={i} className="flex items-center gap-1.5">
                 <input className={inputCls + ' flex-1 text-xs'} value={c} onChange={e => { const n = [...cols]; n[i] = e.target.value; updateCols(n) }} placeholder={`Column ${i + 1}`} />
-                <button type="button" onClick={() => updateCols(cols.filter((_, idx) => idx !== i))} className="text-gray-600 hover:text-red-400 flex-shrink-0"><X size={12} /></button>
+                <button type="button" onClick={() => updateCols(cols.filter((_, idx) => idx !== i))} className="text-faint hover:text-red-400 flex-shrink-0"><X size={12} /></button>
               </div>
             ))}
           </div>
@@ -1098,8 +1098,8 @@ function TypeSpecificProps({ field, sectionId, dispatch, allFields }) {
             ))}
           </select>
         </PropRow>
-        <div className="bg-gray-800/60 border border-gray-700/50 rounded-lg p-2 mb-3">
-          <p className="text-xs text-gray-500 font-mono leading-relaxed">sum() avg() min() max() if() round() abs() sqrt() pow()</p>
+        <div className="surface-2 border border-app rounded-lg p-2 mb-3">
+          <p className="text-xs text-faint font-mono leading-relaxed">sum() avg() min() max() if() round() abs() sqrt() pow()</p>
         </div>
         <PropRow label="Unit Label"><input className={inputCls} value={field.unit || ''} onChange={e => set('unit', e.target.value)} /></PropRow>
         <PropRow label="Decimal Places">
@@ -1151,7 +1151,7 @@ function TypeSpecificProps({ field, sectionId, dispatch, allFields }) {
           </select>
         </PropRow>
         <Toggle value={field.auto_populate !== false} onChange={v => set('auto_populate', v)} label="Auto-populate from latest vitals" />
-        <p className="text-xs text-gray-600 mt-2">When enabled, pre-fills with the patient's most recent recorded vital at form-open time.</p>
+        <p className="text-xs text-faint mt-2">When enabled, pre-fills with the patient's most recent recorded vital at form-open time.</p>
       </>
     )
   }
@@ -1186,7 +1186,7 @@ function TypeSpecificProps({ field, sectionId, dispatch, allFields }) {
           <div className="flex flex-wrap gap-1.5">
             {['doctor', 'nurse', 'any'].map(r => (
               <button key={r} type="button" onClick={() => set('role_filter', r)}
-                className={`text-xs px-2.5 py-1 rounded-lg capitalize transition-colors ${field.role_filter === r ? 'bg-[#F5821E] text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}`}
+                className={`text-xs px-2.5 py-1 rounded-lg capitalize transition-colors ${field.role_filter === r ? 'bg-[#F5821E] text-app' : 'surface-3 text-dim hover-app'}`}
               >{r === 'any' ? 'Any Role' : r}</button>
             ))}
           </div>
@@ -1376,7 +1376,7 @@ function TypeSpecificProps({ field, sectionId, dispatch, allFields }) {
                 return (
                   <button key={t} type="button"
                     onClick={() => set('allowed_types', active ? allowed.filter(x => x !== val) : [...allowed, val])}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${active ? 'bg-[#F5821E] text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}`}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${active ? 'bg-[#F5821E] text-app' : 'surface-3 text-dim hover-app'}`}
                   >{t}</button>
                 )
               })}
@@ -1397,12 +1397,12 @@ function TypeSpecificProps({ field, sectionId, dispatch, allFields }) {
             {columns.map((col, i) => (
               <div key={i} className="flex items-center gap-1.5">
                 <input className={inputCls + ' flex-1 text-xs'} value={col.header || ''} onChange={e => { const c = [...columns]; c[i] = { ...c[i], header: e.target.value }; set('columns', c) }} placeholder="Column header" />
-                <select className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none w-24" value={col.type || 'text'} onChange={e => { const c = [...columns]; c[i] = { ...c[i], type: e.target.value }; set('columns', c) }}>
+                <select className="surface-2 border border-app rounded-lg px-2 py-1.5 text-xs text-app focus:outline-none w-24" value={col.type || 'text'} onChange={e => { const c = [...columns]; c[i] = { ...c[i], type: e.target.value }; set('columns', c) }}>
                   <option value="text">Text</option>
                   <option value="number">Number</option>
                   <option value="dropdown">Dropdown</option>
                 </select>
-                <button type="button" onClick={() => set('columns', columns.filter((_, idx) => idx !== i))} className="text-gray-600 hover:text-red-400 flex-shrink-0"><X size={12} /></button>
+                <button type="button" onClick={() => set('columns', columns.filter((_, idx) => idx !== i))} className="text-faint hover:text-red-400 flex-shrink-0"><X size={12} /></button>
               </div>
             ))}
           </div>
@@ -1473,7 +1473,7 @@ function TypeSpecificProps({ field, sectionId, dispatch, allFields }) {
   // ── divider ───────────────────────────────────────────────────────────────
   if (type === 'divider') {
     return (
-      <p className="text-xs text-gray-500 italic">No additional settings for divider fields.</p>
+      <p className="text-xs text-faint italic">No additional settings for divider fields.</p>
     )
   }
 
@@ -1522,7 +1522,7 @@ function SectionProperties({ section, dispatch }) {
   return (
     <div className="h-full flex flex-col">
       <div className="p-4 flex-1 overflow-y-auto">
-        <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+        <h3 className="text-sm font-semibold text-app mb-4 flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-[#F5821E] flex-shrink-0" />
           Section Properties
         </h3>
@@ -1541,24 +1541,24 @@ function SectionProperties({ section, dispatch }) {
           <div className="space-y-2">
             <label className={`flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer border transition-colors ${
               !section.applicability_mode || section.applicability_mode === 'required'
-                ? 'bg-[#F5821E]/10 border-[#F5821E]/40' : 'bg-gray-800 border-gray-700 hover:border-gray-600'
+                ? 'bg-[#F5821E]/10 border-[#F5821E]/40' : 'surface-2 border-app hover:border-app'
             }`}>
               <input type="radio" name="appMode" value="required" checked={!section.applicability_mode || section.applicability_mode === 'required'} onChange={() => set('applicability_mode', 'required')} className="accent-[#F5821E]" />
               <div>
-                <p className="text-xs text-white font-medium">Always required</p>
-                <p className="text-xs text-gray-500">Clinician must fill all required fields</p>
+                <p className="text-xs text-app font-medium">Always required</p>
+                <p className="text-xs text-faint">Clinician must fill all required fields</p>
               </div>
             </label>
             <label className={`flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer border transition-colors ${
               section.applicability_mode === 'na_allowed'
-                ? 'bg-[#F5821E]/10 border-[#F5821E]/40' : 'bg-gray-800 border-gray-700 hover:border-gray-600'
+                ? 'bg-[#F5821E]/10 border-[#F5821E]/40' : 'surface-2 border-app hover:border-app'
             }`}>
               <input type="radio" name="appMode" value="na_allowed" checked={section.applicability_mode === 'na_allowed'} onChange={() => set('applicability_mode', 'na_allowed')} className="accent-[#F5821E]" />
               <div>
-                <p className="text-xs text-white font-medium flex items-center gap-1">
-                  <Ban size={11} className="text-gray-400" /> N/A lockable
+                <p className="text-xs text-app font-medium flex items-center gap-1">
+                  <Ban size={11} className="text-dim" /> N/A lockable
                 </p>
-                <p className="text-xs text-gray-500">Clinician can mark entire section as Not Applicable</p>
+                <p className="text-xs text-faint">Clinician can mark entire section as Not Applicable</p>
               </div>
             </label>
           </div>
@@ -1571,14 +1571,14 @@ function SectionProperties({ section, dispatch }) {
         </div>
 
         {section.repeatable && (
-          <div className="grid grid-cols-2 gap-2 mb-4 bg-gray-800/50 border border-gray-700/50 rounded-lg p-3">
+          <div className="grid grid-cols-2 gap-2 mb-4 surface-2 border border-app rounded-lg p-3">
             <PropRow label="Min Instances"><input type="number" min={1} className={inputCls} value={section.min_instances || 1} onChange={e => set('min_instances', Number(e.target.value))} /></PropRow>
             <PropRow label="Max Instances"><input type="number" min={1} className={inputCls} value={section.max_instances || 5} onChange={e => set('max_instances', Number(e.target.value))} /></PropRow>
           </div>
         )}
       </div>
 
-      <div className="p-4 pt-0 border-t border-gray-800 flex-shrink-0">
+      <div className="p-4 pt-0 border-t border-app flex-shrink-0">
         <button
           type="button"
           onClick={() => {
@@ -1611,7 +1611,7 @@ function FieldProperties({ field, sectionId, sectionLayout, dispatch, allFields,
         {/* Header */}
         <div className="flex items-center gap-2 mb-4">
           {getFieldTypeIcon(field.type, 18)}
-          <span className="text-sm font-semibold text-white flex-1 capitalize">{field.type.replace(/_/g, ' ')} Field</span>
+          <span className="text-sm font-semibold text-app flex-1 capitalize">{field.type.replace(/_/g, ' ')} Field</span>
           <span className="text-xs bg-[#F5821E]/20 text-[#F5821E] border border-[#F5821E]/30 px-2 py-0.5 rounded-full font-mono">
             {field.type}
           </span>
@@ -1635,7 +1635,7 @@ function FieldProperties({ field, sectionId, sectionLayout, dispatch, allFields,
             </PropRow>
             <PropRow label="Field ID" hint="Permanent identity — frozen once any submission uses it. Change only before first use.">
               <input
-                className="w-full bg-gray-800/50 border border-gray-600 rounded-lg px-3 py-1.5 text-xs text-blue-300 font-mono focus:outline-none focus:border-blue-500 transition-colors"
+                className="w-full surface-2 border border-app rounded-lg px-3 py-1.5 text-xs text-blue-300 font-mono focus:outline-none focus:border-blue-500 transition-colors"
                 value={field.field_id || ''}
                 onChange={e => {
                   const raw = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/^_/, '').slice(0, 60)
@@ -1650,29 +1650,29 @@ function FieldProperties({ field, sectionId, sectionLayout, dispatch, allFields,
             </PropRow>
 
             {/* Toggles */}
-            <div className="grid grid-cols-1 gap-2 mb-4 bg-gray-800/40 border border-gray-700/50 rounded-lg p-3">
+            <div className="grid grid-cols-1 gap-2 mb-4 surface-2 border border-app rounded-lg p-3">
               <label className="flex items-center gap-2 cursor-pointer select-none">
                 <Toggle value={field.required || false} onChange={v => set('required', v)} />
-                <span className="text-sm text-gray-300 flex items-center gap-1">
+                <span className="text-sm text-dim flex items-center gap-1">
                   <span className="text-red-400 font-bold">*</span> Required
                 </span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer select-none">
                 <Toggle value={field.read_only || false} onChange={v => set('read_only', v)} />
-                <span className="text-sm text-gray-300 flex items-center gap-1.5">
-                  <Lock size={12} className="text-gray-400" /> Read-only
+                <span className="text-sm text-dim flex items-center gap-1.5">
+                  <Lock size={12} className="text-dim" /> Read-only
                 </span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer select-none">
                 <Toggle value={field.hidden || false} onChange={v => set('hidden', v)} />
-                <span className="text-sm text-gray-300 flex items-center gap-1.5">
-                  <EyeOff size={12} className="text-gray-400" /> Hidden by default
+                <span className="text-sm text-dim flex items-center gap-1.5">
+                  <EyeOff size={12} className="text-dim" /> Hidden by default
                 </span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer select-none" title="Stored in submission for audit but not shown in patient chart">
                 <Toggle value={!!field.chart_excluded} onChange={v => set('chart_excluded', v)} />
-                <span className="text-sm text-gray-300 flex items-center gap-1.5">
-                  <Eye size={12} className="text-gray-500 line-through" /> Chart-excluded
+                <span className="text-sm text-dim flex items-center gap-1.5">
+                  <Eye size={12} className="text-faint line-through" /> Chart-excluded
                 </span>
               </label>
             </div>
@@ -1680,7 +1680,7 @@ function FieldProperties({ field, sectionId, sectionLayout, dispatch, allFields,
         )}
 
         {/* Type-specific settings */}
-        <div className="border-t border-gray-800 pt-4 mt-2">
+        <div className="border-t border-app pt-4 mt-2">
           <SectionHeader title="Field Settings" />
           <TypeSpecificProps field={field} sectionId={sectionId} dispatch={dispatch} allFields={allFields} />
         </div>
@@ -1742,7 +1742,7 @@ function FieldProperties({ field, sectionId, sectionLayout, dispatch, allFields,
                 placeholder="e.g. Systolic blood pressure"
               />
             </PropRow>
-            <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+            <p className="text-xs text-faint mt-1 leading-relaxed">
               Binds the value to a standard code so it exports cleanly to FHIR / ABDM and trends consistently.
             </p>
           </CollapsibleSection>
@@ -1750,7 +1750,7 @@ function FieldProperties({ field, sectionId, sectionLayout, dispatch, allFields,
       </div>
 
       {/* Delete pinned to bottom */}
-      <div className="p-4 pt-0 border-t border-gray-800 flex-shrink-0">
+      <div className="p-4 pt-0 border-t border-app flex-shrink-0">
         <button
           type="button"
           onClick={() => dispatch({ type: 'DELETE_FIELD', payload: { sectionId, fieldId: field.id } })}
@@ -1787,14 +1787,14 @@ export default function PropertiesPanel({ form, selectedId, selectedType, dispat
   }
 
   return (
-    <div className="w-80 h-full bg-gray-900 border-l border-gray-800 overflow-y-auto flex flex-col flex-shrink-0">
+    <div className="w-80 h-full surface border-l border-app overflow-y-auto flex flex-col flex-shrink-0">
       {!selectedId && (
         <div className="flex flex-col items-center justify-center flex-1 p-8 text-center">
-          <div className="w-14 h-14 rounded-full bg-gray-800 flex items-center justify-center mb-4">
-            <Clipboard size={24} className="text-gray-600" />
+          <div className="w-14 h-14 rounded-full surface-2 flex items-center justify-center mb-4">
+            <Clipboard size={24} className="text-faint" />
           </div>
-          <p className="text-sm font-semibold text-gray-400 mb-1">Select a field or section</p>
-          <p className="text-xs text-gray-600 leading-relaxed">
+          <p className="text-sm font-semibold text-dim mb-1">Select a field or section</p>
+          <p className="text-xs text-faint leading-relaxed">
             Click any field or section in the canvas to edit its properties here.
           </p>
         </div>

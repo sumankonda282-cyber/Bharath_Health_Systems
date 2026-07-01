@@ -183,7 +183,7 @@ function StatusBadge({ status }) {
   const styles = {
     draft: 'bg-yellow-900/30 text-yellow-400 border border-yellow-800/50',
     published: 'bg-green-900/30 text-green-400 border border-green-800/50',
-    retired: 'bg-gray-700/50 text-gray-400 border border-gray-600/50',
+    retired: 'surface-3 text-dim border border-app',
     template: 'bg-blue-900/30 text-blue-400 border border-blue-800/50',
   }
   return (
@@ -420,7 +420,7 @@ function FormDetailDrawer({ form, onClose, navigate }) {
               onClose()
               navigate(`/forms/builder/${form.id}`)
             }}
-            className="w-full flex items-center justify-center gap-2 bg-[#F5821E] hover:bg-[#e07319] text-white px-4 py-2.5 rounded-xl text-sm font-medium transition-colors"
+            className="w-full flex items-center justify-center gap-2 bg-[#F5821E] hover:bg-[#e07319] text-app px-4 py-2.5 rounded-xl text-sm font-medium transition-colors"
           >
             <Pencil size={15} />
             Edit Form
@@ -480,7 +480,7 @@ function FormsTable({ forms, onViewDetails }) {
           <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-faint pointer-events-none" />
           <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
             placeholder="Filter forms…"
-            className="w-48 surface-2 border border-app text-app text-xs rounded-lg pl-8 pr-3 py-1.5 outline-none focus:border-gray-600 placeholder-gray-500" />
+            className="w-48 surface-2 border border-app text-app text-xs rounded-lg pl-8 pr-3 py-1.5 outline-none focus:border-app placeholder-gray-500" />
           {search && (
             <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-faint hover:text-app">
               <X size={12} />

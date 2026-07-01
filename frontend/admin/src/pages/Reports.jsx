@@ -173,7 +173,7 @@ function SavedReportsModal({ onClose, savedReports, onLoad, onDelete, onSaveCurr
         <div className="overflow-y-auto max-h-80 divide-y divide-[color:var(--border)]">
           {savedReports.length === 0 ? (
             <div className="px-5 py-10 text-center">
-              <BookMarked size={28} className="text-gray-700 mx-auto mb-2" />
+              <BookMarked size={28} className="text-dim mx-auto mb-2" />
               <p className="text-sm text-faint">No saved reports yet.</p>
               <p className="text-xs text-faint mt-1">Select columns, then save the configuration here.</p>
             </div>
@@ -360,7 +360,7 @@ function DataGrid({ selectedColumns, reportData, loading, error, onRetry, onRemo
   if (selectedColumns.length === 0) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center text-center px-8">
-        <Database size={44} className="text-gray-800 mb-4" />
+        <Database size={44} className="text-app mb-4" />
         <p className="text-sm text-dim font-medium">Select columns from the left panel to build your report</p>
         <p className="text-xs text-faint mt-1.5">Choose any combination of columns from the 70 available tables, then click Run.</p>
       </div>
@@ -448,7 +448,7 @@ function DataGrid({ selectedColumns, reportData, loading, error, onRetry, onRemo
           </div>
         ) : rows.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full">
-            <Database size={32} className="text-gray-700 mb-3" />
+            <Database size={32} className="text-dim mb-3" />
             <p className="text-sm text-faint">No rows returned</p>
             <p className="text-xs text-faint mt-1">Try adjusting the filters or date range.</p>
           </div>
@@ -707,7 +707,7 @@ export default function Reports() {
         >
           <div className="px-3 py-2 border-b border-app flex-shrink-0 flex items-center justify-between">
             <p className="text-[10px] uppercase tracking-wider text-faint font-semibold">Tables &amp; Columns</p>
-            <Database size={12} className="text-gray-700" />
+            <Database size={12} className="text-dim" />
           </div>
           <div className="flex-1 min-h-0 overflow-hidden">
             <TablePanel selectedColumns={selectedColumns} onToggle={toggleColumn} />

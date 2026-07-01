@@ -19,7 +19,7 @@ const STATUS = {
   verified:    { label: 'Verified',    cls: 'bg-green-500/15 text-green-300 border-green-500/30' },
   pending:     { label: 'Pending',     cls: 'bg-amber-500/15 text-amber-300 border-amber-500/30' },
   expired:     { label: 'Expired',     cls: 'bg-red-500/15 text-red-300 border-red-500/30' },
-  not_working: { label: 'Not working', cls: 'bg-slate-500/20 text-slate-300 border-slate-500/40' },
+  not_working: { label: 'Not working', cls: 'bg-slate-500/20 text-dim border-slate-500/40' },
 }
 
 const EVENT_META = {
@@ -137,7 +137,7 @@ export default function StaffVerification() {
   const selectedCenter = data.filters.centers.find(c => String(c.id) === String(hc))
 
   return (
-    <div className="bg-[#0a0f1e] min-h-full text-app">
+    <div className="app-bg min-h-full text-app">
       {/* STAT CARDS = role filters */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
         {ROLE_CARDS.map(({ key, label, Icon }) => {
@@ -146,7 +146,7 @@ export default function StaffVerification() {
             <button
               key={key}
               onClick={() => setRoleF(on ? '' : key)}
-              className={`kpi-card text-left transition-all relative ${on ? 'ring-1 ring-[#F5821E] border-[#F5821E]/60' : 'hover:border-gray-700'}`}
+              className={`kpi-card text-left transition-all relative ${on ? 'ring-1 ring-[#F5821E] border-[#F5821E]/60' : 'hover:border-app'}`}
             >
               {on && <span className="absolute right-2.5 top-2.5 text-[10px] font-bold text-[#F5821E] inline-flex items-center gap-0.5"><X size={10} />clear</span>}
               <div className="flex items-center gap-3">
@@ -213,7 +213,7 @@ export default function StaffVerification() {
 
         <div className="relative" ref={exportRef}>
           <button onClick={() => setExportOpen(o => !o)} title="Export"
-            className="w-9 h-9 rounded-lg bg-[#F5821E] hover:bg-[#e0741a] text-white flex items-center justify-center transition-colors">
+            className="w-9 h-9 rounded-lg bg-[#F5821E] hover:bg-[#e0741a] text-app flex items-center justify-center transition-colors">
             <Download size={17} />
           </button>
           {exportOpen && (
@@ -361,13 +361,13 @@ function ExportPopup({ filteredCount, roleLabel, center, currentParams, asOf, on
       </div>
       <div className="p-4 space-y-3">
         <button onClick={() => setScope('current')}
-          className={`w-full flex items-center gap-2.5 text-left text-[13px] rounded-lg px-3 py-2.5 border transition-colors ${scope === 'current' ? 'border-[#F5821E] bg-[#F5821E]/10 text-white' : 'border-app bg-[#0b1c38] text-dim'}`}>
-          <span className={`w-3.5 h-3.5 rounded-full border-2 flex-shrink-0 ${scope === 'current' ? 'border-[#F5821E] bg-[#F5821E]' : 'border-gray-500'}`} />
+          className={`w-full flex items-center gap-2.5 text-left text-[13px] rounded-lg px-3 py-2.5 border transition-colors ${scope === 'current' ? 'border-[#F5821E] bg-[#F5821E]/10 text-app' : 'border-app app-bg text-dim'}`}>
+          <span className={`w-3.5 h-3.5 rounded-full border-2 flex-shrink-0 ${scope === 'current' ? 'border-[#F5821E] bg-[#F5821E]' : 'border-app'}`} />
           Current filtered list ({filteredCount}{roleLabel ? ` ${roleLabel.toLowerCase()}s` : ' staff'})
         </button>
         <button onClick={() => setScope('center')}
-          className={`w-full flex items-center gap-2.5 text-left text-[13px] rounded-lg px-3 py-2.5 border transition-colors ${scope === 'center' ? 'border-[#F5821E] bg-[#F5821E]/10 text-white' : 'border-app bg-[#0b1c38] text-dim'}`}>
-          <span className={`w-3.5 h-3.5 rounded-full border-2 flex-shrink-0 ${scope === 'center' ? 'border-[#F5821E] bg-[#F5821E]' : 'border-gray-500'}`} />
+          className={`w-full flex items-center gap-2.5 text-left text-[13px] rounded-lg px-3 py-2.5 border transition-colors ${scope === 'center' ? 'border-[#F5821E] bg-[#F5821E]/10 text-app' : 'border-app app-bg text-dim'}`}>
+          <span className={`w-3.5 h-3.5 rounded-full border-2 flex-shrink-0 ${scope === 'center' ? 'border-[#F5821E] bg-[#F5821E]' : 'border-app'}`} />
           {centerScopeLabel}
         </button>
 
@@ -378,7 +378,7 @@ function ExportPopup({ filteredCount, roleLabel, center, currentParams, asOf, on
             { fmt: 'csv',   label: 'CSV',   cls: 'bg-blue-700 hover:bg-blue-600',  Icon: Download },
           ].map(({ fmt, label, cls, Icon }) => (
             <button key={fmt} onClick={() => doExport(fmt)} disabled={!!busy}
-              className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold text-white py-2 rounded-lg transition-colors disabled:opacity-50 ${cls}`}>
+              className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold text-app py-2 rounded-lg transition-colors disabled:opacity-50 ${cls}`}>
               <Icon size={13} />{busy === fmt ? '…' : label}
             </button>
           ))}
@@ -466,10 +466,10 @@ function DetailDrawer({ staff, onClose, onChanged }) {
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} />
-      <div className="fixed top-0 right-0 h-full w-full max-w-md z-50 bg-[#0a0f1e] border-l border-app shadow-2xl flex flex-col">
+      <div className="fixed top-0 right-0 h-full w-full max-w-md z-50 app-bg border-l border-app shadow-2xl flex flex-col">
         {/* header */}
         <div className="px-5 py-4 border-b border-app flex items-start gap-3">
-          <div className="w-10 h-10 rounded-full bg-[#F5821E] text-white flex items-center justify-center font-bold text-sm flex-shrink-0">
+          <div className="w-10 h-10 rounded-full bg-[#F5821E] text-app flex items-center justify-center font-bold text-sm flex-shrink-0">
             {initials(staff.full_name)}
           </div>
           <div className="flex-1 min-w-0">
@@ -561,7 +561,7 @@ function DetailDrawer({ staff, onClose, onChanged }) {
             ) : !hist?.history?.length ? (
               <div className="text-faint text-sm py-4">No recorded events.</div>
             ) : (
-              <div className="relative pl-5 before:content-[''] before:absolute before:left-[5px] before:top-1 before:bottom-1 before:w-0.5 before:bg-gray-800">
+              <div className="relative pl-5 before:content-[''] before:absolute before:left-[5px] before:top-1 before:bottom-1 before:w-0.5 before:surface-2">
                 {hist.history.map((ev, i) => {
                   const meta = EVENT_META[ev.event_type] || { label: ev.event_type, dot: 'bg-gray-400', Icon: FileText }
                   return (

@@ -79,7 +79,7 @@ const STATUS_BADGE = {
   published: 'bg-emerald-900/40 text-emerald-400 border-emerald-800/50',
   draft:     'bg-yellow-900/40 text-yellow-400 border-yellow-800/50',
   template:  'bg-blue-900/40 text-blue-400 border-blue-800/50',
-  retired:   'bg-gray-800/60 text-gray-500 border-gray-700/50',
+  retired:   'surface-2 text-faint border-app',
 }
 
 const CATEGORY_ICONS = {
@@ -114,9 +114,9 @@ function ToastContainer({ toasts, onRemove }) {
         <div
           key={t.id}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg shadow-lg text-sm font-medium
-            ${t.type === 'success' ? 'bg-emerald-700 text-white'
-            : t.type === 'error'   ? 'bg-red-700 text-white'
-            : 'bg-gray-700 text-white'}`}
+            ${t.type === 'success' ? 'bg-emerald-700 text-app'
+            : t.type === 'error'   ? 'bg-red-700 text-app'
+            : 'surface-3 text-app'}`}
         >
           {t.msg}
           <button onClick={() => onRemove(t.id)} className="ml-1 opacity-70 hover:opacity-100">
@@ -147,7 +147,7 @@ function ConfirmModal({ message, onConfirm, onCancel }) {
           </button>
           <button
             onClick={onConfirm}
-            className="px-4 py-1.5 rounded-lg text-sm bg-red-700 text-white hover:bg-red-600 transition-colors"
+            className="px-4 py-1.5 rounded-lg text-sm bg-red-700 text-app hover:bg-red-600 transition-colors"
           >
             Delete
           </button>
@@ -294,7 +294,7 @@ export default function FormPool() {
               onClick={() => setActiveTab(t.key)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap
                 ${activeTab === t.key
-                  ? 'bg-[#F5821E] text-white shadow-sm'
+                  ? 'bg-[#F5821E] text-app shadow-sm'
                   : 'text-dim hover:text-app hover-app'}`}
             >
               {t.label}
@@ -358,7 +358,7 @@ export default function FormPool() {
 
       {!loading && !error && filtered.length === 0 && (
         <div className="card-p text-center py-16">
-          <ClipboardList className="w-10 h-10 mx-auto mb-3 text-gray-700" />
+          <ClipboardList className="w-10 h-10 mx-auto mb-3 text-dim" />
           <p className="text-sm text-faint">No forms found</p>
         </div>
       )}
@@ -405,7 +405,7 @@ function TrashView({ items, loading, actionLoading, onRestore }) {
   )
   if (!items.length) return (
     <div className="card-p text-center py-16">
-      <Trash2 className="w-10 h-10 mx-auto mb-3 text-gray-700" />
+      <Trash2 className="w-10 h-10 mx-auto mb-3 text-dim" />
       <p className="text-sm text-faint">Trash is empty</p>
     </div>
   )
@@ -425,7 +425,7 @@ function TrashView({ items, loading, actionLoading, onRestore }) {
               {it.has_submissions ? ' · has submissions' : ''}
             </div>
           </div>
-          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium border ${it.days_left <= 7 ? 'bg-red-950/40 text-red-400 border-red-800/50' : 'bg-gray-800 text-gray-400 border-gray-700'}`}>
+          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium border ${it.days_left <= 7 ? 'bg-red-950/40 text-red-400 border-red-800/50' : 'surface-2 text-dim border-app'}`}>
             {it.days_left}d left
           </span>
           <button onClick={() => onRestore(it)} disabled={!!actionLoading[it.id]}
@@ -447,7 +447,7 @@ function FormCard({ form, loading, onEdit, onPreview, onPublish, onArchive, onDu
   const isPublished = status === 'published'
 
   return (
-    <div className="surface border border-app rounded-xl hover:border-gray-700 transition-colors flex flex-col">
+    <div className="surface border border-app rounded-xl hover:border-app transition-colors flex flex-col">
 
       {/* Card header */}
       <div className="p-4 flex items-start gap-3">
@@ -522,7 +522,7 @@ function FormCard({ form, loading, onEdit, onPreview, onPublish, onArchive, onDu
             ) : (
               <button
                 onClick={onPublish}
-                className="flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-lg bg-emerald-700 text-white hover:bg-emerald-600 transition-colors"
+                className="flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-lg bg-emerald-700 text-app hover:bg-emerald-600 transition-colors"
               >
                 <Check className="w-3 h-3" /> Publish
               </button>

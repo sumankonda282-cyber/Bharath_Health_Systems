@@ -33,7 +33,7 @@ export default function Login() {
     <div className="min-h-screen flex" style={{ fontFamily: 'Inter, sans-serif' }}>
       {/* Left branded panel */}
       <div
-        className="hidden lg:flex lg:w-1/2 flex-col justify-between p-10 text-white"
+        className="hidden lg:flex lg:w-1/2 flex-col justify-between p-10 text-app"
         style={{ background: 'linear-gradient(145deg, #0F2557 0%, #1a3a7a 100%)' }}
       >
         <div>
@@ -78,7 +78,7 @@ export default function Login() {
             </div>
           </div>
 
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8">
+          <div className="surface border border-app rounded-2xl p-8">
             {/* Desktop heading */}
             <div className="hidden lg:flex items-center gap-3 mb-6">
               <div className="w-10 h-10 rounded-xl flex items-center justify-center"
@@ -86,8 +86,8 @@ export default function Login() {
                 <ShieldCheck size={20} style={{ color: '#F5821E' }} />
               </div>
               <div>
-                <h2 className="text-xl font-extrabold text-white leading-none">Admin Sign In</h2>
-                <p className="text-gray-500 text-xs mt-0.5">Restricted to authorised administrators</p>
+                <h2 className="text-xl font-extrabold text-app leading-none">Admin Sign In</h2>
+                <p className="text-faint text-xs mt-0.5">Restricted to authorised administrators</p>
               </div>
             </div>
 
@@ -118,7 +118,7 @@ export default function Login() {
                   <button
                     type="button"
                     onClick={() => setShowPw(v => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-dim"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-faint hover:text-dim"
                   >
                     {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
@@ -142,7 +142,7 @@ export default function Login() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3 rounded-xl font-semibold text-sm text-white transition-colors flex items-center justify-center gap-2"
+                className="w-full py-3 rounded-xl font-semibold text-sm text-app transition-colors flex items-center justify-center gap-2"
                 style={{ background: '#0F2557' }}
                 onMouseEnter={e => { if (!loading) e.currentTarget.style.background = '#0a1a3e' }}
                 onMouseLeave={e => e.currentTarget.style.background = '#0F2557'}
@@ -153,7 +153,7 @@ export default function Login() {
               </button>
             </form>
           </div>
-          <p className="text-center text-gray-600 text-xs mt-4">
+          <p className="text-center text-faint text-xs mt-4">
             Access restricted to authorised BHarath Health administrators only
           </p>
         </div>

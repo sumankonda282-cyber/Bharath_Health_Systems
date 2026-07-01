@@ -397,7 +397,7 @@ export default function HealthCenters() {
                         <div className="text-[11px] text-faint">{c.specialty || 'Health Center'}</div>
                       </td>
                       <td className="td-sm px-3 py-2.5">
-                        <span className={`badge-xs capitalize ${STATUS_BADGE[c.status] || 'bg-gray-700 text-dim'}`}>
+                        <span className={`badge-xs capitalize ${STATUS_BADGE[c.status] || 'surface-3 text-dim'}`}>
                           {c.status}
                         </span>
                       </td>
@@ -439,12 +439,12 @@ export default function HealthCenters() {
               <Check size={13} className="text-[#F5821E]" />
               {selected.size} selected
             </span>
-            <span className="text-gray-700">·</span>
+            <span className="text-dim">·</span>
 
             <button
               onClick={bulkExtend}
               disabled={busy}
-              className="px-2.5 py-1 rounded-lg surface-2 text-app hover:bg-gray-700 font-medium transition-colors disabled:opacity-40"
+              className="px-2.5 py-1 rounded-lg surface-2 text-app hover:surface-3 font-medium transition-colors disabled:opacity-40"
             >
               Extend 30d
             </button>
@@ -453,7 +453,7 @@ export default function HealthCenters() {
               <button
                 onClick={() => setPlanMenuOpen((v) => !v)}
                 disabled={busy}
-                className="px-2.5 py-1 rounded-lg surface-2 text-app hover:bg-gray-700 font-medium transition-colors disabled:opacity-40"
+                className="px-2.5 py-1 rounded-lg surface-2 text-app hover:surface-3 font-medium transition-colors disabled:opacity-40"
               >
                 Change Plan ▾
               </button>
@@ -474,7 +474,7 @@ export default function HealthCenters() {
 
             <button
               onClick={() => downloadCSV(selectedRows, 'health-centers-selected.csv')}
-              className="px-2.5 py-1 rounded-lg surface-2 text-app hover:bg-gray-700 font-medium transition-colors flex items-center gap-1"
+              className="px-2.5 py-1 rounded-lg surface-2 text-app hover:surface-3 font-medium transition-colors flex items-center gap-1"
             >
               <Download size={12} /> Export CSV
             </button>

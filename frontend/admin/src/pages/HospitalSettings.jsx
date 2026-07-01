@@ -25,7 +25,7 @@ const BED_STATUS_STYLE = {
   vacant: 'bg-green-900/30 text-green-400 border-green-700/40',
   occupied: 'bg-red-900/30 text-red-400 border-red-700/40',
   pending_cleaning: 'bg-orange-900/30 text-orange-400 border-orange-700/40',
-  maintenance: 'bg-gray-800 text-gray-400 border-gray-700',
+  maintenance: 'surface-2 text-dim border-app',
 }
 
 const BED_STATUS_LABELS = {
@@ -38,7 +38,7 @@ function Toggle2({ enabled, onChange, label }) {
     <button
       type="button"
       onClick={() => onChange(!enabled)}
-      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${enabled ? 'bg-blue-600' : 'bg-gray-700'}`}
+      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${enabled ? 'bg-blue-600' : 'surface-3'}`}
       aria-label={label}
     >
       <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow ${enabled ? 'translate-x-6' : 'translate-x-1'}`} />
@@ -91,7 +91,7 @@ function OverviewTab({ clinicId }) {
                 key={type}
                 type="button"
                 onClick={() => setConfig(c => ({ ...c, org_type: type }))}
-                className={`flex-1 py-2.5 rounded-xl border text-sm font-medium transition-all capitalize ${config.org_type === type ? 'border-[#F5821E] bg-[#F5821E]/10 text-[#F5821E]' : 'border-app text-dim hover:bg-gray-800/40'}`}
+                className={`flex-1 py-2.5 rounded-xl border text-sm font-medium transition-all capitalize ${config.org_type === type ? 'border-[#F5821E] bg-[#F5821E]/10 text-[#F5821E]' : 'border-app text-dim hover:surface-2'}`}
               >
                 {type === 'clinic' ? 'Outpatient' : 'Hospital'}
               </button>
@@ -507,7 +507,7 @@ function BedsTab({ clinicId }) {
           ) : filtered.map(b => {
             const ward = wards.find(w => w.id === b.ward_id)
             return (
-              <div key={b.id} className={`rounded-xl border p-3 ${BED_STATUS_STYLE[b.status] || 'bg-gray-800/40 border-gray-700'}`}>
+              <div key={b.id} className={`rounded-xl border p-3 ${BED_STATUS_STYLE[b.status] || 'surface-2 border-app'}`}>
                 <div className="font-bold text-base mb-0.5">{b.bed_number}</div>
                 <div className="text-xs uppercase font-medium mb-1 opacity-70">{b.bed_type}</div>
                 <div className="text-xs opacity-60 mb-2 truncate">{ward?.name || '—'}</div>
@@ -515,7 +515,7 @@ function BedsTab({ clinicId }) {
                 {(b.status === 'maintenance' || b.status === 'pending_cleaning') && (
                   <button
                     onClick={() => updateStatus(b.id, 'vacant')}
-                    className="mt-2 w-full text-xs py-1 px-2 rounded-lg bg-gray-900/60 hover:bg-gray-900 border border-current font-medium transition-colors"
+                    className="mt-2 w-full text-xs py-1 px-2 rounded-lg surface-2 hover:surface border border-current font-medium transition-colors"
                   >
                     Mark Vacant
                   </button>
@@ -523,7 +523,7 @@ function BedsTab({ clinicId }) {
                 {b.status === 'vacant' && (
                   <button
                     onClick={() => updateStatus(b.id, 'maintenance')}
-                    className="mt-2 w-full text-xs py-1 px-2 rounded-lg bg-gray-900/60 hover:bg-gray-900 border border-current font-medium transition-colors"
+                    className="mt-2 w-full text-xs py-1 px-2 rounded-lg surface-2 hover:surface border border-current font-medium transition-colors"
                   >
                     Maintenance
                   </button>
@@ -644,7 +644,7 @@ function BillingTab({ clinicId }) {
             <div className="text-xs text-faint">Accept TPA / Mediclaim payments</div>
           </div>
           <button onClick={() => setConfig(p => ({...p, enable_insurance: !p.enable_insurance}))}
-            className={`w-11 h-6 rounded-full transition-colors relative ${config.enable_insurance ? 'bg-blue-600' : 'bg-gray-700'}`}>
+            className={`w-11 h-6 rounded-full transition-colors relative ${config.enable_insurance ? 'bg-blue-600' : 'surface-3'}`}>
             <span className={`absolute top-1 h-4 w-4 bg-white rounded-full shadow transition-transform ${config.enable_insurance ? 'translate-x-6' : 'translate-x-1'}`} />
           </button>
         </div>
@@ -654,7 +654,7 @@ function BillingTab({ clinicId }) {
             <div className="text-xs text-faint">Automatically generate invoices at month-end</div>
           </div>
           <button onClick={() => setConfig(p => ({...p, auto_billing: !p.auto_billing}))}
-            className={`w-11 h-6 rounded-full transition-colors relative ${config.auto_billing ? 'bg-blue-600' : 'bg-gray-700'}`}>
+            className={`w-11 h-6 rounded-full transition-colors relative ${config.auto_billing ? 'bg-blue-600' : 'surface-3'}`}>
             <span className={`absolute top-1 h-4 w-4 bg-white rounded-full shadow transition-transform ${config.auto_billing ? 'translate-x-6' : 'translate-x-1'}`} />
           </button>
         </div>
@@ -770,12 +770,12 @@ function EmergencyTab({ clinicId }) {
           <input className="input text-sm" placeholder="Notes (optional)" value={form.notes} onChange={e => setForm(p => ({...p, notes: e.target.value}))} />
           <div className="flex gap-2">
             <button onClick={addContact} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-600 text-app hover:bg-blue-700">Add</button>
-            <button onClick={() => setAdding(false)} className="px-3 py-1.5 rounded-lg text-xs font-medium surface-2 text-dim hover:bg-gray-700">Cancel</button>
+            <button onClick={() => setAdding(false)} className="px-3 py-1.5 rounded-lg text-xs font-medium surface-2 text-dim hover:surface-3">Cancel</button>
           </div>
         </div>
       ) : (
         <button onClick={() => setAdding(true)}
-          className="flex items-center gap-2 px-4 py-2 border border-dashed border-app rounded-xl text-sm text-faint hover:text-dim hover:border-gray-600 w-full justify-center transition-colors">
+          className="flex items-center gap-2 px-4 py-2 border border-dashed border-app rounded-xl text-sm text-faint hover:text-dim hover:border-app w-full justify-center transition-colors">
           <Plus size={14} />Add Emergency Contact
         </button>
       )}
@@ -827,7 +827,7 @@ function TemplatesTab({ clinicId }) {
         <div className="surface border border-app rounded-xl overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-900/40 border-b border-app text-xs text-faint uppercase tracking-wide">
+              <tr className="surface-2 border-b border-app text-xs text-faint uppercase tracking-wide">
                 <th className="px-4 py-2.5 text-left">Template</th>
                 <th className="px-3 py-2.5 text-left">Category</th>
                 <th className="px-3 py-2.5 text-center">Fields</th>
@@ -837,7 +837,7 @@ function TemplatesTab({ clinicId }) {
             </thead>
             <tbody className="divide-y divide-[color:var(--border)]">
               {templates.map(t => (
-                <tr key={t.id} className="hover:bg-gray-800/40 transition-colors">
+                <tr key={t.id} className="hover:surface-2 transition-colors">
                   <td className="px-4 py-2.5">
                     <div className="flex items-center gap-2">
                       <FileText size={14} className="text-faint flex-shrink-0" />
@@ -859,7 +859,7 @@ function TemplatesTab({ clinicId }) {
         </div>
       )}
       <Link to="/forms/builder"
-        className="flex items-center gap-2 px-4 py-2 border border-dashed border-app rounded-xl text-sm text-faint hover:text-dim hover:border-gray-600 w-full max-w-xs justify-center transition-colors">
+        className="flex items-center gap-2 px-4 py-2 border border-dashed border-app rounded-xl text-sm text-faint hover:text-dim hover:border-app w-full max-w-xs justify-center transition-colors">
         <Plus size={14} />New Template
       </Link>
     </div>
@@ -894,7 +894,7 @@ function IntegrationsTab({ clinicId }) {
       <div className="flex gap-1 flex-wrap">
         {cats.map(c => (
           <button key={c} onClick={() => setCat(c)}
-            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${cat === c ? 'bg-[#F5821E] text-app' : 'surface-2 text-dim hover:bg-gray-700'}`}>
+            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${cat === c ? 'bg-[#F5821E] text-app' : 'surface-2 text-dim hover:surface-3'}`}>
             {c}
           </button>
         ))}

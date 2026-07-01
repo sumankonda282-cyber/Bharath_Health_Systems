@@ -6,7 +6,7 @@ import { Search, X, Calendar, ChevronRight, Building2, Loader2, AlertCircle } fr
 const STATUS_TABS = ['all', 'active', 'pending', 'suspended', 'revoked']
 
 const PLAN_BADGE = {
-  free:       'bg-gray-700/60 text-dim',
+  free:       'surface-3 text-dim',
   basic:      'bg-blue-900/40 text-blue-300',
   pro:        'bg-indigo-900/40 text-indigo-300',
   enterprise: 'bg-purple-900/40 text-purple-300',
@@ -42,7 +42,7 @@ function ClinicDetailDrawer({ clinic, onClose }) {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <h2 className="text-lg font-bold text-app truncate">{clinic.name}</h2>
-              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize ${STATUS_BADGE[status] || 'bg-gray-700 text-dim'}`}>
+              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize ${STATUS_BADGE[status] || 'surface-3 text-dim'}`}>
                 {status}
               </span>
             </div>
@@ -70,7 +70,7 @@ function ClinicDetailDrawer({ clinic, onClose }) {
           </div>
 
           {/* Details */}
-          <div className="surface-2 border border-app rounded-xl divide-y divide-gray-700/50">
+          <div className="surface-2 border border-app rounded-xl divide-y divide-[color:var(--border)]">
             {[
               { label: 'Specialty',    value: clinic.specialty || '—' },
               { label: 'City',         value: clinic.city || '—' },
@@ -266,7 +266,7 @@ export default function AllClinics() {
                     </td>
                     <td className="px-3 py-3 text-dim text-xs">{c.specialty || '—'}</td>
                     <td className="px-3 py-3">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize ${STATUS_BADGE[c.status] || 'bg-gray-700 text-dim'}`}>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize ${STATUS_BADGE[c.status] || 'surface-3 text-dim'}`}>
                         {c.status}
                       </span>
                     </td>

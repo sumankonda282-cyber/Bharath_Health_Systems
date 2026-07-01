@@ -57,7 +57,7 @@ function defaultDateRange() {
 }
 
 function ActionBadge({ action }) {
-  const meta = ACTION_META[action] || { label: action, badge: 'bg-gray-700 text-dim border border-gray-600' }
+  const meta = ACTION_META[action] || { label: action, badge: 'surface-3 text-dim border border-app' }
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${meta.badge}`}>
       {meta.label}
@@ -318,7 +318,7 @@ export default function AuditLog() {
         .print-header { display: none; }
       `}</style>
 
-      <div className="bg-[#0a0f1e] min-h-full">
+      <div className="app-bg min-h-full">
         <h1 className="text-lg font-bold text-app mb-3 no-print">Activity Log</h1>
 
         {/* Consolidated toolbar */}

@@ -693,7 +693,7 @@ export default function ClinicDetail() {
                           { key: 'department', icon: Building2,    title: 'Health Center Manager',    desc: 'Scoped to one or more departments' },
                         ].map(opt => (
                           <button type="button" key={opt.key} onClick={() => setScope(opt.key)}
-                            className={`flex items-start gap-3 p-4 rounded-xl border text-left transition-all ${mf.scope === opt.key ? 'border-indigo-500 bg-indigo-500/10' : 'border-app hover:border-gray-600'}`}>
+                            className={`flex items-start gap-3 p-4 rounded-xl border text-left transition-all ${mf.scope === opt.key ? 'border-indigo-500 bg-indigo-500/10' : 'border-app hover:border-app'}`}>
                             <opt.icon size={18} className={mf.scope === opt.key ? 'text-indigo-300 mt-0.5' : 'text-faint mt-0.5'} />
                             <div>
                               <div className={`text-sm font-semibold ${mf.scope === opt.key ? 'text-app' : 'text-dim'}`}>{opt.title}</div>
@@ -768,7 +768,7 @@ export default function ClinicDetail() {
                       <div className="flex flex-wrap gap-2">
                         {MANAGER_TEMPLATES.map(t => (
                           <button type="button" key={t.key} onClick={() => applyTemplate(t.key)} title={t.desc}
-                            className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${mf.template === t.key ? 'border-indigo-500 bg-indigo-500/10 text-app' : 'border-app text-dim hover:border-gray-600'}`}>
+                            className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${mf.template === t.key ? 'border-indigo-500 bg-indigo-500/10 text-app' : 'border-app text-dim hover:border-app'}`}>
                             {t.label}
                           </button>
                         ))}
@@ -781,8 +781,8 @@ export default function ClinicDetail() {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         {MODULE_DEFS.map(m => (
                           <button type="button" key={m.key} onClick={() => toggleMap('modules', m.key)}
-                            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border text-sm text-left transition-all ${mf.modules[m.key] ? 'border-indigo-500 bg-indigo-500/10 text-app' : 'border-app text-dim hover:border-gray-600'}`}>
-                            <span className={`w-4 h-4 rounded flex items-center justify-center shrink-0 ${mf.modules[m.key] ? 'bg-indigo-500' : 'border border-gray-600'}`}>{mf.modules[m.key] && <Check size={11} className="text-app" />}</span>
+                            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border text-sm text-left transition-all ${mf.modules[m.key] ? 'border-indigo-500 bg-indigo-500/10 text-app' : 'border-app text-dim hover:border-app'}`}>
+                            <span className={`w-4 h-4 rounded flex items-center justify-center shrink-0 ${mf.modules[m.key] ? 'bg-indigo-500' : 'border border-app'}`}>{mf.modules[m.key] && <Check size={11} className="text-app" />}</span>
                             {m.label}
                           </button>
                         ))}
@@ -795,8 +795,8 @@ export default function ClinicDetail() {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         {visibleDuties.map(d => (
                           <button type="button" key={d.key} onClick={() => toggleMap('duties', d.key)}
-                            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border text-sm text-left transition-all ${mf.duties[d.key] ? 'border-indigo-500 bg-indigo-500/10 text-app' : 'border-app text-dim hover:border-gray-600'}`}>
-                            <span className={`w-4 h-4 rounded flex items-center justify-center shrink-0 ${mf.duties[d.key] ? 'bg-indigo-500' : 'border border-gray-600'}`}>{mf.duties[d.key] && <Check size={11} className="text-app" />}</span>
+                            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border text-sm text-left transition-all ${mf.duties[d.key] ? 'border-indigo-500 bg-indigo-500/10 text-app' : 'border-app text-dim hover:border-app'}`}>
+                            <span className={`w-4 h-4 rounded flex items-center justify-center shrink-0 ${mf.duties[d.key] ? 'bg-indigo-500' : 'border border-app'}`}>{mf.duties[d.key] && <Check size={11} className="text-app" />}</span>
                             {d.label}{d.supervisorOnly && <span className="ml-auto text-[10px] uppercase tracking-wide text-indigo-400/70">supervisor</span>}
                           </button>
                         ))}
@@ -809,7 +809,7 @@ export default function ClinicDetail() {
                       <div className="flex flex-wrap gap-2">
                         {visibleRoles.map(r => (
                           <button type="button" key={r.key} onClick={() => toggleRole(r.key)}
-                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${mf.manageable_roles.includes(r.key) ? 'border-indigo-500 bg-indigo-500/10 text-app' : 'border-app text-dim hover:border-gray-600'}`}>
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${mf.manageable_roles.includes(r.key) ? 'border-indigo-500 bg-indigo-500/10 text-app' : 'border-app text-dim hover:border-app'}`}>
                             {mf.manageable_roles.includes(r.key) && <Check size={11} />}{r.label}
                           </button>
                         ))}
@@ -843,7 +843,7 @@ export default function ClinicDetail() {
             <div className="grid grid-cols-2 gap-2 mb-4">
               {PLANS.map(p => (
                 <button key={p} onClick={() => setSelectedPlan(p)}
-                  className={`p-3 rounded-xl border text-sm font-medium capitalize transition-all ${selectedPlan === p ? 'border-indigo-500 bg-indigo-500/10 text-app' : 'border-app text-dim hover:border-gray-600'}`}>
+                  className={`p-3 rounded-xl border text-sm font-medium capitalize transition-all ${selectedPlan === p ? 'border-indigo-500 bg-indigo-500/10 text-app' : 'border-app text-dim hover:border-app'}`}>
                   {p}
                 </button>
               ))}

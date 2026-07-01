@@ -597,7 +597,7 @@ function StatusBadge({ status }) {
   const map = {
     draft:     'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30',
     published: 'bg-green-500/20 text-green-400 border border-green-500/30',
-    retired:   'bg-gray-500/20 text-dim border border-gray-500/30',
+    retired:   'bg-gray-500/20 text-dim border border-app',
   }
   return (
     <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${map[status] || map.draft}`}>
@@ -608,7 +608,7 @@ function StatusBadge({ status }) {
 
 // ─── Form Settings Modal ──────────────────────────────────────────────────────
 
-const inputCls = 'w-full surface-2 border border-app rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#F5821E] transition-colors'
+const inputCls = 'w-full surface-2 border border-app rounded-lg px-3 py-2 text-sm text-app placeholder-gray-500 focus:outline-none focus:border-[#F5821E] transition-colors'
 const textareaCls = inputCls + ' resize-none'
 
 const FORM_ACCENT_PALETTE = ['#0F2557', '#CC1414', '#F5821E', '#16A34A', '#7C3AED', '#0891B2', '#D97706', '#DB2777', '#0D9488', '#475569']
@@ -619,7 +619,7 @@ function Toggle({ value, onChange, label }) {
       <div
         role="switch"
         aria-checked={value}
-        className={`relative w-9 h-5 rounded-full transition-colors flex-shrink-0 ${value ? 'bg-[#F5821E]' : 'bg-gray-700'}`}
+        className={`relative w-9 h-5 rounded-full transition-colors flex-shrink-0 ${value ? 'bg-[#F5821E]' : 'surface-3'}`}
         onClick={() => onChange(!value)}
       >
         <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${value ? 'translate-x-4' : 'translate-x-0.5'}`} />
@@ -643,7 +643,7 @@ function FormSettingsModal({ form, dispatch, onClose }) {
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative w-96 h-full surface border-l border-app shadow-2xl overflow-y-auto flex flex-col">
         <div className="flex items-center justify-between px-5 py-4 border-b border-app flex-shrink-0">
-          <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+          <h2 className="text-sm font-semibold text-app flex items-center gap-2">
             <Settings size={15} className="text-dim" />
             Form Settings
           </h2>
@@ -1167,7 +1167,7 @@ export default function FormBuilder() {
 
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-      <div className="flex flex-col h-screen bg-gray-950 text-white overflow-hidden">
+      <div className="flex flex-col h-screen app-bg text-app overflow-hidden">
 
         {/* ── Toolbar ── */}
         <header className="sticky top-0 z-40 flex items-center gap-3 px-4 py-2.5 surface border-b border-app flex-shrink-0">
@@ -1186,7 +1186,7 @@ export default function FormBuilder() {
             type="text"
             value={form.title}
             onChange={e => dispatch({ type: 'SET_TITLE', payload: e.target.value })}
-            className="flex-1 min-w-0 bg-transparent text-lg font-semibold text-white placeholder-gray-600 outline-none border-b border-transparent focus:border-orange-500 transition-colors py-0.5 max-w-xs"
+            className="flex-1 min-w-0 bg-transparent text-lg font-semibold text-app placeholder-gray-600 outline-none border-b border-transparent focus:border-orange-500 transition-colors py-0.5 max-w-xs"
             placeholder="Untitled Form"
           />
 
@@ -1252,7 +1252,7 @@ export default function FormBuilder() {
           <button
             onClick={handlePublish}
             disabled={saving}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-orange-500 hover:bg-orange-400 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-orange-500 hover:bg-orange-400 text-app disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             <Send size={15} />
             Publish
@@ -1307,7 +1307,7 @@ export default function FormBuilder() {
         {/* Mobile FAB */}
         <button
           onClick={() => setPaletteOpen(v => !v)}
-          className="md:hidden fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-orange-500 hover:bg-orange-400 text-white shadow-lg flex items-center justify-center transition-colors"
+          className="md:hidden fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-orange-500 hover:bg-orange-400 text-app shadow-lg flex items-center justify-center transition-colors"
           aria-label="Add field"
         >
           <Plus size={24} />

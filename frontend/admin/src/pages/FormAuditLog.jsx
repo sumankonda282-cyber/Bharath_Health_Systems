@@ -42,7 +42,7 @@ function fmtWhen(iso) {
 }
 
 function ActionBadge({ action }) {
-  const m = ACTION_META[action] || { label: action, icon: FileClock, badge: 'bg-gray-700 text-dim border border-gray-600' }
+  const m = ACTION_META[action] || { label: action, icon: FileClock, badge: 'surface-3 text-dim border border-app' }
   const Icon = m.icon
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${m.badge}`}>
@@ -53,7 +53,7 @@ function ActionBadge({ action }) {
 
 // One field-level change chip: "Blood Pressure (bp) · Relabeled · BP → Blood Pressure"
 function ChangeChip({ c }) {
-  const m = CHANGE_META[c.change] || { label: c.change, cls: 'bg-gray-700 text-dim border-gray-600' }
+  const m = CHANGE_META[c.change] || { label: c.change, cls: 'surface-3 text-dim border-app' }
   const from = Array.isArray(c.from) ? c.from.join(', ') : c.from
   const to   = Array.isArray(c.to)   ? c.to.join(', ')   : c.to
   return (

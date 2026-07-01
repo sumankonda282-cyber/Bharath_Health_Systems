@@ -62,16 +62,16 @@ export default function ResetPassword() {
           </div>
         </div>
 
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8">
+        <div className="surface border border-app rounded-2xl p-8">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(245,130,30,0.15)' }}>
               <ShieldCheck size={20} style={{ color: '#F5821E' }} />
             </div>
             <div>
-              <h2 className="text-xl font-extrabold text-white leading-none">
+              <h2 className="text-xl font-extrabold text-app leading-none">
                 {token ? 'Set New Password' : 'Forgot Password'}
               </h2>
-              <p className="text-gray-500 text-xs mt-0.5">
+              <p className="text-faint text-xs mt-0.5">
                 {token ? 'Enter your new password below' : 'We\'ll email you a reset link'}
               </p>
             </div>
@@ -80,8 +80,8 @@ export default function ResetPassword() {
           {done ? (
             <div className="flex flex-col items-center gap-3 py-4 text-center">
               <CheckCircle2 size={40} style={{ color: '#065F46' }} />
-              <p className="text-white font-semibold">Password updated!</p>
-              <p className="text-gray-400 text-sm">Redirecting to login…</p>
+              <p className="text-app font-semibold">Password updated!</p>
+              <p className="text-dim text-sm">Redirecting to login…</p>
             </div>
           ) : token ? (
             <form onSubmit={handleReset} className="space-y-4">
@@ -97,7 +97,7 @@ export default function ResetPassword() {
                     placeholder="Min. 8 characters"
                   />
                   <button type="button" onClick={() => setShowPw(v => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-dim">
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-faint hover:text-dim">
                     {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
@@ -120,7 +120,7 @@ export default function ResetPassword() {
                 </div>
               )}
               <button type="submit" disabled={loading}
-                className="w-full py-3 rounded-xl font-semibold text-sm text-white flex items-center justify-center gap-2"
+                className="w-full py-3 rounded-xl font-semibold text-sm text-app flex items-center justify-center gap-2"
                 style={{ background: '#0F2557' }}>
                 {loading ? <><Loader2 size={16} className="animate-spin" />Updating…</> : 'Set New Password'}
               </button>
@@ -152,7 +152,7 @@ export default function ResetPassword() {
                 </div>
               )}
               <button type="submit" disabled={loading}
-                className="w-full py-3 rounded-xl font-semibold text-sm text-white flex items-center justify-center gap-2"
+                className="w-full py-3 rounded-xl font-semibold text-sm text-app flex items-center justify-center gap-2"
                 style={{ background: '#0F2557' }}>
                 {loading ? <><Loader2 size={16} className="animate-spin" />Sending… (may take up to 60s)</> : 'Send Reset Link'}
               </button>
@@ -161,7 +161,7 @@ export default function ResetPassword() {
         </div>
 
         <p className="text-center mt-4">
-          <button onClick={() => navigate('/login')} className="text-gray-500 text-xs hover:text-dim transition-colors">
+          <button onClick={() => navigate('/login')} className="text-faint text-xs hover:text-dim transition-colors">
             ← Back to Sign In
           </button>
         </p>

@@ -39,7 +39,7 @@ function money(n) {
 function PortalBadge({ value }) {
   return value
     ? <span className="badge-xs bg-green-500/15 text-green-400 border border-green-500/30">Yes</span>
-    : <span className="badge-xs bg-gray-700/40 text-dim border border-app">No</span>
+    : <span className="badge-xs surface-3 text-dim border border-app">No</span>
 }
 
 function StatusBadge({ status }) {
@@ -57,7 +57,7 @@ function KV({ label, value }) {
 
 function KpiChip({ icon: Icon, label, value, accent }) {
   return (
-    <div className="kpi-card flex flex-col gap-1 p-3 rounded-lg bg-[#0a0f1e] border border-app">
+    <div className="kpi-card flex flex-col gap-1 p-3 rounded-lg app-bg border border-app">
       <div className="flex items-center gap-1.5 text-[11px] text-faint uppercase tracking-wide">
         <Icon size={13} className="text-faint" />
         {label}
@@ -335,12 +335,12 @@ export default function PatientLookup() {
   }
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
-  const selectCls = 'filter-chip bg-[#0a0f1e] border border-app rounded-md text-sm text-app px-2 py-1.5 focus:outline-none focus:border-[#F5821E]'
-  const numCls = 'bg-[#0a0f1e] border border-app rounded-md text-sm text-app px-2 py-1.5 w-16 focus:outline-none focus:border-[#F5821E]'
+  const selectCls = 'filter-chip app-bg border border-app rounded-md text-sm text-app px-2 py-1.5 focus:outline-none focus:border-[#F5821E]'
+  const numCls = 'app-bg border border-app rounded-md text-sm text-app px-2 py-1.5 w-16 focus:outline-none focus:border-[#F5821E]'
 
   return (
-    <div className="w-full min-h-screen bg-[#0a0f1e] flex flex-col">
-      <form onSubmit={onSubmit} className="toolbar sticky top-0 z-20 bg-[#0a0f1e] border-b border-app px-4 py-3">
+    <div className="w-full min-h-screen app-bg flex flex-col">
+      <form onSubmit={onSubmit} className="toolbar sticky top-0 z-20 app-bg border-b border-app px-4 py-3">
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative flex-1 min-w-[240px]">
             <Search size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-faint" />
@@ -456,7 +456,7 @@ export default function PatientLookup() {
                   <tr
                     key={p.patient_id}
                     onClick={() => setSelectedId(p.patient_id)}
-                    className="border-t border-app hover:bg-gray-800/30 cursor-pointer"
+                    className="border-t border-app hover:surface-2 cursor-pointer"
                   >
                     <td className="td-sm">
                       <div className="text-app">{p.full_name}</div>
@@ -479,7 +479,7 @@ export default function PatientLookup() {
       </div>
 
       {!loading && !error && results.length > 0 && (
-        <div className="flex items-center justify-end gap-2 px-4 py-2.5 border-t border-app bg-[#0a0f1e]">
+        <div className="flex items-center justify-end gap-2 px-4 py-2.5 border-t border-app app-bg">
           <button
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page <= 1}

@@ -76,7 +76,7 @@ function Toaster({ toasts, onDismiss }) {
         <div key={t.id} className={`flex items-start gap-3 px-4 py-3 rounded-xl shadow-xl text-sm font-medium border animate-in slide-in-from-right-4 ${
           t.type === 'error' ? 'bg-red-900 text-red-200 border-red-700'
           : t.type === 'warn' ? 'bg-orange-900 text-orange-200 border-orange-700'
-          : 'bg-gray-800 text-emerald-300 border-gray-700'
+          : 'surface-2 text-emerald-300 border-app'
         }`}>
           <span className="flex-1">{t.msg}</span>
           <button onClick={() => onDismiss(t.id)} className="opacity-60 hover:opacity-100 mt-0.5 shrink-0">
@@ -124,7 +124,7 @@ function StatusBadge({ status }) {
     trial:     'bg-blue-900/40 text-blue-400 border-blue-700/40',
   }
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize border ${map[status] || 'bg-gray-700/40 text-gray-400 border-gray-600/40'}`}>
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize border ${map[status] || 'surface-3 text-dim border-app'}`}>
       {status}
     </span>
   )
@@ -236,17 +236,17 @@ function RecordPaymentModal({ clinic, planConfig, onClose, onSaved, addToast }) 
               className="w-full surface-2 border border-app text-app text-sm rounded-lg px-3 py-2.5 outline-none focus:border-[#F5821E] transition-colors resize-none h-16" />
           </div>
           <label className="flex items-center gap-2.5 cursor-pointer">
-            <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${form.activate ? 'bg-[#F5821E] border-[#F5821E]' : 'border-gray-600 surface-2'}`}
+            <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${form.activate ? 'bg-[#F5821E] border-[#F5821E]' : 'border-app surface-2'}`}
               onClick={() => setForm(f => ({ ...f, activate: !f.activate }))}>
-              {form.activate && <Check size={10} className="text-white" />}
+              {form.activate && <Check size={10} className="text-app" />}
             </div>
             <span className="text-xs text-dim">Mark subscription as Active after recording</span>
           </label>
           <div className="flex gap-3 pt-1">
-            <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 surface-2 hover:bg-gray-700 text-dim text-sm font-medium rounded-xl transition-colors">
+            <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 surface-2 hover:surface-3 text-dim text-sm font-medium rounded-xl transition-colors">
               Cancel
             </button>
-            <button type="submit" disabled={saving} className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-50"
+            <button type="submit" disabled={saving} className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 text-app text-sm font-semibold rounded-xl transition-colors disabled:opacity-50"
               style={{ background: '#F5821E' }}>
               {saving ? <RefreshCw size={14} className="animate-spin" /> : <Banknote size={14} />}
               {saving ? 'Saving…' : 'Record Payment'}
@@ -308,15 +308,15 @@ function ChangePlanModal({ clinic, planConfig, onClose, onSaved, addToast }) {
         <form onSubmit={submit} className="p-6">
           <div className="space-y-2 mb-5">
             {plans.map(([key, plan]) => (
-              <label key={key} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${selected === key ? 'border-[#F5821E] bg-[#F5821E0D]' : 'border-app surface-2 hover:border-gray-600'}`}
+              <label key={key} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${selected === key ? 'border-[#F5821E] bg-[#F5821E0D]' : 'border-app surface-2 hover:border-app'}`}
                 onClick={() => setSelected(key)}>
-                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${selected === key ? 'border-[#F5821E]' : 'border-gray-600'}`}>
+                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${selected === key ? 'border-[#F5821E]' : 'border-app'}`}>
                   {selected === key && <div className="w-2 h-2 rounded-full bg-[#F5821E]" />}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold text-app">{plan.label || key}</span>
-                    {key === clinic.plan && <span className="text-[10px] bg-gray-700 text-dim px-1.5 py-0.5 rounded-full">Current</span>}
+                    {key === clinic.plan && <span className="text-[10px] surface-3 text-dim px-1.5 py-0.5 rounded-full">Current</span>}
                   </div>
                   <div className="text-xs text-faint mt-0.5">
                     {plan.price_per_doctor > 0 ? `₹${plan.price_per_doctor}/doctor/month` : 'Free'}
@@ -344,11 +344,11 @@ function ChangePlanModal({ clinic, planConfig, onClose, onSaved, addToast }) {
             </div>
           )}
           <div className="flex gap-3">
-            <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 surface-2 hover:bg-gray-700 text-dim text-sm font-medium rounded-xl transition-colors">
+            <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 surface-2 hover:surface-3 text-dim text-sm font-medium rounded-xl transition-colors">
               Cancel
             </button>
             <button type="submit" disabled={saving || selected === clinic.plan}
-              className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-50"
+              className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 text-app text-sm font-semibold rounded-xl transition-colors disabled:opacity-50"
               style={{ background: '#F5821E' }}>
               {saving ? <RefreshCw size={14} className="animate-spin" /> : <Check size={14} />}
               {saving ? 'Changing…' : 'Confirm Change'}
@@ -424,9 +424,9 @@ function ClinicDrawer({ clinic, planConfig, onClose, onAction, addToast }) {
   return (
     <>
       <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose} />
-      <div className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-gray-950 border-l border-app z-50 overflow-y-auto flex flex-col">
+      <div className="fixed right-0 top-0 bottom-0 w-full max-w-md app-bg border-l border-app z-50 overflow-y-auto flex flex-col">
         {/* Header */}
-        <div className="sticky top-0 bg-gray-950 border-b border-app px-5 py-4 flex items-start gap-3">
+        <div className="sticky top-0 app-bg border-b border-app px-5 py-4 flex items-start gap-3">
           <button onClick={onClose} className="p-1.5 rounded-lg text-dim hover:text-app hover-app transition-colors mt-0.5 shrink-0">
             <ArrowLeft size={16} />
           </button>
@@ -514,7 +514,7 @@ function ClinicDrawer({ clinic, planConfig, onClose, onAction, addToast }) {
         </div>
 
         {/* Action Buttons */}
-        <div className="sticky bottom-0 bg-gray-950 border-t border-app p-4 space-y-2">
+        <div className="sticky bottom-0 app-bg border-t border-app p-4 space-y-2">
           <div className="grid grid-cols-2 gap-2">
             <button onClick={() => setShowPayModal(true)}
               className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold text-app transition-colors"
@@ -522,7 +522,7 @@ function ClinicDrawer({ clinic, planConfig, onClose, onAction, addToast }) {
               <Banknote size={14} />Record Payment
             </button>
             <button onClick={() => setShowPlanModal(true)}
-              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium surface-2 hover:bg-gray-700 text-app transition-colors">
+              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium surface-2 hover:surface-3 text-app transition-colors">
               <Layers size={14} />Change Plan
             </button>
           </div>
@@ -945,15 +945,15 @@ export default function Subscriptions() {
         <h1 className="text-base font-bold text-app">Subscriptions</h1>
         <div className="flex items-center gap-2">
           <button onClick={() => setShowComp(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg surface-2 border border-app hover:bg-gray-700 text-app text-xs font-semibold">
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg surface-2 border border-app hover:surface-3 text-app text-xs font-semibold">
             <Gift size={13} /> Comp
           </button>
           <button onClick={() => setShowConfirm(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg surface-2 border border-app hover:bg-gray-700 text-app text-xs font-semibold">
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg surface-2 border border-app hover:surface-3 text-app text-xs font-semibold">
             <Landmark size={13} /> Confirm Transfers
           </button>
           <button onClick={() => setShowBuilder(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold">
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-app text-xs font-semibold">
             <Package size={13} /> Build Plans
           </button>
         </div>

@@ -19,7 +19,7 @@ export function Menu({ trigger, children, align = 'end', side = 'bottom', width 
           side={side}
           sideOffset={6}
           style={{ width }}
-          className="z-[100] rounded-xl bg-gray-900 border border-gray-700 shadow-2xl p-1.5
+          className="z-[100] rounded-xl surface border border-app shadow-2xl p-1.5
                      data-[state=open]:animate-[uiPop_140ms_ease-out] focus:outline-none"
         >
           {children}
@@ -30,7 +30,7 @@ export function Menu({ trigger, children, align = 'end', side = 'bottom', width 
 }
 
 const ITEM_TONES = {
-  default: 'text-gray-300 hover:bg-white/5 hover:text-white data-[highlighted]:bg-white/5 data-[highlighted]:text-white',
+  default: 'text-dim hover:bg-white/5 hover:text-app data-[highlighted]:bg-white/5 data-[highlighted]:text-app',
   danger:  'text-red-400 hover:bg-red-500/10 hover:text-red-300 data-[highlighted]:bg-red-500/10 data-[highlighted]:text-red-300',
 }
 
@@ -49,8 +49,8 @@ export function MenuItem({ icon: Icon, children, onSelect, tone = 'default', dis
 }
 
 export function MenuLabel({ children }) {
-  return <DM.Label className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wider text-gray-500">{children}</DM.Label>
+  return <DM.Label className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wider text-faint">{children}</DM.Label>
 }
 export function MenuSeparator() {
-  return <DM.Separator className="my-1 h-px bg-gray-800" />
+  return <DM.Separator className="my-1 h-px surface-2" />
 }
