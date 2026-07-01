@@ -137,8 +137,22 @@ This is the core clinical documentation strategy. Every form must be built algor
 5. **Calculated fields appear on the same row as their source inputs if they are compact** (e.g. BMI label + value inline after weight and height). If the calculated result needs explanation, it goes on the next full-width row.
 6. **Divider + Label** before each sub-group within a section. Sub-groups get named separators, not separate sections.
 7. **Conditional sub-field blocks are visually indented** — left border line + subtle background tint. The indentation level increases with nesting depth.
-8. **The form is always scrollable downward.** No pagination, no tabs within a section. One continuous vertical flow.
+8. **The form is always scrollable downward. No tabs, no "Next" paging — not within a section and not between sections.** Every section renders stacked, one below the other; the clinician scrolls top-to-bottom through the whole form. Tabbed/paged sections are prohibited.
 9. **Required fields are rare.** Only mark required if the section is meaningless without it. Over-required forms block documentation.
+
+### Field presentation (form-fill UI)
+- **Label on the LEFT, input on the RIGHT** for every compact field (number, dropdown, text, date, time, yes/no). Label above the input is reserved for wide fields only (`textarea`, `scale`, `body_map`, `calculated` summaries).
+- **Inputs are sized to their content, never full-bleed.** A number ≈ 140px, a dropdown ≈ 200px. A BP-site dropdown whose longest value is two words must not render as a large box. Cap input widths; let the label consume the rest of the cell.
+- **One-row form header.** Form name · patient name on a single line, with completion % and close. Never a 3-row header. A thin progress bar may sit under it.
+- **Each section is a soft white card** (subtle border + shadow) on a light slate page, with a **navy heading + left accent bar** that stays sticky while its own fields scroll.
+
+### Colour & typography (professional, not rainbow — one colour per role)
+- **Section headings:** navy `#0F2557`, bold.
+- **Field labels:** readable slate (`#334155` / slate-600–700). **Never** light-grey, light-green, or white for text — nothing low-visibility.
+- **Inputs:** slate-900 text, slate-300 border, white background, navy focus ring.
+- **Units:** slate-500, medium weight.
+- **Required marker:** red-500 asterisk.
+- **Status colour is meaningful only** — green (normal) / amber (abnormal) / red (critical) on reference-range badges. Colour is never decoration.
 
 ### Target row budget per common section:
 | Section | Target rows |
