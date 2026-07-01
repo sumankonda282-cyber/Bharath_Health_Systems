@@ -67,7 +67,7 @@ SCHEMA = {
                  "unit": "/min", "col_span": 1, "min": 20, "max": 300, "step": 1, "placeholder": "60–100",
                  "required": False, "reference_range": RR_HR, "ref_range": RR_HR},
                 {"id": "pulse_rhythm", "field_id": "pulse_rhythm", "type": "dropdown", "label": "Pulse Rhythm",
-                 "col_span": 1, "searchable": True, "required": False,
+                 "col_span": 2, "searchable": True, "required": False,
                  "options": [
                      {"label": "Regular", "value": "regular"}, {"label": "Irregular", "value": "irregular"},
                      {"label": "Regularly Irregular", "value": "regularly_irregular"},
