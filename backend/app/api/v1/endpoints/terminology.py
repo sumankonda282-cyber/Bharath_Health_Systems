@@ -9,13 +9,13 @@ clinic-specific custom rows.
 import json as _json
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
-from sqlalchemy import text
+from sqlalchemy import text, func
 from sqlalchemy.orm import Session
 from typing import Optional, List
 
 from app.db.session import get_db
 from app.core.security import get_current_staff
-from app.models.models import Staff, DoctorProfile, Drug, DrugInteraction, DrugDoseRange, DrugContraindication, DrugCounselling, DiseaseCounselling, DrugPregnancyCategory, FoodDrugInteraction
+from app.models.models import Staff, DoctorProfile, Drug, DrugInteraction, DrugDoseRange, DrugContraindication, DrugCounselling, DiseaseCounselling, DrugPregnancyCategory, FoodDrugInteraction, Medicine, Branch
 
 router = APIRouter(prefix="/terminology", tags=["terminology"])
 
@@ -160,24 +160,70 @@ def conditions_for_specialty(
 def search_drugs(
     q: str = Query(..., min_length=2),
     limit: int = Query(10, le=30),
+    scope: str = Query("all", description="all = full catalog with in-stock flag; in_stock = only drugs stocked at this tenant"),
     db: Session = Depends(get_db),
     current: Staff = Depends(get_current_staff),
 ):
+    """Unified, brand-first drug search — the single source every portal calls.
+
+    India-first: matches brand (primary_brand + brands) AND generic AND ATC, so a
+    doctor typing 'Dolo' or 'Augmentin' finds the concept. Each result carries a
+    live in-stock flag for the caller's tenant (join drugs → this branch's
+    medicines). scope='in_stock' returns only stocked drugs (pharmacy stock search);
+    scope='all' returns the whole catalog with availability flagged (provider /
+    carechart / pharmacy new-order search). Backward compatible — only adds fields.
+    """
+    q = q.strip()
     like = f"%{q}%"
-    rows = (
-        db.query(Drug)
-        .filter(
-            Drug.is_active == True,
-            (Drug.clinic_id == None) | (Drug.clinic_id == current.clinic_id),
-            (Drug.generic.ilike(like)) | (Drug.brands.ilike(like)),
+    starts = f"{q}%"
+
+    # Tenant's branch set: the caller's branch, else all branches of their clinic.
+    branch_ids: list = []
+    if getattr(current, "branch_id", None):
+        branch_ids = [current.branch_id]
+    elif getattr(current, "clinic_id", None):
+        branch_ids = [b.id for b in db.query(Branch.id).filter(Branch.clinic_id == current.clinic_id).all()]
+
+    # Per-drug on-hand for this tenant, aggregated once (avoids N+1).
+    stock_by_drug: dict = {}
+    if branch_ids:
+        srows = (
+            db.query(Medicine.drug_id, func.coalesce(func.sum(Medicine.stock_quantity), 0))
+            .filter(
+                Medicine.is_active == True,
+                Medicine.drug_id.isnot(None),
+                Medicine.branch_id.in_(branch_ids),
+            )
+            .group_by(Medicine.drug_id)
+            .all()
         )
-        .order_by(Drug.generic.ilike(f"{q}%").desc(), Drug.generic)
+        stock_by_drug = {drug_id: int(qty or 0) for drug_id, qty in srows}
+
+    base = db.query(Drug).filter(
+        Drug.is_active == True,
+        (Drug.clinic_id == None) | (Drug.clinic_id == current.clinic_id),
+        (Drug.generic.ilike(like)) | (Drug.brands.ilike(like)) | (Drug.primary_brand.ilike(like)) | (Drug.atc.ilike(starts)),
+    )
+    if scope == "in_stock":
+        stocked_ids = [did for did, qty in stock_by_drug.items() if qty > 0]
+        if not stocked_ids:
+            return []
+        base = base.filter(Drug.id.in_(stocked_ids))
+
+    # Rank: brand/generic prefix hits first (what the clinician typed), then name.
+    rows = (
+        base.order_by(
+            (Drug.primary_brand.ilike(starts)).desc(),
+            (Drug.generic.ilike(starts)).desc(),
+            Drug.generic,
+        )
         .limit(limit).all()
     )
     return [{
         "id": d.id,
+        "drug_id": d.id,
         "generic": d.generic,
-        "name": d.generic,
+        "name": d.primary_brand or d.generic,   # brand-first display for India
         "generic_name": d.generic,
         "atc": d.atc,
         "drug_class": d.drug_class,
@@ -187,6 +233,8 @@ def search_drugs(
         "primary_brand": d.primary_brand,
         "rx_only": d.rx_only,
         "formulations": _json.loads(d.formulations) if d.formulations else [],
+        "in_stock": stock_by_drug.get(d.id, 0) > 0,
+        "stock_qty": stock_by_drug.get(d.id, 0),
     } for d in rows]
 
 
