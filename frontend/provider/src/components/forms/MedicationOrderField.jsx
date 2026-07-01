@@ -30,6 +30,16 @@ const norm = (s) => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim()
 // "Paracetamol 500mg" collapse to the ingredient where possible.
 const conceptKey = (o) => norm((o?.generic || o?.drug || '').replace(/\d+\s*(mg|ml|mcg|g|iu|%)\b.*/i, ''))
 
+// A CDS warning → a 1–3 word inline flag.
+const shortFlag = (w) => {
+  if (w.type === 'interaction')      return w.severity === 'contraindicated' ? 'Severe interaction' : `${w.severity} interaction`
+  if (w.type === 'duplication')      return 'Duplicate class'
+  if (w.type === 'dose')             return 'Over max dose'
+  if (w.type === 'contraindication') return 'Contraindicated'
+  if (w.type === 'schedule')         return `Schedule ${w.schedule || ''}`.trim()
+  return w.type
+}
+
 const orderLine = (o) => {
   const bits = [o.form ? `${o.form}.` : null, o.drug, o.dose_label || (o.dose_mg ? `${o.dose_mg} mg` : null),
     o.frequency, o.duration_days ? `${o.duration_days}d` : null].filter(Boolean)
@@ -53,15 +63,40 @@ export default function MedicationOrderField({ field, value, onChange }) {
   const [searching, setSearching] = useState(false)
   const [dose, setDose] = useState(null)
   const [allergy, setAllergy] = useState(null)
-  const [interactions, setInteractions] = useState([])
+  const [cdsWarnings, setCdsWarnings] = useState([])   // interaction/duplication/dose/contra/schedule
   const [tips, setTips] = useState([])
   const [loadingIntel, setLoadingIntel] = useState(false)
   const [ackDup, setAckDup] = useState(false)       // duplicate acknowledged as refill
   const timer = useRef(null)
+  const cdsTimer = useRef(null)
 
   useEffect(() => { loadClinicalContext(api, patientId).then(setCtx) }, [patientId])
 
   const upd = (patch) => setDraft(d => ({ ...d, ...patch }))
+
+  // Comprehensive CDS across the WHOLE order (cart + the drug being composed):
+  // drug-drug interactions between any two, therapeutic duplication, max-dose,
+  // drug-diagnosis contraindication, and CDSCO schedule flags. Debounced.
+  useEffect(() => {
+    clearTimeout(cdsTimer.current)
+    const drugs = [...cart, ...(draft.drug ? [draft] : [])]
+      .map(o => ({ name: o.generic || o.drug, dose_mg: parseFloat(o.dose_mg) || null, route: o.route || null }))
+      .filter(x => x.name)
+    if (drugs.length === 0) { setCdsWarnings([]); return }
+    cdsTimer.current = setTimeout(async () => {
+      try {
+        const res = await api.post('/terminology/cds/check', {
+          drugs,
+          diagnoses: ctx?.diagnoses || [],
+          patient_age: ctx?.age ?? null,
+          patient_weight_kg: ctx?.weight_kg ?? null,
+        })
+        setCdsWarnings(res?.warnings || [])
+      } catch { /* non-fatal */ }
+    }, 500)
+    return () => clearTimeout(cdsTimer.current)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cart.length, draft.drug, draft.dose_mg, ctx?.age, ctx?.weight_kg])
 
   // Active chart meds (from live context) + current cart = the duplicate universe.
   const activeChart = (ctx?.active_medications || []).map(m => conceptKey(m))
@@ -97,20 +132,20 @@ export default function MedicationOrderField({ field, value, onChange }) {
     const generic = d.generic || d.name
     const route = draft.route || 'PO'
     setResults([]); setOpen(false); setQ('')
-    setDose(null); setAllergy(null); setInteractions([]); setTips([]); setAckDup(false)
+    setDose(null); setAllergy(null); setCdsWarnings([]); setTips([]); setAckDup(false)
     setDraft({ drug: generic, generic, drug_class: d.drug_class || null, brand: d.primary_brand || null,
                route, in_stock: !!d.in_stock, drug_id: d.drug_id || d.id || null })
     setLoadingIntel(true)
     const doseParams = { generic, route }
     if (ctx?.weight_kg) doseParams.weight_kg = ctx.weight_kg
     if (ctx?.age != null) doseParams.age_years = ctx.age
-    const meds = [...new Set([...(ctx?.active_medications || []).map(m => m.name).filter(Boolean), generic])]
-    const [doseR, algR, intR, cnsR] = await Promise.allSettled([
+    // Interactions/duplication/max-dose/contraindication/schedule now come from the
+    // consolidated cds/check (below), run against the WHOLE cart — not just this drug.
+    const [doseR, algR, cnsR] = await Promise.allSettled([
       api.get('/terminology/drugs/dose-suggest', { params: doseParams }),
       ctx?.allergies?.length
         ? api.post('/terminology/drugs/check-allergy', { drug: generic, allergies: ctx.allergies })
         : Promise.resolve(null),
-      meds.length > 1 ? api.post('/terminology/drugs/check-interactions', { generics: meds }) : Promise.resolve([]),
       api.get('/terminology/drugs/counselling', { params: { generic } }),
     ])
     if (doseR.status === 'fulfilled') {
@@ -120,7 +155,6 @@ export default function MedicationOrderField({ field, value, onChange }) {
       if (best) chooseFormulation(best)
     }
     if (algR.status === 'fulfilled' && algR.value) setAllergy(algR.value)
-    if (intR.status === 'fulfilled') setInteractions(Array.isArray(intR.value) ? intR.value : [])
     if (cnsR.status === 'fulfilled') {
       const t = cnsR.value?.tips || []
       setTips(t)
@@ -136,7 +170,7 @@ export default function MedicationOrderField({ field, value, onChange }) {
 
   function resetComposer() {
     setDraft(EMPTY); setEditIdx(null); setDose(null); setAllergy(null)
-    setInteractions([]); setTips([]); setAckDup(false); setQ('')
+    setCdsWarnings([]); setTips([]); setAckDup(false); setQ('')
   }
 
   function addToCart() {
@@ -152,7 +186,7 @@ export default function MedicationOrderField({ field, value, onChange }) {
   }
 
   function editItem(i) {
-    setDraft(cart[i]); setEditIdx(i); setDose(null); setAllergy(null); setInteractions([]); setTips([]); setAckDup(false)
+    setDraft(cart[i]); setEditIdx(i); setDose(null); setAllergy(null); setCdsWarnings([]); setTips([]); setAckDup(false)
   }
   function removeItem(i) {
     const next = cart.slice(); next.splice(i, 1); setCart(next)
@@ -225,10 +259,10 @@ export default function MedicationOrderField({ field, value, onChange }) {
               {allergy?.has_match && (
                 <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-600"><ShieldAlert size={12} /> Allergic</span>
               )}
-              {interactions.slice(0, 3).map((it, i) => (
-                <span key={i} className={`inline-flex items-center gap-1 text-xs font-semibold ${SEV_STYLE[it.severity] || SEV_STYLE.moderate}`}
-                  title={`${it.drug_a} + ${it.drug_b}${it.effect ? ' — ' + it.effect : ''}`}>
-                  <AlertTriangle size={12} /> {it.severity === 'contraindicated' ? 'Severe interaction' : `${it.severity} interaction`}
+              {cdsWarnings.slice(0, 4).map((w, i) => (
+                <span key={i} className={`inline-flex items-center gap-1 text-xs font-semibold ${SEV_STYLE[w.severity] || SEV_STYLE.moderate}`}
+                  title={`${w.message || ''}${w.management ? ' — ' + w.management : ''}`}>
+                  <AlertTriangle size={12} /> {shortFlag(w)}
                 </span>
               ))}
               {dupInfo && (
