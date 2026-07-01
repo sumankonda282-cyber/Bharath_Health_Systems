@@ -69,7 +69,7 @@ const categorizeSoap = (s) => {
 }
 
 // ── Form Content Renderer ─────────────────────────────────────────
-function FormContentRenderer({ submission, fieldLabelMap }) {
+function FormContentRenderer({ submission, fieldLabelMap, chartExcluded }) {
   if (!submission) return null
 
   const raw = submission.form_data || submission.data || submission.answers || null
@@ -97,7 +97,11 @@ function FormContentRenderer({ submission, fieldLabelMap }) {
   // Use label from schema if available, fall back to formatKey on field ID
   const resolveLabel = (k) => (fieldLabelMap && fieldLabelMap[k]) ? fieldLabelMap[k] : formatKey(k)
 
+  // Fields marked chart-excluded in Admin are stored for audit but never shown here.
+  const isExcluded = (k) => chartExcluded && chartExcluded.has(k)
+
   const entries = Object.entries(raw)
+    .filter(([k]) => !isExcluded(k))
     .map(([k, v]) => ({ key: k, label: resolveLabel(k), value: parseValue(v) }))
     .filter(e => e.value && e.value !== 'No')
 
@@ -428,6 +432,7 @@ function FormBlock({ submission, index }) {
   const isDraft = submission.status === 'draft' || submission.is_draft
   const [fullData, setFullData]         = useState(submission.form_data || submission.data || null)
   const [fieldLabelMap, setFieldLabelMap] = useState(null)
+  const [chartExcluded, setChartExcluded] = useState(null)
   const [fetching, setFetching]         = useState(false)
 
   useEffect(() => {
@@ -437,12 +442,19 @@ function FormBlock({ submission, index }) {
       .then(r => {
         const d = r?.form_data || r?.data || null
         setFullData(d && Object.keys(d).length > 0 ? d : false)
-        // Build field ID → label map from schema sections so renderer shows real labels
+        // Build field ID → label map + chart-excluded set from schema sections so
+        // the renderer shows real labels and hides audit-only fields.
         const schema = r?.form_schema
         if (schema?.sections) {
           const map = {}
-          schema.sections.forEach(sec => (sec.fields || []).forEach(f => { if (f.id && f.label) map[f.id] = f.label }))
+          const excluded = new Set()
+          schema.sections.forEach(sec => (sec.fields || []).forEach(f => {
+            const keys = [f.id, f.field_id].filter(Boolean)
+            if (f.label) keys.forEach(k => { map[k] = f.label })
+            if (f.chart_excluded) keys.forEach(k => excluded.add(k))
+          }))
           setFieldLabelMap(map)
+          setChartExcluded(excluded)
         }
       })
       .catch(() => setFullData(false))
@@ -464,7 +476,7 @@ function FormBlock({ submission, index }) {
           <span className="w-3 h-3 border border-gray-300 border-t-blue-400 rounded-full animate-spin inline-block" />
         )}
       </div>
-      <FormContentRenderer submission={enriched} fieldLabelMap={fieldLabelMap} />
+      <FormContentRenderer submission={enriched} fieldLabelMap={fieldLabelMap} chartExcluded={chartExcluded} />
     </div>
   )
 }

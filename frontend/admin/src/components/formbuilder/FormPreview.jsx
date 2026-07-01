@@ -87,8 +87,19 @@ function PreviewField({ field, value, onChange }) {
     return <div>{label}<div className="flex items-center gap-2"><input type="number" className={inputCls} placeholder={field.placeholder} value={value || ''} onChange={e => onChange(e.target.value)} />{field.unit && <span className="text-sm text-gray-500">{field.unit}</span>}</div></div>
   if (t === 'date' || t === 'time' || t === 'datetime')
     return <div>{label}<input type={t === 'datetime' ? 'datetime-local' : t} className={inputCls} value={value || ''} onChange={e => onChange(e.target.value)} /></div>
-  if (t === 'dropdown')
-    return <div>{label}<select className={inputCls} value={value || ''} onChange={e => onChange(e.target.value)}><option value="">Select…</option>{opts.map((o, i) => <option key={i} value={o.value}>{o.label}</option>)}</select></div>
+  if (t === 'dropdown') {
+    // Multi-select preview renders as a checkbox chip list; single stays a select.
+    // Searchable is indicated with a magnifier hint since preview is static.
+    if (field.multi_select) {
+      const arr = Array.isArray(value) ? value : (value ? [value] : [])
+      const toggle = v => onChange(arr.includes(v) ? arr.filter(x => x !== v) : [...arr, v])
+      return <div>{label}<div className="flex flex-wrap gap-1.5">{opts.map((o, i) => (
+        <button key={i} type="button" onClick={() => toggle(o.value)}
+          className={`px-2.5 py-1 rounded-lg text-sm border transition-all ${arr.includes(o.value) ? 'bg-[#F5821E] text-white border-[#F5821E]' : 'bg-white text-gray-600 border-gray-300 hover:border-[#F5821E]'}`}>{o.label}</button>
+      ))}</div>{field.searchable !== false && <p className="text-[10px] text-gray-400 mt-1">🔍 searchable · multi-select</p>}</div>
+    }
+    return <div>{label}<select className={inputCls} value={value || ''} onChange={e => onChange(e.target.value)}><option value="">Select…</option>{opts.map((o, i) => <option key={i} value={o.value}>{o.label}</option>)}</select>{field.searchable !== false && <p className="text-[10px] text-gray-400 mt-1">🔍 searchable</p>}</div>
+  }
   if (t === 'radio' || t === 'single_choice' || t === 'yes_no') {
     const list = (t === 'yes_no' && !opts.length) ? [{ label: 'Yes', value: 'yes' }, { label: 'No', value: 'no' }] : opts
     return <div>{label}<div className="flex flex-wrap gap-1.5">{list.map((o, i) => (

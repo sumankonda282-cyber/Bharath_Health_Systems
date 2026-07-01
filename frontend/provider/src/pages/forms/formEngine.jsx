@@ -416,7 +416,118 @@ function CheckboxField({ field, value, onChange, error }) {
   )
 }
 
+// Searchable / multi-select combobox. Honors field.searchable (type to filter)
+// and field.multi_select (store an array, render chips). A short non-searchable
+// single-select falls back to a native <select> so simple dropdowns stay simple.
+function SearchableSelect({ field, value, onChange, error }) {
+  const options = (field.options || []).map(opt =>
+    typeof opt === 'object' ? opt : { value: opt, label: opt }
+  )
+  const multi = !!field.multi_select
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const boxRef = useRef(null)
+
+  const selectedVals = multi
+    ? (Array.isArray(value) ? value : value ? [value] : [])
+    : (value ? [value] : [])
+  const labelFor = v => options.find(o => o.value === v)?.label ?? v
+
+  useEffect(() => {
+    if (!open) return
+    const onDoc = e => { if (boxRef.current && !boxRef.current.contains(e.target)) { setOpen(false); setQuery('') } }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [open])
+
+  const filtered = query.trim()
+    ? options.filter(o => o.label.toLowerCase().includes(query.trim().toLowerCase()))
+    : options
+
+  function pick(v) {
+    if (multi) {
+      const next = selectedVals.includes(v) ? selectedVals.filter(x => x !== v) : [...selectedVals, v]
+      onChange(next)
+    } else {
+      onChange(v)
+      setOpen(false)
+      setQuery('')
+    }
+  }
+
+  return (
+    <CompactField field={field} error={error}>
+      <div className="relative w-full max-w-[280px]" ref={boxRef}>
+        <button
+          type="button"
+          onClick={() => setOpen(o => !o)}
+          className={`${INPUT_CLS} flex items-center justify-between gap-1 text-left ${error ? INPUT_ERROR_CLS : ''}`}
+        >
+          <span className="flex flex-wrap gap-1 min-w-0 flex-1">
+            {selectedVals.length === 0 && <span className="text-slate-400">Select…</span>}
+            {multi
+              ? selectedVals.map(v => (
+                  <span key={v} className="inline-flex items-center gap-1 bg-[#0F2557]/10 text-[#0F2557] rounded px-1.5 py-0.5 text-xs font-medium">
+                    {labelFor(v)}
+                    <span
+                      role="button" tabIndex={0}
+                      onClick={e => { e.stopPropagation(); pick(v) }}
+                      className="hover:text-red-600 cursor-pointer"
+                    >×</span>
+                  </span>
+                ))
+              : <span className="truncate text-slate-900">{labelFor(selectedVals[0])}</span>}
+          </span>
+          <svg width="12" height="12" viewBox="0 0 12 12" className="text-slate-400 shrink-0"><path d="M2 4l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg>
+        </button>
+
+        {open && (
+          <div className="absolute z-30 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-hidden flex flex-col">
+            {field.searchable !== false && (
+              <div className="p-1.5 border-b border-slate-100">
+                <input
+                  autoFocus
+                  value={query}
+                  onChange={e => setQuery(e.target.value)}
+                  placeholder="Type to filter…"
+                  className="w-full px-2 py-1 text-sm border border-slate-200 rounded focus:outline-none focus:border-[#0F2557]"
+                />
+              </div>
+            )}
+            <div className="overflow-y-auto">
+              {filtered.length === 0 && <div className="px-3 py-2 text-xs text-slate-400">No matches</div>}
+              {filtered.map(o => {
+                const active = selectedVals.includes(o.value)
+                return (
+                  <button
+                    key={o.value}
+                    type="button"
+                    onClick={() => pick(o.value)}
+                    className={`w-full text-left px-3 py-1.5 text-sm flex items-center gap-2 hover:bg-slate-50 ${active ? 'text-[#0F2557] font-medium' : 'text-slate-700'}`}
+                  >
+                    {multi && (
+                      <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center text-[9px] ${active ? 'bg-[#0F2557] border-[#0F2557] text-white' : 'border-slate-300'}`}>
+                        {active ? '✓' : ''}
+                      </span>
+                    )}
+                    {o.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    </CompactField>
+  )
+}
+
 function DropdownField({ field, value, onChange, error }) {
+  // Searchable or multi-select dropdowns use the combobox; simple single-selects
+  // stay as a lightweight native <select>.
+  if (field.searchable !== false || field.multi_select) {
+    return <SearchableSelect field={field} value={value} onChange={onChange} error={error} />
+  }
   return (
     <CompactField field={field} error={error}>
       <select
