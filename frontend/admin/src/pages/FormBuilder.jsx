@@ -22,6 +22,17 @@ function labelToId(label) {
     .replace(/^_|_$/, '')
 }
 
+// A copied/duplicated field must not reuse an existing field_id in the same form
+// (two fields sharing a field_id collide on submit). Append _copy, _copy2, …
+function uniqueFieldId(base, existing) {
+  base = base || 'field'
+  if (!existing.has(base)) return base
+  if (!existing.has(base + '_copy')) return base + '_copy'
+  let i = 2
+  while (existing.has(base + '_copy' + i)) i++
+  return base + '_copy' + i
+}
+
 // ─── CareForm grid layout (12-col free canvas) ──────────────────────────────────
 // Every field carries layout {x,y,w,h} on a 12-column grid so the admin can place
 // and size controls freely. Existing forms (no layout) are flowed onto the grid
@@ -318,6 +329,39 @@ function reducer(state, action) {
               fields.push(field)
               return { ...s, fields }
             }),
+          },
+        },
+      }
+    }
+
+    case 'DUPLICATE_FIELD': {
+      // Clone a field in place — same section, all props preserved, fresh internal
+      // id and a de-duplicated field_id, dropped on the next free row.
+      const { sectionId, fieldId } = action.payload
+      const section = form.schema.sections.find(s => s.id === sectionId)
+      const src = section?.fields.find(f => f.id === fieldId)
+      if (!src) return state
+      const existing = new Set(
+        form.schema.sections.flatMap(s => s.fields.map(f => f.field_id)).filter(Boolean)
+      )
+      const copy = {
+        ...src,
+        id: genId('fld'),
+        field_id: uniqueFieldId(src.field_id || labelToId(src.label || 'field'), existing),
+        layout: { ...(src.layout || { x: 0, w: 6, h: 1 }), y: nextRow(section.fields) },
+      }
+      return {
+        ...state,
+        isDirty: true,
+        selectedId: copy.id,
+        selectedType: 'field',
+        form: {
+          ...form,
+          schema: {
+            ...form.schema,
+            sections: form.schema.sections.map(s =>
+              s.id === sectionId ? { ...s, fields: [...s.fields, copy] } : s
+            ),
           },
         },
       }
@@ -857,6 +901,20 @@ export default function FormBuilder() {
         dispatch({ type: 'SET_SCHEMA', payload: JSON.parse(snapshot) })
       }
 
+      // Insert a full copy of a field (preserving label, options, validation,
+      // conditions…) with a fresh internal id and a de-duplicated field_id.
+      const pasteField = (fieldData, preferSectionId) => {
+        const targetSectionId = preferSectionId || form.schema.sections[form.schema.sections.length - 1]?.id
+        if (!targetSectionId) return
+        const existing = new Set(allFields.map(f => f.field.field_id).filter(Boolean))
+        const { _sectionId, id, layout, ...rest } = fieldData
+        const preset = {
+          ...rest,
+          field_id: uniqueFieldId(rest.field_id || labelToId(rest.label || 'field'), existing),
+        }
+        dispatchWithHistory({ type: 'ADD_FIELD_PRESET', payload: { sectionId: targetSectionId, preset } })
+      }
+
       if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
         if (selectedId && selectedType === 'field') {
           const entry = allFields.find(f => f.field.id === selectedId)
@@ -865,19 +923,25 @@ export default function FormBuilder() {
       }
 
       if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
-        if (copiedFieldRef.current) {
-          const { _sectionId, ...fieldData } = copiedFieldRef.current
-          const targetSectionId = _sectionId || form.schema.sections[form.schema.sections.length - 1]?.id
-          if (targetSectionId) {
-            const newField = { ...fieldData, id: genId('fld'), field_id: labelToId(fieldData.label + '_copy') }
-            const section = form.schema.sections.find(s => s.id === targetSectionId)
-            if (section) {
-              dispatchWithHistory({
-                type: 'ADD_FIELD',
-                payload: { sectionId: targetSectionId, fieldType: newField.type },
-              })
-            }
-          }
+        e.preventDefault()
+        if (copiedFieldRef.current) pasteField(copiedFieldRef.current, copiedFieldRef.current._sectionId)
+      }
+
+      // Ctrl/Cmd+D — duplicate the selected field in place
+      if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+        e.preventDefault()
+        if (selectedId && selectedType === 'field') {
+          const entry = allFields.find(f => f.field.id === selectedId)
+          if (entry) dispatchWithHistory({ type: 'DUPLICATE_FIELD', payload: { sectionId: entry.sectionId, fieldId: selectedId } })
+        }
+      }
+
+      // Delete / Backspace — remove the selected field
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedId && selectedType === 'field') {
+          e.preventDefault()
+          const entry = allFields.find(f => f.field.id === selectedId)
+          if (entry) dispatchWithHistory({ type: 'DELETE_FIELD', payload: { sectionId: entry.sectionId, fieldId: selectedId } })
         }
       }
     }

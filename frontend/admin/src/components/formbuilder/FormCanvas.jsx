@@ -5,7 +5,7 @@ import {
   Type, AlignLeft, Hash, Calendar, Clock, CalendarClock, CircleDot,
   CheckSquare, ChevronDown, Star, Calculator, Stethoscope, FlaskConical,
   Table, User, Minus, FileText, RefreshCw, PenLine, Camera, Paperclip,
-  GripVertical, X, Eye, EyeOff, Clipboard, Plus, ChevronUp, ChevronRight,
+  GripVertical, X, Eye, EyeOff, Clipboard, Copy, Plus, ChevronUp, ChevronRight,
   Search, Users, Pill, BookOpen, AlertTriangle, Scissors, ToggleLeft,
   BarChart2, LayoutGrid, Sliders, Activity, Layers, Ban, MapPin, Zap,
 } from 'lucide-react'
@@ -161,6 +161,15 @@ function GridField({ field, sectionId, isSelected, onSelect, dispatch, live, onS
 
       {!overlay && (
         <>
+          {/* Duplicate */}
+          <button
+            onPointerDown={e => e.stopPropagation()}
+            onClick={e => { e.stopPropagation(); dispatch({ type: 'DUPLICATE_FIELD', payload: { sectionId, fieldId: field.id } }) }}
+            className="absolute top-1 right-6 text-gray-600 hover:text-[#F5821E] opacity-0 group-hover:opacity-100 transition-opacity"
+            title="Duplicate field (Ctrl+D)"
+          >
+            <Copy size={12} />
+          </button>
           {/* Delete */}
           <button
             onPointerDown={e => e.stopPropagation()}
