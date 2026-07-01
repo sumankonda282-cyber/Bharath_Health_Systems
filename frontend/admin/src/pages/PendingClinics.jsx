@@ -58,7 +58,7 @@ export default function PendingClinics() {
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[240px] max-w-sm">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
@@ -66,7 +66,7 @@ export default function PendingClinics() {
             className="input pl-9 py-2 text-sm w-full"
           />
         </div>
-        <span className="ml-auto text-xs text-gray-500 bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 font-medium">
+        <span className="ml-auto text-xs text-faint surface-2 border border-app rounded-lg px-2.5 py-1.5 font-medium">
           {filtered.length} pending
         </span>
       </div>
@@ -84,7 +84,7 @@ export default function PendingClinics() {
       ) : filtered.length === 0 ? (
         <div className="card-p text-center py-16">
           <CheckCircle size={36} className="mx-auto mb-3 text-emerald-500/30" />
-          <p className="text-gray-400 font-medium text-sm">
+          <p className="text-dim font-medium text-sm">
             {search ? 'No results match your search' : 'All caught up — no pending approvals'}
           </p>
         </div>
@@ -101,37 +101,37 @@ export default function PendingClinics() {
                 <th className="th text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-800">
+            <tbody className="divide-y divide-[color:var(--border)]">
               {filtered.map(c => (
                 <tr key={c.id} className="tr-hover">
                   {/* Health Center */}
                   <td className="td">
-                    <div className="font-semibold text-white text-[13px]">{c.name}</div>
+                    <div className="font-semibold text-app text-[13px]">{c.name}</div>
                     {c.email && (
-                      <div className="text-xs text-gray-500 mt-0.5">{c.email}</div>
+                      <div className="text-xs text-faint mt-0.5">{c.email}</div>
                     )}
                   </td>
 
                   {/* Specialty · Location */}
                   <td className="td">
-                    <div className="text-gray-300 text-[13px]">{c.specialty || '—'}</div>
-                    <div className="text-xs text-gray-500 mt-0.5">
+                    <div className="text-dim text-[13px]">{c.specialty || '—'}</div>
+                    <div className="text-xs text-faint mt-0.5">
                       {[c.city, c.state].filter(Boolean).join(', ') || '—'}
                     </div>
                   </td>
 
                   {/* Admin Contact */}
                   <td className="td">
-                    <div className="text-gray-200 text-[13px]">{c.admin_name || '—'}</div>
-                    <div className="text-xs text-gray-500 mt-0.5">{c.admin_email}</div>
+                    <div className="text-app text-[13px]">{c.admin_name || '—'}</div>
+                    <div className="text-xs text-faint mt-0.5">{c.admin_email}</div>
                     {c.admin_mobile && (
-                      <div className="text-xs text-gray-600">{c.admin_mobile}</div>
+                      <div className="text-xs text-faint">{c.admin_mobile}</div>
                     )}
                   </td>
 
                   {/* Submitted */}
                   <td className="td whitespace-nowrap">
-                    <span className="text-gray-400 text-[13px]">
+                    <span className="text-dim text-[13px]">
                       {c.created_at
                         ? new Date(c.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
                         : '—'}
@@ -152,7 +152,7 @@ export default function PendingClinics() {
                         <ExternalLink size={10} />
                       </a>
                     ) : (
-                      <span className="text-xs text-gray-600">—</span>
+                      <span className="text-xs text-faint">—</span>
                     )}
                   </td>
 
@@ -175,7 +175,7 @@ export default function PendingClinics() {
                       </button>
                       <Link
                         to={`/clinics/${c.id}`}
-                        className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-gray-400 hover:text-gray-200 hover:bg-gray-800 border border-gray-700 transition-colors"
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-dim hover:text-app hover-app border border-app transition-colors"
                       >
                         <ExternalLink size={11} />
                       </Link>

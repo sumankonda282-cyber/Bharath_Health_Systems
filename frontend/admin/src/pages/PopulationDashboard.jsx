@@ -9,7 +9,7 @@ function fmt(n) {
 }
 
 function Label({ children }) {
-  return <div className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold">{children}</div>
+  return <div className="text-[11px] text-faint uppercase tracking-wider font-semibold">{children}</div>
 }
 
 function CardTitle({ icon: Icon, title, note }) {
@@ -17,9 +17,9 @@ function CardTitle({ icon: Icon, title, note }) {
     <div className="flex items-center justify-between mb-3">
       <div className="flex items-center gap-2">
         <Icon size={15} style={{ color: ACCENT }} />
-        <span className="text-sm font-bold text-white">{title}</span>
+        <span className="text-sm font-bold text-app">{title}</span>
       </div>
-      {note && <span className="text-[11px] text-gray-500">{note}</span>}
+      {note && <span className="text-[11px] text-faint">{note}</span>}
     </div>
   )
 }
@@ -33,13 +33,13 @@ function VBarChart({ data, height = 130 }) {
         const h = Math.round((d.value / max) * (height - 26))
         return (
           <div key={d.label} className="flex-1 flex flex-col items-center justify-end h-full min-w-0">
-            <span className="text-[10px] text-gray-400 mb-0.5">{d.value}</span>
+            <span className="text-[10px] text-dim mb-0.5">{d.value}</span>
             <div
               className="w-full rounded-t"
               style={{ height: Math.max(2, h), background: ACCENT, opacity: 0.85 }}
               title={`${d.label}: ${d.value}`}
             />
-            <span className="text-[9px] text-gray-500 mt-1 truncate w-full text-center">{d.label}</span>
+            <span className="text-[9px] text-faint mt-1 truncate w-full text-center">{d.label}</span>
           </div>
         )
       })}
@@ -54,11 +54,11 @@ function HBarList({ data }) {
     <div className="space-y-2">
       {data.map((d) => (
         <div key={d.label} className="flex items-center gap-2">
-          <span className="text-[11px] text-gray-400 w-10 shrink-0">{d.label}</span>
-          <div className="flex-1 h-3 rounded bg-gray-800 overflow-hidden">
+          <span className="text-[11px] text-dim w-10 shrink-0">{d.label}</span>
+          <div className="flex-1 h-3 rounded surface-2 overflow-hidden">
             <div className="h-full rounded" style={{ width: `${(d.value / max) * 100}%`, background: ACCENT, opacity: 0.85 }} />
           </div>
-          <span className="text-[11px] text-gray-300 w-10 text-right shrink-0">{fmt(d.value)}</span>
+          <span className="text-[11px] text-dim w-10 text-right shrink-0">{fmt(d.value)}</span>
         </div>
       ))}
     </div>
@@ -147,8 +147,8 @@ export default function PopulationDashboard() {
 
   if (!data || Object.keys(data).length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-32 text-center text-gray-500">
-        <Users size={32} className="mb-3 text-gray-600" />
+      <div className="flex flex-col items-center justify-center py-32 text-center text-faint">
+        <Users size={32} className="mb-3 text-faint" />
         <p className="text-sm">No population data available.</p>
       </div>
     )
@@ -191,9 +191,9 @@ export default function PopulationDashboard() {
               {genderSegments.map((s) => (
                 <div key={s.label} className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: s.color }} />
-                  <span className="text-[12px] text-gray-300 flex-1">{s.label}</span>
-                  <span className="text-[12px] text-white font-medium">{fmt(s.value)}</span>
-                  <span className="text-[11px] text-gray-500 w-10 text-right">
+                  <span className="text-[12px] text-dim flex-1">{s.label}</span>
+                  <span className="text-[12px] text-app font-medium">{fmt(s.value)}</span>
+                  <span className="text-[11px] text-faint w-10 text-right">
                     {Math.round((s.value / genderTotal) * 100)}%
                   </span>
                 </div>
@@ -207,7 +207,7 @@ export default function PopulationDashboard() {
           {bloodData.length ? (
             <VBarChart data={bloodData} />
           ) : (
-            <div className="text-[12px] text-gray-500 py-8 text-center">No blood group data</div>
+            <div className="text-[12px] text-faint py-8 text-center">No blood group data</div>
           )}
         </div>
       </div>
@@ -232,17 +232,17 @@ export default function PopulationDashboard() {
                     <td className="td-sm text-right">{fmt(s.count)}</td>
                     <td className="td-sm">
                       <div className="flex items-center gap-2">
-                        <div className="flex-1 h-1.5 rounded bg-gray-800 overflow-hidden">
+                        <div className="flex-1 h-1.5 rounded surface-2 overflow-hidden">
                           <div className="h-full rounded" style={{ width: `${s.pct}%`, background: ACCENT }} />
                         </div>
-                        <span className="text-[10px] text-gray-400 w-8 text-right">{Math.round(s.pct)}%</span>
+                        <span className="text-[10px] text-dim w-8 text-right">{Math.round(s.pct)}%</span>
                       </div>
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td className="td-sm text-gray-500" colSpan={3}>No state data</td>
+                  <td className="td-sm text-faint" colSpan={3}>No state data</td>
                 </tr>
               )}
             </tbody>
@@ -264,11 +264,11 @@ export default function PopulationDashboard() {
               {diseaseBurden.length ? (
                 diseaseBurden.map((d, i) => (
                   <tr key={`${d.tag_name}-${i}`}>
-                    <td className="td-sm text-gray-500">{i + 1}</td>
+                    <td className="td-sm text-faint">{i + 1}</td>
                     <td className="td-sm">{d.tag_name}</td>
                     <td className="td-sm text-right">{fmt(d.count)}</td>
                     <td className="td-sm">
-                      <div className="h-1.5 rounded bg-gray-800 overflow-hidden">
+                      <div className="h-1.5 rounded surface-2 overflow-hidden">
                         <div className="h-full rounded" style={{ width: `${(d.count / maxDisease) * 100}%`, background: ACCENT }} />
                       </div>
                     </td>
@@ -276,7 +276,7 @@ export default function PopulationDashboard() {
                 ))
               ) : (
                 <tr>
-                  <td className="td-sm text-gray-500" colSpan={4}>No diagnosis data</td>
+                  <td className="td-sm text-faint" colSpan={4}>No diagnosis data</td>
                 </tr>
               )}
             </tbody>
@@ -288,9 +288,9 @@ export default function PopulationDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         <div className="card-sm">
           <CardTitle icon={TrendingUp} title="Appointments Trend" />
-          <div className="flex flex-col items-center justify-center py-12 text-gray-600">
+          <div className="flex flex-col items-center justify-center py-12 text-faint">
             <BarChart3 size={28} className="mb-2" />
-            <span className="text-[12px] text-gray-500">Trend data unavailable</span>
+            <span className="text-[12px] text-faint">Trend data unavailable</span>
           </div>
         </div>
 
@@ -310,13 +310,13 @@ export default function PopulationDashboard() {
               {hcPerformance.length ? (
                 hcPerformance.map((c, i) => (
                   <tr key={c.clinic_id ?? i}>
-                    <td className="td-sm text-gray-500">{i + 1}</td>
-                    <td className="td-sm text-white">{c.name}</td>
+                    <td className="td-sm text-faint">{i + 1}</td>
+                    <td className="td-sm text-app">{c.name}</td>
                     <td className="td-sm">{c.city || '—'}</td>
                     <td className="td-sm text-right">{fmt(c.patient_count)}</td>
                     <td className="td-sm text-right">
                       <span className="inline-flex items-center gap-1">
-                        <Stethoscope size={11} className="text-gray-500" />
+                        <Stethoscope size={11} className="text-faint" />
                         {fmt(c.doctor_count)}
                       </span>
                     </td>
@@ -324,7 +324,7 @@ export default function PopulationDashboard() {
                 ))
               ) : (
                 <tr>
-                  <td className="td-sm text-gray-500" colSpan={5}>No Health Center data</td>
+                  <td className="td-sm text-faint" colSpan={5}>No Health Center data</td>
                 </tr>
               )}
             </tbody>
@@ -338,11 +338,11 @@ export default function PopulationDashboard() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div className="kpi-card">
             <Label>Total Patients</Label>
-            <div className="text-xl font-bold text-white mt-1">{fmt(adoption.total)}</div>
+            <div className="text-xl font-bold text-app mt-1">{fmt(adoption.total)}</div>
           </div>
           <div className="kpi-card">
             <Label>Portal Users</Label>
-            <div className="text-xl font-bold text-white mt-1">{fmt(adoption.portal_users)}</div>
+            <div className="text-xl font-bold text-app mt-1">{fmt(adoption.portal_users)}</div>
           </div>
           <div className="kpi-card">
             <Label>Portal %</Label>
@@ -352,7 +352,7 @@ export default function PopulationDashboard() {
           </div>
           <div className="kpi-card">
             <Label>Verified Users</Label>
-            <div className="text-xl font-bold text-gray-500 mt-1">—</div>
+            <div className="text-xl font-bold text-faint mt-1">—</div>
           </div>
         </div>
       </div>
