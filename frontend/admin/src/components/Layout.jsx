@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import {
   LayoutDashboard, Clock, Building2, ShieldCheck,
   ClipboardList, BarChart3, LogOut, Menu, X, Search, CreditCard, Hospital,
-  FileText, Users, Bell, RefreshCw, ChevronDown, PanelLeft, KeyRound,
+  FileText, Users, Bell, RefreshCw, ChevronDown, PanelLeft, KeyRound, FileClock,
 } from 'lucide-react'
 import api from '../api/client'
 import BrandLogo from './BrandLogo'
@@ -16,6 +16,7 @@ const NAV = [
   { to: '/subscriptions',     icon: CreditCard,      label: 'Subscriptions' },
   { to: '/staff',             icon: ShieldCheck,     label: 'Staff Verification' },
   { to: '/forms',             icon: FileText,        label: 'Assessment Forms' },
+  { to: '/forms/audit',       icon: FileClock,       label: 'Form Audit Log' },
   { to: '/population',        icon: Users,           label: 'Population' },
   { to: '/audit',             icon: ClipboardList,   label: 'Activity Log' },
   { to: '/reports',           icon: BarChart3,       label: 'Analytics & Reports' },
@@ -30,6 +31,7 @@ const PAGE_TITLES = {
   '/subscriptions':     'Subscriptions',
   '/staff':             'Staff Verification',
   '/forms':             'Assessment Forms',
+  '/forms/audit':       'Form Audit Log',
   '/population':        'Population',
   '/audit':             'Activity Log',
   '/reports':           'Analytics & Reports',

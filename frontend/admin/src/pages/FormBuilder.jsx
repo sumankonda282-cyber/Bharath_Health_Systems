@@ -1217,6 +1217,17 @@ export default function FormBuilder() {
             <Settings size={16} />
           </button>
 
+          {(form.id || routeId) && (
+            <button
+              onClick={() => navigate(`/forms/audit?form_id=${form.id || routeId}`)}
+              title="View change history for this form"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-800 text-gray-300 hover:text-white border border-gray-700 transition-colors"
+            >
+              <Clock size={15} />
+              History
+            </button>
+          )}
+
           <button
             onClick={() => setPreviewMode(v => !v)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${

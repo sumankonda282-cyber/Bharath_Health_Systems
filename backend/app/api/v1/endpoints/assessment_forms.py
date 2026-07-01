@@ -71,13 +71,69 @@ def _form_actor(request: Request, db: Session):
         return (None, "Unknown", None)
 
 
-def _form_audit(db: Session, form, action: str, actor, detail: str = None):
-    """Append an audit row. Caller commits."""
+def _form_audit(db: Session, form, action: str, actor, detail: str = None, changes=None):
+    """Append an audit row. Caller commits. ``changes`` is an optional structured,
+    field-level diff (list of dicts) surfaced in the admin maintenance log."""
     aid, aname, atype = actor if actor else (None, "Unknown", None)
     db.add(AssessmentFormAudit(
         form_id=form.id, form_title=getattr(form, "title", None),
-        action=action, actor_id=aid, actor_name=aname, actor_type=atype, detail=detail,
+        action=action, actor_id=aid, actor_name=aname, actor_type=atype,
+        detail=detail, changes=changes or None,
     ))
+
+
+def _flatten_fields(schema):
+    """Map field_id → {label, type, options, section} for every field in a schema,
+    so two schema versions can be diffed at the field level (keyed on field_id)."""
+    out = {}
+    for sec in (schema or {}).get("sections", []) or []:
+        sec_title = (sec or {}).get("title")
+        for f in (sec or {}).get("fields", []) or []:
+            fid = f.get("field_id") or f.get("id")
+            if not fid:
+                continue
+            opts = f.get("options")
+            out[fid] = {
+                "label":   f.get("label") or fid,
+                "type":    f.get("type"),
+                "section": sec_title,
+                "options": [ (o.get("value") if isinstance(o, dict) else o) for o in (opts or []) ] if opts else None,
+            }
+    return out
+
+
+def _schema_field_diff(old_schema, new_schema):
+    """Field-level diff between two schema versions, keyed on field_id.
+
+    Returns a list of {field_id, label, change, from, to} where ``change`` is one of
+    added / removed / relabeled / type_changed / options_changed / moved. This is what
+    the admin log renders — 'who changed WHICH field, and how'."""
+    old = _flatten_fields(old_schema)
+    new = _flatten_fields(new_schema)
+    diff = []
+    for fid in new.keys() - old.keys():
+        diff.append({"field_id": fid, "label": new[fid]["label"], "change": "added"})
+    for fid in old.keys() - new.keys():
+        diff.append({"field_id": fid, "label": old[fid]["label"], "change": "removed"})
+    for fid in old.keys() & new.keys():
+        o, n = old[fid], new[fid]
+        if o["label"] != n["label"]:
+            diff.append({"field_id": fid, "label": n["label"], "change": "relabeled",
+                         "from": o["label"], "to": n["label"]})
+        if o["type"] != n["type"]:
+            diff.append({"field_id": fid, "label": n["label"], "change": "type_changed",
+                         "from": o["type"], "to": n["type"]})
+        if o["options"] != n["options"]:
+            diff.append({"field_id": fid, "label": n["label"], "change": "options_changed",
+                         "from": o["options"], "to": n["options"]})
+        if o["section"] != n["section"]:
+            diff.append({"field_id": fid, "label": n["label"], "change": "moved",
+                         "from": o["section"], "to": n["section"]})
+    # Stable, readable ordering: added → removed → modified, then by label.
+    order = {"added": 0, "removed": 1, "relabeled": 2, "type_changed": 3,
+             "options_changed": 4, "moved": 5}
+    diff.sort(key=lambda d: (order.get(d["change"], 9), d.get("label") or ""))
+    return diff
 
 
 def _purge_expired_trash(db: Session):
@@ -629,6 +685,7 @@ def list_forms(
 
 @router.post("/assessment-forms/", status_code=status.HTTP_201_CREATED)
 def create_form(
+    request: Request,
     payload: Dict[str, Any] = Body(...),
     db:      Session        = Depends(get_db),
 ):
@@ -651,6 +708,8 @@ def create_form(
         updated_at      = datetime.utcnow(),
     )
     db.add(form)
+    db.flush()
+    _form_audit(db, form, "created", _form_actor(request, db))
     db.commit()
     db.refresh(form)
     return {"id": form.id, "title": form.title, "status": form.status, "clinic_id": form.clinic_id}
@@ -720,6 +779,11 @@ def update_form(
     if not form:
         raise HTTPException(status_code=404, detail="Form not found")
 
+    # Field-level diff captured BEFORE the schema is overwritten (for the audit log).
+    field_diff = None
+    if "schema" in payload:
+        field_diff = _schema_field_diff(form.schema, payload["schema"]) or None
+
     # ── field_id freeze (design standard §7.7) ──────────────────────────────
     # Once a form has real (non-draft) submissions, its field_ids are the storage
     # keys of charted clinical data. A schema edit may ADD fields and change
@@ -776,7 +840,8 @@ def update_form(
         form.version = (form.version or 1) + 1
 
     form.updated_at = datetime.utcnow()
-    _form_audit(db, form, "edited", _form_actor(request, db), ", ".join(changed) if changed else None)
+    _form_audit(db, form, "edited", _form_actor(request, db),
+                ", ".join(changed) if changed else None, changes=field_diff)
     db.commit()
     db.refresh(form)
     return {"id": form.id, "title": form.title, "status": form.status, "version_number": form.version}
@@ -829,20 +894,86 @@ def restore_form(form_id: int, request: Request, db: Session = Depends(get_db)):
     return {"id": form.id, "title": form.title, "status": form.status}
 
 
+def _audit_row(r):
+    return {
+        "id": r.id, "form_id": r.form_id, "form_title": r.form_title,
+        "action": r.action, "actor_id": r.actor_id, "actor_name": r.actor_name,
+        "actor_type": r.actor_type, "detail": r.detail, "changes": r.changes or [],
+        "created_at": r.created_at.isoformat() if r.created_at else None,
+    }
+
+
+# NOTE: distinct first path segment ("assessment-form-audit") — never collides with
+# the int-typed /assessment-forms/{form_id} route.
+@router.get("/assessment-form-audit")
+def form_audit_log(
+    db:        Session       = Depends(get_db),
+    q:         Optional[str] = Query(None, description="Search by form title"),
+    form_id:   Optional[int] = Query(None),
+    action:    Optional[str] = Query(None, description="created|edited|published|retired|deleted|restored|duplicated"),
+    actor:     Optional[str] = Query(None, description="Search by actor name"),
+    date_from: Optional[str] = Query(None, description="ISO date/datetime (inclusive)"),
+    date_to:   Optional[str] = Query(None, description="ISO date/datetime (inclusive)"),
+    limit:     int           = Query(50, ge=1, le=500),
+    offset:    int           = Query(0, ge=0),
+):
+    """Platform-wide assessment-form maintenance log with filters — the data behind the
+    admin 'Form Audit Log' page. Every entry: who changed which form, when, which action,
+    and (for edits) the exact field-level diff. Append-only; read-only here."""
+    query = db.query(AssessmentFormAudit)
+    if form_id is not None:
+        query = query.filter(AssessmentFormAudit.form_id == form_id)
+    if action:
+        query = query.filter(AssessmentFormAudit.action == action)
+    if q:
+        query = query.filter(AssessmentFormAudit.form_title.ilike(f"%{q}%"))
+    if actor:
+        query = query.filter(AssessmentFormAudit.actor_name.ilike(f"%{actor}%"))
+
+    def _parse(dt):
+        try:
+            return datetime.fromisoformat(dt.replace("Z", "+00:00")).replace(tzinfo=None)
+        except (ValueError, AttributeError):
+            return None
+    df, dt2 = _parse(date_from), _parse(date_to)
+    if df:
+        query = query.filter(AssessmentFormAudit.created_at >= df)
+    if dt2:
+        # inclusive end-of-day when a bare date is given
+        if len(date_to or "") <= 10:
+            dt2 = dt2 + timedelta(days=1)
+        query = query.filter(AssessmentFormAudit.created_at < dt2)
+
+    total = query.count()
+    rows = (query.order_by(AssessmentFormAudit.created_at.desc(), AssessmentFormAudit.id.desc())
+                 .offset(offset).limit(limit).all())
+
+    # Facets for the filter UI (distinct actions + actors seen), independent of paging.
+    actions = [a for (a,) in db.query(AssessmentFormAudit.action).distinct().all() if a]
+    actors  = [
+        {"id": aid, "name": name}
+        for (aid, name) in db.query(AssessmentFormAudit.actor_id, AssessmentFormAudit.actor_name)
+                             .distinct().all() if name
+    ]
+    return {
+        "total": total, "offset": offset, "limit": limit,
+        "entries": [_audit_row(r) for r in rows],
+        "facets": {"actions": sorted(actions), "actors": actors},
+    }
+
+
 @router.get("/assessment-forms/{form_id}/audit")
 def form_audit_trail(form_id: int, db: Session = Depends(get_db)):
-    """Who created / edited / deleted / restored this form, and when."""
+    """Who created / edited / published / retired / deleted / restored this form, and when
+    — including the field-level diff for edits."""
     rows = db.query(AssessmentFormAudit).filter(
         AssessmentFormAudit.form_id == form_id
     ).order_by(AssessmentFormAudit.created_at.desc(), AssessmentFormAudit.id.desc()).all()
-    return {"audit": [{
-        "action": r.action, "actor_name": r.actor_name, "actor_type": r.actor_type,
-        "detail": r.detail, "created_at": r.created_at.isoformat() if r.created_at else None,
-    } for r in rows]}
+    return {"audit": [_audit_row(r) for r in rows]}
 
 
 @router.post("/assessment-forms/{form_id}/duplicate", status_code=status.HTTP_201_CREATED)
-def duplicate_form(form_id: int, db: Session = Depends(get_db)):
+def duplicate_form(form_id: int, request: Request, db: Session = Depends(get_db)):
     original = db.query(AssessmentForm).filter(AssessmentForm.id == form_id).first()
     if not original:
         raise HTTPException(status_code=404, detail="Form not found")
@@ -865,29 +996,34 @@ def duplicate_form(form_id: int, db: Session = Depends(get_db)):
         updated_at       = datetime.utcnow(),
     )
     db.add(copy)
+    db.flush()
+    _form_audit(db, copy, "duplicated", _form_actor(request, db),
+                detail=f"from #{original.id} — {original.title}")
     db.commit()
     db.refresh(copy)
     return {"id": copy.id, "title": copy.title, "status": copy.status}
 
 
 @router.post("/assessment-forms/{form_id}/publish")
-def publish_form(form_id: int, db: Session = Depends(get_db)):
+def publish_form(form_id: int, request: Request, db: Session = Depends(get_db)):
     form = db.query(AssessmentForm).filter(AssessmentForm.id == form_id).first()
     if not form:
         raise HTTPException(status_code=404, detail="Form not found")
     form.status     = "published"
     form.updated_at = datetime.utcnow()
+    _form_audit(db, form, "published", _form_actor(request, db))
     db.commit()
     return {"id": form.id, "status": form.status}
 
 
 @router.post("/assessment-forms/{form_id}/retire")
-def retire_form(form_id: int, db: Session = Depends(get_db)):
+def retire_form(form_id: int, request: Request, db: Session = Depends(get_db)):
     form = db.query(AssessmentForm).filter(AssessmentForm.id == form_id).first()
     if not form:
         raise HTTPException(status_code=404, detail="Form not found")
     form.status     = "retired"
     form.updated_at = datetime.utcnow()
+    _form_audit(db, form, "retired", _form_actor(request, db))
     db.commit()
     return {"id": form.id, "status": form.status}
 
