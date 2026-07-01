@@ -926,6 +926,8 @@ timeout 60 python seed.py || echo "[bg-migrations] Demo seed failed (non-fatal)"
 # the repo for reference. We only (idempotently) ensure our curated forms exist.
 echo "[bg-migrations] Ensuring curated library — Vital Signs (idempotent upsert)..."
 timeout 30 python seed_vital_signs.py || echo "[bg-migrations] Vital Signs seed failed (non-fatal)"
+echo "[bg-migrations] Ensuring curated library — Adult OPD History (Subjective) (idempotent upsert)..."
+timeout 30 python seed_history_form.py || echo "[bg-migrations] History form seed failed (non-fatal)"
 echo "[bg-migrations] Done."
 ) &
 
