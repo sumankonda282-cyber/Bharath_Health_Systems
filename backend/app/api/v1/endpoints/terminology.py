@@ -560,6 +560,34 @@ def cds_check(
                     })
                     break
 
+    # 5. CDSCO drug-schedule flags (Indian standard) — H1 register/stewardship, X
+    #    duplicate prescription + register. Sourced from the schedule reference.
+    if names:
+        scheds = db.query(DrugPregnancyCategory).filter(
+            DrugPregnancyCategory.generic.in_([resolved[n].generic if n in resolved else n for n in lower]),
+            DrugPregnancyCategory.schedule.isnot(None),
+        ).all() if resolved else []
+        if not scheds:
+            scheds = []
+            for n in names:
+                scheds += db.query(DrugPregnancyCategory).filter(
+                    DrugPregnancyCategory.generic.ilike(n),
+                    DrugPregnancyCategory.schedule.isnot(None)).all()
+        for s in scheds:
+            sched = (s.schedule or "").strip().upper()
+            if sched == "X":
+                warnings.append({
+                    "type": "schedule", "severity": "serious", "drugs": [s.generic], "schedule": "X",
+                    "message": f"{s.generic} is Schedule X (CDSCO) — narcotic/psychotropic.",
+                    "management": "Duplicate prescription + entry in the Schedule X register.",
+                })
+            elif sched == "H1":
+                warnings.append({
+                    "type": "schedule", "severity": "moderate", "drugs": [s.generic], "schedule": "H1",
+                    "message": f"{s.generic} is Schedule H1 (CDSCO) — antimicrobial/habit-forming.",
+                    "management": "Record in the Schedule H1 register; follow antimicrobial stewardship.",
+                })
+
     order = {"contraindicated": 0, "serious": 1, "moderate": 2, "minor": 3}
     warnings.sort(key=lambda w: order.get(w["severity"], 9))
     return {"warnings": warnings, "checked_drugs": names, "checked_diagnoses": codes}
